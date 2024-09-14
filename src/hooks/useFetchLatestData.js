@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 export const useFetchLatestData = (projectRowId) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -43,13 +44,19 @@ export const useFetchLatestData = (projectRowId) => {
           custom_finetune
         `)
         .eq('project_row_id', projectRowId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+
+      if (!data) {
+        toast.error('No data found for this project');
+        return null;
+      }
 
       return data;
     } catch (error) {
       console.error('Error fetching latest data:', error);
+      toast.error('Failed to fetch project data');
       return null;
     } finally {
       setIsLoading(false);

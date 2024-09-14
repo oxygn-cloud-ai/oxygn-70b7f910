@@ -108,8 +108,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       const latestData = await fetchLatestData();
       if (latestData !== null) {
         setLocalData(prevData => ({ ...prevData, ...latestData }));
+        return latestData[fieldName];
       }
-      return latestData[fieldName];
     }
     return null;
   };
@@ -122,9 +122,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     { name: 'admin_prompt_result', placeholder: 'Admin Prompt' },
     { name: 'user_prompt_result', placeholder: 'User Prompt' },
     { name: 'input_admin_prompt', placeholder: 'Input Admin Prompt' },
-    { name: 'input_user_prompt', placeholder: 'Input User Prompt' },
-    { name: 'prompt_settings', placeholder: 'Prompt Settings' },
-    { name: 'half_width_box_4', placeholder: 'Half Width Box 4' }
+    { name: 'input_user_prompt', placeholder: 'Input User Prompt' }
   ];
 
   const promptSettingsFields = [
