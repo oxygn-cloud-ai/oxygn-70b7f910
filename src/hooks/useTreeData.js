@@ -126,7 +126,33 @@ export const useTreeData = () => {
     });
   };
 
-  const deleteItem = (id) => {
+  const deleteItem = async (id) => {
+    const isLevel0 = treeData.some(item => item.id === id);
+
+    if (isLevel0) {
+      // Delete from project_names table
+      const { error: deleteProjectNameError } = await supabase
+        .from('project_names')
+        .delete()
+        .eq('project_id', id);
+
+      if (deleteProjectNameError) {
+        console.error('Error deleting from project_names:', deleteProjectNameError);
+        return false;
+      }
+
+      // Delete all matching records from projects table
+      const { error: deleteProjectsError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('project_id', id);
+
+      if (deleteProjectsError) {
+        console.error('Error deleting from projects:', deleteProjectsError);
+        return false;
+      }
+    }
+
     setTreeData(prevData => {
       const deleteRecursive = (items) => {
         return items.filter(item => {
@@ -139,6 +165,8 @@ export const useTreeData = () => {
       };
       return deleteRecursive(prevData);
     });
+
+    return true;
   };
 
   return { treeData, addItem, deleteItem, updateTreeData };

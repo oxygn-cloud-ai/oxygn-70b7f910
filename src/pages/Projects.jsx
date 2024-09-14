@@ -5,12 +5,23 @@ import TreeItem from '../components/TreeItem';
 import { Textarea } from "@/components/ui/textarea";
 import { useTreeData } from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const { treeData, addItem, deleteItem, updateTreeData } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const accordionRef = useRef(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
 
   const toggleItem = (itemId) => {
     setExpandedItems((prevExpanded) =>
@@ -64,6 +75,29 @@ const Projects = () => {
     }
   };
 
+  const handleDeleteItem = (id) => {
+    const isLevel0 = treeData.some(item => item.id === id);
+    if (isLevel0) {
+      setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
+    } else {
+      deleteItem(id);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteConfirmation.confirmCount === 0) {
+      setDeleteConfirmation(prev => ({ ...prev, confirmCount: 1 }));
+    } else {
+      const success = await deleteItem(deleteConfirmation.itemId);
+      if (success) {
+        setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
+      } else {
+        // Handle error (e.g., show an error message)
+        console.error("Failed to delete item");
+      }
+    }
+  };
+
   useEffect(() => {
     const handleScroll = () => {
       if (accordionRef.current) {
@@ -110,7 +144,7 @@ const Projects = () => {
                 expandedItems={expandedItems}
                 toggleItem={toggleItem}
                 addItem={handleAddItem}
-                deleteItem={deleteItem}
+                deleteItem={handleDeleteItem}
                 startRenaming={startRenaming}
                 editingItem={editingItem}
                 setEditingItem={setEditingItem}
@@ -146,6 +180,24 @@ const Projects = () => {
           </div>
         </Panel>
       </PanelGroup>
+      <AlertDialog open={deleteConfirmation.isOpen} onOpenChange={(isOpen) => setDeleteConfirmation(prev => ({ ...prev, isOpen }))}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirmation.confirmCount === 0
+                ? "This action will delete the project and all its contents. This action cannot be undone."
+                : "Please confirm once more that you want to delete this project and all its contents."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>
+              {deleteConfirmation.confirmCount === 0 ? "Confirm" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
