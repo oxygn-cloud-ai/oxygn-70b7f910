@@ -64,39 +64,27 @@ export const useTreeData = () => {
       if (!parentId) {
         return [...prevData, newItem];
       }
-      return prevData.map(item => {
-        if (item.id === parentId) {
-          return {
-            ...item,
-            children: [...(item.children || []), newItem]
-          };
-        }
-        if (item.children) {
-          return {
-            ...item,
-            children: addItemToChildren(item.children, parentId, newItem)
-          };
-        }
-        return item;
-      });
+      return addItemToChildren(prevData, parentId, newItem);
     });
   };
 
-  const addItemToChildren = (children, parentId, newItem) => {
-    return children.map(child => {
-      if (child.id === parentId) {
+  const addItemToChildren = (items, parentId, newItem, currentLevel = 0) => {
+    if (currentLevel >= 99) return items; // Prevent adding beyond level 99
+
+    return items.map(item => {
+      if (item.id === parentId) {
         return {
-          ...child,
-          children: [...(child.children || []), newItem]
+          ...item,
+          children: [...(item.children || []), newItem]
         };
       }
-      if (child.children) {
+      if (item.children) {
         return {
-          ...child,
-          children: addItemToChildren(child.children, parentId, newItem)
+          ...item,
+          children: addItemToChildren(item.children, parentId, newItem, currentLevel + 1)
         };
       }
-      return child;
+      return item;
     });
   };
 
