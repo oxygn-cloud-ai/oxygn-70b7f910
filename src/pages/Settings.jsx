@@ -48,7 +48,7 @@ const Settings = () => {
             placeholder="Enter OpenAI API Key"
           />
         </div>
-        <Button onClick={handleSave}>Save Settings</Button>
+        <Button variant="link" onClick={handleSave}>Save Settings</Button>
       </div>
     </div>
   );
