@@ -105,7 +105,7 @@ const Projects = () => {
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
-          <div className="border rounded-lg p-4 overflow-auto h-[calc(100vh-8rem)]">
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             {renderTreeItems()}
             {renderAddButtons()}
           </div>

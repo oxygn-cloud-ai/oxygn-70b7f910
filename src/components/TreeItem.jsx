@@ -42,7 +42,8 @@ const TreeItem = ({
     <AccordionItem value={item.id} className="border-none">
       <AccordionTrigger
         onClick={() => toggleItem(item.id)}
-        className={`hover:no-underline py-1 pl-${level * 4}`}
+        className={`hover:no-underline py-1`}
+        style={{ paddingLeft: `${level * 16}px` }}
       >
         <div className="flex items-center w-full space-x-1">
           <ActionButton
