@@ -200,18 +200,26 @@ export const useTreeData = () => {
   };
 
   const fetchItemData = async (id) => {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt')
-      .eq('project_row_id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt')
+        .eq('project_row_id', id)
+        .single();
 
-    if (error) {
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.log('No data found for this item');
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
       console.error('Error fetching item data:', error);
       return null;
     }
-
-    return data;
   };
 
   return { treeData, addItem, deleteItem, updateTreeData, updateItemName, fetchItemData };
