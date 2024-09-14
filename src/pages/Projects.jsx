@@ -110,16 +110,16 @@ const Projects = () => {
         </div>
         <div className="w-4/5 flex flex-col gap-4">
           <div className="flex-none">
-            <PromptBox title="Admin Prompt" />
+            <PromptBox title="Admin Prompt" initialContent="Enter admin prompt here" />
           </div>
           <div className="flex-none">
-            <PromptBox title="User Prompt" />
+            <PromptBox title="User Prompt" initialContent="Enter user prompt here" />
           </div>
           <div className="flex flex-wrap gap-4 flex-grow overflow-auto" style={{ height: 'calc(100vh - 24rem)' }}>
-            <HalfWidthBox title="Input Admin Prompt" content="Content for the first half width box goes here." />
-            <HalfWidthBox title="Half Width Box 2" content="Content for the second half width box goes here." />
-            <HalfWidthBox title="Half Width Box 3" content="Content for the third half width box goes here." />
-            <HalfWidthBox title="Half Width Box 4" content="Content for the fourth half width box goes here." />
+            <HalfWidthBox title="Input Admin Prompt" initialContent="Enter input admin prompt here" />
+            <HalfWidthBox title="Half Width Box 2" initialContent="Enter content for box 2 here" />
+            <HalfWidthBox title="Half Width Box 3" initialContent="Enter content for box 3 here" />
+            <HalfWidthBox title="Half Width Box 4" initialContent="Enter content for box 4 here" />
           </div>
         </div>
       </div>
