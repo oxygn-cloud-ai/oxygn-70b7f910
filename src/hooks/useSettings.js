@@ -13,13 +13,30 @@ export const useSettings = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      let { data, error } = await supabase
+      console.log('API Call Details:');
+      console.log('URL:', `${supabase.supabaseUrl}/rest/v1/settings?select=*`);
+      console.log('Method: GET');
+      console.log('Headers:', {
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`,
+      });
+
+      const startTime = performance.now();
+      let { data, error, status, statusText } = await supabase
         .from('settings')
         .select('*')
         .maybeSingle();
+      const endTime = performance.now();
+
+      console.log('API Response:');
+      console.log('Status:', status);
+      console.log('Status Text:', statusText);
+      console.log('Response Time:', `${(endTime - startTime).toFixed(2)}ms`);
+      console.log('Response Data:', data);
+      console.log('Error:', error);
 
       if (error && error.code === 'PGRST116') {
-        // No settings found, create default settings
+        console.log('No settings found, creating default settings');
         const defaultSettings = {
           openai_url: '',
           openai_api_key: ''
@@ -32,6 +49,7 @@ export const useSettings = () => {
 
         if (insertError) throw insertError;
 
+        console.log('Default settings created:', insertedData);
         data = insertedData;
       } else if (error) {
         throw error;
