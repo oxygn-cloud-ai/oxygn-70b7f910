@@ -3,8 +3,7 @@ import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
-import PromptBox from '../components/PromptBox';
-import HalfWidthBox from '../components/HalfWidthBox';
+import { Textarea } from "@/components/ui/textarea";
 import { useTreeData } from '../hooks/useTreeData';
 
 const Projects = () => {
@@ -109,17 +108,13 @@ const Projects = () => {
           {renderAddButtons()}
         </div>
         <div className="w-4/5 flex flex-col gap-4">
-          <div className="flex-none">
-            <PromptBox title="Admin Prompt" initialContent="Enter admin prompt here" />
-          </div>
-          <div className="flex-none">
-            <PromptBox title="User Prompt" initialContent="Enter user prompt here" />
-          </div>
-          <div className="flex flex-wrap gap-4 flex-grow overflow-auto" style={{ height: 'calc(100vh - 24rem)' }}>
-            <HalfWidthBox title="Input Admin Prompt" initialContent="Enter input admin prompt here" />
-            <HalfWidthBox title="Half Width Box 2" initialContent="Enter content for box 2 here" />
-            <HalfWidthBox title="Half Width Box 3" initialContent="Enter content for box 3 here" />
-            <HalfWidthBox title="Half Width Box 4" initialContent="Enter content for box 4 here" />
+          <Textarea placeholder="Admin Prompt" className="w-full p-2 border rounded" />
+          <Textarea placeholder="User Prompt" className="w-full p-2 border rounded" />
+          <div className="grid grid-cols-2 gap-4">
+            <Textarea placeholder="Input Admin Prompt" className="w-full p-2 border rounded" />
+            <Textarea placeholder="Half Width Box 2" className="w-full p-2 border rounded" />
+            <Textarea placeholder="Half Width Box 3" className="w-full p-2 border rounded" />
+            <Textarea placeholder="Half Width Box 4" className="w-full p-2 border rounded" />
           </div>
         </div>
       </div>
