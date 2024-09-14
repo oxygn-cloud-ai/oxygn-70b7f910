@@ -34,7 +34,6 @@ export const useTreeData = () => {
             .map(item => ({
               id: item.project_row_id,
               name: item.prompt_name,
-              type: 'folder',
               created: item.created,
               children: buildTreeStructure(items, item.project_row_id)
             }));
@@ -45,7 +44,6 @@ export const useTreeData = () => {
         return {
           id: project.project_id,
           name: project.project_name,
-          type: 'folder',
           created: project.created,
           children: treeStructure
         };
@@ -77,13 +75,12 @@ export const useTreeData = () => {
     });
   };
 
-  const addItem = async (parentId, type) => {
+  const addItem = async (parentId) => {
     const newItem = {
       id: uuidv4(),
-      name: type === 'folder' ? 'New Folder' : 'New File',
-      type: type,
+      name: 'New File',
       created: new Date().toISOString(),
-      children: type === 'folder' ? [] : undefined
+      children: []
     };
 
     if (!parentId) {
@@ -95,6 +92,26 @@ export const useTreeData = () => {
       if (error) {
         console.error('Error adding new project:', error);
         return null;
+      }
+    } else {
+      const parentItem = findItemById(treeData, parentId);
+      if (parentItem) {
+        const { data, error } = await supabase
+          .from('projects')
+          .insert({
+            project_id: parentItem.id,
+            prompt_name: newItem.name,
+            level: getItemLevel(treeData, parentId) + 1,
+            parent_row_id: parentId,
+            created: newItem.created
+          })
+          .select();
+
+        if (error) {
+          console.error('Error adding new item:', error);
+          return null;
+        }
+        newItem.id = data[0].project_row_id;
       }
     }
 
@@ -149,6 +166,16 @@ export const useTreeData = () => {
         console.error('Error deleting from projects:', deleteProjectsError);
         return false;
       }
+    } else {
+      const { error: deleteItemError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('project_row_id', id);
+
+      if (deleteItemError) {
+        console.error('Error deleting item:', deleteItemError);
+        return false;
+      }
     }
 
     setTreeData(prevData => {
@@ -190,6 +217,29 @@ export const useTreeData = () => {
 
     updateTreeData(id, item => ({ ...item, name: newName }));
     return true;
+  };
+
+  const findItemById = (items, id) => {
+    if (!items) return null;
+    for (let item of items) {
+      if (item.id === id) return item;
+      if (item.children) {
+        const found = findItemById(item.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const getItemLevel = (items, id, level = 0) => {
+    for (let item of items) {
+      if (item.id === id) return level;
+      if (item.children) {
+        const childLevel = getItemLevel(item.children, id, level + 1);
+        if (childLevel !== -1) return childLevel;
+      }
+    }
+    return -1;
   };
 
   return { treeData, addItem, deleteItem, updateTreeData, updateItemName };

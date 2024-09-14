@@ -4,7 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon, PlusIcon, TrashIcon, EditIcon } from 'lucide-react';
+import { FileIcon, ChevronRightIcon, ChevronDownIcon, PlusIcon, TrashIcon, EditIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,26 +21,17 @@ const TreeItem = ({
   setEditingItem,
   finishRenaming
 }) => {
-  const renderIcon = () => (
-    item.type === 'folder' ? <FolderIcon className="h-4 w-4" /> : <FileIcon className="h-4 w-4" />
-  );
-
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
-      {item.type === 'folder' && (
-        <ActionButton
-          icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleItem(item.id);
-          }}
-          tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
-        />
-      )}
-      <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'file')} tooltip="Add File" />
-      {item.type === 'folder' && level < 4 && (
-        <ActionButton icon={<FolderIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'folder')} tooltip="Add Folder" />
-      )}
+      <ActionButton
+        icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleItem(item.id);
+        }}
+        tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
+      />
+      <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add File" />
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
       <ActionButton icon={<TrashIcon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
     </div>
@@ -58,10 +49,10 @@ const TreeItem = ({
         <div className="flex items-center space-x-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              {renderIcon()}
+              <FileIcon className="h-4 w-4" />
             </TooltipTrigger>
             <TooltipContent>
-              {item.type === 'folder' ? 'Folder' : 'File'}
+              File
             </TooltipContent>
           </Tooltip>
           {editingItem && editingItem.id === item.id ? (

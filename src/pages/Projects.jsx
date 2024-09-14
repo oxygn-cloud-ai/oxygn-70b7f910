@@ -57,8 +57,8 @@ const Projects = () => {
     return null;
   };
 
-  const handleAddItem = async (parentId, type) => {
-    const newItemId = await addItem(parentId, type);
+  const handleAddItem = async (parentId) => {
+    const newItemId = await addItem(parentId);
     if (newItemId) {
       if (parentId) {
         setExpandedItems((prevExpanded) => {
@@ -107,7 +107,7 @@ const Projects = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => handleAddItem(null, 'folder')}
+                  onClick={() => handleAddItem(null)}
                 >
                   <PlusCircle className="h-5 w-5" />
                 </Button>
