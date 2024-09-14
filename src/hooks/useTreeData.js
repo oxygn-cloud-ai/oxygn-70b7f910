@@ -6,43 +6,45 @@ export const useTreeData = () => {
   const [treeData, setTreeData] = useState([]);
 
   useEffect(() => {
-    fetchProjectNames();
+    fetchProjectData();
   }, []);
 
-  const fetchProjectNames = async () => {
+  const fetchProjectData = async () => {
     try {
-      console.log('Supabase API Call:', {
-        method: 'GET',
-        table: 'project_names',
-        select: 'project_id, project_name',
-        order: 'project_name'
-      });
-
-      const { data, error } = await supabase
+      // Fetch top-level projects
+      const { data: projectsData, error: projectsError } = await supabase
         .from('project_names')
         .select('project_id, project_name')
         .order('project_name');
 
-      console.log('Supabase API Response:', { data, error });
+      if (projectsError) throw projectsError;
 
-      if (error) {
-        throw error;
-      }
+      // Fetch sub-items for each project
+      const projectsWithSubItems = await Promise.all(projectsData.map(async (project) => {
+        const { data: subItemsData, error: subItemsError } = await supabase
+          .from('projects')
+          .select('id, prompt_names')
+          .eq('project_id', project.project_id)
+          .eq('level', 1)
+          .order('prompt_names');
 
-      console.log('Fetched data:', data);
+        if (subItemsError) throw subItemsError;
 
-      const formattedData = data.map(item => ({
-        id: item.project_id,
-        name: item.project_name,
-        type: 'folder',
-        children: [],
+        return {
+          id: project.project_id,
+          name: project.project_name,
+          type: 'folder',
+          children: subItemsData.map(subItem => ({
+            id: subItem.id,
+            name: subItem.prompt_names,
+            type: 'file'
+          }))
+        };
       }));
 
-      console.log('Formatted data:', formattedData);
-
-      setTreeData(formattedData);
+      setTreeData(projectsWithSubItems);
     } catch (error) {
-      console.error('Error fetching project names:', error);
+      console.error('Error fetching project data:', error);
     }
   };
 
