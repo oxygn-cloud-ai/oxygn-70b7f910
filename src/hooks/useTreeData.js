@@ -1,36 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../lib/supabase';
 
 export const useTreeData = () => {
-  const [treeData, setTreeData] = useState([
-    {
-      id: '1',
-      name: 'Project A',
-      type: 'folder',
-      children: [
-        { id: '1-1', name: 'file1.txt', type: 'file' },
-        { id: '1-2', name: 'file2.txt', type: 'file' },
-        {
-          id: '1-3',
-          name: 'Subfolder',
-          type: 'folder',
-          children: [
-            { id: '1-3-1', name: 'subfile1.txt', type: 'file' },
-            { id: '1-3-2', name: 'subfile2.txt', type: 'file' },
-          ],
-        },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Project B',
-      type: 'folder',
-      children: [
-        { id: '2-1', name: 'fileB1.txt', type: 'file' },
-        { id: '2-2', name: 'fileB2.txt', type: 'file' },
-      ],
-    },
-  ]);
+  const [treeData, setTreeData] = useState([]);
+
+  useEffect(() => {
+    fetchProjectNames();
+  }, []);
+
+  const fetchProjectNames = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('project_names')
+        .select('project_id, project_name')
+        .order('project_name');
+
+      if (error) {
+        throw error;
+      }
+
+      const formattedData = data.map(item => ({
+        id: item.project_id,
+        name: item.project_name,
+        type: 'folder',
+        children: [],
+      }));
+
+      setTreeData(formattedData);
+    } catch (error) {
+      console.error('Error fetching project names:', error);
+    }
+  };
 
   const updateTreeData = (id, updateFn) => {
     setTreeData(prevData => {
