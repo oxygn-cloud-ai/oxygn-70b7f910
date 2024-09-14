@@ -20,12 +20,16 @@ export const useTreeData = () => {
         throw error;
       }
 
+      console.log('Fetched data:', data); // Add this line for debugging
+
       const formattedData = data.map(item => ({
         id: item.project_id,
         name: item.project_name,
         type: 'folder',
         children: [],
       }));
+
+      console.log('Formatted data:', formattedData); // Add this line for debugging
 
       setTreeData(formattedData);
     } catch (error) {
