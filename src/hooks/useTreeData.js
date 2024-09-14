@@ -21,19 +21,21 @@ export const useTreeData = () => {
       const projectsWithAllLevels = await Promise.all(projectsData.map(async (project) => {
         const { data: allLevelsData, error: allLevelsError } = await supabase
           .from('projects')
-          .select('project_row_id, project_id, prompt_name, level, parent_row_id')
+          .select('project_row_id, project_id, prompt_name, level, parent_row_id, created')
           .eq('project_id', project.project_id)
-          .order('level, prompt_name');
+          .order('created');
 
         if (allLevelsError) throw allLevelsError;
 
         const buildTreeStructure = (items, parentId = null) => {
           return items
             .filter(item => item.parent_row_id === parentId)
+            .sort((a, b) => new Date(a.created) - new Date(b.created))
             .map(item => ({
               id: item.project_row_id,
               name: item.prompt_name,
               type: 'folder',
+              created: item.created,
               children: buildTreeStructure(items, item.project_row_id)
             }));
         };
@@ -79,12 +81,13 @@ export const useTreeData = () => {
       id: uuidv4(),
       name: type === 'folder' ? 'New Folder' : 'New File',
       type: type,
+      created: new Date().toISOString(),
       children: type === 'folder' ? [] : undefined
     };
 
     setTreeData(prevData => {
       if (!parentId) {
-        return [...prevData, newItem];
+        return [...prevData, newItem].sort((a, b) => new Date(a.created) - new Date(b.created));
       }
       return addItemToChildren(prevData, parentId, newItem);
     });
@@ -97,7 +100,7 @@ export const useTreeData = () => {
       if (item.id === parentId) {
         return {
           ...item,
-          children: [...(item.children || []), newItem]
+          children: [...(item.children || []), newItem].sort((a, b) => new Date(a.created) - new Date(b.created))
         };
       }
       if (item.children) {
