@@ -25,13 +25,13 @@ const TreeItem = ({
 }) => {
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
-      <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add File" />
+      <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add Prompt" />
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
       <ActionButton icon={<TrashIcon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
     </div>
   );
 
-  const displayName = item.name && item.name.trim() !== '' ? `${item.name} {${level}}` : `Untitled {${level}}`;
+  const displayName = item.name && item.name.trim() !== '' ? `${item.name} {${level}}` : `New Prompt {${level}}`;
   const isActive = activeItem === item.id;
 
   return (
@@ -50,7 +50,7 @@ const TreeItem = ({
               <FileIcon className="h-4 w-4" />
             </TooltipTrigger>
             <TooltipContent>
-              File
+              Prompt
             </TooltipContent>
           </Tooltip>
           {editingItem && editingItem.id === item.id ? (

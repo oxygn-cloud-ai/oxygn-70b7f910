@@ -124,7 +124,7 @@ const Projects = () => {
                   <PlusCircle className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>New File</TooltipContent>
+              <TooltipContent>New Prompt</TooltipContent>
             </Tooltip>
           </div>
           <Accordion

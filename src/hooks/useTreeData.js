@@ -78,7 +78,7 @@ export const useTreeData = () => {
   const addItem = async (parentId) => {
     const newItem = {
       id: uuidv4(),
-      name: 'New File',
+      name: 'New Prompt',
       created: new Date().toISOString(),
       children: []
     };
