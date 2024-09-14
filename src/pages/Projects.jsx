@@ -140,47 +140,65 @@ const Projects = () => {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
-      <div className="border rounded-lg p-4">
-        <TooltipProvider>
-          <Accordion
-            type="multiple"
-            value={expandedItems}
-            onValueChange={setExpandedItems}
-            className="w-full"
-          >
-            {treeData.map((item) => (
-              <TreeItem
-                key={item.id}
-                item={item}
-                level={0}
-                expandedItems={expandedItems}
-                toggleItem={toggleItem}
-                addItem={addItem}
-                deleteItem={deleteItem}
-                startRenaming={startRenaming}
-                editingItem={editingItem}
-                setEditingItem={setEditingItem}
-                finishRenaming={finishRenaming}
-              />
-            ))}
-          </Accordion>
-        </TooltipProvider>
-      </div>
-      <div className="mt-4 space-x-4">
-        <Button
-          variant="link"
-          className="text-blue-600 hover:text-blue-800 underline p-0"
-          onClick={() => addItem(null, 'folder')}
-        >
-          Add Root Folder
-        </Button>
-        <Button
-          variant="link"
-          className="text-blue-600 hover:text-blue-800 underline p-0"
-          onClick={() => addItem(null, 'file')}
-        >
-          Add Root File
-        </Button>
+      <div className="flex gap-4">
+        <div className="w-1/4 border rounded-lg p-4">
+          <TooltipProvider>
+            <Accordion
+              type="multiple"
+              value={expandedItems}
+              onValueChange={setExpandedItems}
+              className="w-full"
+            >
+              {treeData.map((item) => (
+                <TreeItem
+                  key={item.id}
+                  item={item}
+                  level={0}
+                  expandedItems={expandedItems}
+                  toggleItem={toggleItem}
+                  addItem={addItem}
+                  deleteItem={deleteItem}
+                  startRenaming={startRenaming}
+                  editingItem={editingItem}
+                  setEditingItem={setEditingItem}
+                  finishRenaming={finishRenaming}
+                />
+              ))}
+            </Accordion>
+          </TooltipProvider>
+          <div className="mt-4 space-x-4">
+            <Button
+              variant="link"
+              className="text-blue-600 hover:text-blue-800 underline p-0"
+              onClick={() => addItem(null, 'folder')}
+            >
+              Add Root Folder
+            </Button>
+            <Button
+              variant="link"
+              className="text-blue-600 hover:text-blue-800 underline p-0"
+              onClick={() => addItem(null, 'file')}
+            >
+              Add Root File
+            </Button>
+          </div>
+        </div>
+        <div className="w-3/4 flex flex-col gap-4">
+          <div className="border rounded-lg p-4 h-1/2">
+            <h2 className="text-xl font-semibold mb-2">Full Width Box</h2>
+            <p>Content for the full width box goes here.</p>
+          </div>
+          <div className="flex gap-4 h-1/2">
+            <div className="w-1/2 border rounded-lg p-4">
+              <h2 className="text-xl font-semibold mb-2">Half Width Box 1</h2>
+              <p>Content for the first half width box goes here.</p>
+            </div>
+            <div className="w-1/2 border rounded-lg p-4">
+              <h2 className="text-xl font-semibold mb-2">Half Width Box 2</h2>
+              <p>Content for the second half width box goes here.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
