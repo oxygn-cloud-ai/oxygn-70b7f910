@@ -6,39 +6,11 @@ import { v4 as uuidv4 } from 'uuid';
 import TreeItem from '../components/TreeItem';
 import PromptBox from '../components/PromptBox';
 import HalfWidthBox from '../components/HalfWidthBox';
+import { useTreeData } from '../hooks/useTreeData';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
-  const [treeData, setTreeData] = useState([
-    {
-      id: '1',
-      name: 'Project A',
-      type: 'folder',
-      children: [
-        { id: '1-1', name: 'file1.txt', type: 'file' },
-        { id: '1-2', name: 'file2.txt', type: 'file' },
-        {
-          id: '1-3',
-          name: 'Subfolder',
-          type: 'folder',
-          children: [
-            { id: '1-3-1', name: 'subfile1.txt', type: 'file' },
-            { id: '1-3-2', name: 'subfile2.txt', type: 'file' },
-          ],
-        },
-      ],
-    },
-    {
-      id: '2',
-      name: 'Project B',
-      type: 'folder',
-      children: [
-        { id: '2-1', name: 'fileB1.txt', type: 'file' },
-        { id: '2-2', name: 'fileB2.txt', type: 'file' },
-      ],
-    },
-  ]);
-
+  const { treeData, addItem, deleteItem, updateTreeData } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
 
   const toggleItem = (itemId) => {
@@ -47,59 +19,6 @@ const Projects = () => {
         ? prevExpanded.filter((id) => id !== itemId)
         : [...prevExpanded, itemId]
     );
-  };
-
-  const updateTreeData = (items, id, updateFn) => {
-    return items.map(item => {
-      if (item.id === id) {
-        return updateFn(item);
-      }
-      if (item.children) {
-        return {
-          ...item,
-          children: updateTreeData(item.children, id, updateFn)
-        };
-      }
-      return item;
-    });
-  };
-
-  const addItem = (parentId, type) => {
-    const newItem = {
-      id: uuidv4(),
-      name: type === 'folder' ? 'New Folder' : 'New File',
-      type: type,
-      children: type === 'folder' ? [] : undefined
-    };
-
-    setTreeData(prevData => {
-      if (!parentId) {
-        return [...prevData, newItem];
-      }
-      return updateTreeData(prevData, parentId, (item) => ({
-        ...item,
-        children: [...(item.children || []), newItem]
-      }));
-    });
-
-    if (type === 'folder') {
-      setExpandedItems(prev => [...prev, parentId]);
-    }
-  };
-
-  const deleteItem = (id) => {
-    setTreeData(prevData => {
-      const deleteRecursive = (items) => {
-        return items.filter(item => {
-          if (item.id === id) return false;
-          if (item.children) {
-            item.children = deleteRecursive(item.children);
-          }
-          return true;
-        });
-      };
-      return deleteRecursive(prevData);
-    });
   };
 
   const startRenaming = (id) => {
@@ -111,12 +30,10 @@ const Projects = () => {
 
   const finishRenaming = () => {
     if (editingItem) {
-      setTreeData(prevData => 
-        updateTreeData(prevData, editingItem.id, (item) => ({
-          ...item,
-          name: editingItem.name
-        }))
-      );
+      updateTreeData(editingItem.id, (item) => ({
+        ...item,
+        name: editingItem.name
+      }));
       setEditingItem(null);
     }
   };
@@ -190,7 +107,7 @@ const Projects = () => {
           <PromptBox title="Admin Prompt" />
           <PromptBox title="User Prompt" />
           <div className="flex flex-wrap gap-4">
-            <HalfWidthBox title="Half Width Box 1" content="Content for the first half width box goes here." />
+            <HalfWidthBox title="Input Admin Prompt" content="Content for the first half width box goes here." />
             <HalfWidthBox title="Half Width Box 2" content="Content for the second half width box goes here." />
             <HalfWidthBox title="Half Width Box 3" content="Content for the third half width box goes here." />
             <HalfWidthBox title="Half Width Box 4" content="Content for the fourth half width box goes here." />
