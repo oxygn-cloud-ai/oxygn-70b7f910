@@ -18,6 +18,12 @@ const Projects = () => {
   const [selectedItemData, setSelectedItemData] = useState(null);
 
   const toggleItem = async (itemId) => {
+    setExpandedItems(prev => {
+      const newExpanded = prev.includes(itemId)
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId];
+      return newExpanded;
+    });
     setActiveItem(itemId);
     const itemData = await fetchItemData(itemId);
     setSelectedItemData(itemData);
@@ -61,6 +67,7 @@ const Projects = () => {
     const newItemId = await addItem(parentId);
     if (newItemId) {
       setActiveItem(newItemId);
+      setExpandedItems(prev => [...prev, parentId].filter(Boolean));
       return newItemId;
     }
   };
@@ -117,9 +124,9 @@ const Projects = () => {
             </Tooltip>
           </div>
           <Accordion
-            type="single"
-            value={activeItem}
-            onValueChange={toggleItem}
+            type="multiple"
+            value={expandedItems}
+            onValueChange={setExpandedItems}
             className="w-full min-w-max"
           >
             {treeData.map((item) => (
