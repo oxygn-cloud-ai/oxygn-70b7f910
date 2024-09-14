@@ -72,7 +72,7 @@ export const useTreeData = () => {
 
   const addItemToChildren = (items, parentId, newItem) => {
     return items.map(item => {
-      if (item.id === parentId && item.type === 'folder') {
+      if (item.id === parentId) {
         return {
           ...item,
           children: [...(item.children || []), newItem]
