@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { v4 as uuidv4 } from 'uuid';
 import TreeItem from '../components/TreeItem';
+import PromptBox from '../components/PromptBox';
+import HalfWidthBox from '../components/HalfWidthBox';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -176,13 +178,6 @@ const Projects = () => {
     </div>
   );
 
-  const renderHalfWidthBox = (title, content, key) => (
-    <div key={key} className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
-      <h2 className="text-xl font-semibold mb-2">{title}</h2>
-      <p>{content}</p>
-    </div>
-  );
-
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
@@ -192,17 +187,13 @@ const Projects = () => {
           {renderAddButtons()}
         </div>
         <div className="w-4/5 flex flex-col gap-4">
-          <div className="border rounded-lg p-4 h-1/3 relative">
-            <span className="absolute -top-3 left-2 bg-white px-2 text-sm font-semibold text-gray-600">
-              User Prompt
-            </span>
-            <p>Content for the user prompt box goes here.</p>
-          </div>
-          <div className="flex flex-wrap gap-4 h-2/3">
-            {renderHalfWidthBox("Half Width Box 1", "Content for the first half width box goes here.", 1)}
-            {renderHalfWidthBox("Half Width Box 2", "Content for the second half width box goes here.", 2)}
-            {renderHalfWidthBox("Half Width Box 3", "Content for the third half width box goes here.", 3)}
-            {renderHalfWidthBox("Half Width Box 4", "Content for the fourth half width box goes here.", 4)}
+          <PromptBox title="Admin Prompt" />
+          <PromptBox title="User Prompt" />
+          <div className="flex flex-wrap gap-4">
+            <HalfWidthBox title="Half Width Box 1" content="Content for the first half width box goes here." />
+            <HalfWidthBox title="Half Width Box 2" content="Content for the second half width box goes here." />
+            <HalfWidthBox title="Half Width Box 3" content="Content for the third half width box goes here." />
+            <HalfWidthBox title="Half Width Box 4" content="Content for the fourth half width box goes here." />
           </div>
         </div>
       </div>
