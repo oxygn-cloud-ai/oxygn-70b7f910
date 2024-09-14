@@ -18,105 +18,37 @@ export const useTreeData = () => {
 
       if (projectsError) throw projectsError;
 
-      const projectsWithSubItems = await Promise.all(projectsData.map(async (project) => {
-        const { data: level1Data, error: level1Error } = await supabase
+      const projectsWithAllLevels = await Promise.all(projectsData.map(async (project) => {
+        const { data: allLevelsData, error: allLevelsError } = await supabase
           .from('projects')
-          .select('project_row_id, project_id, prompt_name')
+          .select('project_row_id, project_id, prompt_name, level, parent_row_id')
           .eq('project_id', project.project_id)
-          .eq('level', 1)
-          .order('prompt_name');
+          .order('level, prompt_name');
 
-        if (level1Error) throw level1Error;
+        if (allLevelsError) throw allLevelsError;
 
-        const level1WithSubItems = await Promise.all(level1Data.map(async (level1Item) => {
-          const { data: level2Data, error: level2Error } = await supabase
-            .from('projects')
-            .select('project_row_id, project_id, prompt_name')
-            .eq('project_id', project.project_id)
-            .eq('level', 2)
-            .eq('parent_row_id', level1Item.project_row_id)
-            .order('prompt_name');
-
-          if (level2Error) throw level2Error;
-
-          const level2WithSubItems = await Promise.all(level2Data.map(async (level2Item) => {
-            const { data: level3Data, error: level3Error } = await supabase
-              .from('projects')
-              .select('project_row_id, project_id, prompt_name')
-              .eq('project_id', project.project_id)
-              .eq('level', 3)
-              .eq('parent_row_id', level2Item.project_row_id)
-              .order('prompt_name');
-
-            if (level3Error) throw level3Error;
-
-            const level3WithSubItems = await Promise.all(level3Data.map(async (level3Item) => {
-              const { data: level4Data, error: level4Error } = await supabase
-                .from('projects')
-                .select('project_row_id, project_id, prompt_name')
-                .eq('project_id', project.project_id)
-                .eq('level', 4)
-                .eq('parent_row_id', level3Item.project_row_id)
-                .order('prompt_name');
-
-              if (level4Error) throw level4Error;
-
-              const level4WithSubItems = await Promise.all(level4Data.map(async (level4Item) => {
-                const { data: level5Data, error: level5Error } = await supabase
-                  .from('projects')
-                  .select('project_row_id, project_id, prompt_name')
-                  .eq('project_id', project.project_id)
-                  .eq('level', 5)
-                  .eq('parent_row_id', level4Item.project_row_id)
-                  .order('prompt_name');
-
-                if (level5Error) throw level5Error;
-
-                return {
-                  id: level4Item.project_row_id,
-                  name: level4Item.prompt_name,
-                  type: 'folder',
-                  children: level5Data.map(level5Item => ({
-                    id: level5Item.project_row_id,
-                    name: level5Item.prompt_name,
-                    type: 'file'
-                  }))
-                };
-              }));
-
-              return {
-                id: level3Item.project_row_id,
-                name: level3Item.prompt_name,
-                type: 'folder',
-                children: level4WithSubItems
-              };
+        const buildTreeStructure = (items, parentId = null, level = 0) => {
+          return items
+            .filter(item => item.level === level + 1 && item.parent_row_id === parentId)
+            .map(item => ({
+              id: item.project_row_id,
+              name: item.prompt_name,
+              type: level < 4 ? 'folder' : 'file',
+              children: buildTreeStructure(items, item.project_row_id, level + 1)
             }));
+        };
 
-            return {
-              id: level2Item.project_row_id,
-              name: level2Item.prompt_name,
-              type: 'folder',
-              children: level3WithSubItems
-            };
-          }));
-
-          return {
-            id: level1Item.project_row_id,
-            name: level1Item.prompt_name,
-            type: 'folder',
-            children: level2WithSubItems
-          };
-        }));
+        const treeStructure = buildTreeStructure(allLevelsData);
 
         return {
           id: project.project_id,
           name: project.project_name,
           type: 'folder',
-          children: level1WithSubItems
+          children: treeStructure
         };
       }));
 
-      setTreeData(projectsWithSubItems);
+      setTreeData(projectsWithAllLevels);
     } catch (error) {
       console.error('Error fetching project data:', error);
     }
