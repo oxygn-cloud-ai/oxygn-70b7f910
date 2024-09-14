@@ -70,9 +70,7 @@ export const useTreeData = () => {
     return newItem.id;
   };
 
-  const addItemToChildren = (items, parentId, newItem, currentLevel = 0) => {
-    if (currentLevel >= 99) return items; // Prevent adding beyond level 99
-
+  const addItemToChildren = (items, parentId, newItem) => {
     return items.map(item => {
       if (item.id === parentId) {
         return {
@@ -83,7 +81,7 @@ export const useTreeData = () => {
       if (item.children) {
         return {
           ...item,
-          children: addItemToChildren(item.children, parentId, newItem, currentLevel + 1)
+          children: addItemToChildren(item.children, parentId, newItem)
         };
       }
       return item;
