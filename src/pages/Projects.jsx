@@ -154,7 +154,12 @@ const Projects = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Projects</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Projects</h1>
+        <Button variant="link" className="text-blue-500 hover:text-blue-700">
+          Generate Prompts
+        </Button>
+      </div>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
           <div className="border rounded-lg p-4 overflow-x-scroll overflow-y-auto h-[calc(100vh-8rem)]">
