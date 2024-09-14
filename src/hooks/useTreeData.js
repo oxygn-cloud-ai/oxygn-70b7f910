@@ -27,14 +27,14 @@ export const useTreeData = () => {
 
         if (allLevelsError) throw allLevelsError;
 
-        const buildTreeStructure = (items, parentId = null, level = 0) => {
+        const buildTreeStructure = (items, parentId = null) => {
           return items
-            .filter(item => item.level === level + 1 && item.parent_row_id === parentId)
+            .filter(item => item.parent_row_id === parentId)
             .map(item => ({
               id: item.project_row_id,
               name: item.prompt_name,
-              type: level < 4 ? 'folder' : 'file',
-              children: buildTreeStructure(items, item.project_row_id, level + 1)
+              type: 'folder',
+              children: buildTreeStructure(items, item.project_row_id)
             }));
         };
 
