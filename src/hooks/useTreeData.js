@@ -13,8 +13,8 @@ export const useTreeData = () => {
     try {
       const { data: projectsData, error: projectsError } = await supabase
         .from('project_names')
-        .select('project_id, project_name')
-        .order('project_name');
+        .select('project_id, project_name, created')
+        .order('created', { ascending: false });
 
       if (projectsError) throw projectsError;
 
@@ -46,6 +46,7 @@ export const useTreeData = () => {
           id: project.project_id,
           name: project.project_name,
           type: 'folder',
+          created: project.created,
           children: treeStructure
         };
       }));
@@ -86,10 +87,9 @@ export const useTreeData = () => {
     };
 
     if (!parentId) {
-      // This is a level 0 item, so we need to add it to the project_names table
       const { data, error } = await supabase
         .from('project_names')
-        .insert({ project_id: newItem.id, project_name: newItem.name })
+        .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
         .select();
 
       if (error) {
@@ -100,7 +100,7 @@ export const useTreeData = () => {
 
     setTreeData(prevData => {
       if (!parentId) {
-        return [...prevData, newItem].sort((a, b) => new Date(a.created) - new Date(b.created));
+        return [newItem, ...prevData];
       }
       return addItemToChildren(prevData, parentId, newItem);
     });
@@ -113,7 +113,7 @@ export const useTreeData = () => {
       if (item.id === parentId) {
         return {
           ...item,
-          children: [...(item.children || []), newItem].sort((a, b) => new Date(a.created) - new Date(b.created))
+          children: [newItem, ...(item.children || [])].sort((a, b) => new Date(b.created) - new Date(a.created))
         };
       }
       if (item.children) {
@@ -130,7 +130,6 @@ export const useTreeData = () => {
     const isLevel0 = treeData.some(item => item.id === id);
 
     if (isLevel0) {
-      // Delete from project_names table
       const { error: deleteProjectNameError } = await supabase
         .from('project_names')
         .delete()
@@ -141,7 +140,6 @@ export const useTreeData = () => {
         return false;
       }
 
-      // Delete all matching records from projects table
       const { error: deleteProjectsError } = await supabase
         .from('projects')
         .delete()
