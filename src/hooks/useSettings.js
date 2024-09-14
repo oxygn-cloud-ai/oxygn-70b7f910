@@ -19,25 +19,15 @@ export const useSettings = () => {
 
       if (error) throw error;
 
-      if (!data) {
-        // If no settings exist, create a default row
-        const defaultSettings = {
+      if (data) {
+        setSettings(data);
+      } else {
+        // If no settings exist, set default values
+        setSettings({
           openai_url: '',
           openai_api_key: ''
-        };
-
-        const { data: newData, error: insertError } = await supabase
-          .from('settings')
-          .insert(defaultSettings)
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        data = newData;
+        });
       }
-
-      setSettings(data);
     } catch (error) {
       console.error('Error fetching settings:', error);
       toast.error('Failed to fetch settings');
@@ -48,14 +38,29 @@ export const useSettings = () => {
 
   const updateSetting = async (key, value) => {
     try {
-      const { error } = await supabase
-        .from('settings')
-        .update({ [key]: value })
-        .eq('id', settings.id);
+      if (!settings || !settings.id) {
+        // If settings don't exist, create a new row
+        const { data, error } = await supabase
+          .from('settings')
+          .insert({ [key]: value })
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      setSettings(prev => ({ ...prev, [key]: value }));
+        setSettings(data);
+      } else {
+        // If settings exist, update the existing row
+        const { error } = await supabase
+          .from('settings')
+          .update({ [key]: value })
+          .eq('id', settings.id);
+
+        if (error) throw error;
+
+        setSettings(prev => ({ ...prev, [key]: value }));
+      }
+
       toast.success('Setting updated successfully');
     } catch (error) {
       console.error('Error updating setting:', error);
