@@ -130,74 +130,79 @@ const Projects = () => {
     return null;
   };
 
+  const renderTreeItems = () => (
+    <TooltipProvider>
+      <Accordion
+        type="multiple"
+        value={expandedItems}
+        onValueChange={setExpandedItems}
+        className="w-full"
+      >
+        {treeData.map((item) => (
+          <TreeItem
+            key={item.id}
+            item={item}
+            level={0}
+            expandedItems={expandedItems}
+            toggleItem={toggleItem}
+            addItem={addItem}
+            deleteItem={deleteItem}
+            startRenaming={startRenaming}
+            editingItem={editingItem}
+            setEditingItem={setEditingItem}
+            finishRenaming={finishRenaming}
+          />
+        ))}
+      </Accordion>
+    </TooltipProvider>
+  );
+
+  const renderAddButtons = () => (
+    <div className="mt-4 space-x-4">
+      <Button
+        variant="link"
+        className="text-blue-600 hover:text-blue-800 underline p-0"
+        onClick={() => addItem(null, 'folder')}
+      >
+        Add Root Folder
+      </Button>
+      <Button
+        variant="link"
+        className="text-blue-600 hover:text-blue-800 underline p-0"
+        onClick={() => addItem(null, 'file')}
+      >
+        Add Root File
+      </Button>
+    </div>
+  );
+
+  const renderHalfWidthBox = (title, content, key) => (
+    <div key={key} className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
+      <h2 className="text-xl font-semibold mb-2">{title}</h2>
+      <p>{content}</p>
+    </div>
+  );
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
       <div className="flex gap-4">
         <div className="w-1/5 border rounded-lg p-4">
-          <TooltipProvider>
-            <Accordion
-              type="multiple"
-              value={expandedItems}
-              onValueChange={setExpandedItems}
-              className="w-full"
-            >
-              {treeData.map((item) => (
-                <TreeItem
-                  key={item.id}
-                  item={item}
-                  level={0}
-                  expandedItems={expandedItems}
-                  toggleItem={toggleItem}
-                  addItem={addItem}
-                  deleteItem={deleteItem}
-                  startRenaming={startRenaming}
-                  editingItem={editingItem}
-                  setEditingItem={setEditingItem}
-                  finishRenaming={finishRenaming}
-                />
-              ))}
-            </Accordion>
-          </TooltipProvider>
-          <div className="mt-4 space-x-4">
-            <Button
-              variant="link"
-              className="text-blue-600 hover:text-blue-800 underline p-0"
-              onClick={() => addItem(null, 'folder')}
-            >
-              Add Root Folder
-            </Button>
-            <Button
-              variant="link"
-              className="text-blue-600 hover:text-blue-800 underline p-0"
-              onClick={() => addItem(null, 'file')}
-            >
-              Add Root File
-            </Button>
-          </div>
+          {renderTreeItems()}
+          {renderAddButtons()}
         </div>
         <div className="w-4/5 flex flex-col gap-4">
-          <div className="border rounded-lg p-4 h-1/3">
-            <h2 className="text-xl font-semibold mb-2">Full Width Box</h2>
-            <p>Content for the full width box goes here.</p>
+          <div className="border rounded-lg p-4 h-1/3 relative">
+            <span className="absolute -top-3 left-2 bg-white px-2 text-sm font-semibold text-gray-600">
+              User Prompt
+            </span>
+            <p>Content for the user prompt box goes here.</p>
           </div>
           <div className="flex flex-wrap gap-4 h-2/3">
-            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
-              <h2 className="text-xl font-semibold mb-2">Half Width Box 1</h2>
-              <p>Content for the first half width box goes here.</p>
-            </div>
-            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
-              <h2 className="text-xl font-semibold mb-2">Half Width Box 2</h2>
-              <p>Content for the second half width box goes here.</p>
-            </div>
-            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
-              <h2 className="text-xl font-semibold mb-2">Half Width Box 3</h2>
-              <p>Content for the third half width box goes here.</p>
-            </div>
-            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
-              <h2 className="text-xl font-semibold mb-2">Half Width Box 4</h2>
-              <p>Content for the fourth half width box goes here.</p>
-            </div>
+            {renderHalfWidthBox("Half Width Box 1", "Content for the first half width box goes here.", 1)}
+            {renderHalfWidthBox("Half Width Box 2", "Content for the second half width box goes here.", 2)}
+            {renderHalfWidthBox("Half Width Box 3", "Content for the third half width box goes here.", 3)}
+            {renderHalfWidthBox("Half Width Box 4", "Content for the fourth half width box goes here.", 4)}
           </div>
         </div>
       </div>
