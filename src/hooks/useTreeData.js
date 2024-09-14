@@ -23,7 +23,7 @@ export const useTreeData = () => {
       const projectsWithSubItems = await Promise.all(projectsData.map(async (project) => {
         const { data: subItemsData, error: subItemsError } = await supabase
           .from('projects')
-          .select('id, prompt_names')
+          .select('project_id, prompt_names')
           .eq('project_id', project.project_id)
           .eq('level', 1)
           .order('prompt_names');
@@ -35,7 +35,7 @@ export const useTreeData = () => {
           name: project.project_name,
           type: 'folder',
           children: subItemsData.map(subItem => ({
-            id: subItem.id,
+            id: uuidv4(), // Generate a unique ID for each sub-item
             name: subItem.prompt_names,
             type: 'file'
           }))
