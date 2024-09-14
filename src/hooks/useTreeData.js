@@ -205,17 +205,11 @@ export const useTreeData = () => {
         .from('projects')
         .select('admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt')
         .eq('project_row_id', id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          console.log('No data found for this item');
-          return null;
-        }
-        throw error;
-      }
+      if (error) throw error;
 
-      return data;
+      return data || null;
     } catch (error) {
       console.error('Error fetching item data:', error);
       return null;
