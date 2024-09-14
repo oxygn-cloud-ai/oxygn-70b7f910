@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 
-export const useTreeData = () => {
+const useTreeData = () => {
   const [treeData, setTreeData] = useState([]);
 
   useEffect(() => {
@@ -203,9 +203,16 @@ export const useTreeData = () => {
     try {
       const { data, error } = await supabase
         .from('projects')
-        .select('admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt')
+        .select(`
+          project_id, admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt,
+          level, model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, stop,
+          n, logit_bias, user, stream, best_of, logprobs, echo, suffix, temperature_scaling,
+          prompt_tokens, response_tokens, batch_size, learning_rate_multiplier, created,
+          project_row_id, parent_row_id, prompt_name, n_epochs, validation_file, training_file,
+          engine, input, context_length, custom_finetune
+        `)
         .eq('project_row_id', id)
-        .maybeSingle();
+        .single();
 
       if (error) throw error;
 
@@ -218,3 +225,5 @@ export const useTreeData = () => {
 
   return { treeData, addItem, deleteItem, updateTreeData, updateItemName, fetchItemData };
 };
+
+export { useTreeData };

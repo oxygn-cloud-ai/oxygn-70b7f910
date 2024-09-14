@@ -122,7 +122,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     { name: 'input_admin_prompt', placeholder: 'Input Admin Prompt' },
     { name: 'input_user_prompt', placeholder: 'Input User Prompt' },
     { name: 'prompt_settings', placeholder: 'Prompt Settings' },
-    { name: 'half_width_box_4', placeholder: 'Half Width Box 4' }
+  ];
+
+  const promptSettingsFields = [
+    'project_id', 'admin_prompt_result', 'user_prompt_result', 'input_admin_prompt', 'input_user_prompt',
+    'level', 'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop',
+    'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix', 'temperature_scaling',
+    'prompt_tokens', 'response_tokens', 'batch_size', 'learning_rate_multiplier', 'created',
+    'project_row_id', 'parent_row_id', 'prompt_name', 'n_epochs', 'validation_file', 'training_file',
+    'engine', 'input', 'context_length', 'custom_finetune'
   ];
 
   return (
@@ -138,6 +146,24 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
           readOnly={false}
         />
       ))}
+      <div className="border rounded-lg p-4 relative mb-4">
+        <span className="absolute -top-3 left-2 bg-white px-2 text-sm font-semibold text-gray-600 z-10">
+          Prompt Settings
+        </span>
+        <div className="grid grid-cols-2 gap-4">
+          {promptSettingsFields.map(field => (
+            <div key={field} className="flex flex-col">
+              <label className="text-sm font-medium text-gray-700">{field}</label>
+              <input
+                type="text"
+                value={localData[field] || ''}
+                onChange={(e) => handleSave(field, e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
