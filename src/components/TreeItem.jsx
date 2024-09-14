@@ -46,7 +46,7 @@ const TreeItem = ({
     </div>
   );
 
-  const displayName = item.name.trim() === '' ? "stupid empty row" : `${item.name} {${level}}`;
+  const displayName = item.name.trim() === '' ? "Untitled" : `${item.name} {${level}}`;
 
   return (
     <AccordionItem value={item.id} className="border-none">

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Accordion } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
 import { Textarea } from "@/components/ui/textarea";
@@ -122,25 +121,6 @@ const Projects = () => {
     );
   };
 
-  const renderAddButtons = () => (
-    <div className="mt-4 space-x-4">
-      <Button
-        variant="link"
-        className="text-blue-600 hover:text-blue-800 underline p-0"
-        onClick={() => handleAddItem(null, 'folder')}
-      >
-        Add Root Folder
-      </Button>
-      <Button
-        variant="link"
-        className="text-blue-600 hover:text-blue-800 underline p-0"
-        onClick={() => handleAddItem(null, 'file')}
-      >
-        Add Root File
-      </Button>
-    </div>
-  );
-
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
@@ -148,7 +128,6 @@ const Projects = () => {
         <Panel defaultSize={20} minSize={15}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             {renderTreeItems()}
-            {renderAddButtons()}
           </div>
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
