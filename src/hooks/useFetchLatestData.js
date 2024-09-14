@@ -49,15 +49,16 @@ export const useFetchLatestData = (projectRowId) => {
       if (error) throw error;
 
       if (!data) {
-        toast.error('No data found for this project');
-        return null;
+        console.warn(`No data found for project row ID: ${projectRowId}`);
+        toast.warning('No data found for this project');
+        return {};
       }
 
       return data;
     } catch (error) {
       console.error('Error fetching latest data:', error);
-      toast.error('Failed to fetch project data');
-      return null;
+      toast.error(`Failed to fetch project data: ${error.message}`);
+      return {};
     } finally {
       setIsLoading(false);
     }
