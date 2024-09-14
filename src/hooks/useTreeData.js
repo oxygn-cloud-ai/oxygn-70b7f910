@@ -61,15 +61,34 @@ export const useTreeData = () => {
 
               if (level4Error) throw level4Error;
 
+              const level4WithSubItems = await Promise.all(level4Data.map(async (level4Item) => {
+                const { data: level5Data, error: level5Error } = await supabase
+                  .from('projects')
+                  .select('project_row_id, project_id, prompt_name')
+                  .eq('project_id', project.project_id)
+                  .eq('level', 5)
+                  .eq('parent_row_id', level4Item.project_row_id)
+                  .order('prompt_name');
+
+                if (level5Error) throw level5Error;
+
+                return {
+                  id: level4Item.project_row_id,
+                  name: level4Item.prompt_name,
+                  type: 'folder',
+                  children: level5Data.map(level5Item => ({
+                    id: level5Item.project_row_id,
+                    name: level5Item.prompt_name,
+                    type: 'file'
+                  }))
+                };
+              }));
+
               return {
                 id: level3Item.project_row_id,
                 name: level3Item.prompt_name,
                 type: 'folder',
-                children: level4Data.map(level4Item => ({
-                  id: level4Item.project_row_id,
-                  name: level4Item.prompt_name,
-                  type: 'file'
-                }))
+                children: level4WithSubItems
               };
             }));
 
