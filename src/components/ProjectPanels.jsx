@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
-import { Save, X, Copy } from 'lucide-react';
+import { Save, RotateCcw, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
@@ -43,7 +43,7 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
           <Save className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReset}>
-          <X className="h-4 w-4" />
+          <RotateCcw className="h-4 w-4" />
         </Button>
       </div>
       <Textarea 
