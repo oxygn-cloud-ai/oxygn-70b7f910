@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { v4 as uuidv4 } from 'uuid';
 import TreeItem from '../components/TreeItem';
 import PromptBox from '../components/PromptBox';
 import HalfWidthBox from '../components/HalfWidthBox';
@@ -39,6 +38,7 @@ const Projects = () => {
   };
 
   const findItemById = (items, id) => {
+    if (!items) return null;
     for (let item of items) {
       if (item.id === id) return item;
       if (item.children) {
@@ -49,32 +49,37 @@ const Projects = () => {
     return null;
   };
 
-  const renderTreeItems = () => (
-    <TooltipProvider>
-      <Accordion
-        type="multiple"
-        value={expandedItems}
-        onValueChange={setExpandedItems}
-        className="w-full"
-      >
-        {treeData.map((item) => (
-          <TreeItem
-            key={item.id}
-            item={item}
-            level={0}
-            expandedItems={expandedItems}
-            toggleItem={toggleItem}
-            addItem={addItem}
-            deleteItem={deleteItem}
-            startRenaming={startRenaming}
-            editingItem={editingItem}
-            setEditingItem={setEditingItem}
-            finishRenaming={finishRenaming}
-          />
-        ))}
-      </Accordion>
-    </TooltipProvider>
-  );
+  const renderTreeItems = () => {
+    if (!treeData || treeData.length === 0) {
+      return <div>No items to display</div>;
+    }
+    return (
+      <TooltipProvider>
+        <Accordion
+          type="multiple"
+          value={expandedItems}
+          onValueChange={setExpandedItems}
+          className="w-full"
+        >
+          {treeData.map((item) => (
+            <TreeItem
+              key={item.id}
+              item={item}
+              level={0}
+              expandedItems={expandedItems}
+              toggleItem={toggleItem}
+              addItem={addItem}
+              deleteItem={deleteItem}
+              startRenaming={startRenaming}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              finishRenaming={finishRenaming}
+            />
+          ))}
+        </Accordion>
+      </TooltipProvider>
+    );
+  };
 
   const renderAddButtons = () => (
     <div className="mt-4 space-x-4">
