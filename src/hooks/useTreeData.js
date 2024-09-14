@@ -31,7 +31,7 @@ export const useTreeData = () => {
 
         if (level1Error) throw level1Error;
 
-        // Fetch level 2 items for each level 1 item
+        // Fetch level 2 and 3 items for each level 1 item
         const level1WithSubItems = await Promise.all(level1Data.map(async (level1Item) => {
           const { data: level2Data, error: level2Error } = await supabase
             .from('projects')
@@ -43,15 +43,34 @@ export const useTreeData = () => {
 
           if (level2Error) throw level2Error;
 
+          const level2WithSubItems = await Promise.all(level2Data.map(async (level2Item) => {
+            const { data: level3Data, error: level3Error } = await supabase
+              .from('projects')
+              .select('project_row_id, project_id, prompt_name')
+              .eq('project_id', project.project_id)
+              .eq('level', 3)
+              .eq('parent_row_id', level2Item.project_row_id)
+              .order('prompt_name');
+
+            if (level3Error) throw level3Error;
+
+            return {
+              id: level2Item.project_row_id,
+              name: level2Item.prompt_name,
+              type: 'folder',
+              children: level3Data.map(level3Item => ({
+                id: level3Item.project_row_id,
+                name: level3Item.prompt_name,
+                type: 'file'
+              }))
+            };
+          }));
+
           return {
             id: level1Item.project_row_id,
             name: level1Item.prompt_name,
             type: 'folder',
-            children: level2Data.map(level2Item => ({
-              id: level2Item.project_row_id,
-              name: level2Item.prompt_name,
-              type: 'file'
-            }))
+            children: level2WithSubItems
           };
         }));
 
