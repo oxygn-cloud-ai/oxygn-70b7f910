@@ -11,16 +11,25 @@ export const useTreeData = () => {
 
   const fetchProjectNames = async () => {
     try {
+      console.log('Supabase API Call:', {
+        method: 'GET',
+        table: 'project_names',
+        select: 'project_id, project_name',
+        order: 'project_name'
+      });
+
       const { data, error } = await supabase
         .from('project_names')
         .select('project_id, project_name')
         .order('project_name');
 
+      console.log('Supabase API Response:', { data, error });
+
       if (error) {
         throw error;
       }
 
-      console.log('Fetched data:', data); // Add this line for debugging
+      console.log('Fetched data:', data);
 
       const formattedData = data.map(item => ({
         id: item.project_id,
@@ -29,7 +38,7 @@ export const useTreeData = () => {
         children: [],
       }));
 
-      console.log('Formatted data:', formattedData); // Add this line for debugging
+      console.log('Formatted data:', formattedData);
 
       setTreeData(formattedData);
     } catch (error) {
