@@ -104,14 +104,18 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
       <div className="flex gap-4">
-        <div className="w-1/5 border rounded-lg p-4">
+        <div className="w-1/5 border rounded-lg p-4 overflow-auto" style={{ height: 'calc(100vh - 8rem)' }}>
           {renderTreeItems()}
           {renderAddButtons()}
         </div>
         <div className="w-4/5 flex flex-col gap-4">
-          <PromptBox title="Admin Prompt" />
-          <PromptBox title="User Prompt" />
-          <div className="flex flex-wrap gap-4">
+          <div className="flex-none">
+            <PromptBox title="Admin Prompt" />
+          </div>
+          <div className="flex-none">
+            <PromptBox title="User Prompt" />
+          </div>
+          <div className="flex flex-wrap gap-4 flex-grow overflow-auto" style={{ height: 'calc(100vh - 24rem)' }}>
             <HalfWidthBox title="Input Admin Prompt" content="Content for the first half width box goes here." />
             <HalfWidthBox title="Half Width Box 2" content="Content for the second half width box goes here." />
             <HalfWidthBox title="Half Width Box 3" content="Content for the third half width box goes here." />
