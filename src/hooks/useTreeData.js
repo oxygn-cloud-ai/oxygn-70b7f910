@@ -199,5 +199,20 @@ export const useTreeData = () => {
     return -1;
   };
 
-  return { treeData, addItem, deleteItem, updateTreeData, updateItemName };
+  const fetchItemData = async (id) => {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt')
+      .eq('project_row_id', id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching item data:', error);
+      return null;
+    }
+
+    return data;
+  };
+
+  return { treeData, addItem, deleteItem, updateTreeData, updateItemName, fetchItemData };
 };

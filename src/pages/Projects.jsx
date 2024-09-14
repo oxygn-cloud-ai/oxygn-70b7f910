@@ -12,16 +12,15 @@ import ProjectPanels from '../components/ProjectPanels';
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
-  const { treeData, addItem, deleteItem, updateTreeData, updateItemName } = useTreeData();
+  const { treeData, addItem, deleteItem, updateTreeData, updateItemName, fetchItemData } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
+  const [selectedItemData, setSelectedItemData] = useState(null);
 
-  const toggleItem = (itemId) => {
-    setExpandedItems((prevExpanded) =>
-      prevExpanded.includes(itemId)
-        ? prevExpanded.filter((id) => id !== itemId)
-        : [...prevExpanded, itemId]
-    );
+  const toggleItem = async (itemId) => {
+    setActiveItem(itemId);
+    const itemData = await fetchItemData(itemId);
+    setSelectedItemData(itemData);
   };
 
   const startRenaming = (id) => {
@@ -61,14 +60,6 @@ const Projects = () => {
   const handleAddItem = async (parentId) => {
     const newItemId = await addItem(parentId);
     if (newItemId) {
-      if (parentId) {
-        setExpandedItems((prevExpanded) => {
-          if (!prevExpanded.includes(parentId)) {
-            return [...prevExpanded, parentId];
-          }
-          return prevExpanded;
-        });
-      }
       setActiveItem(newItemId);
       return newItemId;
     }
@@ -83,6 +74,7 @@ const Projects = () => {
     }
     if (activeItem === id) {
       setActiveItem(null);
+      setSelectedItemData(null);
     }
   };
 
@@ -95,6 +87,7 @@ const Projects = () => {
         setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
         if (activeItem === deleteConfirmation.itemId) {
           setActiveItem(null);
+          setSelectedItemData(null);
         }
       } else {
         console.error("Failed to delete item");
@@ -124,9 +117,9 @@ const Projects = () => {
             </Tooltip>
           </div>
           <Accordion
-            type="multiple"
-            value={expandedItems}
-            onValueChange={setExpandedItems}
+            type="single"
+            value={activeItem}
+            onValueChange={toggleItem}
             className="w-full min-w-max"
           >
             {treeData.map((item) => (
@@ -163,7 +156,7 @@ const Projects = () => {
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
-          <ProjectPanels />
+          <ProjectPanels selectedItemData={selectedItemData} />
         </Panel>
       </PanelGroup>
       <DeleteConfirmationDialog
