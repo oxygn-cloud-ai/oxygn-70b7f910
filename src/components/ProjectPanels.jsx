@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -36,15 +37,42 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   return (
     <div className="relative mb-4">
       <div className="absolute top-2 left-2 z-10 flex space-x-1">
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
-          <Copy className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave}>
-          <Save className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReset}>
-          <RotateCcw className="h-4 w-4" />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Copy to clipboard</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave}>
+                <Save className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Save changes</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReset}>
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Reset to last saved</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       <Textarea 
         placeholder={placeholder} 
