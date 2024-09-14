@@ -27,14 +27,16 @@ const TreeItem = ({
 
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
-      <ActionButton
-        icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleItem(item.id);
-        }}
-        tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
-      />
+      {item.type === 'folder' && (
+        <ActionButton
+          icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleItem(item.id);
+          }}
+          tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
+        />
+      )}
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'file')} tooltip="Add File" />
       {item.type === 'folder' && (
         <ActionButton icon={<FolderIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'folder')} tooltip="Add Folder" />
