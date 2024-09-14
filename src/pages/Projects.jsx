@@ -25,8 +25,12 @@ const Projects = () => {
       return newExpanded;
     });
     setActiveItem(itemId);
-    const itemData = await fetchItemData(itemId);
-    setSelectedItemData(itemData);
+    if (itemId) {
+      const itemData = await fetchItemData(itemId);
+      setSelectedItemData(itemData);
+    } else {
+      setSelectedItemData(null);
+    }
   };
 
   const startRenaming = (id) => {
@@ -163,7 +167,13 @@ const Projects = () => {
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
-          <ProjectPanels selectedItemData={selectedItemData} />
+          {activeItem ? (
+            <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500">Select a project to view details</p>
+            </div>
+          )}
         </Panel>
       </PanelGroup>
       <DeleteConfirmationDialog

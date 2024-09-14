@@ -44,17 +44,9 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
-const ActionButtons = () => (
-  <div className="flex space-x-4 mb-4">
-    <Button variant="link" className="p-0">Generate Prompts</Button>
-    <Button variant="link" className="p-0">Revert</Button>
-    <Button variant="link" className="p-0">Save</Button>
-  </div>
-);
-
-const ProjectPanels = ({ selectedItemData }) => {
-  const { saveField, isSaving } = useSaveField(selectedItemData?.project_row_id);
-  const { fetchLatestData, isLoading } = useFetchLatestData(selectedItemData?.project_row_id);
+const ProjectPanels = ({ selectedItemData, projectRowId }) => {
+  const { saveField, isSaving } = useSaveField(projectRowId);
+  const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
 
   const handleSave = (fieldName, value) => {
     saveField(fieldName, value);
@@ -65,9 +57,12 @@ const ProjectPanels = ({ selectedItemData }) => {
     return latestValue;
   };
 
+  if (!projectRowId) {
+    return <div>No project selected</div>;
+  }
+
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <ActionButtons />
       <TextAreaWithIcons 
         placeholder="Admin Prompt" 
         value={selectedItemData?.admin_prompt_result}
@@ -103,6 +98,7 @@ const ProjectPanels = ({ selectedItemData }) => {
         />
         <TextAreaWithIcons 
           placeholder="Prompt Settings"
+          value={selectedItemData?.prompt_settings}
           fieldName="prompt_settings"
           onSave={handleSave}
           onReset={handleReset}
@@ -110,6 +106,7 @@ const ProjectPanels = ({ selectedItemData }) => {
         />
         <TextAreaWithIcons 
           placeholder="Half Width Box 4"
+          value={selectedItemData?.half_width_box_4}
           fieldName="half_width_box_4"
           onSave={handleSave}
           onReset={handleReset}
