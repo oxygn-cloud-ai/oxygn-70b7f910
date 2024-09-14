@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
-import { Save, X } from 'lucide-react';
+import { Save, X, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
+import { toast } from 'sonner';
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -23,9 +24,21 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
     }
   };
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Copied to clipboard');
+    }).catch((err) => {
+      console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy text');
+    });
+  };
+
   return (
     <div className="relative mb-4">
       <div className="absolute top-2 left-2 z-10 flex space-x-1">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
+          <Copy className="h-4 w-4" />
+        </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave}>
           <Save className="h-4 w-4" />
         </Button>
@@ -35,7 +48,7 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
       </div>
       <Textarea 
         placeholder={placeholder} 
-        className="w-full p-2 pl-16 border rounded" 
+        className="w-full p-2 pl-24 border rounded" 
         value={text}
         onChange={(e) => setText(e.target.value)}
         readOnly={readOnly}
