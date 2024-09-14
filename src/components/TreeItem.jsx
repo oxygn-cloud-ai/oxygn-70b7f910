@@ -4,7 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { FileIcon, ChevronRightIcon, ChevronDownIcon, PlusIcon, TrashIcon, EditIcon } from 'lucide-react';
+import { FileIcon, PlusIcon, TrashIcon, EditIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,18 +19,12 @@ const TreeItem = ({
   startRenaming,
   editingItem,
   setEditingItem,
-  finishRenaming
+  finishRenaming,
+  activeItem,
+  setActiveItem
 }) => {
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
-      <ActionButton
-        icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
-        onClick={(e) => {
-          e.stopPropagation();
-          toggleItem(item.id);
-        }}
-        tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
-      />
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add File" />
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
       <ActionButton icon={<TrashIcon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
@@ -38,12 +32,16 @@ const TreeItem = ({
   );
 
   const displayName = item.name && item.name.trim() !== '' ? `${item.name} {${level}}` : `Untitled {${level}}`;
+  const isActive = activeItem === item.id;
 
   return (
     <AccordionItem value={item.id} className="border-none">
       <AccordionTrigger
-        onClick={() => toggleItem(item.id)}
-        className={`hover:no-underline py-1 flex items-center justify-between`}
+        onClick={() => {
+          toggleItem(item.id);
+          setActiveItem(item.id);
+        }}
+        className={`hover:no-underline py-1 flex items-center justify-between ${isActive ? 'text-blue-600' : 'text-gray-400'}`}
         style={{ paddingLeft: `${level * 16}px` }}
       >
         <div className="flex items-center space-x-1">
@@ -65,9 +63,9 @@ const TreeItem = ({
               className="h-6 py-0 px-1"
             />
           ) : (
-            <span className="ml-1 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{displayName}</span>
+            <span className={`ml-1 ${isActive ? 'hover:text-blue-800 hover:underline cursor-pointer' : 'cursor-default'}`}>{displayName}</span>
           )}
-          {renderActionButtons()}
+          {isActive && renderActionButtons()}
         </div>
       </AccordionTrigger>
       {item.children && (
@@ -85,6 +83,8 @@ const TreeItem = ({
               editingItem={editingItem}
               setEditingItem={setEditingItem}
               finishRenaming={finishRenaming}
+              activeItem={activeItem}
+              setActiveItem={setActiveItem}
             />
           ))}
         </AccordionContent>

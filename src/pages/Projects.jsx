@@ -11,6 +11,7 @@ import ProjectPanels from '../components/ProjectPanels';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
+  const [activeItem, setActiveItem] = useState(null);
   const { treeData, addItem, deleteItem, updateTreeData, updateItemName } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
@@ -68,6 +69,7 @@ const Projects = () => {
           return prevExpanded;
         });
       }
+      setActiveItem(newItemId);
       return newItemId;
     }
   };
@@ -79,6 +81,9 @@ const Projects = () => {
     } else {
       deleteItem(id);
     }
+    if (activeItem === id) {
+      setActiveItem(null);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -88,6 +93,9 @@ const Projects = () => {
       const success = await deleteItem(deleteConfirmation.itemId);
       if (success) {
         setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
+        if (activeItem === deleteConfirmation.itemId) {
+          setActiveItem(null);
+        }
       } else {
         console.error("Failed to delete item");
       }
@@ -112,7 +120,7 @@ const Projects = () => {
                   <PlusCircle className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>New Project</TooltipContent>
+              <TooltipContent>New File</TooltipContent>
             </Tooltip>
           </div>
           <Accordion
@@ -134,6 +142,8 @@ const Projects = () => {
                 editingItem={editingItem}
                 setEditingItem={setEditingItem}
                 finishRenaming={finishRenaming}
+                activeItem={activeItem}
+                setActiveItem={setActiveItem}
               />
             ))}
           </Accordion>

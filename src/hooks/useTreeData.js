@@ -83,37 +83,28 @@ export const useTreeData = () => {
       children: []
     };
 
-    if (!parentId) {
-      const { data, error } = await supabase
-        .from('project_names')
-        .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
-        .select();
-
-      if (error) {
-        console.error('Error adding new project:', error);
-        return null;
-      }
-    } else {
-      const parentItem = findItemById(treeData, parentId);
-      if (parentItem) {
-        const { data, error } = await supabase
+    const { data, error } = parentId
+      ? await supabase
           .from('projects')
           .insert({
-            project_id: parentItem.id,
+            project_id: findProjectId(treeData, parentId),
             prompt_name: newItem.name,
             level: getItemLevel(treeData, parentId) + 1,
             parent_row_id: parentId,
             created: newItem.created
           })
+          .select()
+      : await supabase
+          .from('project_names')
+          .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
           .select();
 
-        if (error) {
-          console.error('Error adding new item:', error);
-          return null;
-        }
-        newItem.id = data[0].project_row_id;
-      }
+    if (error) {
+      console.error('Error adding new item:', error);
+      return null;
     }
+
+    newItem.id = parentId ? data[0].project_row_id : data[0].project_id;
 
     setTreeData(prevData => {
       if (!parentId) {
@@ -146,36 +137,13 @@ export const useTreeData = () => {
   const deleteItem = async (id) => {
     const isLevel0 = treeData.some(item => item.id === id);
 
-    if (isLevel0) {
-      const { error: deleteProjectNameError } = await supabase
-        .from('project_names')
-        .delete()
-        .eq('project_id', id);
+    const { error } = isLevel0
+      ? await supabase.from('project_names').delete().eq('project_id', id)
+      : await supabase.from('projects').delete().eq('project_row_id', id);
 
-      if (deleteProjectNameError) {
-        console.error('Error deleting from project_names:', deleteProjectNameError);
-        return false;
-      }
-
-      const { error: deleteProjectsError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('project_id', id);
-
-      if (deleteProjectsError) {
-        console.error('Error deleting from projects:', deleteProjectsError);
-        return false;
-      }
-    } else {
-      const { error: deleteItemError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('project_row_id', id);
-
-      if (deleteItemError) {
-        console.error('Error deleting item:', deleteItemError);
-        return false;
-      }
+    if (error) {
+      console.error('Error deleting item:', error);
+      return false;
     }
 
     setTreeData(prevData => {
@@ -196,22 +164,12 @@ export const useTreeData = () => {
 
   const updateItemName = async (id, newName) => {
     const isLevel0 = treeData.some(item => item.id === id);
-    let updateResult;
+    const { error } = isLevel0
+      ? await supabase.from('project_names').update({ project_name: newName }).eq('project_id', id)
+      : await supabase.from('projects').update({ prompt_name: newName }).eq('project_row_id', id);
 
-    if (isLevel0) {
-      updateResult = await supabase
-        .from('project_names')
-        .update({ project_name: newName })
-        .eq('project_id', id);
-    } else {
-      updateResult = await supabase
-        .from('projects')
-        .update({ prompt_name: newName })
-        .eq('project_row_id', id);
-    }
-
-    if (updateResult.error) {
-      console.error('Error updating item name:', updateResult.error);
+    if (error) {
+      console.error('Error updating item name:', error);
       return false;
     }
 
@@ -219,13 +177,12 @@ export const useTreeData = () => {
     return true;
   };
 
-  const findItemById = (items, id) => {
-    if (!items) return null;
+  const findProjectId = (items, id) => {
     for (let item of items) {
-      if (item.id === id) return item;
+      if (item.id === id) return item.id;
       if (item.children) {
-        const found = findItemById(item.children, id);
-        if (found) return found;
+        const found = findProjectId(item.children, id);
+        if (found) return item.id;
       }
     }
     return null;
