@@ -41,7 +41,7 @@ const TreeItem = ({
           toggleItem(item.id);
           setActiveItem(item.id);
         }}
-        className={`hover:no-underline py-1 flex items-center justify-between ${isActive ? 'text-blue-600' : 'text-gray-400'}`}
+        className={`hover:no-underline py-1 flex items-center justify-between ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
         style={{ paddingLeft: `${level * 16}px` }}
       >
         <div className="flex items-center space-x-1">
@@ -63,7 +63,7 @@ const TreeItem = ({
               className="h-6 py-0 px-1"
             />
           ) : (
-            <span className={`ml-1 ${isActive ? 'hover:text-blue-800 hover:underline cursor-pointer' : 'cursor-default'}`}>{displayName}</span>
+            <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
           )}
           {isActive && renderActionButtons()}
         </div>
