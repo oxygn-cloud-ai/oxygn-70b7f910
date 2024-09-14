@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
 import { Textarea } from "@/components/ui/textarea";
 import { useTreeData } from '../hooks/useTreeData';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -102,22 +103,27 @@ const Projects = () => {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
-      <div className="flex gap-4">
-        <div className="w-1/5 border rounded-lg p-4 overflow-auto" style={{ height: 'calc(100vh - 8rem)' }}>
-          {renderTreeItems()}
-          {renderAddButtons()}
-        </div>
-        <div className="w-4/5 flex flex-col gap-4">
-          <Textarea placeholder="Admin Prompt" className="w-full p-2 border rounded" />
-          <Textarea placeholder="User Prompt" className="w-full p-2 border rounded" />
-          <div className="grid grid-cols-2 gap-4">
-            <Textarea placeholder="Input Admin Prompt" className="w-full p-2 border rounded" />
-            <Textarea placeholder="Input User Prompt" className="w-full p-2 border rounded" />
-            <Textarea placeholder="Prompt Settings" className="w-full p-2 border rounded" />
-            <Textarea placeholder="Half Width Box 4" className="w-full p-2 border rounded" />
+      <PanelGroup direction="horizontal">
+        <Panel defaultSize={20} minSize={15}>
+          <div className="border rounded-lg p-4 overflow-auto h-[calc(100vh-8rem)]">
+            {renderTreeItems()}
+            {renderAddButtons()}
           </div>
-        </div>
-      </div>
+        </Panel>
+        <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
+        <Panel>
+          <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto">
+            <Textarea placeholder="Admin Prompt" className="w-full p-2 border rounded" />
+            <Textarea placeholder="User Prompt" className="w-full p-2 border rounded" />
+            <div className="grid grid-cols-2 gap-4">
+              <Textarea placeholder="Input Admin Prompt" className="w-full p-2 border rounded" />
+              <Textarea placeholder="Input User Prompt" className="w-full p-2 border rounded" />
+              <Textarea placeholder="Prompt Settings" className="w-full p-2 border rounded" />
+              <Textarea placeholder="Half Width Box 4" className="w-full p-2 border rounded" />
+            </div>
+          </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 };
