@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon, PlusIcon, TrashIcon, EditIcon } from 'lucide-react';
+import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { v4 as uuidv4 } from 'uuid';
 import TreeItem from '../components/TreeItem';
 
@@ -141,7 +134,7 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
       <div className="flex gap-4">
-        <div className="w-1/4 border rounded-lg p-4">
+        <div className="w-1/5 border rounded-lg p-4">
           <TooltipProvider>
             <Accordion
               type="multiple"
@@ -183,19 +176,27 @@ const Projects = () => {
             </Button>
           </div>
         </div>
-        <div className="w-3/4 flex flex-col gap-4">
-          <div className="border rounded-lg p-4 h-1/2">
+        <div className="w-4/5 flex flex-col gap-4">
+          <div className="border rounded-lg p-4 h-1/3">
             <h2 className="text-xl font-semibold mb-2">Full Width Box</h2>
             <p>Content for the full width box goes here.</p>
           </div>
-          <div className="flex gap-4 h-1/2">
-            <div className="w-1/2 border rounded-lg p-4">
+          <div className="flex flex-wrap gap-4 h-2/3">
+            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
               <h2 className="text-xl font-semibold mb-2">Half Width Box 1</h2>
               <p>Content for the first half width box goes here.</p>
             </div>
-            <div className="w-1/2 border rounded-lg p-4">
+            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
               <h2 className="text-xl font-semibold mb-2">Half Width Box 2</h2>
               <p>Content for the second half width box goes here.</p>
+            </div>
+            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
+              <h2 className="text-xl font-semibold mb-2">Half Width Box 3</h2>
+              <p>Content for the third half width box goes here.</p>
+            </div>
+            <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4">
+              <h2 className="text-xl font-semibold mb-2">Half Width Box 4</h2>
+              <p>Content for the fourth half width box goes here.</p>
             </div>
           </div>
         </div>
