@@ -19,47 +19,13 @@ export const useTreeData = () => {
 
       if (projectsError) throw projectsError;
 
-      // Fetch sub-items for each project
       const projectsWithSubItems = await Promise.all(projectsData.map(async (project) => {
-        // Fetch level 1 items
-        const { data: level1Data, error: level1Error } = await supabase
-          .from('projects')
-          .select('project_row_id, project_id, prompt_name')
-          .eq('project_id', project.project_id)
-          .eq('level', 1)
-          .order('prompt_name');
-
-        if (level1Error) throw level1Error;
-
-        // Fetch level 2 items for each level 1 item
-        const level1WithSubItems = await Promise.all(level1Data.map(async (level1Item) => {
-          const { data: level2Data, error: level2Error } = await supabase
-            .from('projects')
-            .select('project_row_id, project_id, prompt_name')
-            .eq('project_id', project.project_id)
-            .eq('level', 2)
-            .eq('parent_row_id', level1Item.project_row_id)
-            .order('prompt_name');
-
-          if (level2Error) throw level2Error;
-
-          return {
-            id: level1Item.project_row_id,
-            name: level1Item.prompt_name,
-            type: 'folder',
-            children: level2Data.map(level2Item => ({
-              id: level2Item.project_row_id,
-              name: level2Item.prompt_name,
-              type: 'file'
-            }))
-          };
-        }));
-
+        const subItems = await fetchSubItems(project.project_id, null, 1);
         return {
           id: project.project_id,
           name: project.project_name,
           type: 'folder',
-          children: level1WithSubItems
+          children: subItems
         };
       }));
 
@@ -67,6 +33,32 @@ export const useTreeData = () => {
     } catch (error) {
       console.error('Error fetching project data:', error);
     }
+  };
+
+  const fetchSubItems = async (projectId, parentRowId, level) => {
+    if (level > 99) return []; // Stop at level 99
+
+    const { data, error } = await supabase
+      .from('projects')
+      .select('project_row_id, project_id, prompt_name')
+      .eq('project_id', projectId)
+      .eq('level', level)
+      .eq('parent_row_id', parentRowId)
+      .order('prompt_name');
+
+    if (error) throw error;
+
+    const subItemsWithChildren = await Promise.all(data.map(async (item) => {
+      const children = await fetchSubItems(projectId, item.project_row_id, level + 1);
+      return {
+        id: item.project_row_id,
+        name: item.prompt_name,
+        type: children.length > 0 ? 'folder' : 'file',
+        children: children
+      };
+    }));
+
+    return subItemsWithChildren;
   };
 
   const updateTreeData = (id, updateFn) => {
