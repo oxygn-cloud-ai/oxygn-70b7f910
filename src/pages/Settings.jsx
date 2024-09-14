@@ -48,9 +48,7 @@ const Settings = () => {
             placeholder="Enter OpenAI API Key"
           />
         </div>
-        <Button onClick={handleSave} className="bg-blue-500 text-white hover:bg-blue-700">
-          Save Settings
-        </Button>
+        <Button onClick={handleSave}>Save Settings</Button>
       </div>
     </div>
   );
