@@ -67,10 +67,10 @@ const Projects = () => {
     const handleScroll = () => {
       if (accordionRef.current) {
         const accordionBox = accordionRef.current;
-        const items = accordionBox.querySelectorAll('.accordion-item');
+        const activeElement = document.activeElement;
         
-        items.forEach(item => {
-          const rect = item.getBoundingClientRect();
+        if (activeElement && accordionBox.contains(activeElement)) {
+          const rect = activeElement.getBoundingClientRect();
           const containerRect = accordionBox.getBoundingClientRect();
           
           if (rect.right > containerRect.right) {
@@ -78,16 +78,14 @@ const Projects = () => {
           } else if (rect.left < containerRect.left) {
             accordionBox.scrollLeft -= containerRect.left - rect.left + 20; // 20px buffer
           }
-        });
+        }
       }
     };
 
-    const observer = new MutationObserver(handleScroll);
-    if (accordionRef.current) {
-      observer.observe(accordionRef.current, { childList: true, subtree: true });
-    }
-
-    return () => observer.disconnect();
+    document.addEventListener('keydown', handleScroll);
+    return () => {
+      document.removeEventListener('keydown', handleScroll);
+    };
   }, []);
 
   const renderTreeItems = () => {
