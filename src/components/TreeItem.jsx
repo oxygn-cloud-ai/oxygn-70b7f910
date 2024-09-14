@@ -26,14 +26,14 @@ const TreeItem = ({
   );
 
   const renderActionButtons = () => (
-    <>
+    <div className="flex space-x-1 ml-2">
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'file')} tooltip="Add File" />
       {item.type === 'folder' && (
         <ActionButton icon={<FolderIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'folder')} tooltip="Add Folder" />
       )}
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
       <ActionButton icon={<TrashIcon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
-    </>
+    </div>
   );
 
   const displayName = `${item.name} {${level}}`;
@@ -42,10 +42,10 @@ const TreeItem = ({
     <AccordionItem value={item.id} className="border-none">
       <AccordionTrigger
         onClick={() => toggleItem(item.id)}
-        className={`hover:no-underline py-1`}
+        className={`hover:no-underline py-1 flex justify-between`}
         style={{ paddingLeft: `${level * 16}px` }}
       >
-        <div className="flex items-center w-full space-x-1">
+        <div className="flex items-center space-x-1 flex-grow">
           <ActionButton
             icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
             onClick={(e) => {
@@ -74,8 +74,6 @@ const TreeItem = ({
           ) : (
             <span className="ml-1 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{displayName}</span>
           )}
-        </div>
-        <div className="flex space-x-1">
           {renderActionButtons()}
         </div>
       </AccordionTrigger>
