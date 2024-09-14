@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
-import { Textarea } from "@/components/ui/textarea";
 import { useTreeData } from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { PlusCircle } from 'lucide-react';
@@ -12,7 +11,7 @@ import ProjectPanels from '../components/ProjectPanels';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
-  const { treeData, addItem, deleteItem, updateTreeData } = useTreeData();
+  const { treeData, addItem, deleteItem, updateTreeData, updateItemName } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
 
@@ -31,12 +30,17 @@ const Projects = () => {
     }
   };
 
-  const finishRenaming = () => {
+  const finishRenaming = async () => {
     if (editingItem) {
-      updateTreeData(editingItem.id, (item) => ({
-        ...item,
-        name: editingItem.name
-      }));
+      const success = await updateItemName(editingItem.id, editingItem.name);
+      if (success) {
+        updateTreeData(editingItem.id, (item) => ({
+          ...item,
+          name: editingItem.name
+        }));
+      } else {
+        console.error("Failed to update item name in the database");
+      }
       setEditingItem(null);
     }
   };

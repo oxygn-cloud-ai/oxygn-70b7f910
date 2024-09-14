@@ -167,5 +167,30 @@ export const useTreeData = () => {
     return true;
   };
 
-  return { treeData, addItem, deleteItem, updateTreeData };
+  const updateItemName = async (id, newName) => {
+    const isLevel0 = treeData.some(item => item.id === id);
+    let updateResult;
+
+    if (isLevel0) {
+      updateResult = await supabase
+        .from('project_names')
+        .update({ project_name: newName })
+        .eq('project_id', id);
+    } else {
+      updateResult = await supabase
+        .from('projects')
+        .update({ prompt_name: newName })
+        .eq('project_row_id', id);
+    }
+
+    if (updateResult.error) {
+      console.error('Error updating item name:', updateResult.error);
+      return false;
+    }
+
+    updateTreeData(id, item => ({ ...item, name: newName }));
+    return true;
+  };
+
+  return { treeData, addItem, deleteItem, updateTreeData, updateItemName };
 };
