@@ -69,7 +69,7 @@ const TreeItem = ({
               className="h-6 py-0 px-1"
             />
           ) : (
-            <span className="ml-1">{item.name}</span>
+            <span className="ml-1 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer">{item.name}</span>
           )}
         </div>
         <div className="flex space-x-1">
