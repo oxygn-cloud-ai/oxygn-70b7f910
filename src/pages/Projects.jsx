@@ -68,28 +68,30 @@ const Projects = () => {
     }
     return (
       <TooltipProvider>
-        <Accordion
-          type="multiple"
-          value={expandedItems}
-          onValueChange={setExpandedItems}
-          className="w-full"
-        >
-          {treeData.map((item) => (
-            <TreeItem
-              key={item.id}
-              item={item}
-              level={0}
-              expandedItems={expandedItems}
-              toggleItem={toggleItem}
-              addItem={handleAddItem}
-              deleteItem={deleteItem}
-              startRenaming={startRenaming}
-              editingItem={editingItem}
-              setEditingItem={setEditingItem}
-              finishRenaming={finishRenaming}
-            />
-          ))}
-        </Accordion>
+        <div className="overflow-x-auto whitespace-nowrap" style={{ width: '100%' }}>
+          <Accordion
+            type="multiple"
+            value={expandedItems}
+            onValueChange={setExpandedItems}
+            className="w-full min-w-max"
+          >
+            {treeData.map((item) => (
+              <TreeItem
+                key={item.id}
+                item={item}
+                level={0}
+                expandedItems={expandedItems}
+                toggleItem={toggleItem}
+                addItem={handleAddItem}
+                deleteItem={deleteItem}
+                startRenaming={startRenaming}
+                editingItem={editingItem}
+                setEditingItem={setEditingItem}
+                finishRenaming={finishRenaming}
+              />
+            ))}
+          </Accordion>
+        </div>
       </TooltipProvider>
     );
   };
