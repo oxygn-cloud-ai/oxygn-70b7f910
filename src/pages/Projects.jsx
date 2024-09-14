@@ -49,6 +49,19 @@ const Projects = () => {
     return null;
   };
 
+  const handleAddItem = (parentId, type) => {
+    const newItemId = addItem(parentId, type);
+    if (parentId) {
+      setExpandedItems((prevExpanded) => {
+        if (!prevExpanded.includes(parentId)) {
+          return [...prevExpanded, parentId];
+        }
+        return prevExpanded;
+      });
+    }
+    return newItemId;
+  };
+
   const renderTreeItems = () => {
     if (!treeData || treeData.length === 0) {
       return <div>No items to display</div>;
@@ -68,7 +81,7 @@ const Projects = () => {
               level={0}
               expandedItems={expandedItems}
               toggleItem={toggleItem}
-              addItem={addItem}
+              addItem={handleAddItem}
               deleteItem={deleteItem}
               startRenaming={startRenaming}
               editingItem={editingItem}
@@ -86,14 +99,14 @@ const Projects = () => {
       <Button
         variant="link"
         className="text-blue-600 hover:text-blue-800 underline p-0"
-        onClick={() => addItem(null, 'folder')}
+        onClick={() => handleAddItem(null, 'folder')}
       >
         Add Root Folder
       </Button>
       <Button
         variant="link"
         className="text-blue-600 hover:text-blue-800 underline p-0"
-        onClick={() => addItem(null, 'file')}
+        onClick={() => handleAddItem(null, 'file')}
       >
         Add Root File
       </Button>

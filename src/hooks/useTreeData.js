@@ -66,6 +66,8 @@ export const useTreeData = () => {
       }
       return addItemToChildren(prevData, parentId, newItem);
     });
+
+    return newItem.id;
   };
 
   const addItemToChildren = (items, parentId, newItem, currentLevel = 0) => {
