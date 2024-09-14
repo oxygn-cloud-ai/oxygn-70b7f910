@@ -6,7 +6,7 @@ const PromptBox = ({ title, initialContent }) => {
 
   return (
     <div className="border rounded-lg p-4 h-1/3 relative mb-4">
-      <span className="absolute -top-3 left-2 bg-white px-2 text-sm font-semibold text-gray-600">
+      <span className="absolute -top-3 left-2 bg-white px-2 text-sm font-semibold text-gray-600 z-10">
         {title}
       </span>
       <Textarea
