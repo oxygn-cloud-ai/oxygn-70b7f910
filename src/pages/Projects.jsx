@@ -166,9 +166,21 @@ const Projects = () => {
           </Accordion>
         </TooltipProvider>
       </div>
-      <div className="mt-4 space-x-2">
-        <Button onClick={() => addItem(null, 'folder')}>Add Root Folder</Button>
-        <Button onClick={() => addItem(null, 'file')}>Add Root File</Button>
+      <div className="mt-4 space-x-4">
+        <Button
+          variant="link"
+          className="text-blue-600 hover:text-blue-800 underline p-0"
+          onClick={() => addItem(null, 'folder')}
+        >
+          Add Root Folder
+        </Button>
+        <Button
+          variant="link"
+          className="text-blue-600 hover:text-blue-800 underline p-0"
+          onClick={() => addItem(null, 'file')}
+        >
+          Add Root File
+        </Button>
       </div>
     </div>
   );
