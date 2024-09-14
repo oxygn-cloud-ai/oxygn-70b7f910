@@ -74,9 +74,28 @@ const addItemToDatabase = async (parentId, newItem) => {
 };
 
 const deleteItemFromDatabase = async (id, isLevel0) => {
-  const { error } = isLevel0
-    ? await supabase.from('project_names').delete().eq('project_id', id)
-    : await supabase.from('projects').delete().eq('project_row_id', id);
+  let error;
+
+  if (isLevel0) {
+    const { error: projectNamesError } = await supabase
+      .from('project_names')
+      .delete()
+      .eq('project_id', id);
+
+    const { error: projectsError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('project_id', id);
+
+    error = projectNamesError || projectsError;
+  } else {
+    const { error: projectsError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('project_row_id', id);
+
+    error = projectsError;
+  }
 
   if (error) {
     console.error('Error deleting item:', error);
