@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Save, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
+import { useFetchLatestData } from '../hooks/useFetchLatestData';
 
-const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, readOnly }) => {
+const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
+
+  useEffect(() => {
+    setText(value || '');
+  }, [value]);
 
   const handleSave = () => {
     onSave(fieldName, text);
+  };
+
+  const handleReset = async () => {
+    const resetValue = await onReset(fieldName);
+    if (resetValue !== null) {
+      setText(resetValue);
+    }
   };
 
   return (
@@ -17,7 +29,7 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, readOnly }) 
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave}>
           <Save className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-6 w-6">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReset}>
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -42,9 +54,15 @@ const ActionButtons = () => (
 
 const ProjectPanels = ({ selectedItemData }) => {
   const { saveField, isSaving } = useSaveField(selectedItemData?.project_row_id);
+  const { fetchLatestData, isLoading } = useFetchLatestData(selectedItemData?.project_row_id);
 
   const handleSave = (fieldName, value) => {
     saveField(fieldName, value);
+  };
+
+  const handleReset = async (fieldName) => {
+    const latestValue = await fetchLatestData(fieldName);
+    return latestValue;
   };
 
   return (
@@ -55,6 +73,7 @@ const ProjectPanels = ({ selectedItemData }) => {
         value={selectedItemData?.admin_prompt_result}
         fieldName="admin_prompt_result"
         onSave={handleSave}
+        onReset={handleReset}
         readOnly={false}
       />
       <TextAreaWithIcons 
@@ -62,6 +81,7 @@ const ProjectPanels = ({ selectedItemData }) => {
         value={selectedItemData?.user_prompt_result}
         fieldName="user_prompt_result"
         onSave={handleSave}
+        onReset={handleReset}
         readOnly={false}
       />
       <div className="grid grid-cols-2 gap-4">
@@ -70,6 +90,7 @@ const ProjectPanels = ({ selectedItemData }) => {
           value={selectedItemData?.input_admin_prompt}
           fieldName="input_admin_prompt"
           onSave={handleSave}
+          onReset={handleReset}
           readOnly={false}
         />
         <TextAreaWithIcons 
@@ -77,18 +98,21 @@ const ProjectPanels = ({ selectedItemData }) => {
           value={selectedItemData?.input_user_prompt}
           fieldName="input_user_prompt"
           onSave={handleSave}
+          onReset={handleReset}
           readOnly={false}
         />
         <TextAreaWithIcons 
           placeholder="Prompt Settings"
           fieldName="prompt_settings"
           onSave={handleSave}
+          onReset={handleReset}
           readOnly={false}
         />
         <TextAreaWithIcons 
           placeholder="Half Width Box 4"
           fieldName="half_width_box_4"
           onSave={handleSave}
+          onReset={handleReset}
           readOnly={false}
         />
       </div>
