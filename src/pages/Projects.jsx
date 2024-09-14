@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
 import { useTreeData } from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -114,18 +114,13 @@ const Projects = () => {
       <TooltipProvider>
         <div className="overflow-x-scroll whitespace-nowrap" style={{ width: '100%' }}>
           <div className="mb-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleAddItem(null)}
-                >
-                  <PlusCircle className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New Prompt</TooltipContent>
-            </Tooltip>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleAddItem(null)}
+            >
+              <PlusCircle className="h-5 w-5" />
+            </Button>
           </div>
           <Accordion
             type="multiple"
@@ -148,6 +143,7 @@ const Projects = () => {
                 finishRenaming={finishRenaming}
                 activeItem={activeItem}
                 setActiveItem={setActiveItem}
+                projectId={item.id}
               />
             ))}
           </Accordion>

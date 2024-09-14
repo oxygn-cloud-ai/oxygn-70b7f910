@@ -48,74 +48,106 @@ const buildTreeStructure = (items, parentId = null) => {
     }));
 };
 
-const addItemToDatabase = async (parentId, newItem) => {
-  const { data, error } = parentId
-    ? await supabase
-        .from('projects')
-        .insert({
-          project_id: findProjectId(treeData, parentId),
-          prompt_name: newItem.name,
-          level: getItemLevel(treeData, parentId) + 1,
-          parent_row_id: parentId,
-          created: newItem.created
-        })
-        .select()
-    : await supabase
+const databaseOperations = {
+  addItem: async (parentId, newItem) => {
+    const { data, error } = parentId
+      ? await supabase
+          .from('projects')
+          .insert({
+            project_id: findProjectId(treeData, parentId),
+            prompt_name: newItem.name,
+            level: getItemLevel(treeData, parentId) + 1,
+            parent_row_id: parentId,
+            created: newItem.created
+          })
+          .select()
+      : await supabase
+          .from('project_names')
+          .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
+          .select();
+
+    if (error) {
+      console.error('Error adding new item:', error);
+      return null;
+    }
+
+    return parentId ? data[0].project_row_id : data[0].project_id;
+  },
+
+  deleteItem: async (id, isLevel0) => {
+    let error;
+
+    if (isLevel0) {
+      const { error: projectNamesError } = await supabase
         .from('project_names')
-        .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
-        .select();
+        .delete()
+        .eq('project_id', id);
 
-  if (error) {
-    console.error('Error adding new item:', error);
-    return null;
+      const { error: projectsError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('project_id', id);
+
+      error = projectNamesError || projectsError;
+    } else {
+      const { error: projectsError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('project_row_id', id);
+
+      error = projectsError;
+    }
+
+    if (error) {
+      console.error('Error deleting item:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  updateItemName: async (id, newName, isLevel0) => {
+    const { error } = isLevel0
+      ? await supabase.from('project_names').update({ project_name: newName }).eq('project_id', id)
+      : await supabase.from('projects').update({ prompt_name: newName }).eq('project_row_id', id);
+
+    if (error) {
+      console.error('Error updating item name:', error);
+      return false;
+    }
+
+    return true;
+  },
+
+  fetchItemData: async (id) => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select(`
+          admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt,
+          model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
+          stop, n, logit_bias, user, stream, best_of, logprobs, echo, suffix,
+          temperature_scaling, prompt_tokens, response_tokens, batch_size,
+          learning_rate_multiplier, n_epochs, validation_file, training_file,
+          engine, input, context_length, custom_finetune
+        `)
+        .eq('project_row_id', id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        toast.warning('No data found for this project');
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching item data:', error);
+      toast.error(`Failed to fetch project data: ${error.message}`);
+      return null;
+    }
   }
-
-  return parentId ? data[0].project_row_id : data[0].project_id;
-};
-
-const deleteItemFromDatabase = async (id, isLevel0) => {
-  let error;
-
-  if (isLevel0) {
-    const { error: projectNamesError } = await supabase
-      .from('project_names')
-      .delete()
-      .eq('project_id', id);
-
-    const { error: projectsError } = await supabase
-      .from('projects')
-      .delete()
-      .eq('project_id', id);
-
-    error = projectNamesError || projectsError;
-  } else {
-    const { error: projectsError } = await supabase
-      .from('projects')
-      .delete()
-      .eq('project_row_id', id);
-
-    error = projectsError;
-  }
-
-  if (error) {
-    console.error('Error deleting item:', error);
-    return false;
-  }
-
-  return true;
-};
-
-const updateItemNameInDatabase = async (id, newName, isLevel0) => {
-  const { error } = isLevel0
-    ? await supabase.from('project_names').update({ project_name: newName }).eq('project_id', id)
-    : await supabase.from('projects').update({ prompt_name: newName }).eq('project_row_id', id);
-
-  if (error) {
-    console.error('Error updating item name:', error);
-    return false;
-  }
-
-  return true;
 };
 
 const findProjectId = (items, id) => {
@@ -175,7 +207,7 @@ export const useTreeData = () => {
       children: []
     };
 
-    const newItemId = await addItemToDatabase(parentId, newItem);
+    const newItemId = await databaseOperations.addItem(parentId, newItem);
     if (!newItemId) return null;
 
     newItem.id = newItemId;
@@ -192,7 +224,7 @@ export const useTreeData = () => {
 
   const deleteItem = async (id) => {
     const isLevel0 = treeData.some(item => item.id === id);
-    const success = await deleteItemFromDatabase(id, isLevel0);
+    const success = await databaseOperations.deleteItem(id, isLevel0);
 
     if (success) {
       setTreeData(prevData => {
@@ -208,7 +240,7 @@ export const useTreeData = () => {
 
   const updateItemName = async (id, newName) => {
     const isLevel0 = treeData.some(item => item.id === id);
-    const success = await updateItemNameInDatabase(id, newName, isLevel0);
+    const success = await databaseOperations.updateItemName(id, newName, isLevel0);
 
     if (success) {
       updateTreeData(id, item => ({ ...item, name: newName }));
@@ -217,37 +249,14 @@ export const useTreeData = () => {
     return success;
   };
 
-  const fetchItemData = async (id) => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          admin_prompt_result, user_prompt_result, input_admin_prompt, input_user_prompt,
-          model, temperature, max_tokens, top_p, frequency_penalty, presence_penalty,
-          stop, n, logit_bias, user, stream, best_of, logprobs, echo, suffix,
-          temperature_scaling, prompt_tokens, response_tokens, batch_size,
-          learning_rate_multiplier, n_epochs, validation_file, training_file,
-          engine, input, context_length, custom_finetune
-        `)
-        .eq('project_row_id', id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (!data) {
-        toast.warning('No data found for this project');
-        return null;
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error fetching item data:', error);
-      toast.error(`Failed to fetch project data: ${error.message}`);
-      return null;
-    }
+  return { 
+    treeData, 
+    addItem, 
+    deleteItem, 
+    updateTreeData, 
+    updateItemName, 
+    fetchItemData: databaseOperations.fetchItemData 
   };
-
-  return { treeData, addItem, deleteItem, updateTreeData, updateItemName, fetchItemData };
 };
 
 const addItemToChildren = (items, parentId, newItem) => {

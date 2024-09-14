@@ -21,7 +21,8 @@ const TreeItem = ({
   setEditingItem,
   finishRenaming,
   activeItem,
-  setActiveItem
+  setActiveItem,
+  projectId
 }) => {
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
@@ -36,38 +37,38 @@ const TreeItem = ({
 
   return (
     <AccordionItem value={item.id} className="border-none">
-      <AccordionTrigger
-        onClick={() => {
-          toggleItem(item.id);
-          setActiveItem(item.id);
-        }}
-        className={`hover:no-underline py-1 flex items-center justify-between ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-        style={{ paddingLeft: `${level * 16}px` }}
-      >
-        <div className="flex items-center space-x-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AccordionTrigger
+            onClick={() => {
+              toggleItem(item.id);
+              setActiveItem(item.id);
+            }}
+            className={`hover:no-underline py-1 flex items-center justify-between ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+            style={{ paddingLeft: `${level * 16}px` }}
+          >
+            <div className="flex items-center space-x-1">
               <FileIcon className="h-4 w-4" />
-            </TooltipTrigger>
-            <TooltipContent>
-              Prompt
-            </TooltipContent>
-          </Tooltip>
-          {editingItem && editingItem.id === item.id ? (
-            <Input
-              value={editingItem.name}
-              onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-              onBlur={finishRenaming}
-              onKeyPress={(e) => e.key === 'Enter' && finishRenaming()}
-              onClick={(e) => e.stopPropagation()}
-              className="h-6 py-0 px-1"
-            />
-          ) : (
-            <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
-          )}
-          {isActive && renderActionButtons()}
-        </div>
-      </AccordionTrigger>
+              {editingItem && editingItem.id === item.id ? (
+                <Input
+                  value={editingItem.name}
+                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                  onBlur={finishRenaming}
+                  onKeyPress={(e) => e.key === 'Enter' && finishRenaming()}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-6 py-0 px-1"
+                />
+              ) : (
+                <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
+              )}
+              {isActive && renderActionButtons()}
+            </div>
+          </AccordionTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          Project ID: {projectId}
+        </TooltipContent>
+      </Tooltip>
       {item.children && (
         <AccordionContent>
           {item.children.map((child) => (
@@ -85,6 +86,7 @@ const TreeItem = ({
               finishRenaming={finishRenaming}
               activeItem={activeItem}
               setActiveItem={setActiveItem}
+              projectId={projectId}
             />
           ))}
         </AccordionContent>
