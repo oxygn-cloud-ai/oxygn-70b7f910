@@ -21,44 +21,39 @@ const TreeItem = ({
   setEditingItem,
   finishRenaming
 }) => {
+  const renderIcon = () => (
+    item.type === 'folder' ? <FolderIcon className="h-4 w-4" /> : <FileIcon className="h-4 w-4" />
+  );
+
+  const renderActionButtons = () => (
+    <>
+      <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'file')} tooltip="Add File" />
+      {item.type === 'folder' && (
+        <ActionButton icon={<FolderIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'folder')} tooltip="Add Folder" />
+      )}
+      <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
+      <ActionButton icon={<TrashIcon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
+    </>
+  );
+
   return (
     <AccordionItem value={item.id} className="border-none">
       <AccordionTrigger
         onClick={() => toggleItem(item.id)}
-        className={`hover:no-underline py-1 ${
-          level > 0 ? `pl-${level * 4}` : ''
-        }`}
+        className={`hover:no-underline py-1 ${level > 0 ? `pl-${level * 4}` : ''}`}
       >
-        <div className="flex items-center w-full">
+        <div className="flex items-center w-full space-x-1">
+          <ActionButton
+            icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleItem(item.id);
+            }}
+            tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
+          />
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 mr-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleItem(item.id);
-                }}
-              >
-                {expandedItems.includes(item.id) ? (
-                  <ChevronDownIcon className="h-4 w-4" />
-                ) : (
-                  <ChevronRightIcon className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {item.type === 'folder' ? (
-                <FolderIcon className="mr-2 h-4 w-4" />
-              ) : (
-                <FileIcon className="mr-2 h-4 w-4" />
-              )}
+              {renderIcon()}
             </TooltipTrigger>
             <TooltipContent>
               {item.type === 'folder' ? 'Folder' : 'File'}
@@ -74,72 +69,11 @@ const TreeItem = ({
               className="h-6 py-0 px-1"
             />
           ) : (
-            item.name
+            <span className="ml-1">{item.name}</span>
           )}
         </div>
-        <div className="flex space-x-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  addItem(item.id, 'file');
-                }}
-              >
-                <PlusIcon className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Add File</TooltipContent>
-          </Tooltip>
-          {item.type === 'folder' && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    addItem(item.id, 'folder');
-                  }}
-                >
-                  <FolderIcon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Add Folder</TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startRenaming(item.id);
-                }}
-              >
-                <EditIcon className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Rename</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteItem(item.id);
-                }}
-              >
-                <TrashIcon className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Delete</TooltipContent>
-          </Tooltip>
+        <div className="flex space-x-1">
+          {renderActionButtons()}
         </div>
       </AccordionTrigger>
       {item.children && (
@@ -164,5 +98,24 @@ const TreeItem = ({
     </AccordionItem>
   );
 };
+
+const ActionButton = ({ icon, onClick, tooltip }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-5 w-5 p-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+      >
+        {icon}
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>{tooltip}</TooltipContent>
+  </Tooltip>
+);
 
 export default TreeItem;
