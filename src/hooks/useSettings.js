@@ -12,12 +12,30 @@ export const useSettings = () => {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('settings')
         .select('*')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+
+      if (!data) {
+        // If no settings exist, create a default row
+        const defaultSettings = {
+          openai_url: '',
+          openai_api_key: ''
+        };
+
+        const { data: newData, error: insertError } = await supabase
+          .from('settings')
+          .insert(defaultSettings)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        data = newData;
+      }
 
       setSettings(data);
     } catch (error) {
@@ -33,7 +51,7 @@ export const useSettings = () => {
       const { error } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .eq('id', 1); // Assuming there's only one row in the settings table
+        .eq('id', settings.id);
 
       if (error) throw error;
 
