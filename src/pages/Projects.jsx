@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +11,7 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const { treeData, addItem, deleteItem, updateTreeData } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
+  const accordionRef = useRef(null);
 
   const toggleItem = (itemId) => {
     setExpandedItems((prevExpanded) =>
@@ -62,13 +63,38 @@ const Projects = () => {
     return newItemId;
   };
 
+  useEffect(() => {
+    const handleScroll = () => {
+      if (accordionRef.current) {
+        const accordionBox = accordionRef.current;
+        const activeElement = document.activeElement;
+        
+        if (activeElement && accordionBox.contains(activeElement)) {
+          const rect = activeElement.getBoundingClientRect();
+          const containerRect = accordionBox.getBoundingClientRect();
+          
+          if (rect.right > containerRect.right) {
+            accordionBox.scrollLeft += rect.right - containerRect.right + 20; // 20px buffer
+          } else if (rect.left < containerRect.left) {
+            accordionBox.scrollLeft -= containerRect.left - rect.left + 20; // 20px buffer
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleScroll);
+    return () => {
+      document.removeEventListener('keydown', handleScroll);
+    };
+  }, []);
+
   const renderTreeItems = () => {
     if (!treeData || treeData.length === 0) {
       return <div>No items to display</div>;
     }
     return (
       <TooltipProvider>
-        <div className="overflow-x-auto whitespace-nowrap" style={{ width: '100%' }}>
+        <div ref={accordionRef} className="overflow-x-auto whitespace-nowrap" style={{ width: '100%' }}>
           <Accordion
             type="multiple"
             value={expandedItems}
