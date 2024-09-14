@@ -47,72 +47,56 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
 const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
   const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
+  const [localData, setLocalData] = useState(selectedItemData || {});
 
-  const handleSave = (fieldName, value) => {
-    saveField(fieldName, value);
+  useEffect(() => {
+    setLocalData(selectedItemData || {});
+  }, [selectedItemData]);
+
+  const handleSave = async (fieldName, value) => {
+    if (projectRowId) {
+      await saveField(fieldName, value);
+      setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
+    }
   };
 
   const handleReset = async (fieldName) => {
-    const latestValue = await fetchLatestData(fieldName);
-    return latestValue;
+    if (projectRowId) {
+      const latestValue = await fetchLatestData(fieldName);
+      if (latestValue !== null) {
+        setLocalData(prevData => ({ ...prevData, [fieldName]: latestValue }));
+      }
+      return latestValue;
+    }
+    return null;
   };
 
   if (!projectRowId) {
     return <div>No project selected</div>;
   }
 
+  const fields = [
+    { name: 'admin_prompt_result', placeholder: 'Admin Prompt' },
+    { name: 'user_prompt_result', placeholder: 'User Prompt' },
+    { name: 'input_admin_prompt', placeholder: 'Input Admin Prompt' },
+    { name: 'input_user_prompt', placeholder: 'Input User Prompt' },
+    { name: 'prompt_settings', placeholder: 'Prompt Settings' },
+    { name: 'half_width_box_4', placeholder: 'Half Width Box 4' }
+  ];
+
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <TextAreaWithIcons 
-        placeholder="Admin Prompt" 
-        value={selectedItemData?.admin_prompt_result}
-        fieldName="admin_prompt_result"
-        onSave={handleSave}
-        onReset={handleReset}
-        readOnly={false}
-      />
-      <TextAreaWithIcons 
-        placeholder="User Prompt" 
-        value={selectedItemData?.user_prompt_result}
-        fieldName="user_prompt_result"
-        onSave={handleSave}
-        onReset={handleReset}
-        readOnly={false}
-      />
-      <div className="grid grid-cols-2 gap-4">
-        <TextAreaWithIcons 
-          placeholder="Input Admin Prompt" 
-          value={selectedItemData?.input_admin_prompt}
-          fieldName="input_admin_prompt"
+      {fields.map(field => (
+        <TextAreaWithIcons
+          key={field.name}
+          placeholder={field.placeholder}
+          value={localData[field.name] || ''}
+          fieldName={field.name}
           onSave={handleSave}
           onReset={handleReset}
           readOnly={false}
         />
-        <TextAreaWithIcons 
-          placeholder="Input User Prompt" 
-          value={selectedItemData?.input_user_prompt}
-          fieldName="input_user_prompt"
-          onSave={handleSave}
-          onReset={handleReset}
-          readOnly={false}
-        />
-        <TextAreaWithIcons 
-          placeholder="Prompt Settings"
-          value={selectedItemData?.prompt_settings}
-          fieldName="prompt_settings"
-          onSave={handleSave}
-          onReset={handleReset}
-          readOnly={false}
-        />
-        <TextAreaWithIcons 
-          placeholder="Half Width Box 4"
-          value={selectedItemData?.half_width_box_4}
-          fieldName="half_width_box_4"
-          onSave={handleSave}
-          onReset={handleReset}
-          readOnly={false}
-        />
-      </div>
+      ))}
     </div>
   );
 };
