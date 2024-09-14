@@ -108,7 +108,7 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
         className="h-5 w-5 p-0"
         onClick={(e) => {
           e.stopPropagation();
-          onClick();
+          onClick(e);
         }}
       >
         {icon}
