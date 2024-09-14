@@ -49,17 +49,19 @@ const Projects = () => {
     return null;
   };
 
-  const handleAddItem = (parentId, type) => {
-    const newItemId = addItem(parentId, type);
-    if (parentId) {
-      setExpandedItems((prevExpanded) => {
-        if (!prevExpanded.includes(parentId)) {
-          return [...prevExpanded, parentId];
-        }
-        return prevExpanded;
-      });
+  const handleAddItem = async (parentId, type) => {
+    const newItemId = await addItem(parentId, type);
+    if (newItemId) {
+      if (parentId) {
+        setExpandedItems((prevExpanded) => {
+          if (!prevExpanded.includes(parentId)) {
+            return [...prevExpanded, parentId];
+          }
+          return prevExpanded;
+        });
+      }
+      return newItemId;
     }
-    return newItemId;
   };
 
   useEffect(() => {

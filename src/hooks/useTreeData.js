@@ -76,7 +76,7 @@ export const useTreeData = () => {
     });
   };
 
-  const addItem = (parentId, type) => {
+  const addItem = async (parentId, type) => {
     const newItem = {
       id: uuidv4(),
       name: type === 'folder' ? 'New Folder' : 'New File',
@@ -84,6 +84,19 @@ export const useTreeData = () => {
       created: new Date().toISOString(),
       children: type === 'folder' ? [] : undefined
     };
+
+    if (!parentId) {
+      // This is a level 0 item, so we need to add it to the project_names table
+      const { data, error } = await supabase
+        .from('project_names')
+        .insert({ project_id: newItem.id, project_name: newItem.name })
+        .select();
+
+      if (error) {
+        console.error('Error adding new project:', error);
+        return null;
+      }
+    }
 
     setTreeData(prevData => {
       if (!parentId) {
