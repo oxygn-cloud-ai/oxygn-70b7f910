@@ -1,47 +1,86 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { FolderIcon, FileIcon } from 'lucide-react';
+import { FolderIcon, FileIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
 const Projects = () => {
+  const [expandedItems, setExpandedItems] = useState([]);
+
   const dummyData = [
     {
+      id: '1',
       name: 'Project A',
       type: 'folder',
       children: [
-        { name: 'file1.txt', type: 'file' },
-        { name: 'file2.txt', type: 'file' },
+        { id: '1-1', name: 'file1.txt', type: 'file' },
+        { id: '1-2', name: 'file2.txt', type: 'file' },
         {
+          id: '1-3',
           name: 'Subfolder',
           type: 'folder',
           children: [
-            { name: 'subfile1.txt', type: 'file' },
-            { name: 'subfile2.txt', type: 'file' },
+            { id: '1-3-1', name: 'subfile1.txt', type: 'file' },
+            { id: '1-3-2', name: 'subfile2.txt', type: 'file' },
           ],
         },
       ],
     },
     {
+      id: '2',
       name: 'Project B',
       type: 'folder',
       children: [
-        { name: 'fileB1.txt', type: 'file' },
-        { name: 'fileB2.txt', type: 'file' },
+        { id: '2-1', name: 'fileB1.txt', type: 'file' },
+        { id: '2-2', name: 'fileB2.txt', type: 'file' },
       ],
     },
   ];
 
-  const renderTree = (items) => {
+  const toggleItem = (itemId) => {
+    setExpandedItems((prevExpanded) =>
+      prevExpanded.includes(itemId)
+        ? prevExpanded.filter((id) => id !== itemId)
+        : [...prevExpanded, itemId]
+    );
+  };
+
+  const renderTree = (items, level = 0) => {
     return (
-      <Accordion type="single" collapsible className="w-full">
-        {items.map((item, index) => (
-          <AccordionItem value={`item-${index}`} key={index}>
-            <AccordionTrigger className="hover:no-underline">
-              <div className="flex items-center">
+      <Accordion
+        type="multiple"
+        value={expandedItems}
+        onValueChange={setExpandedItems}
+        className="w-full"
+      >
+        {items.map((item) => (
+          <AccordionItem value={item.id} key={item.id} className="border-none">
+            <AccordionTrigger
+              onClick={() => toggleItem(item.id)}
+              className={`hover:no-underline py-1 ${
+                level > 0 ? `pl-${level * 4}` : ''
+              }`}
+            >
+              <div className="flex items-center w-full">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 mr-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleItem(item.id);
+                  }}
+                >
+                  {expandedItems.includes(item.id) ? (
+                    <ChevronDownIcon className="h-4 w-4" />
+                  ) : (
+                    <ChevronRightIcon className="h-4 w-4" />
+                  )}
+                </Button>
                 {item.type === 'folder' ? (
                   <FolderIcon className="mr-2 h-4 w-4" />
                 ) : (
@@ -52,7 +91,7 @@ const Projects = () => {
             </AccordionTrigger>
             {item.children && (
               <AccordionContent>
-                {renderTree(item.children)}
+                {renderTree(item.children, level + 1)}
               </AccordionContent>
             )}
           </AccordionItem>
