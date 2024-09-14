@@ -26,7 +26,15 @@ const TreeItem = ({
   );
 
   const renderActionButtons = () => (
-    <div className="flex space-x-1 ml-2">
+    <div className="flex items-center space-x-1 ml-2">
+      <ActionButton
+        icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggleItem(item.id);
+        }}
+        tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
+      />
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'file')} tooltip="Add File" />
       {item.type === 'folder' && (
         <ActionButton icon={<FolderIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'folder')} tooltip="Add Folder" />
@@ -42,18 +50,10 @@ const TreeItem = ({
     <AccordionItem value={item.id} className="border-none">
       <AccordionTrigger
         onClick={() => toggleItem(item.id)}
-        className={`hover:no-underline py-1 flex items-center`}
+        className={`hover:no-underline py-1 flex items-center justify-between`}
         style={{ paddingLeft: `${level * 16}px` }}
       >
-        <div className="flex items-center space-x-1 flex-grow">
-          <ActionButton
-            icon={expandedItems.includes(item.id) ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleItem(item.id);
-            }}
-            tooltip={expandedItems.includes(item.id) ? 'Collapse' : 'Expand'}
-          />
+        <div className="flex items-center space-x-1">
           <Tooltip>
             <TooltipTrigger asChild>
               {renderIcon()}
