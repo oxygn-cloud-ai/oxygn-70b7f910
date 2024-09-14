@@ -112,7 +112,7 @@ const Projects = () => {
           <Textarea placeholder="User Prompt" className="w-full p-2 border rounded" />
           <div className="grid grid-cols-2 gap-4">
             <Textarea placeholder="Input Admin Prompt" className="w-full p-2 border rounded" />
-            <Textarea placeholder="Half Width Box 2" className="w-full p-2 border rounded" />
+            <Textarea placeholder="Input User Prompt" className="w-full p-2 border rounded" />
             <Textarea placeholder="Half Width Box 3" className="w-full p-2 border rounded" />
             <Textarea placeholder="Half Width Box 4" className="w-full p-2 border rounded" />
           </div>
