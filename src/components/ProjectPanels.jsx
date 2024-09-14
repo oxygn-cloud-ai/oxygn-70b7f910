@@ -22,9 +22,18 @@ const TextAreaWithIcons = ({ placeholder, value, readOnly }) => (
   </div>
 );
 
+const ActionButtons = () => (
+  <div className="flex space-x-4 mb-4">
+    <Button variant="link" className="p-0">Generate Prompts</Button>
+    <Button variant="link" className="p-0">Revert</Button>
+    <Button variant="link" className="p-0">Save</Button>
+  </div>
+);
+
 const ProjectPanels = ({ selectedItemData }) => {
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
+      <ActionButtons />
       <TextAreaWithIcons 
         placeholder="Admin Prompt" 
         value={selectedItemData?.admin_prompt_result}
