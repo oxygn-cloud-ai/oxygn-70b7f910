@@ -21,18 +21,6 @@ const fetchProjectData = async () => {
 
       if (allLevelsError) throw allLevelsError;
 
-      const buildTreeStructure = (items, parentId = null) => {
-        return items
-          .filter(item => item.parent_row_id === parentId)
-          .sort((a, b) => new Date(a.created) - new Date(b.created))
-          .map(item => ({
-            id: item.project_row_id,
-            name: item.prompt_name,
-            created: item.created,
-            children: buildTreeStructure(items, item.project_row_id)
-          }));
-      };
-
       return {
         id: project.project_id,
         name: project.project_name,
@@ -46,6 +34,18 @@ const fetchProjectData = async () => {
     console.error('Error fetching project data:', error);
     return [];
   }
+};
+
+const buildTreeStructure = (items, parentId = null) => {
+  return items
+    .filter(item => item.parent_row_id === parentId)
+    .sort((a, b) => new Date(a.created) - new Date(b.created))
+    .map(item => ({
+      id: item.project_row_id,
+      name: item.prompt_name,
+      created: item.created,
+      children: buildTreeStructure(items, item.project_row_id)
+    }));
 };
 
 const addItemToDatabase = async (parentId, newItem) => {
@@ -97,6 +97,28 @@ const updateItemNameInDatabase = async (id, newName, isLevel0) => {
   }
 
   return true;
+};
+
+const findProjectId = (items, id) => {
+  for (let item of items) {
+    if (item.id === id) return item.id;
+    if (item.children) {
+      const found = findProjectId(item.children, id);
+      if (found) return item.id;
+    }
+  }
+  return null;
+};
+
+const getItemLevel = (items, id, level = 0) => {
+  for (let item of items) {
+    if (item.id === id) return level;
+    if (item.children) {
+      const childLevel = getItemLevel(item.children, id, level + 1);
+      if (childLevel !== -1) return childLevel;
+    }
+  }
+  return -1;
 };
 
 export const useTreeData = () => {
@@ -155,16 +177,10 @@ export const useTreeData = () => {
 
     if (success) {
       setTreeData(prevData => {
-        const deleteRecursive = (items) => {
-          return items.filter(item => {
-            if (item.id === id) return false;
-            if (item.children) {
-              item.children = deleteRecursive(item.children);
-            }
-            return true;
-          });
-        };
-        return deleteRecursive(prevData);
+        if (isLevel0) {
+          return prevData.filter(item => item.id !== id);
+        }
+        return deleteRecursive(prevData, id);
       });
     }
 
@@ -233,24 +249,12 @@ const addItemToChildren = (items, parentId, newItem) => {
   });
 };
 
-const findProjectId = (items, id) => {
-  for (let item of items) {
-    if (item.id === id) return item.id;
+const deleteRecursive = (items, id) => {
+  return items.filter(item => {
+    if (item.id === id) return false;
     if (item.children) {
-      const found = findProjectId(item.children, id);
-      if (found) return item.id;
+      item.children = deleteRecursive(item.children, id);
     }
-  }
-  return null;
-};
-
-const getItemLevel = (items, id, level = 0) => {
-  for (let item of items) {
-    if (item.id === id) return level;
-    if (item.children) {
-      const childLevel = getItemLevel(item.children, id, level + 1);
-      if (childLevel !== -1) return childLevel;
-    }
-  }
-  return -1;
+    return true;
+  });
 };
