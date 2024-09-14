@@ -1,0 +1,24 @@
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+export const useSaveField = (projectRowId) => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveField = async (fieldName, value) => {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ [fieldName]: value })
+        .eq('project_row_id', projectRowId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving field:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return { saveField, isSaving };
+};
