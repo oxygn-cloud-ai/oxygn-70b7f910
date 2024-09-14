@@ -1,26 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
 import { Textarea } from "@/components/ui/textarea";
 import { useTreeData } from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { PlusCircle } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
+import ProjectPanels from '../components/ProjectPanels';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const { treeData, addItem, deleteItem, updateTreeData } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
-  const accordionRef = useRef(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
 
   const toggleItem = (itemId) => {
@@ -92,36 +85,10 @@ const Projects = () => {
       if (success) {
         setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
       } else {
-        // Handle error (e.g., show an error message)
         console.error("Failed to delete item");
       }
     }
   };
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (accordionRef.current) {
-        const accordionBox = accordionRef.current;
-        const activeElement = document.activeElement;
-        
-        if (activeElement && accordionBox.contains(activeElement)) {
-          const rect = activeElement.getBoundingClientRect();
-          const containerRect = accordionBox.getBoundingClientRect();
-          
-          if (rect.right > containerRect.right) {
-            accordionBox.scrollLeft += rect.right - containerRect.right + 20; // 20px buffer
-          } else if (rect.left < containerRect.left) {
-            accordionBox.scrollLeft -= containerRect.left - rect.left + 20; // 20px buffer
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleScroll);
-    return () => {
-      document.removeEventListener('keydown', handleScroll);
-    };
-  }, []);
 
   const renderTreeItems = () => {
     if (!treeData || treeData.length === 0) {
@@ -129,7 +96,21 @@ const Projects = () => {
     }
     return (
       <TooltipProvider>
-        <div ref={accordionRef} className="overflow-x-scroll whitespace-nowrap" style={{ width: '100%' }}>
+        <div className="overflow-x-scroll whitespace-nowrap" style={{ width: '100%' }}>
+          <div className="mb-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleAddItem(null, 'folder')}
+                >
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>New Project</TooltipContent>
+            </Tooltip>
+          </div>
           <Accordion
             type="multiple"
             value={expandedItems}
@@ -168,36 +149,15 @@ const Projects = () => {
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
-          <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto">
-            <Textarea placeholder="Admin Prompt" className="w-full p-2 border rounded" />
-            <Textarea placeholder="User Prompt" className="w-full p-2 border rounded" />
-            <div className="grid grid-cols-2 gap-4">
-              <Textarea placeholder="Input Admin Prompt" className="w-full p-2 border rounded" />
-              <Textarea placeholder="Input User Prompt" className="w-full p-2 border rounded" />
-              <Textarea placeholder="Prompt Settings" className="w-full p-2 border rounded" />
-              <Textarea placeholder="Half Width Box 4" className="w-full p-2 border rounded" />
-            </div>
-          </div>
+          <ProjectPanels />
         </Panel>
       </PanelGroup>
-      <AlertDialog open={deleteConfirmation.isOpen} onOpenChange={(isOpen) => setDeleteConfirmation(prev => ({ ...prev, isOpen }))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteConfirmation.confirmCount === 0
-                ? "This action will delete the project and all its contents. This action cannot be undone."
-                : "Please confirm once more that you want to delete this project and all its contents."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm}>
-              {deleteConfirmation.confirmCount === 0 ? "Confirm" : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmationDialog
+        isOpen={deleteConfirmation.isOpen}
+        onOpenChange={(isOpen) => setDeleteConfirmation(prev => ({ ...prev, isOpen }))}
+        confirmCount={deleteConfirmation.confirmCount}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 };
