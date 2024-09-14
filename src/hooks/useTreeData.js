@@ -11,7 +11,6 @@ export const useTreeData = () => {
 
   const fetchProjectData = async () => {
     try {
-      // Fetch top-level projects
       const { data: projectsData, error: projectsError } = await supabase
         .from('project_names')
         .select('project_id, project_name')
@@ -19,9 +18,7 @@ export const useTreeData = () => {
 
       if (projectsError) throw projectsError;
 
-      // Fetch sub-items for each project
       const projectsWithSubItems = await Promise.all(projectsData.map(async (project) => {
-        // Fetch level 1 items
         const { data: level1Data, error: level1Error } = await supabase
           .from('projects')
           .select('project_row_id, project_id, prompt_name')
@@ -31,7 +28,6 @@ export const useTreeData = () => {
 
         if (level1Error) throw level1Error;
 
-        // Fetch level 2 and 3 items for each level 1 item
         const level1WithSubItems = await Promise.all(level1Data.map(async (level1Item) => {
           const { data: level2Data, error: level2Error } = await supabase
             .from('projects')
@@ -54,15 +50,34 @@ export const useTreeData = () => {
 
             if (level3Error) throw level3Error;
 
+            const level3WithSubItems = await Promise.all(level3Data.map(async (level3Item) => {
+              const { data: level4Data, error: level4Error } = await supabase
+                .from('projects')
+                .select('project_row_id, project_id, prompt_name')
+                .eq('project_id', project.project_id)
+                .eq('level', 4)
+                .eq('parent_row_id', level3Item.project_row_id)
+                .order('prompt_name');
+
+              if (level4Error) throw level4Error;
+
+              return {
+                id: level3Item.project_row_id,
+                name: level3Item.prompt_name,
+                type: 'folder',
+                children: level4Data.map(level4Item => ({
+                  id: level4Item.project_row_id,
+                  name: level4Item.prompt_name,
+                  type: 'file'
+                }))
+              };
+            }));
+
             return {
               id: level2Item.project_row_id,
               name: level2Item.prompt_name,
               type: 'folder',
-              children: level3Data.map(level3Item => ({
-                id: level3Item.project_row_id,
-                name: level3Item.prompt_name,
-                type: 'file'
-              }))
+              children: level3WithSubItems
             };
           }));
 

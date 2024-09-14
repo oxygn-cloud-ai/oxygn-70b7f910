@@ -38,7 +38,7 @@ const TreeItem = ({
         />
       )}
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'file')} tooltip="Add File" />
-      {item.type === 'folder' && (
+      {item.type === 'folder' && level < 3 && (
         <ActionButton icon={<FolderIcon className="h-3 w-3" />} onClick={() => addItem(item.id, 'folder')} tooltip="Add Folder" />
       )}
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
