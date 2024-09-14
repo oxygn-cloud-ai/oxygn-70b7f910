@@ -93,7 +93,7 @@ const Projects = () => {
     }
     return (
       <TooltipProvider>
-        <div ref={accordionRef} className="overflow-x-auto whitespace-nowrap" style={{ width: '100%' }}>
+        <div ref={accordionRef} className="overflow-x-scroll whitespace-nowrap" style={{ width: '100%' }}>
           <Accordion
             type="multiple"
             value={expandedItems}
@@ -126,7 +126,7 @@ const Projects = () => {
       <h1 className="text-2xl font-bold mb-4">Projects</h1>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
-          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
+          <div className="border rounded-lg p-4 overflow-x-scroll overflow-y-auto h-[calc(100vh-8rem)]">
             {renderTreeItems()}
           </div>
         </Panel>
