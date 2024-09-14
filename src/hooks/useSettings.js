@@ -11,26 +11,34 @@ export const useSettings = () => {
   }, []);
 
   const fetchSettings = async () => {
+    setIsLoading(true);
     try {
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('settings')
         .select('*')
-        .maybeSingle();
+        .single();
 
-      if (error) throw error;
-
-      if (data) {
-        setSettings(data);
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No data found, set default values
+          setSettings({
+            openai_url: '',
+            openai_api_key: ''
+          });
+        } else {
+          throw error;
+        }
       } else {
-        // If no settings exist, set default values
-        setSettings({
-          openai_url: '',
-          openai_api_key: ''
-        });
+        setSettings(data);
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
       toast.error('Failed to fetch settings');
+      // Set default values in case of error
+      setSettings({
+        openai_url: '',
+        openai_api_key: ''
+      });
     } finally {
       setIsLoading(false);
     }
@@ -38,29 +46,25 @@ export const useSettings = () => {
 
   const updateSetting = async (key, value) => {
     try {
-      if (!settings || !settings.id) {
-        // If settings don't exist, create a new row
-        const { data, error } = await supabase
-          .from('settings')
-          .insert({ [key]: value })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setSettings(data);
-      } else {
-        // If settings exist, update the existing row
-        const { error } = await supabase
+      let result;
+      if (settings && settings.id) {
+        // Update existing settings
+        result = await supabase
           .from('settings')
           .update({ [key]: value })
-          .eq('id', settings.id);
-
-        if (error) throw error;
-
-        setSettings(prev => ({ ...prev, [key]: value }));
+          .eq('id', settings.id)
+          .single();
+      } else {
+        // Insert new settings
+        result = await supabase
+          .from('settings')
+          .insert({ [key]: value })
+          .single();
       }
 
+      if (result.error) throw result.error;
+
+      setSettings(prev => ({ ...prev, [key]: value }));
       toast.success('Setting updated successfully');
     } catch (error) {
       console.error('Error updating setting:', error);
