@@ -13,20 +13,24 @@ export const useOpenAICall = () => {
       const requestBody = {
         model: "gpt-3.5-turbo",
         messages: [{ role: "user", content: prompt }],
-        openaiApiKey: settings.openai_api_key,
-        openaiUrl: settings.openai_url
       };
 
       console.log('API Call Details:', {
-        url: '/api/openai',
+        url: settings.openai_url,
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openai_api_key}`
         },
-        body: JSON.stringify(requestBody)
+        data: requestBody
       });
 
-      const response = await axios.post('/api/openai', requestBody);
+      const response = await axios.post(settings.openai_url, requestBody, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openai_api_key}`
+        }
+      });
 
       console.log('API Response:', response.data);
 
