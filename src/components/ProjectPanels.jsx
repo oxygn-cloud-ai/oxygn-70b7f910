@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,76 +6,34 @@ import { Save, RotateCcw, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
+import { useOpenAICall } from '../hooks/useOpenAICall';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import axios from 'axios';
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
 
-  useEffect(() => {
+  React.useEffect(() => {
     setText(value || '');
   }, [value]);
 
-  const handleSave = () => {
-    onSave(fieldName, text);
-  };
-
+  const handleSave = () => onSave(fieldName, text);
   const handleReset = async () => {
     const resetValue = await onReset(fieldName);
-    if (resetValue !== null) {
-      setText(resetValue);
-    }
+    if (resetValue !== null) setText(resetValue);
   };
-
   const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success('Copied to clipboard');
-    }).catch((err) => {
-      console.error('Failed to copy text: ', err);
-      toast.error('Failed to copy text');
-    });
+    navigator.clipboard.writeText(text)
+      .then(() => toast.success('Copied to clipboard'))
+      .catch(() => toast.error('Failed to copy text'));
   };
 
   return (
     <div className="relative mb-4">
       <div className="absolute top-2 left-2 z-10 flex space-x-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Copy to clipboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave}>
-                <Save className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Save changes</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReset}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Reset to last saved</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <IconButton icon={<Copy />} onClick={handleCopy} tooltip="Copy to clipboard" />
+        <IconButton icon={<Save />} onClick={handleSave} tooltip="Save changes" />
+        <IconButton icon={<RotateCcw />} onClick={handleReset} tooltip="Reset to last saved" />
       </div>
       <Textarea 
         placeholder={placeholder} 
@@ -88,12 +46,44 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
+const IconButton = ({ icon, onClick, tooltip }) => (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClick}>
+          {React.cloneElement(icon, { className: "h-4 w-4" })}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent><p>{tooltip}</p></TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
+
+const PromptSettings = ({ settings, onSettingChange }) => (
+  <div className="border rounded-lg p-4">
+    <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
+    <div className="grid grid-cols-2 gap-4">
+      {Object.entries(settings).map(([key, value]) => (
+        <div key={key} className="flex flex-col">
+          <Label htmlFor={key}>{key}</Label>
+          <Input
+            id={key}
+            value={value || ''}
+            onChange={(e) => onSettingChange(key, e.target.value)}
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
-  const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
+  const { fetchLatestData, isLoading: isFetching } = useFetchLatestData(projectRowId);
+  const { generatePrompts, isLoading: isGenerating } = useOpenAICall();
   const [localData, setLocalData] = useState(selectedItemData || {});
 
-  useEffect(() => {
+  React.useEffect(() => {
     setLocalData(selectedItemData || {});
   }, [selectedItemData]);
 
@@ -125,27 +115,22 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
 
   const handleGeneratePrompts = async () => {
     try {
-      const response = await axios.post('YOUR_OPENAI_API_ENDPOINT', {
-        model: 'YOUR_CHOSEN_MODEL',
-        messages: [
-          { role: 'system', content: localData.input_admin_prompt },
-          { role: 'user', content: localData.input_user_prompt }
-        ],
-        // Add any additional parameters here
-      }, {
-        headers: {
-          'Authorization': `Bearer YOUR_API_KEY`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const generatedPrompt = response.data.choices[0].message.content;
+      const generatedPrompt = await generatePrompts(
+        localData.input_admin_prompt,
+        localData.input_user_prompt,
+        localData.model
+      );
       await handleSave('user_prompt_result', generatedPrompt);
       toast.success('Prompts generated successfully');
     } catch (error) {
       console.error('Error generating prompts:', error);
-      toast.error('Failed to generate prompts');
+      // Error is already handled in useOpenAICall hook
     }
+  };
+
+  const handleSettingChange = (key, value) => {
+    setLocalData(prev => ({ ...prev, [key]: value }));
+    handleSave(key, value);
   };
 
   const textAreaFields = [
@@ -155,18 +140,25 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
     { name: 'input_user_prompt', placeholder: 'Input User Prompt' }
   ];
 
-  const promptSettingsFields = [
-    'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
-    'stop', 'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
-    'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
-    'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
-    'input', 'context_length', 'custom_finetune'
-  ];
+  const promptSettingsFields = {
+    model: localData.model || '',
+    temperature: localData.temperature || '',
+    max_tokens: localData.max_tokens || '',
+    top_p: localData.top_p || '',
+    frequency_penalty: localData.frequency_penalty || '',
+    presence_penalty: localData.presence_penalty || '',
+    // Add other fields as needed
+  };
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <Button variant="link" onClick={handleGeneratePrompts} className="self-start mb-2">
-        Generate Prompts
+      <Button 
+        variant="link" 
+        onClick={handleGeneratePrompts} 
+        className="self-start mb-2"
+        disabled={isGenerating || isSaving || isFetching}
+      >
+        {isGenerating ? 'Generating...' : 'Generate Prompts'}
       </Button>
       {textAreaFields.map(field => (
         <TextAreaWithIcons
@@ -176,25 +168,13 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
           fieldName={field.name}
           onSave={handleSave}
           onReset={handleReset}
-          readOnly={false}
+          readOnly={field.name === 'user_prompt_result'}
         />
       ))}
-      <div className="border rounded-lg p-4">
-        <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {promptSettingsFields.map(field => (
-            <div key={field} className="flex flex-col">
-              <Label htmlFor={field}>{field}</Label>
-              <Input
-                id={field}
-                value={localData[field] || ''}
-                onChange={(e) => setLocalData(prev => ({ ...prev, [field]: e.target.value }))}
-                onBlur={() => handleSave(field, localData[field])}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <PromptSettings 
+        settings={promptSettingsFields}
+        onSettingChange={handleSettingChange}
+      />
     </div>
   );
 };
