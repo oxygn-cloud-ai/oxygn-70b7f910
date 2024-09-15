@@ -32,7 +32,10 @@ export const useOpenAICall = () => {
 
       console.log('Response from /api/generate-prompts:', response.data);
 
-      return response.data.generatedPrompt;
+      return {
+        generatedPrompt: response.data.generatedPrompt,
+        fullResponse: JSON.stringify(response.data.fullResponse, null, 2)
+      };
     } catch (error) {
       console.error('Error in generatePrompts:', error.response ? error.response.data : error.message);
       return null;

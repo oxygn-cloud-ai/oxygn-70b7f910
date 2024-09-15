@@ -7,6 +7,15 @@ export default async function handler(req, res) {
 
   const { inputAdminPrompt, inputUserPrompt, model, openaiUrl, openaiApiKey } = req.body;
 
+  console.log('OpenAI API Request:', {
+    url: openaiUrl,
+    model: model,
+    messages: [
+      { role: 'system', content: inputAdminPrompt },
+      { role: 'user', content: inputUserPrompt }
+    ]
+  });
+
   try {
     const response = await axios.post(openaiUrl, {
       model: model,
@@ -21,8 +30,14 @@ export default async function handler(req, res) {
       }
     });
 
-    res.status(200).json({ generatedPrompt: response.data.choices[0].message.content });
+    console.log('OpenAI API Response:', JSON.stringify(response.data, null, 2));
+
+    res.status(200).json({ 
+      generatedPrompt: response.data.choices[0].message.content,
+      fullResponse: response.data
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to generate prompts' });
+    console.error('Error calling OpenAI API:', error.response ? error.response.data : error.message);
+    res.status(500).json({ error: 'Failed to generate prompts', details: error.message });
   }
 }

@@ -115,16 +115,18 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
 
   const handleGeneratePrompts = async () => {
     try {
-      const generatedPrompt = await generatePrompts(
+      const result = await generatePrompts(
         localData.input_admin_prompt,
         localData.input_user_prompt,
         localData.model
       );
-      await handleSave('user_prompt_result', generatedPrompt);
-      toast.success('Prompts generated successfully');
+      if (result) {
+        await handleSave('user_prompt_result', result.fullResponse);
+        toast.success('Prompts generated successfully');
+      }
     } catch (error) {
       console.error('Error generating prompts:', error);
-      // Error is already handled in useOpenAICall hook
+      toast.error('Failed to generate prompts');
     }
   };
 
