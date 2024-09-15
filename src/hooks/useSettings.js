@@ -13,49 +13,36 @@ export const useSettings = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      console.log('API Call Details:');
-      console.log('URL:', `${supabase.supabaseUrl}/rest/v1/settings?select=*`);
-      console.log('Method: GET');
-      console.log('Headers:', {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`,
-      });
-
-      const startTime = performance.now();
-      let { data, error, status, statusText } = await supabase
+      console.log('Fetching settings...');
+      const { data, error } = await supabase
         .from('settings')
-        .select('*')
-        .maybeSingle();
-      const endTime = performance.now();
+        .select('*');
 
-      console.log('API Response:');
-      console.log('Status:', status);
-      console.log('Status Text:', statusText);
-      console.log('Response Time:', `${(endTime - startTime).toFixed(2)}ms`);
-      console.log('Response Data:', data);
-      console.log('Error:', error);
+      if (error) throw error;
 
-      if (error && error.code === 'PGRST116') {
+      if (data.length === 0) {
         console.log('No settings found, creating default settings');
         const defaultSettings = {
-          openai_url: '',
+          openai_url: 'https://api.openai.com/v1/chat/completions',
           openai_api_key: ''
         };
 
         const { data: insertedData, error: insertError } = await supabase
           .from('settings')
           .insert(defaultSettings)
+          .select()
           .single();
 
         if (insertError) throw insertError;
 
         console.log('Default settings created:', insertedData);
-        data = insertedData;
-      } else if (error) {
-        throw error;
+        setSettings(insertedData);
+      } else if (data.length > 1) {
+        console.warn('Multiple settings found, using the first one');
+        setSettings(data[0]);
+      } else {
+        setSettings(data[0]);
       }
-
-      setSettings(data || { openai_url: '', openai_api_key: '' });
     } catch (error) {
       console.error('Error fetching or creating settings:', error);
       toast.error('Failed to fetch or create settings');
@@ -67,38 +54,28 @@ export const useSettings = () => {
 
   const updateSetting = async (key, value) => {
     try {
-      console.log('API Call Details:');
-      console.log('URL:', `${supabase.supabaseUrl}/rest/v1/settings`);
-      console.log('Method: PATCH');
-      console.log('Headers:', {
-        'apikey': supabase.supabaseKey,
-        'Authorization': `Bearer ${supabase.supabaseKey}`,
-        'Content-Type': 'application/json',
-      });
-      console.log('Body:', JSON.stringify({ [key]: value }));
+      console.log(`Updating setting: ${key} = ${value}`);
+      if (!settings) {
+        throw new Error('Settings not initialized');
+      }
 
-      const startTime = performance.now();
-      const { data, error, status, statusText } = await supabase
+      const { data, error } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .eq('openai_url', settings.openai_url) // Use an existing field to identify the row
-        .single();
-      const endTime = performance.now();
-
-      console.log('API Response:');
-      console.log('Status:', status);
-      console.log('Status Text:', statusText);
-      console.log('Response Time:', `${(endTime - startTime).toFixed(2)}ms`);
-      console.log('Response Data:', data);
-      console.log('Error:', error);
+        .match({ openai_url: settings.openai_url })
+        .select();
 
       if (error) throw error;
 
-      setSettings(prev => ({ ...prev, [key]: value }));
+      if (data.length === 0) {
+        throw new Error('No rows updated');
+      }
+
+      setSettings(prevSettings => ({ ...prevSettings, [key]: value }));
       toast.success('Setting updated successfully');
     } catch (error) {
       console.error('Error updating setting:', error);
-      toast.error('Failed to update setting');
+      toast.error(`Failed to update setting: ${error.message}`);
     }
   };
 
