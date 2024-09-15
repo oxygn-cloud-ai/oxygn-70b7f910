@@ -156,6 +156,9 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Projects</h1>
+        <Button variant="link" className="text-blue-500 hover:text-blue-700">
+          Generate Prompts
+        </Button>
       </div>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
@@ -166,11 +169,7 @@ const Projects = () => {
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
           {activeItem ? (
-            <ProjectPanels 
-              selectedItemData={selectedItemData} 
-              projectRowId={activeItem}
-              onDataChange={setSelectedItemData}
-            />
+            <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Select a project to view details</p>
