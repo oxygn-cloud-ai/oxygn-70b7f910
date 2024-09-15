@@ -83,6 +83,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
       const data = await response.json();
       console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
+
+      // Update the user prompt result field with the API response
+      if (data.choices && data.choices.length > 0) {
+        const generatedText = data.choices[0].message.content;
+        handleSave('user_prompt_result', generatedText);
+      }
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
     }
