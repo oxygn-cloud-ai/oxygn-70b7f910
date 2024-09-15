@@ -20,20 +20,7 @@ const useTreeData = (supabase) => {
         query = query.is('parent_row_id', null);
       }
 
-      console.log('Supabase API Call:', {
-        url: query.url.toString(),
-        method: 'GET',
-        headers: query.headers,
-        body: null,
-      });
-
       const { data, error } = await query;
-
-      console.log('Supabase API Response:', {
-        status: data ? 200 : 500,
-        data: JSON.stringify(data),
-        error: error ? JSON.stringify(error) : null,
-      });
 
       if (error) throw error;
 
@@ -85,22 +72,7 @@ const useTreeData = (supabase) => {
         is_deleted: false
       };
 
-      const query = supabase.from('prompts').insert(newItem).select().single();
-
-      console.log('Supabase API Call:', {
-        url: query.url.toString(),
-        method: 'POST',
-        headers: query.headers,
-        body: JSON.stringify(newItem),
-      });
-
-      const { data, error } = await query;
-
-      console.log('Supabase API Response:', {
-        status: data ? 200 : 500,
-        data: JSON.stringify(data),
-        error: error ? JSON.stringify(error) : null,
-      });
+      const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
 
       if (error) throw error;
 
@@ -116,56 +88,33 @@ const useTreeData = (supabase) => {
   const deleteItem = useCallback(async (id) => {
     if (!supabase) return false;
     try {
-      const deleteRecursively = async (itemId) => {
-        const selectQuery = supabase.from('prompts').select('row_id').eq('parent_row_id', itemId).eq('is_deleted', false);
+      const markAsDeleted = async (itemId) => {
+        const { error } = await supabase
+          .from('prompts')
+          .update({ is_deleted: true })
+          .eq('row_id', itemId);
 
-        console.log('Supabase API Call:', {
-          url: selectQuery.url.toString(),
-          method: 'GET',
-          headers: selectQuery.headers,
-          body: null,
-        });
+        if (error) throw error;
 
-        const { data: children, error: selectError } = await selectQuery;
-
-        console.log('Supabase API Response:', {
-          status: children ? 200 : 500,
-          data: JSON.stringify(children),
-          error: selectError ? JSON.stringify(selectError) : null,
-        });
+        const { data: children, error: selectError } = await supabase
+          .from('prompts')
+          .select('row_id')
+          .eq('parent_row_id', itemId)
+          .eq('is_deleted', false);
 
         if (selectError) throw selectError;
 
         for (const child of children) {
-          await deleteRecursively(child.row_id);
+          await markAsDeleted(child.row_id);
         }
-
-        const deleteQuery = supabase.from('prompts').update({ is_deleted: true }).eq('row_id', itemId);
-
-        console.log('Supabase API Call:', {
-          url: deleteQuery.url.toString(),
-          method: 'PATCH',
-          headers: deleteQuery.headers,
-          body: JSON.stringify({ is_deleted: true }),
-        });
-
-        const { error: deleteError } = await deleteQuery;
-
-        console.log('Supabase API Response:', {
-          status: deleteError ? 500 : 200,
-          data: null,
-          error: deleteError ? JSON.stringify(deleteError) : null,
-        });
-
-        if (deleteError) throw deleteError;
       };
 
-      await deleteRecursively(id);
+      await markAsDeleted(id);
       await fetchTreeData();
       return true;
     } catch (error) {
-      console.error('Error deleting item:', error);
-      toast.error(`Failed to delete item: ${error.message}`);
+      console.error('Error marking item as deleted:', error);
+      toast.error(`Failed to mark item as deleted: ${error.message}`);
       return false;
     }
   }, [supabase, fetchTreeData]);
@@ -173,22 +122,7 @@ const useTreeData = (supabase) => {
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
     try {
-      const query = supabase.from('prompts').update({ prompt_name: newName }).eq('row_id', id);
-
-      console.log('Supabase API Call:', {
-        url: query.url.toString(),
-        method: 'PATCH',
-        headers: query.headers,
-        body: JSON.stringify({ prompt_name: newName }),
-      });
-
-      const { error } = await query;
-
-      console.log('Supabase API Response:', {
-        status: error ? 500 : 200,
-        data: null,
-        error: error ? JSON.stringify(error) : null,
-      });
+      const { error } = await supabase.from('prompts').update({ prompt_name: newName }).eq('row_id', id);
 
       if (error) throw error;
 
