@@ -5,7 +5,12 @@ import SettingField from './SettingField';
 import { Button } from "@/components/ui/button";
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
-import { Save } from 'lucide-react';
+import { Save, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -14,6 +19,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const { settings } = useSettings(supabase);
   const [timer, setTimer] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -164,34 +170,47 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           initialValue={selectedItemData[field.name] || ''}
         />
       ))}
-      <div className="border rounded-lg p-4">
-        <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {settingFields.map(field => (
-            <div key={field} className="relative">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleSave(field)}
-                className="absolute right-8 z-10 h-6 w-6"
-                disabled={localData[field] === selectedItemData[field]}
-              >
-                <Save className="h-4 w-4" />
-              </Button>
-              <SettingField
-                label={field}
-                value={localData[field] || ''}
-                onChange={(value) => handleChange(field, value)}
-                checked={localData[`${field}_on`] || false}
-                onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
-                isSelect={field === 'model'}
-                options={models}
-                isTemperature={field === 'temperature'}
-              />
-            </div>
-          ))}
+      <Collapsible
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        className="border rounded-lg p-4"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Prompt Settings</h3>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm">
+              {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
         </div>
-      </div>
+        <CollapsibleContent>
+          <div className="grid grid-cols-2 gap-4">
+            {settingFields.map(field => (
+              <div key={field} className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleSave(field)}
+                  className="absolute right-8 z-10 h-6 w-6"
+                  disabled={localData[field] === selectedItemData[field]}
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+                <SettingField
+                  label={field}
+                  value={localData[field] || ''}
+                  onChange={(value) => handleChange(field, value)}
+                  checked={localData[`${field}_on`] || false}
+                  onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
+                  isSelect={field === 'model'}
+                  options={models}
+                  isTemperature={field === 'temperature'}
+                />
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };
