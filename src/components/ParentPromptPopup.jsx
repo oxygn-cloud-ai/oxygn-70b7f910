@@ -30,7 +30,7 @@ const ParentPromptPopup = ({ adminPrompt, userPromptResult, onClose }) => {
         }}
         dragHandleClassName="drag-handle"
       >
-        <DialogContent className="w-full h-full p-0 overflow-hidden">
+        <DialogContent className="w-full h-full p-0 overflow-hidden" style={{ width: '800px', maxWidth: '100vw' }}>
           <div className="drag-handle w-full h-8 bg-gray-200 cursor-move" />
           <div className="p-4 overflow-y-auto h-[calc(100%-2rem)]">
             <DialogHeader>
