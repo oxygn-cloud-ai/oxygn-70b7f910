@@ -21,12 +21,7 @@ const Projects = () => {
   const { callOpenAI, isLoading } = useOpenAICall();
 
   const toggleItem = async (itemId) => {
-    setExpandedItems(prev => {
-      const newExpanded = prev.includes(itemId)
-        ? prev.filter(id => id !== itemId)
-        : [...prev, itemId];
-      return newExpanded;
-    });
+    setExpandedItems(prev => prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]);
     setActiveItem(itemId);
     if (itemId) {
       const itemData = await fetchItemData(itemId);
@@ -47,10 +42,7 @@ const Projects = () => {
     if (editingItem) {
       const success = await updateItemName(editingItem.id, editingItem.name);
       if (success) {
-        updateTreeData(editingItem.id, (item) => ({
-          ...item,
-          name: editingItem.name
-        }));
+        updateTreeData(editingItem.id, (item) => ({ ...item, name: editingItem.name }));
       } else {
         console.error("Failed to update item name in the database");
       }
@@ -136,20 +128,11 @@ const Projects = () => {
       <TooltipProvider>
         <div className="overflow-x-scroll whitespace-nowrap" style={{ width: '100%' }}>
           <div className="mb-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleAddItem(null)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
               <PlusCircle className="h-5 w-5" />
             </Button>
           </div>
-          <Accordion
-            type="multiple"
-            value={expandedItems}
-            onValueChange={setExpandedItems}
-            className="w-full min-w-max"
-          >
+          <Accordion type="multiple" value={expandedItems} onValueChange={setExpandedItems} className="w-full min-w-max">
             {treeData.map((item) => (
               <TreeItem
                 key={item.id}
