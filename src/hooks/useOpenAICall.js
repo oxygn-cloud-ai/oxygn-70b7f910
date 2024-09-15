@@ -19,7 +19,7 @@ export const useOpenAICall = () => {
   const generatePrompts = async (inputAdminPrompt, inputUserPrompt, model) => {
     setIsLoading(true);
     try {
-      if (!settings.openai_url || !settings.openai_api_key) {
+      if (!settings?.openai_url || !settings?.openai_api_key) {
         return null;
       }
 
@@ -33,6 +33,9 @@ export const useOpenAICall = () => {
 
       const data = await callOpenAIAPI(settings.openai_url, requestBody, settings.openai_api_key);
       return data.choices[0].message.content;
+    } catch (error) {
+      console.error('Error generating prompts:', error);
+      return null;
     } finally {
       setIsLoading(false);
     }
