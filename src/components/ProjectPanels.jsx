@@ -1,32 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RotateCcw, Copy } from 'lucide-react';
+import { Save, RotateCcw, Copy, X, CheckSquare, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { useSaveField } from '../hooks/useSaveField';
+import { useFetchLatestData } from '../hooks/useFetchLatestData';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 
-const TextAreaWithIcons = ({ placeholder, value, onChange }) => {
+const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
+  const [text, setText] = useState(value || '');
+
+  useEffect(() => {
+    setText(value || '');
+  }, [value]);
+
+  const handleSave = () => onSave(fieldName, text);
+  const handleReset = async () => {
+    const resetValue = await onReset(fieldName);
+    if (resetValue !== null) setText(resetValue);
+  };
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success('Copied to clipboard');
+    }).catch((err) => {
+      console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy text');
+    });
+  };
+
   return (
     <div className="relative mb-4">
       <div className="absolute top-2 right-2 z-10 flex space-x-1">
-        <IconButton icon={<Copy />} onClick={() => {}} tooltip="Copy to clipboard" />
-        <IconButton icon={<Save />} onClick={() => {}} tooltip="Save changes" />
-        <IconButton icon={<RotateCcw />} onClick={() => {}} tooltip="Reset to last saved" />
+        <IconButton icon={<Copy />} onClick={handleCopy} tooltip="Copy to clipboard" />
+        <IconButton icon={<Save />} onClick={handleSave} tooltip="Save changes" />
+        <IconButton icon={<RotateCcw />} onClick={handleReset} tooltip="Reset to last saved" />
       </div>
       <Textarea 
         placeholder={placeholder} 
         className="w-full p-2 pr-24 border rounded" 
-        value={value}
-        onChange={onChange}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        readOnly={readOnly}
       />
     </div>
   );
 };
 
-const SettingInput = ({ label, value, onChange, isSelect, options, isTemperature }) => {
+const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options, isTemperature }) => {
+  const [inputValue, setInputValue] = useState(value);
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
   const handleInputChange = (e) => {
     let newValue = e.target.value;
     if (isTemperature) {
@@ -37,32 +68,49 @@ const SettingInput = ({ label, value, onChange, isSelect, options, isTemperature
         newValue = value;
       }
     }
+    setInputValue(newValue.toString());
     onChange(newValue.toString());
   };
 
   const handleSliderChange = (newValue) => {
     const formattedValue = newValue[0].toFixed(4);
+    setInputValue(formattedValue);
     onChange(formattedValue);
+  };
+
+  const handleCheckChange = () => {
+    onCheckChange(!checked);
   };
 
   if (isTemperature) {
     return (
       <div className="mb-2">
-        <Label htmlFor={label}>{label}</Label>
+        <Label htmlFor={label} className="flex justify-between items-center">
+          <span>{label}</span>
+          <div className="flex space-x-1">
+            <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+            <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+            <IconButton 
+              icon={checked ? <CheckSquare /> : <Square />} 
+              onClick={handleCheckChange} 
+              tooltip={checked ? "Uncheck" : "Check"}
+            />
+          </div>
+        </Label>
         <div className="flex items-center space-x-2">
           <Slider
             id={`${label}-slider`}
             min={-2}
             max={2}
             step={0.0001}
-            value={[parseFloat(value) || 0]}
+            value={[parseFloat(inputValue) || 0]}
             onValueChange={handleSliderChange}
             className="flex-grow"
           />
           <Input
             id={`${label}-input`}
             type="text"
-            value={value}
+            value={inputValue}
             onChange={handleInputChange}
             className="w-20"
           />
@@ -73,15 +121,26 @@ const SettingInput = ({ label, value, onChange, isSelect, options, isTemperature
 
   return isSelect ? (
     <div className="mb-2">
-      <Label htmlFor={label}>{label}</Label>
+      <Label htmlFor={label} className="flex justify-between items-center">
+        <span>{label}</span>
+        <div className="flex space-x-1">
+          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+          <IconButton 
+            icon={checked ? <CheckSquare /> : <Square />} 
+            onClick={handleCheckChange} 
+            tooltip={checked ? "Uncheck" : "Check"}
+          />
+        </div>
+      </Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="w-full mt-1">
           <SelectValue placeholder="Select a model" />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
+            <SelectItem key={option.model} value={option.model}>
+              {option.model}
             </SelectItem>
           ))}
         </SelectContent>
@@ -89,11 +148,22 @@ const SettingInput = ({ label, value, onChange, isSelect, options, isTemperature
     </div>
   ) : (
     <div className="mb-2">
-      <Label htmlFor={label}>{label}</Label>
+      <Label htmlFor={label} className="flex justify-between items-center">
+        <span>{label}</span>
+        <div className="flex space-x-1">
+          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+          <IconButton 
+            icon={checked ? <CheckSquare /> : <Square />} 
+            onClick={handleCheckChange} 
+            tooltip={checked ? "Uncheck" : "Check"}
+          />
+        </div>
+      </Label>
       <Input
         id={label}
         value={value}
-        onChange={handleInputChange}
+        onChange={(e) => onChange(e.target.value)}
         className="w-full mt-1"
       />
     </div>
@@ -121,23 +191,71 @@ const IconButton = ({ icon, onClick, tooltip }) => (
   </TooltipProvider>
 );
 
-const ProjectPanels = ({ projectRowId }) => {
-  const [localData, setLocalData] = useState({
-    admin_prompt_result: '',
-    user_prompt_result: '',
-    input_admin_prompt: '',
-    input_user_prompt: '',
-    model: 'gpt-3.5-turbo',
-    temperature: '0',
-    max_tokens: '100',
-    top_p: '1',
-    frequency_penalty: '0',
-    presence_penalty: '0'
-  });
+const ProjectPanels = ({ selectedItemData, projectRowId }) => {
+  const { saveField, isSaving } = useSaveField(projectRowId);
+  const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
+  const { models, isLoading: isLoadingModels } = useOpenAIModels();
+  const [localData, setLocalData] = useState(selectedItemData || {});
 
-  const handleChange = (field, value) => {
-    setLocalData(prev => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (projectRowId) {
+      fetchLatestData().then(data => {
+        if (data) {
+          setLocalData(data);
+        }
+      });
+    }
+  }, [projectRowId, fetchLatestData]);
+
+  useEffect(() => {
+    setLocalData(selectedItemData || {});
+  }, [selectedItemData]);
+
+  const handleSave = async (fieldName, value) => {
+    if (projectRowId) {
+      await saveField(fieldName, value);
+      setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
+    }
   };
+
+  const handleReset = async (fieldName) => {
+    if (projectRowId) {
+      const latestData = await fetchLatestData();
+      if (latestData !== null) {
+        setLocalData(prevData => ({ ...prevData, ...latestData }));
+        return latestData[fieldName];
+      }
+    }
+    return null;
+  };
+
+  const handleCopy = (value) => {
+    navigator.clipboard.writeText(value).then(() => {
+      toast.success('Copied to clipboard');
+    }).catch((err) => {
+      console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy text');
+    });
+  };
+
+  const handleSetEmpty = (fieldName) => {
+    setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
+    handleSave(fieldName, '');
+  };
+
+  const handleCheckChange = async (fieldName, newValue) => {
+    await handleSave(fieldName, newValue);
+    setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
+  };
+
+  const getMaxTokensLabel = () => {
+    const selectedModel = models.find(m => m.model === localData.model);
+    return selectedModel ? `max_tokens (<= ${selectedModel.max_tokens})` : 'max_tokens';
+  };
+
+  if (!projectRowId) {
+    return <div>No project selected</div>;
+  }
 
   const textAreaFields = [
     { name: 'admin_prompt_result', placeholder: 'Admin Prompt' },
@@ -147,12 +265,11 @@ const ProjectPanels = ({ projectRowId }) => {
   ];
 
   const promptSettingsFields = [
-    { name: 'model', label: 'Model', isSelect: true, options: ['gpt-3.5-turbo', 'gpt-4'] },
-    { name: 'temperature', label: 'Temperature (-2 to 2)', isTemperature: true },
-    { name: 'max_tokens', label: 'Max Tokens' },
-    { name: 'top_p', label: 'Top P' },
-    { name: 'frequency_penalty', label: 'Frequency Penalty' },
-    { name: 'presence_penalty', label: 'Presence Penalty' }
+    'model', 'temperature (-2 to 2)', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+    'stop', 'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
+    'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
+    'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
+    'input', 'context_length', 'custom_finetune'
   ];
 
   return (
@@ -161,8 +278,11 @@ const ProjectPanels = ({ projectRowId }) => {
         <TextAreaWithIcons
           key={field.name}
           placeholder={field.placeholder}
-          value={localData[field.name]}
-          onChange={(e) => handleChange(field.name, e.target.value)}
+          value={localData[field.name] || ''}
+          fieldName={field.name}
+          onSave={handleSave}
+          onReset={handleReset}
+          readOnly={false}
         />
       ))}
       <div className="border rounded-lg p-4">
@@ -170,13 +290,17 @@ const ProjectPanels = ({ projectRowId }) => {
         <div className="grid grid-cols-2 gap-4">
           {promptSettingsFields.map(field => (
             <SettingInput
-              key={field.name}
-              label={field.label}
-              value={localData[field.name]}
-              onChange={(value) => handleChange(field.name, value)}
-              isSelect={field.isSelect}
-              options={field.options}
-              isTemperature={field.isTemperature}
+              key={field}
+              label={field === 'max_tokens' ? getMaxTokensLabel() : field}
+              value={localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || ''}
+              onChange={(value) => handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value)}
+              onCopy={() => handleCopy(localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || '')}
+              onSetEmpty={() => handleSetEmpty(field === 'temperature (-2 to 2)' ? 'temperature' : field)}
+              checked={field === 'model' ? localData.model_on : false}
+              onCheckChange={(newValue) => handleCheckChange(field === 'model' ? 'model_on' : field, newValue)}
+              isSelect={field === 'model'}
+              options={models}
+              isTemperature={field === 'temperature (-2 to 2)'}
             />
           ))}
         </div>
