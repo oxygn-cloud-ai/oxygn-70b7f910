@@ -2,7 +2,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import {
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
 } from "@/components/ui/accordion";
 import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -84,18 +83,19 @@ const TreeItem = ({
         style={{ paddingLeft: `${level * 16}px` }}
         onClick={handleItemClick}
       >
-        {item.children && item.children.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-0 h-6 w-6 mr-1"
-            onClick={handleToggleExpand}
-          >
-            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </Button>
-        )}
-        <div className="flex items-center space-x-1 flex-grow">
-          <FileIcon className="h-4 w-4" />
+        <div className="flex items-center space-x-2 flex-grow">
+          {item.children && item.children.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-0 h-6 w-6"
+              onClick={handleToggleExpand}
+            >
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
+          )}
+          {!item.children || item.children.length === 0 && <div className="w-6" />}
+          <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
             <Input
               ref={inputRef}
