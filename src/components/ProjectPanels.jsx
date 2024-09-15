@@ -63,13 +63,13 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
     if (isTemperature) {
       newValue = parseFloat(newValue);
       if (!isNaN(newValue)) {
-        newValue = Math.max(-2, Math.min(2, newValue)).toFixed(4);
+        newValue = Math.max(-2, Math.min(2, parseFloat(newValue.toFixed(4))));
       } else {
         newValue = value;
       }
     }
-    setInputValue(newValue);
-    onChange(newValue);
+    setInputValue(newValue.toString());
+    onChange(newValue.toString());
   };
 
   const handleSliderChange = (newValue) => {
@@ -109,7 +109,6 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
             value={inputValue}
             onChange={handleInputChange}
             className="w-20"
-            style={{ appearance: 'textfield' }}
           />
         </div>
       </div>
@@ -252,7 +251,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   ];
 
   const promptSettingsFields = [
-    'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+    'model', 'temperature (-2 to 2)', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
     'stop', 'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
     'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
     'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
@@ -279,18 +278,18 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
             <SettingInput
               key={field}
               label={field === 'max_tokens' ? getMaxTokensLabel() : field}
-              value={localData[field] || ''}
+              value={localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || ''}
               onChange={(value) => {
-                setLocalData(prev => ({ ...prev, [field]: value }));
-                handleSave(field, value);
+                setLocalData(prev => ({ ...prev, [field === 'temperature (-2 to 2)' ? 'temperature' : field]: value }));
+                handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value);
               }}
-              onCopy={() => handleCopy(localData[field] || '')}
-              onSetEmpty={() => handleSetEmpty(field)}
+              onCopy={() => handleCopy(localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || '')}
+              onSetEmpty={() => handleSetEmpty(field === 'temperature (-2 to 2)' ? 'temperature' : field)}
               checked={checkedSettings[field] || false}
               onCheckChange={() => handleCheckChange(field)}
               isSelect={field === 'model'}
               options={models}
-              isTemperature={field === 'temperature'}
+              isTemperature={field === 'temperature (-2 to 2)'}
             />
           ))}
         </div>
