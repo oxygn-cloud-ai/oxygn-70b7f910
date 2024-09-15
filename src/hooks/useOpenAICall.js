@@ -30,7 +30,11 @@ export const useOpenAICall = () => {
 
       console.log('API Response:', response.data);
 
-      return response.data.choices[0].message.content;
+      if (response.data && response.data.choices && response.data.choices[0] && response.data.choices[0].message) {
+        return response.data.choices[0].message.content;
+      } else {
+        throw new Error('Unexpected API response structure');
+      }
     } catch (error) {
       console.error('Error calling OpenAI:', error);
       toast.error(`Failed to call OpenAI: ${error.message}`);
