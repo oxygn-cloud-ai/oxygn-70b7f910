@@ -74,13 +74,23 @@ const useTreeData = (supabase) => {
   const addItem = useCallback(async (parentId) => {
     if (!supabase) return null;
     try {
+      // Fetch the latest def_admin_prompt value
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('settings')
+        .select('def_admin_prompt')
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      const latestDefaultAdminPrompt = settingsData.def_admin_prompt || '';
+
       const newItem = {
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
         note: '',
         created: new Date().toISOString(),
         is_deleted: false,
-        input_admin_prompt: defaultAdminPrompt
+        input_admin_prompt: latestDefaultAdminPrompt
       };
 
       const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
@@ -94,7 +104,7 @@ const useTreeData = (supabase) => {
       toast.error(`Failed to add new item: ${error.message}`);
       return null;
     }
-  }, [supabase, fetchTreeData, defaultAdminPrompt]);
+  }, [supabase, fetchTreeData]);
 
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
