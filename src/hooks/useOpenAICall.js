@@ -17,7 +17,8 @@ export const useOpenAICall = () => {
       }
 
       // Ensure the correct endpoint by removing any trailing slash and using the correct path
-      const apiUrl = `${latestSettings.openai_url.replace(/\/+$/, '')}/v1/chat/completions`;
+      const baseUrl = latestSettings.openai_url.replace(/\/+$/, '');
+      const apiUrl = `${baseUrl}/v1/chat/completions`;
 
       console.log('Generating prompts with:', {
         inputAdminPrompt,
