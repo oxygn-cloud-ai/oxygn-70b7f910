@@ -61,10 +61,10 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
   };
 
   const handleInputChange = (e) => {
-    const newValue = parseFloat(e.target.value);
-    if (!isNaN(newValue) && newValue >= -2 && newValue <= 2) {
-      setSliderValue(newValue);
-      onChange(newValue.toFixed(4));
+    const newValue = e.target.value;
+    if (newValue === '' || (parseFloat(newValue) >= -2 && parseFloat(newValue) <= 2)) {
+      setSliderValue(newValue === '' ? 0 : parseFloat(newValue));
+      onChange(newValue);
     }
   };
 
@@ -94,13 +94,11 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
             className="flex-grow"
           />
           <Input
-            type="number"
-            value={sliderValue.toFixed(4)}
+            type="text"
+            value={typeof sliderValue === 'number' ? sliderValue.toFixed(4) : sliderValue}
             onChange={handleInputChange}
             className="w-20"
-            step="0.0001"
-            min="-2"
-            max="2"
+            style={{ appearance: 'textfield' }}
           />
         </div>
       </div>
