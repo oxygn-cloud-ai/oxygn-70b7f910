@@ -37,7 +37,19 @@ export const useOpenAICall = () => {
       }
     } catch (error) {
       console.error('Error calling OpenAI:', error);
-      toast.error(`Failed to call OpenAI: ${error.message}`);
+      let errorMessage = 'Failed to call OpenAI';
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage = 'OpenAI API endpoint not found. Please check your API URL in settings.';
+        } else {
+          errorMessage = `OpenAI API error: ${error.response.status} ${error.response.statusText}`;
+        }
+      } else if (error.request) {
+        errorMessage = 'No response received from OpenAI API. Please check your internet connection.';
+      } else {
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
       return null;
     } finally {
       setIsLoading(false);
