@@ -41,33 +41,36 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         { role: 'system', content: localData.input_admin_prompt },
         { role: 'user', content: localData.input_user_prompt }
       ],
-      model: localData.model,
-      temperature: parseFloat(localData.temperature),
-      max_tokens: parseInt(localData.max_tokens),
-      top_p: parseFloat(localData.top_p),
-      frequency_penalty: parseFloat(localData.frequency_penalty),
-      presence_penalty: parseFloat(localData.presence_penalty),
-      stop: localData.stop,
-      n: parseInt(localData.n),
-      logit_bias: localData.logit_bias,
-      user: localData.o_user,
-      stream: localData.stream === 'true',
-      best_of: parseInt(localData.best_of),
-      logprobs: parseInt(localData.logprobs),
-      echo: localData.echo === 'true',
-      suffix: localData.suffix,
-      temperature_scaling: parseFloat(localData.temperature_scaling),
-      prompt_tokens: parseInt(localData.prompt_tokens),
-      response_tokens: parseInt(localData.response_tokens),
-      batch_size: parseInt(localData.batch_size),
-      learning_rate_multiplier: parseFloat(localData.learning_rate_multiplier),
-      n_epochs: parseInt(localData.n_epochs),
-      validation_file: localData.validation_file,
-      training_file: localData.training_file,
-      input: localData.input,
-      context_length: parseInt(localData.context_length),
-      custom_finetune: localData.custom_finetune
     };
+
+    const settingFields = [
+      'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+      'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
+      'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
+      'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'input',
+      'context_length', 'custom_finetune'
+    ];
+
+    settingFields.forEach(field => {
+      if (localData[`${field}_on`]) {
+        let value = localData[field];
+        if (['temperature', 'top_p', 'frequency_penalty', 'presence_penalty', 'temperature_scaling', 'learning_rate_multiplier'].includes(field)) {
+          value = parseFloat(value);
+        } else if (['max_tokens', 'n', 'best_of', 'logprobs', 'prompt_tokens', 'response_tokens', 'batch_size', 'n_epochs', 'context_length'].includes(field)) {
+          value = parseInt(value);
+        } else if (['stream', 'echo'].includes(field)) {
+          value = value === 'true';
+        } else if (field === 'logit_bias') {
+          try {
+            value = JSON.parse(value);
+          } catch (error) {
+            console.error('Error parsing logit_bias:', error);
+            return;
+          }
+        }
+        requestBody[field] = value;
+      }
+    });
 
     console.log('OpenAI API Request:', JSON.stringify(requestBody, null, 2));
 
