@@ -13,7 +13,10 @@ export const useOpenAIModels = () => {
   const fetchModels = async () => {
     try {
       setIsLoading(true);
-      const query = supabase.from('openai_models').select('model, max_tokens');
+      const query = supabase
+        .from('openai_models')
+        .select('model, max_tokens')
+        .eq('is_deleted', false);
       
       console.log('Supabase API Call:', {
         url: query.url.toString(),
@@ -33,7 +36,7 @@ export const useOpenAIModels = () => {
       if (error) throw error;
 
       if (data.length === 0) {
-        toast.warning('No OpenAI models found in the database');
+        toast.warning('No active OpenAI models found in the database');
       }
 
       setModels(data);
