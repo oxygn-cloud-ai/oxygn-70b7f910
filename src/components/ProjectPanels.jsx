@@ -5,7 +5,7 @@ import SettingField from './SettingField';
 import { Button } from "@/components/ui/button";
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
-import { Save, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -185,6 +185,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
               disabled={localData[field] === selectedItemData[field]}
             >
               <Save className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleReset(field)}
+              className="absolute right-2 z-10 h-6 w-6"
+              disabled={localData[field] === selectedItemData[field]}
+            >
+              <RotateCcw className="h-4 w-4" />
             </Button>
             <SettingField
               label={field}
