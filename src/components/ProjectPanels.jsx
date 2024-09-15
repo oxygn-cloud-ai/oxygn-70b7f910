@@ -147,7 +147,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
     top_p: localData.top_p || '',
     frequency_penalty: localData.frequency_penalty || '',
     presence_penalty: localData.presence_penalty || '',
-    // Add other fields as needed
   };
 
   return (

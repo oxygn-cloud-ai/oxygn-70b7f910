@@ -17,7 +17,7 @@ export const useOpenAICall = () => {
       const response = await axios.post(
         settings.openai_url,
         {
-          model: model || 'gpt-3.5-turbo', // Fallback to a default model if not provided
+          model: model || 'gpt-3.5-turbo',
           messages: [
             { role: 'system', content: inputAdminPrompt },
             { role: 'user', content: inputUserPrompt }
@@ -38,14 +38,10 @@ export const useOpenAICall = () => {
       console.error('Error calling OpenAI API:', error);
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
           toast.error(`API Error: ${error.response.status} - ${error.response.data.error?.message || 'Unknown error'}`);
         } else if (error.request) {
-          // The request was made but no response was received
           toast.error('No response received from OpenAI API. Please check your internet connection.');
         } else {
-          // Something happened in setting up the request that triggered an Error
           toast.error(`Error setting up the request: ${error.message}`);
         }
       } else {
