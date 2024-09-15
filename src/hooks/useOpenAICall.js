@@ -10,8 +10,17 @@ export const useOpenAICall = () => {
     setIsLoading(true);
     try {
       if (!settings?.openai_url || !settings?.openai_api_key) {
+        console.log('Settings missing:', settings);
         return null;
       }
+
+      console.log('Axios request to /api/generate-prompts:', {
+        inputAdminPrompt,
+        inputUserPrompt,
+        model: model || 'gpt-3.5-turbo',
+        openaiUrl: settings.openai_url,
+        openaiApiKey: settings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
+      });
 
       const response = await axios.post('/api/generate-prompts', {
         inputAdminPrompt,
@@ -21,8 +30,11 @@ export const useOpenAICall = () => {
         openaiApiKey: settings.openai_api_key
       });
 
+      console.log('Response from /api/generate-prompts:', response.data);
+
       return response.data.generatedPrompt;
     } catch (error) {
+      console.error('Error in generatePrompts:', error.response ? error.response.data : error.message);
       return null;
     } finally {
       setIsLoading(false);
