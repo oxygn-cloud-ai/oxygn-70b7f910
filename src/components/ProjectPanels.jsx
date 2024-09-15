@@ -8,6 +8,7 @@ import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import axios from 'axios';
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -122,15 +123,30 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
     return null;
   };
 
-  const handleGeneratePrompts = () => {
-    // Placeholder for future implementation
-    console.log("Generate Prompts clicked");
-    toast.info("Generate Prompts functionality is not implemented yet.");
-  };
+  const handleGeneratePrompts = async () => {
+    try {
+      const response = await axios.post('YOUR_OPENAI_API_ENDPOINT', {
+        model: 'YOUR_CHOSEN_MODEL',
+        messages: [
+          { role: 'system', content: localData.input_admin_prompt },
+          { role: 'user', content: localData.input_user_prompt }
+        ],
+        // Add any additional parameters here
+      }, {
+        headers: {
+          'Authorization': `Bearer YOUR_API_KEY`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-  if (!projectRowId) {
-    return <div>No project selected</div>;
-  }
+      const generatedPrompt = response.data.choices[0].message.content;
+      await handleSave('user_prompt_result', generatedPrompt);
+      toast.success('Prompts generated successfully');
+    } catch (error) {
+      console.error('Error generating prompts:', error);
+      toast.error('Failed to generate prompts');
+    }
+  };
 
   const textAreaFields = [
     { name: 'admin_prompt_result', placeholder: 'Admin Prompt' },
