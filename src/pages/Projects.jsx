@@ -18,7 +18,6 @@ const Projects = () => {
   const [selectedItemData, setSelectedItemData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
-    // Remove the logic that toggles the expanded state
     setActiveItem(itemId);
   }, []);
 
