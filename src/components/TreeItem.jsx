@@ -4,7 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -25,7 +25,6 @@ const TreeItem = ({
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(expandedItems.includes(item.id));
 
   useEffect(() => {
     if (editingItem && editingItem.id === item.id && inputRef.current) {
@@ -61,17 +60,6 @@ const TreeItem = ({
     startRenaming(item.id, item.prompt_name);
   };
 
-  const handleItemClick = (e) => {
-    e.preventDefault();
-    setActiveItem(item.id);
-  };
-
-  const handleToggleExpand = (e) => {
-    e.stopPropagation();
-    setIsExpanded(!isExpanded);
-    toggleItem(item.id);
-  };
-
   return (
     <AccordionItem 
       value={item.id} 
@@ -79,21 +67,14 @@ const TreeItem = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div
+      <AccordionTrigger
+        onClick={() => {
+          toggleItem(item.id);
+          setActiveItem(item.id);
+        }}
         className={`hover:no-underline py-0 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
         style={{ paddingLeft: `${level * 16}px` }}
-        onClick={handleItemClick}
       >
-        {item.children && item.children.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-0 h-6 w-6 mr-1"
-            onClick={handleToggleExpand}
-          >
-            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </Button>
-        )}
         <div className="flex items-center space-x-1 flex-grow">
           <FileIcon className="h-4 w-4" />
           {editingItem && editingItem.id === item.id ? (
@@ -116,10 +97,10 @@ const TreeItem = ({
           )}
           {isHovered && renderActionButtons()}
         </div>
-      </div>
+      </AccordionTrigger>
       {item.children && item.children.length > 0 && (
         <AccordionContent className="pt-0 pb-0">
-          {isExpanded && item.children.map((child) => (
+          {item.children.map((child) => (
             <TreeItem
               key={child.id}
               item={child}
