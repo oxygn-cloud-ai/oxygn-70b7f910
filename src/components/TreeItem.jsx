@@ -85,7 +85,7 @@ const TreeItem = ({
           ) : (
             <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
           )}
-          {(isActive || isHovered) && renderActionButtons()}
+          {isHovered && renderActionButtons()}
         </div>
       </AccordionTrigger>
       {item.children && item.children.length > 0 && (
