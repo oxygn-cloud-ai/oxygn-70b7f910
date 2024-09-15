@@ -13,9 +13,7 @@ export const useOpenAICall = () => {
         throw new Error('OpenAI settings are not configured');
       }
 
-      const apiUrl = settings.openai_url.endsWith('/')
-        ? `${settings.openai_url}v1/chat/completions`
-        : `${settings.openai_url}/v1/chat/completions`;
+      const apiUrl = settings.openai_url;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
