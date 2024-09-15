@@ -14,19 +14,21 @@ export const useSettings = (supabase) => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
+      const query = supabase.from('settings').select('*');
+
       console.log('Supabase API Call:', {
-        table: 'settings',
-        action: 'select',
-        query: 'Select *',
+        url: query.url.toString(),
+        method: 'GET',
+        headers: query.headers,
+        body: null,
       });
 
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*');
+      const { data, error } = await query;
 
       console.log('Supabase API Response:', {
-        data,
-        error,
+        status: data ? 200 : 500,
+        data: data,
+        error: error,
       });
 
       if (error) throw error;
@@ -40,19 +42,19 @@ export const useSettings = (supabase) => {
           version: ''
         };
 
+        const insertQuery = supabase.from('settings').insert(defaultSettings).select().single();
+
         console.log('Supabase API Call:', {
-          table: 'settings',
-          action: 'insert',
-          data: defaultSettings,
+          url: insertQuery.url.toString(),
+          method: 'POST',
+          headers: insertQuery.headers,
+          body: JSON.stringify(defaultSettings),
         });
 
-        const { data: insertedData, error: insertError } = await supabase
-          .from('settings')
-          .insert(defaultSettings)
-          .select()
-          .single();
+        const { data: insertedData, error: insertError } = await insertQuery;
 
         console.log('Supabase API Response:', {
+          status: insertedData ? 200 : 500,
           data: insertedData,
           error: insertError,
         });
@@ -83,22 +85,25 @@ export const useSettings = (supabase) => {
         throw new Error('Settings not initialized');
       }
 
-      console.log('Supabase API Call:', {
-        table: 'settings',
-        action: 'update',
-        data: { [key]: value },
-        query: `Update where openai_url = ${settings.openai_url}`,
-      });
-
-      const { data, error } = await supabase
+      const query = supabase
         .from('settings')
         .update({ [key]: value })
         .match({ openai_url: settings.openai_url })
         .select();
 
+      console.log('Supabase API Call:', {
+        url: query.url.toString(),
+        method: 'PATCH',
+        headers: query.headers,
+        body: JSON.stringify({ [key]: value }),
+      });
+
+      const { data, error } = await query;
+
       console.log('Supabase API Response:', {
-        data,
-        error,
+        status: data ? 200 : 500,
+        data: data,
+        error: error,
       });
 
       if (error) throw error;

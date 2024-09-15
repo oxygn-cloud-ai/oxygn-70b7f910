@@ -20,16 +20,18 @@ const useTreeData = (supabase) => {
       }
 
       console.log('Supabase API Call:', {
-        table: 'prompts',
-        action: 'select',
-        query: query.toSQL(),
+        url: query.url.toString(),
+        method: 'GET',
+        headers: query.headers,
+        body: null,
       });
 
       const { data, error } = await query;
 
       console.log('Supabase API Response:', {
-        data,
-        error,
+        status: data ? 200 : 500,
+        data: data,
+        error: error,
       });
 
       if (error) throw error;
@@ -80,21 +82,21 @@ const useTreeData = (supabase) => {
         note: ''
       };
 
+      const query = supabase.from('prompts').insert(newItem).select().single();
+
       console.log('Supabase API Call:', {
-        table: 'prompts',
-        action: 'insert',
-        data: newItem,
+        url: query.url.toString(),
+        method: 'POST',
+        headers: query.headers,
+        body: JSON.stringify(newItem),
       });
 
-      const { data, error } = await supabase
-        .from('prompts')
-        .insert(newItem)
-        .select()
-        .single();
+      const { data, error } = await query;
 
       console.log('Supabase API Response:', {
-        data,
-        error,
+        status: data ? 200 : 500,
+        data: data,
+        error: error,
       });
 
       if (error) throw error;
@@ -117,18 +119,19 @@ const useTreeData = (supabase) => {
     if (!supabase) return false;
     try {
       const deleteRecursively = async (itemId) => {
+        const selectQuery = supabase.from('prompts').select('row_id').eq('parent_row_id', itemId);
+
         console.log('Supabase API Call:', {
-          table: 'prompts',
-          action: 'select',
-          query: `Select row_id where parent_row_id = ${itemId}`,
+          url: selectQuery.url.toString(),
+          method: 'GET',
+          headers: selectQuery.headers,
+          body: null,
         });
 
-        const { data: children, error: selectError } = await supabase
-          .from('prompts')
-          .select('row_id')
-          .eq('parent_row_id', itemId);
+        const { data: children, error: selectError } = await selectQuery;
 
         console.log('Supabase API Response:', {
+          status: children ? 200 : 500,
           data: children,
           error: selectError,
         });
@@ -139,18 +142,20 @@ const useTreeData = (supabase) => {
           await deleteRecursively(child.row_id);
         }
 
+        const deleteQuery = supabase.from('prompts').delete().eq('row_id', itemId);
+
         console.log('Supabase API Call:', {
-          table: 'prompts',
-          action: 'delete',
-          query: `Delete where row_id = ${itemId}`,
+          url: deleteQuery.url.toString(),
+          method: 'DELETE',
+          headers: deleteQuery.headers,
+          body: null,
         });
 
-        const { error: deleteError } = await supabase
-          .from('prompts')
-          .delete()
-          .eq('row_id', itemId);
+        const { error: deleteError } = await deleteQuery;
 
         console.log('Supabase API Response:', {
+          status: deleteError ? 500 : 200,
+          data: null,
           error: deleteError,
         });
 
@@ -171,20 +176,21 @@ const useTreeData = (supabase) => {
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
     try {
+      const query = supabase.from('prompts').update({ prompt_name: newName }).eq('row_id', id);
+
       console.log('Supabase API Call:', {
-        table: 'prompts',
-        action: 'update',
-        data: { prompt_name: newName },
-        query: `Update where row_id = ${id}`,
+        url: query.url.toString(),
+        method: 'PATCH',
+        headers: query.headers,
+        body: JSON.stringify({ prompt_name: newName }),
       });
 
-      const { error } = await supabase
-        .from('prompts')
-        .update({ prompt_name: newName })
-        .eq('row_id', id);
+      const { error } = await query;
 
       console.log('Supabase API Response:', {
-        error,
+        status: error ? 500 : 200,
+        data: null,
+        error: error,
       });
 
       if (error) throw error;

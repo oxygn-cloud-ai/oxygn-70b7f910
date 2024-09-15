@@ -59,20 +59,24 @@ const Projects = () => {
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem && supabase) {
       try {
-        console.log('Supabase API Call:', {
-          table: 'prompts',
-          action: 'update',
-          data: { [fieldName]: value },
-          query: `Update where row_id = ${activeItem}`,
-        });
-
-        const { error } = await supabase
+        const query = supabase
           .from('prompts')
           .update({ [fieldName]: value })
           .eq('row_id', activeItem);
 
+        console.log('Supabase API Call:', {
+          url: query.url.toString(),
+          method: 'PATCH',
+          headers: query.headers,
+          body: JSON.stringify({ [fieldName]: value }),
+        });
+
+        const { error } = await query;
+
         console.log('Supabase API Response:', {
-          error,
+          status: error ? 500 : 200,
+          data: null,
+          error: error,
         });
 
         if (error) throw error;
@@ -127,21 +131,25 @@ const Projects = () => {
     if (activeItem && supabase) {
       const fetchItemData = async () => {
         try {
-          console.log('Supabase API Call:', {
-            table: 'prompts',
-            action: 'select',
-            query: `Select * where row_id = ${activeItem}`,
-          });
-
-          const { data, error } = await supabase
+          const query = supabase
             .from('prompts')
             .select('*')
             .eq('row_id', activeItem)
             .single();
 
+          console.log('Supabase API Call:', {
+            url: query.url.toString(),
+            method: 'GET',
+            headers: query.headers,
+            body: null,
+          });
+
+          const { data, error } = await query;
+
           console.log('Supabase API Response:', {
-            data,
-            error,
+            status: data ? 200 : 500,
+            data: data,
+            error: error,
           });
 
           if (error) throw error;
