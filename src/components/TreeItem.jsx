@@ -55,6 +55,11 @@ const TreeItem = ({
     cancelRenaming();
   };
 
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    startRenaming(item.id, item.prompt_name);
+  };
+
   return (
     <AccordionItem 
       value={item.id} 
@@ -83,7 +88,12 @@ const TreeItem = ({
               className="h-6 py-0 px-1"
             />
           ) : (
-            <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
+            <span 
+              className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}
+              onDoubleClick={handleDoubleClick}
+            >
+              {displayName}
+            </span>
           )}
           {isHovered && renderActionButtons()}
         </div>
