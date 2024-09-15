@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettings } from './useSettings';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +18,7 @@ export const useOpenAICall = () => {
       const apiUrl = settings.openai_url.replace(/\/$/, '');
 
       const requestBody = {
-        model: projectSettings.model || 'gpt-3.5-turbo',
+        model: projectSettings.model || 'gpt-3.5-turbo', // Default to a valid model if not specified
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }
@@ -47,9 +48,9 @@ export const useOpenAICall = () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API Error:', errorText);
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        console.error('OpenAI API Error:', errorData);
+        throw new Error(`OpenAI API error: ${errorData.error.message || response.statusText}`);
       }
 
       const data = await response.json();
@@ -58,6 +59,7 @@ export const useOpenAICall = () => {
       return data.choices[0].message.content;
     } catch (error) {
       console.error('Error calling OpenAI:', error);
+      toast.error(`OpenAI API error: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
