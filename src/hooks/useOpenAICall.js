@@ -38,7 +38,7 @@ export const useOpenAICall = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.text();
         console.error('OpenAI API Error:', errorData);
         throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
       }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
 import { useOpenAICall } from '../hooks/useOpenAICall';
+import { toast } from 'sonner';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -110,21 +111,26 @@ const Projects = () => {
 
   const handleGeneratePrompts = async () => {
     if (!selectedItemData) {
-      console.error("No project selected");
+      toast.error("No project selected");
       return;
     }
 
-    const result = await callOpenAI(
-      selectedItemData.input_admin_prompt,
-      selectedItemData.input_user_prompt,
-      selectedItemData
-    );
+    try {
+      const result = await callOpenAI(
+        selectedItemData.input_admin_prompt,
+        selectedItemData.input_user_prompt,
+        selectedItemData
+      );
 
-    if (result) {
-      const updatedData = { ...selectedItemData, user_prompt_result: result };
-      setSelectedItemData(updatedData);
-      // Update the database with the new result
-      await updateTreeData(activeItem, () => updatedData);
+      if (result) {
+        const updatedData = { ...selectedItemData, user_prompt_result: result };
+        setSelectedItemData(updatedData);
+        await updateTreeData(activeItem, () => updatedData);
+        toast.success("Prompts generated successfully");
+      }
+    } catch (error) {
+      console.error("Error generating prompts:", error);
+      toast.error(`Failed to generate prompts: ${error.message}`);
     }
   };
 
@@ -184,7 +190,7 @@ const Projects = () => {
           onClick={handleGeneratePrompts}
           disabled={!selectedItemData || isLoading}
         >
-          Generate Prompts
+          {isLoading ? "Generating..." : "Generate Prompts"}
         </Button>
       </div>
       <PanelGroup direction="horizontal">
