@@ -50,7 +50,7 @@ const Projects = () => {
           setActiveItem(null);
           setSelectedItemData(null);
         }
-        refreshTreeData();
+        await refreshTreeData();
         toast.success('Item marked as deleted successfully');
       }
     }
@@ -72,14 +72,15 @@ const Projects = () => {
         }));
 
         if (fieldName === 'prompt_name') {
-          updateItemName(activeItem, value);
+          await updateItemName(activeItem, value);
+          await refreshTreeData();
         }
       } catch (error) {
         console.error('Error updating field:', error);
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
       }
     }
-  }, [activeItem, updateItemName, supabase]);
+  }, [activeItem, updateItemName, supabase, refreshTreeData]);
 
   const renderTreeItems = useCallback((items) => {
     return items.map((item) => (
@@ -94,10 +95,11 @@ const Projects = () => {
         startRenaming={(id, name) => setEditingItem({ id, name })}
         editingItem={editingItem}
         setEditingItem={setEditingItem}
-        finishRenaming={() => {
+        finishRenaming={async () => {
           if (editingItem) {
-            updateItemName(editingItem.id, editingItem.name);
+            await updateItemName(editingItem.id, editingItem.name);
             setEditingItem(null);
+            await refreshTreeData();
           }
         }}
         cancelRenaming={() => setEditingItem(null)}
@@ -105,7 +107,7 @@ const Projects = () => {
         setActiveItem={setActiveItem}
       />
     ));
-  }, [expandedItems, toggleItem, handleAddItem, handleDeleteItem, updateItemName, editingItem, activeItem]);
+  }, [expandedItems, toggleItem, handleAddItem, handleDeleteItem, updateItemName, editingItem, activeItem, refreshTreeData]);
 
   useEffect(() => {
     const intervalId = setInterval(refreshTreeData, 60000);
