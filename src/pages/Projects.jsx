@@ -11,15 +11,17 @@ import ProjectPanels from '../components/ProjectPanels';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { useFetchLatestData } from '../hooks/useFetchLatestData';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
-  const { treeData, addItem, deleteItem, updateTreeData, updateItemName, fetchItemData } = useTreeData();
+  const { treeData, addItem, deleteItem, updateTreeData, updateItemName } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const { callOpenAI, isLoading } = useOpenAICall();
+  const { callOpenAI, isLoading: isGenerating } = useOpenAICall();
+  const { fetchLatestData, isLoading: isFetching } = useFetchLatestData();
   const [testData, setTestData] = useState(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ const Projects = () => {
     });
     setActiveItem(itemId);
     if (itemId) {
-      const itemData = await fetchItemData(itemId);
+      const itemData = await fetchLatestData(itemId);
       setSelectedItemData(itemData);
     } else {
       setSelectedItemData(null);
@@ -210,9 +212,9 @@ const Projects = () => {
           variant="link" 
           className="text-blue-500 hover:text-blue-700"
           onClick={handleGeneratePrompts}
-          disabled={!selectedItemData || isLoading}
+          disabled={!selectedItemData || isGenerating}
         >
-          {isLoading ? "Generating..." : "Generate Prompts"}
+          {isGenerating ? "Generating..." : "Generate Prompts"}
         </Button>
       </div>
       {testData && (
@@ -230,7 +232,13 @@ const Projects = () => {
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
           {activeItem ? (
-            <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
+            isFetching ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500">Loading project data...</p>
+              </div>
+            ) : (
+              <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
+            )
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Select a project to view details</p>
