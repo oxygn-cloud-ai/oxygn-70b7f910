@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
-export const useSettings = () => {
+export const useSettings = (supabase) => {
   const [settings, setSettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (supabase) {
+      fetchSettings();
+    }
+  }, [supabase]);
 
   const fetchSettings = async () => {
     setIsLoading(true);

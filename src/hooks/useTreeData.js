@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
-const useTreeData = () => {
+const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchPrompts = useCallback(async (parentRowId = null) => {
+    if (!supabase) return [];
     try {
       let query = supabase
         .from('prompts')
@@ -49,9 +49,10 @@ const useTreeData = () => {
       console.error('Error fetching prompts:', error);
       return [];
     }
-  });
+  }, [supabase]);
 
   const fetchTreeData = useCallback(async () => {
+    if (!supabase) return;
     setIsLoading(true);
     try {
       const data = await fetchPrompts();
@@ -62,13 +63,16 @@ const useTreeData = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchPrompts]);
+  }, [fetchPrompts, supabase]);
 
   useEffect(() => {
-    fetchTreeData();
-  }, [fetchTreeData]);
+    if (supabase) {
+      fetchTreeData();
+    }
+  }, [fetchTreeData, supabase]);
 
   const addItem = useCallback(async (parentId) => {
+    if (!supabase) return null;
     try {
       const newItem = {
         parent_row_id: parentId,
@@ -107,9 +111,10 @@ const useTreeData = () => {
       toast.error(`Failed to add new item: ${error.message}`);
       return null;
     }
-  }, []);
+  }, [supabase]);
 
   const deleteItem = useCallback(async (id) => {
+    if (!supabase) return false;
     try {
       const deleteRecursively = async (itemId) => {
         console.log('Supabase API Call:', {
@@ -161,9 +166,10 @@ const useTreeData = () => {
       toast.error(`Failed to delete item: ${error.message}`);
       return false;
     }
-  }, []);
+  }, [supabase]);
 
   const updateItemName = useCallback(async (id, newName) => {
+    if (!supabase) return false;
     try {
       console.log('Supabase API Call:', {
         table: 'prompts',
@@ -190,7 +196,7 @@ const useTreeData = () => {
       toast.error(`Failed to update item name: ${error.message}`);
       return false;
     }
-  }, []);
+  }, [supabase]);
 
   return { 
     treeData, 

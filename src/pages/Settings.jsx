@@ -3,9 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useSettings } from '../hooks/useSettings';
+import { useSupabase } from '../hooks/useSupabase';
 
 const Settings = () => {
-  const { settings, updateSetting, isLoading } = useSettings();
+  const supabase = useSupabase();
+  const { settings, updateSetting, isLoading } = useSettings(supabase);
   const [openaiUrl, setOpenaiUrl] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
   const [build, setBuild] = useState('');
@@ -67,7 +69,7 @@ const Settings = () => {
     setVersionChanged(true);
   };
 
-  if (isLoading) {
+  if (isLoading || !supabase) {
     return <div>Loading settings...</div>;
   }
 

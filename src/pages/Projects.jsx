@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
+import { useSupabase } from '../hooks/useSupabase';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
-  const { treeData, addItem, deleteItem, updateItemName, isLoading, refreshTreeData } = useTreeData();
+  const supabase = useSupabase();
+  const { treeData, addItem, deleteItem, updateItemName, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
@@ -56,7 +57,7 @@ const Projects = () => {
   }, [deleteConfirmation, deleteItem, activeItem, refreshTreeData]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
-    if (activeItem) {
+    if (activeItem && supabase) {
       try {
         console.log('Supabase API Call:', {
           table: 'prompts',
@@ -89,7 +90,7 @@ const Projects = () => {
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
       }
     }
-  }, [activeItem, updateItemName]);
+  }, [activeItem, updateItemName, supabase]);
 
   const renderTreeItems = useCallback((items) => {
     return items.map((item) => (
@@ -123,7 +124,7 @@ const Projects = () => {
   }, [refreshTreeData]);
 
   useEffect(() => {
-    if (activeItem) {
+    if (activeItem && supabase) {
       const fetchItemData = async () => {
         try {
           console.log('Supabase API Call:', {
@@ -156,7 +157,7 @@ const Projects = () => {
     } else {
       setSelectedItemData(null);
     }
-  }, [activeItem]);
+  }, [activeItem, supabase]);
 
   const renderAccordion = () => (
     <Accordion
@@ -168,6 +169,10 @@ const Projects = () => {
       {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
     </Accordion>
   );
+
+  if (!supabase) {
+    return <div>Loading Supabase client...</div>;
+  }
 
   return (
     <div className="container mx-auto p-4">
