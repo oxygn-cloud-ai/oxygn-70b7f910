@@ -2,16 +2,6 @@ import { useState } from 'react';
 import axios from 'axios';
 import { useSettings } from './useSettings';
 
-const callOpenAIAPI = async (url, requestBody, apiKey) => {
-  const response = await axios.post(url, requestBody, {
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  return response.data;
-};
-
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { settings } = useSettings();
@@ -23,18 +13,16 @@ export const useOpenAICall = () => {
         return null;
       }
 
-      const requestBody = {
+      const response = await axios.post('/api/generate-prompts', {
+        inputAdminPrompt,
+        inputUserPrompt,
         model: model || 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: inputAdminPrompt },
-          { role: 'user', content: inputUserPrompt }
-        ]
-      };
+        openaiUrl: settings.openai_url,
+        openaiApiKey: settings.openai_api_key
+      });
 
-      const data = await callOpenAIAPI(settings.openai_url, requestBody, settings.openai_api_key);
-      return data.choices[0].message.content;
+      return response.data.generatedPrompt;
     } catch (error) {
-      console.error('Error generating prompts:', error);
       return null;
     } finally {
       setIsLoading(false);
