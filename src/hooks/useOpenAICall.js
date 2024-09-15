@@ -17,15 +17,18 @@ export const useOpenAICall = () => {
         return null;
       }
 
+      // Remove trailing slash if present
+      const apiUrl = latestSettings.openai_url.replace(/\/$/, '');
+
       console.log('Generating prompts with:', {
         inputAdminPrompt,
         inputUserPrompt,
         model: model || 'gpt-3.5-turbo',
-        openaiUrl: latestSettings.openai_url,
+        openaiUrl: apiUrl,
         openaiApiKey: latestSettings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
       });
 
-      const response = await axios.post(latestSettings.openai_url, {
+      const response = await axios.post(`${apiUrl}/chat/completions`, {
         model: model || 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: inputAdminPrompt },
@@ -46,7 +49,7 @@ export const useOpenAICall = () => {
       };
     } catch (error) {
       console.error('Error in generatePrompts:', error.response ? error.response.data : error.message);
-      toast.error(`Failed to generate prompts: ${error.message}`);
+      toast.error(`Failed to generate prompts: ${error.response ? error.response.data.error.message : error.message}`);
       return null;
     } finally {
       setIsLoading(false);
