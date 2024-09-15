@@ -47,7 +47,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const handleCheckChange = async (fieldName) => {
     const newCheckedValue = !checkedSettings[fieldName];
     setCheckedSettings(prev => ({ ...prev, [fieldName]: newCheckedValue }));
-    await saveField(`${field}_on`, newCheckedValue ? 1 : 0);
+    await saveField(`${fieldName}_on`, newCheckedValue ? 1 : 0);
   };
 
   const getMaxTokensLabel = () => {
