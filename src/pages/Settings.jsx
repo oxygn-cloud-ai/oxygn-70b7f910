@@ -8,17 +8,37 @@ const Settings = () => {
   const { settings, updateSetting, isLoading } = useSettings();
   const [openaiUrl, setOpenaiUrl] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [urlChanged, setUrlChanged] = useState(false);
+  const [apiKeyChanged, setApiKeyChanged] = useState(false);
 
   useEffect(() => {
     if (settings) {
       setOpenaiUrl(settings.openai_url || '');
       setOpenaiApiKey(settings.openai_api_key || '');
+      setUrlChanged(false);
+      setApiKeyChanged(false);
     }
   }, [settings]);
 
   const handleSave = async () => {
-    await updateSetting('openai_url', openaiUrl);
-    await updateSetting('openai_api_key', openaiApiKey);
+    if (urlChanged) {
+      await updateSetting('openai_url', openaiUrl);
+    }
+    if (apiKeyChanged) {
+      await updateSetting('openai_api_key', openaiApiKey);
+    }
+    setUrlChanged(false);
+    setApiKeyChanged(false);
+  };
+
+  const handleUrlChange = (e) => {
+    setOpenaiUrl(e.target.value);
+    setUrlChanged(true);
+  };
+
+  const handleApiKeyChange = (e) => {
+    setOpenaiApiKey(e.target.value);
+    setApiKeyChanged(true);
   };
 
   if (isLoading) {
@@ -34,7 +54,7 @@ const Settings = () => {
           <Input
             id="openai-url"
             value={openaiUrl}
-            onChange={(e) => setOpenaiUrl(e.target.value)}
+            onChange={handleUrlChange}
             placeholder="Enter OpenAI URL"
           />
         </div>
@@ -44,11 +64,17 @@ const Settings = () => {
             id="openai-api-key"
             type="password"
             value={openaiApiKey}
-            onChange={(e) => setOpenaiApiKey(e.target.value)}
+            onChange={handleApiKeyChange}
             placeholder="Enter OpenAI API Key"
           />
         </div>
-        <Button variant="link" onClick={handleSave}>Save Settings</Button>
+        <Button 
+          variant="link" 
+          onClick={handleSave} 
+          disabled={!urlChanged && !apiKeyChanged}
+        >
+          Save Settings
+        </Button>
       </div>
     </div>
   );
