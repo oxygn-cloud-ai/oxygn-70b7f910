@@ -71,7 +71,7 @@ const TreeItem = ({
           Project ID: {projectId}
         </TooltipContent>
       </Tooltip>
-      {item.children && (
+      {item.children && item.children.length > 0 && (
         <AccordionContent>
           {item.children.map((child) => (
             <TreeItem
