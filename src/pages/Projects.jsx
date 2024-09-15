@@ -92,11 +92,6 @@ const Projects = () => {
   }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
-    const intervalId = setInterval(refreshTreeData, 60000);
-    return () => clearInterval(intervalId);
-  }, [refreshTreeData]);
-
-  useEffect(() => {
     if (activeItem && supabase) {
       const fetchItemData = async () => {
         try {
