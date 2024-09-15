@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import PromptField from './PromptField';
 import SettingField from './SettingField';
+import { Button } from "@/components/ui/button";
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -23,6 +24,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const handleCheckChange = (fieldName, newValue) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
     onUpdateField(fieldName, newValue);
+  };
+
+  const handleGenerate = () => {
+    // TODO: Implement generation logic
+    console.log('Generate button clicked');
   };
 
   if (!projectRowId) {
@@ -47,6 +53,13 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
+      <Button
+        variant="link"
+        onClick={handleGenerate}
+        className="self-start mb-2"
+      >
+        Generate
+      </Button>
       {promptFields.map(field => (
         <PromptField
           key={field.name}
