@@ -9,12 +9,12 @@ const ParentPromptPopup = ({ adminPrompt, userPromptResult, onClose }) => {
     <Dialog open={true} onOpenChange={onClose}>
       <Rnd
         default={{
-          x: window.innerWidth / 2 - 200,
+          x: window.innerWidth / 2 - 400,
           y: window.innerHeight / 2 - 200,
-          width: 400,
+          width: 800,
           height: 400,
         }}
-        minWidth={300}
+        minWidth={800}
         minHeight={300}
         bounds="window"
         style={{ zIndex: 9999 }}
