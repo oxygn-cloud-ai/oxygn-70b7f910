@@ -120,6 +120,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     setLocalData(selectedItemData || {});
   }, [selectedItemData]);
 
+  useEffect(() => {
+    console.log('Models:', models);
+    console.log('Local Data:', localData);
+  }, [models, localData]);
+
   const handleSave = async (fieldName, value) => {
     if (projectRowId) {
       await saveField(fieldName, value);

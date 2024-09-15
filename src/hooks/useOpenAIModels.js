@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 export const useOpenAIModels = () => {
   const [models, setModels] = useState([]);
@@ -11,15 +12,22 @@ export const useOpenAIModels = () => {
 
   const fetchModels = async () => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase
         .from('openai_models')
         .select('model, max_tokens');
 
       if (error) throw error;
 
+      if (data.length === 0) {
+        toast.warning('No OpenAI models found in the database');
+      }
+
       setModels(data);
+      console.log('Fetched OpenAI models:', data);
     } catch (error) {
       console.error('Error fetching OpenAI models:', error);
+      toast.error(`Failed to fetch OpenAI models: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
