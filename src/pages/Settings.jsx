@@ -69,7 +69,6 @@ const Settings = () => {
           />
         </div>
         <Button 
-          variant="link" 
           onClick={handleSave} 
           disabled={!urlChanged && !apiKeyChanged}
         >
