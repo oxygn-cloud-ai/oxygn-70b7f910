@@ -240,11 +240,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
 
   const handleSetEmpty = (fieldName) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
-    handleSave(fieldName, '');
   };
 
-  const handleCheckChange = async (fieldName, newValue) => {
-    await handleSave(fieldName, newValue);
+  const handleCheckChange = (fieldName, newValue) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
   };
 
@@ -293,7 +291,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
               key={field}
               label={field === 'max_tokens' ? getMaxTokensLabel() : field}
               value={localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || ''}
-              onChange={(value) => handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value)}
+              onChange={(value) => setLocalData(prevData => ({ ...prevData, [field === 'temperature (-2 to 2)' ? 'temperature' : field]: value }))}
               onCopy={() => handleCopy(localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || '')}
               onSetEmpty={() => handleSetEmpty(field === 'temperature (-2 to 2)' ? 'temperature' : field)}
               checked={field === 'model' ? localData.model_on : false}
