@@ -35,19 +35,24 @@ const useTreeData = () => {
     }
   }, []);
 
-  const fetchProjectChildren = async (projectId, level = 1) => {
+  const fetchProjectChildren = async (projectId, parentRowId = null, level = 1) => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('*')
         .eq('project_id', projectId)
-        .eq('level', level)
-        .order('created', { ascending: false });
+        .eq('level', level);
+
+      if (parentRowId) {
+        query = query.eq('parent_row_id', parentRowId);
+      }
+
+      const { data, error } = await query.order('created', { ascending: false });
 
       if (error) throw error;
 
       const childrenWithSubchildren = await Promise.all(data.map(async (child) => {
-        const subchildren = await fetchProjectChildren(projectId, level + 1);
+        const subchildren = await fetchProjectChildren(projectId, child.project_row_id, level + 1);
         return {
           ...child,
           id: child.project_row_id,
@@ -92,7 +97,8 @@ const useTreeData = () => {
             project_id: parentId,
             prompt_name: newItem.name,
             created: newItem.created,
-            level: level
+            level: level,
+            parent_row_id: level > 1 ? parentId : null
           })
           .select()
           .single();
