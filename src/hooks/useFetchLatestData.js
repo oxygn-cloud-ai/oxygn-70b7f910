@@ -45,8 +45,9 @@ export const useFetchLatestData = () => {
           context_length,
           custom_finetune
         `)
-        .eq('project_id', projectRowId)
+        .eq('project_row_id', projectRowId)
         .eq('level', 1)
+        .limit(1)
         .single();
 
       if (error) throw error;

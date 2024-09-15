@@ -7,15 +7,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false
   },
-  global: {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-    },
-  },
 });
 
 // Add error handling
-supabase.from('projects').select('*').then(
+supabase.from('projects').select('*').limit(1).then(
   (response) => {
     if (response.error) {
       console.error('Supabase error:', response.error);
