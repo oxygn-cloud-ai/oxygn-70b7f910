@@ -61,7 +61,6 @@ const TreeItem = ({
               ) : (
                 <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
               )}
-              {isActive && renderActionButtons()}
             </div>
           </AccordionTrigger>
         </TooltipTrigger>
@@ -69,6 +68,11 @@ const TreeItem = ({
           Project ID: {projectId}
         </TooltipContent>
       </Tooltip>
+      {isActive && (
+        <div className="ml-4 mt-1">
+          {renderActionButtons()}
+        </div>
+      )}
       {item.children && (
         <AccordionContent>
           {item.children.map((child) => (
