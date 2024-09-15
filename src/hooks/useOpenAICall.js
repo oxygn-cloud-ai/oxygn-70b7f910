@@ -16,8 +16,8 @@ export const useOpenAICall = () => {
         return null;
       }
 
-      // Remove trailing slash if present
-      const apiUrl = latestSettings.openai_url.replace(/\/$/, '');
+      // Remove trailing slash if present and ensure correct endpoint
+      const apiUrl = `${latestSettings.openai_url.replace(/\/$/, '')}/chat/completions`;
 
       console.log('Generating prompts with:', {
         inputAdminPrompt,
@@ -27,7 +27,7 @@ export const useOpenAICall = () => {
         openaiApiKey: latestSettings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
       });
 
-      const response = await fetch(`${apiUrl}/chat/completions`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${latestSettings.openai_api_key}`,
@@ -43,7 +43,8 @@ export const useOpenAICall = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
