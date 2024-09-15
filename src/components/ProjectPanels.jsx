@@ -25,6 +25,13 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
+    if (selectedItemData) {
+      const initialCheckedSettings = {};
+      promptSettingsFields.forEach(field => {
+        initialCheckedSettings[field] = selectedItemData[`${field}_on`] === 1;
+      });
+      setCheckedSettings(initialCheckedSettings);
+    }
   }, [selectedItemData]);
 
   const handleSave = async (fieldName, value) => {
@@ -59,8 +66,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     handleSave(fieldName, '');
   };
 
-  const handleCheckChange = (fieldName) => {
-    setCheckedSettings(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
+  const handleCheckChange = async (fieldName) => {
+    const newCheckedValue = !checkedSettings[fieldName];
+    setCheckedSettings(prev => ({ ...prev, [fieldName]: newCheckedValue }));
+    await saveField(`${fieldName}_on`, newCheckedValue ? 1 : 0);
   };
 
   const getMaxTokensLabel = () => {
