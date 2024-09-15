@@ -52,20 +52,22 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
 };
 
 const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options, isTemperature }) => {
-  const [sliderValue, setSliderValue] = useState(parseFloat(value) || 0);
+  const [inputValue, setInputValue] = useState(value);
 
-  const handleSliderChange = (newValue) => {
-    const formattedValue = newValue[0].toFixed(4);
-    setSliderValue(newValue[0]);
-    onChange(formattedValue);
-  };
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
 
   const handleInputChange = (e) => {
     const newValue = e.target.value;
-    if (newValue === '' || (parseFloat(newValue) >= -2 && parseFloat(newValue) <= 2)) {
-      setSliderValue(newValue === '' ? 0 : parseFloat(newValue));
-      onChange(newValue);
-    }
+    setInputValue(newValue);
+    onChange(newValue);
+  };
+
+  const handleSliderChange = (newValue) => {
+    const formattedValue = newValue[0].toFixed(4);
+    setInputValue(formattedValue);
+    onChange(formattedValue);
   };
 
   if (isTemperature) {
@@ -85,17 +87,18 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
         </Label>
         <div className="flex items-center space-x-2">
           <Slider
-            id={label}
+            id={`${label}-slider`}
             min={-2}
             max={2}
             step={0.0001}
-            value={[sliderValue]}
+            value={[parseFloat(inputValue) || 0]}
             onValueChange={handleSliderChange}
             className="flex-grow"
           />
           <Input
+            id={`${label}-input`}
             type="text"
-            value={typeof sliderValue === 'number' ? sliderValue.toFixed(4) : sliderValue}
+            value={inputValue}
             onChange={handleInputChange}
             className="w-20"
             style={{ appearance: 'textfield' }}
