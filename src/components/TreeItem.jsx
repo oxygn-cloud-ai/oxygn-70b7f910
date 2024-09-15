@@ -72,7 +72,7 @@ const TreeItem = ({
           toggleItem(item.id);
           setActiveItem(item.id);
         }}
-        className={`hover:no-underline py-1 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+        className={`hover:no-underline py-0 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
         style={{ paddingLeft: `${level * 16}px` }}
       >
         <div className="flex items-center space-x-1 flex-grow">
@@ -99,7 +99,7 @@ const TreeItem = ({
         </div>
       </AccordionTrigger>
       {item.children && item.children.length > 0 && (
-        <AccordionContent>
+        <AccordionContent className="pt-0 pb-0">
           {item.children.map((child) => (
             <TreeItem
               key={child.id}
