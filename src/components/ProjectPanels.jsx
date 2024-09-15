@@ -78,6 +78,10 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
     onChange(formattedValue);
   };
 
+  const handleCheckChange = () => {
+    onCheckChange(!checked);
+  };
+
   if (isTemperature) {
     return (
       <div className="mb-2">
@@ -88,7 +92,7 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
             <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
             <IconButton 
               icon={checked ? <CheckSquare /> : <Square />} 
-              onClick={onCheckChange} 
+              onClick={handleCheckChange} 
               tooltip={checked ? "Uncheck" : "Check"}
             />
           </div>
@@ -124,7 +128,7 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
           <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
           <IconButton 
             icon={checked ? <CheckSquare /> : <Square />} 
-            onClick={onCheckChange} 
+            onClick={handleCheckChange} 
             tooltip={checked ? "Uncheck" : "Check"}
           />
         </div>
@@ -151,7 +155,7 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
           <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
           <IconButton 
             icon={checked ? <CheckSquare /> : <Square />} 
-            onClick={onCheckChange} 
+            onClick={handleCheckChange} 
             tooltip={checked ? "Uncheck" : "Check"}
           />
         </div>
@@ -192,14 +196,19 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
   const { models, isLoading: isLoadingModels } = useOpenAIModels();
   const [localData, setLocalData] = useState(selectedItemData || {});
-  const [checkedSettings, setCheckedSettings] = useState({});
+
+  useEffect(() => {
+    if (projectRowId) {
+      fetchLatestData().then(data => {
+        if (data) {
+          setLocalData(data);
+        }
+      });
+    }
+  }, [projectRowId, fetchLatestData]);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
-    setCheckedSettings(prevChecked => ({
-      ...prevChecked,
-      model: selectedItemData?.model_on || false
-    }));
   }, [selectedItemData]);
 
   const handleSave = async (fieldName, value) => {
@@ -214,10 +223,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       const latestData = await fetchLatestData();
       if (latestData !== null) {
         setLocalData(prevData => ({ ...prevData, ...latestData }));
-        setCheckedSettings(prevChecked => ({
-          ...prevChecked,
-          model: latestData.model_on || false
-        }));
         return latestData[fieldName];
       }
     }
@@ -238,12 +243,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     handleSave(fieldName, '');
   };
 
-  const handleCheckChange = async (fieldName) => {
-    const newCheckedValue = !checkedSettings[fieldName];
-    setCheckedSettings(prev => ({ ...prev, [fieldName]: newCheckedValue }));
-    if (fieldName === 'model') {
-      await handleSave('model_on', newCheckedValue);
-    }
+  const handleCheckChange = async (fieldName, newValue) => {
+    await handleSave(fieldName, newValue);
+    setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
   };
 
   const getMaxTokensLabel = () => {
@@ -291,14 +293,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
               key={field}
               label={field === 'max_tokens' ? getMaxTokensLabel() : field}
               value={localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || ''}
-              onChange={(value) => {
-                setLocalData(prev => ({ ...prev, [field === 'temperature (-2 to 2)' ? 'temperature' : field]: value }));
-                handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value);
-              }}
+              onChange={(value) => handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value)}
               onCopy={() => handleCopy(localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || '')}
               onSetEmpty={() => handleSetEmpty(field === 'temperature (-2 to 2)' ? 'temperature' : field)}
-              checked={checkedSettings[field] || false}
-              onCheckChange={() => handleCheckChange(field)}
+              checked={field === 'model' ? localData.model_on : false}
+              onCheckChange={(newValue) => handleCheckChange(field === 'model' ? 'model_on' : field, newValue)}
               isSelect={field === 'model'}
               options={models}
               isTemperature={field === 'temperature (-2 to 2)'}
