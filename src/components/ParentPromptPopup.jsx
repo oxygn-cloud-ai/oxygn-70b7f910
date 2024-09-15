@@ -18,40 +18,54 @@ const ParentPromptPopup = ({ adminPrompt, userPromptResult, onClose }) => {
         minHeight={300}
         bounds="window"
         style={{ zIndex: 9999 }}
+        enableResizing={{
+          top: true,
+          right: true,
+          bottom: true,
+          left: true,
+          topRight: true,
+          bottomRight: true,
+          bottomLeft: true,
+          topLeft: true
+        }}
+        dragHandleClassName="drag-handle"
       >
-        <DialogContent className="sm:max-w-[425px] w-full h-full resize overflow-auto">
-          <DialogHeader>
-            <DialogTitle>Parent Prompt Information</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="admin-prompt" className="text-right">
-                Admin Prompt
-              </label>
-              <Textarea
-                id="admin-prompt"
-                value={adminPrompt}
-                readOnly
-                className="col-span-3"
-              />
+        <DialogContent className="w-full h-full p-0 overflow-hidden">
+          <div className="drag-handle w-full h-8 bg-gray-200 cursor-move" />
+          <div className="p-4 overflow-y-auto h-[calc(100%-2rem)]">
+            <DialogHeader>
+              <DialogTitle>Parent Prompt Information</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="admin-prompt" className="text-right">
+                  Admin Prompt
+                </label>
+                <Textarea
+                  id="admin-prompt"
+                  value={adminPrompt}
+                  readOnly
+                  className="col-span-3"
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <label htmlFor="user-prompt-result" className="text-right">
+                  User Prompt Result
+                </label>
+                <Textarea
+                  id="user-prompt-result"
+                  value={userPromptResult}
+                  readOnly
+                  className="col-span-3"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="user-prompt-result" className="text-right">
-                User Prompt Result
-              </label>
-              <Textarea
-                id="user-prompt-result"
-                value={userPromptResult}
-                readOnly
-                className="col-span-3"
-              />
-            </div>
+            <DialogFooter>
+              <Button type="button" onClick={onClose}>
+                Close
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button type="button" onClick={onClose}>
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Rnd>
     </Dialog>
