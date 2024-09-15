@@ -11,6 +11,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -166,7 +167,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
   const renderSettingFields = () => {
     const fields = [
-      'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+      'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
       'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
       'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
       'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
@@ -175,6 +176,46 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
     return (
       <div className="grid grid-cols-2 gap-4">
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleSave('model')}
+            className="absolute right-8 z-10 h-6 w-6"
+            disabled={localData.model === selectedItemData.model}
+          >
+            <Save className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleReset('model')}
+            className="absolute right-2 z-10 h-6 w-6"
+            disabled={localData.model === selectedItemData.model}
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <div>
+            <label htmlFor="model" className="block text-sm font-medium text-gray-700">
+              Model
+            </label>
+            <Select
+              value={localData.model || ''}
+              onValueChange={(value) => handleChange('model', value)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a model" />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((model) => (
+                  <SelectItem key={model.model} value={model.model}>
+                    {model.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         {fields.map(field => (
           <div key={field} className="relative">
             <Button
@@ -201,8 +242,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
               onChange={(value) => handleChange(field, value)}
               checked={localData[`${field}_on`] || false}
               onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
-              isSelect={field === 'model'}
-              options={models}
               isTemperature={field === 'temperature'}
             />
           </div>
