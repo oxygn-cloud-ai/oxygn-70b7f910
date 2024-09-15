@@ -1,10 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import {
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -61,22 +56,21 @@ const TreeItem = ({
   };
 
   return (
-    <AccordionItem 
-      value={item.id} 
-      className="border-none pt-1 pb-1"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <AccordionTrigger
-        onClick={() => {
-          toggleItem(item.id);
-          setActiveItem(item.id);
-        }}
-        className={`hover:no-underline py-0 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+    <div className="border-none pt-1 pb-1">
+      <div
+        className={`flex items-center hover:bg-gray-100 py-1 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
-          <FileIcon className="h-4 w-4" />
+          {item.children && item.children.length > 0 ? (
+            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+          ) : (
+            <div className="w-4 h-4 flex-shrink-0" /> // Placeholder for alignment
+          )}
+          <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
             <Input
               ref={inputRef}
@@ -89,7 +83,7 @@ const TreeItem = ({
             />
           ) : (
             <span 
-              className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}
+              className={`ml-1 cursor-pointer ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
               onDoubleClick={handleDoubleClick}
             >
               {displayName}
@@ -97,9 +91,9 @@ const TreeItem = ({
           )}
           {isHovered && renderActionButtons()}
         </div>
-      </AccordionTrigger>
+      </div>
       {item.children && item.children.length > 0 && (
-        <AccordionContent className="pt-0 pb-0">
+        <div>
           {item.children.map((child) => (
             <TreeItem
               key={child.id}
@@ -118,9 +112,9 @@ const TreeItem = ({
               deleteItem={deleteItem}
             />
           ))}
-        </AccordionContent>
+        </div>
       )}
-    </AccordionItem>
+    </div>
   );
 };
 
