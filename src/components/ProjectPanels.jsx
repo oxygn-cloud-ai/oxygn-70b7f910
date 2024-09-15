@@ -11,6 +11,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import ParentPromptPopup from './ParentPromptPopup';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -20,6 +21,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [timer, setTimer] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
+  const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
+  const [parentData, setParentData] = useState(null);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -142,9 +145,24 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
-  if (!projectRowId) {
-    return <div>No project selected</div>;
-  }
+  const handleParentButtonClick = async () => {
+    if (selectedItemData.parent_row_id) {
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('admin_prompt_result, user_prompt_result')
+          .eq('row_id', selectedItemData.parent_row_id)
+          .single();
+
+        if (error) throw error;
+
+        setParentData(data);
+        setIsParentPopupOpen(true);
+      } catch (error) {
+        console.error('Error fetching parent data:', error);
+      }
+    }
+  };
 
   const renderPromptFields = () => {
     const fields = [
@@ -208,14 +226,24 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <Button
-        variant="link"
-        onClick={handleGenerate}
-        className="self-start mb-2"
-        disabled={isGenerating}
-      >
-        {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          variant="link"
+          onClick={handleGenerate}
+          className="self-start mb-2"
+          disabled={isGenerating}
+        >
+          {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
+        </Button>
+        <Button
+          variant="link"
+          onClick={handleParentButtonClick}
+          className="self-start mb-2"
+          disabled={!selectedItemData.parent_row_id}
+        >
+          Parent
+        </Button>
+      </div>
       {renderPromptFields()}
       <Collapsible
         open={isSettingsOpen}
@@ -234,6 +262,13 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           {renderSettingFields()}
         </CollapsibleContent>
       </Collapsible>
+      {isParentPopupOpen && parentData && (
+        <ParentPromptPopup
+          adminPrompt={parentData.admin_prompt_result}
+          userPromptResult={parentData.user_prompt_result}
+          onClose={() => setIsParentPopupOpen(false)}
+        />
+      )}
     </div>
   );
 };
