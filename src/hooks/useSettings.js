@@ -24,9 +24,7 @@ export const useSettings = () => {
         console.log('No settings found, creating default settings');
         const defaultSettings = {
           openai_url: 'https://api.openai.com/v1/chat/completions',
-          openai_api_key: '',
-          build: '',
-          version: ''
+          openai_api_key: ''
         };
 
         const { data: insertedData, error: insertError } = await supabase
@@ -48,7 +46,7 @@ export const useSettings = () => {
     } catch (error) {
       console.error('Error fetching or creating settings:', error);
       toast.error('Failed to fetch or create settings');
-      setSettings({ openai_url: '', openai_api_key: '', build: '', version: '' });
+      setSettings({ openai_url: '', openai_api_key: '' });
     } finally {
       setIsLoading(false);
     }
