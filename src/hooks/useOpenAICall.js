@@ -48,6 +48,30 @@ export const useOpenAICall = () => {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('OpenAI API Error:', errorData);
+
+        // Check if the error is due to an invalid model
+        if (errorData.error && errorData.error.code === 'model_not_found') {
+          console.log('Model not found, attempting with fallback model gpt-3.5-turbo');
+          requestBody.model = 'gpt-3.5-turbo';
+          
+          const fallbackResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${settings.openai_api_key}`
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!fallbackResponse.ok) {
+            throw new Error(`Fallback OpenAI API error: ${fallbackResponse.statusText}`);
+          }
+
+          const fallbackData = await fallbackResponse.json();
+          console.log('OpenAI API Fallback Response:', JSON.stringify(fallbackData, null, 2));
+          return fallbackData.choices[0].message.content;
+        }
+
         throw new Error(`OpenAI API error: ${errorData.error.message || response.statusText}`);
       }
 
