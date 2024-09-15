@@ -13,7 +13,8 @@ export const useOpenAICall = () => {
         throw new Error('OpenAI settings are not configured');
       }
 
-      const apiUrl = settings.openai_url;
+      // Remove trailing slash from the API URL if it exists
+      const apiUrl = settings.openai_url.replace(/\/$/, '');
 
       const response = await fetch(apiUrl, {
         method: 'POST',
