@@ -155,8 +155,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
   const renderPromptFields = () => {
     const fields = [
-      { name: 'admin_prompt_result', label: 'Admin Prompt' },
-      { name: 'user_prompt_result', label: 'User Prompt' },
+      { name: 'admin_prompt_result', label: 'Admin Result' },
+      { name: 'user_prompt_result', label: 'User Result' },
       { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
       { name: 'input_user_prompt', label: 'Input User Prompt' },
       { name: 'note', label: 'Notes' }
