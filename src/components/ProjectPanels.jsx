@@ -16,17 +16,11 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
     setText(value || '');
   }, [value]);
 
-  const handleSave = () => {
-    onSave(fieldName, text);
-  };
-
+  const handleSave = () => onSave(fieldName, text);
   const handleReset = async () => {
     const resetValue = await onReset(fieldName);
-    if (resetValue !== null) {
-      setText(resetValue);
-    }
+    if (resetValue !== null) setText(resetValue);
   };
-
   const handleCopy = () => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
@@ -38,47 +32,14 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
 
   return (
     <div className="relative mb-4">
-      <div className="absolute top-2 left-2 z-10 flex space-x-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCopy}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Copy to clipboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave}>
-                <Save className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Save changes</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleReset}>
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Reset to last saved</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div className="absolute top-2 right-2 z-10 flex space-x-1">
+        <IconButton icon={<Copy />} onClick={handleCopy} tooltip="Copy to clipboard" />
+        <IconButton icon={<Save />} onClick={handleSave} tooltip="Save changes" />
+        <IconButton icon={<RotateCcw />} onClick={handleReset} tooltip="Reset to last saved" />
       </div>
       <Textarea 
         placeholder={placeholder} 
-        className="w-full p-2 pl-24 border rounded" 
+        className="w-full p-2 pr-24 border rounded" 
         value={text}
         onChange={(e) => setText(e.target.value)}
         readOnly={readOnly}
@@ -87,48 +48,49 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
-const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange }) => {
-  return (
-    <div className="flex items-center space-x-2 mb-2">
-      <Label htmlFor={label} className="w-1/3">{label}</Label>
-      <Input
-        id={label}
-        value={value}
-        onChange={onChange}
-        className="w-1/3"
-      />
+const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange }) => (
+  <div className="mb-2">
+    <Label htmlFor={label} className="flex justify-between items-center">
+      <span>{label}</span>
       <div className="flex space-x-1">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCopy}>
-                <Copy className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Copy to clipboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onSetEmpty}>
-                <X className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Set to empty</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCheckChange}>
-          {checked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-        </Button>
+        <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+        <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+        <IconButton 
+          icon={checked ? <CheckSquare /> : <Square />} 
+          onClick={onCheckChange} 
+          tooltip={checked ? "Uncheck" : "Check"}
+        />
       </div>
-    </div>
-  );
-};
+    </Label>
+    <Input
+      id={label}
+      value={value}
+      onChange={onChange}
+      className="w-full mt-1"
+    />
+  </div>
+);
+
+const IconButton = ({ icon, onClick, tooltip }) => (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 p-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(e);
+          }}
+        >
+          {React.cloneElement(icon, { className: "h-4 w-4" })}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
 
 const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
