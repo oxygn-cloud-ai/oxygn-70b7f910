@@ -168,18 +168,26 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
         <div className="grid grid-cols-2 gap-4">
           {settingFields.map(field => (
-            <SettingField
-              key={field}
-              label={field}
-              value={localData[field] || ''}
-              onChange={(value) => handleChange(field, value)}
-              onSave={() => handleSave(field)}
-              checked={localData[`${field}_on`] || false}
-              onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
-              isSelect={field === 'model'}
-              options={models}
-              isTemperature={field === 'temperature'}
-            />
+            <div key={field} className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleSave(field)}
+                className="absolute -top-2 -left-2 z-10 h-6 w-6"
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <SettingField
+                label={field}
+                value={localData[field] || ''}
+                onChange={(value) => handleChange(field, value)}
+                checked={localData[`${field}_on`] || false}
+                onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
+                isSelect={field === 'model'}
+                options={models}
+                isTemperature={field === 'temperature'}
+              />
+            </div>
           ))}
         </div>
       </div>
