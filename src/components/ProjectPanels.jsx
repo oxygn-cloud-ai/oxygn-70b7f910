@@ -1,11 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import PromptField from './PromptField';
 import SettingField from './SettingField';
 
@@ -20,6 +14,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const handleSave = (fieldName, value) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
     onUpdateField(fieldName, value);
+  };
+
+  const handleReset = (fieldName) => {
+    setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
   };
 
   const handleCheckChange = (fieldName, newValue) => {
@@ -55,6 +53,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           label={field.label}
           value={localData[field.name] || ''}
           onChange={(value) => handleSave(field.name, value)}
+          onReset={() => handleReset(field.name)}
+          initialValue={selectedItemData[field.name] || ''}
         />
       ))}
       <div className="border rounded-lg p-4">
