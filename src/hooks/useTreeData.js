@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [defaultAdminPrompt, setDefaultAdminPrompt] = useState('');
 
   const fetchPrompts = useCallback(async (parentRowId = null) => {
     if (!supabase) return [];
@@ -47,6 +48,15 @@ const useTreeData = (supabase) => {
     try {
       const data = await fetchPrompts();
       setTreeData(data);
+
+      // Fetch default admin prompt from settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('settings')
+        .select('def_admin_prompt')
+        .single();
+
+      if (settingsError) throw settingsError;
+      setDefaultAdminPrompt(settingsData.def_admin_prompt || '');
     } catch (error) {
       console.error('Error fetching tree data:', error);
       toast.error(`Failed to fetch prompts: ${error.message}`);
@@ -69,7 +79,8 @@ const useTreeData = (supabase) => {
         prompt_name: 'New Prompt',
         note: '',
         created: new Date().toISOString(),
-        is_deleted: false
+        is_deleted: false,
+        input_admin_prompt: defaultAdminPrompt
       };
 
       const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
@@ -83,7 +94,7 @@ const useTreeData = (supabase) => {
       toast.error(`Failed to add new item: ${error.message}`);
       return null;
     }
-  }, [supabase, fetchTreeData]);
+  }, [supabase, fetchTreeData, defaultAdminPrompt]);
 
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
@@ -143,7 +154,8 @@ const useTreeData = (supabase) => {
     updateItemName,
     deleteItem,
     isLoading,
-    refreshTreeData: fetchTreeData
+    refreshTreeData: fetchTreeData,
+    defaultAdminPrompt
   };
 };
 

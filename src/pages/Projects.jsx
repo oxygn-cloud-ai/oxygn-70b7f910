@@ -13,7 +13,7 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
 
