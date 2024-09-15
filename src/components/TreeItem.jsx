@@ -62,34 +62,32 @@ const TreeItem = ({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-center justify-between">
-        <AccordionTrigger
-          onClick={() => {
-            toggleItem(item.id);
-            setActiveItem(item.id);
-          }}
-          className={`hover:no-underline py-1 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-          style={{ paddingLeft: `${level * 16}px` }}
-        >
-          <div className="flex items-center space-x-1">
-            <FileIcon className="h-4 w-4" />
-            {editingItem && editingItem.id === item.id ? (
-              <Input
-                ref={inputRef}
-                value={editingItem.name}
-                onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                onKeyDown={handleKeyDown}
-                onBlur={handleBlur}
-                onClick={(e) => e.stopPropagation()}
-                className="h-6 py-0 px-1"
-              />
-            ) : (
-              <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
-            )}
-          </div>
-        </AccordionTrigger>
-        {(isActive || isHovered) && renderActionButtons()}
-      </div>
+      <AccordionTrigger
+        onClick={() => {
+          toggleItem(item.id);
+          setActiveItem(item.id);
+        }}
+        className={`hover:no-underline py-1 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+        style={{ paddingLeft: `${level * 16}px` }}
+      >
+        <div className="flex items-center space-x-1 flex-grow">
+          <FileIcon className="h-4 w-4" />
+          {editingItem && editingItem.id === item.id ? (
+            <Input
+              ref={inputRef}
+              value={editingItem.name}
+              onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+              onKeyDown={handleKeyDown}
+              onBlur={handleBlur}
+              onClick={(e) => e.stopPropagation()}
+              className="h-6 py-0 px-1"
+            />
+          ) : (
+            <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
+          )}
+          {(isActive || isHovered) && renderActionButtons()}
+        </div>
+      </AccordionTrigger>
       {item.children && item.children.length > 0 && (
         <AccordionContent>
           {item.children.map((child) => (
