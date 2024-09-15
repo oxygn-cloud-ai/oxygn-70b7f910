@@ -79,7 +79,7 @@ const useTreeData = () => {
     };
 
     try {
-      let data;
+      let projectId;
       if (level === 0) {
         const { data: insertedProject, error } = await supabase
           .from('project_names')
@@ -88,13 +88,40 @@ const useTreeData = () => {
           .single();
 
         if (error) throw error;
-        data = insertedProject;
-        newItem.id = data.project_id;
+        projectId = insertedProject.project_id;
+        newItem.id = projectId;
       } else {
+        const { data: parentProject, error: parentError } = await supabase
+          .from('projects')
+          .select('project_id')
+          .eq('project_row_id', parentId)
+          .single();
+
+        if (parentError) throw parentError;
+        projectId = parentProject.project_id;
+
+        // Check if project_id exists in project_names
+        const { data: projectExists, error: checkError } = await supabase
+          .from('project_names')
+          .select('project_id')
+          .eq('project_id', projectId)
+          .single();
+
+        if (checkError && checkError.code !== 'PGRST116') throw checkError;
+
+        if (!projectExists) {
+          // If project_id doesn't exist, create it in project_names
+          const { error: insertError } = await supabase
+            .from('project_names')
+            .insert({ project_id: projectId, project_name: 'Untitled Project', created: newItem.created });
+
+          if (insertError) throw insertError;
+        }
+
         const { data: insertedPrompt, error } = await supabase
           .from('projects')
           .insert({
-            project_id: parentId,
+            project_id: projectId,
             prompt_name: newItem.name,
             created: newItem.created,
             level: level,
@@ -104,8 +131,7 @@ const useTreeData = () => {
           .single();
 
         if (error) throw error;
-        data = insertedPrompt;
-        newItem.id = data.project_row_id;
+        newItem.id = insertedPrompt.project_row_id;
       }
 
       setTreeData(prevData => {
