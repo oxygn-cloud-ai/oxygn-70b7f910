@@ -23,7 +23,7 @@ export const useOpenAICall = () => {
           { role: 'user', content: userMessage }
         ],
         temperature: parseFloat(projectSettings.temperature) || 0.7,
-        max_tokens: parseInt(projectSettings.max_tokens) || 150,
+        max_tokens: Math.min(parseInt(projectSettings.max_tokens) || 150, 4096),
         top_p: parseFloat(projectSettings.top_p) || 1,
         frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
         presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
@@ -46,16 +46,15 @@ export const useOpenAICall = () => {
         body: JSON.stringify(requestBody)
       });
 
+      const responseData = await response.json();
+
+      console.log('OpenAI API Response:', JSON.stringify(responseData, null, 2));
+
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API Error:', errorText);
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}\n${JSON.stringify(responseData, null, 2)}`);
       }
 
-      const data = await response.json();
-      console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
-
-      return data.choices[0].message.content;
+      return responseData.choices[0].message.content;
     } catch (error) {
       console.error('Error calling OpenAI:', error);
       throw error;
