@@ -40,11 +40,7 @@ export const useOpenAICall = () => {
         if (error.response) {
           toast.error(`API Error: ${error.response.status} - ${error.response.data.error?.message || 'Unknown error'}`);
         } else if (error.request) {
-          if (error.message === 'Network Error') {
-            toast.error('CORS Error: Unable to access the OpenAI API. Please ensure your API key and settings are correct, and that you are using a CORS-enabled endpoint or proxy.');
-          } else {
-            toast.error('No response received from OpenAI API. Please check your internet connection.');
-          }
+          toast.error('No response received from OpenAI API. Please check your internet connection and API settings.');
         } else {
           toast.error(`Error setting up the request: ${error.message}`);
         }
