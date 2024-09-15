@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RotateCcw, Copy } from 'lucide-react';
+import { Save, RotateCcw, Copy, X, CheckSquare, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
@@ -87,10 +87,54 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
+const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange }) => {
+  return (
+    <div className="flex items-center space-x-2 mb-2">
+      <Label htmlFor={label} className="w-1/3">{label}</Label>
+      <Input
+        id={label}
+        value={value}
+        onChange={onChange}
+        className="w-1/3"
+      />
+      <div className="flex space-x-1">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCopy}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Copy to clipboard</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onSetEmpty}>
+                <X className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Set to empty</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onCheckChange}>
+          {checked ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
   const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
   const [localData, setLocalData] = useState(selectedItemData || {});
+  const [checkedSettings, setCheckedSettings] = useState({});
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -112,6 +156,24 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       }
     }
     return null;
+  };
+
+  const handleCopy = (value) => {
+    navigator.clipboard.writeText(value).then(() => {
+      toast.success('Copied to clipboard');
+    }).catch((err) => {
+      console.error('Failed to copy text: ', err);
+      toast.error('Failed to copy text');
+    });
+  };
+
+  const handleSetEmpty = (fieldName) => {
+    setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
+    handleSave(fieldName, '');
+  };
+
+  const handleCheckChange = (fieldName) => {
+    setCheckedSettings(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
   };
 
   if (!projectRowId) {
@@ -148,17 +210,21 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       ))}
       <div className="border rounded-lg p-4">
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-2">
           {promptSettingsFields.map(field => (
-            <div key={field} className="flex flex-col">
-              <Label htmlFor={field}>{field}</Label>
-              <Input
-                id={field}
-                value={localData[field] || ''}
-                onChange={(e) => setLocalData(prev => ({ ...prev, [field]: e.target.value }))}
-                onBlur={() => handleSave(field, localData[field])}
-              />
-            </div>
+            <SettingInput
+              key={field}
+              label={field}
+              value={localData[field] || ''}
+              onChange={(e) => {
+                setLocalData(prev => ({ ...prev, [field]: e.target.value }));
+                handleSave(field, e.target.value);
+              }}
+              onCopy={() => handleCopy(localData[field] || '')}
+              onSetEmpty={() => handleSetEmpty(field)}
+              checked={checkedSettings[field] || false}
+              onCheckChange={() => handleCheckChange(field)}
+            />
           ))}
         </div>
       </div>
