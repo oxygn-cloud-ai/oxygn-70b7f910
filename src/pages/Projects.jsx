@@ -71,11 +71,11 @@ const Projects = () => {
           body: JSON.stringify({ [fieldName]: value }),
         });
 
-        const { error } = await query;
+        const { data, error } = await query;
 
         console.log('Supabase API Response:', {
           status: error ? 500 : 200,
-          data: null,
+          data: JSON.stringify(data),
           error: error ? JSON.stringify(error) : null,
         });
 
@@ -106,7 +106,7 @@ const Projects = () => {
         toggleItem={toggleItem}
         addItem={handleAddItem}
         deleteItem={handleDeleteItem}
-        startRenaming={(id) => setEditingItem({ id, name: item.name })}
+        startRenaming={(id, name) => setEditingItem({ id, name })}
         editingItem={editingItem}
         setEditingItem={setEditingItem}
         finishRenaming={() => {
@@ -115,6 +115,7 @@ const Projects = () => {
             setEditingItem(null);
           }
         }}
+        cancelRenaming={() => setEditingItem(null)}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
         projectId={item.id}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   AccordionContent,
   AccordionItem,
@@ -20,20 +20,41 @@ const TreeItem = ({
   editingItem,
   setEditingItem,
   finishRenaming,
+  cancelRenaming,
   activeItem,
   setActiveItem,
   projectId
 }) => {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (editingItem && editingItem.id === item.id && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editingItem, item.id]);
+
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add Prompt" />
-      <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id)} tooltip="Rename" />
+      <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id, item.prompt_name)} tooltip="Rename" />
       <ActionButton icon={<TrashIcon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
     </div>
   );
 
-  const displayName = item.name && item.name.trim() !== '' ? `${item.name} {${level}}` : `New Prompt {${level}}`;
+  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
   const isActive = activeItem === item.id;
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      finishRenaming();
+    } else if (e.key === 'Escape') {
+      cancelRenaming();
+    }
+  };
+
+  const handleBlur = () => {
+    cancelRenaming();
+  };
 
   return (
     <AccordionItem value={item.id} className="border-none">
@@ -52,10 +73,11 @@ const TreeItem = ({
                 <FileIcon className="h-4 w-4" />
                 {editingItem && editingItem.id === item.id ? (
                   <Input
+                    ref={inputRef}
                     value={editingItem.name}
                     onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                    onBlur={finishRenaming}
-                    onKeyPress={(e) => e.key === 'Enter' && finishRenaming()}
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleBlur}
                     onClick={(e) => e.stopPropagation()}
                     className="h-6 py-0 px-1"
                   />
@@ -86,6 +108,7 @@ const TreeItem = ({
               editingItem={editingItem}
               setEditingItem={setEditingItem}
               finishRenaming={finishRenaming}
+              cancelRenaming={cancelRenaming}
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               projectId={projectId}
