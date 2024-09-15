@@ -31,8 +31,9 @@ const Projects = () => {
     if (newItemId) {
       setActiveItem(newItemId);
       setExpandedItems(prev => [...prev, parentId].filter(Boolean));
+      refreshTreeData();
     }
-  }, [addItem]);
+  }, [addItem, refreshTreeData]);
 
   const handleDeleteItem = useCallback((id) => {
     setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
@@ -49,9 +50,10 @@ const Projects = () => {
           setActiveItem(null);
           setSelectedItemData(null);
         }
+        refreshTreeData();
       }
     }
-  }, [deleteConfirmation, deleteItem, activeItem]);
+  }, [deleteConfirmation, deleteItem, activeItem, refreshTreeData]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem) {
@@ -83,9 +85,10 @@ const Projects = () => {
       <TreeItem
         key={item.id}
         item={item}
+        level={1}
         expandedItems={expandedItems}
         toggleItem={toggleItem}
-        addItem={(parentId) => handleAddItem(parentId, item.level + 1)}
+        addItem={(parentId) => handleAddItem(parentId, 2)}
         deleteItem={handleDeleteItem}
         startRenaming={(id) => setEditingItem({ id, name: item.name })}
         editingItem={editingItem}
@@ -98,9 +101,8 @@ const Projects = () => {
         }}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
-      >
-        {item.children && renderTreeItems(item.children)}
-      </TreeItem>
+        projectId={item.id}
+      />
     ));
   }, [expandedItems, toggleItem, handleAddItem, handleDeleteItem, updateItemName, editingItem, activeItem]);
 
@@ -141,7 +143,7 @@ const Projects = () => {
       onValueChange={setExpandedItems}
       className="w-full min-w-max"
     >
-      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500">No prompts available</div>}
+      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
     </Accordion>
   );
 
@@ -151,24 +153,20 @@ const Projects = () => {
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
-            {isLoading ? (
-              <div>Loading...</div>
-            ) : (
-              <TooltipProvider>
-                <div className="overflow-x-auto whitespace-nowrap w-full">
-                  <div className="mb-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleAddItem(null, 1)}
-                    >
-                      <PlusCircle className="h-5 w-5" />
-                    </Button>
-                  </div>
-                  {renderAccordion()}
+            <TooltipProvider>
+              <div className="overflow-x-auto whitespace-nowrap w-full">
+                <div className="mb-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleAddItem(null, 1)}
+                  >
+                    <PlusCircle className="h-5 w-5" />
+                  </Button>
                 </div>
-              </TooltipProvider>
-            )}
+                {isLoading ? <div>Loading...</div> : renderAccordion()}
+              </div>
+            </TooltipProvider>
           </div>
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
