@@ -59,7 +59,15 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
   }, [value]);
 
   const handleInputChange = (e) => {
-    const newValue = e.target.value;
+    let newValue = e.target.value;
+    if (isTemperature) {
+      newValue = parseFloat(newValue);
+      if (!isNaN(newValue)) {
+        newValue = Math.max(-2, Math.min(2, newValue)).toFixed(4);
+      } else {
+        newValue = value;
+      }
+    }
     setInputValue(newValue);
     onChange(newValue);
   };
@@ -190,11 +198,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   useEffect(() => {
     setLocalData(selectedItemData || {});
   }, [selectedItemData]);
-
-  useEffect(() => {
-    console.log('Models:', models);
-    console.log('Local Data:', localData);
-  }, [models, localData]);
 
   const handleSave = async (fieldName, value) => {
     if (projectRowId) {
