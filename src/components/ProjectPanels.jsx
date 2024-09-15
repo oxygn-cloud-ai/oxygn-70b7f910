@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RotateCcw, Copy, X, CheckSquare, Square } from 'lucide-react';
+import { Save, RotateCcw, Copy, X, CheckSquare, Square, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { useInfoContent } from '../hooks/useInfoContent';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,7 +52,7 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
-const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options, isTemperature }) => {
+const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options, isTemperature, infoContent }) => {
   const [inputValue, setInputValue] = useState(value);
 
   useEffect(() => {
@@ -78,21 +79,9 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
     onChange(formattedValue);
   };
 
-  if (isTemperature) {
-    return (
-      <div className="mb-2">
-        <Label htmlFor={label} className="flex justify-between items-center">
-          <span>{label}</span>
-          <div className="flex space-x-1">
-            <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
-            <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
-            <IconButton 
-              icon={checked ? <CheckSquare /> : <Square />} 
-              onClick={onCheckChange} 
-              tooltip={checked ? "Uncheck" : "Check"}
-            />
-          </div>
-        </Label>
+  const renderInput = () => {
+    if (isTemperature) {
+      return (
         <div className="flex items-center space-x-2">
           <Slider
             id={`${label}-slider`}
@@ -112,14 +101,48 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
             style={{ appearance: 'textfield' }}
           />
         </div>
-      </div>
-    );
-  }
+      );
+    } else if (isSelect) {
+      return (
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger className="w-full mt-1">
+            <SelectValue placeholder="Select a model" />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.model} value={option.model}>
+                {option.model}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    } else {
+      return (
+        <Input
+          id={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full mt-1"
+        />
+      );
+    }
+  };
 
-  return isSelect ? (
+  return (
     <div className="mb-2">
-      <Label htmlFor={label} className="flex justify-between items-center">
-        <span>{label}</span>
+      <div className="flex items-center space-x-2">
+        <Label htmlFor={label} className="flex items-center space-x-1">
+          <span>{label}</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-gray-500 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>{infoContent[label] || 'No information available'}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </Label>
         <div className="flex space-x-1">
           <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
           <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
@@ -129,40 +152,8 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
             tooltip={checked ? "Uncheck" : "Check"}
           />
         </div>
-      </Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-full mt-1">
-          <SelectValue placeholder="Select a model" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.model} value={option.model}>
-              {option.model}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  ) : (
-    <div className="mb-2">
-      <Label htmlFor={label} className="flex justify-between items-center">
-        <span>{label}</span>
-        <div className="flex space-x-1">
-          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
-          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
-          <IconButton 
-            icon={checked ? <CheckSquare /> : <Square />} 
-            onClick={onCheckChange} 
-            tooltip={checked ? "Uncheck" : "Check"}
-          />
-        </div>
-      </Label>
-      <Input
-        id={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full mt-1"
-      />
+      </div>
+      {renderInput()}
     </div>
   );
 };
@@ -192,6 +183,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
   const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
   const { models, isLoading: isLoadingModels } = useOpenAIModels();
+  const { infoContent, isLoading: isLoadingInfo } = useInfoContent();
   const [localData, setLocalData] = useState(selectedItemData || {});
   const [checkedSettings, setCheckedSettings] = useState({});
 
@@ -291,6 +283,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
               isSelect={field === 'model'}
               options={models}
               isTemperature={field === 'temperature'}
+              infoContent={infoContent}
             />
           ))}
         </div>
