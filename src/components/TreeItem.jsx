@@ -63,7 +63,7 @@ const TreeItem = ({
   return (
     <AccordionItem 
       value={item.id} 
-      className="border-none pt-1 pb-1 bg-green-100"
+      className="border-none pt-1 pb-1"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
