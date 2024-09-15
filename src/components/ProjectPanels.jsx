@@ -122,6 +122,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
     return null;
   };
 
+  const handleGeneratePrompts = () => {
+    // Placeholder for future implementation
+    console.log("Generate Prompts clicked");
+    toast.info("Generate Prompts functionality is not implemented yet.");
+  };
+
   if (!projectRowId) {
     return <div>No project selected</div>;
   }
@@ -143,6 +149,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
+      <Button variant="link" onClick={handleGeneratePrompts} className="self-start mb-2">
+        Generate Prompts
+      </Button>
       {textAreaFields.map(field => (
         <TextAreaWithIcons
           key={field.name}
