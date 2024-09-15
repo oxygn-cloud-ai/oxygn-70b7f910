@@ -9,16 +9,28 @@ export const useOpenAICall = () => {
   const callOpenAI = async (prompt) => {
     setIsLoading(true);
     try {
+      const requestBody = {
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+      };
+
+      console.log('API Call Details:', {
+        url: settings.openai_url,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openai_api_key.substring(0, 5)}...`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
       const response = await fetch(settings.openai_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.openai_api_key}`
         },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [{ role: "user", content: prompt }],
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -26,6 +38,8 @@ export const useOpenAICall = () => {
       }
 
       const data = await response.json();
+      console.log('API Response:', data);
+
       return data.choices[0].message.content;
     } catch (error) {
       console.error('Error calling OpenAI:', error);

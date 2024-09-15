@@ -111,8 +111,10 @@ const Projects = () => {
   const handleGeneratePrompts = async () => {
     if (activeItem && selectedItemData) {
       const prompt = selectedItemData.input_user_prompt;
+      console.log('Generating prompt for:', prompt);
       const response = await callOpenAI(prompt);
       if (response) {
+        console.log('Generated response:', response);
         setSelectedItemData(prevData => ({
           ...prevData,
           user_prompt_result: response
