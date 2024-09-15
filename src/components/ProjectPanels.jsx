@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Save, RotateCcw, Copy, X, CheckSquare, Square, Info } from 'lucide-react';
-import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useInfoContent } from '../hooks/useInfoContent';
 import { toast } from 'sonner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import SettingInput from './SettingInput';
 import TextAreaWithIcons from './TextAreaWithIcons';
+import SettingInput from './SettingInput';
 
 const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
@@ -52,24 +44,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     return null;
   };
 
-  const handleCopy = (value) => {
-    navigator.clipboard.writeText(value).then(() => {
-      toast.success('Copied to clipboard');
-    }).catch((err) => {
-      console.error('Failed to copy text: ', err);
-      toast.error('Failed to copy text');
-    });
-  };
-
-  const handleSetEmpty = (fieldName) => {
-    setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
-    handleSave(fieldName, '');
-  };
-
   const handleCheckChange = async (fieldName) => {
     const newCheckedValue = !checkedSettings[fieldName];
     setCheckedSettings(prev => ({ ...prev, [fieldName]: newCheckedValue }));
-    await saveField(`${fieldName}_on`, newCheckedValue ? 1 : 0);
+    await saveField(`${field}_on`, newCheckedValue ? 1 : 0);
   };
 
   const getMaxTokensLabel = () => {
@@ -121,8 +99,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
                 setLocalData(prev => ({ ...prev, [field]: value }));
                 handleSave(field, value);
               }}
-              onCopy={() => handleCopy(localData[field] || '')}
-              onSetEmpty={() => handleSetEmpty(field)}
               checked={checkedSettings[field]}
               onCheckChange={() => handleCheckChange(field)}
               isSelect={field === 'model'}
