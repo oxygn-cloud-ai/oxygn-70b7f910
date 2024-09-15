@@ -185,86 +185,88 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     ];
 
     return (
-      <div className="grid grid-cols-2 gap-4">
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleSave('model')}
-            className="absolute right-8 z-10 h-6 w-6"
-            disabled={localData.model === selectedItemData.model}
-          >
-            <Save className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleReset('model')}
-            className="absolute right-2 z-10 h-6 w-6"
-            disabled={localData.model === selectedItemData.model}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <div>
-            <label htmlFor="model" className="block text-sm font-medium text-gray-700">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="col-span-1 md:col-span-2">
+          <div className="flex items-center space-x-2 mb-2">
+            <Checkbox
+              id="model-checkbox"
+              checked={localData.model_on || false}
+              onCheckedChange={(checked) => handleCheckChange('model', checked)}
+            />
+            <label htmlFor="model" className="text-sm font-medium text-gray-700">
               Model
             </label>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="model-checkbox"
-                checked={localData.model_on || false}
-                onCheckedChange={(checked) => handleCheckChange('model', checked)}
-              />
-              <Select
-                value={localData.model || ''}
-                onValueChange={(value) => handleChange('model', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((model) => (
-                    <SelectItem key={model.model} value={model.model}>
-                      {model.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
-        </div>
-        {fields.map(field => (
-          <div key={field} className="relative">
+          <div className="flex items-center space-x-2">
+            <Select
+              value={localData.model || ''}
+              onValueChange={(value) => handleChange('model', value)}
+              disabled={!localData.model_on}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a model" />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((model) => (
+                  <SelectItem key={model.model} value={model.model}>
+                    {model.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleSave(field)}
-              className="absolute right-8 z-10 h-6 w-6"
-              disabled={localData[field] === selectedItemData[field]}
+              onClick={() => handleSave('model')}
+              disabled={localData.model === selectedItemData.model}
             >
               <Save className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleReset(field)}
-              className="absolute right-2 z-10 h-6 w-6"
-              disabled={localData[field] === selectedItemData[field]}
+              onClick={() => handleReset('model')}
+              disabled={localData.model === selectedItemData.model}
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
-            <div className="flex items-center space-x-2">
+          </div>
+        </div>
+        {fields.map(field => (
+          <div key={field} className="relative">
+            <div className="flex items-center space-x-2 mb-2">
               <Checkbox
                 id={`${field}-checkbox`}
                 checked={localData[`${field}_on`] || false}
                 onCheckedChange={(checked) => handleCheckChange(field, checked)}
               />
+              <label htmlFor={field} className="text-sm font-medium text-gray-700">
+                {field}
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
               <SettingField
-                label={field}
+                id={field}
                 value={localData[field] || ''}
                 onChange={(value) => handleChange(field, value)}
-                isTemperature={field === 'temperature'}
+                disabled={!localData[`${field}_on`]}
               />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleSave(field)}
+                disabled={localData[field] === selectedItemData[field]}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleReset(field)}
+                disabled={localData[field] === selectedItemData[field]}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         ))}
@@ -276,7 +278,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
       <div className="flex gap-2">
         <Button
-          variant="link"
+          variant="outline"
           onClick={handleGenerate}
           className="self-start mb-2"
           disabled={isGenerating}
@@ -284,7 +286,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
         </Button>
         <Button
-          variant="link"
+          variant="outline"
           className="self-start mb-2"
           disabled={!selectedItemData.parent_row_id}
         >
