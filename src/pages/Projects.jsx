@@ -8,6 +8,7 @@ import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
+import { useOpenAICall } from '../hooks/useOpenAICall';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,6 +17,7 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
+  const { callOpenAI, isLoading } = useOpenAICall();
 
   const toggleItem = async (itemId) => {
     setExpandedItems(prev => {
@@ -106,6 +108,26 @@ const Projects = () => {
     }
   };
 
+  const handleGeneratePrompts = async () => {
+    if (!selectedItemData) {
+      console.error("No project selected");
+      return;
+    }
+
+    const result = await callOpenAI(
+      selectedItemData.input_admin_prompt,
+      selectedItemData.input_user_prompt,
+      selectedItemData
+    );
+
+    if (result) {
+      const updatedData = { ...selectedItemData, user_prompt_result: result };
+      setSelectedItemData(updatedData);
+      // Update the database with the new result
+      await updateTreeData(activeItem, () => updatedData);
+    }
+  };
+
   const renderTreeItems = () => {
     if (!treeData || treeData.length === 0) {
       return <div>No items to display</div>;
@@ -156,7 +178,12 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <Button variant="link" className="text-blue-500 hover:text-blue-700">
+        <Button 
+          variant="link" 
+          className="text-blue-500 hover:text-blue-700"
+          onClick={handleGeneratePrompts}
+          disabled={!selectedItemData || isLoading}
+        >
           Generate Prompts
         </Button>
       </div>
