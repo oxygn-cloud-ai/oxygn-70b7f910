@@ -60,12 +60,10 @@ const TreeItem = ({
     startRenaming(item.id, item.prompt_name);
   };
 
-  const paddingClasses = level === 1 ? 'pt-6 pb-3' : 'pt-3 pb-3';
-
   return (
     <AccordionItem 
       value={item.id} 
-      className={`border-none ${paddingClasses}`}
+      className="border-none pt-1 pb-1"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
