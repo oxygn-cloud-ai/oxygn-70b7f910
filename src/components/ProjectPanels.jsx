@@ -168,12 +168,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
         <div className="grid grid-cols-2 gap-4">
           {settingFields.map(field => (
-            <div key={field} className="relative flex items-center">
+            <div key={field} className="relative">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => handleSave(field)}
-                className="absolute right-0 z-10 h-6 w-6"
+                className="absolute top-0 right-8 z-10 h-6 w-6"
               >
                 <Save className="h-4 w-4" />
               </Button>
