@@ -1,21 +1,15 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useSettings } from './useSettings';
-import { toast } from 'sonner';
 
 const callOpenAIAPI = async (url, requestBody, apiKey) => {
-  try {
-    const response = await axios.post(url, requestBody, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error calling OpenAI API:', error);
-    throw new Error('Unable to generate response: ' + error.message);
-  }
+  const response = await axios.post(url, requestBody, {
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  return response.data;
 };
 
 export const useOpenAICall = () => {
@@ -26,7 +20,7 @@ export const useOpenAICall = () => {
     setIsLoading(true);
     try {
       if (!settings.openai_url || !settings.openai_api_key) {
-        throw new Error('OpenAI API configuration is missing');
+        return null;
       }
 
       const requestBody = {
@@ -39,10 +33,6 @@ export const useOpenAICall = () => {
 
       const data = await callOpenAIAPI(settings.openai_url, requestBody, settings.openai_api_key);
       return data.choices[0].message.content;
-    } catch (error) {
-      console.error('Error generating prompts:', error);
-      toast.error(`Failed to generate prompts: ${error.message}`);
-      throw error;
     } finally {
       setIsLoading(false);
     }
