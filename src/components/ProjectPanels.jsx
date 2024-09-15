@@ -10,6 +10,7 @@ import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -50,21 +51,71 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
-const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options }) => (
-  <div className="mb-2">
-    <Label htmlFor={label} className="flex justify-between items-center">
-      <span>{label}</span>
-      <div className="flex space-x-1">
-        <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
-        <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
-        <IconButton 
-          icon={checked ? <CheckSquare /> : <Square />} 
-          onClick={onCheckChange} 
-          tooltip={checked ? "Uncheck" : "Check"}
-        />
+const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options, isTemperature }) => {
+  const [sliderValue, setSliderValue] = useState(parseFloat(value) || 0);
+
+  const handleSliderChange = (newValue) => {
+    const formattedValue = newValue[0].toFixed(4);
+    setSliderValue(newValue[0]);
+    onChange(formattedValue);
+  };
+
+  if (isTemperature) {
+    return (
+      <div className="mb-2">
+        <Label htmlFor={label} className="flex justify-between items-center">
+          <span>{label}</span>
+          <div className="flex space-x-1">
+            <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+            <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+            <IconButton 
+              icon={checked ? <CheckSquare /> : <Square />} 
+              onClick={onCheckChange} 
+              tooltip={checked ? "Uncheck" : "Check"}
+            />
+          </div>
+        </Label>
+        <div className="flex items-center space-x-2">
+          <Slider
+            id={label}
+            min={-2}
+            max={2}
+            step={0.0001}
+            value={[sliderValue]}
+            onValueChange={handleSliderChange}
+            className="flex-grow"
+          />
+          <Input
+            type="text"
+            value={sliderValue.toFixed(4)}
+            onChange={(e) => {
+              const newValue = parseFloat(e.target.value);
+              if (!isNaN(newValue) && newValue >= -2 && newValue <= 2) {
+                setSliderValue(newValue);
+                onChange(newValue.toFixed(4));
+              }
+            }}
+            className="w-20"
+          />
+        </div>
       </div>
-    </Label>
-    {isSelect ? (
+    );
+  }
+
+  return isSelect ? (
+    <div className="mb-2">
+      <Label htmlFor={label} className="flex justify-between items-center">
+        <span>{label}</span>
+        <div className="flex space-x-1">
+          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+          <IconButton 
+            icon={checked ? <CheckSquare /> : <Square />} 
+            onClick={onCheckChange} 
+            tooltip={checked ? "Uncheck" : "Check"}
+          />
+        </div>
+      </Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="w-full mt-1">
           <SelectValue placeholder="Select a model" />
@@ -77,16 +128,30 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
           ))}
         </SelectContent>
       </Select>
-    ) : (
+    </div>
+  ) : (
+    <div className="mb-2">
+      <Label htmlFor={label} className="flex justify-between items-center">
+        <span>{label}</span>
+        <div className="flex space-x-1">
+          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
+          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
+          <IconButton 
+            icon={checked ? <CheckSquare /> : <Square />} 
+            onClick={onCheckChange} 
+            tooltip={checked ? "Uncheck" : "Check"}
+          />
+        </div>
+      </Label>
       <Input
         id={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full mt-1"
       />
-    )}
-  </div>
-);
+    </div>
+  );
+};
 
 const IconButton = ({ icon, onClick, tooltip }) => (
   <TooltipProvider>
@@ -178,7 +243,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   ];
 
   const promptSettingsFields = [
-    'temperature', 'top_p', 'frequency_penalty', 'presence_penalty',
+    'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
     'stop', 'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
     'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
     'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
@@ -201,36 +266,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       <div className="border rounded-lg p-4">
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
         <div className="grid grid-cols-2 gap-4">
-          <SettingInput
-            label="model"
-            value={localData.model || ''}
-            onChange={(value) => {
-              setLocalData(prev => ({ ...prev, model: value }));
-              handleSave('model', value);
-            }}
-            onCopy={() => handleCopy(localData.model || '')}
-            onSetEmpty={() => handleSetEmpty('model')}
-            checked={checkedSettings['model'] || false}
-            onCheckChange={() => handleCheckChange('model')}
-            isSelect={true}
-            options={models}
-          />
-          <SettingInput
-            label={getMaxTokensLabel()}
-            value={localData.max_tokens || ''}
-            onChange={(value) => {
-              setLocalData(prev => ({ ...prev, max_tokens: value }));
-              handleSave('max_tokens', value);
-            }}
-            onCopy={() => handleCopy(localData.max_tokens || '')}
-            onSetEmpty={() => handleSetEmpty('max_tokens')}
-            checked={checkedSettings['max_tokens'] || false}
-            onCheckChange={() => handleCheckChange('max_tokens')}
-          />
           {promptSettingsFields.map(field => (
             <SettingInput
               key={field}
-              label={field}
+              label={field === 'max_tokens' ? getMaxTokensLabel() : field}
               value={localData[field] || ''}
               onChange={(value) => {
                 setLocalData(prev => ({ ...prev, [field]: value }));
@@ -240,6 +279,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
               onSetEmpty={() => handleSetEmpty(field)}
               checked={checkedSettings[field] || false}
               onCheckChange={() => handleCheckChange(field)}
+              isSelect={field === 'model'}
+              options={models}
+              isTemperature={field === 'temperature'}
             />
           ))}
         </div>
