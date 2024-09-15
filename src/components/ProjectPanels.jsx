@@ -233,7 +233,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           </Select>
         </div>
         {fields.map(field => (
-          <div key={field} className="relative">
+          <div key={field} className="relative flex items-center">
             <div className="flex items-center space-x-2 mb-2">
               <Checkbox
                 id={`${field}-checkbox`}
@@ -272,16 +272,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         ))}
       </div>
     );
-  };
-
-  const handleCopy = (fieldName) => {
-    navigator.clipboard.writeText(localData[fieldName]);
-  };
-
-  const handlePaste = (fieldName) => {
-    navigator.clipboard.readText().then((clipboardText) => {
-      handleChange(fieldName, clipboardText);
-    });
   };
 
   return (
