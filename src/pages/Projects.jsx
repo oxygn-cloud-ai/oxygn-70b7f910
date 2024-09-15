@@ -144,11 +144,16 @@ const Projects = () => {
           const { data, error } = await supabase
             .from('projects')
             .select('*')
-            .eq('project_row_id', activeItem)
-            .single();
+            .eq('project_row_id', activeItem);
 
           if (error) throw error;
-          setSelectedItemData(data);
+          
+          if (data && data.length > 0) {
+            setSelectedItemData(data[0]);
+          } else {
+            console.log('No data found for the selected item');
+            setSelectedItemData(null);
+          }
         } catch (error) {
           console.error('Error fetching item data:', error);
           toast.error(`Failed to fetch project data: ${error.message}`);
