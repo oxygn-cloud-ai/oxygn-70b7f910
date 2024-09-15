@@ -8,15 +8,19 @@ const Settings = () => {
   const { settings, updateSetting, isLoading } = useSettings();
   const [openaiUrl, setOpenaiUrl] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [proxyUrl, setProxyUrl] = useState('');
   const [urlChanged, setUrlChanged] = useState(false);
   const [apiKeyChanged, setApiKeyChanged] = useState(false);
+  const [proxyUrlChanged, setProxyUrlChanged] = useState(false);
 
   useEffect(() => {
     if (settings) {
       setOpenaiUrl(settings.openai_url || '');
       setOpenaiApiKey(settings.openai_api_key || '');
+      setProxyUrl(settings.proxy_url || '');
       setUrlChanged(false);
       setApiKeyChanged(false);
+      setProxyUrlChanged(false);
     }
   }, [settings]);
 
@@ -27,8 +31,12 @@ const Settings = () => {
     if (apiKeyChanged) {
       await updateSetting('openai_api_key', openaiApiKey);
     }
+    if (proxyUrlChanged) {
+      await updateSetting('proxy_url', proxyUrl);
+    }
     setUrlChanged(false);
     setApiKeyChanged(false);
+    setProxyUrlChanged(false);
   };
 
   const handleUrlChange = (e) => {
@@ -39,6 +47,11 @@ const Settings = () => {
   const handleApiKeyChange = (e) => {
     setOpenaiApiKey(e.target.value);
     setApiKeyChanged(true);
+  };
+
+  const handleProxyUrlChange = (e) => {
+    setProxyUrl(e.target.value);
+    setProxyUrlChanged(true);
   };
 
   if (isLoading) {
@@ -70,10 +83,20 @@ const Settings = () => {
             autoComplete="off"
           />
         </div>
+        <div>
+          <Label htmlFor="proxy-url">Proxy URL</Label>
+          <Input
+            id="proxy-url"
+            value={proxyUrl}
+            onChange={handleProxyUrlChange}
+            placeholder="Enter Proxy URL"
+            autoComplete="off"
+          />
+        </div>
         <Button 
           variant="link"
           onClick={handleSave} 
-          disabled={!urlChanged && !apiKeyChanged}
+          disabled={!urlChanged && !apiKeyChanged && !proxyUrlChanged}
         >
           Save Settings
         </Button>
