@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Save, RotateCcw, Copy, X, CheckSquare, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { useSaveField } from '../hooks/useSaveField';
-import { useFetchLatestData } from '../hooks/useFetchLatestData';
-import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -191,65 +189,50 @@ const IconButton = ({ icon, onClick, tooltip }) => (
   </TooltipProvider>
 );
 
-const ProjectPanels = ({ selectedItemData, projectRowId }) => {
-  const { saveField, isSaving } = useSaveField(projectRowId);
-  const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
-  const { models, isLoading: isLoadingModels } = useOpenAIModels();
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
-
-  useEffect(() => {
-    if (projectRowId) {
-      fetchLatestData().then(data => {
-        if (data) {
-          setLocalData(data);
-        }
-      });
-    }
-  }, [projectRowId, fetchLatestData]);
+  const { models, isLoading: isLoadingModels } = useOpenAIModels();
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
   }, [selectedItemData]);
 
-  const handleSave = async (fieldName, value) => {
-    if (projectRowId) {
-      await saveField(fieldName, value);
-      setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
-    }
-  };
+  const handleSave = useCallback((fieldName, value) => {
+    setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
+    onUpdateField(fieldName, value);
+  }, [onUpdateField]);
 
-  const handleReset = async (fieldName) => {
-    if (projectRowId) {
-      const latestData = await fetchLatestData();
-      if (latestData !== null) {
-        setLocalData(prevData => ({ ...prevData, ...latestData }));
-        return latestData[fieldName];
-      }
+  const handleReset = useCallback(async (fieldName) => {
+    if (selectedItemData) {
+      setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
+      return selectedItemData[fieldName];
     }
     return null;
-  };
+  }, [selectedItemData]);
 
-  const handleCopy = (value) => {
+  const handleCopy = useCallback((value) => {
     navigator.clipboard.writeText(value).then(() => {
       toast.success('Copied to clipboard');
     }).catch((err) => {
       console.error('Failed to copy text: ', err);
       toast.error('Failed to copy text');
     });
-  };
+  }, []);
 
-  const handleSetEmpty = (fieldName) => {
+  const handleSetEmpty = useCallback((fieldName) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
-  };
+    onUpdateField(fieldName, '');
+  }, [onUpdateField]);
 
-  const handleCheckChange = (fieldName, newValue) => {
+  const handleCheckChange = useCallback((fieldName, newValue) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
-  };
+    onUpdateField(fieldName, newValue);
+  }, [onUpdateField]);
 
-  const getMaxTokensLabel = () => {
+  const getMaxTokensLabel = useCallback(() => {
     const selectedModel = models.find(m => m.model === localData.model);
     return selectedModel ? `max_tokens (<= ${selectedModel.max_tokens})` : 'max_tokens';
-  };
+  }, [localData.model, models]);
 
   if (!projectRowId) {
     return <div>No project selected</div>;
@@ -291,7 +274,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
               key={field}
               label={field === 'max_tokens' ? getMaxTokensLabel() : field}
               value={localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || ''}
-              onChange={(value) => setLocalData(prevData => ({ ...prevData, [field === 'temperature (-2 to 2)' ? 'temperature' : field]: value }))}
+              onChange={(value) => handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value)}
               onCopy={() => handleCopy(localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || '')}
               onSetEmpty={() => handleSetEmpty(field === 'temperature (-2 to 2)' ? 'temperature' : field)}
               checked={field === 'model' ? localData.model_on : false}

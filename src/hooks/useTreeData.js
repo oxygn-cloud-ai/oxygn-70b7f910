@@ -1,114 +1,138 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
-const fetchProjectNames = async () => {
-  try {
-    const { data: projectsData, error: projectsError } = await supabase
-      .from('project_names')
-      .select('project_id, project_name, created')
-      .order('created', { ascending: false });
+const useTreeData = () => {
+  const [treeData, setTreeData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
 
-    if (projectsError) throw projectsError;
+  const fetchProjectNames = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && now - lastFetchTime < 60000) {
+      return; // Don't fetch if less than a minute has passed
+    }
 
-    return projectsData.map(project => ({
-      id: project.project_id,
-      name: project.project_name,
-      created: project.created,
+    setIsLoading(true);
+    try {
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('project_names')
+        .select('project_id, project_name, created')
+        .order('created', { ascending: false });
+
+      if (projectsError) throw projectsError;
+
+      const newTreeData = projectsData.map(project => ({
+        id: project.project_id,
+        name: project.project_name,
+        created: project.created,
+        children: []
+      }));
+
+      setTreeData(newTreeData);
+      setLastFetchTime(now);
+    } catch (error) {
+      console.error('Error fetching project names:', error);
+      toast.error(`Failed to fetch projects: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [lastFetchTime]);
+
+  useEffect(() => {
+    fetchProjectNames();
+  }, [fetchProjectNames]);
+
+  const addItem = useCallback(async (parentId) => {
+    const newItem = {
+      id: uuidv4(),
+      name: 'New Prompt',
+      created: new Date().toISOString(),
       children: []
-    }));
-  } catch (error) {
-    console.error('Error fetching project names:', error);
-    toast.error(`Failed to fetch projects: ${error.message}`);
-    return [];
-  }
-};
+    };
 
-const buildTreeStructure = (items, parentId = null) => {
-  return items
-    .filter(item => item.parent_row_id === parentId)
-    .sort((a, b) => new Date(a.created) - new Date(b.created))
-    .map(item => ({
-      id: item.project_row_id,
-      name: item.prompt_name,
-      created: item.created,
-      children: buildTreeStructure(items, item.project_row_id)
-    }));
-};
+    try {
+      const { data, error } = parentId
+        ? await supabase
+            .from('projects')
+            .insert({
+              project_id: findProjectId(treeData, parentId),
+              prompt_name: newItem.name,
+              level: getItemLevel(treeData, parentId) + 1,
+              parent_row_id: parentId,
+              created: newItem.created
+            })
+            .select()
+        : await supabase
+            .from('project_names')
+            .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
+            .select();
 
-const databaseOperations = {
-  addItem: async (parentId, newItem) => {
-    const { data, error } = parentId
-      ? await supabase
-          .from('projects')
-          .insert({
-            project_id: findProjectId(treeData, parentId),
-            prompt_name: newItem.name,
-            level: getItemLevel(treeData, parentId) + 1,
-            parent_row_id: parentId,
-            created: newItem.created
-          })
-          .select()
-      : await supabase
-          .from('project_names')
-          .insert({ project_id: newItem.id, project_name: newItem.name, created: newItem.created })
-          .select();
+      if (error) throw error;
 
-    if (error) {
+      const newItemId = parentId ? data[0].project_row_id : data[0].project_id;
+      newItem.id = newItemId;
+
+      setTreeData(prevData => {
+        if (!parentId) {
+          return [newItem, ...prevData];
+        }
+        return addItemToChildren(prevData, parentId, newItem);
+      });
+
+      return newItemId;
+    } catch (error) {
       console.error('Error adding new item:', error);
+      toast.error(`Failed to add new item: ${error.message}`);
       return null;
     }
+  }, [treeData]);
 
-    return parentId ? data[0].project_row_id : data[0].project_id;
-  },
+  const deleteItem = useCallback(async (id) => {
+    const isLevel0 = treeData.some(item => item.id === id);
+    try {
+      if (isLevel0) {
+        await supabase.from('project_names').delete().eq('project_id', id);
+        await supabase.from('projects').delete().eq('project_id', id);
+      } else {
+        await supabase.from('projects').delete().eq('project_row_id', id);
+      }
 
-  deleteItem: async (id, isLevel0) => {
-    let error;
+      setTreeData(prevData => {
+        if (isLevel0) {
+          return prevData.filter(item => item.id !== id);
+        }
+        return deleteRecursive(prevData, id);
+      });
 
-    if (isLevel0) {
-      const { error: projectNamesError } = await supabase
-        .from('project_names')
-        .delete()
-        .eq('project_id', id);
-
-      const { error: projectsError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('project_id', id);
-
-      error = projectNamesError || projectsError;
-    } else {
-      const { error: projectsError } = await supabase
-        .from('projects')
-        .delete()
-        .eq('project_row_id', id);
-
-      error = projectsError;
-    }
-
-    if (error) {
+      return true;
+    } catch (error) {
       console.error('Error deleting item:', error);
+      toast.error(`Failed to delete item: ${error.message}`);
       return false;
     }
+  }, [treeData]);
 
-    return true;
-  },
+  const updateItemName = useCallback(async (id, newName) => {
+    const isLevel0 = treeData.some(item => item.id === id);
+    try {
+      if (isLevel0) {
+        await supabase.from('project_names').update({ project_name: newName }).eq('project_id', id);
+      } else {
+        await supabase.from('projects').update({ prompt_name: newName }).eq('project_row_id', id);
+      }
 
-  updateItemName: async (id, newName, isLevel0) => {
-    const { error } = isLevel0
-      ? await supabase.from('project_names').update({ project_name: newName }).eq('project_id', id)
-      : await supabase.from('projects').update({ prompt_name: newName }).eq('project_row_id', id);
-
-    if (error) {
+      setTreeData(prevData => updateTreeDataName(prevData, id, newName));
+      return true;
+    } catch (error) {
       console.error('Error updating item name:', error);
+      toast.error(`Failed to update item name: ${error.message}`);
       return false;
     }
+  }, [treeData]);
 
-    return true;
-  },
-
-  fetchItemData: async (id) => {
+  const fetchItemData = useCallback(async (id) => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -118,19 +142,27 @@ const databaseOperations = {
         .single();
 
       if (error) throw error;
-
       if (!data) {
         toast.warning('No data found for this project');
         return null;
       }
-
       return data;
     } catch (error) {
       console.error('Error fetching item data:', error);
       toast.error(`Failed to fetch project data: ${error.message}`);
       return null;
     }
-  }
+  }, []);
+
+  return { 
+    treeData, 
+    addItem, 
+    deleteItem, 
+    updateItemName, 
+    fetchItemData,
+    isLoading,
+    refreshTreeData: () => fetchProjectNames(true)
+  };
 };
 
 const findProjectId = (items, id) => {
@@ -153,93 +185,6 @@ const getItemLevel = (items, id, level = 0) => {
     }
   }
   return -1;
-};
-
-export const useTreeData = () => {
-  const [treeData, setTreeData] = useState([]);
-
-  useEffect(() => {
-    fetchProjectNames().then(setTreeData);
-  }, []);
-
-  const updateTreeData = (id, updateFn) => {
-    setTreeData(prevData => {
-      const update = (items) => {
-        return items.map(item => {
-          if (item.id === id) {
-            return updateFn(item);
-          }
-          if (item.children) {
-            return {
-              ...item,
-              children: update(item.children)
-            };
-          }
-          return item;
-        });
-      };
-      return update(prevData);
-    });
-  };
-
-  const addItem = async (parentId) => {
-    const newItem = {
-      id: uuidv4(),
-      name: 'New Prompt',
-      created: new Date().toISOString(),
-      children: []
-    };
-
-    const newItemId = await databaseOperations.addItem(parentId, newItem);
-    if (!newItemId) return null;
-
-    newItem.id = newItemId;
-
-    setTreeData(prevData => {
-      if (!parentId) {
-        return [newItem, ...prevData];
-      }
-      return addItemToChildren(prevData, parentId, newItem);
-    });
-
-    return newItem.id;
-  };
-
-  const deleteItem = async (id) => {
-    const isLevel0 = treeData.some(item => item.id === id);
-    const success = await databaseOperations.deleteItem(id, isLevel0);
-
-    if (success) {
-      setTreeData(prevData => {
-        if (isLevel0) {
-          return prevData.filter(item => item.id !== id);
-        }
-        return deleteRecursive(prevData, id);
-      });
-    }
-
-    return success;
-  };
-
-  const updateItemName = async (id, newName) => {
-    const isLevel0 = treeData.some(item => item.id === id);
-    const success = await databaseOperations.updateItemName(id, newName, isLevel0);
-
-    if (success) {
-      updateTreeData(id, item => ({ ...item, name: newName }));
-    }
-
-    return success;
-  };
-
-  return { 
-    treeData, 
-    addItem, 
-    deleteItem, 
-    updateTreeData, 
-    updateItemName, 
-    fetchItemData: databaseOperations.fetchItemData 
-  };
 };
 
 const addItemToChildren = (items, parentId, newItem) => {
@@ -269,3 +214,20 @@ const deleteRecursive = (items, id) => {
     return true;
   });
 };
+
+const updateTreeDataName = (items, id, newName) => {
+  return items.map(item => {
+    if (item.id === id) {
+      return { ...item, name: newName };
+    }
+    if (item.children) {
+      return {
+        ...item,
+        children: updateTreeDataName(item.children, id, newName)
+      };
+    }
+    return item;
+  });
+};
+
+export default useTreeData;

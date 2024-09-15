@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
-import { useTreeData } from '../hooks/useTreeData';
+import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -11,40 +11,17 @@ import ProjectPanels from '../components/ProjectPanels';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
-import { useFetchLatestData } from '../hooks/useFetchLatestData';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
-  const { treeData, addItem, deleteItem, updateTreeData, updateItemName } = useTreeData();
+  const { treeData, addItem, deleteItem, updateItemName, fetchItemData, isLoading, refreshTreeData } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { callOpenAI, isLoading: isGenerating } = useOpenAICall();
-  const { fetchLatestData, isLoading: isFetching } = useFetchLatestData();
-  const [testData, setTestData] = useState(null);
 
-  useEffect(() => {
-    const testSupabase = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('project_names')
-          .select('project_id, project_name')
-          .limit(5);
-
-        if (error) throw error;
-        setTestData(data);
-        console.log('Supabase test data:', data);
-      } catch (error) {
-        console.error('Supabase test error:', error);
-        toast.error(`Supabase test failed: ${error.message}`);
-      }
-    };
-
-    testSupabase();
-  }, []);
-
-  const toggleItem = async (itemId) => {
+  const toggleItem = useCallback(async (itemId) => {
     setExpandedItems(prev => {
       const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
@@ -53,57 +30,40 @@ const Projects = () => {
     });
     setActiveItem(itemId);
     if (itemId) {
-      const itemData = await fetchLatestData(itemId);
+      const itemData = await fetchItemData(itemId);
       setSelectedItemData(itemData);
     } else {
       setSelectedItemData(null);
     }
-  };
+  }, [fetchItemData]);
 
-  const startRenaming = (id) => {
+  const startRenaming = useCallback((id) => {
     const item = findItemById(treeData, id);
     if (item) {
       setEditingItem({ id, name: item.name });
     }
-  };
+  }, [treeData]);
 
-  const finishRenaming = async () => {
+  const finishRenaming = useCallback(async () => {
     if (editingItem) {
       const success = await updateItemName(editingItem.id, editingItem.name);
-      if (success) {
-        updateTreeData(editingItem.id, (item) => ({
-          ...item,
-          name: editingItem.name
-        }));
-      } else {
+      if (!success) {
         console.error("Failed to update item name in the database");
       }
       setEditingItem(null);
     }
-  };
+  }, [editingItem, updateItemName]);
 
-  const findItemById = (items, id) => {
-    if (!items) return null;
-    for (let item of items) {
-      if (item.id === id) return item;
-      if (item.children) {
-        const found = findItemById(item.children, id);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-
-  const handleAddItem = async (parentId) => {
+  const handleAddItem = useCallback(async (parentId) => {
     const newItemId = await addItem(parentId);
     if (newItemId) {
       setActiveItem(newItemId);
       setExpandedItems(prev => [...prev, parentId].filter(Boolean));
       return newItemId;
     }
-  };
+  }, [addItem]);
 
-  const handleDeleteItem = (id) => {
+  const handleDeleteItem = useCallback((id) => {
     const isLevel0 = treeData.some(item => item.id === id);
     if (isLevel0) {
       setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
@@ -114,9 +74,9 @@ const Projects = () => {
       setActiveItem(null);
       setSelectedItemData(null);
     }
-  };
+  }, [treeData, deleteItem, activeItem]);
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     if (deleteConfirmation.confirmCount === 0) {
       setDeleteConfirmation(prev => ({ ...prev, confirmCount: 1 }));
     } else {
@@ -131,9 +91,9 @@ const Projects = () => {
         console.error("Failed to delete item");
       }
     }
-  };
+  }, [deleteConfirmation, deleteItem, activeItem]);
 
-  const handleGeneratePrompts = async () => {
+  const handleGeneratePrompts = useCallback(async () => {
     if (!selectedItemData) {
       toast.error("No project selected");
       return;
@@ -149,16 +109,35 @@ const Projects = () => {
       if (result) {
         const updatedData = { ...selectedItemData, user_prompt_result: result };
         setSelectedItemData(updatedData);
-        await updateTreeData(activeItem, () => updatedData);
+        await supabase
+          .from('projects')
+          .update({ user_prompt_result: result })
+          .eq('project_row_id', activeItem);
         toast.success("Prompts generated successfully");
       }
     } catch (error) {
       console.error("Error generating prompts:", error);
       toast.error(`Failed to generate prompts: ${error.message}`);
     }
-  };
+  }, [selectedItemData, callOpenAI, activeItem]);
 
-  const renderTreeItems = () => {
+  const handleUpdateField = useCallback(async (fieldName, value) => {
+    if (activeItem) {
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .update({ [fieldName]: value })
+          .eq('project_row_id', activeItem);
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error updating field:', error);
+        toast.error(`Failed to update ${fieldName}: ${error.message}`);
+      }
+    }
+  }, [activeItem]);
+
+  const renderTreeItems = useCallback(() => {
     if (!treeData || treeData.length === 0) {
       return <div>No items to display</div>;
     }
@@ -202,7 +181,15 @@ const Projects = () => {
         </div>
       </TooltipProvider>
     );
-  };
+  }, [treeData, expandedItems, handleAddItem, toggleItem, handleDeleteItem, startRenaming, editingItem, finishRenaming, activeItem]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      refreshTreeData();
+    }, 60000); // Refresh every minute
+
+    return () => clearInterval(intervalId);
+  }, [refreshTreeData]);
 
   return (
     <div className="container mx-auto p-4">
@@ -217,28 +204,20 @@ const Projects = () => {
           {isGenerating ? "Generating..." : "Generate Prompts"}
         </Button>
       </div>
-      {testData && (
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Supabase Test Data:</h2>
-          <pre>{JSON.stringify(testData, null, 2)}</pre>
-        </div>
-      )}
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
           <div className="border rounded-lg p-4 overflow-x-scroll overflow-y-auto h-[calc(100vh-8rem)]">
-            {renderTreeItems()}
+            {isLoading ? <div>Loading...</div> : renderTreeItems()}
           </div>
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
           {activeItem ? (
-            isFetching ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading project data...</p>
-              </div>
-            ) : (
-              <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
-            )
+            <ProjectPanels 
+              selectedItemData={selectedItemData} 
+              projectRowId={activeItem} 
+              onUpdateField={handleUpdateField}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Select a project to view details</p>
@@ -254,6 +233,17 @@ const Projects = () => {
       />
     </div>
   );
+};
+
+const findItemById = (items, id) => {
+  for (let item of items) {
+    if (item.id === id) return item;
+    if (item.children) {
+      const found = findItemById(item.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
 };
 
 export default Projects;
