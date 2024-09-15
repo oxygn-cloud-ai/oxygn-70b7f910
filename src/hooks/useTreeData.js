@@ -85,25 +85,6 @@ const useTreeData = (supabase) => {
     }
   }, [supabase, fetchTreeData]);
 
-  const deleteItem = useCallback(async (id) => {
-    if (!supabase) return false;
-    try {
-      const { error } = await supabase
-        .from('prompts')
-        .update({ is_deleted: true })
-        .eq('row_id', id);
-
-      if (error) throw error;
-
-      await fetchTreeData();
-      return true;
-    } catch (error) {
-      console.error('Error marking item as deleted:', error);
-      toast.error(`Failed to mark item as deleted: ${error.message}`);
-      return false;
-    }
-  }, [supabase, fetchTreeData]);
-
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
     try {
@@ -123,7 +104,6 @@ const useTreeData = (supabase) => {
   return { 
     treeData, 
     addItem, 
-    deleteItem, 
     updateItemName,
     isLoading,
     refreshTreeData: fetchTreeData

@@ -5,7 +5,6 @@ import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
@@ -14,9 +13,8 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, deleteItem, updateItemName, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
-  const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
@@ -34,27 +32,6 @@ const Projects = () => {
       refreshTreeData();
     }
   }, [addItem, refreshTreeData]);
-
-  const handleDeleteItem = useCallback((id) => {
-    setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
-  }, []);
-
-  const handleDeleteConfirm = useCallback(async () => {
-    if (deleteConfirmation.confirmCount === 0) {
-      setDeleteConfirmation(prev => ({ ...prev, confirmCount: 1 }));
-    } else {
-      const success = await deleteItem(deleteConfirmation.itemId);
-      if (success) {
-        setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
-        if (activeItem === deleteConfirmation.itemId) {
-          setActiveItem(null);
-          setSelectedItemData(null);
-        }
-        await refreshTreeData();
-        toast.success('Item marked as deleted successfully');
-      }
-    }
-  }, [deleteConfirmation, deleteItem, activeItem, refreshTreeData]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem && supabase) {
@@ -91,7 +68,6 @@ const Projects = () => {
         expandedItems={expandedItems}
         toggleItem={toggleItem}
         addItem={handleAddItem}
-        deleteItem={handleDeleteItem}
         startRenaming={(id, name) => setEditingItem({ id, name })}
         editingItem={editingItem}
         setEditingItem={setEditingItem}
@@ -107,7 +83,7 @@ const Projects = () => {
         setActiveItem={setActiveItem}
       />
     ));
-  }, [expandedItems, toggleItem, handleAddItem, handleDeleteItem, updateItemName, editingItem, activeItem, refreshTreeData]);
+  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData]);
 
   useEffect(() => {
     const intervalId = setInterval(refreshTreeData, 60000);
@@ -195,12 +171,6 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <DeleteConfirmationDialog
-        isOpen={deleteConfirmation.isOpen}
-        onOpenChange={(isOpen) => setDeleteConfirmation(prev => ({ ...prev, isOpen }))}
-        confirmCount={deleteConfirmation.confirmCount}
-        onConfirm={handleDeleteConfirm}
-      />
     </div>
   );
 };
