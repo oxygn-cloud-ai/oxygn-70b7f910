@@ -8,7 +8,6 @@ import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
-import { useOpenAICall } from '../hooks/useOpenAICall';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
@@ -19,7 +18,6 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const { callOpenAI, isLoading: isGenerating } = useOpenAICall();
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -36,17 +34,17 @@ const Projects = () => {
     }
   }, [addItem]);
 
-  const handleDeleteItem = useCallback((id, level) => {
-    setDeleteConfirmation({ isOpen: true, itemId: id, level, confirmCount: 0 });
+  const handleDeleteItem = useCallback((id) => {
+    setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (deleteConfirmation.confirmCount === 0) {
       setDeleteConfirmation(prev => ({ ...prev, confirmCount: 1 }));
     } else {
-      const success = await deleteItem(deleteConfirmation.itemId, deleteConfirmation.level);
+      const success = await deleteItem(deleteConfirmation.itemId);
       if (success) {
-        setDeleteConfirmation({ isOpen: false, itemId: null, level: 0, confirmCount: 0 });
+        setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
         if (activeItem === deleteConfirmation.itemId) {
           setActiveItem(null);
           setSelectedItemData(null);
@@ -55,41 +53,13 @@ const Projects = () => {
     }
   }, [deleteConfirmation, deleteItem, activeItem]);
 
-  const handleGeneratePrompts = useCallback(async () => {
-    if (!selectedItemData) {
-      toast.error("No project selected");
-      return;
-    }
-
-    try {
-      const result = await callOpenAI(
-        selectedItemData.input_admin_prompt,
-        selectedItemData.input_user_prompt,
-        selectedItemData
-      );
-
-      if (result) {
-        const updatedData = { ...selectedItemData, user_prompt_result: result };
-        setSelectedItemData(updatedData);
-        await supabase
-          .from('projects')
-          .update({ user_prompt_result: result })
-          .eq('project_row_id', activeItem);
-        toast.success("Prompts generated successfully");
-      }
-    } catch (error) {
-      console.error("Error generating prompts:", error);
-      toast.error(`Failed to generate prompts: ${error.message}`);
-    }
-  }, [selectedItemData, callOpenAI, activeItem]);
-
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem) {
       try {
         const { error } = await supabase
-          .from('projects')
+          .from('prompts')
           .update({ [fieldName]: value })
-          .eq('project_row_id', activeItem);
+          .eq('row_id', activeItem);
 
         if (error) throw error;
         
@@ -97,37 +67,39 @@ const Projects = () => {
           ...prevData,
           [fieldName]: value
         }));
+
+        if (fieldName === 'prompt_name') {
+          updateItemName(activeItem, value);
+        }
       } catch (error) {
         console.error('Error updating field:', error);
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
       }
     }
-  }, [activeItem]);
+  }, [activeItem, updateItemName]);
 
-  const renderTreeItems = useCallback((items, level = 0) => {
+  const renderTreeItems = useCallback((items) => {
     return items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
-        level={level}
         expandedItems={expandedItems}
         toggleItem={toggleItem}
-        addItem={(parentId) => handleAddItem(parentId, level + 1)}
-        deleteItem={(id) => handleDeleteItem(id, level)}
+        addItem={(parentId) => handleAddItem(parentId, item.level + 1)}
+        deleteItem={handleDeleteItem}
         startRenaming={(id) => setEditingItem({ id, name: item.name })}
         editingItem={editingItem}
         setEditingItem={setEditingItem}
         finishRenaming={() => {
           if (editingItem) {
-            updateItemName(editingItem.id, editingItem.name, level);
+            updateItemName(editingItem.id, editingItem.name);
             setEditingItem(null);
           }
         }}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
-        projectId={level === 0 ? item.id : item.project_id}
       >
-        {item.children && renderTreeItems(item.children, level + 1)}
+        {item.children && renderTreeItems(item.children)}
       </TreeItem>
     ));
   }, [expandedItems, toggleItem, handleAddItem, handleDeleteItem, updateItemName, editingItem, activeItem]);
@@ -142,21 +114,17 @@ const Projects = () => {
       const fetchItemData = async () => {
         try {
           const { data, error } = await supabase
-            .from('projects')
+            .from('prompts')
             .select('*')
-            .eq('project_row_id', activeItem);
+            .eq('row_id', activeItem)
+            .single();
 
           if (error) throw error;
           
-          if (data && data.length > 0) {
-            setSelectedItemData(data[0]);
-          } else {
-            console.log('No data found for the selected item');
-            setSelectedItemData(null);
-          }
+          setSelectedItemData(data);
         } catch (error) {
           console.error('Error fetching item data:', error);
-          toast.error(`Failed to fetch project data: ${error.message}`);
+          toast.error(`Failed to fetch prompt data: ${error.message}`);
         }
       };
 
@@ -166,21 +134,22 @@ const Projects = () => {
     }
   }, [activeItem]);
 
+  const renderAccordion = () => (
+    <Accordion
+      type="multiple"
+      value={expandedItems}
+      onValueChange={setExpandedItems}
+      className="w-full min-w-max"
+    >
+      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500">No prompts available</div>}
+    </Accordion>
+  );
+
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Projects</h1>
-        <Button 
-          variant="link" 
-          className="text-blue-500 hover:text-blue-700"
-          onClick={handleGeneratePrompts}
-          disabled={!selectedItemData || isGenerating}
-        >
-          {isGenerating ? "Generating..." : "Generate Prompts"}
-        </Button>
-      </div>
+      <h1 className="text-2xl font-bold mb-4">Prompts</h1>
       <PanelGroup direction="horizontal">
-        <Panel defaultSize={20} minSize={15}>
+        <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             {isLoading ? (
               <div>Loading...</div>
@@ -191,19 +160,12 @@ const Projects = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleAddItem(null, 0)}
+                      onClick={() => handleAddItem(null, 1)}
                     >
                       <PlusCircle className="h-5 w-5" />
                     </Button>
                   </div>
-                  <Accordion
-                    type="multiple"
-                    value={expandedItems}
-                    onValueChange={setExpandedItems}
-                    className="w-full min-w-max"
-                  >
-                    {renderTreeItems(treeData)}
-                  </Accordion>
+                  {renderAccordion()}
                 </div>
               </TooltipProvider>
             )}
@@ -220,12 +182,12 @@ const Projects = () => {
               />
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading project details...</p>
+                <p className="text-gray-500">Loading prompt details...</p>
               </div>
             )
           ) : (
             <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500">Select a project to view details</p>
+              <p className="text-gray-500">Select a prompt to view details</p>
             </div>
           )}
         </Panel>
