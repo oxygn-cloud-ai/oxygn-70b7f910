@@ -3,6 +3,21 @@ import axios from 'axios';
 import { useSettings } from './useSettings';
 import { toast } from 'sonner';
 
+const callOpenAIAPI = async (url, requestBody, apiKey) => {
+  try {
+    const response = await axios.post(url, requestBody, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error);
+    throw new Error('Unable to generate response: ' + error.message);
+  }
+};
+
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { settings } = useSettings();
@@ -11,42 +26,22 @@ export const useOpenAICall = () => {
     setIsLoading(true);
     try {
       if (!settings.openai_url || !settings.openai_api_key) {
-        throw new Error('OpenAI URL or API key is missing. Please check your settings.');
+        throw new Error('OpenAI API configuration is missing');
       }
 
-      const response = await axios({
-        method: 'post',
-        url: settings.openai_url,
-        headers: {
-          'Authorization': `Bearer ${settings.openai_api_key}`,
-          'Content-Type': 'application/json',
-        },
-        data: {
-          model: model || 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: inputAdminPrompt },
-            { role: 'user', content: inputUserPrompt }
-          ]
-        },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        withCredentials: false,
-      });
+      const requestBody = {
+        model: model || 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: inputAdminPrompt },
+          { role: 'user', content: inputUserPrompt }
+        ]
+      };
 
-      return response.data.choices[0].message.content;
+      const data = await callOpenAIAPI(settings.openai_url, requestBody, settings.openai_api_key);
+      return data.choices[0].message.content;
     } catch (error) {
-      console.error('Error calling OpenAI API:', error);
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          toast.error(`API Error: ${error.response.status} - ${error.response.data.error?.message || 'Unknown error'}`);
-        } else if (error.request) {
-          toast.error('No response received from OpenAI API. Please check your internet connection and API settings.');
-        } else {
-          toast.error(`Error setting up the request: ${error.message}`);
-        }
-      } else {
-        toast.error(`Failed to generate prompts: ${error.message}`);
-      }
+      console.error('Error generating prompts:', error);
+      toast.error(`Failed to generate prompts: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
