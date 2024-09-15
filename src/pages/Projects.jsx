@@ -26,8 +26,8 @@ const Projects = () => {
     setActiveItem(itemId);
   }, []);
 
-  const handleAddItem = useCallback(async (parentId, level) => {
-    const newItemId = await addItem(parentId, level);
+  const handleAddItem = useCallback(async (parentId) => {
+    const newItemId = await addItem(parentId);
     if (newItemId) {
       setActiveItem(newItemId);
       setExpandedItems(prev => [...prev, parentId].filter(Boolean));
@@ -88,7 +88,7 @@ const Projects = () => {
         level={1}
         expandedItems={expandedItems}
         toggleItem={toggleItem}
-        addItem={(parentId) => handleAddItem(parentId, 2)}
+        addItem={handleAddItem}
         deleteItem={handleDeleteItem}
         startRenaming={(id) => setEditingItem({ id, name: item.name })}
         editingItem={editingItem}
@@ -159,7 +159,7 @@ const Projects = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleAddItem(null, 1)}
+                    onClick={() => handleAddItem(null)}
                   >
                     <PlusCircle className="h-5 w-5" />
                   </Button>

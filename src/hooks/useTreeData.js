@@ -6,12 +6,11 @@ const useTreeData = () => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPrompts = useCallback(async (parentRowId = null, level = 1) => {
+  const fetchPrompts = useCallback(async (parentRowId = null) => {
     try {
       let query = supabase
         .from('prompts')
         .select('row_id, parent_row_id, prompt_name, note')
-        .eq('level', level)
         .order('prompt_name', { ascending: true });
 
       if (parentRowId) {
@@ -25,7 +24,7 @@ const useTreeData = () => {
       if (error) throw error;
 
       const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
-        const children = await fetchPrompts(prompt.row_id, level + 1);
+        const children = await fetchPrompts(prompt.row_id);
         return {
           ...prompt,
           id: prompt.row_id,
@@ -36,7 +35,7 @@ const useTreeData = () => {
 
       return promptsWithChildren;
     } catch (error) {
-      console.error(`Error fetching prompts at level ${level}:`, error);
+      console.error('Error fetching prompts:', error);
       return [];
     }
   });
@@ -58,14 +57,13 @@ const useTreeData = () => {
     fetchTreeData();
   }, [fetchTreeData]);
 
-  const addItem = useCallback(async (parentId, level) => {
+  const addItem = useCallback(async (parentId) => {
     try {
       const { data, error } = await supabase
         .from('prompts')
         .insert({
           parent_row_id: parentId,
           prompt_name: 'New Prompt',
-          level: level,
           note: ''
         })
         .select()
@@ -77,7 +75,7 @@ const useTreeData = () => {
         id: data.row_id,
         name: data.prompt_name,
         children: []
-      }, level));
+      }));
 
       return data.row_id;
     } catch (error) {
@@ -146,7 +144,7 @@ const useTreeData = () => {
   };
 };
 
-const addItemToChildren = (items, parentId, newItem, level) => {
+const addItemToChildren = (items, parentId, newItem) => {
   return items.map(item => {
     if (item.id === parentId) {
       return {
@@ -157,7 +155,7 @@ const addItemToChildren = (items, parentId, newItem, level) => {
     if (item.children) {
       return {
         ...item,
-        children: addItemToChildren(item.children, parentId, newItem, level)
+        children: addItemToChildren(item.children, parentId, newItem)
       };
     }
     return item;
