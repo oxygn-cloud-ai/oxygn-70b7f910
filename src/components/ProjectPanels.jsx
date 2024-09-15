@@ -172,7 +172,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       ))}
       <div className="border rounded-lg p-4">
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
-        <div className="grid grid-cols-1 gap-2">
+        <div className="grid grid-cols-2 gap-4">
           {promptSettingsFields.map(field => (
             <SettingInput
               key={field}
