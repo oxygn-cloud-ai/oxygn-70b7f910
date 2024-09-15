@@ -5,6 +5,7 @@ import SettingField from './SettingField';
 import { Button } from "@/components/ui/button";
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
+import { Save } from 'lucide-react';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -31,9 +32,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     return () => clearInterval(interval);
   }, [isGenerating]);
 
-  const handleSave = (fieldName, value) => {
+  const handleSave = (fieldName) => {
+    onUpdateField(fieldName, localData[fieldName]);
+  };
+
+  const handleChange = (fieldName, value) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
-    onUpdateField(fieldName, value);
   };
 
   const handleReset = (fieldName) => {
@@ -107,7 +111,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
       if (data.choices && data.choices.length > 0) {
         const generatedText = data.choices[0].message.content;
-        handleSave('user_prompt_result', generatedText);
+        handleChange('user_prompt_result', generatedText);
       }
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
@@ -154,8 +158,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           key={field.name}
           label={field.label}
           value={localData[field.name] || ''}
-          onChange={(value) => handleSave(field.name, value)}
+          onChange={(value) => handleChange(field.name, value)}
           onReset={() => handleReset(field.name)}
+          onSave={() => handleSave(field.name)}
           initialValue={selectedItemData[field.name] || ''}
         />
       ))}
@@ -167,7 +172,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
               key={field}
               label={field}
               value={localData[field] || ''}
-              onChange={(value) => handleSave(field, value)}
+              onChange={(value) => handleChange(field, value)}
+              onSave={() => handleSave(field)}
               checked={localData[`${field}_on`] || false}
               onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
               isSelect={field === 'model'}
