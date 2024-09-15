@@ -24,19 +24,24 @@ export const useOpenAICall = () => {
         openaiApiKey: settings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
       });
 
-      const response = await axios.post('/api/generate-prompts', {
-        inputAdminPrompt,
-        inputUserPrompt,
+      const response = await axios.post(settings.openai_url, {
         model: model || 'gpt-3.5-turbo',
-        openaiUrl: settings.openai_url,
-        openaiApiKey: settings.openai_api_key
+        messages: [
+          { role: 'system', content: inputAdminPrompt },
+          { role: 'user', content: inputUserPrompt }
+        ]
+      }, {
+        headers: {
+          'Authorization': `Bearer ${settings.openai_api_key}`,
+          'Content-Type': 'application/json'
+        }
       });
 
-      console.log('Response from /api/generate-prompts:', response.data);
+      console.log('OpenAI API Response:', response.data);
 
       return {
-        generatedPrompt: response.data.generatedPrompt,
-        fullResponse: JSON.stringify(response.data.fullResponse, null, 2)
+        generatedPrompt: response.data.choices[0].message.content,
+        fullResponse: JSON.stringify(response.data, null, 2)
       };
     } catch (error) {
       console.error('Error in generatePrompts:', error.response ? error.response.data : error.message);
