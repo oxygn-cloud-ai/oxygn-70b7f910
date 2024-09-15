@@ -76,7 +76,7 @@ const Projects = () => {
         console.log('Supabase API Response:', {
           status: error ? 500 : 200,
           data: null,
-          error: error,
+          error: error ? JSON.stringify(error) : null,
         });
 
         if (error) throw error;
@@ -148,8 +148,8 @@ const Projects = () => {
 
           console.log('Supabase API Response:', {
             status: data ? 200 : 500,
-            data: data,
-            error: error,
+            data: JSON.stringify(data),
+            error: error ? JSON.stringify(error) : null,
           });
 
           if (error) throw error;

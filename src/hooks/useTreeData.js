@@ -10,8 +10,8 @@ const useTreeData = (supabase) => {
     try {
       let query = supabase
         .from('prompts')
-        .select('row_id, parent_row_id, prompt_name, note')
-        .order('prompt_name', { ascending: true });
+        .select('row_id, parent_row_id, prompt_name, note, created')
+        .order('created', { ascending: true });
 
       if (parentRowId) {
         query = query.eq('parent_row_id', parentRowId);
@@ -30,8 +30,8 @@ const useTreeData = (supabase) => {
 
       console.log('Supabase API Response:', {
         status: data ? 200 : 500,
-        data: data,
-        error: error,
+        data: JSON.stringify(data),
+        error: error ? JSON.stringify(error) : null,
       });
 
       if (error) throw error;
@@ -79,7 +79,8 @@ const useTreeData = (supabase) => {
       const newItem = {
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
-        note: ''
+        note: '',
+        created: new Date().toISOString()
       };
 
       const query = supabase.from('prompts').insert(newItem).select().single();
@@ -95,25 +96,20 @@ const useTreeData = (supabase) => {
 
       console.log('Supabase API Response:', {
         status: data ? 200 : 500,
-        data: data,
-        error: error,
+        data: JSON.stringify(data),
+        error: error ? JSON.stringify(error) : null,
       });
 
       if (error) throw error;
 
-      setTreeData(prevData => addItemToChildren(prevData, parentId, {
-        id: data.row_id,
-        name: data.prompt_name,
-        children: []
-      }));
-
+      await fetchTreeData();
       return data.row_id;
     } catch (error) {
       console.error('Error adding new item:', error);
       toast.error(`Failed to add new item: ${error.message}`);
       return null;
     }
-  }, [supabase]);
+  }, [supabase, fetchTreeData]);
 
   const deleteItem = useCallback(async (id) => {
     if (!supabase) return false;
@@ -132,8 +128,8 @@ const useTreeData = (supabase) => {
 
         console.log('Supabase API Response:', {
           status: children ? 200 : 500,
-          data: children,
-          error: selectError,
+          data: JSON.stringify(children),
+          error: selectError ? JSON.stringify(selectError) : null,
         });
 
         if (selectError) throw selectError;
@@ -156,22 +152,21 @@ const useTreeData = (supabase) => {
         console.log('Supabase API Response:', {
           status: deleteError ? 500 : 200,
           data: null,
-          error: deleteError,
+          error: deleteError ? JSON.stringify(deleteError) : null,
         });
 
         if (deleteError) throw deleteError;
       };
 
       await deleteRecursively(id);
-
-      setTreeData(prevData => removeItemFromTree(prevData, id));
+      await fetchTreeData();
       return true;
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error(`Failed to delete item: ${error.message}`);
       return false;
     }
-  }, [supabase]);
+  }, [supabase, fetchTreeData]);
 
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
@@ -190,19 +185,19 @@ const useTreeData = (supabase) => {
       console.log('Supabase API Response:', {
         status: error ? 500 : 200,
         data: null,
-        error: error,
+        error: error ? JSON.stringify(error) : null,
       });
 
       if (error) throw error;
 
-      setTreeData(prevData => updateItemInTree(prevData, id, { name: newName }));
+      await fetchTreeData();
       return true;
     } catch (error) {
       console.error('Error updating item name:', error);
       toast.error(`Failed to update item name: ${error.message}`);
       return false;
     }
-  }, [supabase]);
+  }, [supabase, fetchTreeData]);
 
   return { 
     treeData, 
@@ -212,51 +207,6 @@ const useTreeData = (supabase) => {
     isLoading,
     refreshTreeData: fetchTreeData
   };
-};
-
-const addItemToChildren = (items, parentId, newItem) => {
-  return items.map(item => {
-    if (item.id === parentId) {
-      return {
-        ...item,
-        children: [...(item.children || []), newItem]
-      };
-    }
-    if (item.children) {
-      return {
-        ...item,
-        children: addItemToChildren(item.children, parentId, newItem)
-      };
-    }
-    return item;
-  });
-};
-
-const removeItemFromTree = (items, idToRemove) => {
-  return items.filter(item => item.id !== idToRemove).map(item => {
-    if (item.children) {
-      return {
-        ...item,
-        children: removeItemFromTree(item.children, idToRemove)
-      };
-    }
-    return item;
-  });
-};
-
-const updateItemInTree = (items, idToUpdate, newProps) => {
-  return items.map(item => {
-    if (item.id === idToUpdate) {
-      return { ...item, ...newProps };
-    }
-    if (item.children) {
-      return {
-        ...item,
-        children: updateItemInTree(item.children, idToUpdate, newProps)
-      };
-    }
-    return item;
-  });
 };
 
 export default useTreeData;
