@@ -6,142 +6,80 @@ const useTreeData = () => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProjectNames = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const { data: projectNames, error } = await supabase
-        .from('project_names')
-        .select('project_id, project_name, created')
-        .order('created', { ascending: false });
-
-      if (error) throw error;
-
-      const projectsWithChildren = await Promise.all(projectNames.map(async (project) => {
-        const children = await fetchProjectChildren(project.project_id);
-        return {
-          ...project,
-          id: project.project_id,
-          name: project.project_name,
-          children: children
-        };
-      }));
-
-      setTreeData(projectsWithChildren);
-    } catch (error) {
-      console.error('Error fetching project names:', error);
-      toast.error(`Failed to fetch projects: ${error.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const fetchProjectChildren = async (projectId, parentRowId = null, level = 1) => {
+  const fetchPrompts = useCallback(async (parentRowId = null, level = 1) => {
     try {
       let query = supabase
-        .from('projects')
-        .select('*')
-        .eq('project_id', projectId)
-        .eq('level', level);
+        .from('prompts')
+        .select('row_id, parent_row_id, prompt_name, note')
+        .eq('level', level)
+        .order('prompt_name', { ascending: true });
 
       if (parentRowId) {
         query = query.eq('parent_row_id', parentRowId);
+      } else {
+        query = query.is('parent_row_id', null);
       }
 
-      const { data, error } = await query.order('created', { ascending: false });
+      const { data, error } = await query;
 
       if (error) throw error;
 
-      const childrenWithSubchildren = await Promise.all(data.map(async (child) => {
-        const subchildren = await fetchProjectChildren(projectId, child.project_row_id, level + 1);
+      const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
+        const children = await fetchPrompts(prompt.row_id, level + 1);
         return {
-          ...child,
-          id: child.project_row_id,
-          name: child.prompt_name,
-          children: subchildren
+          ...prompt,
+          id: prompt.row_id,
+          name: prompt.prompt_name,
+          children: children.length > 0 ? children : undefined
         };
       }));
 
-      return childrenWithSubchildren;
+      return promptsWithChildren;
     } catch (error) {
-      console.error(`Error fetching children for project ${projectId} at level ${level}:`, error);
+      console.error(`Error fetching prompts at level ${level}:`, error);
       return [];
     }
-  };
+  });
+
+  const fetchTreeData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchPrompts();
+      setTreeData(data);
+    } catch (error) {
+      console.error('Error fetching tree data:', error);
+      toast.error(`Failed to fetch prompts: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchPrompts]);
 
   useEffect(() => {
-    fetchProjectNames();
-  }, [fetchProjectNames]);
+    fetchTreeData();
+  }, [fetchTreeData]);
 
-  const addItem = useCallback(async (parentId, level = 0) => {
-    const newItem = {
-      name: 'New Prompt',
-      created: new Date().toISOString(),
-    };
-
+  const addItem = useCallback(async (parentId, level) => {
     try {
-      let projectId;
-      if (level === 0) {
-        const { data: insertedProject, error } = await supabase
-          .from('project_names')
-          .insert({ project_name: newItem.name, created: newItem.created })
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from('prompts')
+        .insert({
+          parent_row_id: parentId,
+          prompt_name: 'New Prompt',
+          level: level,
+          note: ''
+        })
+        .select()
+        .single();
 
-        if (error) throw error;
-        projectId = insertedProject.project_id;
-        newItem.id = projectId;
-      } else {
-        const { data: parentProject, error: parentError } = await supabase
-          .from('projects')
-          .select('project_id')
-          .eq('project_row_id', parentId)
-          .single();
+      if (error) throw error;
 
-        if (parentError) throw parentError;
-        projectId = parentProject.project_id;
+      setTreeData(prevData => addItemToChildren(prevData, parentId, {
+        id: data.row_id,
+        name: data.prompt_name,
+        children: []
+      }, level));
 
-        // Check if project_id exists in project_names
-        const { data: projectExists, error: checkError } = await supabase
-          .from('project_names')
-          .select('project_id')
-          .eq('project_id', projectId)
-          .single();
-
-        if (checkError && checkError.code !== 'PGRST116') throw checkError;
-
-        if (!projectExists) {
-          // If project_id doesn't exist, create it in project_names
-          const { error: insertError } = await supabase
-            .from('project_names')
-            .insert({ project_id: projectId, project_name: 'Untitled Project', created: newItem.created });
-
-          if (insertError) throw insertError;
-        }
-
-        const { data: insertedPrompt, error } = await supabase
-          .from('projects')
-          .insert({
-            project_id: projectId,
-            prompt_name: newItem.name,
-            created: newItem.created,
-            level: level,
-            parent_row_id: level > 1 ? parentId : null
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        newItem.id = insertedPrompt.project_row_id;
-      }
-
-      setTreeData(prevData => {
-        if (level === 0) {
-          return [{ ...newItem, children: [] }, ...prevData];
-        }
-        return addItemToChildren(prevData, parentId, { ...newItem, children: [] }, level);
-      });
-
-      return newItem.id;
+      return data.row_id;
     } catch (error) {
       console.error('Error adding new item:', error);
       toast.error(`Failed to add new item: ${error.message}`);
@@ -149,61 +87,27 @@ const useTreeData = () => {
     }
   }, []);
 
-  const deleteItem = useCallback(async (id, level = 0) => {
+  const deleteItem = useCallback(async (id) => {
     try {
-      if (level === 0) {
-        // Delete the project and all its associated records
-        const { error: deleteProjectError } = await supabase
-          .from('project_names')
+      const deleteRecursively = async (itemId) => {
+        const { data: children } = await supabase
+          .from('prompts')
+          .select('row_id')
+          .eq('parent_row_id', itemId);
+
+        for (const child of children) {
+          await deleteRecursively(child.row_id);
+        }
+
+        const { error } = await supabase
+          .from('prompts')
           .delete()
-          .eq('project_id', id);
-        if (deleteProjectError) throw deleteProjectError;
-      } else {
-        // For items at level 1 or higher
-        const { data: itemData, error: itemError } = await supabase
-          .from('projects')
-          .select('project_id')
-          .eq('project_row_id', id)
-          .single();
-        if (itemError) throw itemError;
+          .eq('row_id', itemId);
 
-        const projectId = itemData.project_id;
+        if (error) throw error;
+      };
 
-        // Recursive deletion function
-        const deleteRecursively = async (currentLevel) => {
-          const { data: itemsToDelete, error: fetchError } = await supabase
-            .from('projects')
-            .select('project_row_id, parent_row_id')
-            .eq('project_id', projectId)
-            .eq('level', currentLevel);
-          
-          if (fetchError) throw fetchError;
-
-          for (const item of itemsToDelete) {
-            if (await isDescendantOf(item.project_row_id, id)) {
-              const { error: deleteError } = await supabase
-                .from('projects')
-                .delete()
-                .eq('project_row_id', item.project_row_id);
-              if (deleteError) throw deleteError;
-            }
-          }
-
-          if (currentLevel > level) {
-            await deleteRecursively(currentLevel - 1);
-          }
-        };
-
-        // Start deletion from the highest possible level
-        await deleteRecursively(99);
-
-        // Delete the originally selected item
-        const { error: deleteItemError } = await supabase
-          .from('projects')
-          .delete()
-          .eq('project_row_id', id);
-        if (deleteItemError) throw deleteItemError;
-      }
+      await deleteRecursively(id);
 
       setTreeData(prevData => removeItemFromTree(prevData, id));
       return true;
@@ -214,36 +118,14 @@ const useTreeData = () => {
     }
   }, []);
 
-  const isDescendantOf = async (itemId, ancestorId) => {
-    let currentId = itemId;
-    while (currentId) {
-      if (currentId === ancestorId) return true;
-      const { data, error } = await supabase
-        .from('projects')
-        .select('parent_row_id')
-        .eq('project_row_id', currentId)
-        .single();
-      if (error || !data) return false;
-      currentId = data.parent_row_id;
-    }
-    return false;
-  };
-
-  const updateItemName = useCallback(async (id, newName, level = 0) => {
+  const updateItemName = useCallback(async (id, newName) => {
     try {
-      if (level === 0) {
-        const { error } = await supabase
-          .from('project_names')
-          .update({ project_name: newName })
-          .eq('project_id', id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('projects')
-          .update({ prompt_name: newName })
-          .eq('project_row_id', id);
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('prompts')
+        .update({ prompt_name: newName })
+        .eq('row_id', id);
+
+      if (error) throw error;
 
       setTreeData(prevData => updateItemInTree(prevData, id, { name: newName }));
       return true;
@@ -260,7 +142,7 @@ const useTreeData = () => {
     deleteItem, 
     updateItemName,
     isLoading,
-    refreshTreeData: fetchProjectNames
+    refreshTreeData: fetchTreeData
   };
 };
 
@@ -269,7 +151,7 @@ const addItemToChildren = (items, parentId, newItem, level) => {
     if (item.id === parentId) {
       return {
         ...item,
-        children: [newItem, ...(item.children || [])]
+        children: [...(item.children || []), newItem]
       };
     }
     if (item.children) {
