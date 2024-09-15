@@ -2,176 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { toast } from 'sonner';
-
-const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
-  const [text, setText] = useState(value || '');
-
-  useEffect(() => {
-    setText(value || '');
-  }, [value]);
-
-  const handleSave = () => onSave(fieldName, text);
-  const handleReset = async () => {
-    const resetValue = await onReset(fieldName);
-    if (resetValue !== null) setText(resetValue);
-  };
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success('Copied to clipboard');
-    }).catch((err) => {
-      console.error('Failed to copy text: ', err);
-      toast.error('Failed to copy text');
-    });
-  };
-
-  return (
-    <div className="relative mb-4">
-      <div className="absolute top-2 right-2 z-10 flex space-x-1">
-        <IconButton icon="Copy" onClick={handleCopy} tooltip="Copy to clipboard" />
-        <IconButton icon="Save" onClick={handleSave} tooltip="Save changes" />
-        <IconButton icon="RotateCcw" onClick={handleReset} tooltip="Reset to last saved" />
-      </div>
-      <Textarea 
-        placeholder={placeholder} 
-        className="w-full p-2 pr-24 border rounded" 
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        readOnly={readOnly}
-      />
-    </div>
-  );
-};
-
-const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options, isTemperature }) => {
-  const [inputValue, setInputValue] = useState(value);
-
-  useEffect(() => {
-    setInputValue(value);
-  }, [value]);
-
-  const handleInputChange = (e) => {
-    let newValue = e.target.value;
-    if (isTemperature) {
-      newValue = parseFloat(newValue);
-      if (!isNaN(newValue)) {
-        newValue = Math.max(-2, Math.min(2, parseFloat(newValue.toFixed(4))));
-      } else {
-        newValue = value;
-      }
-    }
-    setInputValue(newValue.toString());
-    onChange(newValue.toString());
-  };
-
-  const handleSliderChange = (newValue) => {
-    const formattedValue = newValue[0].toFixed(4);
-    setInputValue(formattedValue);
-    onChange(formattedValue);
-  };
-
-  const handleCheckChange = () => {
-    onCheckChange(!checked);
-  };
-
-  if (isTemperature) {
-    return (
-      <div className="mb-2">
-        <Label htmlFor={label} className="flex justify-between items-center">
-          <span>{label}</span>
-          <div className="flex space-x-1">
-            <IconButton icon="Copy" onClick={onCopy} tooltip="Copy to clipboard" />
-            <IconButton icon="X" onClick={onSetEmpty} tooltip="Set to empty" />
-            <Checkbox checked={checked} onCheckedChange={handleCheckChange} />
-          </div>
-        </Label>
-        <div className="flex items-center space-x-2">
-          <Slider
-            id={`${label}-slider`}
-            min={-2}
-            max={2}
-            step={0.0001}
-            value={[parseFloat(inputValue) || 0]}
-            onValueChange={handleSliderChange}
-            className="flex-grow"
-          />
-          <Input
-            id={`${label}-input`}
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            className="w-20"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  return isSelect ? (
-    <div className="mb-2">
-      <Label htmlFor={label} className="flex justify-between items-center">
-        <span>{label}</span>
-        <div className="flex space-x-1">
-          <IconButton icon="Copy" onClick={onCopy} tooltip="Copy to clipboard" />
-          <IconButton icon="X" onClick={onSetEmpty} tooltip="Set to empty" />
-          <Checkbox checked={checked} onCheckedChange={handleCheckChange} />
-        </div>
-      </Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="w-full mt-1">
-          <SelectValue placeholder="Select a model" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.model} value={option.model}>
-              {option.model}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  ) : (
-    <div className="mb-2">
-      <Label htmlFor={label} className="flex justify-between items-center">
-        <span>{label}</span>
-        <div className="flex space-x-1">
-          <IconButton icon="Copy" onClick={onCopy} tooltip="Copy to clipboard" />
-          <IconButton icon="X" onClick={onSetEmpty} tooltip="Set to empty" />
-          <Checkbox checked={checked} onCheckedChange={handleCheckChange} />
-        </div>
-      </Label>
-      <Input
-        id={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full mt-1"
-      />
-    </div>
-  );
-};
-
-const IconButton = ({ icon, onClick, tooltip }) => (
-  <Button
-    variant="ghost"
-    size="icon"
-    className="h-6 w-6 p-0"
-    onClick={(e) => {
-      e.stopPropagation();
-      onClick(e);
-    }}
-  >
-    {React.createElement(icon, { className: "h-4 w-4" })}
-  </Button>
-);
+import PromptField from './PromptField';
+import SettingField from './SettingField';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
-  const { models, isLoading: isLoadingModels } = useOpenAIModels();
+  const { models } = useOpenAIModels();
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -180,28 +20,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const handleSave = (fieldName, value) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
     onUpdateField(fieldName, value);
-  };
-
-  const handleReset = async (fieldName) => {
-    if (selectedItemData) {
-      setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
-      return selectedItemData[fieldName];
-    }
-    return null;
-  };
-
-  const handleCopy = (value) => {
-    navigator.clipboard.writeText(value).then(() => {
-      toast.success('Copied to clipboard');
-    }).catch((err) => {
-      console.error('Failed to copy text: ', err);
-      toast.error('Failed to copy text');
-    });
-  };
-
-  const handleSetEmpty = (fieldName) => {
-    setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
-    onUpdateField(fieldName, '');
   };
 
   const handleCheckChange = (fieldName, newValue) => {
@@ -213,14 +31,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     return <div>No project selected</div>;
   }
 
-  const textAreaFields = [
-    { name: 'admin_prompt_result', placeholder: 'Admin Prompt' },
-    { name: 'user_prompt_result', placeholder: 'User Prompt' },
-    { name: 'input_admin_prompt', placeholder: 'Input Admin Prompt' },
-    { name: 'input_user_prompt', placeholder: 'Input User Prompt' }
+  const promptFields = [
+    { name: 'admin_prompt_result', label: 'Admin Prompt' },
+    { name: 'user_prompt_result', label: 'User Prompt' },
+    { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
+    { name: 'input_user_prompt', label: 'Input User Prompt' },
+    { name: 'note', label: 'Notes' }
   ];
 
-  const promptSettingsFields = [
+  const settingFields = [
     'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
     'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
     'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
@@ -230,28 +49,23 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      {textAreaFields.map(field => (
-        <TextAreaWithIcons
+      {promptFields.map(field => (
+        <PromptField
           key={field.name}
-          placeholder={field.placeholder}
+          label={field.label}
           value={localData[field.name] || ''}
-          fieldName={field.name}
-          onSave={handleSave}
-          onReset={handleReset}
-          readOnly={false}
+          onChange={(value) => handleSave(field.name, value)}
         />
       ))}
       <div className="border rounded-lg p-4">
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
         <div className="grid grid-cols-2 gap-4">
-          {promptSettingsFields.map(field => (
-            <SettingInput
+          {settingFields.map(field => (
+            <SettingField
               key={field}
               label={field}
               value={localData[field] || ''}
               onChange={(value) => handleSave(field, value)}
-              onCopy={() => handleCopy(localData[field] || '')}
-              onSetEmpty={() => handleSetEmpty(field)}
               checked={localData[`${field}_on`] || false}
               onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
               isSelect={field === 'model'}
