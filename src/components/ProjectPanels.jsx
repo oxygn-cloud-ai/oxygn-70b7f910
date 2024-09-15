@@ -60,6 +60,14 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
     onChange(formattedValue);
   };
 
+  const handleInputChange = (e) => {
+    const newValue = parseFloat(e.target.value);
+    if (!isNaN(newValue) && newValue >= -2 && newValue <= 2) {
+      setSliderValue(newValue);
+      onChange(newValue.toFixed(4));
+    }
+  };
+
   if (isTemperature) {
     return (
       <div className="mb-2">
@@ -86,16 +94,13 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
             className="flex-grow"
           />
           <Input
-            type="text"
+            type="number"
             value={sliderValue.toFixed(4)}
-            onChange={(e) => {
-              const newValue = parseFloat(e.target.value);
-              if (!isNaN(newValue) && newValue >= -2 && newValue <= 2) {
-                setSliderValue(newValue);
-                onChange(newValue.toFixed(4));
-              }
-            }}
+            onChange={handleInputChange}
             className="w-20"
+            step="0.0001"
+            min="-2"
+            max="2"
           />
         </div>
       </div>
