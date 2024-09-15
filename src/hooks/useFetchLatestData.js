@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const useFetchLatestData = (projectRowId) => {
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchLatestData = async () => {
-    setIsLoading(true);
+  const fetchWithRetry = async (retries = 0) => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -55,6 +59,21 @@ export const useFetchLatestData = (projectRowId) => {
         return null;
       }
 
+      return data;
+    } catch (error) {
+      if (retries < MAX_RETRIES) {
+        console.warn(`Fetch attempt ${retries + 1} failed. Retrying...`);
+        await delay(RETRY_DELAY);
+        return fetchWithRetry(retries + 1);
+      }
+      throw error;
+    }
+  };
+
+  const fetchLatestData = async () => {
+    setIsLoading(true);
+    try {
+      const data = await fetchWithRetry();
       return data;
     } catch (error) {
       console.error('Error fetching latest data:', error);
