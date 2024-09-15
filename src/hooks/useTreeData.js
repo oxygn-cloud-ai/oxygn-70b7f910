@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
-const fetchProjectData = async () => {
+const fetchProjectNames = async () => {
   try {
     const { data: projectsData, error: projectsError } = await supabase
       .from('project_names')
@@ -12,26 +12,15 @@ const fetchProjectData = async () => {
 
     if (projectsError) throw projectsError;
 
-    const projectsWithAllLevels = await Promise.all(projectsData.map(async (project) => {
-      const { data: allLevelsData, error: allLevelsError } = await supabase
-        .from('projects')
-        .select('project_row_id, project_id, prompt_name, level, parent_row_id, created')
-        .eq('project_id', project.project_id)
-        .order('created');
-
-      if (allLevelsError) throw allLevelsError;
-
-      return {
-        id: project.project_id,
-        name: project.project_name,
-        created: project.created,
-        children: buildTreeStructure(allLevelsData)
-      };
+    return projectsData.map(project => ({
+      id: project.project_id,
+      name: project.project_name,
+      created: project.created,
+      children: []
     }));
-
-    return projectsWithAllLevels;
   } catch (error) {
-    console.error('Error fetching project data:', error);
+    console.error('Error fetching project names:', error);
+    toast.error(`Failed to fetch projects: ${error.message}`);
     return [];
   }
 };
@@ -176,7 +165,7 @@ export const useTreeData = () => {
   const [treeData, setTreeData] = useState([]);
 
   useEffect(() => {
-    fetchProjectData().then(setTreeData);
+    fetchProjectNames().then(setTreeData);
   }, []);
 
   const updateTreeData = (id, updateFn) => {
