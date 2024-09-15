@@ -19,10 +19,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const { settings } = useSettings(supabase);
   const [timer, setTimer] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
+    setIsSettingsOpen(selectedItemData?.prompt_settings_open ?? true);
   }, [selectedItemData]);
 
   useEffect(() => {
@@ -129,25 +130,81 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
+  const handleSettingsToggle = async (open) => {
+    setIsSettingsOpen(open);
+    try {
+      await supabase
+        .from('prompts')
+        .update({ prompt_settings_open: open })
+        .eq('row_id', projectRowId);
+    } catch (error) {
+      console.error('Error updating prompt_settings_open:', error);
+    }
+  };
+
   if (!projectRowId) {
     return <div>No project selected</div>;
   }
 
-  const promptFields = [
-    { name: 'admin_prompt_result', label: 'Admin Prompt' },
-    { name: 'user_prompt_result', label: 'User Prompt' },
-    { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
-    { name: 'input_user_prompt', label: 'Input User Prompt' },
-    { name: 'note', label: 'Notes' }
-  ];
+  const renderPromptFields = () => {
+    const fields = [
+      { name: 'admin_prompt_result', label: 'Admin Prompt' },
+      { name: 'user_prompt_result', label: 'User Prompt' },
+      { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
+      { name: 'input_user_prompt', label: 'Input User Prompt' },
+      { name: 'note', label: 'Notes' }
+    ];
 
-  const settingFields = [
-    'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
-    'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
-    'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
-    'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
-    'input', 'context_length', 'custom_finetune'
-  ];
+    return fields.map(field => (
+      <PromptField
+        key={field.name}
+        label={field.label}
+        value={localData[field.name] || ''}
+        onChange={(value) => handleChange(field.name, value)}
+        onReset={() => handleReset(field.name)}
+        onSave={() => handleSave(field.name)}
+        initialValue={selectedItemData[field.name] || ''}
+      />
+    ));
+  };
+
+  const renderSettingFields = () => {
+    const fields = [
+      'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+      'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
+      'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
+      'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
+      'input', 'context_length', 'custom_finetune'
+    ];
+
+    return (
+      <div className="grid grid-cols-2 gap-4">
+        {fields.map(field => (
+          <div key={field} className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSave(field)}
+              className="absolute right-8 z-10 h-6 w-6"
+              disabled={localData[field] === selectedItemData[field]}
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <SettingField
+              label={field}
+              value={localData[field] || ''}
+              onChange={(value) => handleChange(field, value)}
+              checked={localData[`${field}_on`] || false}
+              onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
+              isSelect={field === 'model'}
+              options={models}
+              isTemperature={field === 'temperature'}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
@@ -159,20 +216,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       >
         {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
       </Button>
-      {promptFields.map(field => (
-        <PromptField
-          key={field.name}
-          label={field.label}
-          value={localData[field.name] || ''}
-          onChange={(value) => handleChange(field.name, value)}
-          onReset={() => handleReset(field.name)}
-          onSave={() => handleSave(field.name)}
-          initialValue={selectedItemData[field.name] || ''}
-        />
-      ))}
+      {renderPromptFields()}
       <Collapsible
         open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
+        onOpenChange={handleSettingsToggle}
         className="border rounded-lg p-4"
       >
         <div className="flex items-center justify-between mb-4">
@@ -184,31 +231,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent>
-          <div className="grid grid-cols-2 gap-4">
-            {settingFields.map(field => (
-              <div key={field} className="relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleSave(field)}
-                  className="absolute right-8 z-10 h-6 w-6"
-                  disabled={localData[field] === selectedItemData[field]}
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-                <SettingField
-                  label={field}
-                  value={localData[field] || ''}
-                  onChange={(value) => handleChange(field, value)}
-                  checked={localData[`${field}_on`] || false}
-                  onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
-                  isSelect={field === 'model'}
-                  options={models}
-                  isTemperature={field === 'temperature'}
-                />
-              </div>
-            ))}
-          </div>
+          {renderSettingFields()}
         </CollapsibleContent>
       </Collapsible>
     </div>
