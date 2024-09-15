@@ -24,8 +24,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const [checkedSettings, setCheckedSettings] = useState({});
 
   useEffect(() => {
-    setLocalData(selectedItemData || {});
     if (selectedItemData) {
+      setLocalData(selectedItemData);
       const initialCheckedSettings = {};
       promptSettingsFields.forEach(field => {
         initialCheckedSettings[field] = selectedItemData[`${field}_on`] === 1;
@@ -123,7 +123,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
               }}
               onCopy={() => handleCopy(localData[field] || '')}
               onSetEmpty={() => handleSetEmpty(field)}
-              checked={checkedSettings[field] || false}
+              checked={checkedSettings[field]}
               onCheckChange={() => handleCheckChange(field)}
               isSelect={field === 'model'}
               options={models}
