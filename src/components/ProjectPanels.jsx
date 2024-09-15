@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RotateCcw, Copy, Send } from 'lucide-react';
+import { Save, RotateCcw, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
-import { useOpenAICall } from '../hooks/useOpenAICall';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly, onOpenAICall }) => {
+const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
 
   useEffect(() => {
@@ -35,10 +34,6 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
       console.error('Failed to copy text: ', err);
       toast.error('Failed to copy text');
     });
-  };
-
-  const handleOpenAICall = () => {
-    onOpenAICall(text);
   };
 
   return (
@@ -80,20 +75,6 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        {fieldName === 'input_user_prompt' && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleOpenAICall}>
-                  <Send className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Send to OpenAI</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
       </div>
       <Textarea 
         placeholder={placeholder} 
@@ -106,10 +87,9 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
-const ProjectPanels = ({ selectedItemData, projectRowId }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onDataChange }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
   const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
-  const { callOpenAI, isLoading: isOpenAILoading } = useOpenAICall();
   const [localData, setLocalData] = useState(selectedItemData || {});
 
   useEffect(() => {
@@ -119,7 +99,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const handleSave = async (fieldName, value) => {
     if (projectRowId) {
       await saveField(fieldName, value);
-      setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
+      setLocalData(prevData => {
+        const newData = { ...prevData, [fieldName]: value };
+        onDataChange(newData);
+        return newData;
+      });
     }
   };
 
@@ -127,20 +111,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     if (projectRowId) {
       const latestData = await fetchLatestData();
       if (latestData !== null) {
-        setLocalData(prevData => ({ ...prevData, ...latestData }));
+        setLocalData(prevData => {
+          const newData = { ...prevData, ...latestData };
+          onDataChange(newData);
+          return newData;
+        });
         return latestData[fieldName];
       }
     }
     return null;
-  };
-
-  const handleOpenAICall = async (prompt) => {
-    if (isOpenAILoading) return;
-    const response = await callOpenAI(prompt);
-    if (response) {
-      await handleSave('user_prompt_result', response);
-      setLocalData(prevData => ({ ...prevData, user_prompt_result: response }));
-    }
   };
 
   if (!projectRowId) {
@@ -173,7 +152,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
           onSave={handleSave}
           onReset={handleReset}
           readOnly={false}
-          onOpenAICall={field.name === 'input_user_prompt' ? handleOpenAICall : undefined}
         />
       ))}
       <div className="border rounded-lg p-4">

@@ -8,6 +8,7 @@ import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
+import { useOpenAICall } from '../hooks/useOpenAICall';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,6 +17,7 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
+  const { callOpenAI, isLoading: isOpenAILoading } = useOpenAICall();
 
   const toggleItem = async (itemId) => {
     setExpandedItems(prev => {
@@ -106,6 +108,19 @@ const Projects = () => {
     }
   };
 
+  const handleGeneratePrompts = async () => {
+    if (activeItem && selectedItemData) {
+      const prompt = selectedItemData.input_user_prompt;
+      const response = await callOpenAI(prompt);
+      if (response) {
+        setSelectedItemData(prevData => ({
+          ...prevData,
+          user_prompt_result: response
+        }));
+      }
+    }
+  };
+
   const renderTreeItems = () => {
     if (!treeData || treeData.length === 0) {
       return <div>No items to display</div>;
@@ -156,7 +171,12 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <Button variant="link" className="text-blue-500 hover:text-blue-700">
+        <Button 
+          variant="link" 
+          className="text-blue-500 hover:text-blue-700"
+          onClick={handleGeneratePrompts}
+          disabled={!activeItem || isOpenAILoading}
+        >
           Generate Prompts
         </Button>
       </div>
@@ -169,7 +189,11 @@ const Projects = () => {
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
           {activeItem ? (
-            <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
+            <ProjectPanels 
+              selectedItemData={selectedItemData} 
+              projectRowId={activeItem}
+              onDataChange={setSelectedItemData}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Select a project to view details</p>
