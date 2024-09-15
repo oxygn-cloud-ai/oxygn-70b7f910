@@ -11,10 +11,25 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
+  const [timer, setTimer] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
   }, [selectedItemData]);
+
+  useEffect(() => {
+    let interval;
+    if (isGenerating) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer + 1);
+      }, 1000);
+    } else {
+      clearInterval(interval);
+      setTimer(0);
+    }
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   const handleSave = (fieldName, value) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
@@ -35,6 +50,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       console.error('OpenAI settings are not configured');
       return;
     }
+
+    setIsGenerating(true);
+    const startTime = Date.now();
 
     const requestBody = {
       messages: [
@@ -87,13 +105,17 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       const data = await response.json();
       console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
 
-      // Update the user prompt result field with the API response
       if (data.choices && data.choices.length > 0) {
         const generatedText = data.choices[0].message.content;
         handleSave('user_prompt_result', generatedText);
       }
     } catch (error) {
       console.error('Error calling OpenAI API:', error);
+    } finally {
+      setIsGenerating(false);
+      const endTime = Date.now();
+      const totalTime = (endTime - startTime) / 1000;
+      console.log(`API call completed in ${totalTime} seconds`);
     }
   };
 
@@ -123,8 +145,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         variant="link"
         onClick={handleGenerate}
         className="self-start mb-2"
+        disabled={isGenerating}
       >
-        Generate
+        {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
       </Button>
       {promptFields.map(field => (
         <PromptField
