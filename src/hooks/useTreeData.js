@@ -19,7 +19,18 @@ const useTreeData = () => {
         query = query.is('parent_row_id', null);
       }
 
+      console.log('Supabase API Call:', {
+        table: 'prompts',
+        action: 'select',
+        query: query.toSQL(),
+      });
+
       const { data, error } = await query;
+
+      console.log('Supabase API Response:', {
+        data,
+        error,
+      });
 
       if (error) throw error;
 
@@ -59,15 +70,28 @@ const useTreeData = () => {
 
   const addItem = useCallback(async (parentId) => {
     try {
+      const newItem = {
+        parent_row_id: parentId,
+        prompt_name: 'New Prompt',
+        note: ''
+      };
+
+      console.log('Supabase API Call:', {
+        table: 'prompts',
+        action: 'insert',
+        data: newItem,
+      });
+
       const { data, error } = await supabase
         .from('prompts')
-        .insert({
-          parent_row_id: parentId,
-          prompt_name: 'New Prompt',
-          note: ''
-        })
+        .insert(newItem)
         .select()
         .single();
+
+      console.log('Supabase API Response:', {
+        data,
+        error,
+      });
 
       if (error) throw error;
 
@@ -88,21 +112,44 @@ const useTreeData = () => {
   const deleteItem = useCallback(async (id) => {
     try {
       const deleteRecursively = async (itemId) => {
-        const { data: children } = await supabase
+        console.log('Supabase API Call:', {
+          table: 'prompts',
+          action: 'select',
+          query: `Select row_id where parent_row_id = ${itemId}`,
+        });
+
+        const { data: children, error: selectError } = await supabase
           .from('prompts')
           .select('row_id')
           .eq('parent_row_id', itemId);
+
+        console.log('Supabase API Response:', {
+          data: children,
+          error: selectError,
+        });
+
+        if (selectError) throw selectError;
 
         for (const child of children) {
           await deleteRecursively(child.row_id);
         }
 
-        const { error } = await supabase
+        console.log('Supabase API Call:', {
+          table: 'prompts',
+          action: 'delete',
+          query: `Delete where row_id = ${itemId}`,
+        });
+
+        const { error: deleteError } = await supabase
           .from('prompts')
           .delete()
           .eq('row_id', itemId);
 
-        if (error) throw error;
+        console.log('Supabase API Response:', {
+          error: deleteError,
+        });
+
+        if (deleteError) throw deleteError;
       };
 
       await deleteRecursively(id);
@@ -118,10 +165,21 @@ const useTreeData = () => {
 
   const updateItemName = useCallback(async (id, newName) => {
     try {
+      console.log('Supabase API Call:', {
+        table: 'prompts',
+        action: 'update',
+        data: { prompt_name: newName },
+        query: `Update where row_id = ${id}`,
+      });
+
       const { error } = await supabase
         .from('prompts')
         .update({ prompt_name: newName })
         .eq('row_id', id);
+
+      console.log('Supabase API Response:', {
+        error,
+      });
 
       if (error) throw error;
 

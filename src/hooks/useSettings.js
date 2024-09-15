@@ -13,10 +13,20 @@ export const useSettings = () => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      console.log('Fetching settings...');
+      console.log('Supabase API Call:', {
+        table: 'settings',
+        action: 'select',
+        query: 'Select *',
+      });
+
       const { data, error } = await supabase
         .from('settings')
         .select('*');
+
+      console.log('Supabase API Response:', {
+        data,
+        error,
+      });
 
       if (error) throw error;
 
@@ -29,11 +39,22 @@ export const useSettings = () => {
           version: ''
         };
 
+        console.log('Supabase API Call:', {
+          table: 'settings',
+          action: 'insert',
+          data: defaultSettings,
+        });
+
         const { data: insertedData, error: insertError } = await supabase
           .from('settings')
           .insert(defaultSettings)
           .select()
           .single();
+
+        console.log('Supabase API Response:', {
+          data: insertedData,
+          error: insertError,
+        });
 
         if (insertError) throw insertError;
 
@@ -61,11 +82,23 @@ export const useSettings = () => {
         throw new Error('Settings not initialized');
       }
 
+      console.log('Supabase API Call:', {
+        table: 'settings',
+        action: 'update',
+        data: { [key]: value },
+        query: `Update where openai_url = ${settings.openai_url}`,
+      });
+
       const { data, error } = await supabase
         .from('settings')
         .update({ [key]: value })
         .match({ openai_url: settings.openai_url })
         .select();
+
+      console.log('Supabase API Response:', {
+        data,
+        error,
+      });
 
       if (error) throw error;
 

@@ -8,11 +8,22 @@ export const useFetchLatestData = () => {
   const fetchData = async (projectId) => {
     setIsLoading(true);
     try {
+      console.log('Supabase API Call:', {
+        table: 'projects',
+        action: 'select',
+        query: `Select * where project_id = ${projectId}`,
+      });
+
       const { data, error } = await supabase
         .from('projects')
         .select('*')
         .eq('project_id', projectId)
         .single();
+
+      console.log('Supabase API Response:', {
+        data,
+        error,
+      });
 
       if (error) throw error;
       return data;

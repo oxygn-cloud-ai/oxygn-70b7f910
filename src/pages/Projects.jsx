@@ -58,10 +58,21 @@ const Projects = () => {
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem) {
       try {
+        console.log('Supabase API Call:', {
+          table: 'prompts',
+          action: 'update',
+          data: { [fieldName]: value },
+          query: `Update where row_id = ${activeItem}`,
+        });
+
         const { error } = await supabase
           .from('prompts')
           .update({ [fieldName]: value })
           .eq('row_id', activeItem);
+
+        console.log('Supabase API Response:', {
+          error,
+        });
 
         if (error) throw error;
         
@@ -115,11 +126,22 @@ const Projects = () => {
     if (activeItem) {
       const fetchItemData = async () => {
         try {
+          console.log('Supabase API Call:', {
+            table: 'prompts',
+            action: 'select',
+            query: `Select * where row_id = ${activeItem}`,
+          });
+
           const { data, error } = await supabase
             .from('prompts')
             .select('*')
             .eq('row_id', activeItem)
             .single();
+
+          console.log('Supabase API Response:', {
+            data,
+            error,
+          });
 
           if (error) throw error;
           

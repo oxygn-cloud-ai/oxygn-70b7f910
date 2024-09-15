@@ -13,9 +13,20 @@ export const useOpenAIModels = () => {
   const fetchModels = async () => {
     try {
       setIsLoading(true);
+      console.log('Supabase API Call:', {
+        table: 'openai_models',
+        action: 'select',
+        query: 'Select model, max_tokens',
+      });
+
       const { data, error } = await supabase
         .from('openai_models')
         .select('model, max_tokens');
+
+      console.log('Supabase API Response:', {
+        data,
+        error,
+      });
 
       if (error) throw error;
 
