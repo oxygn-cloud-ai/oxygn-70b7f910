@@ -15,28 +15,22 @@ export const useOpenAICall = () => {
       };
 
       console.log('API Call Details:', {
-        url: settings.proxy_url,
+        url: settings.openai_url,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openai_api_key.substring(0, 5)}...`
         },
-        body: JSON.stringify({
-          openaiUrl: settings.openai_url,
-          openaiApiKey: settings.openai_api_key,
-          requestBody: requestBody
-        })
+        body: JSON.stringify(requestBody)
       });
 
-      const response = await fetch(settings.proxy_url, {
+      const response = await fetch(settings.openai_url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.openai_api_key}`
         },
-        body: JSON.stringify({
-          openaiUrl: settings.openai_url,
-          openaiApiKey: settings.openai_api_key,
-          requestBody: requestBody
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
