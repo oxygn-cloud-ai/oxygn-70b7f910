@@ -5,12 +5,12 @@ const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPrompts = useCallback(async (parentRowId = null) => {
+  const fetchPrompts = useCallback(async (parentRowId = null, level = 1) => {
     if (!supabase) return [];
     try {
       let query = supabase
         .from('prompts')
-        .select('row_id, parent_row_id, prompt_name, note, created')
+        .select('row_id, parent_row_id, prompt_name, note, created, level')
         .eq('is_deleted', false)
         .order('created', { ascending: true });
 
@@ -25,7 +25,7 @@ const useTreeData = (supabase) => {
       if (error) throw error;
 
       const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
-        const children = await fetchPrompts(prompt.row_id);
+        const children = await fetchPrompts(prompt.row_id, level + 1);
         return {
           ...prompt,
           id: prompt.row_id,
@@ -64,12 +64,25 @@ const useTreeData = (supabase) => {
   const addItem = useCallback(async (parentId) => {
     if (!supabase) return null;
     try {
+      let level = 1;
+      if (parentId) {
+        const { data: parentData, error: parentError } = await supabase
+          .from('prompts')
+          .select('level')
+          .eq('row_id', parentId)
+          .single();
+
+        if (parentError) throw parentError;
+        level = parentData.level + 1;
+      }
+
       const newItem = {
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
         note: '',
         created: new Date().toISOString(),
-        is_deleted: false
+        is_deleted: false,
+        level: level
       };
 
       const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
