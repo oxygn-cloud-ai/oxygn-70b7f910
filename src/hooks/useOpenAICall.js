@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { useSettings } from './useSettings';
 import { toast } from 'sonner';
 
@@ -28,28 +27,35 @@ export const useOpenAICall = () => {
         openaiApiKey: latestSettings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
       });
 
-      const response = await axios.post(`${apiUrl}/chat/completions`, {
-        model: model || 'gpt-3.5-turbo',
-        messages: [
-          { role: 'system', content: inputAdminPrompt },
-          { role: 'user', content: inputUserPrompt }
-        ]
-      }, {
+      const response = await fetch(`${apiUrl}/chat/completions`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${latestSettings.openai_api_key}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          model: model || 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: inputAdminPrompt },
+            { role: 'user', content: inputUserPrompt }
+          ]
+        })
       });
 
-      console.log('OpenAI API Response:', response.data);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('OpenAI API Response:', data);
 
       return {
-        generatedPrompt: response.data.choices[0].message.content,
-        fullResponse: JSON.stringify(response.data, null, 2)
+        generatedPrompt: data.choices[0].message.content,
+        fullResponse: JSON.stringify(data, null, 2)
       };
     } catch (error) {
-      console.error('Error in generatePrompts:', error.response ? error.response.data : error.message);
-      toast.error(`Failed to generate prompts: ${error.response ? error.response.data.error.message : error.message}`);
+      console.error('Error in generatePrompts:', error.message);
+      toast.error(`Failed to generate prompts: ${error.message}`);
       return null;
     } finally {
       setIsLoading(false);
