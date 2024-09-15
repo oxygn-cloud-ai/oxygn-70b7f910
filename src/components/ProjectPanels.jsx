@@ -173,7 +173,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
                 variant="ghost"
                 size="icon"
                 onClick={() => handleSave(field)}
-                className="absolute -top-2 -left-2 z-10 h-6 w-6"
+                className="absolute top-0 right-8 z-10 h-6 w-6"
               >
                 <Save className="h-4 w-4" />
               </Button>
