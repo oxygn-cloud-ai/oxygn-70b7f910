@@ -152,17 +152,57 @@ const useTreeData = () => {
   const deleteItem = useCallback(async (id, level = 0) => {
     try {
       if (level === 0) {
-        const { error } = await supabase
+        // Delete the project and all its associated records
+        const { error: deleteProjectError } = await supabase
           .from('project_names')
           .delete()
           .eq('project_id', id);
-        if (error) throw error;
+        if (deleteProjectError) throw deleteProjectError;
       } else {
-        const { error } = await supabase
+        // For items at level 1 or higher
+        const { data: itemData, error: itemError } = await supabase
+          .from('projects')
+          .select('project_id')
+          .eq('project_row_id', id)
+          .single();
+        if (itemError) throw itemError;
+
+        const projectId = itemData.project_id;
+
+        // Recursive deletion function
+        const deleteRecursively = async (currentLevel) => {
+          const { data: itemsToDelete, error: fetchError } = await supabase
+            .from('projects')
+            .select('project_row_id, parent_row_id')
+            .eq('project_id', projectId)
+            .eq('level', currentLevel);
+          
+          if (fetchError) throw fetchError;
+
+          for (const item of itemsToDelete) {
+            if (await isDescendantOf(item.project_row_id, id)) {
+              const { error: deleteError } = await supabase
+                .from('projects')
+                .delete()
+                .eq('project_row_id', item.project_row_id);
+              if (deleteError) throw deleteError;
+            }
+          }
+
+          if (currentLevel > level) {
+            await deleteRecursively(currentLevel - 1);
+          }
+        };
+
+        // Start deletion from the highest possible level
+        await deleteRecursively(99);
+
+        // Delete the originally selected item
+        const { error: deleteItemError } = await supabase
           .from('projects')
           .delete()
           .eq('project_row_id', id);
-        if (error) throw error;
+        if (deleteItemError) throw deleteItemError;
       }
 
       setTreeData(prevData => removeItemFromTree(prevData, id));
@@ -173,6 +213,21 @@ const useTreeData = () => {
       return false;
     }
   }, []);
+
+  const isDescendantOf = async (itemId, ancestorId) => {
+    let currentId = itemId;
+    while (currentId) {
+      if (currentId === ancestorId) return true;
+      const { data, error } = await supabase
+        .from('projects')
+        .select('parent_row_id')
+        .eq('project_row_id', currentId)
+        .single();
+      if (error || !data) return false;
+      currentId = data.parent_row_id;
+    }
+    return false;
+  };
 
   const updateItemName = useCallback(async (id, newName, level = 0) => {
     try {
