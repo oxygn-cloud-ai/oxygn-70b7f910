@@ -88,28 +88,13 @@ const useTreeData = (supabase) => {
   const deleteItem = useCallback(async (id) => {
     if (!supabase) return false;
     try {
-      const markAsDeleted = async (itemId) => {
-        const { error } = await supabase
-          .from('prompts')
-          .update({ is_deleted: true })
-          .eq('row_id', itemId);
+      const { error } = await supabase
+        .from('prompts')
+        .update({ is_deleted: true })
+        .eq('row_id', id);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        const { data: children, error: selectError } = await supabase
-          .from('prompts')
-          .select('row_id')
-          .eq('parent_row_id', itemId)
-          .eq('is_deleted', false);
-
-        if (selectError) throw selectError;
-
-        for (const child of children) {
-          await markAsDeleted(child.row_id);
-        }
-      };
-
-      await markAsDeleted(id);
       await fetchTreeData();
       return true;
     } catch (error) {
