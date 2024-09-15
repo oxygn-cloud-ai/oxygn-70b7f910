@@ -16,24 +16,34 @@ export const useOpenAICall = () => {
       // Remove trailing slash from the API URL if it exists
       const apiUrl = settings.openai_url.replace(/\/$/, '');
 
+      const requestBody = {
+        model: projectSettings.model || 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage }
+        ],
+        temperature: parseFloat(projectSettings.temperature) || 0.7,
+        max_tokens: parseInt(projectSettings.max_tokens) || 150,
+        top_p: parseFloat(projectSettings.top_p) || 1,
+        frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
+        presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
+      };
+
+      console.log('OpenAI API Call Details:');
+      console.log('URL:', apiUrl);
+      console.log('Headers:', {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.openai_api_key.substring(0, 5)}...` // Log only first 5 characters of API key
+      });
+      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.openai_api_key}`
         },
-        body: JSON.stringify({
-          model: projectSettings.model || 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: systemMessage },
-            { role: 'user', content: userMessage }
-          ],
-          temperature: parseFloat(projectSettings.temperature) || 0.7,
-          max_tokens: parseInt(projectSettings.max_tokens) || 150,
-          top_p: parseFloat(projectSettings.top_p) || 1,
-          frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
-          presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -43,14 +53,7 @@ export const useOpenAICall = () => {
       }
 
       const data = await response.json();
-      console.log('OpenAI API Call:', {
-        request: {
-          systemMessage,
-          userMessage,
-          settings: projectSettings
-        },
-        response: data
-      });
+      console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
 
       return data.choices[0].message.content;
     } catch (error) {
