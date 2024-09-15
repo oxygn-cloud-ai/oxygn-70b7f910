@@ -56,6 +56,7 @@ const Settings = () => {
             value={openaiUrl}
             onChange={handleUrlChange}
             placeholder="Enter OpenAI URL"
+            autoComplete="off"
           />
         </div>
         <div>
@@ -66,6 +67,7 @@ const Settings = () => {
             value={openaiApiKey}
             onChange={handleApiKeyChange}
             placeholder="Enter OpenAI API Key"
+            autoComplete="off"
           />
         </div>
         <Button 
