@@ -16,11 +16,12 @@ export const useSettings = () => {
       console.log('Fetching settings...');
       const { data, error } = await supabase
         .from('settings')
-        .select('*');
+        .select('*')
+        .single();
 
       if (error) throw error;
 
-      if (data.length === 0) {
+      if (!data) {
         console.log('No settings found, creating default settings');
         const defaultSettings = {
           openai_url: 'https://api.openai.com/v1/chat/completions',
@@ -37,11 +38,8 @@ export const useSettings = () => {
 
         console.log('Default settings created:', insertedData);
         setSettings(insertedData);
-      } else if (data.length > 1) {
-        console.warn('Multiple settings found, using the first one');
-        setSettings(data[0]);
       } else {
-        setSettings(data[0]);
+        setSettings(data);
       }
     } catch (error) {
       console.error('Error fetching or creating settings:', error);
@@ -55,21 +53,13 @@ export const useSettings = () => {
   const updateSetting = async (key, value) => {
     try {
       console.log(`Updating setting: ${key} = ${value}`);
-      if (!settings) {
-        throw new Error('Settings not initialized');
-      }
-
       const { data, error } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .match({ openai_url: settings.openai_url })
-        .select();
+        .select()
+        .single();
 
       if (error) throw error;
-
-      if (data.length === 0) {
-        throw new Error('No rows updated');
-      }
 
       setSettings(prevSettings => ({ ...prevSettings, [key]: value }));
       toast.success('Setting updated successfully');
@@ -79,5 +69,21 @@ export const useSettings = () => {
     }
   };
 
-  return { settings, updateSetting, isLoading };
+  const getLatestSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching latest settings:', error);
+      toast.error('Failed to fetch latest settings');
+      return null;
+    }
+  };
+
+  return { settings, updateSetting, isLoading, getLatestSettings };
 };

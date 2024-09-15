@@ -5,13 +5,14 @@ import { toast } from 'sonner';
 
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { settings } = useSettings();
+  const { getLatestSettings } = useSettings();
 
   const generatePrompts = async (inputAdminPrompt, inputUserPrompt, model) => {
     setIsLoading(true);
     try {
-      if (!settings?.openai_url || !settings?.openai_api_key) {
-        console.log('Settings missing:', settings);
+      const latestSettings = await getLatestSettings();
+      if (!latestSettings?.openai_url || !latestSettings?.openai_api_key) {
+        console.log('Settings missing:', latestSettings);
         toast.error('OpenAI settings are missing. Please check your settings.');
         return null;
       }
@@ -20,11 +21,11 @@ export const useOpenAICall = () => {
         inputAdminPrompt,
         inputUserPrompt,
         model: model || 'gpt-3.5-turbo',
-        openaiUrl: settings.openai_url,
-        openaiApiKey: settings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
+        openaiUrl: latestSettings.openai_url,
+        openaiApiKey: latestSettings.openai_api_key.substring(0, 5) + '...' // Log only first 5 characters of API key
       });
 
-      const response = await axios.post(settings.openai_url, {
+      const response = await axios.post(latestSettings.openai_url, {
         model: model || 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: inputAdminPrompt },
@@ -32,7 +33,7 @@ export const useOpenAICall = () => {
         ]
       }, {
         headers: {
-          'Authorization': `Bearer ${settings.openai_api_key}`,
+          'Authorization': `Bearer ${latestSettings.openai_api_key}`,
           'Content-Type': 'application/json'
         }
       });
