@@ -56,7 +56,7 @@ const TreeItem = ({
   };
 
   return (
-    <div className="border-none pt-1 pb-0.1">
+    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
         className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
