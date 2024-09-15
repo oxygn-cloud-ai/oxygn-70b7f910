@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
@@ -8,10 +8,6 @@ import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
-import { useOpenAICall } from '../hooks/useOpenAICall';
-import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
-import { useFetchLatestData } from '../hooks/useFetchLatestData';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -19,32 +15,8 @@ const Projects = () => {
   const { treeData, addItem, deleteItem, updateTreeData, updateItemName } = useTreeData();
   const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
-  const [selectedItemData, setSelectedItemData] = useState(null);
-  const { callOpenAI, isLoading: isGenerating } = useOpenAICall();
-  const { fetchLatestData, isLoading: isFetching } = useFetchLatestData();
-  const [testData, setTestData] = useState(null);
 
-  useEffect(() => {
-    const testSupabase = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('project_names')
-          .select('project_id, project_name')
-          .limit(5);
-
-        if (error) throw error;
-        setTestData(data);
-        console.log('Supabase test data:', data);
-      } catch (error) {
-        console.error('Supabase test error:', error);
-        toast.error(`Supabase test failed: ${error.message}`);
-      }
-    };
-
-    testSupabase();
-  }, []);
-
-  const toggleItem = async (itemId) => {
+  const toggleItem = (itemId) => {
     setExpandedItems(prev => {
       const newExpanded = prev.includes(itemId)
         ? prev.filter(id => id !== itemId)
@@ -52,12 +24,6 @@ const Projects = () => {
       return newExpanded;
     });
     setActiveItem(itemId);
-    if (itemId) {
-      const itemData = await fetchLatestData(itemId);
-      setSelectedItemData(itemData);
-    } else {
-      setSelectedItemData(null);
-    }
   };
 
   const startRenaming = (id) => {
@@ -67,17 +33,12 @@ const Projects = () => {
     }
   };
 
-  const finishRenaming = async () => {
+  const finishRenaming = () => {
     if (editingItem) {
-      const success = await updateItemName(editingItem.id, editingItem.name);
-      if (success) {
-        updateTreeData(editingItem.id, (item) => ({
-          ...item,
-          name: editingItem.name
-        }));
-      } else {
-        console.error("Failed to update item name in the database");
-      }
+      updateTreeData(editingItem.id, (item) => ({
+        ...item,
+        name: editingItem.name
+      }));
       setEditingItem(null);
     }
   };
@@ -94,8 +55,8 @@ const Projects = () => {
     return null;
   };
 
-  const handleAddItem = async (parentId) => {
-    const newItemId = await addItem(parentId);
+  const handleAddItem = (parentId) => {
+    const newItemId = addItem(parentId);
     if (newItemId) {
       setActiveItem(newItemId);
       setExpandedItems(prev => [...prev, parentId].filter(Boolean));
@@ -112,49 +73,18 @@ const Projects = () => {
     }
     if (activeItem === id) {
       setActiveItem(null);
-      setSelectedItemData(null);
     }
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = () => {
     if (deleteConfirmation.confirmCount === 0) {
       setDeleteConfirmation(prev => ({ ...prev, confirmCount: 1 }));
     } else {
-      const success = await deleteItem(deleteConfirmation.itemId);
-      if (success) {
-        setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
-        if (activeItem === deleteConfirmation.itemId) {
-          setActiveItem(null);
-          setSelectedItemData(null);
-        }
-      } else {
-        console.error("Failed to delete item");
+      deleteItem(deleteConfirmation.itemId);
+      setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
+      if (activeItem === deleteConfirmation.itemId) {
+        setActiveItem(null);
       }
-    }
-  };
-
-  const handleGeneratePrompts = async () => {
-    if (!selectedItemData) {
-      toast.error("No project selected");
-      return;
-    }
-
-    try {
-      const result = await callOpenAI(
-        selectedItemData.input_admin_prompt,
-        selectedItemData.input_user_prompt,
-        selectedItemData
-      );
-
-      if (result) {
-        const updatedData = { ...selectedItemData, user_prompt_result: result };
-        setSelectedItemData(updatedData);
-        await updateTreeData(activeItem, () => updatedData);
-        toast.success("Prompts generated successfully");
-      }
-    } catch (error) {
-      console.error("Error generating prompts:", error);
-      toast.error(`Failed to generate prompts: ${error.message}`);
     }
   };
 
@@ -208,21 +138,7 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <Button 
-          variant="link" 
-          className="text-blue-500 hover:text-blue-700"
-          onClick={handleGeneratePrompts}
-          disabled={!selectedItemData || isGenerating}
-        >
-          {isGenerating ? "Generating..." : "Generate Prompts"}
-        </Button>
       </div>
-      {testData && (
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Supabase Test Data:</h2>
-          <pre>{JSON.stringify(testData, null, 2)}</pre>
-        </div>
-      )}
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
           <div className="border rounded-lg p-4 overflow-x-scroll overflow-y-auto h-[calc(100vh-8rem)]">
@@ -232,13 +148,7 @@ const Projects = () => {
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
           {activeItem ? (
-            isFetching ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading project data...</p>
-              </div>
-            ) : (
-              <ProjectPanels selectedItemData={selectedItemData} projectRowId={activeItem} />
-            )
+            <ProjectPanels projectRowId={activeItem} />
           ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500">Select a project to view details</p>
