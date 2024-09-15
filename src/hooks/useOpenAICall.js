@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useSettings } from './useSettings';
+import { toast } from 'sonner';
 
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -11,10 +12,11 @@ export const useOpenAICall = () => {
     try {
       if (!settings?.openai_url || !settings?.openai_api_key) {
         console.log('Settings missing:', settings);
+        toast.error('OpenAI settings are missing. Please check your settings.');
         return null;
       }
 
-      console.log('Axios request to /api/generate-prompts:', {
+      console.log('Generating prompts with:', {
         inputAdminPrompt,
         inputUserPrompt,
         model: model || 'gpt-3.5-turbo',
@@ -38,6 +40,7 @@ export const useOpenAICall = () => {
       };
     } catch (error) {
       console.error('Error in generatePrompts:', error.response ? error.response.data : error.message);
+      toast.error(`Failed to generate prompts: ${error.message}`);
       return null;
     } finally {
       setIsLoading(false);

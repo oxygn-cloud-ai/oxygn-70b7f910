@@ -35,7 +35,7 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
         <IconButton icon={<Save />} onClick={handleSave} tooltip="Save changes" />
         <IconButton icon={<RotateCcw />} onClick={handleReset} tooltip="Reset to last saved" />
       </div>
-      <Textarea 
+      <Textarea
         placeholder={placeholder} 
         className="w-full p-2 pl-24 border rounded" 
         value={text}

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).end();
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   const { inputAdminPrompt, inputUserPrompt, model, openaiUrl, openaiApiKey } = req.body;
