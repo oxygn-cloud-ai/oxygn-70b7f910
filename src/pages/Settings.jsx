@@ -8,15 +8,23 @@ const Settings = () => {
   const { settings, updateSetting, isLoading } = useSettings();
   const [openaiUrl, setOpenaiUrl] = useState('');
   const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [build, setBuild] = useState('');
+  const [version, setVersion] = useState('');
   const [urlChanged, setUrlChanged] = useState(false);
   const [apiKeyChanged, setApiKeyChanged] = useState(false);
+  const [buildChanged, setBuildChanged] = useState(false);
+  const [versionChanged, setVersionChanged] = useState(false);
 
   useEffect(() => {
     if (settings) {
       setOpenaiUrl(settings.openai_url || '');
       setOpenaiApiKey(settings.openai_api_key || '');
+      setBuild(settings.build || '');
+      setVersion(settings.version || '');
       setUrlChanged(false);
       setApiKeyChanged(false);
+      setBuildChanged(false);
+      setVersionChanged(false);
     }
   }, [settings]);
 
@@ -27,8 +35,16 @@ const Settings = () => {
     if (apiKeyChanged) {
       await updateSetting('openai_api_key', openaiApiKey);
     }
+    if (buildChanged) {
+      await updateSetting('build', build);
+    }
+    if (versionChanged) {
+      await updateSetting('version', version);
+    }
     setUrlChanged(false);
     setApiKeyChanged(false);
+    setBuildChanged(false);
+    setVersionChanged(false);
   };
 
   const handleUrlChange = (e) => {
@@ -39,6 +55,16 @@ const Settings = () => {
   const handleApiKeyChange = (e) => {
     setOpenaiApiKey(e.target.value);
     setApiKeyChanged(true);
+  };
+
+  const handleBuildChange = (e) => {
+    setBuild(e.target.value);
+    setBuildChanged(true);
+  };
+
+  const handleVersionChange = (e) => {
+    setVersion(e.target.value);
+    setVersionChanged(true);
   };
 
   if (isLoading) {
@@ -70,10 +96,30 @@ const Settings = () => {
             autoComplete="off"
           />
         </div>
+        <div>
+          <Label htmlFor="build">Build</Label>
+          <Input
+            id="build"
+            value={build}
+            onChange={handleBuildChange}
+            placeholder="Enter Build"
+            autoComplete="off"
+          />
+        </div>
+        <div>
+          <Label htmlFor="version">Version</Label>
+          <Input
+            id="version"
+            value={version}
+            onChange={handleVersionChange}
+            placeholder="Enter Version"
+            autoComplete="off"
+          />
+        </div>
         <Button 
           variant="link"
           onClick={handleSave} 
-          disabled={!urlChanged && !apiKeyChanged}
+          disabled={!urlChanged && !apiKeyChanged && !buildChanged && !versionChanged}
         >
           Save Settings
         </Button>
