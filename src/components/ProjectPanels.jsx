@@ -6,8 +6,10 @@ import { Save, RotateCcw, Copy, X, CheckSquare, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSaveField } from '../hooks/useSaveField';
 import { useFetchLatestData } from '../hooks/useFetchLatestData';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -48,7 +50,7 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   );
 };
 
-const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange }) => (
+const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onCheckChange, isSelect, options }) => (
   <div className="mb-2">
     <Label htmlFor={label} className="flex justify-between items-center">
       <span>{label}</span>
@@ -62,12 +64,27 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
         />
       </div>
     </Label>
-    <Input
-      id={label}
-      value={value}
-      onChange={onChange}
-      className="w-full mt-1"
-    />
+    {isSelect ? (
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full mt-1">
+          <SelectValue placeholder="Select a model" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.model} value={option.model}>
+              {option.model}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ) : (
+      <Input
+        id={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full mt-1"
+      />
+    )}
   </div>
 );
 
@@ -95,6 +112,7 @@ const IconButton = ({ icon, onClick, tooltip }) => (
 const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   const { saveField, isSaving } = useSaveField(projectRowId);
   const { fetchLatestData, isLoading } = useFetchLatestData(projectRowId);
+  const { models, isLoading: isLoadingModels } = useOpenAIModels();
   const [localData, setLocalData] = useState(selectedItemData || {});
   const [checkedSettings, setCheckedSettings] = useState({});
 
@@ -138,6 +156,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     setCheckedSettings(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
   };
 
+  const getMaxTokensLabel = () => {
+    const selectedModel = models.find(m => m.model === localData.model);
+    return selectedModel ? `max_tokens (<= ${selectedModel.max_tokens})` : 'max_tokens';
+  };
+
   if (!projectRowId) {
     return <div>No project selected</div>;
   }
@@ -150,7 +173,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
   ];
 
   const promptSettingsFields = [
-    'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+    'temperature', 'top_p', 'frequency_penalty', 'presence_penalty',
     'stop', 'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
     'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
     'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
@@ -173,14 +196,40 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       <div className="border rounded-lg p-4">
         <h3 className="text-lg font-semibold mb-4">Prompt Settings</h3>
         <div className="grid grid-cols-2 gap-4">
+          <SettingInput
+            label="model"
+            value={localData.model || ''}
+            onChange={(value) => {
+              setLocalData(prev => ({ ...prev, model: value }));
+              handleSave('model', value);
+            }}
+            onCopy={() => handleCopy(localData.model || '')}
+            onSetEmpty={() => handleSetEmpty('model')}
+            checked={checkedSettings['model'] || false}
+            onCheckChange={() => handleCheckChange('model')}
+            isSelect={true}
+            options={models}
+          />
+          <SettingInput
+            label={getMaxTokensLabel()}
+            value={localData.max_tokens || ''}
+            onChange={(value) => {
+              setLocalData(prev => ({ ...prev, max_tokens: value }));
+              handleSave('max_tokens', value);
+            }}
+            onCopy={() => handleCopy(localData.max_tokens || '')}
+            onSetEmpty={() => handleSetEmpty('max_tokens')}
+            checked={checkedSettings['max_tokens'] || false}
+            onCheckChange={() => handleCheckChange('max_tokens')}
+          />
           {promptSettingsFields.map(field => (
             <SettingInput
               key={field}
               label={field}
               value={localData[field] || ''}
-              onChange={(e) => {
-                setLocalData(prev => ({ ...prev, [field]: e.target.value }));
-                handleSave(field, e.target.value);
+              onChange={(value) => {
+                setLocalData(prev => ({ ...prev, [field]: value }));
+                handleSave(field, value);
               }}
               onCopy={() => handleCopy(localData[field] || '')}
               onSetEmpty={() => handleSetEmpty(field)}
