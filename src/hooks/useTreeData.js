@@ -11,6 +11,7 @@ const useTreeData = (supabase) => {
       let query = supabase
         .from('prompts')
         .select('row_id, parent_row_id, prompt_name, note, created')
+        .eq('is_deleted', false)
         .order('created', { ascending: true });
 
       if (parentRowId) {
@@ -80,7 +81,8 @@ const useTreeData = (supabase) => {
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
         note: '',
-        created: new Date().toISOString()
+        created: new Date().toISOString(),
+        is_deleted: false
       };
 
       const query = supabase.from('prompts').insert(newItem).select().single();
@@ -115,7 +117,7 @@ const useTreeData = (supabase) => {
     if (!supabase) return false;
     try {
       const deleteRecursively = async (itemId) => {
-        const selectQuery = supabase.from('prompts').select('row_id').eq('parent_row_id', itemId);
+        const selectQuery = supabase.from('prompts').select('row_id').eq('parent_row_id', itemId).eq('is_deleted', false);
 
         console.log('Supabase API Call:', {
           url: selectQuery.url.toString(),
@@ -138,13 +140,13 @@ const useTreeData = (supabase) => {
           await deleteRecursively(child.row_id);
         }
 
-        const deleteQuery = supabase.from('prompts').delete().eq('row_id', itemId);
+        const deleteQuery = supabase.from('prompts').update({ is_deleted: true }).eq('row_id', itemId);
 
         console.log('Supabase API Call:', {
           url: deleteQuery.url.toString(),
-          method: 'DELETE',
+          method: 'PATCH',
           headers: deleteQuery.headers,
-          body: null,
+          body: JSON.stringify({ is_deleted: true }),
         });
 
         const { error: deleteError } = await deleteQuery;
