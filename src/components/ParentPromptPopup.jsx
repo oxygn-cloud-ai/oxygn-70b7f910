@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Rnd } from 'react-rnd';
 
 const ParentPromptPopup = ({ adminPrompt, userPromptResult, onClose }) => {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const centerX = window.innerWidth / 2 - 200; // 200 is half the default width
+    const centerY = window.innerHeight / 2 - 200; // 200 is half the default height
+    setPosition({ x: centerX, y: centerY });
+  }, []);
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <Rnd
         default={{
-          x: 0,
-          y: 0,
+          x: position.x,
+          y: position.y,
           width: 400,
           height: 400,
         }}
