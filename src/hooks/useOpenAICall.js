@@ -14,24 +14,24 @@ export const useOpenAICall = () => {
         throw new Error('OpenAI URL or API key is missing. Please check your settings.');
       }
 
-      const response = await axios.post(
-        settings.openai_url,
-        {
+      const response = await axios({
+        method: 'post',
+        url: settings.openai_url,
+        headers: {
+          'Authorization': `Bearer ${settings.openai_api_key}`,
+          'Content-Type': 'application/json',
+        },
+        data: {
           model: model || 'gpt-3.5-turbo',
           messages: [
             { role: 'system', content: inputAdminPrompt },
             { role: 'user', content: inputUserPrompt }
           ]
         },
-        {
-          headers: {
-            'Authorization': `Bearer ${settings.openai_api_key}`,
-            'Content-Type': 'application/json'
-          },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity
-        }
-      );
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        withCredentials: false,
+      });
 
       return response.data.choices[0].message.content;
     } catch (error) {
@@ -41,7 +41,7 @@ export const useOpenAICall = () => {
           toast.error(`API Error: ${error.response.status} - ${error.response.data.error?.message || 'Unknown error'}`);
         } else if (error.request) {
           if (error.message === 'Network Error') {
-            toast.error('CORS Error: Unable to access the OpenAI API. Please ensure your API key and settings are correct.');
+            toast.error('CORS Error: Unable to access the OpenAI API. Please ensure your API key and settings are correct, and that you are using a CORS-enabled endpoint or proxy.');
           } else {
             toast.error('No response received from OpenAI API. Please check your internet connection.');
           }
