@@ -51,6 +51,7 @@ const Projects = () => {
           setSelectedItemData(null);
         }
         refreshTreeData();
+        toast.success('Item marked as deleted successfully');
       }
     }
   }, [deleteConfirmation, deleteItem, activeItem, refreshTreeData]);
