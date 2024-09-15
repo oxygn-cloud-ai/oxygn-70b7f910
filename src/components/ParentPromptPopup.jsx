@@ -17,8 +17,9 @@ const ParentPromptPopup = ({ adminPrompt, userPromptResult, onClose }) => {
         minWidth={300}
         minHeight={300}
         bounds="window"
+        style={{ zIndex: 9999 }}
       >
-        <DialogContent className="sm:max-w-[425px] w-full h-full resize overflow-auto" style={{ position: 'static' }}>
+        <DialogContent className="sm:max-w-[425px] w-full h-full resize overflow-auto">
           <DialogHeader>
             <DialogTitle>Parent Prompt Information</DialogTitle>
           </DialogHeader>
