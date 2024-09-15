@@ -4,7 +4,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { FileIcon, PlusIcon, EditIcon } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -35,6 +35,7 @@ const TreeItem = ({
     <div className="flex items-center space-x-1 ml-2">
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add Prompt" />
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id, item.prompt_name)} tooltip="Rename" />
+      <ActionButton icon={<Trash2Icon className="h-3 w-3" />} tooltip="Delete" />
     </div>
   );
 
@@ -128,7 +129,7 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
     className="h-5 w-5 p-0"
     onClick={(e) => {
       e.stopPropagation();
-      onClick(e);
+      onClick && onClick(e);
     }}
   >
     {icon}
