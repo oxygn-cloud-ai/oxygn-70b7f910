@@ -130,6 +130,12 @@ const Projects = () => {
           .eq('project_row_id', activeItem);
 
         if (error) throw error;
+        
+        // Update local state
+        setSelectedItemData(prevData => ({
+          ...prevData,
+          [fieldName]: value
+        }));
       } catch (error) {
         console.error('Error updating field:', error);
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
