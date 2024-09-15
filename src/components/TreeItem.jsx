@@ -79,11 +79,11 @@ const TreeItem = ({
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               onClick={(e) => e.stopPropagation()}
-              className="h-6 py-1 px-1"
+              className="h-6 py-1 px-1 text-sm"
             />
           ) : (
             <span 
-              className={`ml-1 cursor-pointer ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+              className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
               onDoubleClick={handleDoubleClick}
             >
               {displayName}
