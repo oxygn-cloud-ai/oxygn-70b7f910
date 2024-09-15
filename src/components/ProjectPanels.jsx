@@ -274,6 +274,16 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     );
   };
 
+  const handleCopy = (fieldName) => {
+    navigator.clipboard.writeText(localData[fieldName]);
+  };
+
+  const handlePaste = (fieldName) => {
+    navigator.clipboard.readText().then((clipboardText) => {
+      handleChange(fieldName, clipboardText);
+    });
+  };
+
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
       <div className="flex gap-2">

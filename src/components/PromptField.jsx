@@ -1,11 +1,33 @@
 import React from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save } from 'lucide-react';
+import { RotateCcw, Save, Copy, Clipboard } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { toast } from 'sonner';
 
 const PromptField = ({ label, value, onChange, onReset, onSave, initialValue }) => {
   const hasChanged = value !== initialValue;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success('Content copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      toast.error('Failed to copy content');
+    }
+  };
+
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      onChange(text);
+      toast.success('Content pasted from clipboard');
+    } catch (err) {
+      console.error('Failed to paste: ', err);
+      toast.error('Failed to paste content');
+    }
+  };
 
   return (
     <div className="mb-4">
@@ -15,9 +37,28 @@ const PromptField = ({ label, value, onChange, onReset, onSave, initialValue }) 
           <Button
             variant="ghost"
             size="icon"
+            onClick={handleCopy}
+            className="h-6 w-6"
+            title="Copy to clipboard"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handlePaste}
+            className="h-6 w-6"
+            title="Paste from clipboard"
+          >
+            <Clipboard className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onSave}
             disabled={!hasChanged}
             className="h-6 w-6"
+            title="Save changes"
           >
             <Save className="h-4 w-4" />
           </Button>
@@ -27,6 +68,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, initialValue }) 
             onClick={onReset}
             disabled={!hasChanged}
             className="h-6 w-6"
+            title="Reset to initial value"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
