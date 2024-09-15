@@ -45,27 +45,29 @@ const Settings = () => {
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Settings</h1>
-      <div className="space-y-4">
-        {settingsFields.map(({ key, label, type }) => (
-          <SettingField
-            key={key}
-            id={key}
-            label={label}
-            type={type}
-            value={localSettings[key] || ''}
-            onChange={(value) => handleChange(key, value)}
-          />
-        ))}
-      </div>
-      <div className="mt-6">
-        <Button
-          variant="link"
-          onClick={handleSave}
-          disabled={!hasChanges}
-        >
-          Save Changes
-        </Button>
-      </div>
+      <form autoComplete="off">
+        <div className="space-y-4">
+          {settingsFields.map(({ key, label, type }) => (
+            <SettingField
+              key={key}
+              id={key}
+              label={label}
+              type={type}
+              value={localSettings[key] || ''}
+              onChange={(value) => handleChange(key, value)}
+            />
+          ))}
+        </div>
+        <div className="mt-6">
+          <Button
+            variant="link"
+            onClick={handleSave}
+            disabled={!hasChanges}
+          >
+            Save Changes
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };
