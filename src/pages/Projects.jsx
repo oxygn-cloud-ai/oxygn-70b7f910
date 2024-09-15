@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
@@ -10,6 +10,7 @@ import DeleteConfirmationDialog from '../components/DeleteConfirmationDialog';
 import ProjectPanels from '../components/ProjectPanels';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabase';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -19,6 +20,27 @@ const Projects = () => {
   const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, itemId: null, confirmCount: 0 });
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { callOpenAI, isLoading } = useOpenAICall();
+  const [testData, setTestData] = useState(null);
+
+  useEffect(() => {
+    const testSupabase = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('project_names')
+          .select('project_id, project_name')
+          .limit(5);
+
+        if (error) throw error;
+        setTestData(data);
+        console.log('Supabase test data:', data);
+      } catch (error) {
+        console.error('Supabase test error:', error);
+        toast.error(`Supabase test failed: ${error.message}`);
+      }
+    };
+
+    testSupabase();
+  }, []);
 
   const toggleItem = async (itemId) => {
     setExpandedItems(prev => {
@@ -193,6 +215,12 @@ const Projects = () => {
           {isLoading ? "Generating..." : "Generate Prompts"}
         </Button>
       </div>
+      {testData && (
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Supabase Test Data:</h2>
+          <pre>{JSON.stringify(testData, null, 2)}</pre>
+        </div>
+      )}
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
           <div className="border rounded-lg p-4 overflow-x-scroll overflow-y-auto h-[calc(100vh-8rem)]">
