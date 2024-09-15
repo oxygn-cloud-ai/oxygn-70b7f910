@@ -12,6 +12,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -52,9 +53,18 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
   };
 
-  const handleCheckChange = (fieldName, newValue) => {
-    setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
-    onUpdateField(fieldName, newValue);
+  const handleCheckChange = async (fieldName, newValue) => {
+    const updatedValue = newValue ? true : false;
+    setLocalData(prevData => ({ ...prevData, [`${fieldName}_on`]: updatedValue }));
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .update({ [`${fieldName}_on`]: updatedValue })
+        .eq('row_id', projectRowId);
+      if (error) throw error;
+    } catch (error) {
+      console.error(`Error updating ${fieldName}_on:`, error);
+    }
   };
 
   const handleGenerate = async () => {
@@ -199,21 +209,28 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
             <label htmlFor="model" className="block text-sm font-medium text-gray-700">
               Model
             </label>
-            <Select
-              value={localData.model || ''}
-              onValueChange={(value) => handleChange('model', value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a model" />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((model) => (
-                  <SelectItem key={model.model} value={model.model}>
-                    {model.model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="model-checkbox"
+                checked={localData.model_on || false}
+                onCheckedChange={(checked) => handleCheckChange('model', checked)}
+              />
+              <Select
+                value={localData.model || ''}
+                onValueChange={(value) => handleChange('model', value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.model} value={model.model}>
+                      {model.model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         {fields.map(field => (
@@ -236,14 +253,19 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
             >
               <RotateCcw className="h-4 w-4" />
             </Button>
-            <SettingField
-              label={field}
-              value={localData[field] || ''}
-              onChange={(value) => handleChange(field, value)}
-              checked={localData[`${field}_on`] || false}
-              onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
-              isTemperature={field === 'temperature'}
-            />
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`${field}-checkbox`}
+                checked={localData[`${field}_on`] || false}
+                onCheckedChange={(checked) => handleCheckChange(field, checked)}
+              />
+              <SettingField
+                label={field}
+                value={localData[field] || ''}
+                onChange={(value) => handleChange(field, value)}
+                isTemperature={field === 'temperature'}
+              />
+            </div>
           </div>
         ))}
       </div>
