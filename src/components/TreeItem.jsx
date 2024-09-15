@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   AccordionContent,
   AccordionItem,
@@ -7,7 +7,6 @@ import {
 import { FileIcon, PlusIcon, TrashIcon, EditIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TreeItem = ({
   item,
@@ -23,9 +22,9 @@ const TreeItem = ({
   cancelRenaming,
   activeItem,
   setActiveItem,
-  projectId
 }) => {
   const inputRef = useRef(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (editingItem && editingItem.id === item.id && inputRef.current) {
@@ -57,42 +56,40 @@ const TreeItem = ({
   };
 
   return (
-    <AccordionItem value={item.id} className="border-none">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center justify-between">
-            <AccordionTrigger
-              onClick={() => {
-                toggleItem(item.id);
-                setActiveItem(item.id);
-              }}
-              className={`hover:no-underline py-1 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-              style={{ paddingLeft: `${level * 16}px` }}
-            >
-              <div className="flex items-center space-x-1">
-                <FileIcon className="h-4 w-4" />
-                {editingItem && editingItem.id === item.id ? (
-                  <Input
-                    ref={inputRef}
-                    value={editingItem.name}
-                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-6 py-0 px-1"
-                  />
-                ) : (
-                  <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
-                )}
-              </div>
-            </AccordionTrigger>
-            {isActive && renderActionButtons()}
+    <AccordionItem 
+      value={item.id} 
+      className="border-none"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="flex items-center justify-between">
+        <AccordionTrigger
+          onClick={() => {
+            toggleItem(item.id);
+            setActiveItem(item.id);
+          }}
+          className={`hover:no-underline py-1 flex items-center ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+          style={{ paddingLeft: `${level * 16}px` }}
+        >
+          <div className="flex items-center space-x-1">
+            <FileIcon className="h-4 w-4" />
+            {editingItem && editingItem.id === item.id ? (
+              <Input
+                ref={inputRef}
+                value={editingItem.name}
+                onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
+                onClick={(e) => e.stopPropagation()}
+                className="h-6 py-0 px-1"
+              />
+            ) : (
+              <span className={`ml-1 cursor-pointer ${isActive ? 'hover:text-blue-800' : 'hover:text-gray-800'}`}>{displayName}</span>
+            )}
           </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          Project ID: {projectId}
-        </TooltipContent>
-      </Tooltip>
+        </AccordionTrigger>
+        {(isActive || isHovered) && renderActionButtons()}
+      </div>
       {item.children && item.children.length > 0 && (
         <AccordionContent>
           {item.children.map((child) => (
@@ -111,7 +108,6 @@ const TreeItem = ({
               cancelRenaming={cancelRenaming}
               activeItem={activeItem}
               setActiveItem={setActiveItem}
-              projectId={projectId}
             />
           ))}
         </AccordionContent>
@@ -121,22 +117,17 @@ const TreeItem = ({
 };
 
 const ActionButton = ({ icon, onClick, tooltip }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-5 w-5 p-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick(e);
-        }}
-      >
-        {icon}
-      </Button>
-    </TooltipTrigger>
-    <TooltipContent>{tooltip}</TooltipContent>
-  </Tooltip>
+  <Button
+    variant="ghost"
+    size="sm"
+    className="h-5 w-5 p-0"
+    onClick={(e) => {
+      e.stopPropagation();
+      onClick(e);
+    }}
+  >
+    {icon}
+  </Button>
 );
 
 export default TreeItem;

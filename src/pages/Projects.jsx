@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Accordion } from "@/components/ui/accordion";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -59,25 +58,10 @@ const Projects = () => {
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem && supabase) {
       try {
-        const query = supabase
+        const { error } = await supabase
           .from('prompts')
           .update({ [fieldName]: value })
           .eq('row_id', activeItem);
-
-        console.log('Supabase API Call:', {
-          url: query.url.toString(),
-          method: 'PATCH',
-          headers: query.headers,
-          body: JSON.stringify({ [fieldName]: value }),
-        });
-
-        const { data, error } = await query;
-
-        console.log('Supabase API Response:', {
-          status: error ? 500 : 200,
-          data: JSON.stringify(data),
-          error: error ? JSON.stringify(error) : null,
-        });
 
         if (error) throw error;
         
@@ -118,7 +102,6 @@ const Projects = () => {
         cancelRenaming={() => setEditingItem(null)}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
-        projectId={item.id}
       />
     ));
   }, [expandedItems, toggleItem, handleAddItem, handleDeleteItem, updateItemName, editingItem, activeItem]);
@@ -132,26 +115,11 @@ const Projects = () => {
     if (activeItem && supabase) {
       const fetchItemData = async () => {
         try {
-          const query = supabase
+          const { data, error } = await supabase
             .from('prompts')
             .select('*')
             .eq('row_id', activeItem)
             .single();
-
-          console.log('Supabase API Call:', {
-            url: query.url.toString(),
-            method: 'GET',
-            headers: query.headers,
-            body: null,
-          });
-
-          const { data, error } = await query;
-
-          console.log('Supabase API Response:', {
-            status: data ? 200 : 500,
-            data: JSON.stringify(data),
-            error: error ? JSON.stringify(error) : null,
-          });
 
           if (error) throw error;
           
@@ -189,20 +157,18 @@ const Projects = () => {
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
-            <TooltipProvider>
-              <div className="overflow-x-auto whitespace-nowrap w-full">
-                <div className="mb-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleAddItem(null)}
-                  >
-                    <PlusCircle className="h-5 w-5" />
-                  </Button>
-                </div>
-                {isLoading ? <div>Loading...</div> : renderAccordion()}
+            <div className="overflow-x-auto whitespace-nowrap w-full">
+              <div className="mb-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleAddItem(null)}
+                >
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
               </div>
-            </TooltipProvider>
+              {isLoading ? <div>Loading...</div> : renderAccordion()}
+            </div>
           </div>
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
