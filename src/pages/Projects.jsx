@@ -24,12 +24,9 @@ const Projects = () => {
   const { fetchLatestData, isLoading: isFetchingLatestData } = useFetchLatestData();
 
   const toggleItem = useCallback(async (itemId) => {
-    setExpandedItems(prev => {
-      const newExpanded = prev.includes(itemId)
-        ? prev.filter(id => id !== itemId)
-        : [...prev, itemId];
-      return newExpanded;
-    });
+    setExpandedItems(prev => 
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
     setActiveItem(itemId);
     if (itemId) {
       const itemData = await fetchLatestData(itemId);
@@ -39,44 +36,17 @@ const Projects = () => {
     }
   }, [fetchLatestData]);
 
-  const startRenaming = useCallback((id) => {
-    const item = findItemById(treeData, id);
-    if (item) {
-      setEditingItem({ id, name: item.name });
-    }
-  }, [treeData]);
-
-  const finishRenaming = useCallback(async () => {
-    if (editingItem) {
-      const success = await updateItemName(editingItem.id, editingItem.name);
-      if (!success) {
-        console.error("Failed to update item name in the database");
-      }
-      setEditingItem(null);
-    }
-  }, [editingItem, updateItemName]);
-
   const handleAddItem = useCallback(async (parentId) => {
     const newItemId = await addItem(parentId);
     if (newItemId) {
       setActiveItem(newItemId);
       setExpandedItems(prev => [...prev, parentId].filter(Boolean));
-      return newItemId;
     }
   }, [addItem]);
 
   const handleDeleteItem = useCallback((id) => {
-    const isLevel0 = treeData.some(item => item.id === id);
-    if (isLevel0) {
-      setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
-    } else {
-      deleteItem(id);
-    }
-    if (activeItem === id) {
-      setActiveItem(null);
-      setSelectedItemData(null);
-    }
-  }, [treeData, deleteItem, activeItem]);
+    setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
+  }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (deleteConfirmation.confirmCount === 0) {
@@ -89,8 +59,6 @@ const Projects = () => {
           setActiveItem(null);
           setSelectedItemData(null);
         }
-      } else {
-        console.error("Failed to delete item");
       }
     }
   }, [deleteConfirmation, deleteItem, activeItem]);
@@ -114,7 +82,7 @@ const Projects = () => {
         await supabase
           .from('projects')
           .update({ user_prompt_result: result })
-          .eq('project_row_id', activeItem);
+          .eq('project_id', activeItem);
         toast.success("Prompts generated successfully");
       }
     } catch (error) {
@@ -129,11 +97,10 @@ const Projects = () => {
         const { error } = await supabase
           .from('projects')
           .update({ [fieldName]: value })
-          .eq('project_row_id', activeItem);
+          .eq('project_id', activeItem);
 
         if (error) throw error;
         
-        // Update local state
         setSelectedItemData(prevData => ({
           ...prevData,
           [fieldName]: value
@@ -151,7 +118,7 @@ const Projects = () => {
     }
     return (
       <TooltipProvider>
-        <div className="overflow-x-scroll whitespace-nowrap" style={{ width: '100%' }}>
+        <div className="overflow-x-auto whitespace-nowrap w-full">
           <div className="mb-2">
             <Button
               variant="ghost"
@@ -176,10 +143,15 @@ const Projects = () => {
                 toggleItem={toggleItem}
                 addItem={handleAddItem}
                 deleteItem={handleDeleteItem}
-                startRenaming={startRenaming}
+                startRenaming={(id) => setEditingItem({ id, name: item.name })}
                 editingItem={editingItem}
                 setEditingItem={setEditingItem}
-                finishRenaming={finishRenaming}
+                finishRenaming={() => {
+                  if (editingItem) {
+                    updateItemName(editingItem.id, editingItem.name);
+                    setEditingItem(null);
+                  }
+                }}
                 activeItem={activeItem}
                 setActiveItem={setActiveItem}
                 projectId={item.id}
@@ -189,13 +161,10 @@ const Projects = () => {
         </div>
       </TooltipProvider>
     );
-  }, [treeData, expandedItems, handleAddItem, toggleItem, handleDeleteItem, startRenaming, editingItem, finishRenaming, activeItem]);
+  }, [treeData, expandedItems, handleAddItem, toggleItem, handleDeleteItem, updateItemName, editingItem, activeItem]);
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
-      refreshTreeData();
-    }, 60000); // Refresh every minute
-
+    const intervalId = setInterval(refreshTreeData, 60000);
     return () => clearInterval(intervalId);
   }, [refreshTreeData]);
 
@@ -214,7 +183,7 @@ const Projects = () => {
       </div>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={20} minSize={15}>
-          <div className="border rounded-lg p-4 overflow-x-scroll overflow-y-auto h-[calc(100vh-8rem)]">
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             {isLoading ? <div>Loading...</div> : renderTreeItems()}
           </div>
         </Panel>
@@ -247,17 +216,6 @@ const Projects = () => {
       />
     </div>
   );
-};
-
-const findItemById = (items, id) => {
-  for (let item of items) {
-    if (item.id === id) return item;
-    if (item.children) {
-      const found = findItemById(item.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
 };
 
 export default Projects;
