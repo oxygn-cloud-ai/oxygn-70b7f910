@@ -13,7 +13,7 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
 
@@ -59,6 +59,14 @@ const Projects = () => {
     }
   }, [activeItem, updateItemName, supabase, refreshTreeData]);
 
+  const handleDeleteItem = useCallback(async (itemId) => {
+    if (await deleteItem(itemId)) {
+      setActiveItem(null);
+      setSelectedItemData(null);
+      await refreshTreeData();
+    }
+  }, [deleteItem, refreshTreeData]);
+
   const renderTreeItems = useCallback((items) => {
     return items.map((item) => (
       <TreeItem
@@ -81,9 +89,10 @@ const Projects = () => {
         cancelRenaming={() => setEditingItem(null)}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
+        deleteItem={handleDeleteItem}
       />
     ));
-  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData]);
+  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
     const intervalId = setInterval(refreshTreeData, 60000);

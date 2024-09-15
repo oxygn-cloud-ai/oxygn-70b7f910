@@ -101,10 +101,47 @@ const useTreeData = (supabase) => {
     }
   }, [supabase, fetchTreeData]);
 
+  const deleteItem = useCallback(async (id) => {
+    if (!supabase) return false;
+    try {
+      // Mark the item and its children as deleted
+      const markAsDeleted = async (itemId) => {
+        const { error } = await supabase
+          .from('prompts')
+          .update({ is_deleted: true })
+          .eq('row_id', itemId);
+        
+        if (error) throw error;
+
+        // Fetch and mark children as deleted
+        const { data: children, error: childrenError } = await supabase
+          .from('prompts')
+          .select('row_id')
+          .eq('parent_row_id', itemId);
+        
+        if (childrenError) throw childrenError;
+
+        for (const child of children) {
+          await markAsDeleted(child.row_id);
+        }
+      };
+
+      await markAsDeleted(id);
+      await fetchTreeData();
+      toast.success('Item deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      toast.error(`Failed to delete item: ${error.message}`);
+      return false;
+    }
+  }, [supabase, fetchTreeData]);
+
   return { 
     treeData, 
     addItem, 
     updateItemName,
+    deleteItem,
     isLoading,
     refreshTreeData: fetchTreeData
   };

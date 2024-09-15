@@ -21,6 +21,7 @@ const TreeItem = ({
   cancelRenaming,
   activeItem,
   setActiveItem,
+  deleteItem,
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -35,7 +36,7 @@ const TreeItem = ({
     <div className="flex items-center space-x-1 ml-2">
       <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add Prompt" />
       <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id, item.prompt_name)} tooltip="Rename" />
-      <ActionButton icon={<Trash2Icon className="h-3 w-3" />} tooltip="Delete" />
+      <ActionButton icon={<Trash2Icon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
     </div>
   );
 
@@ -114,6 +115,7 @@ const TreeItem = ({
               cancelRenaming={cancelRenaming}
               activeItem={activeItem}
               setActiveItem={setActiveItem}
+              deleteItem={deleteItem}
             />
           ))}
         </AccordionContent>
