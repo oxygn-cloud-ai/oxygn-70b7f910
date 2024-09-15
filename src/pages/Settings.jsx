@@ -1,18 +1,38 @@
-import React from 'react';
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
 import SettingField from '../components/SettingField';
+import { Button } from "@/components/ui/button";
 
 const Settings = () => {
   const supabase = useSupabase();
   const { settings, updateSetting, isLoading } = useSettings(supabase);
+  const [localSettings, setLocalSettings] = useState({});
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
 
   if (isLoading || !supabase) {
     return <div>Loading settings...</div>;
   }
+
+  const handleChange = (key, value) => {
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    for (const [key, value] of Object.entries(localSettings)) {
+      if (value !== settings[key]) {
+        await updateSetting(key, value);
+      }
+    }
+    setHasChanges(false);
+  };
 
   const settingsFields = [
     { key: 'openai_url', label: 'OpenAI URL', type: 'text' },
@@ -32,10 +52,19 @@ const Settings = () => {
             id={key}
             label={label}
             type={type}
-            value={settings[key] || ''}
-            onChange={(value) => updateSetting(key, value)}
+            value={localSettings[key] || ''}
+            onChange={(value) => handleChange(key, value)}
           />
         ))}
+      </div>
+      <div className="mt-6">
+        <Button
+          variant="link"
+          onClick={handleSave}
+          disabled={!hasChanges}
+        >
+          Save Changes
+        </Button>
       </div>
     </div>
   );
