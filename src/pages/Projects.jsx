@@ -81,15 +81,7 @@ const Projects = () => {
 
   const handleDeleteItem = (id) => {
     const isLevel0 = treeData.some(item => item.id === id);
-    if (isLevel0) {
-      setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0 });
-    } else {
-      deleteItem(id);
-    }
-    if (activeItem === id) {
-      setActiveItem(null);
-      setSelectedItemData(null);
-    }
+    setDeleteConfirmation({ isOpen: true, itemId: id, confirmCount: 0, isLevel0 });
   };
 
   const handleDeleteConfirm = async () => {
@@ -98,13 +90,15 @@ const Projects = () => {
     } else {
       const success = await deleteItem(deleteConfirmation.itemId);
       if (success) {
-        setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0 });
+        setDeleteConfirmation({ isOpen: false, itemId: null, confirmCount: 0, isLevel0: false });
         if (activeItem === deleteConfirmation.itemId) {
           setActiveItem(null);
           setSelectedItemData(null);
         }
+        toast.success("Item deleted successfully");
       } else {
         console.error("Failed to delete item");
+        toast.error("Failed to delete item");
       }
     }
   };
