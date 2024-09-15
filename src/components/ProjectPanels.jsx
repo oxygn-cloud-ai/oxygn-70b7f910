@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RotateCcw, Copy, X, CheckSquare, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { toast } from 'sonner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { toast } from 'sonner';
 
 const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, readOnly }) => {
   const [text, setText] = useState(value || '');
@@ -34,9 +33,9 @@ const TextAreaWithIcons = ({ placeholder, value, fieldName, onSave, onReset, rea
   return (
     <div className="relative mb-4">
       <div className="absolute top-2 right-2 z-10 flex space-x-1">
-        <IconButton icon={<Copy />} onClick={handleCopy} tooltip="Copy to clipboard" />
-        <IconButton icon={<Save />} onClick={handleSave} tooltip="Save changes" />
-        <IconButton icon={<RotateCcw />} onClick={handleReset} tooltip="Reset to last saved" />
+        <IconButton icon="Copy" onClick={handleCopy} tooltip="Copy to clipboard" />
+        <IconButton icon="Save" onClick={handleSave} tooltip="Save changes" />
+        <IconButton icon="RotateCcw" onClick={handleReset} tooltip="Reset to last saved" />
       </div>
       <Textarea 
         placeholder={placeholder} 
@@ -86,13 +85,9 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
         <Label htmlFor={label} className="flex justify-between items-center">
           <span>{label}</span>
           <div className="flex space-x-1">
-            <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
-            <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
-            <IconButton 
-              icon={checked ? <CheckSquare /> : <Square />} 
-              onClick={handleCheckChange} 
-              tooltip={checked ? "Uncheck" : "Check"}
-            />
+            <IconButton icon="Copy" onClick={onCopy} tooltip="Copy to clipboard" />
+            <IconButton icon="X" onClick={onSetEmpty} tooltip="Set to empty" />
+            <Checkbox checked={checked} onCheckedChange={handleCheckChange} />
           </div>
         </Label>
         <div className="flex items-center space-x-2">
@@ -122,13 +117,9 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
       <Label htmlFor={label} className="flex justify-between items-center">
         <span>{label}</span>
         <div className="flex space-x-1">
-          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
-          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
-          <IconButton 
-            icon={checked ? <CheckSquare /> : <Square />} 
-            onClick={handleCheckChange} 
-            tooltip={checked ? "Uncheck" : "Check"}
-          />
+          <IconButton icon="Copy" onClick={onCopy} tooltip="Copy to clipboard" />
+          <IconButton icon="X" onClick={onSetEmpty} tooltip="Set to empty" />
+          <Checkbox checked={checked} onCheckedChange={handleCheckChange} />
         </div>
       </Label>
       <Select value={value} onValueChange={onChange}>
@@ -149,13 +140,9 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
       <Label htmlFor={label} className="flex justify-between items-center">
         <span>{label}</span>
         <div className="flex space-x-1">
-          <IconButton icon={<Copy />} onClick={onCopy} tooltip="Copy to clipboard" />
-          <IconButton icon={<X />} onClick={onSetEmpty} tooltip="Set to empty" />
-          <IconButton 
-            icon={checked ? <CheckSquare /> : <Square />} 
-            onClick={handleCheckChange} 
-            tooltip={checked ? "Uncheck" : "Check"}
-          />
+          <IconButton icon="Copy" onClick={onCopy} tooltip="Copy to clipboard" />
+          <IconButton icon="X" onClick={onSetEmpty} tooltip="Set to empty" />
+          <Checkbox checked={checked} onCheckedChange={handleCheckChange} />
         </div>
       </Label>
       <Input
@@ -169,24 +156,17 @@ const SettingInput = ({ label, value, onChange, onCopy, onSetEmpty, checked, onC
 };
 
 const IconButton = ({ icon, onClick, tooltip }) => (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 p-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick(e);
-          }}
-        >
-          {React.cloneElement(icon, { className: "h-4 w-4" })}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{tooltip}</TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
+  <Button
+    variant="ghost"
+    size="icon"
+    className="h-6 w-6 p-0"
+    onClick={(e) => {
+      e.stopPropagation();
+      onClick(e);
+    }}
+  >
+    {React.createElement(icon, { className: "h-4 w-4" })}
+  </Button>
 );
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
@@ -197,42 +177,37 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     setLocalData(selectedItemData || {});
   }, [selectedItemData]);
 
-  const handleSave = useCallback((fieldName, value) => {
+  const handleSave = (fieldName, value) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
     onUpdateField(fieldName, value);
-  }, [onUpdateField]);
+  };
 
-  const handleReset = useCallback(async (fieldName) => {
+  const handleReset = async (fieldName) => {
     if (selectedItemData) {
       setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
       return selectedItemData[fieldName];
     }
     return null;
-  }, [selectedItemData]);
+  };
 
-  const handleCopy = useCallback((value) => {
+  const handleCopy = (value) => {
     navigator.clipboard.writeText(value).then(() => {
       toast.success('Copied to clipboard');
     }).catch((err) => {
       console.error('Failed to copy text: ', err);
       toast.error('Failed to copy text');
     });
-  }, []);
+  };
 
-  const handleSetEmpty = useCallback((fieldName) => {
+  const handleSetEmpty = (fieldName) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: '' }));
     onUpdateField(fieldName, '');
-  }, [onUpdateField]);
+  };
 
-  const handleCheckChange = useCallback((fieldName, newValue) => {
+  const handleCheckChange = (fieldName, newValue) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: newValue }));
     onUpdateField(fieldName, newValue);
-  }, [onUpdateField]);
-
-  const getMaxTokensLabel = useCallback(() => {
-    const selectedModel = models.find(m => m.model === localData.model);
-    return selectedModel ? `max_tokens (<= ${selectedModel.max_tokens})` : 'max_tokens';
-  }, [localData.model, models]);
+  };
 
   if (!projectRowId) {
     return <div>No project selected</div>;
@@ -246,8 +221,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   ];
 
   const promptSettingsFields = [
-    'model', 'temperature (-2 to 2)', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
-    'stop', 'n', 'logit_bias', 'user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
+    'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+    'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
     'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
     'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
     'input', 'context_length', 'custom_finetune'
@@ -272,16 +247,16 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           {promptSettingsFields.map(field => (
             <SettingInput
               key={field}
-              label={field === 'max_tokens' ? getMaxTokensLabel() : field}
-              value={localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || ''}
-              onChange={(value) => handleSave(field === 'temperature (-2 to 2)' ? 'temperature' : field, value)}
-              onCopy={() => handleCopy(localData[field === 'temperature (-2 to 2)' ? 'temperature' : field] || '')}
-              onSetEmpty={() => handleSetEmpty(field === 'temperature (-2 to 2)' ? 'temperature' : field)}
-              checked={field === 'model' ? localData.model_on : false}
-              onCheckChange={(newValue) => handleCheckChange(field === 'model' ? 'model_on' : field, newValue)}
+              label={field}
+              value={localData[field] || ''}
+              onChange={(value) => handleSave(field, value)}
+              onCopy={() => handleCopy(localData[field] || '')}
+              onSetEmpty={() => handleSetEmpty(field)}
+              checked={localData[`${field}_on`] || false}
+              onCheckChange={(newValue) => handleCheckChange(`${field}_on`, newValue)}
               isSelect={field === 'model'}
               options={models}
-              isTemperature={field === 'temperature (-2 to 2)'}
+              isTemperature={field === 'temperature'}
             />
           ))}
         </div>
