@@ -3,6 +3,21 @@ import { useSettings } from './useSettings';
 import { toast } from 'sonner';
 import axios from 'axios';
 
+const callOpenAIAPI = async (url, requestBody, apiKey) => {
+  try {
+    const response = await axios.post(url, requestBody, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error);
+    throw new Error('Unable to generate response: ' + error.message);
+  }
+};
+
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { settings } = useSettings();
@@ -10,6 +25,10 @@ export const useOpenAICall = () => {
   const callOpenAI = async (prompt) => {
     setIsLoading(true);
     try {
+      if (!settings.openai_api_key || !settings.openai_url) {
+        throw new Error('OpenAI API configuration is missing');
+      }
+
       const requestBody = {
         model: "gpt-3.5-turbo",
         messages: [{ role: "user", content: prompt }],
@@ -25,17 +44,11 @@ export const useOpenAICall = () => {
         data: requestBody
       });
 
-      const response = await axios.post(settings.openai_url, requestBody, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.openai_api_key}`
-        }
-      });
+      const data = await callOpenAIAPI(settings.openai_url, requestBody, settings.openai_api_key);
+      console.log('API Response:', data);
 
-      console.log('API Response:', response.data);
-
-      if (response.data && response.data.choices && response.data.choices[0] && response.data.choices[0].message) {
-        return response.data.choices[0].message.content;
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
       } else {
         throw new Error('Unexpected API response structure');
       }
