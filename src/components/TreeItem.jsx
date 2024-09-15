@@ -58,7 +58,7 @@ const TreeItem = ({
   return (
     <div className="border-none pt-1 pb-0.1">
       <div
-        className={`flex items-center hover:bg-gray-100 py-0.1 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
+        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -79,7 +79,7 @@ const TreeItem = ({
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               onClick={(e) => e.stopPropagation()}
-              className="h-6 py-0 px-1"
+              className="h-6 py-1 px-1"
             />
           ) : (
             <span 
