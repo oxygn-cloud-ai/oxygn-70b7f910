@@ -196,6 +196,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
+    setCheckedSettings(prevChecked => ({
+      ...prevChecked,
+      model: selectedItemData?.model_on || false
+    }));
   }, [selectedItemData]);
 
   const handleSave = async (fieldName, value) => {
@@ -210,6 +214,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
       const latestData = await fetchLatestData();
       if (latestData !== null) {
         setLocalData(prevData => ({ ...prevData, ...latestData }));
+        setCheckedSettings(prevChecked => ({
+          ...prevChecked,
+          model: latestData.model_on || false
+        }));
         return latestData[fieldName];
       }
     }
@@ -230,8 +238,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId }) => {
     handleSave(fieldName, '');
   };
 
-  const handleCheckChange = (fieldName) => {
-    setCheckedSettings(prev => ({ ...prev, [fieldName]: !prev[fieldName] }));
+  const handleCheckChange = async (fieldName) => {
+    const newCheckedValue = !checkedSettings[fieldName];
+    setCheckedSettings(prev => ({ ...prev, [fieldName]: newCheckedValue }));
+    if (fieldName === 'model') {
+      await handleSave('model_on', newCheckedValue);
+    }
   };
 
   const getMaxTokensLabel = () => {

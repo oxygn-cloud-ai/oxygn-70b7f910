@@ -16,6 +16,7 @@ export const useFetchLatestData = (projectRowId) => {
           input_admin_prompt,
           input_user_prompt,
           model,
+          model_on,
           temperature,
           max_tokens,
           top_p,
