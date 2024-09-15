@@ -67,11 +67,30 @@ export const useSettings = () => {
 
   const updateSetting = async (key, value) => {
     try {
-      const { data, error } = await supabase
+      console.log('API Call Details:');
+      console.log('URL:', `${supabase.supabaseUrl}/rest/v1/settings`);
+      console.log('Method: PATCH');
+      console.log('Headers:', {
+        'apikey': supabase.supabaseKey,
+        'Authorization': `Bearer ${supabase.supabaseKey}`,
+        'Content-Type': 'application/json',
+      });
+      console.log('Body:', JSON.stringify({ [key]: value }));
+
+      const startTime = performance.now();
+      const { data, error, status, statusText } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .eq('id', settings.id)
+        .eq('openai_url', settings.openai_url) // Use an existing field to identify the row
         .single();
+      const endTime = performance.now();
+
+      console.log('API Response:');
+      console.log('Status:', status);
+      console.log('Status Text:', statusText);
+      console.log('Response Time:', `${(endTime - startTime).toFixed(2)}ms`);
+      console.log('Response Data:', data);
+      console.log('Error:', error);
 
       if (error) throw error;
 
