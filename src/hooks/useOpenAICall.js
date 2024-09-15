@@ -3,13 +3,13 @@ import { useSettings } from './useSettings';
 import { toast } from 'sonner';
 import axios from 'axios';
 
-const callOpenAIAPI = async (url, requestBody, apiKey) => {
+const callOpenAIAPI = async (prompt, settings) => {
   try {
-    const response = await axios.post(url, requestBody, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
+    const response = await axios.post('/api/openai', {
+      openaiApiKey: settings.openai_api_key,
+      openaiUrl: settings.openai_url,
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: prompt }]
     });
     return response.data;
   } catch (error) {
@@ -29,22 +29,7 @@ export const useOpenAICall = () => {
         throw new Error('OpenAI API configuration is missing');
       }
 
-      const requestBody = {
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-      };
-
-      console.log('API Call Details:', {
-        url: settings.openai_url,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.openai_api_key}`
-        },
-        data: requestBody
-      });
-
-      const data = await callOpenAIAPI(settings.openai_url, requestBody, settings.openai_api_key);
+      const data = await callOpenAIAPI(prompt, settings);
       console.log('API Response:', data);
 
       if (data.choices && data.choices[0] && data.choices[0].message) {
@@ -56,11 +41,7 @@ export const useOpenAICall = () => {
       console.error('Error calling OpenAI:', error);
       let errorMessage = 'Failed to call OpenAI';
       if (error.response) {
-        if (error.response.status === 404) {
-          errorMessage = 'OpenAI API endpoint not found. Please check your API URL in settings.';
-        } else {
-          errorMessage = `OpenAI API error: ${error.response.status} ${error.response.statusText}`;
-        }
+        errorMessage = `OpenAI API error: ${error.response.status} ${error.response.statusText}`;
       } else if (error.request) {
         errorMessage = 'No response received from OpenAI API. Please check your internet connection.';
       } else {
