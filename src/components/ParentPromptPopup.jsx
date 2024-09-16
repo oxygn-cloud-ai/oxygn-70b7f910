@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon, ChevronsLeft, ChevronsRight } from 'lucide-react';
-import { toast } from 'sonner';
-import { Accordion } from "@/components/ui/accordion";
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
@@ -39,7 +37,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           setSelectedItem(prevState => ({ ...prevState, ...data }));
         } catch (error) {
           console.error('Error fetching item data:', error);
-          toast.error(`Failed to fetch prompt data: ${error.message}`);
         } finally {
           setIsLoading(false);
         }
@@ -80,7 +77,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           onCascade={onCascade}
         />
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
           className="absolute bottom-4 left-4"
           onClick={toggleExpand}
