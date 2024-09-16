@@ -8,7 +8,7 @@ import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownToLine } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
