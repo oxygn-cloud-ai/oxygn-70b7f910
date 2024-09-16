@@ -20,7 +20,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   useEffect(() => {
     if (isOpen && parentData) {
       setSelectedItem(parentData);
-      setExpandedItems([parentData.parent_row_id]);
+      setExpandedItems([parentData.row_id]);
     }
   }, [isOpen, parentData]);
 
