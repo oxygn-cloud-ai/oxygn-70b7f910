@@ -8,11 +8,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     if (isOpen && parentData) {
@@ -69,25 +70,21 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     </div>
   );
 
+  const toggleItem = (itemId) => {
+    setSelectedItem(itemId);
+  };
+
   const renderTreeItems = (items, level = 1) => {
     return items.map((item) => (
-      <AccordionItem key={item.id} value={item.id}>
-        <AccordionTrigger>
-          <TreeItem
-            item={item}
-            level={level}
-            isSelected={selectedItem && selectedItem.row_id === item.id}
-            onClick={() => setSelectedItem(item)}
-          />
-        </AccordionTrigger>
-        <AccordionContent>
-          {item.children && item.children.length > 0 && (
-            <Accordion type="multiple" value={expandedItems} onValueChange={setExpandedItems}>
-              {renderTreeItems(item.children, level + 1)}
-            </Accordion>
-          )}
-        </AccordionContent>
-      </AccordionItem>
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={level}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        activeItem={selectedItem}
+        setActiveItem={setSelectedItem}
+      />
     ));
   };
 
@@ -141,23 +138,46 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
   </Button>
 );
 
-const TreeItem = ({ item, level, isSelected, onClick }) => {
+const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem }) => {
+  const isActive = activeItem && activeItem.id === item.id;
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (
-    <div
-      className={`flex items-center py-1 px-2 rounded ${isSelected ? 'bg-blue-100' : 'hover:bg-gray-100'}`}
-      onClick={onClick}
-    >
-      {item.children && item.children.length > 0 ? (
-        <ChevronRight className="h-4 w-4 flex-shrink-0 mr-2" />
-      ) : (
-        <div className="w-4 h-4 flex-shrink-0 mr-2" />
+    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
+      <div
+        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
+        style={{ paddingLeft: `${level * 16}px` }}
+        onClick={() => setActiveItem(item)}
+      >
+        <div className="flex items-center space-x-1 flex-grow">
+          {item.children && item.children.length > 0 ? (
+            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+          ) : (
+            <div className="w-4 h-4 flex-shrink-0" />
+          )}
+          <FileIcon className="h-4 w-4 flex-shrink-0" />
+          <span 
+            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+          >
+            {displayName}
+          </span>
+        </div>
+      </div>
+      {item.children && item.children.length > 0 && (
+        <div>
+          {item.children.map((child) => (
+            <TreeItem
+              key={child.id}
+              item={child}
+              level={level + 1}
+              expandedItems={expandedItems}
+              toggleItem={toggleItem}
+              activeItem={activeItem}
+              setActiveItem={setActiveItem}
+            />
+          ))}
+        </div>
       )}
-      <FileIcon className="h-4 w-4 flex-shrink-0 mr-2" />
-      <span className={`ml-1 cursor-pointer text-sm ${isSelected ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}>
-        {displayName}
-      </span>
     </div>
   );
 };
