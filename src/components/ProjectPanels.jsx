@@ -131,6 +131,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
+  const handleCascadeAction = (content, action) => {
+    if (cascadeField) {
+      const newContent = action === 'append'
+        ? (localData[cascadeField] || '') + '\n' + content
+        : content;
+      handleChange(cascadeField, newContent);
+    }
+  };
+
   const renderPromptFields = () => {
     const fields = [
       { name: 'admin_prompt_result', label: 'Admin Result' },
@@ -211,14 +220,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           }}
           parentData={parentData}
           cascadeField={cascadeField}
-          onCascade={(value) => {
-            if (cascadeField) {
-              handleChange(cascadeField, value);
-              handleSave(cascadeField);
-              setCascadeField(null);
-            }
-            setIsParentPopupOpen(false);
-          }}
+          onCascade={handleCascadeAction}
         />
       )}
     </div>

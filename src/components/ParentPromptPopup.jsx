@@ -22,7 +22,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     });
   };
 
-  const handleCascade = (content, action) => {
+  const handleAction = (content, action) => {
     onCascade(content, action);
     setActiveIcons({ [action]: true });
     setTimeout(() => setActiveIcons({}), 1000);
@@ -38,7 +38,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleCascade(content, 'append')}
+                onClick={() => handleAction(content, 'append')}
                 className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-500' : ''}`}
               >
                 <Plus className="h-4 w-4" />
@@ -46,7 +46,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleCascade(content, 'overwrite')}
+                onClick={() => handleAction(content, 'overwrite')}
                 className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-500' : ''}`}
               >
                 <ArrowDownToLine className="h-4 w-4" />
