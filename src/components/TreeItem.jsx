@@ -29,9 +29,21 @@ const TreeItem = ({
 
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
-      <ActionButton icon={<PlusIcon className="h-3 w-3" />} onClick={() => addItem(item.id)} tooltip="Add Prompt" />
-      <ActionButton icon={<EditIcon className="h-3 w-3" />} onClick={() => startRenaming(item.id, item.prompt_name)} tooltip="Rename" />
-      <ActionButton icon={<Trash2Icon className="h-3 w-3" />} onClick={() => deleteItem(item.id)} tooltip="Delete" />
+      <ActionButton 
+        icon={<PlusIcon className="h-3 w-3" />} 
+        onClick={() => addItem && addItem(item.id)} 
+        tooltip="Add Prompt" 
+      />
+      <ActionButton 
+        icon={<EditIcon className="h-3 w-3" />} 
+        onClick={() => startRenaming(item.id, item.prompt_name)} 
+        tooltip="Rename" 
+      />
+      <ActionButton 
+        icon={<Trash2Icon className="h-3 w-3" />} 
+        onClick={() => deleteItem(item.id)} 
+        tooltip="Delete" 
+      />
     </div>
   );
 
@@ -68,7 +80,7 @@ const TreeItem = ({
           {item.children && item.children.length > 0 ? (
             <ChevronRight className="h-4 w-4 flex-shrink-0" />
           ) : (
-            <div className="w-4 h-4 flex-shrink-0" /> // Placeholder for alignment
+            <div className="w-4 h-4 flex-shrink-0" />
           )}
           <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
@@ -127,6 +139,7 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
       e.stopPropagation();
       onClick && onClick(e);
     }}
+    title={tooltip}
   >
     {icon}
   </Button>
