@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ParentPromptPopup = ({ isOpen, onClose, adminPrompt, userPromptResult }) => {
+const ParentPromptPopup = ({ isOpen, onClose, parentData }) => {
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
@@ -37,11 +37,11 @@ const ParentPromptPopup = ({ isOpen, onClose, adminPrompt, userPromptResult }) =
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Parent Prompt Information</DialogTitle>
+          <DialogTitle>Parent Prompt: {parentData?.prompt_name || 'Unknown'}</DialogTitle>
         </DialogHeader>
         <div className="mt-4">
-          {renderField("Admin Prompt", adminPrompt)}
-          {renderField("User Prompt Result", userPromptResult)}
+          {renderField("Admin Prompt", parentData?.input_admin_prompt || '')}
+          {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
         </div>
       </DialogContent>
     </Dialog>

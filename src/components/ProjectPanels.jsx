@@ -182,8 +182,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         <ParentPromptPopup
           isOpen={isParentPopupOpen}
           onClose={() => setIsParentPopupOpen(false)}
-          adminPrompt={parentData.input_admin_prompt}
-          userPromptResult={parentData.user_prompt_result}
+          parentData={parentData}
         />
       )}
     </div>
