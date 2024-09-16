@@ -41,6 +41,8 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData }) => {
         </DialogHeader>
         <div className="mt-4">
           {renderField("Admin Prompt", parentData?.input_admin_prompt || '')}
+          {renderField("User Prompt", parentData?.input_user_prompt || '')}
+          {renderField("Admin Prompt Result", parentData?.admin_prompt_result || '')}
           {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
         </div>
       </DialogContent>

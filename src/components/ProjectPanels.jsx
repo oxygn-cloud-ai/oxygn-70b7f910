@@ -94,7 +94,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       try {
         const { data, error } = await supabase
           .from('prompts')
-          .select('*')
+          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
           .eq('row_id', selectedItemData.parent_row_id)
           .single();
 
@@ -106,10 +106,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         toast.error('Failed to fetch parent data');
       }
     }
-  };
-
-  const handleParentButtonLeave = () => {
-    setIsParentPopupOpen(false);
   };
 
   const renderPromptFields = () => {
@@ -150,7 +146,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           className="self-start mb-2"
           disabled={!selectedItemData.parent_row_id}
           onMouseEnter={handleParentButtonHover}
-          onMouseLeave={handleParentButtonLeave}
+          onMouseLeave={() => setIsParentPopupOpen(false)}
         >
           Parent
         </Button>
