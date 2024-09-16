@@ -71,7 +71,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
       <DialogContent className="sm:max-w-[900px] h-[80vh] flex">
         <div className="w-1/3 border-r pr-4 overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{parentData?.prompt_name || 'Untitled'}</DialogTitle>
+            <DialogTitle></DialogTitle>
           </DialogHeader>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
