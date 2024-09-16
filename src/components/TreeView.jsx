@@ -4,8 +4,8 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 
 const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, setSelectedItem, parentData, selectedItemRef }) => {
-  const toggleItem = (itemId) => {
-    setSelectedItem(prevItem => prevItem && prevItem.id === itemId ? null : { id: itemId });
+  const toggleItem = (item) => {
+    setSelectedItem(item);
   };
 
   const renderTreeItems = (items, level = 1) => {

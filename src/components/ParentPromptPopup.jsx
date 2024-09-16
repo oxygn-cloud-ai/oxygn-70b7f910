@@ -21,29 +21,31 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     }
   }, [isOpen, parentData]);
 
-  useEffect(() => {
-    const fetchItemData = async () => {
-      if (selectedItem && selectedItem.id && supabase) {
-        setIsLoading(true);
-        try {
-          const { data, error } = await supabase
-            .from('prompts')
-            .select('*')
-            .eq('row_id', selectedItem.id)
-            .single();
+  const fetchItemData = async (itemId) => {
+    if (itemId && supabase) {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', itemId)
+          .single();
 
-          if (error) throw error;
-          
-          setSelectedItem(prevState => ({ ...prevState, ...data }));
-        } catch (error) {
-          console.error('Error fetching item data:', error);
-        } finally {
-          setIsLoading(false);
-        }
+        if (error) throw error;
+        
+        setSelectedItem(data);
+      } catch (error) {
+        console.error('Error fetching item data:', error);
+      } finally {
+        setIsLoading(false);
       }
-    };
+    }
+  };
 
-    fetchItemData();
+  useEffect(() => {
+    if (selectedItem?.id) {
+      fetchItemData(selectedItem.id);
+    }
   }, [selectedItem?.id, supabase]);
 
   useEffect(() => {
@@ -55,6 +57,11 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
+  const handleItemSelect = (item) => {
+    setSelectedItem(item);
+    fetchItemData(item.id);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`sm:max-w-[${isExpanded ? '900px' : '600px'}] h-[80vh] flex`}>
@@ -64,7 +71,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             expandedItems={expandedItems}
             setExpandedItems={setExpandedItems}
             selectedItem={selectedItem}
-            setSelectedItem={setSelectedItem}
+            setSelectedItem={handleItemSelect}
             parentData={parentData}
             selectedItemRef={selectedItemRef}
           />
