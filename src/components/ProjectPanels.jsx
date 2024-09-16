@@ -169,14 +169,14 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         <Button
           variant="outline"
           onClick={handleGenerate}
-          className={`self-start mb-2 ${isGenerating ? 'text-green-500' : ''}`}
+          className={`self-start mb-2 ${isGenerating ? 'text-green-700' : ''}`}
           disabled={isGenerating}
         >
           {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
         </Button>
         <Button
           variant="outline"
-          className="self-start mb-2"
+          className="self-start mb-2 text-green-700"
           disabled={!selectedItemData.parent_row_id}
           onMouseEnter={handleParentButtonHover}
           onMouseLeave={() => setIsParentPopupOpen(false)}

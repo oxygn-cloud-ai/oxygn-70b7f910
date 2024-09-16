@@ -38,7 +38,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             variant="ghost"
             size="icon"
             onClick={onCascade}
-            className="h-6 w-6"
+            className="h-6 w-6 text-green-700"
             title="Cascade"
           >
             <ArrowDownWideNarrow className="h-4 w-4" />
@@ -47,7 +47,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             variant="ghost"
             size="icon"
             onClick={handleCopy}
-            className="h-6 w-6"
+            className="h-6 w-6 text-green-700"
             title="Copy to clipboard"
           >
             <ClipboardCopy className="h-4 w-4" />
@@ -56,7 +56,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             variant="ghost"
             size="icon"
             onClick={handlePaste}
-            className="h-6 w-6"
+            className="h-6 w-6 text-green-700"
             title="Paste from clipboard"
           >
             <ClipboardPaste className="h-4 w-4" />
@@ -66,7 +66,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             size="icon"
             onClick={onSave}
             disabled={!hasChanged}
-            className={`h-6 w-6 ${hasChanged ? 'text-green-500' : ''}`}
+            className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
             title="Save changes"
           >
             <Save className="h-4 w-4" />
@@ -76,7 +76,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             size="icon"
             onClick={onReset}
             disabled={!hasChanged}
-            className={`h-6 w-6 ${hasChanged ? 'text-green-500' : ''}`}
+            className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
             title="Reset to initial value"
           >
             <RotateCcw className="h-4 w-4" />

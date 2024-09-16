@@ -43,7 +43,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 variant="ghost"
                 size="sm"
                 onClick={() => handleAction(content, 'append')}
-                className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-500' : ''}`}
+                className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-700' : ''}`}
               >
                 <ReplaceAll className="h-4 w-4" />
               </Button>
@@ -51,7 +51,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 variant="ghost"
                 size="sm"
                 onClick={() => handleAction(content, 'overwrite')}
-                className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-500' : ''}`}
+                className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-700' : ''}`}
               >
                 <Replace className="h-4 w-4" />
               </Button>
@@ -61,7 +61,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             variant="ghost"
             size="sm"
             onClick={() => copyToClipboard(content)}
-            className={`h-6 w-6 p-0 ${activeIcons['copy'] ? 'text-green-500' : ''}`}
+            className={`h-6 w-6 p-0 ${activeIcons['copy'] ? 'text-green-700' : ''}`}
           >
             <Copy className="h-4 w-4" />
           </Button>
