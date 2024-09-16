@@ -26,7 +26,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   useEffect(() => {
     const fetchSelectedItemContent = async () => {
-      if (selectedItem && supabase) {
+      if (selectedItem && supabase && selectedItem.id) {
         try {
           const { data, error } = await supabase
             .from('prompts')
