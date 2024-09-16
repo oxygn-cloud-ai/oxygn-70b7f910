@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import PromptField from './PromptField';
-import SettingField from './SettingField';
-import { Button } from "@/components/ui/button";
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
-import { Save, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
+import { useOpenAICall } from '../hooks/useOpenAICall';
+import PromptField from './PromptField';
+import SettingsPanel from './SettingsPanel';
+import ParentPromptPopup from './ParentPromptPopup';
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
+  const { callOpenAI } = useOpenAICall();
   const [timer, setTimer] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
+  const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
+  const [parentData, setParentData] = useState(null);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -31,9 +31,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   useEffect(() => {
     let interval;
     if (isGenerating) {
-      interval = setInterval(() => {
-        setTimer((prevTimer) => prevTimer + 1);
-      }, 1000);
+      interval = setInterval(() => setTimer(prevTimer => prevTimer + 1), 1000);
     } else {
       clearInterval(interval);
       setTimer(0);
@@ -41,8 +39,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     return () => clearInterval(interval);
   }, [isGenerating]);
 
-  const handleSave = (fieldName) => {
-    onUpdateField(fieldName, localData[fieldName]);
+  const handleSave = async (fieldName) => {
+    await onUpdateField(fieldName, localData[fieldName]);
   };
 
   const handleChange = (fieldName, value) => {
@@ -76,68 +74,20 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     setIsGenerating(true);
     const startTime = Date.now();
 
-    const requestBody = {
-      messages: [
-        { role: 'system', content: localData.input_admin_prompt },
-        { role: 'user', content: localData.input_user_prompt }
-      ],
-    };
-
-    const settingFields = [
-      'model', 'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
-      'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
-      'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
-      'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'input',
-      'context_length', 'custom_finetune'
-    ];
-
-    settingFields.forEach(field => {
-      if (localData[`${field}_on`]) {
-        let value = localData[field];
-        if (['temperature', 'top_p', 'frequency_penalty', 'presence_penalty', 'temperature_scaling', 'learning_rate_multiplier'].includes(field)) {
-          value = parseFloat(value);
-        } else if (['max_tokens', 'n', 'best_of', 'logprobs', 'prompt_tokens', 'response_tokens', 'batch_size', 'n_epochs', 'context_length'].includes(field)) {
-          value = parseInt(value);
-        } else if (['stream', 'echo'].includes(field)) {
-          value = value === 'true';
-        } else if (field === 'logit_bias') {
-          try {
-            value = JSON.parse(value);
-          } catch (error) {
-            console.error('Error parsing logit_bias:', error);
-            return;
-          }
-        }
-        requestBody[field] = value;
-      }
-    });
-
-    console.log('OpenAI API Request:', JSON.stringify(requestBody, null, 2));
-
     try {
-      const response = await fetch(settings.openai_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.openai_api_key}`
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      const data = await response.json();
-      console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
-
-      if (data.choices && data.choices.length > 0) {
-        const generatedText = data.choices[0].message.content;
-        handleChange('user_prompt_result', generatedText);
-      }
+      const result = await callOpenAI(
+        localData.input_admin_prompt,
+        localData.input_user_prompt,
+        localData
+      );
+      handleChange('user_prompt_result', result);
     } catch (error) {
-      console.error('Error calling OpenAI API:', error);
+      console.error('Error calling OpenAI:', error);
+      toast.error(`Error generating response: ${error.message}`);
     } finally {
       setIsGenerating(false);
       const endTime = Date.now();
-      const totalTime = (endTime - startTime) / 1000;
-      console.log(`API call completed in ${totalTime} seconds`);
+      console.log(`API call completed in ${(endTime - startTime) / 1000} seconds`);
     }
   };
 
@@ -150,6 +100,25 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         .eq('row_id', projectRowId);
     } catch (error) {
       console.error('Error updating prompt_settings_open:', error);
+    }
+  };
+
+  const handleParentButtonHover = async () => {
+    if (selectedItemData.parent_row_id) {
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', selectedItemData.parent_row_id)
+          .single();
+
+        if (error) throw error;
+        setParentData(data);
+        setIsParentPopupOpen(true);
+      } catch (error) {
+        console.error('Error fetching parent data:', error);
+        toast.error('Failed to fetch parent data');
+      }
     }
   };
 
@@ -175,105 +144,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     ));
   };
 
-  const renderSettingFields = () => {
-    const fields = [
-      'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
-      'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
-      'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
-      'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
-      'input', 'context_length', 'custom_finetune'
-    ];
-
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="col-span-1">
-          <div className="flex items-center space-x-2 mb-2">
-            <Checkbox
-              id="model-checkbox"
-              checked={localData.model_on || false}
-              onCheckedChange={(checked) => handleCheckChange('model', checked)}
-            />
-            <label htmlFor="model" className="text-sm font-medium text-gray-700 flex-grow">
-              Model
-            </label>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleSave('model')}
-              disabled={localData.model === selectedItemData.model}
-              className="h-6 w-6"
-            >
-              <Save className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleReset('model')}
-              disabled={localData.model === selectedItemData.model}
-              className="h-6 w-6"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-          <Select
-            value={localData.model || ''}
-            onValueChange={(value) => handleChange('model', value)}
-            disabled={!localData.model_on}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a model" />
-            </SelectTrigger>
-            <SelectContent>
-              {models.map((model) => (
-                <SelectItem key={model.model} value={model.model}>
-                  {model.model}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        {fields.map(field => (
-          <div key={field} className="relative flex items-center">
-            <div className="flex items-center space-x-2 mb-2">
-              <Checkbox
-                id={`${field}-checkbox`}
-                checked={localData[`${field}_on`] || false}
-                onCheckedChange={(checked) => handleCheckChange(field, checked)}
-              />
-              <label htmlFor={field} className="text-sm font-medium text-gray-700 flex-grow">
-                {field}
-              </label>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleSave(field)}
-                disabled={localData[field] === selectedItemData[field]}
-                className="h-6 w-6"
-              >
-                <Save className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleReset(field)}
-                disabled={localData[field] === selectedItemData[field]}
-                className="h-6 w-6"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </div>
-            <SettingField
-              id={field}
-              value={localData[field] || ''}
-              onChange={(value) => handleChange(field, value)}
-              disabled={!localData[`${field}_on`]}
-            />
-          </div>
-        ))}
-      </div>
-    );
-  };
-
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
       <div className="flex gap-2">
@@ -289,6 +159,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           variant="outline"
           className="self-start mb-2"
           disabled={!selectedItemData.parent_row_id}
+          onMouseEnter={handleParentButtonHover}
+          onMouseLeave={() => setIsParentPopupOpen(false)}
         >
           Parent
         </Button>
@@ -310,9 +182,24 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           </CollapsibleTrigger>
         </div>
         <CollapsibleContent>
-          {renderSettingFields()}
+          <SettingsPanel
+            localData={localData}
+            selectedItemData={selectedItemData}
+            models={models}
+            handleChange={handleChange}
+            handleSave={handleSave}
+            handleReset={handleReset}
+            handleCheckChange={handleCheckChange}
+          />
         </CollapsibleContent>
       </Collapsible>
+      {isParentPopupOpen && parentData && (
+        <ParentPromptPopup
+          adminPrompt={parentData.input_admin_prompt}
+          userPromptResult={parentData.user_prompt_result}
+          onClose={() => setIsParentPopupOpen(false)}
+        />
+      )}
     </div>
   );
 };
