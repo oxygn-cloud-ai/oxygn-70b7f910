@@ -22,6 +22,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
   const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
   const [parentData, setParentData] = useState(null);
+  const [cascadeField, setCascadeField] = useState(null);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -108,10 +109,26 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
-  const handleCascade = (fieldName) => {
-    // This function will be implemented later to handle the cascade action
-    console.log(`Cascade action for ${fieldName}`);
-    toast.info(`Cascade action for ${fieldName} is not implemented yet`);
+  const handleCascade = async (fieldName) => {
+    if (selectedItemData.parent_row_id) {
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
+          .eq('row_id', selectedItemData.parent_row_id)
+          .single();
+
+        if (error) throw error;
+        setParentData(data);
+        setCascadeField(fieldName);
+        setIsParentPopupOpen(true);
+      } catch (error) {
+        console.error('Error fetching parent data:', error);
+        toast.error('Failed to fetch parent data');
+      }
+    } else {
+      toast.error('No parent prompt available for cascade');
+    }
   };
 
   const renderPromptFields = () => {
@@ -188,8 +205,20 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       {isParentPopupOpen && parentData && (
         <ParentPromptPopup
           isOpen={isParentPopupOpen}
-          onClose={() => setIsParentPopupOpen(false)}
+          onClose={() => {
+            setIsParentPopupOpen(false);
+            setCascadeField(null);
+          }}
           parentData={parentData}
+          cascadeField={cascadeField}
+          onCascade={(value) => {
+            if (cascadeField) {
+              handleChange(cascadeField, value);
+              handleSave(cascadeField);
+              setCascadeField(null);
+            }
+            setIsParentPopupOpen(false);
+          }}
         />
       )}
     </div>

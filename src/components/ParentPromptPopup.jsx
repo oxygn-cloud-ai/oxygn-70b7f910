@@ -1,10 +1,16 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
 
-const ParentPromptPopup = ({ isOpen, onClose, parentData }) => {
+const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
@@ -18,14 +24,26 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData }) => {
     <div className="mb-4">
       <div className="flex justify-between items-center mb-2">
         <h4 className="text-sm font-semibold">{label}</h4>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => copyToClipboard(content)}
-          className="h-6 w-6 p-0"
-        >
-          <Copy className="h-4 w-4" />
-        </Button>
+        <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => copyToClipboard(content)}
+            className="h-6 w-6 p-0"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          {cascadeField && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onCascade(content)}
+              className="h-6 px-2 py-0 text-xs"
+            >
+              Cascade
+            </Button>
+          )}
+        </div>
       </div>
       <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
         <pre className="text-sm whitespace-pre-wrap">{content}</pre>
@@ -45,6 +63,9 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData }) => {
           {renderField("Admin Prompt Result", parentData?.admin_prompt_result || '')}
           {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
         </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
