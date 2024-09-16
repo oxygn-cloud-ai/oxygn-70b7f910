@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,12 +9,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from 'sonner';
-import TreeItem from './TreeItem';
+import ExpandedTreeItem from './ExpandedTreeItem';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
-  const [activeIcons, setActiveIcons] = useState({});
-  const [activeItem, setActiveItem] = useState(parentData?.row_id);
-
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
@@ -29,8 +26,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
       content = content.trim();
     }
     onCascade(content, action);
-    setActiveIcons({ [action]: true });
-    setTimeout(() => setActiveIcons({}), 1000);
   };
 
   const renderField = (label, content) => (
@@ -40,32 +35,23 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         <div className="flex space-x-2">
           {cascadeField && (
             <>
-              <Button
-                variant="ghost"
-                size="sm"
+              <ActionButton
+                icon={<ReplaceAll className="h-4 w-4" />}
                 onClick={() => handleAction(content, 'append')}
-                className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-700' : 'text-green-700'}`}
-              >
-                <ReplaceAll className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
+                tooltip="Append"
+              />
+              <ActionButton
+                icon={<Replace className="h-4 w-4" />}
                 onClick={() => handleAction(content, 'overwrite')}
-                className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-700' : 'text-green-700'}`}
-              >
-                <Replace className="h-4 w-4" />
-              </Button>
+                tooltip="Overwrite"
+              />
             </>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
+          <ActionButton
+            icon={<Copy className="h-4 w-4" />}
             onClick={() => copyToClipboard(content)}
-            className={`h-6 w-6 p-0 ${activeIcons['copy'] ? 'text-green-700' : 'text-green-700'}`}
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
+            tooltip="Copy"
+          />
         </div>
       </div>
       <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
@@ -89,21 +75,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           </DialogHeader>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <TreeItem
-                item={parentTreeItem}
-                level={1}
-                expandedItems={[parentTreeItem.id]}
-                toggleItem={() => {}}
-                addItem={() => {}}
-                startRenaming={() => {}}
-                editingItem={null}
-                setEditingItem={() => {}}
-                finishRenaming={() => {}}
-                cancelRenaming={() => {}}
-                activeItem={activeItem}
-                setActiveItem={setActiveItem}
-                deleteItem={() => {}}
-              />
+              <ExpandedTreeItem item={parentTreeItem} level={1} />
             </div>
           </div>
         </div>
@@ -122,5 +94,17 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     </Dialog>
   );
 };
+
+const ActionButton = ({ icon, onClick, tooltip }) => (
+  <Button
+    variant="ghost"
+    size="sm"
+    className="h-6 w-6 p-0"
+    onClick={onClick}
+    title={tooltip}
+  >
+    {icon}
+  </Button>
+);
 
 export default ParentPromptPopup;
