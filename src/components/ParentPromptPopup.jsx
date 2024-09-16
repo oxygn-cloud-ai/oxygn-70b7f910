@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useSupabase } from '../hooks/useSupabase';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
@@ -113,17 +113,23 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   const renderTreeItems = (items, level = 1) => {
     return items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={level}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        activeItem={selectedItem}
-        setActiveItem={setSelectedItem}
-        selectedItem={parentData.row_id}
-        ref={item.id === parentData.row_id ? selectedItemRef : null}
-      />
+      <AccordionItem key={item.id} value={item.id}>
+        <AccordionTrigger
+          ref={item.id === parentData.row_id ? selectedItemRef : null}
+          className={`flex items-center py-1 px-2 rounded ${item.id === parentData.row_id ? 'bg-yellow-200' : ''}`}
+          style={{ paddingLeft: `${level * 16}px` }}
+        >
+          <div className="flex items-center space-x-1 flex-grow">
+            <FileIcon className="h-4 w-4 flex-shrink-0" />
+            <span className="ml-1 cursor-pointer text-sm">
+              {item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`}
+            </span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          {item.children && item.children.length > 0 && renderTreeItems(item.children, level + 1)}
+        </AccordionContent>
+      </AccordionItem>
     ));
   };
 
@@ -184,53 +190,5 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
     {icon}
   </Button>
 );
-
-const TreeItem = React.forwardRef(({ item, level, expandedItems, toggleItem, activeItem, setActiveItem, selectedItem }, ref) => {
-  const isActive = activeItem && activeItem.id === item.id;
-  const isSelected = selectedItem === item.id;
-  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
-
-  return (
-    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
-      <div
-        ref={ref}
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isSelected ? 'bg-yellow-200' : ''}`}
-        style={{ paddingLeft: `${level * 16}px` }}
-        onClick={() => setActiveItem(item)}
-        tabIndex={0}
-      >
-        <div className="flex items-center space-x-1 flex-grow">
-          {item.children && item.children.length > 0 ? (
-            <ChevronRight className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <div className="w-4 h-4 flex-shrink-0" />
-          )}
-          <FileIcon className="h-4 w-4 flex-shrink-0" />
-          <span 
-            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-          >
-            {displayName}
-          </span>
-        </div>
-      </div>
-      {item.children && item.children.length > 0 && (
-        <div>
-          {item.children.map((child) => (
-            <TreeItem
-              key={child.id}
-              item={child}
-              level={level + 1}
-              expandedItems={expandedItems}
-              toggleItem={toggleItem}
-              activeItem={activeItem}
-              setActiveItem={setActiveItem}
-              selectedItem={selectedItem}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
 
 export default ParentPromptPopup;
