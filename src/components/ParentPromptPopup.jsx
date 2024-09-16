@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,17 @@ import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from 'sonner';
 import ExpandedTreeItem from './ExpandedTreeItem';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
+const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedItem(parentData);
+    }
+  }, [isOpen, parentData]);
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
@@ -60,10 +69,21 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     </div>
   );
 
-  const parentTreeItem = {
-    id: parentData?.row_id,
-    prompt_name: parentData?.prompt_name,
-    children: []
+  const renderTreeItems = (items, level = 0) => {
+    return items.map((item) => (
+      <AccordionItem key={item.id} value={item.id}>
+        <AccordionTrigger className="pl-4">
+          <ExpandedTreeItem item={item} level={level + 1} />
+        </AccordionTrigger>
+        <AccordionContent>
+          {item.children && item.children.length > 0 && (
+            <Accordion type="single" collapsible className="pl-4">
+              {renderTreeItems(item.children, level + 1)}
+            </Accordion>
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    ));
   };
 
   return (
@@ -74,17 +94,21 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             <DialogTitle></DialogTitle>
           </DialogHeader>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-            <div className="overflow-x-auto whitespace-nowrap w-full">
-              <ExpandedTreeItem item={parentTreeItem} level={1} />
-            </div>
+            <Accordion type="single" collapsible className="w-full">
+              {renderTreeItems(treeData)}
+            </Accordion>
           </div>
         </div>
         <div className="w-2/3 pl-4 overflow-y-auto">
           <div className="mt-4">
-            {renderField("Admin Prompt", parentData?.input_admin_prompt || '')}
-            {renderField("User Prompt", parentData?.input_user_prompt || '')}
-            {renderField("Admin Prompt Result", parentData?.admin_prompt_result || '')}
-            {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
+            {selectedItem && (
+              <>
+                {renderField("Admin Prompt", selectedItem.input_admin_prompt || '')}
+                {renderField("User Prompt", selectedItem.input_user_prompt || '')}
+                {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '')}
+                {renderField("User Prompt Result", selectedItem.user_prompt_result || '')}
+              </>
+            )}
           </div>
         </div>
       </DialogContent>

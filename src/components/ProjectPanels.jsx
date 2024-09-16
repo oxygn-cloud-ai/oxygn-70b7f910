@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import useTreeData from '../hooks/useTreeData';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -23,6 +24,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
   const [parentData, setParentData] = useState(null);
   const [cascadeField, setCascadeField] = useState(null);
+  const { treeData } = useTreeData(supabase);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -193,6 +195,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           parentData={parentData}
           cascadeField={cascadeField}
           onCascade={handleCascadeAction}
+          treeData={treeData}
         />
       )}
     </div>
