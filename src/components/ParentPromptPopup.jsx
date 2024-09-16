@@ -25,8 +25,8 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   }, [isOpen, parentData]);
 
   useEffect(() => {
-    if (selectedItem && supabase) {
-      const fetchItemData = async () => {
+    const fetchItemData = async () => {
+      if (selectedItem && selectedItem.id && supabase) {
         try {
           const { data, error } = await supabase
             .from('prompts')
@@ -41,10 +41,10 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           console.error('Error fetching item data:', error);
           toast.error(`Failed to fetch prompt data: ${error.message}`);
         }
-      };
+      }
+    };
 
-      fetchItemData();
-    }
+    fetchItemData();
   }, [selectedItem, supabase]);
 
   const copyToClipboard = (text) => {
@@ -96,7 +96,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   );
 
   const toggleItem = (itemId) => {
-    setSelectedItem(itemId);
+    setSelectedItem(prevItem => prevItem && prevItem.id === itemId ? null : { id: itemId });
   };
 
   const renderTreeItems = (items, level = 1) => {
