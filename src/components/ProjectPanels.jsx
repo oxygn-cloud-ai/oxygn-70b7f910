@@ -5,10 +5,9 @@ import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
-import ParentPromptPopup from './ParentPromptPopup';
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, ArrowDownToLine } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
@@ -20,9 +19,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [timer, setTimer] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
-  const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
-  const [parentData, setParentData] = useState(null);
-  const [cascadeField, setCascadeField] = useState(null);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -90,56 +86,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
-  const handleParentButtonHover = async () => {
-    if (selectedItemData.parent_row_id) {
-      try {
-        const { data, error } = await supabase
-          .from('prompts')
-          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
-          .eq('row_id', selectedItemData.parent_row_id)
-          .single();
-
-        if (error) throw error;
-        setParentData(data);
-        setIsParentPopupOpen(true);
-      } catch (error) {
-        console.error('Error fetching parent data:', error);
-        toast.error('Failed to fetch parent data');
-      }
-    }
-  };
-
-  const handleCascade = async (fieldName) => {
-    if (selectedItemData.parent_row_id) {
-      try {
-        const { data, error } = await supabase
-          .from('prompts')
-          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
-          .eq('row_id', selectedItemData.parent_row_id)
-          .single();
-
-        if (error) throw error;
-        setParentData(data);
-        setCascadeField(fieldName);
-        setIsParentPopupOpen(true);
-      } catch (error) {
-        console.error('Error fetching parent data:', error);
-        toast.error('Failed to fetch parent data');
-      }
-    } else {
-      toast.error('No parent prompt available for cascade');
-    }
-  };
-
-  const handleCascadeAction = (content, action) => {
-    if (cascadeField) {
-      const newContent = action === 'append'
-        ? (localData[cascadeField] || '') + '\n' + content
-        : content;
-      handleChange(cascadeField, newContent);
-    }
-  };
-
   const renderPromptFields = () => {
     const fields = [
       { name: 'admin_prompt_result', label: 'Admin Result' },
@@ -174,15 +120,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         >
           {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
         </Button>
-        <Button
-          variant="outline"
-          className="self-start mb-2 text-green-700"
-          disabled={!selectedItemData.parent_row_id}
-          onMouseEnter={handleParentButtonHover}
-          onMouseLeave={() => setIsParentPopupOpen(false)}
-        >
-          Parent
-        </Button>
       </div>
       <div className="space-y-6">
         {renderPromptFields()}
@@ -211,18 +148,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           />
         </CollapsibleContent>
       </Collapsible>
-      {isParentPopupOpen && parentData && (
-        <ParentPromptPopup
-          isOpen={isParentPopupOpen}
-          onClose={() => {
-            setIsParentPopupOpen(false);
-            setCascadeField(null);
-          }}
-          parentData={parentData}
-          cascadeField={cascadeField}
-          onCascade={handleCascadeAction}
-        />
-      )}
     </div>
   );
 };
