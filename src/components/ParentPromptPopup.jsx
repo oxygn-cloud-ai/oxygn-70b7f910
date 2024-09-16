@@ -113,7 +113,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         toggleItem={toggleItem}
         activeItem={selectedItem}
         setActiveItem={setSelectedItem}
-        highlightedItem={parentData.row_id}
       />
     ));
   };
@@ -176,15 +175,14 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
   </Button>
 );
 
-const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem, highlightedItem }) => {
+const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem }) => {
   const isActive = activeItem && activeItem.id === item.id;
-  const isHighlighted = item.id === highlightedItem;
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isHighlighted ? 'bg-yellow-200' : ''}`}
+        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
         onClick={() => setActiveItem(item)}
       >
@@ -213,7 +211,6 @@ const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiv
               toggleItem={toggleItem}
               activeItem={activeItem}
               setActiveItem={setActiveItem}
-              highlightedItem={highlightedItem}
             />
           ))}
         </div>
