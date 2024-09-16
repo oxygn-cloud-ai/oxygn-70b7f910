@@ -108,6 +108,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
+  const handleParentButtonLeave = () => {
+    setIsParentPopupOpen(false);
+  };
+
   const renderPromptFields = () => {
     const fields = [
       { name: 'admin_prompt_result', label: 'Admin Result' },
@@ -146,7 +150,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           className="self-start mb-2"
           disabled={!selectedItemData.parent_row_id}
           onMouseEnter={handleParentButtonHover}
-          onMouseLeave={() => setIsParentPopupOpen(false)}
+          onMouseLeave={handleParentButtonLeave}
         >
           Parent
         </Button>
