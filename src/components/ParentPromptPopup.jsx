@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const supabase = useSupabase();
+  const selectedItemRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && parentData) {
@@ -50,6 +51,13 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
     fetchItemData();
   }, [selectedItem?.id, supabase]);
+
+  useEffect(() => {
+    if (selectedItemRef.current) {
+      selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      selectedItemRef.current.focus();
+    }
+  }, [selectedItem]);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -114,6 +122,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         activeItem={selectedItem}
         setActiveItem={setSelectedItem}
         selectedItem={parentData.row_id}
+        ref={item.id === parentData.row_id ? selectedItemRef : null}
       />
     ));
   };
@@ -176,7 +185,7 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
   </Button>
 );
 
-const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem, selectedItem }) => {
+const TreeItem = React.forwardRef(({ item, level, expandedItems, toggleItem, activeItem, setActiveItem, selectedItem }, ref) => {
   const isActive = activeItem && activeItem.id === item.id;
   const isSelected = selectedItem === item.id;
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
@@ -184,9 +193,11 @@ const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiv
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
+        ref={ref}
         className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isSelected ? 'bg-yellow-200' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
         onClick={() => setActiveItem(item)}
+        tabIndex={0}
       >
         <div className="flex items-center space-x-1 flex-grow">
           {item.children && item.children.length > 0 ? (
@@ -220,6 +231,6 @@ const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiv
       )}
     </div>
   );
-};
+});
 
 export default ParentPromptPopup;
