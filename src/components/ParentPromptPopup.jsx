@@ -6,7 +6,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Replace, ReplaceAll } from 'lucide-react';
+import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion } from "@/components/ui/accordion";
 
