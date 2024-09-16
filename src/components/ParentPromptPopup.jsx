@@ -15,6 +15,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const supabase = useSupabase();
 
   useEffect(() => {
@@ -27,6 +28,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   useEffect(() => {
     const fetchItemData = async () => {
       if (selectedItem && selectedItem.id && supabase) {
+        setIsLoading(true);
         try {
           const { data, error } = await supabase
             .from('prompts')
@@ -40,12 +42,14 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         } catch (error) {
           console.error('Error fetching item data:', error);
           toast.error(`Failed to fetch prompt data: ${error.message}`);
+        } finally {
+          setIsLoading(false);
         }
       }
     };
 
     fetchItemData();
-  }, [selectedItem, supabase]);
+  }, [selectedItem?.id, supabase]);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -133,13 +137,21 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         </div>
         <div className="w-2/3 pl-4 overflow-y-auto">
           <div className="mt-4">
-            {selectedItem && (
+            {isLoading ? (
+              <div className="flex justify-center items-center h-full">
+                <p>Loading...</p>
+              </div>
+            ) : selectedItem ? (
               <>
                 {renderField("Admin Prompt", selectedItem.input_admin_prompt || '')}
                 {renderField("User Prompt", selectedItem.input_user_prompt || '')}
                 {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '')}
                 {renderField("User Prompt Result", selectedItem.user_prompt_result || '')}
               </>
+            ) : (
+              <div className="flex justify-center items-center h-full">
+                <p>Select a prompt to view details</p>
+              </div>
             )}
           </div>
         </div>
