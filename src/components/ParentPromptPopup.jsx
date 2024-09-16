@@ -23,6 +23,10 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   };
 
   const handleAction = (content, action) => {
+    if (action === 'append') {
+      // Remove any leading or trailing whitespace
+      content = content.trim();
+    }
     onCascade(content, action);
     setActiveIcons({ [action]: true });
     setTimeout(() => setActiveIcons({}), 1000);
