@@ -66,7 +66,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             size="icon"
             onClick={onSave}
             disabled={!hasChanged}
-            className="h-6 w-6"
+            className={`h-6 w-6 ${hasChanged ? 'text-green-500' : ''}`}
             title="Save changes"
           >
             <Save className="h-4 w-4" />
@@ -76,7 +76,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             size="icon"
             onClick={onReset}
             disabled={!hasChanged}
-            className="h-6 w-6"
+            className={`h-6 w-6 ${hasChanged ? 'text-green-500' : ''}`}
             title="Reset to initial value"
           >
             <RotateCcw className="h-4 w-4" />
