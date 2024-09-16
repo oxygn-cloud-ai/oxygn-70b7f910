@@ -43,7 +43,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 variant="ghost"
                 size="sm"
                 onClick={() => handleAction(content, 'append')}
-                className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-700' : ''}`}
+                className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-700' : 'text-green-700'}`}
               >
                 <ReplaceAll className="h-4 w-4" />
               </Button>
@@ -51,7 +51,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 variant="ghost"
                 size="sm"
                 onClick={() => handleAction(content, 'overwrite')}
-                className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-700' : ''}`}
+                className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-700' : 'text-green-700'}`}
               >
                 <Replace className="h-4 w-4" />
               </Button>
@@ -61,14 +61,14 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             variant="ghost"
             size="sm"
             onClick={() => copyToClipboard(content)}
-            className={`h-6 w-6 p-0 ${activeIcons['copy'] ? 'text-green-700' : ''}`}
+            className={`h-6 w-6 p-0 ${activeIcons['copy'] ? 'text-green-700' : 'text-green-700'}`}
           >
             <Copy className="h-4 w-4" />
           </Button>
         </div>
       </div>
       <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
-        <pre className="text-sm whitespace-pre-wrap">{content}</pre>
+        <pre className="text-sm font-sans whitespace-pre-wrap">{content}</pre>
       </div>
     </div>
   );
