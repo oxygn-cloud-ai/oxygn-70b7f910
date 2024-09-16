@@ -6,7 +6,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
+import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon, ChevronsLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion } from "@/components/ui/accordion";
 import { useSupabase } from '../hooks/useSupabase';
@@ -16,6 +16,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [expandedItems, setExpandedItems] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const supabase = useSupabase();
   const selectedItemRef = useRef(null);
 
@@ -129,23 +130,25 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[900px] h-[80vh] flex">
-        <div className="w-1/3 border-r pr-4 overflow-y-auto">
-          <DialogHeader>
-            <div className="text-lg font-semibold">Select Prompt</div>
-          </DialogHeader>
-          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-            <Accordion
-              type="multiple"
-              value={expandedItems}
-              onValueChange={setExpandedItems}
-              className="w-full min-w-max"
-            >
-              {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-            </Accordion>
+      <DialogContent className={`sm:max-w-[${isExpanded ? '900px' : '600px'}] h-[80vh] flex`}>
+        {isExpanded && (
+          <div className="w-1/3 border-r pr-4 overflow-y-auto">
+            <DialogHeader>
+              <div className="text-lg font-semibold">Select Prompt</div>
+            </DialogHeader>
+            <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
+              <Accordion
+                type="multiple"
+                value={expandedItems}
+                onValueChange={setExpandedItems}
+                className="w-full min-w-max"
+              >
+                {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+              </Accordion>
+            </div>
           </div>
-        </div>
-        <div className="w-2/3 pl-4 overflow-y-auto">
+        )}
+        <div className={`${isExpanded ? 'w-2/3' : 'w-full'} pl-4 overflow-y-auto`}>
           <div className="mt-4">
             {isLoading ? (
               <div className="flex justify-center items-center h-full">
@@ -157,6 +160,15 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 {renderField("User Prompt", selectedItem.input_user_prompt || '')}
                 {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '')}
                 {renderField("User Prompt Result", selectedItem.user_prompt_result || '')}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  <ChevronsLeft className="h-4 w-4 mr-2" />
+                  {isExpanded ? 'Collapse' : 'Expand'}
+                </Button>
               </>
             ) : (
               <div className="flex justify-center items-center h-full">
