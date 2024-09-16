@@ -9,12 +9,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from 'sonner';
-import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
   const [activeIcons, setActiveIcons] = useState({});
-  const [expandedItems, setExpandedItems] = useState([parentData?.row_id]);
   const [activeItem, setActiveItem] = useState(parentData?.row_id);
 
   const copyToClipboard = (text) => {
@@ -91,28 +89,21 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           </DialogHeader>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <Accordion
-                type="multiple"
-                value={expandedItems}
-                onValueChange={setExpandedItems}
-                className="w-full min-w-max"
-              >
-                <TreeItem
-                  item={parentTreeItem}
-                  level={1}
-                  expandedItems={expandedItems}
-                  toggleItem={() => {}}
-                  addItem={() => {}}
-                  startRenaming={() => {}}
-                  editingItem={null}
-                  setEditingItem={() => {}}
-                  finishRenaming={() => {}}
-                  cancelRenaming={() => {}}
-                  activeItem={activeItem}
-                  setActiveItem={setActiveItem}
-                  deleteItem={() => {}}
-                />
-              </Accordion>
+              <TreeItem
+                item={parentTreeItem}
+                level={1}
+                expandedItems={[parentTreeItem.id]}
+                toggleItem={() => {}}
+                addItem={() => {}}
+                startRenaming={() => {}}
+                editingItem={null}
+                setEditingItem={() => {}}
+                finishRenaming={() => {}}
+                cancelRenaming={() => {}}
+                activeItem={activeItem}
+                setActiveItem={setActiveItem}
+                deleteItem={() => {}}
+              />
             </div>
           </div>
         </div>
