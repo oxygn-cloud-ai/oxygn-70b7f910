@@ -1,7 +1,7 @@
 import React from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, Copy, Clipboard, ArrowDownToLine } from 'lucide-react';
+import { RotateCcw, Save, Copy, ClipboardPaste, ArrowDownToLine } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -59,7 +59,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             className="h-6 w-6"
             title="Paste from clipboard"
           >
-            <Clipboard className="h-4 w-4" />
+            <ClipboardPaste className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
