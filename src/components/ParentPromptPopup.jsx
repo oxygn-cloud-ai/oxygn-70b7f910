@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion } from "@/components/ui/accordion";
+import { useSupabase } from '../hooks/useSupabase';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
+  const supabase = useSupabase();
 
   useEffect(() => {
     if (isOpen && parentData) {
@@ -21,6 +23,29 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
       setExpandedItems([parentData.row_id]);
     }
   }, [isOpen, parentData]);
+
+  useEffect(() => {
+    if (selectedItem && supabase) {
+      const fetchItemData = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('prompts')
+            .select('*')
+            .eq('row_id', selectedItem.id)
+            .single();
+
+          if (error) throw error;
+          
+          setSelectedItem(prevState => ({ ...prevState, ...data }));
+        } catch (error) {
+          console.error('Error fetching item data:', error);
+          toast.error(`Failed to fetch prompt data: ${error.message}`);
+        }
+      };
+
+      fetchItemData();
+    }
+  }, [selectedItem, supabase]);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
