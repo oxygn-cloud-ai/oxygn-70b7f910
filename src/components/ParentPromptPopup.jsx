@@ -6,9 +6,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
+import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useSupabase } from '../hooks/useSupabase';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
@@ -16,6 +16,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [expandedItems, setExpandedItems] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAccordionVisible, setIsAccordionVisible] = useState(false);
   const supabase = useSupabase();
   const selectedItemRef = useRef(null);
 
@@ -53,11 +54,11 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   }, [selectedItem?.id, supabase]);
 
   useEffect(() => {
-    if (selectedItemRef.current) {
+    if (selectedItemRef.current && isAccordionVisible) {
       selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       selectedItemRef.current.focus();
     }
-  }, [selectedItem]);
+  }, [selectedItem, isAccordionVisible]);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -75,7 +76,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     onCascade(content, action);
   };
 
-  const renderField = (label, content) => (
+  const renderField = (label, content, index) => (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-2">
         <h4 className="text-sm font-semibold">{label}</h4>
@@ -104,6 +105,17 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
       <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
         <pre className="text-sm font-sans whitespace-pre-wrap">{content}</pre>
       </div>
+      {index === 3 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsAccordionVisible(!isAccordionVisible)}
+          className="mt-2"
+        >
+          <ChevronLeft className="h-4 w-4 mr-2" />
+          Expand
+        </Button>
+      )}
     </div>
   );
 
@@ -113,17 +125,20 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   const renderTreeItems = (items, level = 1) => {
     return items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={level}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        activeItem={selectedItem}
-        setActiveItem={setSelectedItem}
-        selectedItem={parentData.row_id}
-        ref={item.id === parentData.row_id ? selectedItemRef : null}
-      />
+      <AccordionItem key={item.id} value={item.id}>
+        <AccordionTrigger
+          ref={item.id === parentData.row_id ? selectedItemRef : null}
+          className={`py-1 ${item.id === selectedItem?.id ? 'bg-blue-100' : ''}`}
+        >
+          <div className="flex items-center space-x-2">
+            <FileIcon className="h-4 w-4" />
+            <span>{item.prompt_name || `New Prompt {${level}}`}</span>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent>
+          {item.children && renderTreeItems(item.children, level + 1)}
+        </AccordionContent>
+      </AccordionItem>
     ));
   };
 
@@ -134,16 +149,18 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           <DialogHeader>
             <div className="text-lg font-semibold">Select Prompt</div>
           </DialogHeader>
-          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-            <Accordion
-              type="multiple"
-              value={expandedItems}
-              onValueChange={setExpandedItems}
-              className="w-full min-w-max"
-            >
-              {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-            </Accordion>
-          </div>
+          {isAccordionVisible && (
+            <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
+              <Accordion
+                type="multiple"
+                value={expandedItems}
+                onValueChange={setExpandedItems}
+                className="w-full min-w-max"
+              >
+                {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+              </Accordion>
+            </div>
+          )}
         </div>
         <div className="w-2/3 pl-4 overflow-y-auto">
           <div className="mt-4">
@@ -153,10 +170,10 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
               </div>
             ) : selectedItem ? (
               <>
-                {renderField("Admin Prompt", selectedItem.input_admin_prompt || '')}
-                {renderField("User Prompt", selectedItem.input_user_prompt || '')}
-                {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '')}
-                {renderField("User Prompt Result", selectedItem.user_prompt_result || '')}
+                {renderField("Admin Prompt", selectedItem.input_admin_prompt || '', 0)}
+                {renderField("User Prompt", selectedItem.input_user_prompt || '', 1)}
+                {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '', 2)}
+                {renderField("User Prompt Result", selectedItem.user_prompt_result || '', 3)}
               </>
             ) : (
               <div className="flex justify-center items-center h-full">
@@ -184,53 +201,5 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
     {icon}
   </Button>
 );
-
-const TreeItem = React.forwardRef(({ item, level, expandedItems, toggleItem, activeItem, setActiveItem, selectedItem }, ref) => {
-  const isActive = activeItem && activeItem.id === item.id;
-  const isSelected = selectedItem === item.id;
-  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
-
-  return (
-    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
-      <div
-        ref={ref}
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isSelected ? 'bg-yellow-200' : ''}`}
-        style={{ paddingLeft: `${level * 16}px` }}
-        onClick={() => setActiveItem(item)}
-        tabIndex={0}
-      >
-        <div className="flex items-center space-x-1 flex-grow">
-          {item.children && item.children.length > 0 ? (
-            <ChevronRight className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <div className="w-4 h-4 flex-shrink-0" />
-          )}
-          <FileIcon className="h-4 w-4 flex-shrink-0" />
-          <span 
-            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-          >
-            {displayName}
-          </span>
-        </div>
-      </div>
-      {item.children && item.children.length > 0 && (
-        <div>
-          {item.children.map((child) => (
-            <TreeItem
-              key={child.id}
-              item={child}
-              level={level + 1}
-              expandedItems={expandedItems}
-              toggleItem={toggleItem}
-              activeItem={activeItem}
-              setActiveItem={setActiveItem}
-              selectedItem={selectedItem}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
 
 export default ParentPromptPopup;
