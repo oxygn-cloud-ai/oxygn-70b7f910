@@ -159,6 +159,7 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
+                treeData={treeData}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
