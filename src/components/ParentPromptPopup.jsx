@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,9 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
-  const [activeIcons, setActiveIcons] = React.useState({});
+  const [activeIcons, setActiveIcons] = useState({});
+  const [expandedItems, setExpandedItems] = useState([parentData?.row_id]);
+  const [activeItem, setActiveItem] = useState(parentData?.row_id);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -87,23 +89,32 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
           <DialogHeader>
             <DialogTitle>Parent Prompt</DialogTitle>
           </DialogHeader>
-          <Accordion type="single" collapsible className="w-full">
-            <TreeItem
-              item={parentTreeItem}
-              level={1}
-              expandedItems={[parentTreeItem.id]}
-              toggleItem={() => {}}
-              addItem={() => {}}
-              startRenaming={() => {}}
-              editingItem={null}
-              setEditingItem={() => {}}
-              finishRenaming={() => {}}
-              cancelRenaming={() => {}}
-              activeItem={parentTreeItem.id}
-              setActiveItem={() => {}}
-              deleteItem={() => {}}
-            />
-          </Accordion>
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
+            <div className="overflow-x-auto whitespace-nowrap w-full">
+              <Accordion
+                type="multiple"
+                value={expandedItems}
+                onValueChange={setExpandedItems}
+                className="w-full min-w-max"
+              >
+                <TreeItem
+                  item={parentTreeItem}
+                  level={1}
+                  expandedItems={expandedItems}
+                  toggleItem={() => {}}
+                  addItem={() => {}}
+                  startRenaming={() => {}}
+                  editingItem={null}
+                  setEditingItem={() => {}}
+                  finishRenaming={() => {}}
+                  cancelRenaming={() => {}}
+                  activeItem={activeItem}
+                  setActiveItem={setActiveItem}
+                  deleteItem={() => {}}
+                />
+              </Accordion>
+            </div>
+          </div>
         </div>
         <div className="w-2/3 pl-4 overflow-y-auto">
           <div className="mt-4">
