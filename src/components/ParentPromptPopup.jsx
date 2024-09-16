@@ -16,8 +16,9 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && parentData) {
       setSelectedItem(parentData);
+      setExpandedItems([parentData.row_id]);
     }
   }, [isOpen, parentData]);
 
@@ -138,7 +139,7 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
 );
 
 const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem }) => {
-  const isActive = activeItem === item.id;
+  const isActive = activeItem && activeItem.id === item.id;
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (
@@ -146,7 +147,7 @@ const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiv
       <div
         className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
-        onClick={() => setActiveItem(item.id)}
+        onClick={() => setActiveItem(item)}
       >
         <div className="flex items-center space-x-1 flex-grow">
           {item.children && item.children.length > 0 ? (
