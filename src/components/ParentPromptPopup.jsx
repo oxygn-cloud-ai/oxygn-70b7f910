@@ -55,25 +55,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
-  const handleItemSelect = async (item) => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('prompts')
-        .select('*')
-        .eq('row_id', item.id)
-        .single();
-
-      if (error) throw error;
-      
-      setSelectedItem(data);
-    } catch (error) {
-      console.error('Error fetching selected item data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`sm:max-w-[${isExpanded ? '900px' : '600px'}] h-[80vh] flex`}>
@@ -83,7 +64,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             expandedItems={expandedItems}
             setExpandedItems={setExpandedItems}
             selectedItem={selectedItem}
-            setSelectedItem={handleItemSelect}
+            setSelectedItem={setSelectedItem}
             parentData={parentData}
             selectedItemRef={selectedItemRef}
           />
