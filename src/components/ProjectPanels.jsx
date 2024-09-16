@@ -51,20 +51,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
   };
 
-  const handleCheckChange = async (fieldName, newValue) => {
-    const updatedValue = newValue ? true : false;
-    setLocalData(prevData => ({ ...prevData, [`${fieldName}_on`]: updatedValue }));
-    try {
-      const { error } = await supabase
-        .from('prompts')
-        .update({ [`${fieldName}_on`]: updatedValue })
-        .eq('row_id', projectRowId);
-      if (error) throw error;
-    } catch (error) {
-      console.error(`Error updating ${fieldName}_on:`, error);
-    }
-  };
-
   const handleGenerate = async () => {
     if (!settings || !settings.openai_api_key || !settings.openai_url) {
       console.error('OpenAI settings are not configured');
@@ -189,15 +175,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
             handleChange={handleChange}
             handleSave={handleSave}
             handleReset={handleReset}
-            handleCheckChange={handleCheckChange}
           />
         </CollapsibleContent>
       </Collapsible>
       {isParentPopupOpen && parentData && (
         <ParentPromptPopup
+          isOpen={isParentPopupOpen}
+          onClose={() => setIsParentPopupOpen(false)}
           adminPrompt={parentData.input_admin_prompt}
           userPromptResult={parentData.user_prompt_result}
-          onClose={() => setIsParentPopupOpen(false)}
         />
       )}
     </div>
