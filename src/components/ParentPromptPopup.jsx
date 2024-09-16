@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import { useSupabase } from '../hooks/useSupabase';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
@@ -18,14 +18,14 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const supabase = useSupabase();
 
   useEffect(() => {
-    if (isOpen && parentData) {
+    if (isOpen) {
       setSelectedItem(parentData);
     }
   }, [isOpen, parentData]);
 
   useEffect(() => {
     const fetchSelectedItemContent = async () => {
-      if (selectedItem && selectedItem.id && supabase) {
+      if (selectedItem && supabase) {
         try {
           const { data, error } = await supabase
             .from('prompts')
@@ -93,20 +93,21 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     </div>
   );
 
+  const toggleItem = (itemId) => {
+    setSelectedItem(itemId);
+  };
+
   const renderTreeItems = (items, level = 1) => {
     return items.map((item) => (
-      <AccordionItem key={item.id} value={item.id}>
-        <AccordionTrigger onClick={() => setSelectedItem(item)}>
-          <TreeItemContent item={item} level={level} />
-        </AccordionTrigger>
-        {item.children && item.children.length > 0 && (
-          <AccordionContent>
-            <Accordion type="multiple" className="pl-4">
-              {renderTreeItems(item.children, level + 1)}
-            </Accordion>
-          </AccordionContent>
-        )}
-      </AccordionItem>
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={level}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        activeItem={selectedItem}
+        setActiveItem={setSelectedItem}
+      />
     ));
   };
 
@@ -118,7 +119,12 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             <div className="text-lg font-semibold">Select Prompt</div>
           </DialogHeader>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-            <Accordion type="multiple" className="w-full min-w-max">
+            <Accordion
+              type="multiple"
+              value={expandedItems}
+              onValueChange={setExpandedItems}
+              className="w-full min-w-max"
+            >
               {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
             </Accordion>
           </div>
@@ -155,13 +161,46 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
   </Button>
 );
 
-const TreeItemContent = ({ item, level }) => {
+const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem }) => {
+  const isActive = activeItem && activeItem.id === item.id;
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (
-    <div className="flex items-center space-x-2">
-      <FileIcon className="h-4 w-4 flex-shrink-0" />
-      <span className="text-sm">{displayName}</span>
+    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
+      <div
+        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
+        style={{ paddingLeft: `${level * 16}px` }}
+        onClick={() => setActiveItem(item)}
+      >
+        <div className="flex items-center space-x-1 flex-grow">
+          {item.children && item.children.length > 0 ? (
+            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+          ) : (
+            <div className="w-4 h-4 flex-shrink-0" />
+          )}
+          <FileIcon className="h-4 w-4 flex-shrink-0" />
+          <span 
+            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+          >
+            {displayName}
+          </span>
+        </div>
+      </div>
+      {item.children && item.children.length > 0 && (
+        <div>
+          {item.children.map((child) => (
+            <TreeItem
+              key={child.id}
+              item={child}
+              level={level + 1}
+              expandedItems={expandedItems}
+              toggleItem={toggleItem}
+              activeItem={activeItem}
+              setActiveItem={setActiveItem}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
