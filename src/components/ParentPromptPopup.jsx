@@ -9,17 +9,41 @@ import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion } from "@/components/ui/accordion";
+import { useSupabase } from '../hooks/useSupabase';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
-  const [editingItem, setEditingItem] = useState(null);
+  const [selectedItemContent, setSelectedItemContent] = useState(null);
+  const supabase = useSupabase();
 
   useEffect(() => {
     if (isOpen) {
       setSelectedItem(parentData);
     }
   }, [isOpen, parentData]);
+
+  useEffect(() => {
+    const fetchSelectedItemContent = async () => {
+      if (selectedItem && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('prompts')
+            .select('input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
+            .eq('row_id', selectedItem.id)
+            .single();
+
+          if (error) throw error;
+          setSelectedItemContent(data);
+        } catch (error) {
+          console.error('Error fetching selected item content:', error);
+          toast.error('Failed to fetch selected item content');
+        }
+      }
+    };
+
+    fetchSelectedItemContent();
+  }, [selectedItem, supabase]);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -107,12 +131,12 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         </div>
         <div className="w-2/3 pl-4 overflow-y-auto">
           <div className="mt-4">
-            {selectedItem && (
+            {selectedItemContent && (
               <>
-                {renderField("Admin Prompt", selectedItem.input_admin_prompt || '')}
-                {renderField("User Prompt", selectedItem.input_user_prompt || '')}
-                {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '')}
-                {renderField("User Prompt Result", selectedItem.user_prompt_result || '')}
+                {renderField("Admin Prompt", selectedItemContent.input_admin_prompt || '')}
+                {renderField("User Prompt", selectedItemContent.input_user_prompt || '')}
+                {renderField("Admin Prompt Result", selectedItemContent.admin_prompt_result || '')}
+                {renderField("User Prompt Result", selectedItemContent.user_prompt_result || '')}
               </>
             )}
           </div>
@@ -138,7 +162,7 @@ const ActionButton = ({ icon, onClick, tooltip }) => (
 );
 
 const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiveItem }) => {
-  const isActive = activeItem === item.id;
+  const isActive = activeItem && activeItem.id === item.id;
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (
@@ -146,7 +170,7 @@ const TreeItem = ({ item, level, expandedItems, toggleItem, activeItem, setActiv
       <div
         className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
-        onClick={() => setActiveItem(item.id)}
+        onClick={() => setActiveItem(item)}
       >
         <div className="flex items-center space-x-1 flex-grow">
           {item.children && item.children.length > 0 ? (
