@@ -3,17 +3,18 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from 'sonner';
-import ExpandedTreeItem from './ExpandedTreeItem';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import TreeItem from './TreeItem';
+import { Accordion } from "@/components/ui/accordion";
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
+  const [expandedItems, setExpandedItems] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -69,20 +70,28 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     </div>
   );
 
-  const renderTreeItems = (items, level = 0) => {
+  const toggleItem = (itemId) => {
+    setSelectedItem(itemId);
+  };
+
+  const renderTreeItems = (items, level = 1) => {
     return items.map((item) => (
-      <AccordionItem key={item.id} value={item.id}>
-        <AccordionTrigger className="pl-4">
-          <ExpandedTreeItem item={item} level={level + 1} />
-        </AccordionTrigger>
-        <AccordionContent>
-          {item.children && item.children.length > 0 && (
-            <Accordion type="single" collapsible className="pl-4">
-              {renderTreeItems(item.children, level + 1)}
-            </Accordion>
-          )}
-        </AccordionContent>
-      </AccordionItem>
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={level}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        addItem={() => {}}
+        startRenaming={() => {}}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={() => {}}
+        cancelRenaming={() => {}}
+        activeItem={selectedItem}
+        setActiveItem={setSelectedItem}
+        deleteItem={() => {}}
+      />
     ));
   };
 
@@ -91,11 +100,16 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
       <DialogContent className="sm:max-w-[900px] h-[80vh] flex">
         <div className="w-1/3 border-r pr-4 overflow-y-auto">
           <DialogHeader>
-            <DialogTitle></DialogTitle>
+            <div className="text-lg font-semibold">Select Prompt</div>
           </DialogHeader>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-            <Accordion type="single" collapsible className="w-full">
-              {renderTreeItems(treeData)}
+            <Accordion
+              type="multiple"
+              value={expandedItems}
+              onValueChange={setExpandedItems}
+              className="w-full min-w-max"
+            >
+              {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
             </Accordion>
           </div>
         </div>
