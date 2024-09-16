@@ -169,7 +169,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         <Button
           variant="outline"
           onClick={handleGenerate}
-          className="self-start mb-2"
+          className={`self-start mb-2 ${isGenerating ? 'text-green-500' : ''}`}
           disabled={isGenerating}
         >
           {isGenerating ? `Generating... (${timer}s)` : 'Generate'}

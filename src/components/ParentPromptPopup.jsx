@@ -61,7 +61,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             variant="ghost"
             size="sm"
             onClick={() => copyToClipboard(content)}
-            className="h-6 w-6 p-0"
+            className={`h-6 w-6 p-0 ${activeIcons['copy'] ? 'text-green-500' : ''}`}
           >
             <Copy className="h-4 w-4" />
           </Button>
