@@ -1,11 +1,11 @@
 import React from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, Copy, Clipboard } from 'lucide-react';
+import { RotateCcw, Save, Copy, Clipboard, ArrowDownToLine } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, initialValue }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue }) => {
   const hasChanged = value !== initialValue;
 
   const handleCopy = async () => {
@@ -34,6 +34,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, initialValue }) 
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{label}</Label>
         <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCascade}
+            className="h-6 w-6"
+            title="Cascade"
+          >
+            <ArrowDownToLine className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

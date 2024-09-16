@@ -108,6 +108,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
+  const handleCascade = (fieldName) => {
+    // This function will be implemented later to handle the cascade action
+    console.log(`Cascade action for ${fieldName}`);
+    toast.info(`Cascade action for ${fieldName} is not implemented yet`);
+  };
+
   const renderPromptFields = () => {
     const fields = [
       { name: 'admin_prompt_result', label: 'Admin Result' },
@@ -125,6 +131,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         onChange={(value) => handleChange(field.name, value)}
         onReset={() => handleReset(field.name)}
         onSave={() => handleSave(field.name)}
+        onCascade={() => handleCascade(field.name)}
         initialValue={selectedItemData[field.name] || ''}
       />
     ));
