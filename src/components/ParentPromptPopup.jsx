@@ -1,20 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon, ChevronsLeft } from 'lucide-react';
+import { Copy, Replace, ReplaceAll, ChevronRight, FileIcon, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion } from "@/components/ui/accordion";
 import { useSupabase } from '../hooks/useSupabase';
+import PopupContent from './PopupContent';
+import TreeView from './TreeView';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
-  const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const supabase = useSupabase();
@@ -60,189 +56,40 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     }
   }, [selectedItem]);
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success('Copied to clipboard');
-    }).catch((err) => {
-      console.error('Failed to copy text: ', err);
-      toast.error('Failed to copy text');
-    });
-  };
-
-  const handleAction = (content, action) => {
-    if (action === 'append') {
-      content = content.trim();
-    }
-    onCascade(content, action);
-  };
-
-  const renderField = (label, content) => (
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="text-sm font-semibold">{label}</h4>
-        <div className="flex space-x-2">
-          {cascadeField && (
-            <>
-              <ActionButton
-                icon={<ReplaceAll className="h-4 w-4" />}
-                onClick={() => handleAction(content, 'append')}
-                tooltip="Append"
-              />
-              <ActionButton
-                icon={<Replace className="h-4 w-4" />}
-                onClick={() => handleAction(content, 'overwrite')}
-                tooltip="Overwrite"
-              />
-            </>
-          )}
-          <ActionButton
-            icon={<Copy className="h-4 w-4" />}
-            onClick={() => copyToClipboard(content)}
-            tooltip="Copy"
-          />
-        </div>
-      </div>
-      <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
-        <pre className="text-sm font-sans whitespace-pre-wrap">{content}</pre>
-      </div>
-    </div>
-  );
-
-  const toggleItem = (itemId) => {
-    setSelectedItem(prevItem => prevItem && prevItem.id === itemId ? null : { id: itemId });
-  };
-
-  const renderTreeItems = (items, level = 1) => {
-    return items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={level}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        activeItem={selectedItem}
-        setActiveItem={setSelectedItem}
-        selectedItem={parentData.row_id}
-        ref={item.id === parentData.row_id ? selectedItemRef : null}
-      />
-    ));
-  };
+  const toggleExpand = () => setIsExpanded(!isExpanded);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`sm:max-w-[${isExpanded ? '900px' : '600px'}] h-[80vh] flex`}>
         {isExpanded && (
-          <div className="w-1/3 border-r pr-4 overflow-y-auto">
-            <DialogHeader>
-              <div className="text-lg font-semibold">Select Prompt</div>
-            </DialogHeader>
-            <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-              <Accordion
-                type="multiple"
-                value={expandedItems}
-                onValueChange={setExpandedItems}
-                className="w-full min-w-max"
-              >
-                {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-              </Accordion>
-            </div>
-          </div>
+          <TreeView
+            treeData={treeData}
+            expandedItems={expandedItems}
+            setExpandedItems={setExpandedItems}
+            selectedItem={selectedItem}
+            setSelectedItem={setSelectedItem}
+            parentData={parentData}
+            selectedItemRef={selectedItemRef}
+          />
         )}
-        <div className={`${isExpanded ? 'w-2/3' : 'w-full'} pl-4 overflow-y-auto`}>
-          <div className="mt-4">
-            {isLoading ? (
-              <div className="flex justify-center items-center h-full">
-                <p>Loading...</p>
-              </div>
-            ) : selectedItem ? (
-              <>
-                {renderField("Admin Prompt", selectedItem.input_admin_prompt || '')}
-                {renderField("User Prompt", selectedItem.input_user_prompt || '')}
-                {renderField("Admin Prompt Result", selectedItem.admin_prompt_result || '')}
-                {renderField("User Prompt Result", selectedItem.user_prompt_result || '')}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setIsExpanded(!isExpanded)}
-                >
-                  <ChevronsLeft className="h-4 w-4 mr-2" />
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                </Button>
-              </>
-            ) : (
-              <div className="flex justify-center items-center h-full">
-                <p>Select a prompt to view details</p>
-              </div>
-            )}
-          </div>
-        </div>
+        <PopupContent
+          isExpanded={isExpanded}
+          isLoading={isLoading}
+          selectedItem={selectedItem}
+          cascadeField={cascadeField}
+          onCascade={onCascade}
+        />
+        <Button
+          variant="outline"
+          size="icon"
+          className="absolute bottom-4 left-4"
+          onClick={toggleExpand}
+        >
+          {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+        </Button>
       </DialogContent>
-      <DialogFooter>
-        <Button onClick={onClose}>Close</Button>
-      </DialogFooter>
     </Dialog>
   );
 };
-
-const ActionButton = ({ icon, onClick, tooltip }) => (
-  <Button
-    variant="ghost"
-    size="sm"
-    className="h-6 w-6 p-0"
-    onClick={onClick}
-    title={tooltip}
-  >
-    {icon}
-  </Button>
-);
-
-const TreeItem = React.forwardRef(({ item, level, expandedItems, toggleItem, activeItem, setActiveItem, selectedItem }, ref) => {
-  const isActive = activeItem && activeItem.id === item.id;
-  const isSelected = selectedItem === item.id;
-  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
-
-  return (
-    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
-      <div
-        ref={ref}
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isSelected ? 'bg-yellow-200' : ''}`}
-        style={{ paddingLeft: `${level * 16}px` }}
-        onClick={() => setActiveItem(item)}
-        tabIndex={0}
-      >
-        <div className="flex items-center space-x-1 flex-grow">
-          {item.children && item.children.length > 0 ? (
-            <ChevronRight className="h-4 w-4 flex-shrink-0" />
-          ) : (
-            <div className="w-4 h-4 flex-shrink-0" />
-          )}
-          <FileIcon className="h-4 w-4 flex-shrink-0" />
-          <span 
-            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-          >
-            {displayName}
-          </span>
-        </div>
-      </div>
-      {item.children && item.children.length > 0 && (
-        <div>
-          {item.children.map((child) => (
-            <TreeItem
-              key={child.id}
-              item={child}
-              level={level + 1}
-              expandedItems={expandedItems}
-              toggleItem={toggleItem}
-              activeItem={activeItem}
-              setActiveItem={setActiveItem}
-              selectedItem={selectedItem}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-});
 
 export default ParentPromptPopup;
