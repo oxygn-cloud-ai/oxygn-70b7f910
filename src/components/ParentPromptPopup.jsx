@@ -45,7 +45,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 onClick={() => handleAction(content, 'append')}
                 className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-500' : ''}`}
               >
-                <Replace className="h-4 w-4" />
+                <ReplaceAll className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -53,7 +53,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 onClick={() => handleAction(content, 'overwrite')}
                 className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-500' : ''}`}
               >
-                <ReplaceAll className="h-4 w-4" />
+                <Replace className="h-4 w-4" />
               </Button>
             </>
           )}
