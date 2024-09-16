@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
+import useTreeData from '../hooks/useTreeData';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -23,6 +24,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
   const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
   const [parentData, setParentData] = useState(null);
   const [cascadeField, setCascadeField] = useState(null);
+  const { treeData } = useTreeData(supabase);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -95,7 +97,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
       try {
         const { data, error } = await supabase
           .from('prompts')
-          .select('*')
+          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
           .eq('row_id', selectedItemData.parent_row_id)
           .single();
 
