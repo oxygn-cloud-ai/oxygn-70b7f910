@@ -7,7 +7,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, ArrowDownToLine, Plus } from 'lucide-react';
+import { Copy, ArrowDownToLine, ReplaceAll } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
@@ -45,7 +45,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 onClick={() => handleAction(content, 'append')}
                 className={`h-6 w-6 p-0 ${activeIcons['append'] ? 'text-green-500' : ''}`}
               >
-                <Plus className="h-4 w-4" />
+                <ArrowDownToLine className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -53,7 +53,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 onClick={() => handleAction(content, 'overwrite')}
                 className={`h-6 w-6 p-0 ${activeIcons['overwrite'] ? 'text-green-500' : ''}`}
               >
-                <ArrowDownToLine className="h-4 w-4" />
+                <ReplaceAll className="h-4 w-4" />
               </Button>
             </>
           )}
