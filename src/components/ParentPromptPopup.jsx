@@ -63,34 +63,29 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const parentTreeItem = {
     id: parentData?.row_id,
     prompt_name: parentData?.prompt_name,
-    children: []
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[900px] h-[80vh] flex">
-        <div className="w-1/3 border-r pr-4 overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Parent Prompt</DialogTitle>
-          </DialogHeader>
-          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-            <div className="overflow-x-auto whitespace-nowrap w-full">
-              <ExpandedTreeItem item={parentTreeItem} level={1} />
-            </div>
+      <DialogContent className="sm:max-w-[900px] h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Parent Prompt</DialogTitle>
+        </DialogHeader>
+        <div className="flex-grow overflow-y-auto">
+          <div className="mb-4">
+            <ExpandedTreeItem item={parentTreeItem} level={1} />
           </div>
-        </div>
-        <div className="w-2/3 pl-4 overflow-y-auto">
-          <div className="mt-4">
+          <div className="space-y-4">
             {renderField("Admin Prompt", parentData?.input_admin_prompt || '')}
             {renderField("User Prompt", parentData?.input_user_prompt || '')}
             {renderField("Admin Prompt Result", parentData?.admin_prompt_result || '')}
             {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
           </div>
         </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Close</Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogFooter>
-        <Button onClick={onClose}>Close</Button>
-      </DialogFooter>
     </Dialog>
   );
 };
