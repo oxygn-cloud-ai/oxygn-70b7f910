@@ -9,6 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from 'sonner';
+import { Accordion } from "@/components/ui/accordion";
+import TreeItem from './TreeItem';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
   const [activeIcons, setActiveIcons] = useState({});
@@ -24,7 +26,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   const handleAction = (content, action) => {
     if (action === 'append') {
-      // Remove any leading or trailing whitespace
       content = content.trim();
     }
     onCascade(content, action);
@@ -73,22 +74,49 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     </div>
   );
 
+  const parentTreeItem = {
+    id: parentData?.row_id,
+    prompt_name: parentData?.prompt_name,
+    children: []
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Parent Prompt: {parentData?.prompt_name || 'Unknown'}</DialogTitle>
-        </DialogHeader>
-        <div className="mt-4">
-          {renderField("Admin Prompt", parentData?.input_admin_prompt || '')}
-          {renderField("User Prompt", parentData?.input_user_prompt || '')}
-          {renderField("Admin Prompt Result", parentData?.admin_prompt_result || '')}
-          {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
+      <DialogContent className="sm:max-w-[900px] h-[80vh] flex">
+        <div className="w-1/3 border-r pr-4 overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Parent Prompt</DialogTitle>
+          </DialogHeader>
+          <Accordion type="single" collapsible className="w-full">
+            <TreeItem
+              item={parentTreeItem}
+              level={1}
+              expandedItems={[parentTreeItem.id]}
+              toggleItem={() => {}}
+              addItem={() => {}}
+              startRenaming={() => {}}
+              editingItem={null}
+              setEditingItem={() => {}}
+              finishRenaming={() => {}}
+              cancelRenaming={() => {}}
+              activeItem={parentTreeItem.id}
+              setActiveItem={() => {}}
+              deleteItem={() => {}}
+            />
+          </Accordion>
         </div>
-        <DialogFooter>
-          <Button onClick={onClose}>Close</Button>
-        </DialogFooter>
+        <div className="w-2/3 pl-4 overflow-y-auto">
+          <div className="mt-4">
+            {renderField("Admin Prompt", parentData?.input_admin_prompt || '')}
+            {renderField("User Prompt", parentData?.input_user_prompt || '')}
+            {renderField("Admin Prompt Result", parentData?.admin_prompt_result || '')}
+            {renderField("User Prompt Result", parentData?.user_prompt_result || '')}
+          </div>
+        </div>
       </DialogContent>
+      <DialogFooter>
+        <Button onClick={onClose}>Close</Button>
+      </DialogFooter>
     </Dialog>
   );
 };
