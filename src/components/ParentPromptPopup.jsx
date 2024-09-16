@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade }) => {
-  const [activeIcons, setActiveIcons] = useState({});
+  const [activeIcons, setActiveIcons] = React.useState({});
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
