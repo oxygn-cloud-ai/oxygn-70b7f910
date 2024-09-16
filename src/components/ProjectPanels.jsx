@@ -8,7 +8,7 @@ import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, ArrowDownToLine } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
@@ -90,25 +90,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
   };
 
-  const handleParentButtonHover = async () => {
-    if (selectedItemData.parent_row_id) {
-      try {
-        const { data, error } = await supabase
-          .from('prompts')
-          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
-          .eq('row_id', selectedItemData.parent_row_id)
-          .single();
-
-        if (error) throw error;
-        setParentData(data);
-        setIsParentPopupOpen(true);
-      } catch (error) {
-        console.error('Error fetching parent data:', error);
-        toast.error('Failed to fetch parent data');
-      }
-    }
-  };
-
   const handleCascade = async (fieldName) => {
     if (selectedItemData.parent_row_id) {
       try {
@@ -173,15 +154,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           disabled={isGenerating}
         >
           {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
-        </Button>
-        <Button
-          variant="outline"
-          className="self-start mb-2 text-green-700"
-          disabled={!selectedItemData.parent_row_id}
-          onMouseEnter={handleParentButtonHover}
-          onMouseLeave={() => setIsParentPopupOpen(false)}
-        >
-          Parent
         </Button>
       </div>
       <div className="space-y-6">
