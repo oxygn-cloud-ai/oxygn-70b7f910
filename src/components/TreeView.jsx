@@ -16,8 +16,11 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
         level={level}
         expandedItems={expandedItems}
         toggleItem={toggleItem}
-        activeItem={selectedItem}
-        setActiveItem={setSelectedItem}
+        activeItem={selectedItem?.id}
+        setActiveItem={(itemId) => {
+          const selectedTreeItem = items.find(i => i.id === itemId);
+          setSelectedItem(selectedTreeItem);
+        }}
         selectedItem={parentData.row_id}
         ref={item.id === parentData.row_id ? selectedItemRef : null}
       />

@@ -42,6 +42,13 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     }
   };
 
+  const handleItemSelect = async (item) => {
+    setSelectedItem(null);
+    setIsLoading(true);
+    await fetchItemData(item.id);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
     if (selectedItem?.id) {
       fetchItemData(selectedItem.id);
@@ -56,11 +63,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   }, [selectedItem]);
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
-
-  const handleItemSelect = (item) => {
-    setSelectedItem(item);
-    fetchItemData(item.id);
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
