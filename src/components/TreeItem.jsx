@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, ChevronsDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -83,6 +83,19 @@ const TreeItem = ({
         onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
+          {item.children && item.children.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-0 h-4 w-4"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Logic to expand all descendants would go here
+              }}
+            >
+              <ChevronsDown className="h-4 w-4 flex-shrink-0" />
+            </Button>
+          )}
           {item.children && item.children.length > 0 ? (
             <Button
               variant="ghost"
