@@ -1,7 +1,7 @@
 import React from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, ArrowDownWideNarrow } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, ArrowDownWideNarrow, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -29,10 +29,22 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   };
 
+  const renderLabel = () => {
+    if (label === 'Input Admin Prompt' || label === 'Input User Prompt') {
+      return (
+        <div className="flex items-center">
+          <span>{label}</span>
+          <BrainCircuit className="ml-2 h-4 w-4 text-green-700" />
+        </div>
+      );
+    }
+    return label;
+  };
+
   return (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-1">
-        <Label htmlFor={label}>{label}</Label>
+        <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
           <Button
             variant="ghost"
