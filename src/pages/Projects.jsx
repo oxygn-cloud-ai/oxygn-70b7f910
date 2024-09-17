@@ -133,6 +133,7 @@ const Projects = () => {
           <ProjectTree
             treeData={treeData}
             expandedItems={expandedItems}
+            setExpandedItems={setExpandedItems}
             toggleItem={toggleItem}
             handleAddItem={handleAddItem}
             updateItemName={updateItemName}
