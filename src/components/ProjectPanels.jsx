@@ -129,6 +129,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         onSave={() => handleSave(field.name)}
         onCascade={() => handleCascade(field.name)}
         initialValue={selectedItemData[field.name] || ''}
+        onGenerate={handleGenerate}
       />
     ));
   };

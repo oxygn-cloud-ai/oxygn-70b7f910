@@ -4,9 +4,12 @@ import { Label } from "@/components/ui/label";
 import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, ArrowDownWideNarrow, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
+import { useTimer } from '../hooks/useTimer';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate }) => {
   const hasChanged = value !== initialValue;
+  const [isGenerating, setIsGenerating] = React.useState(false);
+  const formattedTime = useTimer(isGenerating);
 
   const handleCopy = async () => {
     try {
@@ -29,12 +32,32 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   };
 
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    try {
+      await onGenerate();
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const renderLabel = () => {
     if (label === 'Input Admin Prompt' || label === 'Input User Prompt') {
       return (
         <div className="flex items-center">
           <span>{label}</span>
-          <BrainCircuit className="ml-2 h-4 w-4 text-green-700" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleGenerate}
+            className="ml-2 p-0"
+            title="Generate"
+          >
+            <BrainCircuit className="h-4 w-4 text-green-700" />
+          </Button>
+          {isGenerating && (
+            <span className="ml-2 text-xs text-green-700">{formattedTime}</span>
+          )}
         </div>
       );
     }
