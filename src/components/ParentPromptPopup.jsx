@@ -5,7 +5,6 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
-import { Rnd } from 'react-rnd';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -14,8 +13,6 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [isExpanded, setIsExpanded] = useState(false);
   const supabase = useSupabase();
   const selectedItemRef = useRef(null);
-  const [popupSize, setPopupSize] = useState({ width: 600, height: 400 });
-  const [popupPosition, setPopupPosition] = useState({ x: 100, y: 100 }); // Set initial position
 
   useEffect(() => {
     if (isOpen && parentData) {
@@ -69,55 +66,36 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <Rnd
-        size={{ width: popupSize.width, height: popupSize.height }}
-        position={{ x: popupPosition.x, y: popupPosition.y }}
-        onDragStop={(e, d) => setPopupPosition({ x: d.x, y: d.y })}  // Handle movement
-        onResizeStop={(e, direction, ref, delta, position) => {
-          setPopupSize({
-            width: ref.style.width,
-            height: ref.style.height,
-          });
-          setPopupPosition({
-            x: position.x,
-            y: position.y,
-          });
-        }}
-        minWidth={400}
-        minHeight={300}
-        bounds="window"
-      >
-        <DialogContent className="p-0 overflow-hidden" style={{ width: '100%', height: '100%', position: 'relative' }}>
-          <div className="flex h-full">
-            {isExpanded && (
-              <TreeView
-                treeData={treeData}
-                expandedItems={expandedItems}
-                setExpandedItems={setExpandedItems}
-                selectedItem={selectedItem}
-                setSelectedItem={handleItemSelect}
-                parentData={parentData}
-                selectedItemRef={selectedItemRef}
-              />
-            )}
-            <PopupContent
-              isExpanded={isExpanded}
-              isLoading={isLoading}
+      <DialogContent className="p-0 overflow-hidden" style={{ width: '800px', height: '600px', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+        <div className="flex h-full">
+          {isExpanded && (
+            <TreeView
+              treeData={treeData}
+              expandedItems={expandedItems}
+              setExpandedItems={setExpandedItems}
               selectedItem={selectedItem}
-              cascadeField={cascadeField}
-              onCascade={onCascade}
+              setSelectedItem={handleItemSelect}
+              parentData={parentData}
+              selectedItemRef={selectedItemRef}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute bottom-4 left-4"
-              onClick={toggleExpand}
-            >
-              {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-            </Button>
-          </div>
-        </DialogContent>
-      </Rnd>
+          )}
+          <PopupContent
+            isExpanded={isExpanded}
+            isLoading={isLoading}
+            selectedItem={selectedItem}
+            cascadeField={cascadeField}
+            onCascade={onCascade}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-4 left-4"
+            onClick={toggleExpand}
+          >
+            {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+          </Button>
+        </div>
+      </DialogContent>
     </Dialog>
   );
 };
