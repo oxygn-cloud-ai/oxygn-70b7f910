@@ -28,13 +28,17 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty),
       };
 
+      // Log API call details before making the request
       console.log('OpenAI API Call Details:');
       console.log('URL:', apiUrl);
-      console.log('Headers:', {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.openai_api_key.substring(0, 5)}...`
-      });
-      console.log('Request Body:', JSON.stringify(requestBody, null, 2));
+      console.log('Model:', requestBody.model);
+      console.log('Temperature:', requestBody.temperature);
+      console.log('Max Tokens:', requestBody.max_tokens);
+      console.log('Top P:', requestBody.top_p);
+      console.log('Frequency Penalty:', requestBody.frequency_penalty);
+      console.log('Presence Penalty:', requestBody.presence_penalty);
+      console.log('System Message:', systemMessage);
+      console.log('User Message:', userMessage);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -49,7 +53,6 @@ export const useOpenAICall = () => {
         const errorData = await response.json();
         console.error('OpenAI API Error:', errorData);
 
-        // Check if the error is due to an invalid model
         if (errorData.error && errorData.error.code === 'model_not_found') {
           console.log('Model not found, attempting with fallback model gpt-3.5-turbo');
           requestBody.model = 'gpt-3.5-turbo';
@@ -76,7 +79,12 @@ export const useOpenAICall = () => {
       }
 
       const data = await response.json();
-      console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
+
+      // Log API response details
+      console.log('OpenAI API Response:');
+      console.log('Response Status:', response.status);
+      console.log('Response Data:', JSON.stringify(data, null, 2));
+      console.log('Generated Content:', data.choices[0].message.content);
 
       return data.choices[0].message.content;
     } catch (error) {
