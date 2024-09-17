@@ -36,6 +36,17 @@ export const useOpenAICall = () => {
       });
       console.log('Request Body:', JSON.stringify(requestBody, null, 2));
 
+      // Log settings and values in human-readable form
+      console.log('OpenAI API Call Settings:');
+      console.log(`- Model: ${requestBody.model}`);
+      console.log(`- Temperature: ${requestBody.temperature}`);
+      console.log(`- Max Tokens: ${requestBody.max_tokens}`);
+      console.log(`- Top P: ${requestBody.top_p}`);
+      console.log(`- Frequency Penalty: ${requestBody.frequency_penalty}`);
+      console.log(`- Presence Penalty: ${requestBody.presence_penalty}`);
+      console.log(`- System Message: ${systemMessage}`);
+      console.log(`- User Message: ${userMessage}`);
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
