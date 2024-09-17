@@ -73,6 +73,11 @@ const TreeItem = ({
     toggleItem(item.id);
   };
 
+  const handleExpandAll = (e) => {
+    e.stopPropagation();
+    toggleItem(item.id, true);
+  };
+
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
@@ -88,10 +93,7 @@ const TreeItem = ({
               variant="ghost"
               size="sm"
               className="p-0 h-4 w-4"
-              onClick={(e) => {
-                e.stopPropagation();
-                // Logic to expand all descendants would go here
-              }}
+              onClick={handleExpandAll}
             >
               <ChevronsDown className="h-4 w-4 flex-shrink-0" />
             </Button>
