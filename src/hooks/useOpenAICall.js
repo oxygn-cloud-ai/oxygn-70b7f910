@@ -10,7 +10,7 @@ export const useOpenAICall = () => {
     setIsLoading(true);
     try {
       if (!settings || !settings.openai_url || !settings.openai_api_key) {
-        throw new Error('OpenAI settings are not configured');
+        throw new Error('OpenAI settings are not configured. Please check your settings.');
       }
 
       const apiUrl = settings.openai_url.replace(/\/$/, '');
