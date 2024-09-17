@@ -98,7 +98,7 @@ const TreeItem = ({
               <ChevronsDown className="h-4 w-4 flex-shrink-0" />
             </Button>
           )}
-          {item.children && item.children.length > 0 ? (
+          {item.children && item.children.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -111,8 +111,6 @@ const TreeItem = ({
                 <ChevronRight className="h-4 w-4 flex-shrink-0" />
               )}
             </Button>
-          ) : (
-            <div className="w-4 h-4 flex-shrink-0" />
           )}
           <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
