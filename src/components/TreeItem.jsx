@@ -29,7 +29,7 @@ const TreeItem = ({
   }, [editingItem, item.id]);
 
   const renderActionButtons = () => (
-    <div className="flex items-center space-x-1 ml-2">
+    <div className="flex items-center space-x-1 ml-2" onClick={(e) => e.stopPropagation()}>
       <ActionButton 
         icon={<PlusIcon className="h-3 w-3" />} 
         onClick={() => addItem && addItem(item.id)} 
@@ -68,73 +68,55 @@ const TreeItem = ({
     startRenaming(item.id, item.prompt_name);
   };
 
-  const handleToggle = (e) => {
-    e.stopPropagation();
-    toggleItem(item.id);
-  };
-
   const handleExpandAll = (e) => {
     e.stopPropagation();
     toggleItem(item.id, true);
   };
 
   return (
-    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
-      <div
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
-        style={{ paddingLeft: `${level * 16}px` }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onClick={() => setActiveItem(item.id)}
-      >
-        <div className="flex items-center space-x-1 flex-grow">
-          <div style={{ width: '48px', display: 'flex', justifyContent: 'flex-end' }}>
-            {item.children && item.children.length > 0 && !isExpanded && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-0 h-4 w-4"
-                onClick={handleExpandAll}
-              >
-                <ChevronsDown className="h-4 w-4 flex-shrink-0" />
-              </Button>
-            )}
-            {item.children && item.children.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-0 h-4 w-4"
-                onClick={handleToggle}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </Button>
-            )}
-          </div>
-          <FileIcon className="h-4 w-4 flex-shrink-0" />
-          {editingItem && editingItem.id === item.id ? (
-            <Input
-              ref={inputRef}
-              value={editingItem.name}
-              onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-              onKeyDown={handleKeyDown}
-              onBlur={handleBlur}
-              onClick={(e) => e.stopPropagation()}
-              className="h-6 py-1 px-1 text-sm"
-            />
-          ) : (
-            <span 
-              className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-              onDoubleClick={handleDoubleClick}
+    <div
+      className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
+      style={{ paddingLeft: `${level * 16}px` }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        setActiveItem(item.id);
+      }}
+    >
+      <div className="flex items-center space-x-1 flex-grow">
+        <div style={{ width: '48px', display: 'flex', justifyContent: 'flex-end' }}>
+          {item.children && item.children.length > 0 && !isExpanded && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-0 h-4 w-4"
+              onClick={handleExpandAll}
             >
-              {displayName}
-            </span>
+              <ChevronsDown className="h-4 w-4 flex-shrink-0" />
+            </Button>
           )}
-          {isHovered && renderActionButtons()}
         </div>
+        <FileIcon className="h-4 w-4 flex-shrink-0" />
+        {editingItem && editingItem.id === item.id ? (
+          <Input
+            ref={inputRef}
+            value={editingItem.name}
+            onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+            onKeyDown={handleKeyDown}
+            onBlur={handleBlur}
+            onClick={(e) => e.stopPropagation()}
+            className="h-6 py-1 px-1 text-sm"
+          />
+        ) : (
+          <span 
+            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+            onDoubleClick={handleDoubleClick}
+          >
+            {displayName}
+          </span>
+        )}
+        {isHovered && renderActionButtons()}
       </div>
     </div>
   );

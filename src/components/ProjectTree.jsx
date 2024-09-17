@@ -1,5 +1,5 @@
 import React from 'react';
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from 'lucide-react';
@@ -19,30 +19,47 @@ const ProjectTree = ({
   isLoading,
   refreshTreeData
 }) => {
-  const renderTreeItems = (items) => {
+  const renderTreeItems = (items, level = 0) => {
     return items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={1}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        addItem={handleAddItem}
-        startRenaming={(id, name) => setEditingItem({ id, name })}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={async () => {
-          if (editingItem) {
-            await updateItemName(editingItem.id, editingItem.name);
-            setEditingItem(null);
-            await refreshTreeData();
-          }
-        }}
-        cancelRenaming={() => setEditingItem(null)}
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        deleteItem={handleDeleteItem}
-      />
+      <AccordionItem key={item.id} value={item.id}>
+        <AccordionTrigger onClick={(e) => {
+          e.stopPropagation();
+          toggleItem(item.id);
+        }}>
+          <TreeItem
+            item={item}
+            level={level + 1}
+            expandedItems={expandedItems}
+            toggleItem={toggleItem}
+            addItem={handleAddItem}
+            startRenaming={(id, name) => setEditingItem({ id, name })}
+            editingItem={editingItem}
+            setEditingItem={setEditingItem}
+            finishRenaming={async () => {
+              if (editingItem) {
+                await updateItemName(editingItem.id, editingItem.name);
+                setEditingItem(null);
+                await refreshTreeData();
+              }
+            }}
+            cancelRenaming={() => setEditingItem(null)}
+            activeItem={activeItem}
+            setActiveItem={setActiveItem}
+            deleteItem={handleDeleteItem}
+          />
+        </AccordionTrigger>
+        {item.children && item.children.length > 0 && (
+          <AccordionContent>
+            <Accordion
+              type="multiple"
+              value={expandedItems}
+              onValueChange={setExpandedItems}
+            >
+              {renderTreeItems(item.children, level + 1)}
+            </Accordion>
+          </AccordionContent>
+        )}
+      </AccordionItem>
     ));
   };
 
