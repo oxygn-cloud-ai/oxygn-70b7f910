@@ -88,30 +88,32 @@ const TreeItem = ({
         onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
-          {item.children && item.children.length > 0 && !isExpanded && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-0 h-4 w-4"
-              onClick={handleExpandAll}
-            >
-              <ChevronsDown className="h-4 w-4 flex-shrink-0" />
-            </Button>
-          )}
-          {item.children && item.children.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-0 h-4 w-4"
-              onClick={handleToggle}
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 flex-shrink-0" />
-              ) : (
-                <ChevronRight className="h-4 w-4 flex-shrink-0" />
-              )}
-            </Button>
-          )}
+          <div style={{ width: '48px', display: 'flex', justifyContent: 'flex-end' }}>
+            {item.children && item.children.length > 0 && !isExpanded && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-0 h-4 w-4"
+                onClick={handleExpandAll}
+              >
+                <ChevronsDown className="h-4 w-4 flex-shrink-0" />
+              </Button>
+            )}
+            {item.children && item.children.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="p-0 h-4 w-4"
+                onClick={handleToggle}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                )}
+              </Button>
+            )}
+          </div>
           <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
             <Input
@@ -134,28 +136,6 @@ const TreeItem = ({
           {isHovered && renderActionButtons()}
         </div>
       </div>
-      {isExpanded && item.children && item.children.length > 0 && (
-        <div>
-          {item.children.map((child) => (
-            <TreeItem
-              key={child.id}
-              item={child}
-              level={level + 1}
-              expandedItems={expandedItems}
-              toggleItem={toggleItem}
-              addItem={addItem}
-              startRenaming={startRenaming}
-              editingItem={editingItem}
-              setEditingItem={setEditingItem}
-              finishRenaming={finishRenaming}
-              cancelRenaming={cancelRenaming}
-              activeItem={activeItem}
-              setActiveItem={setActiveItem}
-              deleteItem={deleteItem}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 };
