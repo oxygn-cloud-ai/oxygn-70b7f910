@@ -7,7 +7,6 @@ import { PlusCircle } from 'lucide-react';
 const ProjectTree = ({
   treeData,
   expandedItems,
-  setExpandedItems,
   toggleItem,
   handleAddItem,
   updateItemName,
