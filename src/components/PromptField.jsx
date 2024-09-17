@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, ArrowDownWideNarrow, BrainCircuit } from 'lucide-react';
@@ -7,6 +7,21 @@ import { toast } from 'sonner';
 
 const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
   const hasChanged = value !== initialValue;
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
+      adjustHeight();
+    }
+  }, [value, label]);
+
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -109,9 +124,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       <Textarea
         id={label}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (label === 'Admin Result' || label === 'User Result') {
+            e.target.style.height = 'auto';
+          }
+        }}
         className="w-full mt-1"
         rows={4}
+        ref={textareaRef}
       />
     </div>
   );
