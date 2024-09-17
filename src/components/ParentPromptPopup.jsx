@@ -80,33 +80,35 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         minHeight={300}
         bounds="window"
       >
-        <DialogContent className={`sm:max-w-[${isExpanded ? '900px' : '600px'}] h-full flex`} style={{ width: '100%', height: '100%' }}>
-          {isExpanded && (
-            <TreeView
-              treeData={treeData}
-              expandedItems={expandedItems}
-              setExpandedItems={setExpandedItems}
+        <DialogContent className="p-0 overflow-hidden" style={{ width: '100%', height: '100%' }}>
+          <div className="flex h-full">
+            {isExpanded && (
+              <TreeView
+                treeData={treeData}
+                expandedItems={expandedItems}
+                setExpandedItems={setExpandedItems}
+                selectedItem={selectedItem}
+                setSelectedItem={handleItemSelect}
+                parentData={parentData}
+                selectedItemRef={selectedItemRef}
+              />
+            )}
+            <PopupContent
+              isExpanded={isExpanded}
+              isLoading={isLoading}
               selectedItem={selectedItem}
-              setSelectedItem={handleItemSelect}
-              parentData={parentData}
-              selectedItemRef={selectedItemRef}
+              cascadeField={cascadeField}
+              onCascade={onCascade}
             />
-          )}
-          <PopupContent
-            isExpanded={isExpanded}
-            isLoading={isLoading}
-            selectedItem={selectedItem}
-            cascadeField={cascadeField}
-            onCascade={onCascade}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute bottom-4 left-4"
-            onClick={toggleExpand}
-          >
-            {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute bottom-4 left-4"
+              onClick={toggleExpand}
+            >
+              {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+            </Button>
+          </div>
         </DialogContent>
       </Rnd>
     </Dialog>
