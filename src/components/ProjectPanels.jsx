@@ -7,9 +7,9 @@ import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
-import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import useTreeData from '../hooks/useTreeData';
 
@@ -130,22 +130,14 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         onCascade={() => handleCascade(field.name)}
         initialValue={selectedItemData[field.name] || ''}
         onGenerate={handleGenerate}
+        isGenerating={isGenerating}
+        formattedTime={formattedTime}
       />
     ));
   };
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          onClick={handleGenerate}
-          className={`self-start mb-2 ${isGenerating ? 'text-green-700' : ''}`}
-          disabled={isGenerating}
-        >
-          {isGenerating ? `Generating... (${formattedTime})` : 'Generate'}
-        </Button>
-      </div>
       <div className="space-y-6">
         {renderPromptFields()}
       </div>
