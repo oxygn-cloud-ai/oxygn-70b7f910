@@ -3,6 +3,7 @@ import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAICall } from '../hooks/useOpenAICall';
+import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
@@ -18,8 +19,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
   const { callOpenAI } = useOpenAICall();
-  const [timer, setTimer] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
   const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
   const [parentData, setParentData] = useState(null);
@@ -30,17 +31,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     setLocalData(selectedItemData || {});
     setIsSettingsOpen(selectedItemData?.prompt_settings_open ?? true);
   }, [selectedItemData]);
-
-  useEffect(() => {
-    let interval;
-    if (isGenerating) {
-      interval = setInterval(() => setTimer(prevTimer => prevTimer + 1), 1000);
-    } else {
-      clearInterval(interval);
-      setTimer(0);
-    }
-    return () => clearInterval(interval);
-  }, [isGenerating]);
 
   const handleSave = async (fieldName) => {
     await onUpdateField(fieldName, localData[fieldName]);
@@ -62,8 +52,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     }
 
     setIsGenerating(true);
-    const startTime = Date.now();
-
     try {
       const result = await callOpenAI(
         localData.input_admin_prompt,
@@ -76,8 +64,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       toast.error(`Error generating response: ${error.message}`);
     } finally {
       setIsGenerating(false);
-      const endTime = Date.now();
-      console.log(`API call completed in ${(endTime - startTime) / 1000} seconds`);
     }
   };
 
@@ -156,7 +142,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           className={`self-start mb-2 ${isGenerating ? 'text-green-700' : ''}`}
           disabled={isGenerating}
         >
-          {isGenerating ? `Generating... (${timer}s)` : 'Generate'}
+          {isGenerating ? `Generating... (${formattedTime})` : 'Generate'}
         </Button>
       </div>
       <div className="space-y-6">
