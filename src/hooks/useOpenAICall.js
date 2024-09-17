@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSettings } from './useSettings';
 import { useSupabase } from './useSupabase';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ export const useOpenAICall = () => {
     }
   }, [settings, settingsLoading]);
 
-  const callOpenAI = async (systemMessage, userMessage, projectSettings) => {
+  const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
     try {
       if (!apiSettings || !apiSettings.openai_url || !apiSettings.openai_api_key) {
@@ -40,17 +40,17 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty),
       };
 
-      // Log API call details before making the request
-      console.log('OpenAI API Call Details:');
-      console.log('URL:', apiUrl);
-      console.log('Model:', requestBody.model);
-      console.log('Temperature:', requestBody.temperature);
-      console.log('Max Tokens:', requestBody.max_tokens);
-      console.log('Top P:', requestBody.top_p);
-      console.log('Frequency Penalty:', requestBody.frequency_penalty);
-      console.log('Presence Penalty:', requestBody.presence_penalty);
-      console.log('System Message:', systemMessage);
-      console.log('User Message:', userMessage);
+      console.log('OpenAI API Call Details:', {
+        url: apiUrl,
+        model: requestBody.model,
+        temperature: requestBody.temperature,
+        maxTokens: requestBody.max_tokens,
+        topP: requestBody.top_p,
+        frequencyPenalty: requestBody.frequency_penalty,
+        presencePenalty: requestBody.presence_penalty,
+        systemMessage,
+        userMessage,
+      });
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -91,13 +91,7 @@ export const useOpenAICall = () => {
       }
 
       const data = await response.json();
-
-      // Log API response details
-      console.log('OpenAI API Response:');
-      console.log('Response Status:', response.status);
-      console.log('Response Data:', JSON.stringify(data, null, 2));
-      console.log('Generated Content:', data.choices[0].message.content);
-
+      console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
       return data.choices[0].message.content;
     } catch (error) {
       console.error('Error calling OpenAI:', error);
@@ -106,7 +100,7 @@ export const useOpenAICall = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [apiSettings]);
 
   return { callOpenAI, isLoading };
 };

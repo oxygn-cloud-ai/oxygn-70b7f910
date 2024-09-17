@@ -57,6 +57,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const handleGenerate = async () => {
     if (!settings || !settings.openai_api_key || !settings.openai_url) {
       console.error('OpenAI settings are not configured');
+      toast.error('OpenAI settings are not configured. Please check your settings.');
       return;
     }
 
