@@ -5,6 +5,7 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -66,25 +67,32 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`sm:max-w-[${isExpanded ? '900px' : '600px'}] h-[80vh] flex`}>
-        {isExpanded && (
-          <TreeView
-            treeData={treeData}
-            expandedItems={expandedItems}
-            setExpandedItems={setExpandedItems}
-            selectedItem={selectedItem}
-            setSelectedItem={handleItemSelect}
-            parentData={parentData}
-            selectedItemRef={selectedItemRef}
-          />
-        )}
-        <PopupContent
-          isExpanded={isExpanded}
-          isLoading={isLoading}
-          selectedItem={selectedItem}
-          cascadeField={cascadeField}
-          onCascade={onCascade}
-        />
+      <DialogContent className="sm:max-w-[900px] h-[80vh] p-0 flex flex-col">
+        <PanelGroup direction="horizontal">
+          {isExpanded && (
+            <Panel defaultSize={30} minSize={20}>
+              <TreeView
+                treeData={treeData}
+                expandedItems={expandedItems}
+                setExpandedItems={setExpandedItems}
+                selectedItem={selectedItem}
+                setSelectedItem={handleItemSelect}
+                parentData={parentData}
+                selectedItemRef={selectedItemRef}
+              />
+            </Panel>
+          )}
+          {isExpanded && <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />}
+          <Panel>
+            <PopupContent
+              isExpanded={isExpanded}
+              isLoading={isLoading}
+              selectedItem={selectedItem}
+              cascadeField={cascadeField}
+              onCascade={onCascade}
+            />
+          </Panel>
+        </PanelGroup>
         <Button
           variant="ghost"
           size="icon"
