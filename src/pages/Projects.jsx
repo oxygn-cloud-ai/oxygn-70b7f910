@@ -8,50 +8,25 @@ import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import ProjectTree from '../components/ProjectTree';
-import ProjectDetails from '../components/ProjectDetails';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
 
-  const toggleItem = useCallback((itemId, expandAll = false) => {
-    console.log('Toggling item:', itemId, 'Expand all:', expandAll);
-    if (expandAll) {
-      const expandAllDescendants = (item) => {
-        let descendants = [item.id];
-        if (item.children && item.children.length > 0) {
-          item.children.forEach(child => {
-            descendants = [...descendants, ...expandAllDescendants(child)];
-          });
-        }
-        return descendants;
-      };
-
-      const itemToExpand = treeData.find(item => item.id === itemId);
-      if (itemToExpand) {
-        const allDescendants = expandAllDescendants(itemToExpand);
-        setExpandedItems(prev => {
-          const newExpanded = [...new Set([...prev, ...allDescendants])];
-          console.log('New expanded items:', newExpanded);
-          return newExpanded;
-        });
+  const toggleItem = useCallback((itemId) => {
+    setExpandedItems(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        return [...prev, itemId];
       }
-    } else {
-      setExpandedItems(prev => {
-        const newExpanded = prev.includes(itemId)
-          ? prev.filter(id => id !== itemId)
-          : [...prev, itemId];
-        console.log('New expanded items:', newExpanded);
-        return newExpanded;
-      });
-    }
+    });
     setActiveItem(itemId);
-  }, [treeData]);
+  }, []);
 
   const handleAddItem = useCallback(async (parentId) => {
     const newItemId = await addItem(parentId);
@@ -96,6 +71,33 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
+  const renderTreeItems = useCallback((items) => {
+    return items.map((item) => (
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={1}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        addItem={handleAddItem}
+        startRenaming={(id, name) => setEditingItem({ id, name })}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={async () => {
+          if (editingItem) {
+            await updateItemName(editingItem.id, editingItem.name);
+            setEditingItem(null);
+            await refreshTreeData();
+          }
+        }}
+        cancelRenaming={() => setEditingItem(null)}
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        deleteItem={handleDeleteItem}
+      />
+    ));
+  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+
   useEffect(() => {
     if (activeItem && supabase) {
       const fetchItemData = async () => {
@@ -121,6 +123,17 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
+  const renderAccordion = () => (
+    <Accordion
+      type="multiple"
+      value={expandedItems}
+      onValueChange={setExpandedItems}
+      className="w-full min-w-max"
+    >
+      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+    </Accordion>
+  );
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -130,29 +143,40 @@ const Projects = () => {
       <h1 className="text-2xl font-bold mb-4">Prompts</h1>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
-          <ProjectTree
-            treeData={treeData}
-            expandedItems={expandedItems}
-            setExpandedItems={setExpandedItems}
-            toggleItem={toggleItem}
-            handleAddItem={handleAddItem}
-            updateItemName={updateItemName}
-            editingItem={editingItem}
-            setEditingItem={setEditingItem}
-            activeItem={activeItem}
-            setActiveItem={setActiveItem}
-            handleDeleteItem={handleDeleteItem}
-            isLoading={isLoading}
-            refreshTreeData={refreshTreeData}
-          />
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
+            <div className="overflow-x-auto whitespace-nowrap w-full">
+              <div className="mb-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleAddItem(null)}
+                >
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
+              </div>
+              {isLoading ? <div>Loading...</div> : renderAccordion()}
+            </div>
+          </div>
         </Panel>
         <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
-          <ProjectDetails
-            activeItem={activeItem}
-            selectedItemData={selectedItemData}
-            handleUpdateField={handleUpdateField}
-          />
+          {activeItem ? (
+            selectedItemData ? (
+              <ProjectPanels 
+                selectedItemData={selectedItemData} 
+                projectRowId={activeItem} 
+                onUpdateField={handleUpdateField}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500">Loading prompt details...</p>
+              </div>
+            )
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500">Select a prompt to view details</p>
+            </div>
+          )}
         </Panel>
       </PanelGroup>
     </div>

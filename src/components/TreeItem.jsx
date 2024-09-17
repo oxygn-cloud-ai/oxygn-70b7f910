@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, ChevronsDown } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -73,11 +73,6 @@ const TreeItem = ({
     toggleItem(item.id);
   };
 
-  const handleExpandAll = (e) => {
-    e.stopPropagation();
-    toggleItem(item.id, true);
-  };
-
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
@@ -88,32 +83,22 @@ const TreeItem = ({
         onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
-          <div style={{ width: '48px', display: 'flex', justifyContent: 'flex-end' }}>
-            {item.children && item.children.length > 0 && !isExpanded && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-0 h-4 w-4"
-                onClick={handleExpandAll}
-              >
-                <ChevronsDown className="h-4 w-4 flex-shrink-0" />
-              </Button>
-            )}
-            {item.children && item.children.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-0 h-4 w-4"
-                onClick={handleToggle}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                )}
-              </Button>
-            )}
-          </div>
+          {item.children && item.children.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-0 h-4 w-4"
+              onClick={handleToggle}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 flex-shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+              )}
+            </Button>
+          ) : (
+            <div className="w-4 h-4 flex-shrink-0" />
+          )}
           <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
             <Input
@@ -136,6 +121,28 @@ const TreeItem = ({
           {isHovered && renderActionButtons()}
         </div>
       </div>
+      {isExpanded && item.children && item.children.length > 0 && (
+        <div>
+          {item.children.map((child) => (
+            <TreeItem
+              key={child.id}
+              item={child}
+              level={level + 1}
+              expandedItems={expandedItems}
+              toggleItem={toggleItem}
+              addItem={addItem}
+              startRenaming={startRenaming}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              finishRenaming={finishRenaming}
+              cancelRenaming={cancelRenaming}
+              activeItem={activeItem}
+              setActiveItem={setActiveItem}
+              deleteItem={deleteItem}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
