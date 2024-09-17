@@ -14,7 +14,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [isExpanded, setIsExpanded] = useState(false);
   const supabase = useSupabase();
   const selectedItemRef = useRef(null);
-  const [popupSize, setPopupSize] = useState({ width: 600, height: '80vh' });
+  const [popupSize, setPopupSize] = useState({ width: 600, height: 400 });
 
   useEffect(() => {
     if (isOpen && parentData) {
@@ -70,6 +70,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     <Dialog open={isOpen} onOpenChange={onClose}>
       <Rnd
         size={{ width: popupSize.width, height: popupSize.height }}
+        position={{ x: 0, y: 0 }}
         onResizeStop={(e, direction, ref, delta, position) => {
           setPopupSize({
             width: ref.style.width,
@@ -80,7 +81,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         minHeight={300}
         bounds="window"
       >
-        <DialogContent className="p-0 overflow-hidden" style={{ width: '100%', height: '100%' }}>
+        <DialogContent className="p-0 overflow-hidden" style={{ width: '100%', height: '100%', position: 'relative' }}>
           <div className="flex h-full">
             {isExpanded && (
               <TreeView
