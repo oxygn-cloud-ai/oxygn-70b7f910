@@ -88,7 +88,7 @@ const TreeItem = ({
         onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
-          {item.children && item.children.length > 0 && (
+          {item.children && item.children.length > 0 && !isExpanded && (
             <Button
               variant="ghost"
               size="sm"
