@@ -17,16 +17,34 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
 
-  const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => {
-      if (prev.includes(itemId)) {
-        return prev.filter(id => id !== itemId);
-      } else {
-        return [...prev, itemId];
+  const toggleItem = useCallback((itemId, expandAll = false) => {
+    if (expandAll) {
+      const expandAllDescendants = (item) => {
+        let descendants = [item.id];
+        if (item.children) {
+          item.children.forEach(child => {
+            descendants = [...descendants, ...expandAllDescendants(child)];
+          });
+        }
+        return descendants;
+      };
+
+      const itemToExpand = treeData.find(item => item.id === itemId);
+      if (itemToExpand) {
+        const allDescendants = expandAllDescendants(itemToExpand);
+        setExpandedItems(prev => [...new Set([...prev, ...allDescendants])]);
       }
-    });
+    } else {
+      setExpandedItems(prev => {
+        if (prev.includes(itemId)) {
+          return prev.filter(id => id !== itemId);
+        } else {
+          return [...prev, itemId];
+        }
+      });
+    }
     setActiveItem(itemId);
-  }, []);
+  }, [treeData]);
 
   const handleAddItem = useCallback(async (parentId) => {
     const newItemId = await addItem(parentId);
