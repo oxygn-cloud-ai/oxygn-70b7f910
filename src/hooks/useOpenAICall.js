@@ -1,19 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettings } from './useSettings';
+import { useSupabase } from './useSupabase';
 import { toast } from 'sonner';
 
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { settings } = useSettings();
+  const supabase = useSupabase();
+  const { settings, isLoading: settingsLoading } = useSettings(supabase);
+  const [apiSettings, setApiSettings] = useState(null);
+
+  useEffect(() => {
+    if (settings && !settingsLoading) {
+      setApiSettings({
+        openai_url: settings.openai_url,
+        openai_api_key: settings.openai_api_key,
+      });
+    }
+  }, [settings, settingsLoading]);
 
   const callOpenAI = async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
     try {
-      if (!settings || !settings.openai_url || !settings.openai_api_key) {
+      if (!apiSettings || !apiSettings.openai_url || !apiSettings.openai_api_key) {
         throw new Error('OpenAI settings are not configured. Please check your settings.');
       }
 
-      const apiUrl = settings.openai_url.replace(/\/$/, '');
+      const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
 
       const requestBody = {
         model: projectSettings.model,
@@ -44,7 +56,7 @@ export const useOpenAICall = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.openai_api_key}`
+          'Authorization': `Bearer ${apiSettings.openai_api_key}`
         },
         body: JSON.stringify(requestBody)
       });
@@ -61,7 +73,7 @@ export const useOpenAICall = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${settings.openai_api_key}`
+              'Authorization': `Bearer ${apiSettings.openai_api_key}`
             },
             body: JSON.stringify(requestBody)
           });
