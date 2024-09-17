@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -20,6 +20,7 @@ const TreeItem = ({
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
+  const isExpanded = expandedItems.includes(item.id);
 
   useEffect(() => {
     if (editingItem && editingItem.id === item.id && inputRef.current) {
@@ -67,6 +68,11 @@ const TreeItem = ({
     startRenaming(item.id, item.prompt_name);
   };
 
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    toggleItem(item.id);
+  };
+
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
@@ -78,7 +84,18 @@ const TreeItem = ({
       >
         <div className="flex items-center space-x-1 flex-grow">
           {item.children && item.children.length > 0 ? (
-            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="p-0 h-4 w-4"
+              onClick={handleToggle}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-4 w-4 flex-shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 flex-shrink-0" />
+              )}
+            </Button>
           ) : (
             <div className="w-4 h-4 flex-shrink-0" />
           )}
@@ -104,7 +121,7 @@ const TreeItem = ({
           {isHovered && renderActionButtons()}
         </div>
       </div>
-      {item.children && item.children.length > 0 && (
+      {isExpanded && item.children && item.children.length > 0 && (
         <div>
           {item.children.map((child) => (
             <TreeItem
