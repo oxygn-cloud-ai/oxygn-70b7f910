@@ -18,6 +18,13 @@ const Projects = () => {
   const [selectedItemData, setSelectedItemData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
+    setExpandedItems(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        return [...prev, itemId];
+      }
+    });
     setActiveItem(itemId);
   }, []);
 
