@@ -7,13 +7,13 @@ import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
-import PromptLibraryPopup from './PromptLibraryPopup';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, ArrowDownWideNarrow } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
+import useTreeData from '../hooks/useTreeData';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, activeItem, setActiveItem, deleteItem }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenReusePrompts }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -23,9 +23,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
   const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
-  const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
   const [parentData, setParentData] = useState(null);
   const [cascadeField, setCascadeField] = useState(null);
+  const { treeData } = useTreeData(supabase);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -119,34 +119,36 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
       { name: 'note', label: 'Notes' }
     ];
 
-    return fields.map(field => (
-      <React.Fragment key={field.name}>
-        {field.name === 'admin_prompt_result' && (
-          <div className="flex items-center mb-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsPromptLibraryOpen(true)}
-              className="p-0 h-6 w-6 text-green-800"
-            >
-              <ArrowDownWideNarrow className="h-5 w-5" />
-            </Button>
-          </div>
-        )}
-        <PromptField
-          label={field.label}
-          value={localData[field.name] || ''}
-          onChange={(value) => handleChange(field.name, value)}
-          onReset={() => handleReset(field.name)}
-          onSave={() => handleSave(field.name)}
-          onCascade={() => handleCascade(field.name)}
-          initialValue={selectedItemData[field.name] || ''}
-          onGenerate={handleGenerate}
-          isGenerating={isGenerating}
-          formattedTime={formattedTime}
-        />
-      </React.Fragment>
-    ));
+    return (
+      <>
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenReusePrompts}
+            className="flex items-center space-x-1"
+          >
+            <ArrowDownWideNarrow className="h-4 w-4" />
+            <span>Reuse Prompts</span>
+          </Button>
+        </div>
+        {fields.map(field => (
+          <PromptField
+            key={field.name}
+            label={field.label}
+            value={localData[field.name] || ''}
+            onChange={(value) => handleChange(field.name, value)}
+            onReset={() => handleReset(field.name)}
+            onSave={() => handleSave(field.name)}
+            onCascade={() => handleCascade(field.name)}
+            initialValue={selectedItemData[field.name] || ''}
+            onGenerate={handleGenerate}
+            isGenerating={isGenerating}
+            formattedTime={formattedTime}
+          />
+        ))}
+      </>
+    );
   };
 
   return (
@@ -191,21 +193,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
           treeData={treeData}
         />
       )}
-      <PromptLibraryPopup
-        isOpen={isPromptLibraryOpen}
-        onClose={() => setIsPromptLibraryOpen(false)}
-        treeData={treeData}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        addItem={addItem}
-        startRenaming={startRenaming}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={finishRenaming}
-        cancelRenaming={cancelRenaming}
-        deleteItem={deleteItem}
-        parentId={selectedItemData?.parent_row_id}
-      />
     </div>
   );
 };

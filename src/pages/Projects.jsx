@@ -3,28 +3,38 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, ArrowDownWideNarrow } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
+import { Rnd } from 'react-rnd';
+import { useSettings } from '../hooks/useSettings';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import SettingsPopup from '../components/SettingsPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const { settings, updateSetting } = useSettings(supabase);
+  const { models } = useOpenAIModels();
+  const [localSettings, setLocalSettings] = useState({});
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
 
   const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => {
-      if (prev.includes(itemId)) {
-        return prev.filter(id => id !== itemId);
-      } else {
-        return [...prev, itemId];
-      }
-    });
+    setExpandedItems(prev => 
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
     setActiveItem(itemId);
   }, []);
 
@@ -71,8 +81,8 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
-  const renderTreeItems = useCallback((items) => {
-    return items.map((item) => (
+  const renderTreeItems = useCallback((items) => (
+    items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
@@ -95,8 +105,8 @@ const Projects = () => {
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
       />
-    ));
-  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+    ))
+  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -123,16 +133,17 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const renderAccordion = () => (
-    <Accordion
-      type="multiple"
-      value={expandedItems}
-      onValueChange={setExpandedItems}
-      className="w-full min-w-max"
-    >
-      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-    </Accordion>
-  );
+  const handleSettingChange = (key, value) => {
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSettingSave = async (key) => {
+    await updateSetting(key, localSettings[key]);
+  };
+
+  const handleSettingReset = (key) => {
+    setLocalSettings(prev => ({ ...prev, [key]: settings[key] }));
+  };
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
@@ -145,16 +156,21 @@ const Projects = () => {
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <div className="mb-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleAddItem(null)}
-                >
+              <div className="mb-2 flex space-x-2">
+                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
                 </Button>
               </div>
-              {isLoading ? <div>Loading...</div> : renderAccordion()}
+              {isLoading ? <div>Loading...</div> : (
+                <Accordion
+                  type="multiple"
+                  value={expandedItems}
+                  onValueChange={setExpandedItems}
+                  className="w-full min-w-max"
+                >
+                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+                </Accordion>
+              )}
             </div>
           </div>
         </Panel>
@@ -166,24 +182,7 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                treeData={treeData}
-                expandedItems={expandedItems}
-                toggleItem={toggleItem}
-                addItem={handleAddItem}
-                startRenaming={(id, name) => setEditingItem({ id, name })}
-                editingItem={editingItem}
-                setEditingItem={setEditingItem}
-                finishRenaming={async () => {
-                  if (editingItem) {
-                    await updateItemName(editingItem.id, editingItem.name);
-                    setEditingItem(null);
-                    await refreshTreeData();
-                  }
-                }}
-                cancelRenaming={() => setEditingItem(null)}
-                activeItem={activeItem}
-                setActiveItem={setActiveItem}
-                deleteItem={handleDeleteItem}
+                onOpenReusePrompts={() => setIsPopupOpen(true)}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -197,6 +196,46 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
+      {isPopupOpen && (
+        <Rnd
+          default={{
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 400,
+          }}
+          minWidth={200}
+          minHeight={100}
+          bounds="window"
+          enableResizing={{
+            top: true,
+            right: true,
+            bottom: true,
+            left: true,
+            topRight: true,
+            bottomRight: true,
+            bottomLeft: true,
+            topLeft: true
+          }}
+        >
+          <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2"
+              onClick={() => setIsPopupOpen(false)}
+            >
+              X
+            </Button>
+            <SettingsPopup
+              localSettings={localSettings}
+              handleSettingChange={handleSettingChange}
+              handleSettingSave={handleSettingSave}
+              handleSettingReset={handleSettingReset}
+            />
+          </div>
+        </Rnd>
+      )}
     </div>
   );
 };
