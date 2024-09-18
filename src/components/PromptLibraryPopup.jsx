@@ -1,32 +1,59 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
-import PopupContent from './PopupContent';
-import TreeView from './TreeView';
-import { Resizable } from 'react-resizable';
-import 'react-resizable/css/styles.css';
+import PromptLibraryAccordion from './PromptLibraryAccordion';
+import PromptFieldsDisplay from './PromptFieldsDisplay';
 
-const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [expandedItems, setExpandedItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId, onCascade, cascadeField }) => {
+  const [popupActiveItem, setPopupActiveItem] = useState(null);
+  const [selectedItemData, setSelectedItemData] = useState(null);
+  const [accordionWidth, setAccordionWidth] = useState(300);
   const supabase = useSupabase();
-  const selectedItemRef = useRef(null);
-  const [popupSize, setPopupSize] = useState({ width: 800, height: 600 });
+  const popupRef = useRef(null);
+  const resizeHandleRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen && parentData) {
-      setSelectedItem(parentData);
-      setExpandedItems([parentData.row_id]);
+    if (isOpen) {
+      if (parentId) {
+        setPopupActiveItem(parentId);
+        fetchItemData(parentId);
+      }
     }
-  }, [isOpen, parentData]);
+  }, [isOpen, parentId]);
+
+  useEffect(() => {
+    if (popupActiveItem) {
+      fetchItemData(popupActiveItem);
+    }
+  }, [popupActiveItem]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [isOpen, onClose]);
 
   const fetchItemData = async (itemId) => {
     if (itemId && supabase) {
-      setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('prompts')
@@ -36,83 +63,81 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
         if (error) throw error;
         
-        setSelectedItem(data);
+        setSelectedItemData(data);
       } catch (error) {
         console.error('Error fetching item data:', error);
-      } finally {
-        setIsLoading(false);
+        setSelectedItemData(null);
       }
     }
   };
 
-  const handleItemSelect = async (item) => {
-    setSelectedItem(null);
-    setIsLoading(true);
-    await fetchItemData(item.id);
-    setIsLoading(false);
+  const handleCascadeAction = (content, action) => {
+    onCascade(content, action);
   };
 
-  useEffect(() => {
-    if (selectedItem?.id) {
-      fetchItemData(selectedItem.id);
-    }
-  }, [selectedItem?.id, supabase]);
-
-  useEffect(() => {
-    if (selectedItemRef.current) {
-      selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      selectedItemRef.current.focus();
-    }
-  }, [selectedItem]);
-
-  const toggleExpand = () => setIsExpanded(!isExpanded);
-
-  const onResize = (event, { size }) => {
-    setPopupSize({ width: size.width, height: size.height });
+  const startResize = (e) => {
+    e.preventDefault();
+    document.addEventListener('mousemove', resize);
+    document.addEventListener('mouseup', stopResize);
   };
+
+  const resize = (e) => {
+    if (popupRef.current) {
+      const popupRect = popupRef.current.getBoundingClientRect();
+      const newWidth = e.clientX - popupRect.left;
+      setAccordionWidth(Math.max(200, Math.min(newWidth, popupRect.width - 200)));
+    }
+  };
+
+  const stopResize = () => {
+    document.removeEventListener('mousemove', resize);
+    document.removeEventListener('mouseup', stopResize);
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <Resizable
-        width={popupSize.width}
-        height={popupSize.height}
-        onResize={onResize}
-        minConstraints={[400, 300]}
-        maxConstraints={[1200, 900]}
-      >
-        <DialogContent className="p-0 overflow-hidden" style={{ width: `${popupSize.width}px`, height: `${popupSize.height}px`, position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-          <div className="flex h-full">
-            {isExpanded && (
-              <TreeView
-                treeData={treeData}
-                expandedItems={expandedItems}
-                setExpandedItems={setExpandedItems}
-                selectedItem={selectedItem}
-                setSelectedItem={handleItemSelect}
-                parentData={parentData}
-                selectedItemRef={selectedItemRef}
-              />
-            )}
-            <PopupContent
-              isExpanded={isExpanded}
-              isLoading={isLoading}
-              selectedItem={selectedItem}
-              cascadeField={cascadeField}
-              onCascade={onCascade}
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div ref={popupRef} className="bg-white rounded-lg shadow-lg w-4/5 h-4/5 flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-xl font-bold">Prompt Library</h2>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex-grow flex overflow-hidden">
+          <div style={{ width: `${accordionWidth}px`, minWidth: '200px', maxWidth: 'calc(100% - 200px)' }} className="border-r relative">
+            <PromptLibraryAccordion
+              treeData={treeData}
+              expandedItems={expandedItems}
+              toggleItem={toggleItem}
+              addItem={addItem}
+              startRenaming={startRenaming}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              finishRenaming={finishRenaming}
+              cancelRenaming={cancelRenaming}
+              activeItem={popupActiveItem}
+              setActiveItem={setPopupActiveItem}
+              deleteItem={deleteItem}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute bottom-4 left-4"
-              onClick={toggleExpand}
-            >
-              {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-            </Button>
+            <div
+              ref={resizeHandleRef}
+              className="w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize absolute right-0 top-0 bottom-0"
+              onMouseDown={startResize}
+            ></div>
           </div>
-        </DialogContent>
-      </Resizable>
-    </Dialog>
+          <div className="flex-grow overflow-auto">
+            <PromptFieldsDisplay
+              selectedItemData={selectedItemData}
+              onCascade={handleCascadeAction}
+              cascadeField={cascadeField}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default ParentPromptPopup;
+export default PromptLibraryPopup;
