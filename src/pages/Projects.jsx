@@ -8,22 +8,23 @@ import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import ParentPromptPopup from '../components/ParentPromptPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [parentData, setParentData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => 
-      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
-    );
+    setExpandedItems(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        return [...prev, itemId];
+      }
+    });
     setActiveItem(itemId);
   }, []);
 
@@ -70,8 +71,8 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
-  const renderTreeItems = useCallback((items) => (
-    items.map((item) => (
+  const renderTreeItems = useCallback((items) => {
+    return items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
@@ -94,8 +95,8 @@ const Projects = () => {
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
       />
-    ))
-  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+    ));
+  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -110,20 +111,6 @@ const Projects = () => {
           if (error) throw error;
           
           setSelectedItemData(data);
-
-          // Fetch parent data if it exists
-          if (data.parent_row_id) {
-            const { data: parentData, error: parentError } = await supabase
-              .from('prompts')
-              .select('*')
-              .eq('row_id', data.parent_row_id)
-              .single();
-
-            if (parentError) throw parentError;
-            setParentData(parentData);
-          } else {
-            setParentData(null);
-          }
         } catch (error) {
           console.error('Error fetching item data:', error);
           toast.error(`Failed to fetch prompt data: ${error.message}`);
@@ -133,9 +120,19 @@ const Projects = () => {
       fetchItemData();
     } else {
       setSelectedItemData(null);
-      setParentData(null);
     }
   }, [activeItem, supabase]);
+
+  const renderAccordion = () => (
+    <Accordion
+      type="multiple"
+      value={expandedItems}
+      onValueChange={setExpandedItems}
+      className="w-full min-w-max"
+    >
+      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+    </Accordion>
+  );
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
@@ -148,21 +145,16 @@ const Projects = () => {
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <div className="mb-2 flex space-x-2">
-                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
+              <div className="mb-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleAddItem(null)}
+                >
                   <PlusCircle className="h-5 w-5" />
                 </Button>
               </div>
-              {isLoading ? <div>Loading...</div> : (
-                <Accordion
-                  type="multiple"
-                  value={expandedItems}
-                  onValueChange={setExpandedItems}
-                  className="w-full min-w-max"
-                >
-                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-                </Accordion>
-              )}
+              {isLoading ? <div>Loading...</div> : renderAccordion()}
             </div>
           </div>
         </Panel>
@@ -174,7 +166,6 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                onOpenReusePrompts={() => setIsPopupOpen(true)}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -188,14 +179,6 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      {isPopupOpen && parentData && (
-        <ParentPromptPopup
-          isOpen={isPopupOpen}
-          onClose={() => setIsPopupOpen(false)}
-          parentData={parentData}
-          treeData={treeData}
-        />
-      )}
     </div>
   );
 };
