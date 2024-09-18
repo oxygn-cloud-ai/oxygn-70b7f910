@@ -6,6 +6,7 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 import { useSupabase } from '../hooks/useSupabase';
 import { toast } from 'sonner';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
 const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId, onCascade, cascadeField }) => {
   const [popupActiveItem, setPopupActiveItem] = useState(null);
@@ -156,16 +157,23 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
           </Button>
         </div>
         <div className="flex-grow overflow-auto">
-          <div className="w-full h-full flex">
+          <PanelGroup direction="horizontal">
             {isAccordionVisible && (
-              <div className="w-1/2 pr-4 border-r">
-                {renderAccordion()}
-              </div>
+              <>
+                <Panel minSize={20}>
+                  <div className="pr-4 border-r h-full overflow-auto">
+                    {renderAccordion()}
+                  </div>
+                </Panel>
+                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
+              </>
             )}
-            <div className={isAccordionVisible ? "w-1/2 pl-4" : "w-full"}>
-              {renderPromptFields()}
-            </div>
-          </div>
+            <Panel minSize={20}>
+              <div className="pl-4 h-full overflow-auto">
+                {renderPromptFields()}
+              </div>
+            </Panel>
+          </PanelGroup>
         </div>
       </div>
     </Rnd>
