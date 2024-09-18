@@ -7,10 +7,17 @@ import TreeItem from './TreeItem';
 import { useSupabase } from '../hooks/useSupabase';
 
 const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId }) => {
-  const [popupActiveItem, setPopupActiveItem] = useState(parentId);
+  const [popupActiveItem, setPopupActiveItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isAccordionVisible, setIsAccordionVisible] = useState(true);
   const supabase = useSupabase();
+
+  useEffect(() => {
+    if (isOpen && parentId) {
+      setPopupActiveItem(parentId);
+      fetchItemData(parentId);
+    }
+  }, [isOpen, parentId]);
 
   useEffect(() => {
     if (popupActiveItem) {
