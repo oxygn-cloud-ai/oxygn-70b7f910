@@ -111,6 +111,7 @@ const Projects = () => {
           
           setSelectedItemData(data);
 
+          // Fetch parent data
           if (data.parent_row_id) {
             const { data: parentData, error: parentError } = await supabase
               .from('prompts')
