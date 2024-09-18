@@ -9,7 +9,7 @@ import { useSupabase } from '../hooks/useSupabase';
 const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId }) => {
   const [popupActiveItem, setPopupActiveItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const [isAccordionVisible, setIsAccordionVisible] = useState(true);
+  const [isAccordionVisible, setIsAccordionVisible] = useState(false);
   const supabase = useSupabase();
   const popupRef = useRef(null);
   const [popupSize, setPopupSize] = useState({ width: 800, height: 600 });
@@ -18,6 +18,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     if (isOpen && parentId) {
       setPopupActiveItem(parentId);
       fetchItemData(parentId);
+      setIsAccordionVisible(false);
     }
   }, [isOpen, parentId]);
 
