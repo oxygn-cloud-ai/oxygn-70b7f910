@@ -3,12 +3,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Wrench, ChevronDown, ChevronUp, Save, RotateCcw } from 'lucide-react';
+import { PlusCircle, Wrench, Save, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
@@ -27,7 +25,7 @@ const Projects = () => {
   const { settings, updateSetting } = useSettings(supabase);
   const { models } = useOpenAIModels();
   const [localSettings, setLocalSettings] = useState({});
-  const [expandedSettings, setExpandedSettings] = useState([]);
+  const [expandedSettings, setExpandedSettings] = useState(['settings']);
 
   useEffect(() => {
     if (settings) {
@@ -260,20 +258,20 @@ const Projects = () => {
             x: 0,
             y: 0,
             width: 320,
-            height: 200,
+            height: 400,
           }}
           minWidth={200}
           minHeight={100}
           bounds="window"
           enableResizing={{
-            top: true,
+            top: false,
             right: true,
             bottom: true,
-            left: true,
-            topRight: true,
+            left: false,
+            topRight: false,
             bottomRight: true,
-            bottomLeft: true,
-            topLeft: true
+            bottomLeft: false,
+            topLeft: false
           }}
         >
           <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
