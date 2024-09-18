@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, X } from 'lucide-react';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
 import { Rnd } from 'react-rnd';
@@ -67,33 +67,41 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
         });
       }}
     >
-      <div className="flex h-full bg-white border rounded-lg shadow-lg overflow-hidden">
-        {isExpanded && (
-          <TreeView
-            treeData={treeData}
-            expandedItems={expandedItems}
-            setExpandedItems={setExpandedItems}
+      <div className="flex flex-col h-full bg-white border rounded-lg shadow-lg overflow-hidden">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-lg font-semibold">Settings</h2>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex flex-grow overflow-hidden">
+          {isExpanded && (
+            <TreeView
+              treeData={treeData}
+              expandedItems={expandedItems}
+              setExpandedItems={setExpandedItems}
+              selectedItem={selectedItem}
+              setSelectedItem={handleItemSelect}
+              parentData={parentData}
+              selectedItemRef={selectedItemRef}
+            />
+          )}
+          <PopupContent
+            isExpanded={isExpanded}
+            isLoading={isLoading}
             selectedItem={selectedItem}
-            setSelectedItem={handleItemSelect}
-            parentData={parentData}
-            selectedItemRef={selectedItemRef}
+            cascadeField={cascadeField}
+            onCascade={onCascade}
           />
-        )}
-        <PopupContent
-          isExpanded={isExpanded}
-          isLoading={isLoading}
-          selectedItem={selectedItem}
-          cascadeField={cascadeField}
-          onCascade={onCascade}
-        />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute bottom-4 left-4"
-          onClick={toggleExpand}
-        >
-          {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute bottom-4 left-4"
+            onClick={toggleExpand}
+          >
+            {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
     </Rnd>
   );

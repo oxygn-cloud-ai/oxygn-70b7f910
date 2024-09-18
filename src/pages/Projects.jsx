@@ -3,14 +3,11 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, ArrowDownWideNarrow } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import { Rnd } from 'react-rnd';
-import { useSettings } from '../hooks/useSettings';
-import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import SettingsPopup from '../components/SettingsPopup';
 
 const Projects = () => {
@@ -21,15 +18,7 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const { settings, updateSetting } = useSettings(supabase);
-  const { models } = useOpenAIModels();
-  const [localSettings, setLocalSettings] = useState({});
-
-  useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
-  }, [settings]);
+  const [parentData, setParentData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -121,6 +110,20 @@ const Projects = () => {
           if (error) throw error;
           
           setSelectedItemData(data);
+
+          // Fetch parent data
+          if (data.parent_row_id) {
+            const { data: parentData, error: parentError } = await supabase
+              .from('prompts')
+              .select('*')
+              .eq('row_id', data.parent_row_id)
+              .single();
+
+            if (parentError) throw parentError;
+            setParentData(parentData);
+          } else {
+            setParentData(null);
+          }
         } catch (error) {
           console.error('Error fetching item data:', error);
           toast.error(`Failed to fetch prompt data: ${error.message}`);
@@ -130,20 +133,9 @@ const Projects = () => {
       fetchItemData();
     } else {
       setSelectedItemData(null);
+      setParentData(null);
     }
   }, [activeItem, supabase]);
-
-  const handleSettingChange = (key, value) => {
-    setLocalSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSettingSave = async (key) => {
-    await updateSetting(key, localSettings[key]);
-  };
-
-  const handleSettingReset = (key) => {
-    setLocalSettings(prev => ({ ...prev, [key]: settings[key] }));
-  };
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
@@ -197,44 +189,14 @@ const Projects = () => {
         </Panel>
       </PanelGroup>
       {isPopupOpen && (
-        <Rnd
-          default={{
-            x: 0,
-            y: 0,
-            width: 320,
-            height: 400,
-          }}
-          minWidth={200}
-          minHeight={100}
-          bounds="window"
-          enableResizing={{
-            top: true,
-            right: true,
-            bottom: true,
-            left: true,
-            topRight: true,
-            bottomRight: true,
-            bottomLeft: true,
-            topLeft: true
-          }}
-        >
-          <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={() => setIsPopupOpen(false)}
-            >
-              X
-            </Button>
-            <SettingsPopup
-              localSettings={localSettings}
-              handleSettingChange={handleSettingChange}
-              handleSettingSave={handleSettingSave}
-              handleSettingReset={handleSettingReset}
-            />
-          </div>
-        </Rnd>
+        <SettingsPopup
+          isOpen={isPopupOpen}
+          onClose={() => setIsPopupOpen(false)}
+          parentData={parentData}
+          cascadeField={null}
+          onCascade={() => {}}
+          treeData={treeData}
+        />
       )}
     </div>
   );
