@@ -21,8 +21,8 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
           const selectedTreeItem = items.find(i => i.id === itemId);
           setSelectedItem(selectedTreeItem);
         }}
-        selectedItem={parentData?.row_id}
-        ref={parentData && item.id === parentData.row_id ? selectedItemRef : null}
+        selectedItem={parentData.row_id}
+        ref={item.id === parentData.row_id ? selectedItemRef : null}
       />
     ));
   };
