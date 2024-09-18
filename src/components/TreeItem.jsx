@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -17,6 +17,7 @@ const TreeItem = ({
   activeItem,
   setActiveItem,
   deleteItem,
+  isPopup = false, // New prop to determine if it's in the popup
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -28,25 +29,29 @@ const TreeItem = ({
     }
   }, [editingItem, item.id]);
 
-  const renderActionButtons = () => (
-    <div className="flex items-center space-x-1 ml-2">
-      <ActionButton 
-        icon={<PlusIcon className="h-3 w-3" />} 
-        onClick={() => addItem && addItem(item.id)} 
-        tooltip="Add Prompt" 
-      />
-      <ActionButton 
-        icon={<EditIcon className="h-3 w-3" />} 
-        onClick={() => startRenaming(item.id, item.prompt_name)} 
-        tooltip="Rename" 
-      />
-      <ActionButton 
-        icon={<Trash2Icon className="h-3 w-3" />} 
-        onClick={() => deleteItem(item.id)} 
-        tooltip="Delete" 
-      />
-    </div>
-  );
+  const renderActionButtons = () => {
+    if (isPopup) return null; // Don't render action buttons in popup
+
+    return (
+      <div className="flex items-center space-x-1 ml-2">
+        <ActionButton 
+          icon={<PlusIcon className="h-3 w-3" />} 
+          onClick={() => addItem && addItem(item.id)} 
+          tooltip="Add Prompt" 
+        />
+        <ActionButton 
+          icon={<EditIcon className="h-3 w-3" />} 
+          onClick={() => startRenaming(item.id, item.prompt_name)} 
+          tooltip="Rename" 
+        />
+        <ActionButton 
+          icon={<Trash2Icon className="h-3 w-3" />} 
+          onClick={() => deleteItem(item.id)} 
+          tooltip="Delete" 
+        />
+      </div>
+    );
+  };
 
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
   const isActive = activeItem === item.id;
@@ -65,7 +70,9 @@ const TreeItem = ({
 
   const handleDoubleClick = (e) => {
     e.stopPropagation();
-    startRenaming(item.id, item.prompt_name);
+    if (!isPopup) {
+      startRenaming(item.id, item.prompt_name);
+    }
   };
 
   const handleToggle = (e) => {
@@ -139,6 +146,7 @@ const TreeItem = ({
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               deleteItem={deleteItem}
+              isPopup={isPopup}
             />
           ))}
         </div>
