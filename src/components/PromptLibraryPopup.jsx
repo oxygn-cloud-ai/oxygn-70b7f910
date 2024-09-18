@@ -62,12 +62,12 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     }
   };
 
-  const renderTreeItems = (items) => {
+  const renderTreeItems = (items, level = 1) => {
     return items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
-        level={1}
+        level={level}
         expandedItems={expandedItems}
         toggleItem={toggleItem}
         addItem={addItem}
@@ -77,7 +77,10 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         finishRenaming={finishRenaming}
         cancelRenaming={cancelRenaming}
         activeItem={popupActiveItem}
-        setActiveItem={setPopupActiveItem}
+        setActiveItem={(itemId) => {
+          setPopupActiveItem(itemId);
+          fetchItemData(itemId);
+        }}
         deleteItem={deleteItem}
       />
     ));
