@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, X } from 'lucide-react';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
 import { Rnd } from 'react-rnd';
@@ -13,6 +13,7 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
   const [isExpanded, setIsExpanded] = useState(false);
   const selectedItemRef = useRef(null);
   const [popupSize, setPopupSize] = useState({ width: 800, height: 600 });
+  const [position, setPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (isOpen && parentData) {
@@ -43,40 +44,22 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <Rnd
-        default={{
-          x: 0,
-          y: 0,
-          width: popupSize.width,
-          height: popupSize.height,
+        size={{ width: popupSize.width, height: popupSize.height }}
+        position={position}
+        onDragStop={(e, d) => setPosition({ x: d.x, y: d.y })}
+        onResizeStop={(e, direction, ref, delta, position) => {
+          setPopupSize({
+            width: ref.style.width,
+            height: ref.style.height,
+          });
+          setPosition(position);
         }}
         minWidth={400}
         minHeight={300}
         bounds="window"
-        enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true
-        }}
-        onResize={(e, direction, ref, delta, position) => {
-          setPopupSize({
-            width: ref.offsetWidth,
-            height: ref.offsetHeight,
-          });
-        }}
       >
-        <DialogContent
-          className="p-0 overflow-hidden"
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-        >
-          <div className="flex h-full">
+        <DialogContent className="p-0 border-none bg-transparent" style={{ width: '100%', height: '100%' }}>
+          <div className="flex h-full bg-white rounded-lg overflow-hidden shadow-lg">
             {isExpanded && (
               <TreeView
                 treeData={treeData}
@@ -103,6 +86,15 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
             >
               {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
             </Button>
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
           </div>
         </DialogContent>
       </Rnd>
