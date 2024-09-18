@@ -71,6 +71,10 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     setPopupSize({ width: size.width, height: size.height });
   };
 
+  useEffect(() => {
+    console.log('Popup size updated:', popupSize);
+  }, [popupSize]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <Resizable
@@ -79,8 +83,19 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         onResize={onResize}
         minConstraints={[400, 300]}
         maxConstraints={[1200, 900]}
+        handle={<div className="resize-handle" />}
       >
-        <DialogContent className="p-0 overflow-hidden" style={{ width: `${popupSize.width}px`, height: `${popupSize.height}px`, position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+        <DialogContent
+          className="p-0 overflow-hidden"
+          style={{
+            width: `${popupSize.width}px`,
+            height: `${popupSize.height}px`,
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)'
+          }}
+        >
           <div className="flex h-full">
             {isExpanded && (
               <TreeView
