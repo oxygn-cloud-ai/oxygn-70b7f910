@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
@@ -11,7 +11,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenReusePrompts }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -20,11 +20,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
-
-  useEffect(() => {
-    setLocalData(selectedItemData || {});
-    setIsSettingsOpen(selectedItemData?.prompt_settings_open ?? true);
-  }, [selectedItemData]);
 
   const handleSave = async (fieldName) => {
     await onUpdateField(fieldName, localData[fieldName]);
@@ -73,26 +68,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
     }
   };
 
-  const handleCascade = async (fieldName) => {
-    if (selectedItemData.parent_row_id) {
-      try {
-        const { data, error } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('row_id', selectedItemData.parent_row_id)
-          .single();
-
-        if (error) throw error;
-        onOpenReusePrompts(data, fieldName);
-      } catch (error) {
-        console.error('Error fetching parent data:', error);
-        toast.error('Failed to fetch parent data');
-      }
-    } else {
-      toast.error('No parent prompt available for cascade');
-    }
-  };
-
   const renderPromptFields = () => {
     const fields = [
       { name: 'admin_prompt_result', label: 'Admin Result' },
@@ -110,7 +85,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
         onChange={(value) => handleChange(field.name, value)}
         onReset={() => handleReset(field.name)}
         onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
         initialValue={selectedItemData[field.name] || ''}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}

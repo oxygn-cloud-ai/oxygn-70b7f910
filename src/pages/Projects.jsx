@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import SettingsPopup from '../components/SettingsPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -17,9 +16,6 @@ const Projects = () => {
   const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [popupParentData, setPopupParentData] = useState(null);
-  const [popupCascadeField, setPopupCascadeField] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -123,17 +119,6 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const handleOpenPopup = (parentData, cascadeField) => {
-    setPopupParentData(parentData);
-    setPopupCascadeField(cascadeField);
-    setIsPopupOpen(true);
-  };
-
-  const handleCascade = (content, action) => {
-    handleUpdateField(popupCascadeField, content);
-    setIsPopupOpen(false);
-  };
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -171,7 +156,6 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                onOpenReusePrompts={handleOpenPopup}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -185,14 +169,6 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <SettingsPopup
-        isOpen={isPopupOpen}
-        onClose={() => setIsPopupOpen(false)}
-        parentData={popupParentData}
-        cascadeField={popupCascadeField}
-        onCascade={handleCascade}
-        treeData={treeData}
-      />
     </div>
   );
 };
