@@ -108,12 +108,9 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       { name: 'user_prompt_result', label: 'User Result' },
     ];
 
-    const handleAppend = (fieldName) => {
-      onCascade(selectedItemData[fieldName], 'append');
-    };
-
-    const handleReplaceAll = (fieldName) => {
-      onCascade(selectedItemData[fieldName], 'overwrite');
+    const handleAction = (fieldName, action) => {
+      const content = selectedItemData[fieldName];
+      onCascade(content, action);
     };
 
     const handleCopy = (fieldName) => {
@@ -132,10 +129,10 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         {fields.map(field => (
           <div key={field.name} className="mb-4 relative">
             <div className="absolute top-0 right-0 flex space-x-0">
-              <Button variant="ghost" size="icon" onClick={() => handleAppend(field.name)} title="Append">
+              <Button variant="ghost" size="icon" onClick={() => handleAction(field.name, 'append')} title="Append">
                 <Replace className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => handleReplaceAll(field.name)} title="Replace All">
+              <Button variant="ghost" size="icon" onClick={() => handleAction(field.name, 'overwrite')} title="Replace All">
                 <ReplaceAll className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" onClick={() => handleCopy(field.name)} title="Copy to Clipboard">
