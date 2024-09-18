@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 
-const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, activeItem, setActiveItem, deleteItem, parentId }) => {
+const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId }) => {
+  const [popupActiveItem, setPopupActiveItem] = useState(parentId);
+
   if (!isOpen) return null;
 
   const renderTreeItems = (items) => {
@@ -22,8 +24,8 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         setEditingItem={setEditingItem}
         finishRenaming={finishRenaming}
         cancelRenaming={cancelRenaming}
-        activeItem={parentId}  // Changed this line to use parentId instead of activeItem
-        setActiveItem={setActiveItem}
+        activeItem={popupActiveItem}
+        setActiveItem={setPopupActiveItem}
         deleteItem={deleteItem}
       />
     ));
