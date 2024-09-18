@@ -2,20 +2,53 @@ import React from 'react';
 import { Rnd } from 'react-rnd';
 import { X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Accordion } from "@/components/ui/accordion";
+import TreeItem from './TreeItem';
 
-const PromptLibraryPopup = ({ isOpen, onClose }) => {
+const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, activeItem, setActiveItem, deleteItem, parentId }) => {
   if (!isOpen) return null;
+
+  const renderTreeItems = (items) => {
+    return items.map((item) => (
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={1}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        addItem={addItem}
+        startRenaming={startRenaming}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={finishRenaming}
+        cancelRenaming={cancelRenaming}
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        deleteItem={deleteItem}
+      />
+    ));
+  };
+
+  const renderAccordion = () => (
+    <Accordion
+      type="multiple"
+      value={expandedItems}
+      className="w-full min-w-max"
+    >
+      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+    </Accordion>
+  );
 
   return (
     <Rnd
       default={{
         x: 50,
         y: 50,
-        width: 400,
+        width: 600,
         height: 400,
       }}
-      minWidth={200}
-      minHeight={200}
+      minWidth={300}
+      minHeight={300}
       bounds="window"
     >
       <div className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
@@ -26,7 +59,9 @@ const PromptLibraryPopup = ({ isOpen, onClose }) => {
           </Button>
         </div>
         <div className="flex-grow overflow-auto">
-          {/* Content will be added here in future updates */}
+          <div className="w-full h-full">
+            {renderAccordion()}
+          </div>
         </div>
       </div>
     </Rnd>

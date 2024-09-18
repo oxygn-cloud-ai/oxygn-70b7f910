@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import useTreeData from '../hooks/useTreeData';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, activeItem, setActiveItem, deleteItem }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -27,7 +27,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
   const [parentData, setParentData] = useState(null);
   const [cascadeField, setCascadeField] = useState(null);
-  const { treeData } = useTreeData(supabase);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -196,6 +195,19 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       <PromptLibraryPopup
         isOpen={isPromptLibraryOpen}
         onClose={() => setIsPromptLibraryOpen(false)}
+        treeData={treeData}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        addItem={addItem}
+        startRenaming={startRenaming}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={finishRenaming}
+        cancelRenaming={cancelRenaming}
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        deleteItem={deleteItem}
+        parentId={selectedItemData?.parent_row_id}
       />
     </div>
   );
