@@ -5,7 +5,9 @@ import TreeItem from './TreeItem';
 
 const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, setSelectedItem, parentData, selectedItemRef }) => {
   const toggleItem = (item) => {
-    setSelectedItem(item);
+    if (item) {
+      setSelectedItem(item);
+    }
   };
 
   const renderTreeItems = (items, level = 1) => {
@@ -19,10 +21,12 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
         activeItem={selectedItem?.id}
         setActiveItem={(itemId) => {
           const selectedTreeItem = items.find(i => i.id === itemId);
-          setSelectedItem(selectedTreeItem);
+          if (selectedTreeItem) {
+            setSelectedItem(selectedTreeItem);
+          }
         }}
-        selectedItem={parentData.row_id}
-        ref={item.id === parentData.row_id ? selectedItemRef : null}
+        selectedItem={parentData?.row_id}
+        ref={item.id === parentData?.row_id ? selectedItemRef : null}
       />
     ));
   };
