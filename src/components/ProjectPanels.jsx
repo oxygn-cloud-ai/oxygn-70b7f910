@@ -8,7 +8,7 @@ import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownWideNarrow } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import useTreeData from '../hooks/useTreeData';
@@ -120,19 +120,25 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     ];
 
     return fields.map(field => (
-      <PromptField
-        key={field.name}
-        label={field.label}
-        value={localData[field.name] || ''}
-        onChange={(value) => handleChange(field.name, value)}
-        onReset={() => handleReset(field.name)}
-        onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
-        initialValue={selectedItemData[field.name] || ''}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        formattedTime={formattedTime}
-      />
+      <React.Fragment key={field.name}>
+        {field.name === 'admin_prompt_result' && (
+          <div className="flex items-center mb-2">
+            <ArrowDownWideNarrow className="h-5 w-5 text-green-800" />
+          </div>
+        )}
+        <PromptField
+          label={field.label}
+          value={localData[field.name] || ''}
+          onChange={(value) => handleChange(field.name, value)}
+          onReset={() => handleReset(field.name)}
+          onSave={() => handleSave(field.name)}
+          onCascade={() => handleCascade(field.name)}
+          initialValue={selectedItemData[field.name] || ''}
+          onGenerate={handleGenerate}
+          isGenerating={isGenerating}
+          formattedTime={formattedTime}
+        />
+      </React.Fragment>
     ));
   };
 
