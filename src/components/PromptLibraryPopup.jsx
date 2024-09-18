@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Rnd } from 'react-rnd';
-import { X } from 'lucide-react';
+import { X, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
@@ -9,6 +9,7 @@ import { useSupabase } from '../hooks/useSupabase';
 const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId }) => {
   const [popupActiveItem, setPopupActiveItem] = useState(parentId);
   const [selectedItemData, setSelectedItemData] = useState(null);
+  const [isAccordionVisible, setIsAccordionVisible] = useState(true);
   const supabase = useSupabase();
 
   useEffect(() => {
@@ -93,6 +94,10 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     );
   };
 
+  const toggleAccordion = () => {
+    setIsAccordionVisible(!isAccordionVisible);
+  };
+
   return (
     <Rnd
       default={{
@@ -114,14 +119,24 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         </div>
         <div className="flex-grow overflow-auto">
           <div className="w-full h-full flex">
-            <div className="w-1/2 pr-4 border-r">
-              {renderAccordion()}
-            </div>
-            <div className="w-1/2 pl-4">
+            {isAccordionVisible && (
+              <div className="w-1/2 pr-4 border-r">
+                {renderAccordion()}
+              </div>
+            )}
+            <div className={isAccordionVisible ? "w-1/2 pl-4" : "w-full"}>
               {renderPromptFields()}
             </div>
           </div>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute bottom-4 left-4"
+          onClick={toggleAccordion}
+        >
+          {isAccordionVisible ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
+        </Button>
       </div>
     </Rnd>
   );
