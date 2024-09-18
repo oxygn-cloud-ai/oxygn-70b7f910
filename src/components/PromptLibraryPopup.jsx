@@ -15,10 +15,14 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   const popupRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen && parentId) {
-      setPopupActiveItem(parentId);
-      fetchItemData(parentId);
-      setIsAccordionVisible(false);
+    if (isOpen) {
+      if (parentId) {
+        setPopupActiveItem(parentId);
+        fetchItemData(parentId);
+        setIsAccordionVisible(false);
+      } else {
+        setIsAccordionVisible(true);
+      }
     }
   }, [isOpen, parentId]);
 
