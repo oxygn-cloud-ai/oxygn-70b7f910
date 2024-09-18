@@ -159,7 +159,32 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   if (!isOpen) return null;
 
   return (
-    <Rnd default={{x: 0, y: 0, width: 800, height: 600}} minWidth={400} minHeight={400} bounds="window" enableResizing={{ left: true, right: true, top: true, bottom: true, topLeft: true, topRight: true, bottomLeft: true, bottomRight: true }}>
+    <Rnd
+      default={{x: 0, y: 0, width: 800, height: 600}}
+      minWidth={400}
+      minHeight={400}
+      bounds="window"
+      enableResizing={{
+        top: true,
+        right: true,
+        bottom: true,
+        left: true,
+        topRight: true,
+        bottomRight: true,
+        bottomLeft: true,
+        topLeft: true
+      }}
+      resizeHandleStyles={{
+        top: { cursor: 'n-resize' },
+        right: { cursor: 'e-resize' },
+        bottom: { cursor: 's-resize' },
+        left: { cursor: 'w-resize' },
+        topRight: { cursor: 'ne-resize' },
+        bottomRight: { cursor: 'se-resize' },
+        bottomLeft: { cursor: 'sw-resize' },
+        topLeft: { cursor: 'nw-resize' }
+      }}
+    >
       <div ref={popupRef} className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
