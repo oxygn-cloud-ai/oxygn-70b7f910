@@ -15,14 +15,10 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   const popupRef = useRef(null);
 
   useEffect(() => {
-    if (isOpen) {
-      if (parentId) {
-        setPopupActiveItem(parentId);
-        fetchItemData(parentId);
-        setIsAccordionVisible(false);
-      } else {
-        setIsAccordionVisible(true);
-      }
+    if (isOpen && parentId) {
+      setPopupActiveItem(parentId);
+      fetchItemData(parentId);
+      setIsAccordionVisible(false);
     }
   }, [isOpen, parentId]);
 
@@ -144,7 +140,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
                     deleteItem={deleteItem}
                   />
                 </Panel>
-                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors cursor-col-resize" />
+                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
               </>
             )}
             <Panel minSize={20}>
