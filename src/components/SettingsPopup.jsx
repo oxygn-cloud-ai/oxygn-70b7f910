@@ -60,8 +60,8 @@ const SettingsPopup = ({ localSettings, handleSettingChange, handleSettingSave, 
 
   return (
     <Accordion type="single" collapsible className="w-full">
-      <AccordionItem value="reuse-prompts">
-        <AccordionTrigger>Reuse Prompts</AccordionTrigger>
+      <AccordionItem value="settings">
+        <AccordionTrigger>Settings</AccordionTrigger>
         <AccordionContent>
           {renderSettingFields()}
         </AccordionContent>
