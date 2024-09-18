@@ -3,7 +3,7 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Settings } from 'lucide-react';
+import { PlusCircle, Settings, Wrench } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
@@ -158,6 +158,12 @@ const Projects = () => {
                   size="icon"
                 >
                   <Settings className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                >
+                  <Wrench className="h-5 w-5" />
                 </Button>
               </div>
               {isLoading ? <div>Loading...</div> : renderAccordion()}
