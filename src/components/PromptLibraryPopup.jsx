@@ -124,11 +124,11 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex-grow overflow-auto">
+        <div className="flex-grow overflow-hidden">
           <PanelGroup direction="horizontal">
             {isAccordionVisible && (
               <>
-                <Panel minSize={20}>
+                <Panel minSize={20} defaultSize={30}>
                   <PromptLibraryAccordion
                     treeData={treeData}
                     expandedItems={expandedItems}
@@ -144,7 +144,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
                     deleteItem={deleteItem}
                   />
                 </Panel>
-                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors cursor-col-resize" />
+                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
               </>
             )}
             <Panel minSize={20}>
