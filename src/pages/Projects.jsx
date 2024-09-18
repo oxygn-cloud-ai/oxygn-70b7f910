@@ -3,7 +3,7 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Settings, Tool } from 'lucide-react';
+import { PlusCircle, Settings, Wrench } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
@@ -14,19 +14,15 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => {
-      if (prev.includes(itemId)) {
-        return prev.filter(id => id !== itemId);
-      } else {
-        return [...prev, itemId];
-      }
-    });
+    setExpandedItems(prev => 
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
     setActiveItem(itemId);
   }, []);
 
@@ -73,8 +69,8 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
-  const renderTreeItems = useCallback((items) => {
-    return items.map((item) => (
+  const renderTreeItems = useCallback((items) => (
+    items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
@@ -97,8 +93,8 @@ const Projects = () => {
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
       />
-    ));
-  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+    ))
+  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -125,17 +121,6 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const renderAccordion = () => (
-    <Accordion
-      type="multiple"
-      value={expandedItems}
-      onValueChange={setExpandedItems}
-      className="w-full min-w-max"
-    >
-      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-    </Accordion>
-  );
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -148,28 +133,26 @@ const Projects = () => {
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
               <div className="mb-2 flex space-x-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleAddItem(null)}
-                >
+                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                >
+                <Button variant="ghost" size="icon">
                   <Settings className="h-5 w-5" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsPopupOpen(true)}
-                >
-                  <Tool className="h-5 w-5" />
+                <Button variant="ghost" size="icon" onClick={() => setIsPopupOpen(true)}>
+                  <Wrench className="h-5 w-5" />
                 </Button>
               </div>
-              {isLoading ? <div>Loading...</div> : renderAccordion()}
+              {isLoading ? <div>Loading...</div> : (
+                <Accordion
+                  type="multiple"
+                  value={expandedItems}
+                  onValueChange={setExpandedItems}
+                  className="w-full min-w-max"
+                >
+                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+                </Accordion>
+              )}
             </div>
           </div>
         </Panel>
