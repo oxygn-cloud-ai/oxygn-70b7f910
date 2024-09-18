@@ -149,7 +149,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
               size="icon"
               onClick={toggleAccordion}
             >
-              {isAccordionVisible ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
+              {isAccordionVisible ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
             </Button>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
