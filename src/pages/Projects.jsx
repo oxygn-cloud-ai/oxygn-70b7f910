@@ -3,7 +3,7 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Settings, Wrench } from 'lucide-react';
+import { PlusCircle, Wrench } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
@@ -135,9 +135,6 @@ const Projects = () => {
               <div className="mb-2 flex space-x-2">
                 <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Settings className="h-5 w-5" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => setIsPopupOpen(true)}>
                   <Wrench className="h-5 w-5" />
