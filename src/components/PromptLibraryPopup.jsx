@@ -173,7 +173,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
           </Button>
         </div>
         <div className="flex-grow overflow-auto">
-          <PanelGroup direction="horizontal-reverse">
+          <PanelGroup direction="horizontal">
             {isAccordionVisible && (
               <>
                 <Panel minSize={20}>
