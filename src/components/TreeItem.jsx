@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { FileIcon, ChevronRight, ChevronDown, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -90,6 +90,41 @@ const TreeItem = ({
               {displayName}
             </span>
           )}
+        </div>
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              addItem(item.id);
+            }}
+          >
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              startRenaming(item.id, item.prompt_name);
+            }}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteItem(item.id);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       {isExpanded && item.children && item.children.length > 0 && (
