@@ -185,8 +185,18 @@ const Projects = () => {
           minWidth={200}
           minHeight={100}
           bounds="window"
+          enableResizing={{
+            top: true,
+            right: true,
+            bottom: true,
+            left: true,
+            topRight: true,
+            bottomRight: true,
+            bottomLeft: true,
+            topLeft: true
+          }}
         >
-          <div className="bg-white border rounded-lg shadow-lg p-4">
+          <div className="bg-white border rounded-lg shadow-lg p-4 h-full">
             <Button
               variant="ghost"
               size="sm"
