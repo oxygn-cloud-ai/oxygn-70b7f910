@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Wrench } from 'lucide-react';
+import { PlusCircle, Wrench, ChevronDown, ChevronUp, Save, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { Rnd } from 'react-rnd';
+import { useSettings } from '../hooks/useSettings';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -18,6 +24,16 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const { settings, updateSetting } = useSettings(supabase);
+  const { models } = useOpenAIModels();
+  const [localSettings, setLocalSettings] = useState({});
+  const [expandedSettings, setExpandedSettings] = useState([]);
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -121,6 +137,70 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
+  const handleSettingChange = (key, value) => {
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSettingSave = async (key) => {
+    await updateSetting(key, localSettings[key]);
+  };
+
+  const handleSettingReset = (key) => {
+    setLocalSettings(prev => ({ ...prev, [key]: settings[key] }));
+  };
+
+  const renderSettingFields = () => {
+    const fields = [
+      { key: 'openai_url', label: 'OpenAI URL', type: 'text' },
+      { key: 'openai_api_key', label: 'OpenAI API Key', type: 'password' },
+      { key: 'build', label: 'Build', type: 'text' },
+      { key: 'version', label: 'Version', type: 'text' },
+      { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea' },
+    ];
+
+    return fields.map(({ key, label, type }) => (
+      <div key={key} className="mb-4">
+        <div className="flex justify-between items-center mb-1">
+          <label htmlFor={key} className="text-sm font-medium">{label}</label>
+          <div className="flex space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSettingSave(key)}
+              className="h-6 w-6"
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSettingReset(key)}
+              className="h-6 w-6"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        {type === 'textarea' ? (
+          <Textarea
+            id={key}
+            value={localSettings[key] || ''}
+            onChange={(e) => handleSettingChange(key, e.target.value)}
+            className="w-full mt-1"
+          />
+        ) : (
+          <Input
+            id={key}
+            type={type}
+            value={localSettings[key] || ''}
+            onChange={(e) => handleSettingChange(key, e.target.value)}
+            className="w-full mt-1"
+          />
+        )}
+      </div>
+    ));
+  };
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -196,7 +276,7 @@ const Projects = () => {
             topLeft: true
           }}
         >
-          <div className="bg-white border rounded-lg shadow-lg p-4 h-full">
+          <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
             <Button
               variant="ghost"
               size="sm"
@@ -205,9 +285,19 @@ const Projects = () => {
             >
               X
             </Button>
-            <div className="h-full flex items-center justify-center">
-              <p>Popup Content</p>
-            </div>
+            <Accordion
+              type="multiple"
+              value={expandedSettings}
+              onValueChange={setExpandedSettings}
+              className="w-full"
+            >
+              <AccordionItem value="settings">
+                <AccordionTrigger>Settings</AccordionTrigger>
+                <AccordionContent>
+                  {renderSettingFields()}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </Rnd>
       )}
