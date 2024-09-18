@@ -27,7 +27,6 @@ const Projects = () => {
   const { settings, updateSetting } = useSettings(supabase);
   const { models } = useOpenAIModels();
   const [localSettings, setLocalSettings] = useState({});
-  const [expandedSettings, setExpandedSettings] = useState([]);
 
   useEffect(() => {
     if (settings) {
@@ -260,7 +259,7 @@ const Projects = () => {
             x: 0,
             y: 0,
             width: 320,
-            height: 200,
+            height: 400,
           }}
           minWidth={200}
           minHeight={100}
@@ -286,9 +285,8 @@ const Projects = () => {
               X
             </Button>
             <Accordion
-              type="multiple"
-              value={expandedSettings}
-              onValueChange={setExpandedSettings}
+              type="single"
+              collapsible
               className="w-full"
             >
               <AccordionItem value="settings">
