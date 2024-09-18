@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Rnd } from 'react-rnd';
 import { X, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isAccordionVisible, setIsAccordionVisible] = useState(true);
   const supabase = useSupabase();
+  const popupRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && parentId) {
@@ -24,6 +25,22 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       fetchItemData(popupActiveItem);
     }
   }, [popupActiveItem]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   const fetchItemData = async (itemId) => {
     if (supabase) {
@@ -117,7 +134,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       minHeight={400}
       bounds="window"
     >
-      <div className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
+      <div ref={popupRef} className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Prompt Library</h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
