@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
@@ -6,9 +6,10 @@ import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
+import ParentPromptPopup from './ParentPromptPopup';
 import PromptLibraryPopup from './PromptLibraryPopup';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownWideNarrow } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -21,8 +22,15 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
+  const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
   const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
+  const [parentData, setParentData] = useState(null);
   const [cascadeField, setCascadeField] = useState(null);
+
+  useEffect(() => {
+    setLocalData(selectedItemData || {});
+    setIsSettingsOpen(selectedItemData?.prompt_settings_open ?? true);
+  }, [selectedItemData]);
 
   const handleSave = async (fieldName) => {
     await onUpdateField(fieldName, localData[fieldName]);
@@ -71,9 +79,26 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
     }
   };
 
-  const handleCascade = (fieldName) => {
-    setCascadeField(fieldName);
-    setIsPromptLibraryOpen(true);
+  const handleCascade = async (fieldName) => {
+    if (selectedItemData.parent_row_id) {
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
+          .eq('row_id', selectedItemData.parent_row_id)
+          .single();
+
+        if (error) throw error;
+        setParentData(data);
+        setCascadeField(fieldName);
+        setIsParentPopupOpen(true);
+      } catch (error) {
+        console.error('Error fetching parent data:', error);
+        toast.error('Failed to fetch parent data');
+      }
+    } else {
+      toast.error('No parent prompt available for cascade');
+    }
   };
 
   const handleCascadeAction = (content, action) => {
@@ -95,19 +120,32 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
     ];
 
     return fields.map(field => (
-      <PromptField
-        key={field.name}
-        label={field.label}
-        value={localData[field.name] || ''}
-        onChange={(value) => handleChange(field.name, value)}
-        onReset={() => handleReset(field.name)}
-        onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
-        initialValue={selectedItemData[field.name] || ''}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        formattedTime={formattedTime}
-      />
+      <React.Fragment key={field.name}>
+        {field.name === 'admin_prompt_result' && (
+          <div className="flex items-center mb-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsPromptLibraryOpen(true)}
+              className="p-0 h-6 w-6 text-green-800"
+            >
+              <ArrowDownWideNarrow className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+        <PromptField
+          label={field.label}
+          value={localData[field.name] || ''}
+          onChange={(value) => handleChange(field.name, value)}
+          onReset={() => handleReset(field.name)}
+          onSave={() => handleSave(field.name)}
+          onCascade={() => handleCascade(field.name)}
+          initialValue={selectedItemData[field.name] || ''}
+          onGenerate={handleGenerate}
+          isGenerating={isGenerating}
+          formattedTime={formattedTime}
+        />
+      </React.Fragment>
     ));
   };
 
@@ -140,6 +178,19 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
           />
         </CollapsibleContent>
       </Collapsible>
+      {isParentPopupOpen && parentData && (
+        <ParentPromptPopup
+          isOpen={isParentPopupOpen}
+          onClose={() => {
+            setIsParentPopupOpen(false);
+            setCascadeField(null);
+          }}
+          parentData={parentData}
+          cascadeField={cascadeField}
+          onCascade={handleCascadeAction}
+          treeData={treeData}
+        />
+      )}
       <PromptLibraryPopup
         isOpen={isPromptLibraryOpen}
         onClose={() => setIsPromptLibraryOpen(false)}
@@ -154,8 +205,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
         cancelRenaming={cancelRenaming}
         deleteItem={deleteItem}
         parentId={selectedItemData?.parent_row_id}
-        onCascade={handleCascadeAction}
-        cascadeField={cascadeField}
       />
     </div>
   );
