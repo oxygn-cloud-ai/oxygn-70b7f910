@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, ChevronRight, ChevronDown, Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -17,7 +17,7 @@ const TreeItem = ({
   activeItem,
   setActiveItem,
   deleteItem,
-  isPopup = false, // New prop to determine if it's in the popup
+  isPopup = false,
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -30,22 +30,22 @@ const TreeItem = ({
   }, [editingItem, item.id]);
 
   const renderActionButtons = () => {
-    if (isPopup) return null; // Don't render action buttons in popup
+    if (isPopup) return null;
 
     return (
       <div className="flex items-center space-x-1 ml-2">
         <ActionButton 
-          icon={<PlusIcon className="h-3 w-3" />} 
+          icon={<Plus className="h-3 w-3" />} 
           onClick={() => addItem && addItem(item.id)} 
           tooltip="Add Prompt" 
         />
         <ActionButton 
-          icon={<EditIcon className="h-3 w-3" />} 
+          icon={<Edit className="h-3 w-3" />} 
           onClick={() => startRenaming(item.id, item.prompt_name)} 
           tooltip="Rename" 
         />
         <ActionButton 
-          icon={<Trash2Icon className="h-3 w-3" />} 
+          icon={<Trash2 className="h-3 w-3" />} 
           onClick={() => deleteItem(item.id)} 
           tooltip="Delete" 
         />
