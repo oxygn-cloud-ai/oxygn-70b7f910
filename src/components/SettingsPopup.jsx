@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, X } from 'lucide-react';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
 import { useSupabase } from '../hooks/useSupabase';
@@ -71,6 +71,9 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
       <DialogContent className="sm:max-w-[800px] h-[600px] flex flex-col">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
+          <Button variant="ghost" size="icon" onClick={onClose} className="absolute right-4 top-4">
+            <X className="h-4 w-4" />
+          </Button>
         </DialogHeader>
         <div className="flex flex-grow overflow-hidden">
           {isExpanded && (
