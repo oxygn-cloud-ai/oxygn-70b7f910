@@ -67,6 +67,10 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     setIsAccordionVisible(!isAccordionVisible);
   };
 
+  const handleCascadeAction = (content, action) => {
+    onCascade(content, action);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -134,7 +138,8 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
             <Panel minSize={20}>
               <PromptFieldsDisplay
                 selectedItemData={selectedItemData}
-                onCascade={onCascade}
+                onCascade={handleCascadeAction}
+                cascadeField={cascadeField}
               />
             </Panel>
           </PanelGroup>
