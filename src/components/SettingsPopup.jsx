@@ -43,12 +43,10 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
   };
 
   const handleItemSelect = async (item) => {
-    if (item && item.id) {
-      setSelectedItem(null);
-      setIsLoading(true);
-      await fetchItemData(item.id);
-      setIsLoading(false);
-    }
+    setSelectedItem(null);
+    setIsLoading(true);
+    await fetchItemData(item.id);
+    setIsLoading(false);
   };
 
   useEffect(() => {
