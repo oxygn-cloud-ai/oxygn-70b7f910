@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
 import { Rnd } from 'react-rnd';
@@ -11,6 +12,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   const [expandedItems, setExpandedItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const supabase = useSupabase();
   const selectedItemRef = useRef(null);
   const [popupSize, setPopupSize] = useState({ width: 800, height: 600 });
 
@@ -21,10 +23,46 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
     }
   }, [isOpen, parentData]);
 
+  const fetchItemData = async (itemId) => {
+    if (itemId && supabase) {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', itemId)
+          .single();
+
+        if (error) throw error;
+        
+        setSelectedItem(data);
+      } catch (error) {
+        console.error('Error fetching item data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const handleItemSelect = async (item) => {
-    setSelectedItem(item);
+    setSelectedItem(null);
+    setIsLoading(true);
+    await fetchItemData(item.id);
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    if (selectedItem?.id) {
+      fetchItemData(selectedItem.id);
+    }
+  }, [selectedItem?.id, supabase]);
+
+  useEffect(() => {
+    if (selectedItemRef.current) {
+      selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      selectedItemRef.current.focus();
+    }
+  }, [selectedItem]);
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
