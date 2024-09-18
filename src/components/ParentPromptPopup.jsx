@@ -5,6 +5,7 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -67,34 +68,39 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="p-0 overflow-hidden" style={{ width: '800px', height: '600px', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-        <div className="flex h-full">
+        <PanelGroup direction="horizontal">
           {isExpanded && (
-            <TreeView
-              treeData={treeData}
-              expandedItems={expandedItems}
-              setExpandedItems={setExpandedItems}
-              selectedItem={selectedItem}
-              setSelectedItem={handleItemSelect}
-              parentData={parentData}
-              selectedItemRef={selectedItemRef}
-            />
+            <Panel defaultSize={30} minSize={20}>
+              <TreeView
+                treeData={treeData}
+                expandedItems={expandedItems}
+                setExpandedItems={setExpandedItems}
+                selectedItem={selectedItem}
+                setSelectedItem={handleItemSelect}
+                parentData={parentData}
+                selectedItemRef={selectedItemRef}
+              />
+            </Panel>
           )}
-          <PopupContent
-            isExpanded={isExpanded}
-            isLoading={isLoading}
-            selectedItem={selectedItem}
-            cascadeField={cascadeField}
-            onCascade={onCascade}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute bottom-4 left-4"
-            onClick={toggleExpand}
-          >
-            {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-          </Button>
-        </div>
+          {isExpanded && <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />}
+          <Panel>
+            <PopupContent
+              isExpanded={isExpanded}
+              isLoading={isLoading}
+              selectedItem={selectedItem}
+              cascadeField={cascadeField}
+              onCascade={onCascade}
+            />
+          </Panel>
+        </PanelGroup>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute bottom-4 left-4"
+          onClick={toggleExpand}
+        >
+          {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+        </Button>
       </DialogContent>
     </Dialog>
   );
