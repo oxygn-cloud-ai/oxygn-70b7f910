@@ -12,6 +12,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   const [isAccordionVisible, setIsAccordionVisible] = useState(true);
   const supabase = useSupabase();
   const popupRef = useRef(null);
+  const [popupSize, setPopupSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     if (isOpen && parentId) {
@@ -43,7 +44,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   }, [isOpen, onClose]);
 
   const fetchItemData = async (itemId) => {
-    if (supabase) {
+    if (itemId && supabase) {
       try {
         const { data, error } = await supabase
           .from('prompts')
@@ -52,6 +53,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
           .single();
 
         if (error) throw error;
+        
         setSelectedItemData(data);
       } catch (error) {
         console.error('Error fetching item data:', error);
@@ -59,8 +61,6 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       }
     }
   };
-
-  if (!isOpen) return null;
 
   const renderTreeItems = (items) => {
     return items.map((item) => (
@@ -121,6 +121,8 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   const toggleAccordion = () => {
     setIsAccordionVisible(!isAccordionVisible);
   };
+
+  if (!isOpen) return null;
 
   return (
     <Rnd
