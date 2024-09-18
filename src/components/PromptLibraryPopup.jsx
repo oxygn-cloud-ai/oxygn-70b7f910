@@ -133,7 +133,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         <h3 className="text-lg font-semibold mb-2">{selectedItemData.prompt_name || 'Prompt Details'}</h3>
         {fields.map(field => (
           <div key={field.name} className="mb-4 relative">
-            <div className="absolute top-0 right-0 flex space-x-1">
+            <div className="absolute top-0 right-0 flex space-x-0.5">
               <Button variant="ghost" size="icon" onClick={() => handleAppend(field.name)} title="Append">
                 <Replace className="h-4 w-4" />
               </Button>
