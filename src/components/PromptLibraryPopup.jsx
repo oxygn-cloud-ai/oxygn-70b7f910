@@ -125,8 +125,8 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   return (
     <Rnd
       default={{
-        x: 50,
-        y: 50,
+        x: window.innerWidth / 2 - 400,
+        y: 0,
         width: 800,
         height: 600,
       }}
