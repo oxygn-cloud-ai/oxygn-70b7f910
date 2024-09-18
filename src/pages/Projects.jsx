@@ -3,7 +3,7 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Tool } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
@@ -145,13 +145,19 @@ const Projects = () => {
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <div className="mb-2">
+              <div className="mb-2 flex space-x-2">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => handleAddItem(null)}
                 >
                   <PlusCircle className="h-5 w-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                >
+                  <Tool className="h-5 w-5" />
                 </Button>
               </div>
               {isLoading ? <div>Loading...</div> : renderAccordion()}
