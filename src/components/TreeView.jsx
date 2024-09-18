@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { DialogHeader } from "@/components/ui/dialog";
 import { Accordion } from "@/components/ui/accordion";
@@ -29,7 +28,7 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
   };
 
   return (
-    <div className="flex-grow border-r pr-4 overflow-y-auto">
+    <div className="w-1/3 border-r pr-4 overflow-y-auto">
       <DialogHeader>
         <div className="text-lg font-semibold">Select Prompt</div>
       </DialogHeader>

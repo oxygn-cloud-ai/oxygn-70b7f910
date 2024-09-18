@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -81,34 +80,19 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
         minConstraints={[400, 300]}
         maxConstraints={[1200, 900]}
       >
-        <div
-          style={{
-            width: `${popupSize.width}px`,
-            height: `${popupSize.height}px`,
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            display: 'flex',
-            flexDirection: 'row',  // Ensure horizontal resizing
-            border: '1px solid #ccc',
-            backgroundColor: '#fff',
-            overflow: 'hidden'
-          }}
-        >
-          <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-            <TreeView
-              treeData={treeData}
-              expandedItems={expandedItems}
-              setExpandedItems={setExpandedItems}
-              selectedItem={selectedItem}
-              setSelectedItem={handleItemSelect}
-              parentData={parentData}
-              selectedItemRef={selectedItemRef}
-            />
-          </div>
-          <div style={{ width: '5px', background: '#ddd', cursor: 'col-resize' }}></div>
-          <div style={{ flex: 2, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <DialogContent className="p-0 overflow-hidden" style={{ width: `${popupSize.width}px`, height: `${popupSize.height}px`, position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+          <div className="flex h-full">
+            {isExpanded && (
+              <TreeView
+                treeData={treeData}
+                expandedItems={expandedItems}
+                setExpandedItems={setExpandedItems}
+                selectedItem={selectedItem}
+                setSelectedItem={handleItemSelect}
+                parentData={parentData}
+                selectedItemRef={selectedItemRef}
+              />
+            )}
             <PopupContent
               isExpanded={isExpanded}
               isLoading={isLoading}
@@ -116,17 +100,17 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
               cascadeField={cascadeField}
               onCascade={onCascade}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute bottom-4 left-4"
+              onClick={toggleExpand}
+            >
+              {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+            </Button>
           </div>
-        </div>
+        </DialogContent>
       </Resizable>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute bottom-4 left-4"
-        onClick={toggleExpand}
-      >
-        {isExpanded ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-      </Button>
     </Dialog>
   );
 };
