@@ -174,21 +174,21 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         </div>
         <div className="flex-grow overflow-auto">
           <PanelGroup direction="horizontal">
-            {isAccordionVisible && (
-              <>
-                <Panel minSize={20}>
-                  <div className="pr-4 border-r h-full overflow-auto">
-                    {renderAccordion()}
-                  </div>
-                </Panel>
-                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
-              </>
-            )}
             <Panel minSize={20}>
               <div className="pl-4 h-full overflow-auto">
                 {renderPromptFields()}
               </div>
             </Panel>
+            {isAccordionVisible && (
+              <>
+                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
+                <Panel minSize={20}>
+                  <div className="pr-4 border-r h-full overflow-auto">
+                    {renderAccordion()}
+                  </div>
+                </Panel>
+              </>
+            )}
           </PanelGroup>
         </div>
       </div>
