@@ -3,14 +3,11 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, ArrowDownWideNarrow } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import { Rnd } from 'react-rnd';
-import { useSettings } from '../hooks/useSettings';
-import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import SettingsPopup from '../components/SettingsPopup';
 
 const Projects = () => {
@@ -21,15 +18,8 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const { settings, updateSetting } = useSettings(supabase);
-  const { models } = useOpenAIModels();
-  const [localSettings, setLocalSettings] = useState({});
-
-  useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
-  }, [settings]);
+  const [popupParentData, setPopupParentData] = useState(null);
+  const [popupCascadeField, setPopupCascadeField] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -133,16 +123,15 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const handleSettingChange = (key, value) => {
-    setLocalSettings(prev => ({ ...prev, [key]: value }));
+  const handleOpenPopup = (parentData, cascadeField) => {
+    setPopupParentData(parentData);
+    setPopupCascadeField(cascadeField);
+    setIsPopupOpen(true);
   };
 
-  const handleSettingSave = async (key) => {
-    await updateSetting(key, localSettings[key]);
-  };
-
-  const handleSettingReset = (key) => {
-    setLocalSettings(prev => ({ ...prev, [key]: settings[key] }));
+  const handleCascade = (content, action) => {
+    handleUpdateField(popupCascadeField, content);
+    setIsPopupOpen(false);
   };
 
   if (!supabase) {
@@ -182,7 +171,7 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                onOpenReusePrompts={() => setIsPopupOpen(true)}
+                onOpenReusePrompts={handleOpenPopup}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -196,46 +185,14 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      {isPopupOpen && (
-        <Rnd
-          default={{
-            x: 0,
-            y: 0,
-            width: 320,
-            height: 400,
-          }}
-          minWidth={200}
-          minHeight={100}
-          bounds="window"
-          enableResizing={{
-            top: true,
-            right: true,
-            bottom: true,
-            left: true,
-            topRight: true,
-            bottomRight: true,
-            bottomLeft: true,
-            topLeft: true
-          }}
-        >
-          <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={() => setIsPopupOpen(false)}
-            >
-              X
-            </Button>
-            <SettingsPopup
-              localSettings={localSettings}
-              handleSettingChange={handleSettingChange}
-              handleSettingSave={handleSettingSave}
-              handleSettingReset={handleSettingReset}
-            />
-          </div>
-        </Rnd>
-      )}
+      <SettingsPopup
+        isOpen={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        parentData={popupParentData}
+        cascadeField={popupCascadeField}
+        onCascade={handleCascade}
+        treeData={treeData}
+      />
     </div>
   );
 };

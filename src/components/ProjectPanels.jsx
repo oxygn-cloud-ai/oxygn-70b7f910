@@ -6,12 +6,10 @@ import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
-import ParentPromptPopup from './ParentPromptPopup';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, ArrowDownWideNarrow } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
-import useTreeData from '../hooks/useTreeData';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenReusePrompts }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -22,10 +20,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
-  const [isParentPopupOpen, setIsParentPopupOpen] = useState(false);
-  const [parentData, setParentData] = useState(null);
-  const [cascadeField, setCascadeField] = useState(null);
-  const { treeData } = useTreeData(supabase);
 
   useEffect(() => {
     setLocalData(selectedItemData || {});
@@ -84,29 +78,18 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
       try {
         const { data, error } = await supabase
           .from('prompts')
-          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
+          .select('*')
           .eq('row_id', selectedItemData.parent_row_id)
           .single();
 
         if (error) throw error;
-        setParentData(data);
-        setCascadeField(fieldName);
-        setIsParentPopupOpen(true);
+        onOpenReusePrompts(data, fieldName);
       } catch (error) {
         console.error('Error fetching parent data:', error);
         toast.error('Failed to fetch parent data');
       }
     } else {
       toast.error('No parent prompt available for cascade');
-    }
-  };
-
-  const handleCascadeAction = (content, action) => {
-    if (cascadeField) {
-      const newContent = action === 'append'
-        ? (localData[cascadeField] || '') + '\n' + content
-        : content;
-      handleChange(cascadeField, newContent);
     }
   };
 
@@ -119,36 +102,21 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
       { name: 'note', label: 'Notes' }
     ];
 
-    return (
-      <>
-        <div className="mb-4 flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onOpenReusePrompts}
-            className="flex items-center space-x-1"
-          >
-            <ArrowDownWideNarrow className="h-4 w-4" />
-            <span>Reuse Prompts</span>
-          </Button>
-        </div>
-        {fields.map(field => (
-          <PromptField
-            key={field.name}
-            label={field.label}
-            value={localData[field.name] || ''}
-            onChange={(value) => handleChange(field.name, value)}
-            onReset={() => handleReset(field.name)}
-            onSave={() => handleSave(field.name)}
-            onCascade={() => handleCascade(field.name)}
-            initialValue={selectedItemData[field.name] || ''}
-            onGenerate={handleGenerate}
-            isGenerating={isGenerating}
-            formattedTime={formattedTime}
-          />
-        ))}
-      </>
-    );
+    return fields.map(field => (
+      <PromptField
+        key={field.name}
+        label={field.label}
+        value={localData[field.name] || ''}
+        onChange={(value) => handleChange(field.name, value)}
+        onReset={() => handleReset(field.name)}
+        onSave={() => handleSave(field.name)}
+        onCascade={() => handleCascade(field.name)}
+        initialValue={selectedItemData[field.name] || ''}
+        onGenerate={handleGenerate}
+        isGenerating={isGenerating}
+        formattedTime={formattedTime}
+      />
+    ));
   };
 
   return (
@@ -180,19 +148,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
           />
         </CollapsibleContent>
       </Collapsible>
-      {isParentPopupOpen && parentData && (
-        <ParentPromptPopup
-          isOpen={isParentPopupOpen}
-          onClose={() => {
-            setIsParentPopupOpen(false);
-            setCascadeField(null);
-          }}
-          parentData={parentData}
-          cascadeField={cascadeField}
-          onCascade={handleCascadeAction}
-          treeData={treeData}
-        />
-      )}
     </div>
   );
 };
