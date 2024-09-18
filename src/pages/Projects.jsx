@@ -3,10 +3,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, ArrowDownWideNarrow, ChevronDown, ChevronUp, Save, RotateCcw } from 'lucide-react';
+import { PlusCircle, ArrowDownWideNarrow } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
@@ -213,9 +211,6 @@ const Projects = () => {
                 <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => setIsPopupOpen(true)}>
-                  <ArrowDownWideNarrow className="h-5 w-5" />
-                </Button>
               </div>
               {isLoading ? <div>Loading...</div> : (
                 <Accordion
@@ -238,6 +233,7 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
+                onOpenReusePrompts={() => setIsPopupOpen(true)}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

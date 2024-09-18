@@ -8,12 +8,12 @@ import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import ParentPromptPopup from './ParentPromptPopup';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowDownWideNarrow } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import useTreeData from '../hooks/useTreeData';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenReusePrompts }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -119,21 +119,36 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       { name: 'note', label: 'Notes' }
     ];
 
-    return fields.map(field => (
-      <PromptField
-        key={field.name}
-        label={field.label}
-        value={localData[field.name] || ''}
-        onChange={(value) => handleChange(field.name, value)}
-        onReset={() => handleReset(field.name)}
-        onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
-        initialValue={selectedItemData[field.name] || ''}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        formattedTime={formattedTime}
-      />
-    ));
+    return (
+      <>
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenReusePrompts}
+            className="flex items-center space-x-1"
+          >
+            <ArrowDownWideNarrow className="h-4 w-4" />
+            <span>Reuse Prompts</span>
+          </Button>
+        </div>
+        {fields.map(field => (
+          <PromptField
+            key={field.name}
+            label={field.label}
+            value={localData[field.name] || ''}
+            onChange={(value) => handleChange(field.name, value)}
+            onReset={() => handleReset(field.name)}
+            onSave={() => handleSave(field.name)}
+            onCascade={() => handleCascade(field.name)}
+            initialValue={selectedItemData[field.name] || ''}
+            onGenerate={handleGenerate}
+            isGenerating={isGenerating}
+            formattedTime={formattedTime}
+          />
+        ))}
+      </>
+    );
   };
 
   return (
