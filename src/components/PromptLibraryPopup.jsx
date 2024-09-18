@@ -106,7 +106,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
           </Button>
         </div>
         <div className="flex-grow flex overflow-hidden">
-          <div style={{ width: `${accordionWidth}px`, minWidth: '200px', maxWidth: '50%' }} className="border-r relative">
+          <div style={{ width: `${accordionWidth}px`, minWidth: '200px', maxWidth: 'calc(100% - 200px)' }} className="border-r relative">
             <PromptLibraryAccordion
               treeData={treeData}
               expandedItems={expandedItems}
