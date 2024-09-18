@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Rnd } from 'react-rnd';
-import { X, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { X, ChevronsLeft, ChevronsRight, Replace, ReplaceAll, ClipboardCopy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 import { useSupabase } from '../hooks/useSupabase';
+import { toast } from 'sonner';
 
 const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId }) => {
   const [popupActiveItem, setPopupActiveItem] = useState(null);
@@ -107,11 +108,44 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       { name: 'user_prompt_result', label: 'User Result' },
     ];
 
+    const handleReplace = (fieldName) => {
+      // Implement replace functionality
+      console.log(`Replace clicked for ${fieldName}`);
+      toast.info(`Replace clicked for ${fieldName}`);
+    };
+
+    const handleReplaceAll = (fieldName) => {
+      // Implement replace all functionality
+      console.log(`Replace All clicked for ${fieldName}`);
+      toast.info(`Replace All clicked for ${fieldName}`);
+    };
+
+    const handleCopy = (fieldName) => {
+      const content = selectedItemData[fieldName];
+      navigator.clipboard.writeText(content).then(() => {
+        toast.success(`Copied ${fieldName} to clipboard`);
+      }).catch((err) => {
+        console.error('Failed to copy text: ', err);
+        toast.error('Failed to copy text');
+      });
+    };
+
     return (
       <div className="mt-4">
         <h3 className="text-lg font-semibold mb-2">{selectedItemData.prompt_name || 'Prompt Details'}</h3>
         {fields.map(field => (
-          <div key={field.name} className="mb-4">
+          <div key={field.name} className="mb-4 relative">
+            <div className="absolute top-0 right-0 flex space-x-2">
+              <Button variant="ghost" size="icon" onClick={() => handleReplace(field.name)} title="Replace">
+                <Replace className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => handleReplaceAll(field.name)} title="Replace All">
+                <ReplaceAll className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => handleCopy(field.name)} title="Copy to Clipboard">
+                <ClipboardCopy className="h-4 w-4" />
+              </Button>
+            </div>
             <h4 className="font-medium">{field.label}</h4>
             <p className="text-sm bg-gray-100 p-2 rounded mt-1 whitespace-pre-wrap">
               {selectedItemData[field.name] || 'N/A'}
