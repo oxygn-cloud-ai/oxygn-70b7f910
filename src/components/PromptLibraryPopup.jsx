@@ -35,12 +35,20 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       }
     };
 
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEscapeKey);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscapeKey);
     };
   }, [isOpen, onClose]);
 
