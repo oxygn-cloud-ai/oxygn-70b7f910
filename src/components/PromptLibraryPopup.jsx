@@ -29,6 +29,22 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     }
   }, [popupActiveItem]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
+
   const fetchItemData = async (itemId) => {
     if (itemId && supabase) {
       try {
