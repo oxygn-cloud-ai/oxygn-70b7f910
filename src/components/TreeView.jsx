@@ -39,11 +39,7 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
           onValueChange={setExpandedItems}
           className="w-full min-w-max"
         >
-          {treeData && treeData.length > 0 ? (
-            renderTreeItems(treeData)
-          ) : (
-            <div className="text-gray-500 p-2">No prompts available</div>
-          )}
+          {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
         </Accordion>
       </div>
     </div>
