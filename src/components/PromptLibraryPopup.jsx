@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Rnd } from 'react-rnd';
 import { X, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import PromptLibraryAccordion from './PromptLibraryAccordion';
 import PromptFieldsDisplay from './PromptFieldsDisplay';
 
@@ -11,8 +9,10 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   const [popupActiveItem, setPopupActiveItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isAccordionVisible, setIsAccordionVisible] = useState(false);
+  const [accordionWidth, setAccordionWidth] = useState(300);
   const supabase = useSupabase();
   const popupRef = useRef(null);
+  const resizeRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -83,37 +83,30 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     onCascade(content, action);
   };
 
+  const startResize = (e) => {
+    e.preventDefault();
+    document.addEventListener('mousemove', resize);
+    document.addEventListener('mouseup', stopResize);
+  };
+
+  const resize = (e) => {
+    if (resizeRef.current) {
+      const newWidth = e.clientX - resizeRef.current.getBoundingClientRect().left;
+      setAccordionWidth(newWidth);
+    }
+  };
+
+  const stopResize = () => {
+    document.removeEventListener('mousemove', resize);
+    document.removeEventListener('mouseup', stopResize);
+  };
+
   if (!isOpen) return null;
 
   return (
-    <Rnd
-      default={{x: 0, y: 0, width: 800, height: 600}}
-      minWidth={400}
-      minHeight={400}
-      bounds="window"
-      enableResizing={{
-        top: true,
-        right: true,
-        bottom: true,
-        left: true,
-        topRight: true,
-        bottomRight: true,
-        bottomLeft: true,
-        topLeft: true
-      }}
-      resizeHandleStyles={{
-        top: { cursor: 'n-resize' },
-        right: { cursor: 'e-resize' },
-        bottom: { cursor: 's-resize' },
-        left: { cursor: 'w-resize' },
-        topRight: { cursor: 'ne-resize' },
-        bottomRight: { cursor: 'se-resize' },
-        bottomLeft: { cursor: 'sw-resize' },
-        topLeft: { cursor: 'nw-resize' }
-      }}
-    >
-      <div ref={popupRef} className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
-        <div className="flex justify-between items-center mb-4">
+    <div ref={popupRef} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-lg w-4/5 h-4/5 flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b">
           <div className="flex items-center">
             <h2 className="text-xl font-bold mr-2">Prompt Library</h2>
             <Button variant="ghost" size="icon" onClick={toggleAccordion}>
@@ -124,40 +117,40 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="flex-grow overflow-hidden">
-          <PanelGroup direction="horizontal">
-            {isAccordionVisible && (
-              <>
-                <Panel minSize={20} defaultSize={30}>
-                  <PromptLibraryAccordion
-                    treeData={treeData}
-                    expandedItems={expandedItems}
-                    toggleItem={toggleItem}
-                    addItem={addItem}
-                    startRenaming={startRenaming}
-                    editingItem={editingItem}
-                    setEditingItem={setEditingItem}
-                    finishRenaming={finishRenaming}
-                    cancelRenaming={cancelRenaming}
-                    activeItem={popupActiveItem}
-                    setActiveItem={setPopupActiveItem}
-                    deleteItem={deleteItem}
-                  />
-                </Panel>
-                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
-              </>
-            )}
-            <Panel minSize={20}>
-              <PromptFieldsDisplay
-                selectedItemData={selectedItemData}
-                onCascade={handleCascadeAction}
-                cascadeField={cascadeField}
+        <div className="flex-grow flex overflow-hidden">
+          {isAccordionVisible && (
+            <div style={{ width: `${accordionWidth}px`, minWidth: '200px', maxWidth: '50%' }} className="border-r">
+              <PromptLibraryAccordion
+                treeData={treeData}
+                expandedItems={expandedItems}
+                toggleItem={toggleItem}
+                addItem={addItem}
+                startRenaming={startRenaming}
+                editingItem={editingItem}
+                setEditingItem={setEditingItem}
+                finishRenaming={finishRenaming}
+                cancelRenaming={cancelRenaming}
+                activeItem={popupActiveItem}
+                setActiveItem={setPopupActiveItem}
+                deleteItem={deleteItem}
               />
-            </Panel>
-          </PanelGroup>
+              <div
+                ref={resizeRef}
+                className="w-1 bg-gray-200 hover:bg-gray-300 cursor-col-resize absolute right-0 top-0 bottom-0"
+                onMouseDown={startResize}
+              ></div>
+            </div>
+          )}
+          <div className="flex-grow overflow-auto">
+            <PromptFieldsDisplay
+              selectedItemData={selectedItemData}
+              onCascade={handleCascadeAction}
+              cascadeField={cascadeField}
+            />
+          </div>
         </div>
       </div>
-    </Rnd>
+    </div>
   );
 };
 
