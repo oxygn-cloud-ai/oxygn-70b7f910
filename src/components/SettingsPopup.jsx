@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
+import { useSupabase } from '../hooks/useSupabase';
 
 const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -10,22 +11,42 @@ const SettingsPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, t
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const selectedItemRef = useRef(null);
+  const supabase = useSupabase();
 
   useEffect(() => {
     if (isOpen && parentData) {
       setSelectedItem(parentData);
       setExpandedItems([parentData.row_id]);
+      fetchItemData(parentData.row_id);
     }
   }, [isOpen, parentData]);
+
+  const fetchItemData = async (itemId) => {
+    if (itemId && supabase) {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', itemId)
+          .single();
+
+        if (error) throw error;
+        
+        setSelectedItem(data);
+      } catch (error) {
+        console.error('Error fetching item data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   const handleItemSelect = async (item) => {
     setSelectedItem(null);
     setIsLoading(true);
-    // Simulating data fetch
-    setTimeout(() => {
-      setSelectedItem(item);
-      setIsLoading(false);
-    }, 500);
+    await fetchItemData(item.id);
+    setIsLoading(false);
   };
 
   useEffect(() => {
