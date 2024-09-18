@@ -144,7 +144,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
                     deleteItem={deleteItem}
                   />
                 </Panel>
-                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors" />
+                <PanelResizeHandle className="w-1 bg-gray-200 hover:bg-gray-300 transition-colors cursor-col-resize" />
               </>
             )}
             <Panel minSize={20}>
