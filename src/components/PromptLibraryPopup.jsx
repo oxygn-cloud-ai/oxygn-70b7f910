@@ -108,14 +108,12 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       { name: 'user_prompt_result', label: 'User Result' },
     ];
 
-    const handleReplace = (fieldName) => {
-      // Implement replace functionality
-      console.log(`Replace clicked for ${fieldName}`);
-      toast.info(`Replace clicked for ${fieldName}`);
+    const handleAppend = (fieldName) => {
+      console.log(`Append clicked for ${fieldName}`);
+      toast.info(`Append clicked for ${fieldName}`);
     };
 
     const handleReplaceAll = (fieldName) => {
-      // Implement replace all functionality
       console.log(`Replace All clicked for ${fieldName}`);
       toast.info(`Replace All clicked for ${fieldName}`);
     };
@@ -135,8 +133,8 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         <h3 className="text-lg font-semibold mb-2">{selectedItemData.prompt_name || 'Prompt Details'}</h3>
         {fields.map(field => (
           <div key={field.name} className="mb-4 relative">
-            <div className="absolute top-0 right-0 flex space-x-2">
-              <Button variant="ghost" size="icon" onClick={() => handleReplace(field.name)} title="Replace">
+            <div className="absolute top-0 right-0 flex space-x-1">
+              <Button variant="ghost" size="icon" onClick={() => handleAppend(field.name)} title="Append">
                 <Replace className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="icon" onClick={() => handleReplaceAll(field.name)} title="Replace All">
