@@ -22,7 +22,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
         setEditingItem={setEditingItem}
         finishRenaming={finishRenaming}
         cancelRenaming={cancelRenaming}
-        activeItem={activeItem}
+        activeItem={parentId}  // Changed this line to use parentId instead of activeItem
         setActiveItem={setActiveItem}
         deleteItem={deleteItem}
       />
