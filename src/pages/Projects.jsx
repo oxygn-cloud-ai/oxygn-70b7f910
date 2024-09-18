@@ -3,11 +3,12 @@ import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Settings } from 'lucide-react';
+import { PlusCircle, Settings, Tool } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
+import { Rnd } from 'react-rnd';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,6 +17,7 @@ const Projects = () => {
   const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => {
@@ -159,6 +161,13 @@ const Projects = () => {
                 >
                   <Settings className="h-5 w-5" />
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsPopupOpen(true)}
+                >
+                  <Tool className="h-5 w-5" />
+                </Button>
               </div>
               {isLoading ? <div>Loading...</div> : renderAccordion()}
             </div>
@@ -185,6 +194,33 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
+      {isPopupOpen && (
+        <Rnd
+          default={{
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 200,
+          }}
+          minWidth={200}
+          minHeight={100}
+          bounds="window"
+        >
+          <div className="bg-white border rounded-lg shadow-lg p-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2"
+              onClick={() => setIsPopupOpen(false)}
+            >
+              X
+            </Button>
+            <div className="h-full flex items-center justify-center">
+              <p>Popup Content</p>
+            </div>
+          </div>
+        </Rnd>
+      )}
     </div>
   );
 };
