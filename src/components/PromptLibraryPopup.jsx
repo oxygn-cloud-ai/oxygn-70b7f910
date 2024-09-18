@@ -142,7 +142,16 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     >
       <div ref={popupRef} className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Prompt Library</h2>
+          <div className="flex items-center">
+            <h2 className="text-xl font-bold mr-2">Prompt Library</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleAccordion}
+            >
+              {isAccordionVisible ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
+            </Button>
+          </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
@@ -159,14 +168,6 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
             </div>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute bottom-4 left-4"
-          onClick={toggleAccordion}
-        >
-          {isAccordionVisible ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
-        </Button>
       </div>
     </Rnd>
   );
