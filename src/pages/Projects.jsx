@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import SettingsPopup from '../components/SettingsPopup';
+import ParentPromptPopup from '../components/ParentPromptPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -111,7 +111,7 @@ const Projects = () => {
           
           setSelectedItemData(data);
 
-          // Fetch parent data
+          // Fetch parent data if it exists
           if (data.parent_row_id) {
             const { data: parentData, error: parentError } = await supabase
               .from('prompts')
@@ -188,13 +188,11 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      {isPopupOpen && (
-        <SettingsPopup
+      {isPopupOpen && parentData && (
+        <ParentPromptPopup
           isOpen={isPopupOpen}
           onClose={() => setIsPopupOpen(false)}
           parentData={parentData}
-          cascadeField={null}
-          onCascade={() => {}}
           treeData={treeData}
         />
       )}

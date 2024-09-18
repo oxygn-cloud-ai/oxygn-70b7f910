@@ -84,7 +84,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onOpenRe
       try {
         const { data, error } = await supabase
           .from('prompts')
-          .select('prompt_name, input_admin_prompt, input_user_prompt, admin_prompt_result, user_prompt_result')
+          .select('*')
           .eq('row_id', selectedItemData.parent_row_id)
           .single();
 
