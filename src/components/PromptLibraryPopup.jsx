@@ -7,13 +7,12 @@ import TreeItem from './TreeItem';
 import { useSupabase } from '../hooks/useSupabase';
 import { toast } from 'sonner';
 
-const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId }) => {
+const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, deleteItem, parentId, onCascade, cascadeField }) => {
   const [popupActiveItem, setPopupActiveItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const [isAccordionVisible, setIsAccordionVisible] = useState(false);
   const supabase = useSupabase();
   const popupRef = useRef(null);
-  const [popupSize, setPopupSize] = useState({ width: 800, height: 600 });
 
   useEffect(() => {
     if (isOpen && parentId) {
@@ -28,22 +27,6 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
       fetchItemData(popupActiveItem);
     }
   }, [popupActiveItem]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (popupRef.current && !popupRef.current.contains(event.target)) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
 
   const fetchItemData = async (itemId) => {
     if (itemId && supabase) {
@@ -109,13 +92,11 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
     ];
 
     const handleAppend = (fieldName) => {
-      console.log(`Append clicked for ${fieldName}`);
-      toast.info(`Append clicked for ${fieldName}`);
+      onCascade(selectedItemData[fieldName], 'append');
     };
 
     const handleReplaceAll = (fieldName) => {
-      console.log(`Replace All clicked for ${fieldName}`);
-      toast.info(`Replace All clicked for ${fieldName}`);
+      onCascade(selectedItemData[fieldName], 'overwrite');
     };
 
     const handleCopy = (fieldName) => {
@@ -161,26 +142,12 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
   if (!isOpen) return null;
 
   return (
-    <Rnd
-      default={{
-        x: window.innerWidth / 2 - 400,
-        y: 0,
-        width: 800,
-        height: 600,
-      }}
-      minWidth={400}
-      minHeight={400}
-      bounds="window"
-    >
+    <Rnd default={{x: 0, y: 0, width: 800, height: 600}} minWidth={400} minHeight={400} bounds="window">
       <div ref={popupRef} className="bg-white border rounded-lg shadow-lg p-4 w-full h-full flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
             <h2 className="text-xl font-bold mr-2">Prompt Library</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleAccordion}
-            >
+            <Button variant="ghost" size="icon" onClick={toggleAccordion}>
               {isAccordionVisible ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
             </Button>
           </div>
