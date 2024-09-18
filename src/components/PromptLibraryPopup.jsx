@@ -109,7 +109,7 @@ const PromptLibraryPopup = ({ isOpen, onClose, treeData, expandedItems, toggleIt
 
     return (
       <div className="mt-4">
-        <h3 className="text-lg font-semibold mb-2">Prompt Details</h3>
+        <h3 className="text-lg font-semibold mb-2">{selectedItemData.prompt_name || 'Prompt Details'}</h3>
         {fields.map(field => (
           <div key={field.name} className="mb-4">
             <h4 className="font-medium">{field.label}</h4>
