@@ -3,12 +3,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Wrench, ChevronDown, ChevronUp, Save, RotateCcw } from 'lucide-react';
+import { PlusCircle, ArrowDownWideNarrow, ChevronDown, ChevronUp, Save, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
@@ -216,7 +214,7 @@ const Projects = () => {
                   <PlusCircle className="h-5 w-5" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => setIsPopupOpen(true)}>
-                  <Wrench className="h-5 w-5" />
+                  <ArrowDownWideNarrow className="h-5 w-5" />
                 </Button>
               </div>
               {isLoading ? <div>Loading...</div> : (
@@ -289,8 +287,8 @@ const Projects = () => {
               collapsible
               className="w-full"
             >
-              <AccordionItem value="settings">
-                <AccordionTrigger>Settings</AccordionTrigger>
+              <AccordionItem value="reuse-prompts">
+                <AccordionTrigger>Reuse Prompts</AccordionTrigger>
                 <AccordionContent>
                   {renderSettingFields()}
                 </AccordionContent>
