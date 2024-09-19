@@ -104,10 +104,22 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
           })
         };
 
-        const { error } = await supabase
+        console.log('Supabase API Call:', {
+          table: 'prompts',
+          method: 'UPDATE',
+          data: updateData,
+          condition: { row_id: parentData.row_id }
+        });
+
+        const { data, error } = await supabase
           .from('prompts')
           .update(updateData)
           .eq('row_id', parentData.row_id);
+
+        console.log('Supabase API Response:', {
+          data: data,
+          error: error
+        });
 
         if (error) throw error;
         
