@@ -72,7 +72,6 @@ const Projects = () => {
   }, [deleteItem, refreshTreeData]);
 
   const handleLinkClick = useCallback((item) => {
-    console.log('Link clicked for item:', item);
     setIsLinkMode(true);
     setParentData(item);
     setPopupOpen(true);
@@ -181,15 +180,17 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <ParentPromptPopup
-        isOpen={popupOpen}
-        onClose={() => {
-          setPopupOpen(false);
-          setIsLinkMode(false);
-        }}
-        parentData={parentData}
-        treeData={treeData}
-      />
+      {popupOpen && (
+        <ParentPromptPopup
+          isOpen={popupOpen}
+          onClose={() => {
+            setPopupOpen(false);
+            setIsLinkMode(false);
+          }}
+          parentData={parentData}
+          treeData={treeData}
+        />
+      )}
     </div>
   );
 };
