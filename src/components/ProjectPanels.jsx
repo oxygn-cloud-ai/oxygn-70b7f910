@@ -74,7 +74,12 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
   };
 
   const handleCascade = async (fieldName) => {
-    onCascade(fieldName, localData[fieldName]);
+    if (typeof onCascade === 'function') {
+      onCascade(fieldName, localData[fieldName]);
+    } else {
+      console.error('onCascade is not a function');
+      toast.error('Unable to cascade: onCascade is not defined');
+    }
   };
 
   const renderPromptFields = () => {
