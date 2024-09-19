@@ -83,7 +83,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             onMouseDown={() => setIsLinking(true)}
             onMouseUp={() => setIsLinking(false)}
             onMouseLeave={() => setIsLinking(false)}
-            onClick={onCascade}
+            onClick={() => onCascade(label)}
             className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
             title="Cascade"
           >
