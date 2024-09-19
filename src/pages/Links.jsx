@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import LinksTreeItem from '../components/LinksTreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -7,8 +7,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useNavigate } from 'react-router-dom';
-import { useLinksCascade } from '../hooks/useLinksCascade';
+import { useLocation } from 'react-router-dom';
 
 const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -17,8 +16,16 @@ const Links = () => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const navigate = useNavigate();
-  const { sourceIconId, sourceField, handleCascade } = useLinksCascade();
+  const location = useLocation();
+  const [sourceIconId, setSourceIconId] = useState(null);
+  const [sourceField, setSourceField] = useState(null);
+
+  useEffect(() => {
+    if (location.state) {
+      setSourceIconId(location.state.iconId);
+      setSourceField(location.state.field);
+    }
+  }, [location]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -91,20 +98,6 @@ const Links = () => {
     }
   }, [activeItem, supabase]);
 
-  useEffect(() => {
-    const handleEscapeKey = (event) => {
-      if (event.key === 'Escape') {
-        navigate(-1);
-      }
-    };
-
-    window.addEventListener('keydown', handleEscapeKey);
-
-    return () => {
-      window.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [navigate]);
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -136,7 +129,6 @@ const Links = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                onCascade={(fieldName, selectedText) => handleCascade(activeItem, fieldName, selectedText)}
                 isLinksPage={true}
                 isReadOnly={true}
                 sourceIconId={sourceIconId}
