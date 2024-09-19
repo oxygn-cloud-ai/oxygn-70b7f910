@@ -17,7 +17,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
     // Add event listener for message responses
     const handleMessage = (event) => {
-      console.log('Response received from parent window:', event);
+      console.log('Response received from parent window:', event.data);
     };
     window.addEventListener('message', handleMessage);
 
@@ -64,7 +64,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       };
       console.log('Sending message to parent window:', message);
       window.parent.postMessage(message, '*');
-      console.log('Message sent to parent window');
       toast.success('Content sent to parent window');
     }
   };
