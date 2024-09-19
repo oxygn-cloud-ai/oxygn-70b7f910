@@ -51,9 +51,14 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
           columnToUpdate: updateColumn
         });
 
+        // Ensure the data is properly formatted as a string
+        const formattedUpdateData = {
+          [updateColumn]: JSON.stringify(fieldContent)
+        };
+
         const { data, error } = await supabase
           .from('prompts')
-          .update(updateData)
+          .update(formattedUpdateData)
           .eq('row_id', parentData.row_id);
 
         console.log('Supabase API Response:', {
