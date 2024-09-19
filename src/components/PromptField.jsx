@@ -45,6 +45,18 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   };
 
+  const handleSmilePlusClick = () => {
+    if (label === 'Notes') {
+      const targetElement = document.querySelector("body > div.flex-col.flex.h-screen > div > main > div > div.h-\\[calc\\(100dvh-49px\\)\\].max-h-full.flex.overflow-x-hidden.absolute.md\\:relative.z-\\[1000\\].bg-background.mr-8.md\\:mr-0 > div > form > div.flex.flex-col.w-full > div > div > div.relative");
+      if (targetElement) {
+        targetElement.innerHTML = value;
+        toast.success('Notes content copied to target field');
+      } else {
+        toast.error('Target field not found');
+      }
+    }
+  };
+
   const renderLabel = () => {
     if (label === 'Input Admin Prompt' || label === 'Input User Prompt') {
       return (
@@ -80,7 +92,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {}}
+            onClick={handleSmilePlusClick}
             className="h-6 w-6 text-green-700"
             title="SmilePlus"
           >
