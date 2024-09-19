@@ -6,7 +6,7 @@ const Navbar = () => {
   return (
     <nav className="bg-gray-800 text-white p-4">
       <ul className="flex space-x-4">
-        {navItems.map((item) => (
+        {navItems.filter(item => !item.hidden).map((item) => (
           <li key={item.to}>
             <Link to={item.to} className="flex items-center">
               {item.icon}

@@ -1,7 +1,8 @@
-import { HomeIcon, FolderIcon, SettingsIcon } from "lucide-react";
+import { HomeIcon, FolderIcon, SettingsIcon, LinkIcon } from "lucide-react";
 import Index from "./pages/Index.jsx";
 import Projects from "./pages/Projects.jsx";
 import Settings from "./pages/Settings.jsx";
+import Links from "./pages/Links.jsx";
 
 export const navItems = [
   {
@@ -21,5 +22,12 @@ export const navItems = [
     to: "/settings",
     icon: <SettingsIcon className="h-4 w-4" />,
     page: <Settings />,
+  },
+  {
+    title: "Links",
+    to: "/links",
+    icon: <LinkIcon className="h-4 w-4" />,
+    page: <Links />,
+    hidden: true,
   },
 ];
