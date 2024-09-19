@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, Link, Unlink } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -20,6 +20,7 @@ const TreeItem = ({
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isLinked, setIsLinked] = useState(false);
   const isExpanded = expandedItems.includes(item.id);
 
   useEffect(() => {
@@ -27,6 +28,10 @@ const TreeItem = ({
       inputRef.current.focus();
     }
   }, [editingItem, item.id]);
+
+  const handleLinkToggle = () => {
+    setIsLinked(!isLinked);
+  };
 
   const renderActionButtons = () => (
     <div className="flex items-center space-x-1 ml-2">
@@ -44,6 +49,11 @@ const TreeItem = ({
         icon={<Trash2Icon className="h-3 w-3" />} 
         onClick={() => deleteItem(item.id)} 
         tooltip="Delete" 
+      />
+      <ActionButton
+        icon={isLinked ? <Unlink className="h-3 w-3" /> : <Link className="h-3 w-3" />}
+        onClick={handleLinkToggle}
+        tooltip={isLinked ? "Unlink" : "Link"}
       />
     </div>
   );
@@ -76,7 +86,7 @@ const TreeItem = ({
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
+        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isLinked ? 'bg-green-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
