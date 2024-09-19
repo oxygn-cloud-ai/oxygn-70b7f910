@@ -3,16 +3,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Wrench, Save, RotateCcw } from 'lucide-react';
+import { PlusCircle, Wrench } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import { Rnd } from 'react-rnd';
 import { useSettings } from '../hooks/useSettings';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import SettingsAccordion from '../components/SettingsAccordion';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -21,7 +19,6 @@ const Projects = () => {
   const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
   const { settings, updateSetting } = useSettings(supabase);
   const { models } = useOpenAIModels();
   const [localSettings, setLocalSettings] = useState({});
@@ -135,70 +132,6 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const handleSettingChange = (key, value) => {
-    setLocalSettings(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSettingSave = async (key) => {
-    await updateSetting(key, localSettings[key]);
-  };
-
-  const handleSettingReset = (key) => {
-    setLocalSettings(prev => ({ ...prev, [key]: settings[key] }));
-  };
-
-  const renderSettingFields = () => {
-    const fields = [
-      { key: 'openai_url', label: 'OpenAI URL', type: 'text' },
-      { key: 'openai_api_key', label: 'OpenAI API Key', type: 'password' },
-      { key: 'build', label: 'Build', type: 'text' },
-      { key: 'version', label: 'Version', type: 'text' },
-      { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea' },
-    ];
-
-    return fields.map(({ key, label, type }) => (
-      <div key={key} className="mb-4">
-        <div className="flex justify-between items-center mb-1">
-          <label htmlFor={key} className="text-sm font-medium">{label}</label>
-          <div className="flex space-x-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleSettingSave(key)}
-              className="h-6 w-6"
-            >
-              <Save className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleSettingReset(key)}
-              className="h-6 w-6"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        {type === 'textarea' ? (
-          <Textarea
-            id={key}
-            value={localSettings[key] || ''}
-            onChange={(e) => handleSettingChange(key, e.target.value)}
-            className="w-full mt-1"
-          />
-        ) : (
-          <Input
-            id={key}
-            type={type}
-            value={localSettings[key] || ''}
-            onChange={(e) => handleSettingChange(key, e.target.value)}
-            className="w-full mt-1"
-          />
-        )}
-      </div>
-    ));
-  };
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -214,7 +147,7 @@ const Projects = () => {
                 <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => setIsPopupOpen(true)}>
+                <Button variant="ghost" size="icon">
                   <Wrench className="h-5 w-5" />
                 </Button>
               </div>
@@ -252,53 +185,14 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      {isPopupOpen && (
-        <Rnd
-          default={{
-            x: 0,
-            y: 0,
-            width: 320,
-            height: 400,
-          }}
-          minWidth={200}
-          minHeight={100}
-          bounds="window"
-          enableResizing={{
-            top: false,
-            right: true,
-            bottom: true,
-            left: false,
-            topRight: false,
-            bottomRight: true,
-            bottomLeft: false,
-            topLeft: false
-          }}
-        >
-          <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={() => setIsPopupOpen(false)}
-            >
-              X
-            </Button>
-            <Accordion
-              type="multiple"
-              value={expandedSettings}
-              onValueChange={setExpandedSettings}
-              className="w-full"
-            >
-              <AccordionItem value="settings">
-                <AccordionTrigger>Settings</AccordionTrigger>
-                <AccordionContent>
-                  {renderSettingFields()}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
-        </Rnd>
-      )}
+      <SettingsAccordion
+        expandedSettings={expandedSettings}
+        setExpandedSettings={setExpandedSettings}
+        localSettings={localSettings}
+        handleSettingChange={(key, value) => setLocalSettings(prev => ({ ...prev, [key]: value }))}
+        handleSettingSave={updateSetting}
+        handleSettingReset={(key) => setLocalSettings(prev => ({ ...prev, [key]: settings[key] }))}
+      />
     </div>
   );
 };
