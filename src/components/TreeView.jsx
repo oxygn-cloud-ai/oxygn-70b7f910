@@ -1,46 +1,81 @@
-import React from 'react';
-import { DialogHeader } from "@/components/ui/dialog";
+import React, { useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
+import { PlusCircle } from 'lucide-react';
+import { Button } from "@/components/ui/button";
 
-const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, setSelectedItem, parentData, selectedItemRef }) => {
-  const toggleItem = (item) => {
-    setSelectedItem(item);
+const TreeView = ({ 
+  treeData, 
+  activeItem, 
+  onItemSelect, 
+  onAddItem, 
+  onUpdateItemName, 
+  onDeleteItem, 
+  isLoading, 
+  refreshTreeData 
+}) => {
+  const [expandedItems, setExpandedItems] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
+
+  const handleAddItem = async (parentId) => {
+    const newItemId = await onAddItem(parentId);
+    if (newItemId) {
+      onItemSelect(newItemId);
+      setExpandedItems(prev => [...prev, parentId].filter(Boolean));
+      refreshTreeData();
+    }
   };
 
-  const renderTreeItems = (items, level = 1) => {
-    return items.map((item) => (
+  const renderTreeItems = (items) => (
+    items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
-        level={level}
+        level={1}
         expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        activeItem={selectedItem?.id}
-        setActiveItem={(itemId) => {
-          const selectedTreeItem = items.find(i => i.id === itemId);
-          setSelectedItem(selectedTreeItem);
+        toggleItem={(itemId) => {
+          setExpandedItems(prev => 
+            prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+          );
+          onItemSelect(itemId);
         }}
-        selectedItem={parentData.row_id}
-        ref={item.id === parentData.row_id ? selectedItemRef : null}
+        addItem={handleAddItem}
+        startRenaming={(id, name) => setEditingItem({ id, name })}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={async () => {
+          if (editingItem) {
+            await onUpdateItemName(editingItem.id, editingItem.name);
+            setEditingItem(null);
+            await refreshTreeData();
+          }
+        }}
+        cancelRenaming={() => setEditingItem(null)}
+        activeItem={activeItem}
+        setActiveItem={onItemSelect}
+        deleteItem={onDeleteItem}
       />
-    ));
-  };
+    ))
+  );
 
   return (
-    <div className="w-1/3 border-r pr-4 overflow-y-auto">
-      <DialogHeader>
-        <div className="text-lg font-semibold">Select Prompt</div>
-      </DialogHeader>
-      <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
-        <Accordion
-          type="multiple"
-          value={expandedItems}
-          onValueChange={setExpandedItems}
-          className="w-full min-w-max"
-        >
-          {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-        </Accordion>
+    <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
+      <div className="overflow-x-auto whitespace-nowrap w-full">
+        <div className="mb-2 flex space-x-2">
+          <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
+            <PlusCircle className="h-5 w-5" />
+          </Button>
+        </div>
+        {isLoading ? <div>Loading...</div> : (
+          <Accordion
+            type="multiple"
+            value={expandedItems}
+            onValueChange={setExpandedItems}
+            className="w-full min-w-max"
+          >
+            {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+          </Accordion>
+        )}
       </div>
     </div>
   );
