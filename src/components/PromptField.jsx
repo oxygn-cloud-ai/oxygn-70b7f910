@@ -16,6 +16,28 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   }, [value, label]);
 
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setIsLinking(false);
+      }
+    };
+
+    const handleClickOutside = (e) => {
+      if (isLinking && !e.target.closest('.link-button')) {
+        setIsLinking(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('click', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isLinking]);
+
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -76,11 +98,8 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           <Button
             variant="ghost"
             size="icon"
-            onMouseDown={() => setIsLinking(true)}
-            onMouseUp={() => setIsLinking(false)}
-            onMouseLeave={() => setIsLinking(false)}
-            onClick={onCascade}
-            className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
+            onClick={() => setIsLinking(!isLinking)}
+            className={`h-6 w-6 text-green-700 link-button ${isLinking ? 'cursor-alias' : ''}`}
             title="Cascade"
           >
             <Link className="h-4 w-4" />
