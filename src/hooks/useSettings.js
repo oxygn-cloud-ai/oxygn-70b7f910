@@ -61,7 +61,7 @@ export const useSettings = (supabase) => {
       const { data, error } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .eq('openai_url', settings.openai_url) // Use a unique field as a condition
+        .eq('id', settings.id)
         .select();
 
       if (error) throw error;
