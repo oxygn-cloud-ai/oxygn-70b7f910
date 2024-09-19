@@ -109,15 +109,17 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           >
             <ClipboardCopy className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePaste}
-            className="h-6 w-6 text-green-700"
-            title="Paste from clipboard"
-          >
-            <ClipboardPaste className="h-4 w-4" />
-          </Button>
+          {!isLinksPage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePaste}
+              className="h-6 w-6 text-green-700"
+              title="Paste from clipboard"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
