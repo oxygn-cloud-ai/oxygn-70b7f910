@@ -77,29 +77,29 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseDown={() => setIsLinking(true)}
-            onMouseUp={() => setIsLinking(false)}
-            onMouseLeave={() => setIsLinking(false)}
-            onClick={onCascade}
-            className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
-            title="Cascade"
-          >
-            <Link className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleCopy}
-            className="h-6 w-6 text-green-700"
-            title="Copy to clipboard"
-          >
-            <ClipboardCopy className="h-4 w-4" />
-          </Button>
           {!isLinksPage && (
             <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onMouseDown={() => setIsLinking(true)}
+                onMouseUp={() => setIsLinking(false)}
+                onMouseLeave={() => setIsLinking(false)}
+                onClick={onCascade}
+                className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
+                title="Cascade"
+              >
+                <Link className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCopy}
+                className="h-6 w-6 text-green-700"
+                title="Copy to clipboard"
+              >
+                <ClipboardCopy className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -128,14 +128,17 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
         id={label}
         value={value}
         onChange={(e) => {
-          onChange(e.target.value);
-          if (label === 'Admin Result' || label === 'User Result') {
-            e.target.style.height = 'auto';
+          if (!isLinksPage) {
+            onChange(e.target.value);
+            if (label === 'Admin Result' || label === 'User Result') {
+              e.target.style.height = 'auto';
+            }
           }
         }}
         className="w-full mt-1"
         rows={4}
         ref={textareaRef}
+        readOnly={isLinksPage}
       />
     </div>
   );
