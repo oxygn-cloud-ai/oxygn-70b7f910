@@ -180,17 +180,15 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      {popupOpen && (
-        <ParentPromptPopup
-          isOpen={popupOpen}
-          onClose={() => {
-            setPopupOpen(false);
-            setIsLinkMode(false);
-          }}
-          parentData={parentData}
-          treeData={treeData}
-        />
-      )}
+      <ParentPromptPopup
+        isOpen={popupOpen}
+        onClose={() => {
+          setPopupOpen(false);
+          setIsLinkMode(false);
+        }}
+        parentData={parentData}
+        treeData={treeData}
+      />
     </div>
   );
 };
