@@ -124,6 +124,11 @@ const Projects = () => {
   }, [activeItem, supabase]);
 
   const handleCascade = useCallback((sourceIconId, sourceField) => {
+    if (!sourceIconId) {
+      console.error('sourceIconId is missing');
+      toast.error('Unable to cascade: source icon ID is missing');
+      return;
+    }
     navigate('/links', { state: { sourceIconId, sourceField } });
   }, [navigate]);
 

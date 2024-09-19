@@ -12,8 +12,8 @@ export const useLinksCascade = () => {
 
   useEffect(() => {
     if (location.state) {
-      setSourceIconId(location.state.iconId);
-      setSourceField(location.state.field);
+      setSourceIconId(location.state.sourceIconId);
+      setSourceField(location.state.sourceField);
     } else {
       // If there's no state, we're probably not in the correct context
       toast.error('No source information found. Please try reopening the Links page.');
@@ -22,13 +22,24 @@ export const useLinksCascade = () => {
   }, [location, navigate]);
 
   const handleCascade = useCallback(async (activeItem, fieldName, selectedText) => {
-    if (!activeItem || !sourceIconId || !sourceField || !fieldName || !selectedText) {
-      const missingInfo = !activeItem ? 'active prompt' :
-                          !sourceIconId ? 'source icon ID' :
-                          !sourceField ? 'source field' :
-                          !fieldName ? 'target field' :
-                          'selected text';
-      toast.error(`Unable to cascade: ${missingInfo} is missing`);
+    if (!activeItem) {
+      toast.error('Unable to cascade: active prompt is missing');
+      return;
+    }
+    if (!sourceIconId) {
+      toast.error('Unable to cascade: source icon ID is missing');
+      return;
+    }
+    if (!sourceField) {
+      toast.error('Unable to cascade: source field is missing');
+      return;
+    }
+    if (!fieldName) {
+      toast.error('Unable to cascade: target field is missing');
+      return;
+    }
+    if (!selectedText) {
+      toast.error('Unable to cascade: selected text is missing');
       return;
     }
 
