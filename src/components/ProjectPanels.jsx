@@ -12,23 +12,18 @@ import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
-  const [localData, setLocalData] = useState({});
+  const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
   const { callOpenAI } = useOpenAICall();
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
 
   useEffect(() => {
-    if (selectedItemData) {
-      setLocalData(selectedItemData);
-      setIsSettingsOpen(selectedItemData.prompt_settings_open ?? true);
-    } else {
-      setLocalData({});
-      setIsSettingsOpen(true);
-    }
+    setLocalData(selectedItemData || {});
+    setIsSettingsOpen(selectedItemData?.prompt_settings_open ?? true);
   }, [selectedItemData]);
 
   const handleSave = async (fieldName) => {
@@ -40,7 +35,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   };
 
   const handleReset = (fieldName) => {
-    setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData?.[fieldName] || '' }));
+    setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
   };
 
   const handleGenerate = async () => {
@@ -53,8 +48,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
     setIsGenerating(true);
     try {
       const result = await callOpenAI(
-        localData.input_admin_prompt || '',
-        localData.input_user_prompt || '',
+        localData.input_admin_prompt,
+        localData.input_user_prompt,
         localData
       );
       handleChange('user_prompt_result', result);
@@ -100,21 +95,13 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         onReset={() => handleReset(field.name)}
         onSave={() => handleSave(field.name)}
         onCascade={() => handleCascade(field.name)}
-        initialValue={selectedItemData?.[field.name] || ''}
+        initialValue={selectedItemData[field.name] || ''}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         formattedTime={formattedTime}
       />
     ));
   };
-
-  if (!selectedItemData) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <p className="text-lg text-gray-500">Select a prompt to view details</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
