@@ -61,9 +61,26 @@ const Links = () => {
   }, [activeItem, supabase, refreshTreeData]);
 
   const handleCascade = useCallback(async (fieldName, selectedText) => {
-    if (!activeItem || !sourceIconId || !sourceField) {
-      toast.error('Unable to cascade: missing information');
-      console.error('Cascade info:', { activeItem, sourceIconId, sourceField });
+    console.log('Cascade info:', { activeItem, sourceIconId, sourceField, fieldName, selectedText });
+    
+    if (!activeItem) {
+      toast.error('No prompt selected. Please select a prompt from the tree.');
+      return;
+    }
+    if (!sourceIconId) {
+      toast.error('Source icon ID is missing. Please try reopening the Links page.');
+      return;
+    }
+    if (!sourceField) {
+      toast.error('Source field is missing. Please try reopening the Links page.');
+      return;
+    }
+    if (!fieldName) {
+      toast.error('Target field is not specified.');
+      return;
+    }
+    if (!selectedText) {
+      toast.error('No text selected. Please select some text to cascade.');
       return;
     }
 
