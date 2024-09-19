@@ -5,7 +5,7 @@ import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, SmilePlus, BrainC
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, icon }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
@@ -67,7 +67,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
     return (
       <div className="flex items-center">
-        {icon && <span className="mr-1">{icon}</span>}
         <span>{label}</span>
       </div>
     );
@@ -78,6 +77,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {}}
+            className="h-6 w-6 text-green-700"
+            title="SmilePlus"
+          >
+            <SmilePlus className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -127,15 +135,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             title="Reset to initial value"
           >
             <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {}}
-            className="h-6 w-6 text-green-700"
-            title="SmilePlus"
-          >
-            <SmilePlus className="h-4 w-4" />
           </Button>
         </div>
       </div>
