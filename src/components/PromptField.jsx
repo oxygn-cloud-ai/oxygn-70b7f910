@@ -47,34 +47,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
   const handleSmilePlusClick = () => {
     if (label === 'Notes') {
-      // Access the parent frame
-      const parentFrame = window.parent;
-
-      // Function to insert text into #chatinput
-      const insertTextIntoChatInput = () => {
-        const chatInput = parentFrame.document.querySelector('#chatinput');
-        if (chatInput) {
-          chatInput.value = value;  // Set the input value
-          toast.success('Notes content copied to target field');
-        } else {
-          console.error("#chatinput element not found");
-          toast.error('Failed to focus on target field');
-        }
-      };
-
-      // Check if the parent frame is fully loaded
-      if (parentFrame.document.readyState === 'complete') {
-        insertTextIntoChatInput();
-      } else {
-        // If not loaded, wait for it to load
-        parentFrame.addEventListener('load', insertTextIntoChatInput);
-      }
+      // Use postMessage to send the content to the parent window
+      window.parent.postMessage({
+        type: 'INSERT_TEXT',
+        text: value
+      }, '*');  // '*' allows sending to any origin, adjust if needed
 
       console.log('SmilePlus Button Clicked');
-      console.log('Call Details:');
-      console.log('Label:', label);
-      console.log('Value:', value);
-      console.log('Action:', 'Attempting to insert text into parent frame');
+      console.log('Message sent to parent window');
+      toast.success('Content sent to parent window');
     }
   };
 
