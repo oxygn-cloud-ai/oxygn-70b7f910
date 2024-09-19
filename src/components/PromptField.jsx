@@ -58,13 +58,26 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
   const handleSmilePlusClick = () => {
     if (label === 'Notes') {
-      const message = {
-        type: 'INSERT_TEXT',
-        text: value
-      };
-      console.log('Sending message to parent window:', message);
-      window.parent.postMessage(message, '*');
-      toast.success('Content sent to parent window');
+      // Access the iframe content (assuming CORS Unblock is enabled and allows access)
+      const targetFrame = window.frames[0];  // Replace with the correct frame index or name if needed
+
+      // Attempt to access and modify the #chatinput field in the iframe
+      if (targetFrame && targetFrame.document) {
+        targetFrame.document.addEventListener('DOMContentLoaded', () => {
+          const chatInput = targetFrame.document.querySelector('#chatinput');
+          
+          if (chatInput) {
+            chatInput.value = value;
+            console.log('Content injected into #chatinput:', value);
+          } else {
+            console.error("#chatinput element not found in the target frame.");
+          }
+        });
+
+        console.log('Attempting to inject content into iframe');
+      } else {
+        console.error('Unable to access the target frame. CORS Unblock may not be enabled or configured correctly.');
+      }
     }
   };
 
