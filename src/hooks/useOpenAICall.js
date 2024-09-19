@@ -25,13 +25,18 @@ export const useOpenAICall = () => {
         throw new Error('OpenAI settings are not configured. Please check your settings.');
       }
 
+      // Ensure userMessage is not null or empty
+      if (!userMessage || userMessage.trim() === '') {
+        throw new Error('User message cannot be empty.');
+      }
+
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
 
       const requestBody = {
         model: projectSettings.model,
         messages: [
           { role: 'system', content: systemMessage },
-          { role: 'user', content: userMessage }
+          { role: 'user', content: userMessage.trim() }
         ],
         temperature: parseFloat(projectSettings.temperature),
         max_tokens: parseInt(projectSettings.max_tokens),
