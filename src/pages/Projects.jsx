@@ -13,18 +13,14 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData, defaultAdminPrompt } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => {
-      if (prev.includes(itemId)) {
-        return prev.filter(id => id !== itemId);
-      } else {
-        return [...prev, itemId];
-      }
-    });
+    setExpandedItems(prev => 
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
     setActiveItem(itemId);
   }, []);
 
@@ -123,17 +119,6 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const renderAccordion = () => (
-    <Accordion
-      type="multiple"
-      value={expandedItems}
-      onValueChange={setExpandedItems}
-      className="w-full min-w-max"
-    >
-      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-    </Accordion>
-  );
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -153,7 +138,16 @@ const Projects = () => {
                   <PlusCircle className="h-5 w-5" />
                 </Button>
               </div>
-              {isLoading ? <div>Loading...</div> : renderAccordion()}
+              {isLoading ? <div>Loading...</div> : (
+                <Accordion
+                  type="multiple"
+                  value={expandedItems}
+                  onValueChange={setExpandedItems}
+                  className="w-full min-w-max"
+                >
+                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+                </Accordion>
+              )}
             </div>
           </div>
         </Panel>

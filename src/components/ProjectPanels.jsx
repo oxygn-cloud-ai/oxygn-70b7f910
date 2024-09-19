@@ -6,13 +6,12 @@ import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
-import PromptLibraryPopup from './PromptLibraryPopup';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData, expandedItems, toggleItem, addItem, startRenaming, editingItem, setEditingItem, finishRenaming, cancelRenaming, activeItem, setActiveItem, deleteItem }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -21,8 +20,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
-  const [isPromptLibraryOpen, setIsPromptLibraryOpen] = useState(false);
-  const [cascadeField, setCascadeField] = useState(null);
 
   const handleSave = async (fieldName) => {
     await onUpdateField(fieldName, localData[fieldName]);
@@ -71,20 +68,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
     }
   };
 
-  const handleCascade = (fieldName) => {
-    setCascadeField(fieldName);
-    setIsPromptLibraryOpen(true);
-  };
-
-  const handleCascadeAction = (content, action) => {
-    if (cascadeField) {
-      const newContent = action === 'append'
-        ? (localData[cascadeField] || '') + '\n' + content
-        : content;
-      handleChange(cascadeField, newContent);
-    }
-  };
-
   const renderPromptFields = () => {
     const fields = [
       { name: 'admin_prompt_result', label: 'Admin Result' },
@@ -102,7 +85,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
         onChange={(value) => handleChange(field.name, value)}
         onReset={() => handleReset(field.name)}
         onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
         initialValue={selectedItemData[field.name] || ''}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
@@ -140,23 +122,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, treeData
           />
         </CollapsibleContent>
       </Collapsible>
-      <PromptLibraryPopup
-        isOpen={isPromptLibraryOpen}
-        onClose={() => setIsPromptLibraryOpen(false)}
-        treeData={treeData}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        addItem={addItem}
-        startRenaming={startRenaming}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={finishRenaming}
-        cancelRenaming={cancelRenaming}
-        deleteItem={deleteItem}
-        parentId={selectedItemData?.parent_row_id}
-        onCascade={handleCascadeAction}
-        cascadeField={cascadeField}
-      />
     </div>
   );
 };
