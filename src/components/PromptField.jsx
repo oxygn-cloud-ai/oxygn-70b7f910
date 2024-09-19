@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, BrainCircuit } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -42,17 +42,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     } catch (err) {
       console.error('Failed to copy: ', err);
       toast.error('Failed to copy content');
-    }
-  };
-
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      onChange(text);
-      toast.success('Content pasted from clipboard');
-    } catch (err) {
-      console.error('Failed to paste: ', err);
-      toast.error('Failed to paste content');
     }
   };
 
@@ -110,36 +99,29 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             <ClipboardCopy className="h-4 w-4" />
           </Button>
           {!isLinksPage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handlePaste}
-              className="h-6 w-6 text-green-700"
-              title="Paste from clipboard"
-            >
-              <ClipboardPaste className="h-4 w-4" />
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSave}
+                disabled={!hasChanged}
+                className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
+                title="Save changes"
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onReset}
+                disabled={!hasChanged}
+                className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
+                title="Reset to initial value"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onSave}
-            disabled={!hasChanged}
-            className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
-            title="Save changes"
-          >
-            <Save className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onReset}
-            disabled={!hasChanged}
-            className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
-            title="Reset to initial value"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
         </div>
       </div>
       <Textarea
