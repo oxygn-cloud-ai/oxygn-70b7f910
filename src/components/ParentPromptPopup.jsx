@@ -5,7 +5,8 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
-import { Rnd } from 'react-rnd';
+import { Resizable } from 'react-resizable';
+import 'react-resizable/css/styles.css';
 
 const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
@@ -66,42 +67,20 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
+  const onResize = (event, { size }) => {
+    setPopupSize({ width: size.width, height: size.height });
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <Rnd
-        default={{
-          x: 0,
-          y: 0,
-          width: popupSize.width,
-          height: popupSize.height,
-        }}
-        minWidth={400}
-        minHeight={300}
-        bounds="window"
-        enableResizing={{
-          top: true,
-          right: true,
-          bottom: true,
-          left: true,
-          topRight: true,
-          bottomRight: true,
-          bottomLeft: true,
-          topLeft: true
-        }}
-        onResize={(e, direction, ref, delta, position) => {
-          setPopupSize({
-            width: ref.offsetWidth,
-            height: ref.offsetHeight,
-          });
-        }}
+      <Resizable
+        width={popupSize.width}
+        height={popupSize.height}
+        onResize={onResize}
+        minConstraints={[400, 300]}
+        maxConstraints={[1200, 900]}
       >
-        <DialogContent
-          className="p-0 overflow-hidden"
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-        >
+        <DialogContent className="p-0 overflow-hidden" style={{ width: `${popupSize.width}px`, height: `${popupSize.height}px`, position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}>
           <div className="flex h-full">
             {isExpanded && (
               <TreeView
@@ -131,7 +110,7 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
             </Button>
           </div>
         </DialogContent>
-      </Rnd>
+      </Resizable>
     </Dialog>
   );
 };

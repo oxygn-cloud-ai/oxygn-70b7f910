@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -17,9 +17,9 @@ const TreeItem = ({
   activeItem,
   setActiveItem,
   deleteItem,
+  isPopup = false,
 }) => {
   const inputRef = useRef(null);
-  const [isHovered, setIsHovered] = useState(false);
   const isExpanded = expandedItems.includes(item.id);
 
   useEffect(() => {
@@ -27,26 +27,6 @@ const TreeItem = ({
       inputRef.current.focus();
     }
   }, [editingItem, item.id]);
-
-  const renderActionButtons = () => (
-    <div className="flex items-center space-x-1 ml-2">
-      <ActionButton 
-        icon={<PlusIcon className="h-3 w-3" />} 
-        onClick={() => addItem && addItem(item.id)} 
-        tooltip="Add Prompt" 
-      />
-      <ActionButton 
-        icon={<EditIcon className="h-3 w-3" />} 
-        onClick={() => startRenaming(item.id, item.prompt_name)} 
-        tooltip="Rename" 
-      />
-      <ActionButton 
-        icon={<Trash2Icon className="h-3 w-3" />} 
-        onClick={() => deleteItem(item.id)} 
-        tooltip="Delete" 
-      />
-    </div>
-  );
 
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
   const isActive = activeItem === item.id;
@@ -63,11 +43,6 @@ const TreeItem = ({
     cancelRenaming();
   };
 
-  const handleDoubleClick = (e) => {
-    e.stopPropagation();
-    startRenaming(item.id, item.prompt_name);
-  };
-
   const handleToggle = (e) => {
     e.stopPropagation();
     toggleItem(item.id);
@@ -78,8 +53,6 @@ const TreeItem = ({
       <div
         className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
@@ -113,12 +86,10 @@ const TreeItem = ({
           ) : (
             <span 
               className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
-              onDoubleClick={handleDoubleClick}
             >
               {displayName}
             </span>
           )}
-          {isHovered && renderActionButtons()}
         </div>
       </div>
       {isExpanded && item.children && item.children.length > 0 && (
@@ -139,6 +110,7 @@ const TreeItem = ({
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               deleteItem={deleteItem}
+              isPopup={isPopup}
             />
           ))}
         </div>
@@ -146,20 +118,5 @@ const TreeItem = ({
     </div>
   );
 };
-
-const ActionButton = ({ icon, onClick, tooltip }) => (
-  <Button
-    variant="ghost"
-    size="sm"
-    className="h-5 w-5 p-0"
-    onClick={(e) => {
-      e.stopPropagation();
-      onClick && onClick(e);
-    }}
-    title={tooltip}
-  >
-    {icon}
-  </Button>
-);
 
 export default TreeItem;
