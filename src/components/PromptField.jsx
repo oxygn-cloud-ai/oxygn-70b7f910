@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, BrainCircuit } from 'lucide-react';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
+  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
@@ -75,8 +76,11 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           <Button
             variant="ghost"
             size="icon"
+            onMouseDown={() => setIsLinking(true)}
+            onMouseUp={() => setIsLinking(false)}
+            onMouseLeave={() => setIsLinking(false)}
             onClick={onCascade}
-            className="h-6 w-6 text-green-700"
+            className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
             title="Cascade"
           >
             <Link className="h-4 w-4" />
