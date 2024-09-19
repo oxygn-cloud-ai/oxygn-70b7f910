@@ -14,7 +14,7 @@ export const useSettings = (supabase) => {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('settings').select('*').single();
+      const { data, error } = await supabase.from('settings').select('*').limit(1).single();
 
       if (error) throw error;
 
@@ -61,7 +61,7 @@ export const useSettings = (supabase) => {
       const { data, error } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .eq('id', settings.id)
+        .eq('setting_id', settings.setting_id)
         .select();
 
       if (error) throw error;
