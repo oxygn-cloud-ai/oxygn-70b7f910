@@ -7,7 +7,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,17 +16,23 @@ const Links = () => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const location = useLocation();
   const navigate = useNavigate();
-  const [sourceIconId, setSourceIconId] = useState(null);
-  const [sourceField, setSourceField] = useState(null);
+  const location = useLocation();
 
   useEffect(() => {
-    if (location.state) {
-      setSourceIconId(location.state.iconId);
-      setSourceField(location.state.field);
-    }
-  }, [location]);
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        const previousPath = location.state?.from || '/';
+        navigate(previousPath);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [navigate, location]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -59,53 +65,6 @@ const Links = () => {
       }
     }
   }, [activeItem, supabase, refreshTreeData]);
-
-  const handleCascade = useCallback(async (fieldName, value) => {
-    if (!activeItem) {
-      toast.error('Unable to cascade: No active item selected');
-      return;
-    }
-    if (!sourceIconId) {
-      toast.error('Unable to cascade: Source icon ID is missing');
-      return;
-    }
-    if (!sourceField) {
-      toast.error('Unable to cascade: Source field is missing');
-      return;
-    }
-    if (!fieldName) {
-      toast.error('Unable to cascade: Field name is missing');
-      return;
-    }
-    if (value === undefined || value === null) {
-      toast.error('Unable to cascade: Field value is missing');
-      return;
-    }
-
-    const jsonData = {
-      prompt_id: activeItem,
-      sourceField: fieldName,
-      startChar: 0,
-      endChar: value.length
-    };
-
-    const updateField = `src_${sourceField}`;
-
-    try {
-      const { error } = await supabase
-        .from('prompts')
-        .update({ [updateField]: JSON.stringify(jsonData) })
-        .eq('row_id', sourceIconId);
-
-      if (error) throw error;
-
-      toast.success('Cascade information updated successfully');
-      navigate('/projects');
-    } catch (error) {
-      console.error('Error updating cascade information:', error);
-      toast.error(`Failed to update cascade information: ${error.message}`);
-    }
-  }, [activeItem, sourceIconId, sourceField, supabase, navigate]);
 
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
@@ -177,11 +136,8 @@ const Links = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                onCascade={handleCascade}
                 isLinksPage={true}
-                isReadOnly={false}
-                sourceIconId={sourceIconId}
-                sourceField={sourceField}
+                isReadOnly={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
