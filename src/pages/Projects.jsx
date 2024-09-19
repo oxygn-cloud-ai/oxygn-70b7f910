@@ -3,14 +3,12 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle, Wrench } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import { useSettings } from '../hooks/useSettings';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import SettingsAccordion from '../components/SettingsAccordion';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -19,16 +17,7 @@ const Projects = () => {
   const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const { settings, updateSetting } = useSettings(supabase);
   const { models } = useOpenAIModels();
-  const [localSettings, setLocalSettings] = useState({});
-  const [expandedSettings, setExpandedSettings] = useState(['settings']);
-
-  useEffect(() => {
-    if (settings) {
-      setLocalSettings(settings);
-    }
-  }, [settings]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -147,9 +136,6 @@ const Projects = () => {
                 <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon">
-                  <Wrench className="h-5 w-5" />
-                </Button>
               </div>
               {isLoading ? <div>Loading...</div> : (
                 <Accordion
@@ -185,14 +171,6 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <SettingsAccordion
-        expandedSettings={expandedSettings}
-        setExpandedSettings={setExpandedSettings}
-        localSettings={localSettings}
-        handleSettingChange={(key, value) => setLocalSettings(prev => ({ ...prev, [key]: value }))}
-        handleSettingSave={updateSetting}
-        handleSettingReset={(key) => setLocalSettings(prev => ({ ...prev, [key]: settings[key] }))}
-      />
     </div>
   );
 };
