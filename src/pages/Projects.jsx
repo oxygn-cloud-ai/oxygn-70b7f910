@@ -141,7 +141,7 @@ const Projects = () => {
                   type="multiple"
                   value={expandedItems}
                   onValueChange={setExpandedItems}
-                  className="w-full min-w-max"
+                  className="w-full min-w-max text-green-200"
                 >
                   {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
                 </Accordion>
