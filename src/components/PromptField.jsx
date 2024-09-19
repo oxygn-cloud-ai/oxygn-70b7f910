@@ -49,9 +49,12 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     if (label === 'Notes') {
       const targetElement = document.querySelector("#chatinput");
       if (targetElement) {
-        targetElement.value = value;
-        targetElement.dispatchEvent(new Event('input', { bubbles: true }));
-        toast.success('Notes content copied to target field');
+        targetElement.focus();
+        setTimeout(() => {
+          targetElement.value = value;
+          targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+          toast.success('Notes content copied to target field');
+        }, 100);
       } else {
         toast.error('Target field #chatinput not found');
       }
