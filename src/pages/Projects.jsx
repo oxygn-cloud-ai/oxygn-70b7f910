@@ -130,6 +130,10 @@ const Projects = () => {
     setShowParentPromptPopup(true);
   }, [selectedItemData]);
 
+  const handleUpdateParentData = useCallback((updatedData) => {
+    setSelectedItemData(updatedData);
+  }, []);
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -185,6 +189,7 @@ const Projects = () => {
         onClose={() => setShowParentPromptPopup(false)}
         parentData={selectedItemData}
         cascadeField={cascadeInfo.fieldName}
+        onUpdateParentData={handleUpdateParentData}
       />
     </div>
   );

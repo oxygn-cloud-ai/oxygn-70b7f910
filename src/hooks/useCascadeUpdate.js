@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useSupabase } from './useSupabase';
 
-export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
+export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelectedItemData) => {
   const supabase = useSupabase();
 
   const handleCascade = useCallback(async (fieldName, selectedItemData) => {
@@ -72,12 +72,17 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
         if (contentUpdateError) throw contentUpdateError;
 
         toast.success('Cascade information and content updated successfully');
+
+        // Refresh the selected item data on the prompts page
+        if (refreshSelectedItemData) {
+          await refreshSelectedItemData(parentData.row_id);
+        }
       } catch (error) {
         console.error('Error updating cascade information:', error);
         toast.error(`Failed to update cascade information: ${error.message}`);
       }
     }
-  }, [isPopup, parentData, cascadeField, supabase]);
+  }, [isPopup, parentData, cascadeField, supabase, refreshSelectedItemData]);
 
   return { handleCascade };
 };

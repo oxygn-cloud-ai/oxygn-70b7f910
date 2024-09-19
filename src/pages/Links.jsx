@@ -9,14 +9,37 @@ import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useCascadeUpdate } from '../hooks/useCascadeUpdate';
 
-const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
+const Links = ({ isPopup = false, parentData = null, cascadeField = null, onUpdateParentData }) => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const { handleCascade } = useCascadeUpdate(isPopup, parentData, cascadeField);
+
+  const refreshSelectedItemData = useCallback(async (rowId) => {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', rowId)
+          .single();
+
+        if (error) throw error;
+        
+        setSelectedItemData(data);
+        if (onUpdateParentData) {
+          onUpdateParentData(data);
+        }
+      } catch (error) {
+        console.error('Error refreshing item data:', error);
+        toast.error(`Failed to refresh prompt data: ${error.message}`);
+      }
+    }
+  }, [supabase, onUpdateParentData]);
+
+  const { handleCascade } = useCascadeUpdate(isPopup, parentData, cascadeField, refreshSelectedItemData);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -66,28 +89,11 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
 
   useEffect(() => {
     if (activeItem && supabase) {
-      const fetchItemData = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('prompts')
-            .select('*')
-            .eq('row_id', activeItem)
-            .single();
-
-          if (error) throw error;
-          
-          setSelectedItemData(data);
-        } catch (error) {
-          console.error('Error fetching item data:', error);
-          toast.error(`Failed to fetch prompt data: ${error.message}`);
-        }
-      };
-
-      fetchItemData();
+      refreshSelectedItemData(activeItem);
     } else {
       setSelectedItemData(null);
     }
-  }, [activeItem, supabase]);
+  }, [activeItem, supabase, refreshSelectedItemData]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
