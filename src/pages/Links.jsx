@@ -7,7 +7,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -17,6 +17,7 @@ const Links = () => {
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sourceIconId, setSourceIconId] = useState(null);
   const [sourceField, setSourceField] = useState(null);
 
@@ -58,6 +59,37 @@ const Links = () => {
       }
     }
   }, [activeItem, supabase, refreshTreeData]);
+
+  const handleCascade = useCallback(async (fieldName, value) => {
+    if (!activeItem || !sourceIconId || !sourceField) {
+      toast.error('Unable to cascade: missing required information');
+      return;
+    }
+
+    const jsonData = {
+      prompt_id: activeItem,
+      sourceField: fieldName,
+      startChar: 0,
+      endChar: value.length
+    };
+
+    const updateField = `src_${sourceField}`;
+
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .update({ [updateField]: JSON.stringify(jsonData) })
+        .eq('row_id', sourceIconId);
+
+      if (error) throw error;
+
+      toast.success('Cascade information updated successfully');
+      navigate('/projects');
+    } catch (error) {
+      console.error('Error updating cascade information:', error);
+      toast.error(`Failed to update cascade information: ${error.message}`);
+    }
+  }, [activeItem, sourceIconId, sourceField, supabase, navigate]);
 
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
@@ -129,8 +161,9 @@ const Links = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
+                onCascade={handleCascade}
                 isLinksPage={true}
-                isReadOnly={true}
+                isReadOnly={false}
                 sourceIconId={sourceIconId}
                 sourceField={sourceField}
               />
