@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import LinksTreeItem from '../components/LinksTreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -7,7 +7,8 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useLinksCascade } from '../hooks/useLinksCascade';
 
 const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,17 +17,8 @@ const Links = () => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const location = useLocation();
   const navigate = useNavigate();
-  const [sourceIconId, setSourceIconId] = useState(null);
-  const [sourceField, setSourceField] = useState(null);
-
-  useEffect(() => {
-    if (location.state) {
-      setSourceIconId(location.state.iconId);
-      setSourceField(location.state.field);
-    }
-  }, [location]);
+  const { sourceIconId, sourceField, handleCascade } = useLinksCascade();
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -59,67 +51,6 @@ const Links = () => {
       }
     }
   }, [activeItem, supabase, refreshTreeData]);
-
-  const handleCascade = useCallback(async (fieldName, selectedText) => {
-    console.log('Cascade info:', { activeItem, sourceIconId, sourceField, fieldName, selectedText });
-    
-    if (!activeItem) {
-      toast.error('No prompt selected. Please select a prompt from the tree.');
-      return;
-    }
-    if (!sourceIconId) {
-      toast.error('Source icon ID is missing. Please try reopening the Links page.');
-      return;
-    }
-    if (!sourceField) {
-      toast.error('Source field is missing. Please try reopening the Links page.');
-      return;
-    }
-    if (!fieldName) {
-      toast.error('Target field is not specified.');
-      return;
-    }
-    if (!selectedText) {
-      toast.error('No text selected. Please select some text to cascade.');
-      return;
-    }
-
-    const jsonText = JSON.stringify({
-      prompt_id: activeItem,
-      sourceField: fieldName,
-      startChar: 0,
-      endChar: selectedText.length
-    });
-
-    const sourceColumnMap = {
-      input_admin_prompt: 'src_admin_prompt_result',
-      input_user_prompt: 'src_user_prompt_result',
-      admin_prompt_result: 'src_admin_prompt_result',
-      user_prompt_result: 'src_user_prompt_result'
-    };
-
-    const sourceColumn = sourceColumnMap[sourceField];
-
-    if (!sourceColumn) {
-      toast.error('Invalid source field');
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('prompts')
-        .update({ [sourceColumn]: jsonText })
-        .eq('row_id', sourceIconId);
-
-      if (error) throw error;
-
-      toast.success('Cascade successful');
-      navigate(-1);
-    } catch (error) {
-      console.error('Error cascading:', error);
-      toast.error(`Failed to cascade: ${error.message}`);
-    }
-  }, [activeItem, sourceIconId, sourceField, supabase, navigate]);
 
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
@@ -205,7 +136,7 @@ const Links = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                onCascade={handleCascade}
+                onCascade={(fieldName, selectedText) => handleCascade(activeItem, fieldName, selectedText)}
                 isLinksPage={true}
                 isReadOnly={true}
                 sourceIconId={sourceIconId}
