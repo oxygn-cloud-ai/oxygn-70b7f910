@@ -117,30 +117,32 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
       <div className="space-y-6">
         {renderPromptFields()}
       </div>
-      <Collapsible
-        open={isSettingsOpen}
-        onOpenChange={handleSettingsToggle}
-        className="border rounded-lg p-4"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Prompt Settings</h3>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm">
-              {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
-        </div>
-        <CollapsibleContent>
-          <SettingsPanel
-            localData={localData}
-            selectedItemData={selectedItemData}
-            models={models}
-            handleChange={handleChange}
-            handleSave={handleSave}
-            handleReset={handleReset}
-          />
-        </CollapsibleContent>
-      </Collapsible>
+      {!isLinksPage && (
+        <Collapsible
+          open={isSettingsOpen}
+          onOpenChange={handleSettingsToggle}
+          className="border rounded-lg p-4"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Prompt Settings</h3>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm">
+                {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <SettingsPanel
+              localData={localData}
+              selectedItemData={selectedItemData}
+              models={models}
+              handleChange={handleChange}
+              handleSave={handleSave}
+              handleReset={handleReset}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 };
