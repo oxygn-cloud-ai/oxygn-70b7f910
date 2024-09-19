@@ -29,7 +29,8 @@ const TreeItem = ({
     }
   }, [editingItem, item.id]);
 
-  const handleLinkToggle = () => {
+  const handleLinkToggle = (e) => {
+    e.stopPropagation();
     setIsLinked(!isLinked);
   };
 
@@ -51,7 +52,7 @@ const TreeItem = ({
         tooltip="Delete" 
       />
       <ActionButton
-        icon={isLinked ? <Unlink className="h-3 w-3" /> : <Link className="h-3 w-3" />}
+        icon={isLinked ? <Unlink className="h-3 w-3 text-red-500" /> : <Link className="h-3 w-3 text-red-500" />}
         onClick={handleLinkToggle}
         tooltip={isLinked ? "Unlink" : "Link"}
       />
