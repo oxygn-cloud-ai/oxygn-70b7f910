@@ -7,7 +7,7 @@ import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, SmilePlus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -87,13 +87,13 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       { name: 'input_user_prompt', label: 'Input User Prompt' },
       { name: 'admin_prompt_result', label: 'Admin Result' },
       { name: 'user_prompt_result', label: 'User Result' },
-      { name: 'note', label: 'Notes', icon: <SmilePlus className="h-4 w-4 inline-block mr-1" /> }
+      { name: 'note', label: 'Notes' }
     ];
 
     return fields.map(field => (
       <PromptField
         key={field.name}
-        label={field.icon ? <>{field.icon}{field.label}</> : field.label}
+        label={field.label}
         value={localData[field.name] || ''}
         onChange={(value) => handleChange(field.name, value)}
         onReset={() => handleReset(field.name)}
