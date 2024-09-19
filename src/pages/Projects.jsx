@@ -123,8 +123,8 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const handleCascade = useCallback(() => {
-    navigate('/links');
+  const handleCascade = useCallback((iconId, field) => {
+    navigate('/links', { state: { iconId, field } });
   }, [navigate]);
 
   if (!supabase) {

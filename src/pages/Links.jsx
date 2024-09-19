@@ -7,6 +7,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { useLocation } from 'react-router-dom';
 
 const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -15,6 +16,16 @@ const Links = () => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
+  const location = useLocation();
+  const [sourceIconId, setSourceIconId] = useState(null);
+  const [sourceField, setSourceField] = useState(null);
+
+  useEffect(() => {
+    if (location.state) {
+      setSourceIconId(location.state.iconId);
+      setSourceField(location.state.field);
+    }
+  }, [location]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -120,6 +131,8 @@ const Links = () => {
                 onUpdateField={handleUpdateField}
                 isLinksPage={true}
                 isReadOnly={true}
+                sourceIconId={sourceIconId}
+                sourceField={sourceField}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
