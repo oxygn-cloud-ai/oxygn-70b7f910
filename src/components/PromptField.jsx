@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, SmilePlus, BrainCircuit } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -56,31 +56,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   };
 
-  const handleSmilePlusClick = () => {
-    if (label === 'Notes') {
-      // Access the iframe content (assuming CORS Unblock is enabled and allows access)
-      const targetFrame = window.frames[0];  // Replace with the correct frame index or name if needed
-
-      // Attempt to access and modify the #chatinput field in the iframe
-      if (targetFrame && targetFrame.document) {
-        targetFrame.document.addEventListener('DOMContentLoaded', () => {
-          const chatInput = targetFrame.document.querySelector('#chatinput');
-          
-          if (chatInput) {
-            chatInput.value = value;
-            console.log('Content injected into #chatinput:', value);
-          } else {
-            console.error("#chatinput element not found in the target frame.");
-          }
-        });
-
-        console.log('Attempting to inject content into iframe');
-      } else {
-        console.error('Unable to access the target frame. CORS Unblock may not be enabled or configured correctly.');
-      }
-    }
-  };
-
   const renderLabel = () => {
     if (label === 'Input Admin Prompt' || label === 'Input User Prompt') {
       return (
@@ -113,15 +88,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSmilePlusClick}
-            className="h-6 w-6 text-green-700"
-            title="SmilePlus"
-          >
-            <SmilePlus className="h-4 w-4" />
-          </Button>
           <Button
             variant="ghost"
             size="icon"
