@@ -11,7 +11,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascade, isLinksPage = false, isReadOnly = false }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -73,19 +73,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
     }
   };
 
-  const handleCascade = (fieldName) => {
-    console.log(JSON.stringify({
-      prompt_id: projectRowId,
-      field: fieldName
-    }));
-    if (typeof onCascade === 'function') {
-      onCascade(fieldName, localData[fieldName]);
-    } else {
-      console.error('onCascade is not a function');
-      toast.error('Unable to cascade: onCascade is not defined');
-    }
-  };
-
   const renderPromptFields = () => {
     if (!selectedItemData) {
       return <div>No prompt data available</div>;
@@ -107,7 +94,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
         onChange={(value) => handleChange(field.name, value)}
         onReset={() => handleReset(field.name)}
         onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
         initialValue={selectedItemData[field.name] || ''}
         onGenerate={isLinksPage ? null : handleGenerate}
         isGenerating={isGenerating}
