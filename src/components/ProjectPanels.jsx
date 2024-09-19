@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
+import ScrollToBottom from 'react-scroll-to-bottom';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
@@ -94,7 +95,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
+    <ScrollToBottom className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4" behavior="smooth">
       <div className="space-y-6">
         {renderPromptFields()}
       </div>
@@ -122,7 +123,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
           />
         </CollapsibleContent>
       </Collapsible>
-    </div>
+    </ScrollToBottom>
   );
 };
 
