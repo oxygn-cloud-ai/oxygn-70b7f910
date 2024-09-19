@@ -61,8 +61,24 @@ const Links = () => {
   }, [activeItem, supabase, refreshTreeData]);
 
   const handleCascade = useCallback(async (fieldName, value) => {
-    if (!activeItem || !sourceIconId || !sourceField) {
-      toast.error('Unable to cascade: missing required information');
+    if (!activeItem) {
+      toast.error('Unable to cascade: No active item selected');
+      return;
+    }
+    if (!sourceIconId) {
+      toast.error('Unable to cascade: Source icon ID is missing');
+      return;
+    }
+    if (!sourceField) {
+      toast.error('Unable to cascade: Source field is missing');
+      return;
+    }
+    if (!fieldName) {
+      toast.error('Unable to cascade: Field name is missing');
+      return;
+    }
+    if (value === undefined || value === null) {
+      toast.error('Unable to cascade: Field value is missing');
       return;
     }
 
