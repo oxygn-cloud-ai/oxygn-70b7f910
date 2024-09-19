@@ -128,6 +128,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {}}
+            className="h-6 w-6 text-green-700"
+            title="SmilePlus"
+          >
+            <SmilePlus className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       <Textarea
