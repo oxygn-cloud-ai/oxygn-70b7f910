@@ -16,6 +16,24 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   }, [value, label]);
 
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data.type === 'CHATINPUT_FOCUS_RESULT') {
+        if (event.data.success) {
+          toast.success('Notes content copied to target field');
+        } else {
+          toast.error('Failed to focus on target field');
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -47,26 +65,18 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
   const handleSmilePlusClick = () => {
     if (label === 'Notes') {
-      const targetElement = document.querySelector("#chatinput");
-      if (targetElement) {
-        targetElement.focus();
-        setTimeout(() => {
-          targetElement.value = value;
-          targetElement.dispatchEvent(new Event('input', { bubbles: true }));
-          toast.success('Notes content copied to target field');
-        }, 100);
-      } else {
-        toast.error('Target field #chatinput not found');
-      }
+      // Send a message to the parent window to focus on #chatinput and set its value
+      window.parent.postMessage({
+        type: 'FOCUS_CHATINPUT',
+        value: value
+      }, '*');
       
       // Log the entire call and response details to the console
       console.log('SmilePlus Button Clicked');
       console.log('Call Details:');
       console.log('Label:', label);
       console.log('Value:', value);
-      console.log('Response Details:');
-      console.log('Target Element:', targetElement);
-      console.log('Action:', 'Copied content to target field');
+      console.log('Action:', 'Sent message to parent window');
     }
   };
 
