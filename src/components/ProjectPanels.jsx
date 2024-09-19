@@ -78,6 +78,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   };
 
   const renderPromptFields = () => {
+    if (!selectedItemData) {
+      return <div>No prompt data available</div>;
+    }
+
     const fields = [
       { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
       { name: 'input_user_prompt', label: 'Input User Prompt' },
@@ -102,6 +106,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       />
     ));
   };
+
+  if (!selectedItemData) {
+    return <div>Loading prompt data...</div>;
+  }
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
