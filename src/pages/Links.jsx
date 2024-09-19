@@ -7,6 +7,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import CascadePopup from '../components/CascadePopup';
 
 const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -15,6 +16,8 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
+  const [showCascadePopup, setShowCascadePopup] = useState(false);
+  const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '', fieldContent: '' });
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -87,6 +90,15 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
     }
   }, [activeItem, supabase]);
 
+  const handleCascade = useCallback((fieldName) => {
+    if (isPopup) {
+      const itemName = selectedItemData?.prompt_name || 'Unknown';
+      const fieldContent = selectedItemData?.[fieldName] || '';
+      setCascadeInfo({ itemName, fieldName, fieldContent });
+      setShowCascadePopup(true);
+    }
+  }, [selectedItemData, isPopup]);
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -127,6 +139,7 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
                 onUpdateField={handleUpdateField}
                 isLinksPage={true}
                 isReadOnly={true}
+                onCascade={handleCascade}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -140,6 +153,13 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
           )}
         </Panel>
       </PanelGroup>
+      <CascadePopup
+        isOpen={showCascadePopup}
+        onClose={() => setShowCascadePopup(false)}
+        itemName={cascadeInfo.itemName}
+        fieldName={cascadeInfo.fieldName}
+        fieldContent={cascadeInfo.fieldContent}
+      />
     </div>
   );
 };
