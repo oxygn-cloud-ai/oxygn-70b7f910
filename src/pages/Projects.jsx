@@ -96,6 +96,7 @@ const Projects = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Prompts</h1>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
