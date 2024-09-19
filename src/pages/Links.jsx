@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import CascadePopup from '../components/CascadePopup';
+import { useCascadeUpdate } from '../hooks/useCascadeUpdate';
 
 const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,8 +17,7 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const [showCascadePopup, setShowCascadePopup] = useState(false);
-  const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '', fieldContent: '' });
+  const { handleCascade, showCascadePopup, setShowCascadePopup, cascadeInfo } = useCascadeUpdate(isPopup, parentData, cascadeField);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -90,48 +90,6 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
     }
   }, [activeItem, supabase]);
 
-  const handleCascade = useCallback(async (fieldName) => {
-    if (isPopup && parentData && cascadeField) {
-      const itemName = selectedItemData?.prompt_name || 'Unknown';
-      const fieldContent = selectedItemData?.[fieldName] || '';
-      setCascadeInfo({ itemName, fieldName, fieldContent });
-      setShowCascadePopup(true);
-
-      try {
-        const updateData = {
-          [cascadeField]: JSON.stringify({
-            here: fieldContent
-          })
-        };
-
-        console.log('Supabase API Call:', {
-          table: 'prompts',
-          method: 'UPDATE',
-          data: updateData,
-          condition: { row_id: parentData.row_id },
-          columnToUpdate: cascadeField
-        });
-
-        const { data, error } = await supabase
-          .from('prompts')
-          .update(updateData)
-          .eq('row_id', parentData.row_id);
-
-        console.log('Supabase API Response:', {
-          data: data,
-          error: error
-        });
-
-        if (error) throw error;
-        
-        toast.success('Cascade information updated successfully');
-      } catch (error) {
-        console.error('Error updating cascade information:', error);
-        toast.error(`Failed to update cascade information: ${error.message}`);
-      }
-    }
-  }, [selectedItemData, isPopup, parentData, cascadeField, supabase]);
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -172,7 +130,7 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
                 onUpdateField={handleUpdateField}
                 isLinksPage={true}
                 isReadOnly={true}
-                onCascade={handleCascade}
+                onCascade={(fieldName) => handleCascade(fieldName, selectedItemData)}
                 parentData={parentData}
                 cascadeField={cascadeField}
               />
