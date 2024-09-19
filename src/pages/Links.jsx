@@ -108,7 +108,8 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
           table: 'prompts',
           method: 'UPDATE',
           data: updateData,
-          condition: { row_id: parentData.row_id }
+          condition: { row_id: parentData.row_id },
+          columnToUpdate: cascadeField
         });
 
         const { data, error } = await supabase
