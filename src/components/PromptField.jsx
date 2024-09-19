@@ -53,7 +53,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
         targetElement.dispatchEvent(new Event('input', { bubbles: true }));
         toast.success('Notes content copied to target field');
       } else {
-        toast.error('Target field not found');
+        toast.error('Target field #chatinput not found');
       }
       
       // Log the entire call and response details to the console
