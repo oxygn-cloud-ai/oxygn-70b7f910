@@ -7,39 +7,24 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useNavigate, useLocation } from 'react-router-dom';
 
-const Links = () => {
+const Links = ({ isPopup, parentData, cascadeField, onCascade }) => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const navigate = useNavigate();
-  const location = useLocation();
   const [cascadeInfo, setCascadeInfo] = useState(null);
 
   useEffect(() => {
-    const handleEscapeKey = (event) => {
-      if (event.key === 'Escape') {
-        const previousPath = location.state?.from || '/';
-        navigate(previousPath);
-      }
-    };
-
-    window.addEventListener('keydown', handleEscapeKey);
-
-    return () => {
-      window.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [navigate, location]);
-
-  useEffect(() => {
-    if (location.state && location.state.cascadeInfo) {
-      setCascadeInfo(location.state.cascadeInfo);
+    if (parentData && cascadeField) {
+      setCascadeInfo({
+        itemName: parentData.prompt_name || 'Unknown',
+        fieldName: cascadeField
+      });
     }
-  }, [location.state]);
+  }, [parentData, cascadeField]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -117,7 +102,7 @@ const Links = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className={`container mx-auto p-4 ${isPopup ? 'h-full overflow-hidden' : ''}`}>
       {cascadeInfo && (
         <div className="mb-4 p-4 bg-blue-100 rounded-lg">
           <h2 className="text-lg font-semibold">Cascade Information</h2>
@@ -127,7 +112,7 @@ const Links = () => {
       )}
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
-          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-16rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
               {isLoading ? <div>Loading...</div> : (
                 <Accordion
@@ -152,6 +137,7 @@ const Links = () => {
                 onUpdateField={handleUpdateField}
                 isLinksPage={true}
                 isReadOnly={true}
+                onCascade={onCascade}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

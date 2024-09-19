@@ -9,8 +9,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useNavigate } from 'react-router-dom';
-import CascadePopup from '../components/CascadePopup';
+import ParentPromptPopup from '../components/ParentPromptPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -20,8 +19,7 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const navigate = useNavigate();
-  const [showCascadePopup, setShowCascadePopup] = useState(false);
+  const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
 
   const toggleItem = useCallback((itemId) => {
@@ -128,8 +126,9 @@ const Projects = () => {
 
   const handleCascade = useCallback((fieldName) => {
     const itemName = selectedItemData?.prompt_name || 'Unknown';
-    navigate('/links', { state: { cascadeInfo: { itemName, fieldName } } });
-  }, [selectedItemData, navigate]);
+    setCascadeInfo({ itemName, fieldName });
+    setShowParentPromptPopup(true);
+  }, [selectedItemData]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
@@ -181,11 +180,13 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <CascadePopup
-        isOpen={showCascadePopup}
-        onClose={() => setShowCascadePopup(false)}
-        itemName={cascadeInfo.itemName}
-        fieldName={cascadeInfo.fieldName}
+      <ParentPromptPopup
+        isOpen={showParentPromptPopup}
+        onClose={() => setShowParentPromptPopup(false)}
+        parentData={selectedItemData}
+        cascadeField={cascadeInfo.fieldName}
+        onCascade={handleCascade}
+        treeData={treeData}
       />
     </div>
   );

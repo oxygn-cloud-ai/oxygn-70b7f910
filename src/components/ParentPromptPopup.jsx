@@ -3,7 +3,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
-import PopupContent from './PopupContent';
+import Links from '../pages/Links';
 import TreeView from './TreeView';
 import { Resizable } from 'react-resizable';
 import 'react-resizable/css/styles.css';
@@ -108,10 +108,9 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascad
                 selectedItemRef={selectedItemRef}
               />
             )}
-            <PopupContent
-              isExpanded={isExpanded}
-              isLoading={isLoading}
-              selectedItem={selectedItem}
+            <Links
+              isPopup={true}
+              parentData={parentData}
               cascadeField={cascadeField}
               onCascade={onCascade}
             />
