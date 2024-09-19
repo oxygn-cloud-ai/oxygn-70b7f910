@@ -159,24 +159,6 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
-                treeData={treeData}
-                expandedItems={expandedItems}
-                toggleItem={toggleItem}
-                addItem={handleAddItem}
-                startRenaming={(id, name) => setEditingItem({ id, name })}
-                editingItem={editingItem}
-                setEditingItem={setEditingItem}
-                finishRenaming={async () => {
-                  if (editingItem) {
-                    await updateItemName(editingItem.id, editingItem.name);
-                    setEditingItem(null);
-                    await refreshTreeData();
-                  }
-                }}
-                cancelRenaming={() => setEditingItem(null)}
-                activeItem={activeItem}
-                setActiveItem={setActiveItem}
-                deleteItem={handleDeleteItem}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
