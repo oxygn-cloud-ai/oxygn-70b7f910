@@ -14,8 +14,12 @@ export const useLinksCascade = () => {
     if (location.state) {
       setSourceIconId(location.state.iconId);
       setSourceField(location.state.field);
+    } else {
+      // If there's no state, we're probably not in the correct context
+      toast.error('No source information found. Please try reopening the Links page.');
+      navigate('/projects');
     }
-  }, [location]);
+  }, [location, navigate]);
 
   const handleCascade = useCallback(async (activeItem, fieldName, selectedText) => {
     if (!activeItem || !sourceIconId || !sourceField || !fieldName || !selectedText) {
