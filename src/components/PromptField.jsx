@@ -14,6 +14,17 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
       adjustHeight();
     }
+
+    // Add event listener for message responses
+    const handleMessage = (event) => {
+      console.log('Response received from parent window:', event);
+    };
+    window.addEventListener('message', handleMessage);
+
+    // Clean up the event listener
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
   }, [value, label]);
 
   const adjustHeight = () => {
@@ -47,13 +58,12 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
   const handleSmilePlusClick = () => {
     if (label === 'Notes') {
-      // Use postMessage to send the content to the parent window
-      window.parent.postMessage({
+      const message = {
         type: 'INSERT_TEXT',
         text: value
-      }, '*');  // '*' allows sending to any origin, adjust if needed
-
-      console.log('SmilePlus Button Clicked');
+      };
+      console.log('Sending message to parent window:', message);
+      window.parent.postMessage(message, '*');
       console.log('Message sent to parent window');
       toast.success('Content sent to parent window');
     }
