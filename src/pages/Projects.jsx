@@ -95,8 +95,8 @@ const Projects = () => {
   ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
-    if (activeItem && supabase) {
-      const fetchItemData = async () => {
+    const fetchItemData = async () => {
+      if (activeItem && supabase) {
         try {
           const { data, error } = await supabase
             .from('prompts')
@@ -111,12 +111,12 @@ const Projects = () => {
           console.error('Error fetching item data:', error);
           toast.error(`Failed to fetch prompt data: ${error.message}`);
         }
-      };
+      } else {
+        setSelectedItemData(null);
+      }
+    };
 
-      fetchItemData();
-    } else {
-      setSelectedItemData(null);
-    }
+    fetchItemData();
   }, [activeItem, supabase]);
 
   if (!supabase) {
