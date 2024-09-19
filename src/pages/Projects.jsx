@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -9,16 +9,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import UnsavedChangesDialog from '../components/UnsavedChangesDialog';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -142,7 +133,8 @@ const Projects = () => {
 
   const handleSaveChanges = async () => {
     // Implement the logic to save changes here
-    // For now, we'll just clear the unsaved changes flag
+    await handleUpdateField('input_admin_prompt', selectedItemData.input_admin_prompt);
+    await handleUpdateField('input_user_prompt', selectedItemData.input_user_prompt);
     setHasUnsavedChanges(false);
     setShowSaveDialog(false);
     if (pendingActiveItem) {
@@ -216,20 +208,12 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-            <AlertDialogDescription>
-              You have unsaved changes. Do you want to save them before switching to another item?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDiscardChanges}>Discard</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSaveChanges}>Save</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <UnsavedChangesDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        onSave={handleSaveChanges}
+        onDiscard={handleDiscardChanges}
+      />
     </div>
   );
 };
