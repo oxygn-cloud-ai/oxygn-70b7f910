@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, BrainCircuit } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, SmilePlus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, icon }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
@@ -65,7 +65,12 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
         </div>
       );
     }
-    return label;
+    return (
+      <div className="flex items-center">
+        {icon && <span className="mr-1">{icon}</span>}
+        <span>{label}</span>
+      </div>
+    );
   };
 
   return (
