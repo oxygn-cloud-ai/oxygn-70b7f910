@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
+import CascadeInfoPopup from '../components/CascadeInfoPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -20,7 +21,8 @@ const Projects = () => {
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
-  const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
+  const [showCascadeInfoPopup, setShowCascadeInfoPopup] = useState(false);
+  const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '', fieldContent: '' });
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -126,8 +128,9 @@ const Projects = () => {
 
   const handleCascade = useCallback((fieldName) => {
     const itemName = selectedItemData?.prompt_name || 'Unknown';
-    setCascadeInfo({ itemName, fieldName });
-    setShowParentPromptPopup(true);
+    const fieldContent = selectedItemData?.[fieldName] || '';
+    setCascadeInfo({ itemName, fieldName, fieldContent });
+    setShowCascadeInfoPopup(true);
   }, [selectedItemData]);
 
   if (!supabase) {
@@ -185,6 +188,13 @@ const Projects = () => {
         onClose={() => setShowParentPromptPopup(false)}
         parentData={selectedItemData}
         cascadeField={cascadeInfo.fieldName}
+      />
+      <CascadeInfoPopup
+        isOpen={showCascadeInfoPopup}
+        onClose={() => setShowCascadeInfoPopup(false)}
+        itemName={cascadeInfo.itemName}
+        fieldName={cascadeInfo.fieldName}
+        fieldContent={cascadeInfo.fieldContent}
       />
     </div>
   );
