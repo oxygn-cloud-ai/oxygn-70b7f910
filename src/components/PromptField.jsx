@@ -65,18 +65,27 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
   const handleSmilePlusClick = () => {
     if (label === 'Notes') {
-      // Send a message to the parent window to focus on #chatinput and set its value
       window.parent.postMessage({
         type: 'FOCUS_CHATINPUT',
         value: value
       }, '*');
       
-      // Log the entire call and response details to the console
       console.log('SmilePlus Button Clicked');
       console.log('Call Details:');
       console.log('Label:', label);
       console.log('Value:', value);
       console.log('Action:', 'Sent message to parent window');
+
+      // New code to attempt pasting directly
+      const chatInput = window.parent.document.querySelector('#chatinput');
+      if (chatInput) {
+        chatInput.focus();
+        chatInput.setRangeText(value, chatInput.selectionStart, chatInput.selectionEnd, 'end');
+        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('Attempted to paste text directly into #chatinput');
+      } else {
+        console.error('#chatinput element not found in parent window');
+      }
     }
   };
 
