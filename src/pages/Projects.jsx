@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
-import ParentPromptPopup from '../components/ParentPromptPopup';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -17,9 +16,6 @@ const Projects = () => {
   const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
-  const [isLinkMode, setIsLinkMode] = useState(false);
-  const [popupOpen, setPopupOpen] = useState(false);
-  const [parentData, setParentData] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -71,12 +67,6 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
-  const handleLinkClick = useCallback((item) => {
-    setIsLinkMode(true);
-    setParentData(item);
-    setPopupOpen(true);
-  }, []);
-
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
       <TreeItem
@@ -100,11 +90,9 @@ const Projects = () => {
         activeItem={activeItem}
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
-        isLinkMode={isLinkMode}
-        onLinkClick={handleLinkClick}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem, isLinkMode, handleLinkClick]);
+  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -139,7 +127,7 @@ const Projects = () => {
     <div className="container mx-auto p-4">
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
-          <div className={`border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)] ${isLinkMode ? 'bg-green-100' : ''}`}>
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
               <div className="mb-2 flex space-x-2">
                 <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
@@ -180,15 +168,6 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
-      <ParentPromptPopup
-        isOpen={popupOpen}
-        onClose={() => {
-          setPopupOpen(false);
-          setIsLinkMode(false);
-        }}
-        parentData={parentData}
-        treeData={treeData}
-      />
     </div>
   );
 };
