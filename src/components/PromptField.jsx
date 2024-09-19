@@ -75,17 +75,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       console.log('Label:', label);
       console.log('Value:', value);
       console.log('Action:', 'Sent message to parent window');
-
-      // New code to attempt pasting directly
-      const chatInput = window.parent.document.querySelector('#chatinput');
-      if (chatInput) {
-        chatInput.focus();
-        chatInput.setRangeText(value, chatInput.selectionStart, chatInput.selectionEnd, 'end');
-        chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log('Attempted to paste text directly into #chatinput');
-      } else {
-        console.error('#chatinput element not found in parent window');
-      }
     }
   };
 
