@@ -9,6 +9,16 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -18,13 +28,21 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingActiveItem, setPendingActiveItem] = useState(null);
 
   const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => 
-      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
-    );
-    setActiveItem(itemId);
-  }, []);
+    if (hasUnsavedChanges) {
+      setPendingActiveItem(itemId);
+      setShowSaveDialog(true);
+    } else {
+      setExpandedItems(prev => 
+        prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+      );
+      setActiveItem(itemId);
+    }
+  }, [hasUnsavedChanges]);
 
   const handleAddItem = useCallback(async (parentId) => {
     const newItemId = await addItem(parentId);
@@ -54,6 +72,7 @@ const Projects = () => {
           await updateItemName(activeItem, value);
           await refreshTreeData();
         }
+        setHasUnsavedChanges(false);
       } catch (error) {
         console.error('Error updating field:', error);
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
@@ -90,7 +109,7 @@ const Projects = () => {
         }}
         cancelRenaming={() => setEditingItem(null)}
         activeItem={activeItem}
-        setActiveItem={setActiveItem}
+        setActiveItem={toggleItem}
         deleteItem={handleDeleteItem}
       />
     ))
@@ -120,6 +139,32 @@ const Projects = () => {
       setSelectedItemData(null);
     }
   }, [activeItem, supabase]);
+
+  const handleSaveChanges = async () => {
+    // Implement the logic to save changes here
+    // For now, we'll just clear the unsaved changes flag
+    setHasUnsavedChanges(false);
+    setShowSaveDialog(false);
+    if (pendingActiveItem) {
+      setExpandedItems(prev => 
+        prev.includes(pendingActiveItem) ? prev.filter(id => id !== pendingActiveItem) : [...prev, pendingActiveItem]
+      );
+      setActiveItem(pendingActiveItem);
+      setPendingActiveItem(null);
+    }
+  };
+
+  const handleDiscardChanges = () => {
+    setHasUnsavedChanges(false);
+    setShowSaveDialog(false);
+    if (pendingActiveItem) {
+      setExpandedItems(prev => 
+        prev.includes(pendingActiveItem) ? prev.filter(id => id !== pendingActiveItem) : [...prev, pendingActiveItem]
+      );
+      setActiveItem(pendingActiveItem);
+      setPendingActiveItem(null);
+    }
+  };
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
@@ -157,6 +202,7 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
+                setHasUnsavedChanges={setHasUnsavedChanges}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -170,6 +216,20 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Do you want to save them before switching to another item?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardChanges}>Discard</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveChanges}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
