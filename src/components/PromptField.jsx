@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, SmilePlus } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, SmilePlus, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
