@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
@@ -73,7 +73,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
     }
   };
 
-  const handleCascade = async (fieldName) => {
+  const handleCascade = (fieldName) => {
+    console.log(JSON.stringify({
+      prompt_id: projectRowId,
+      field: fieldName
+    }));
     if (typeof onCascade === 'function') {
       onCascade(fieldName, localData[fieldName]);
     } else {
