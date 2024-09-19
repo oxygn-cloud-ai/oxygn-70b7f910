@@ -46,14 +46,13 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
         console.log('Supabase API Call:', {
           table: 'prompts',
           method: 'UPDATE',
-          data: updateData,
-          condition: { row_id: parentData.row_id },
-          columnToUpdate: cascadeField
+          data: { [`src_${cascadeField}`]: updateData },
+          condition: { row_id: parentData.row_id }
         });
 
         const { data, error } = await supabase
           .from('prompts')
-          .update({ [cascadeField]: updateData })
+          .update({ [`src_${cascadeField}`]: updateData })
           .eq('row_id', parentData.row_id)
           .select();
 
