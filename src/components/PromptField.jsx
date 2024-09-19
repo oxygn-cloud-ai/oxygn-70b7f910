@@ -5,7 +5,7 @@ import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, BrainCircuit } fr
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
@@ -57,7 +57,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
   };
 
   const renderLabel = () => {
-    if (label === 'Input Admin Prompt' || label === 'Input User Prompt') {
+    if ((label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isLinksPage) {
       return (
         <div className="flex items-center">
           <span>{label}</span>
