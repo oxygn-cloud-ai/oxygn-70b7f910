@@ -90,14 +90,34 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
     }
   }, [activeItem, supabase]);
 
-  const handleCascade = useCallback((fieldName) => {
-    if (isPopup) {
+  const handleCascade = useCallback(async (fieldName) => {
+    if (isPopup && parentData && cascadeField) {
       const itemName = selectedItemData?.prompt_name || 'Unknown';
       const fieldContent = selectedItemData?.[fieldName] || '';
       setCascadeInfo({ itemName, fieldName, fieldContent });
       setShowCascadePopup(true);
+
+      try {
+        const updateData = {
+          [cascadeField]: JSON.stringify({
+            here: fieldContent
+          })
+        };
+
+        const { error } = await supabase
+          .from('prompts')
+          .update(updateData)
+          .eq('row_id', parentData.row_id);
+
+        if (error) throw error;
+        
+        toast.success('Cascade information updated successfully');
+      } catch (error) {
+        console.error('Error updating cascade information:', error);
+        toast.error(`Failed to update cascade information: ${error.message}`);
+      }
     }
-  }, [selectedItemData, isPopup]);
+  }, [selectedItemData, isPopup, parentData, cascadeField, supabase]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
@@ -140,6 +160,8 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
                 isLinksPage={true}
                 isReadOnly={true}
                 onCascade={handleCascade}
+                parentData={parentData}
+                cascadeField={cascadeField}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
