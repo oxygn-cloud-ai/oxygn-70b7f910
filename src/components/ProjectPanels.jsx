@@ -144,7 +144,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       <Collapsible
         open={isSettingsOpen}
         onOpenChange={handleSettingsToggle}
-        className="border rounded-lg p-4"
+        className="border rounded-lg p-4 bg-green-100"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Prompt Settings</h3>
