@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Wrench, Save, RotateCcw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
+import { Rnd } from 'react-rnd';
+import { useSettings } from '../hooks/useSettings';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -16,6 +21,17 @@ const Projects = () => {
   const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const { settings, updateSetting } = useSettings(supabase);
+  const { models } = useOpenAIModels();
+  const [localSettings, setLocalSettings] = useState({});
+  const [expandedSettings, setExpandedSettings] = useState(['settings']);
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -67,8 +83,8 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
-  const renderTreeItems = useCallback((items) => {
-    return items.map((item) => (
+  const renderTreeItems = useCallback((items) => (
+    items.map((item) => (
       <TreeItem
         key={item.id}
         item={item}
@@ -91,8 +107,8 @@ const Projects = () => {
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
       />
-    ));
-  }, [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+    ))
+  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -119,23 +135,87 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
+  const handleSettingChange = (key, value) => {
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSettingSave = async (key) => {
+    await updateSetting(key, localSettings[key]);
+  };
+
+  const handleSettingReset = (key) => {
+    setLocalSettings(prev => ({ ...prev, [key]: settings[key] }));
+  };
+
+  const renderSettingFields = () => {
+    const fields = [
+      { key: 'openai_url', label: 'OpenAI URL', type: 'text' },
+      { key: 'openai_api_key', label: 'OpenAI API Key', type: 'password' },
+      { key: 'build', label: 'Build', type: 'text' },
+      { key: 'version', label: 'Version', type: 'text' },
+      { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea' },
+    ];
+
+    return fields.map(({ key, label, type }) => (
+      <div key={key} className="mb-4">
+        <div className="flex justify-between items-center mb-1">
+          <label htmlFor={key} className="text-sm font-medium">{label}</label>
+          <div className="flex space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSettingSave(key)}
+              className="h-6 w-6"
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleSettingReset(key)}
+              className="h-6 w-6"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        {type === 'textarea' ? (
+          <Textarea
+            id={key}
+            value={localSettings[key] || ''}
+            onChange={(e) => handleSettingChange(key, e.target.value)}
+            className="w-full mt-1"
+          />
+        ) : (
+          <Input
+            id={key}
+            type={type}
+            value={localSettings[key] || ''}
+            onChange={(e) => handleSettingChange(key, e.target.value)}
+            className="w-full mt-1"
+          />
+        )}
+      </div>
+    ));
+  };
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
 
   return (
     <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Prompts</h1>
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <div className="mb-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleAddItem(null)}
-                >
+              <div className="mb-2 flex space-x-2">
+                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
                   <PlusCircle className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setIsPopupOpen(true)}>
+                  <Wrench className="h-5 w-5" />
                 </Button>
               </div>
               {isLoading ? <div>Loading...</div> : (
@@ -172,6 +252,53 @@ const Projects = () => {
           )}
         </Panel>
       </PanelGroup>
+      {isPopupOpen && (
+        <Rnd
+          default={{
+            x: 0,
+            y: 0,
+            width: 320,
+            height: 400,
+          }}
+          minWidth={200}
+          minHeight={100}
+          bounds="window"
+          enableResizing={{
+            top: false,
+            right: true,
+            bottom: true,
+            left: false,
+            topRight: false,
+            bottomRight: true,
+            bottomLeft: false,
+            topLeft: false
+          }}
+        >
+          <div className="bg-white border rounded-lg shadow-lg p-4 h-full overflow-y-auto">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2"
+              onClick={() => setIsPopupOpen(false)}
+            >
+              X
+            </Button>
+            <Accordion
+              type="multiple"
+              value={expandedSettings}
+              onValueChange={setExpandedSettings}
+              className="w-full"
+            >
+              <AccordionItem value="settings">
+                <AccordionTrigger>Settings</AccordionTrigger>
+                <AccordionContent>
+                  {renderSettingFields()}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
+        </Rnd>
+      )}
     </div>
   );
 };

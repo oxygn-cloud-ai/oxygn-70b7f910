@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, BrainCircuit } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, ArrowDownWideNarrow, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, initialValue, onGenerate, isGenerating, formattedTime }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
 
@@ -72,6 +72,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, initialValue, on
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCascade}
+            className="h-6 w-6 text-green-700"
+            title="Cascade"
+          >
+            <ArrowDownWideNarrow className="h-4 w-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

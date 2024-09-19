@@ -44,6 +44,7 @@ const Settings = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Settings</h1>
       <form autoComplete="off">
         <div className="space-y-4">
           {settingsFields.map(({ key, label, type }) => (
