@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, BrainCircuit, Link, Unlink } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, BrainCircuit } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
@@ -67,78 +67,49 @@ const PromptField = ({ label, value, onChange, onReset, onSave, initialValue, on
     return label;
   };
 
-  const renderActionButtons = () => {
-    const isInputField = label === 'Input Admin Prompt' || label === 'Input User Prompt';
-    return (
-      <>
-        {isInputField && (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-green-700"
-              title="Link"
-            >
-              <Link className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-green-700"
-              title="Unlink"
-            >
-              <Unlink className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleCopy}
-          className="h-6 w-6 text-green-700"
-          title="Copy to clipboard"
-        >
-          <ClipboardCopy className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handlePaste}
-          className="h-6 w-6 text-green-700"
-          title="Paste from clipboard"
-        >
-          <ClipboardPaste className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onSave}
-          disabled={!hasChanged}
-          className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
-          title="Save changes"
-        >
-          <Save className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onReset}
-          disabled={!hasChanged}
-          className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
-          title="Reset to initial value"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-      </>
-    );
-  };
-
   return (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
-          {renderActionButtons()}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleCopy}
+            className="h-6 w-6 text-green-700"
+            title="Copy to clipboard"
+          >
+            <ClipboardCopy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handlePaste}
+            className="h-6 w-6 text-green-700"
+            title="Paste from clipboard"
+          >
+            <ClipboardPaste className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onSave}
+            disabled={!hasChanged}
+            className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
+            title="Save changes"
+          >
+            <Save className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onReset}
+            disabled={!hasChanged}
+            className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
+            title="Reset to initial value"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       <Textarea

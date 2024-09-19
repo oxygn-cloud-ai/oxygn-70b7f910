@@ -11,7 +11,7 @@ export const navItems = [
     page: <Index />,
   },
   {
-    title: "Prompts",
+    title: "Projects",
     to: "/projects",
     icon: <FolderIcon className="h-4 w-4" />,
     page: <Projects />,
