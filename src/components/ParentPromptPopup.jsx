@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronsLeft, ChevronsRight, Link } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSupabase } from '../hooks/useSupabase';
 import PopupContent from './PopupContent';
 import TreeView from './TreeView';
 import { Rnd } from 'react-rnd';
 
-const ParentPromptPopup = ({ isOpen, onClose, parentData, treeData }) => {
+const ParentPromptPopup = ({ isOpen, onClose, parentData, cascadeField, onCascade, treeData }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -118,6 +118,8 @@ const ParentPromptPopup = ({ isOpen, onClose, parentData, treeData }) => {
               isExpanded={isExpanded}
               isLoading={isLoading}
               selectedItem={selectedItem}
+              cascadeField={cascadeField}
+              onCascade={onCascade}
             />
             <Button
               variant="ghost"
