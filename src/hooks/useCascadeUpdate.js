@@ -9,8 +9,27 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
     if (isPopup && parentData && cascadeField) {
       try {
         const fieldContent = selectedItemData?.[fieldName] || '';
+        let updateColumn;
+
+        switch (fieldName) {
+          case 'admin_prompt_result':
+            updateColumn = 'src_admin_prompt_result';
+            break;
+          case 'user_prompt_result':
+            updateColumn = 'src_user_prompt_result';
+            break;
+          case 'input_admin_prompt':
+            updateColumn = 'src_input_admin_prompt';
+            break;
+          case 'input_user_prompt':
+            updateColumn = 'src_input_user_prompt';
+            break;
+          default:
+            updateColumn = cascadeField;
+        }
+
         const updateData = {
-          [cascadeField]: fieldContent
+          [updateColumn]: fieldContent
         };
 
         // Log the values before making the Supabase API call
@@ -20,7 +39,8 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
           cascadeField,
           fieldName,
           fieldContent,
-          updateData
+          updateData,
+          updateColumn
         });
 
         console.log('Supabase API Call:', {
@@ -28,7 +48,7 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
           method: 'UPDATE',
           data: updateData,
           condition: { row_id: parentData.row_id },
-          columnToUpdate: cascadeField
+          columnToUpdate: updateColumn
         });
 
         const { data, error } = await supabase
