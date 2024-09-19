@@ -9,38 +9,38 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
     if (isPopup && parentData && cascadeField) {
       try {
         const fieldContent = selectedItemData?.[fieldName] || '';
-        let updateColumn;
+        let sourceField;
 
         switch (fieldName) {
           case 'admin_prompt_result':
-            updateColumn = 'src_admin_prompt_result';
+            sourceField = 'admin_prompt_result';
             break;
           case 'user_prompt_result':
-            updateColumn = 'src_user_prompt_result';
+            sourceField = 'user_prompt_result';
             break;
           case 'input_admin_prompt':
-            updateColumn = 'src_input_admin_prompt';
+            sourceField = 'input_admin_prompt';
             break;
           case 'input_user_prompt':
-            updateColumn = 'src_input_user_prompt';
+            sourceField = 'input_user_prompt';
             break;
           default:
-            updateColumn = cascadeField;
+            sourceField = cascadeField;
         }
 
         const updateData = {
-          [updateColumn]: fieldContent
+          prompt_id: selectedItemData.row_id,
+          sourceField: sourceField,
+          startChar: 0,
+          endChar: fieldContent.length
         };
 
-        // Log the values before making the Supabase API call
         console.log('Cascade Update Details:', {
           isPopup,
           parentDataRowId: parentData.row_id,
           cascadeField,
           fieldName,
-          fieldContent,
-          updateData,
-          updateColumn
+          updateData
         });
 
         console.log('Supabase API Call:', {
@@ -48,18 +48,14 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
           method: 'UPDATE',
           data: updateData,
           condition: { row_id: parentData.row_id },
-          columnToUpdate: updateColumn
+          columnToUpdate: cascadeField
         });
-
-        // Ensure the data is properly formatted as a string
-        const formattedUpdateData = {
-          [updateColumn]: JSON.stringify(fieldContent)
-        };
 
         const { data, error } = await supabase
           .from('prompts')
-          .update(formattedUpdateData)
-          .eq('row_id', parentData.row_id);
+          .update({ [cascadeField]: updateData })
+          .eq('row_id', parentData.row_id)
+          .select();
 
         console.log('Supabase API Response:', {
           data: data,
