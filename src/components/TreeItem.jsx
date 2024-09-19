@@ -110,7 +110,10 @@ const TreeItem = ({
           )}
           <ActionButton 
             icon={<Link className="h-3 w-3" />} 
-            onClick={() => onLinkClick(item)} 
+            onClick={(e) => {
+              e.stopPropagation();
+              onLinkClick(item);
+            }} 
             tooltip="Link" 
           />
         </div>
