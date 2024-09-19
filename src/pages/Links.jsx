@@ -63,6 +63,7 @@ const Links = () => {
   const handleCascade = useCallback(async (fieldName, selectedText) => {
     if (!activeItem || !sourceIconId || !sourceField) {
       toast.error('Unable to cascade: missing information');
+      console.error('Cascade info:', { activeItem, sourceIconId, sourceField });
       return;
     }
 
