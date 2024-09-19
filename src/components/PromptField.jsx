@@ -16,24 +16,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   }, [value, label]);
 
-  useEffect(() => {
-    const handleMessage = (event) => {
-      if (event.data.type === 'CHATINPUT_FOCUS_RESULT') {
-        if (event.data.success) {
-          toast.success('Notes content copied to target field');
-        } else {
-          toast.error('Failed to focus on target field');
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, []);
-
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -65,16 +47,34 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
   const handleSmilePlusClick = () => {
     if (label === 'Notes') {
-      window.parent.postMessage({
-        type: 'FOCUS_CHATINPUT',
-        value: value
-      }, '*');
-      
+      // Access the parent frame
+      const parentFrame = window.parent;
+
+      // Function to insert text into #chatinput
+      const insertTextIntoChatInput = () => {
+        const chatInput = parentFrame.document.querySelector('#chatinput');
+        if (chatInput) {
+          chatInput.value = value;  // Set the input value
+          toast.success('Notes content copied to target field');
+        } else {
+          console.error("#chatinput element not found");
+          toast.error('Failed to focus on target field');
+        }
+      };
+
+      // Check if the parent frame is fully loaded
+      if (parentFrame.document.readyState === 'complete') {
+        insertTextIntoChatInput();
+      } else {
+        // If not loaded, wait for it to load
+        parentFrame.addEventListener('load', insertTextIntoChatInput);
+      }
+
       console.log('SmilePlus Button Clicked');
       console.log('Call Details:');
       console.log('Label:', label);
       console.log('Value:', value);
-      console.log('Action:', 'Sent message to parent window');
+      console.log('Action:', 'Attempting to insert text into parent frame');
     }
   };
 
