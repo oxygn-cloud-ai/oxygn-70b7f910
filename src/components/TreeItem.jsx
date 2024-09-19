@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, Link, Unlink } from 'lucide-react';
+import React from 'react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, Link } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -17,49 +17,10 @@ const TreeItem = ({
   activeItem,
   setActiveItem,
   deleteItem,
+  isLinkMode,
+  onLinkClick,
 }) => {
-  const inputRef = useRef(null);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isLinked, setIsLinked] = useState(false);
   const isExpanded = expandedItems.includes(item.id);
-
-  useEffect(() => {
-    if (editingItem && editingItem.id === item.id && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [editingItem, item.id]);
-
-  const handleLinkToggle = (e) => {
-    e.stopPropagation();
-    setIsLinked(!isLinked);
-  };
-
-  const renderActionButtons = () => (
-    <div className="flex items-center space-x-1 ml-2">
-      <ActionButton 
-        icon={<PlusIcon className="h-3 w-3" />} 
-        onClick={() => addItem && addItem(item.id)} 
-        tooltip="Add Prompt" 
-      />
-      <ActionButton 
-        icon={<EditIcon className="h-3 w-3" />} 
-        onClick={() => startRenaming(item.id, item.prompt_name)} 
-        tooltip="Rename" 
-      />
-      <ActionButton 
-        icon={<Trash2Icon className="h-3 w-3" />} 
-        onClick={() => deleteItem(item.id)} 
-        tooltip="Delete" 
-      />
-      <ActionButton
-        icon={isLinked ? <Unlink className="h-3 w-3 text-red-500" /> : <Link className="h-3 w-3 text-red-500" />}
-        onClick={handleLinkToggle}
-        tooltip={isLinked ? "Unlink" : "Link"}
-      />
-    </div>
-  );
-
-  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
   const isActive = activeItem === item.id;
 
   const handleKeyDown = (e) => {
@@ -84,13 +45,18 @@ const TreeItem = ({
     toggleItem(item.id);
   };
 
+  const handleLinkClick = (e) => {
+    e.stopPropagation();
+    onLinkClick(item);
+  };
+
+  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
+
   return (
     <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
       <div
-        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} ${isLinked ? 'bg-green-100' : ''}`}
+        className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         onClick={() => setActiveItem(item.id)}
       >
         <div className="flex items-center space-x-1 flex-grow">
@@ -113,7 +79,6 @@ const TreeItem = ({
           <FileIcon className="h-4 w-4 flex-shrink-0" />
           {editingItem && editingItem.id === item.id ? (
             <Input
-              ref={inputRef}
               value={editingItem.name}
               onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
               onKeyDown={handleKeyDown}
@@ -129,7 +94,30 @@ const TreeItem = ({
               {displayName}
             </span>
           )}
-          {isHovered && renderActionButtons()}
+          {!isLinkMode && (
+            <div className="flex items-center space-x-1 ml-2">
+              <ActionButton 
+                icon={<PlusIcon className="h-3 w-3" />} 
+                onClick={() => addItem && addItem(item.id)} 
+                tooltip="Add Prompt" 
+              />
+              <ActionButton 
+                icon={<EditIcon className="h-3 w-3" />} 
+                onClick={() => startRenaming(item.id, item.prompt_name)} 
+                tooltip="Rename" 
+              />
+              <ActionButton 
+                icon={<Trash2Icon className="h-3 w-3" />} 
+                onClick={() => deleteItem(item.id)} 
+                tooltip="Delete" 
+              />
+            </div>
+          )}
+          <ActionButton 
+            icon={<Link className="h-3 w-3" />} 
+            onClick={handleLinkClick} 
+            tooltip="Link" 
+          />
         </div>
       </div>
       {isExpanded && item.children && item.children.length > 0 && (
@@ -150,6 +138,8 @@ const TreeItem = ({
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               deleteItem={deleteItem}
+              isLinkMode={isLinkMode}
+              onLinkClick={onLinkClick}
             />
           ))}
         </div>
