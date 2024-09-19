@@ -45,11 +45,6 @@ const TreeItem = ({
     toggleItem(item.id);
   };
 
-  const handleLinkClick = (e) => {
-    e.stopPropagation();
-    onLinkClick(item);
-  };
-
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (
@@ -115,7 +110,7 @@ const TreeItem = ({
           )}
           <ActionButton 
             icon={<Link className="h-3 w-3" />} 
-            onClick={handleLinkClick} 
+            onClick={() => onLinkClick(item)} 
             tooltip="Link" 
           />
         </div>
