@@ -54,14 +54,14 @@ export const useSettings = (supabase) => {
   const updateSetting = async (key, value) => {
     try {
       console.log(`Updating setting: ${key} = ${value}`);
-      if (!settings) {
-        throw new Error('Settings not initialized');
+      if (!settings || !settings.setting_id) {
+        throw new Error('Settings not initialized or missing setting_id');
       }
 
       const { data, error } = await supabase
         .from('settings')
         .update({ [key]: value })
-        .eq('id', settings.id)
+        .eq('setting_id', settings.setting_id)
         .select();
 
       if (error) throw error;
