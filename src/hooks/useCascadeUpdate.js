@@ -1,20 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { useSupabase } from './useSupabase';
 
 export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
-  const [showCascadePopup, setShowCascadePopup] = useState(false);
-  const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '', fieldContent: '' });
   const supabase = useSupabase();
 
   const handleCascade = useCallback(async (fieldName, selectedItemData) => {
     if (isPopup && parentData && cascadeField) {
-      const itemName = selectedItemData?.prompt_name || 'Unknown';
-      const fieldContent = selectedItemData?.[fieldName] || '';
-      setCascadeInfo({ itemName, fieldName, fieldContent });
-      setShowCascadePopup(true);
-
       try {
+        const fieldContent = selectedItemData?.[fieldName] || '';
         const updateData = {
           [cascadeField]: fieldContent
         };
@@ -47,5 +41,5 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
     }
   }, [isPopup, parentData, cascadeField, supabase]);
 
-  return { handleCascade, showCascadePopup, setShowCascadePopup, cascadeInfo };
+  return { handleCascade };
 };

@@ -7,7 +7,6 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import CascadePopup from '../components/CascadePopup';
 import { useCascadeUpdate } from '../hooks/useCascadeUpdate';
 
 const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
@@ -17,7 +16,7 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
   const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
-  const { handleCascade, showCascadePopup, setShowCascadePopup, cascadeInfo } = useCascadeUpdate(isPopup, parentData, cascadeField);
+  const { handleCascade } = useCascadeUpdate(isPopup, parentData, cascadeField);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -146,13 +145,6 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null }) => {
           )}
         </Panel>
       </PanelGroup>
-      <CascadePopup
-        isOpen={showCascadePopup}
-        onClose={() => setShowCascadePopup(false)}
-        itemName={cascadeInfo.itemName}
-        fieldName={cascadeInfo.fieldName}
-        fieldContent={cascadeInfo.fieldContent}
-      />
     </div>
   );
 };
