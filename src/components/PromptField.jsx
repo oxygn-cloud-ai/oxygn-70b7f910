@@ -77,18 +77,20 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       <div className="flex justify-between items-center mb-1">
         <Label htmlFor={label}>{renderLabel()}</Label>
         <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseDown={() => setIsLinking(true)}
-            onMouseUp={() => setIsLinking(false)}
-            onMouseLeave={() => setIsLinking(false)}
-            onClick={() => onCascade(label)}
-            className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
-            title="Cascade"
-          >
-            <Link className="h-4 w-4" />
-          </Button>
+          {onCascade && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onMouseDown={() => setIsLinking(true)}
+              onMouseUp={() => setIsLinking(false)}
+              onMouseLeave={() => setIsLinking(false)}
+              onClick={() => onCascade(label)}
+              className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
+              title="Cascade"
+            >
+              <Link className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
