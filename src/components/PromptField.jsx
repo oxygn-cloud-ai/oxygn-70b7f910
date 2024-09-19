@@ -14,17 +14,6 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
       adjustHeight();
     }
-
-    // Add event listener for message responses
-    const handleMessage = (event) => {
-      console.log('Response received from parent window:', event.data);
-    };
-    window.addEventListener('message', handleMessage);
-
-    // Clean up the event listener
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
   }, [value, label]);
 
   const adjustHeight = () => {
@@ -43,6 +32,11 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       console.error('Failed to copy: ', err);
       toast.error('Failed to copy content');
     }
+  };
+
+  const handleCascade = () => {
+    const selectedText = window.getSelection().toString();
+    onCascade(selectedText || value);
   };
 
   const renderLabel = () => {
@@ -83,7 +77,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             onMouseDown={() => setIsLinking(true)}
             onMouseUp={() => setIsLinking(false)}
             onMouseLeave={() => setIsLinking(false)}
-            onClick={onCascade}
+            onClick={handleCascade}
             className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
             title="Cascade"
           >

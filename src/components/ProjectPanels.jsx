@@ -73,8 +73,8 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
     }
   };
 
-  const handleCascade = async (fieldName) => {
-    onCascade(fieldName, localData[fieldName]);
+  const handleCascade = async (fieldName, selectedText) => {
+    onCascade(fieldName, selectedText);
   };
 
   const renderPromptFields = () => {
@@ -98,7 +98,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
         onChange={(value) => handleChange(field.name, value)}
         onReset={() => handleReset(field.name)}
         onSave={() => handleSave(field.name)}
-        onCascade={() => handleCascade(field.name)}
+        onCascade={(selectedText) => handleCascade(field.name, selectedText)}
         initialValue={selectedItemData[field.name] || ''}
         onGenerate={isLinksPage ? null : handleGenerate}
         isGenerating={isGenerating}

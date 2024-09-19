@@ -7,7 +7,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -17,6 +17,7 @@ const Links = () => {
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sourceIconId, setSourceIconId] = useState(null);
   const [sourceField, setSourceField] = useState(null);
 
@@ -59,6 +60,49 @@ const Links = () => {
     }
   }, [activeItem, supabase, refreshTreeData]);
 
+  const handleCascade = useCallback(async (fieldName, selectedText) => {
+    if (!activeItem || !sourceIconId || !sourceField) {
+      toast.error('Unable to cascade: missing information');
+      return;
+    }
+
+    const jsonText = JSON.stringify({
+      prompt_id: activeItem,
+      sourceField: fieldName,
+      startChar: 0,
+      endChar: selectedText.length
+    });
+
+    const sourceColumnMap = {
+      input_admin_prompt: 'src_admin_prompt_result',
+      input_user_prompt: 'src_user_prompt_result',
+      admin_prompt_result: 'src_admin_prompt_result',
+      user_prompt_result: 'src_user_prompt_result'
+    };
+
+    const sourceColumn = sourceColumnMap[sourceField];
+
+    if (!sourceColumn) {
+      toast.error('Invalid source field');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .update({ [sourceColumn]: jsonText })
+        .eq('row_id', sourceIconId);
+
+      if (error) throw error;
+
+      toast.success('Cascade successful');
+      navigate(-1);
+    } catch (error) {
+      console.error('Error cascading:', error);
+      toast.error(`Failed to cascade: ${error.message}`);
+    }
+  }, [activeItem, sourceIconId, sourceField, supabase, navigate]);
+
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
       <LinksTreeItem
@@ -98,6 +142,20 @@ const Links = () => {
     }
   }, [activeItem, supabase]);
 
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
+        navigate(-1);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscapeKey);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [navigate]);
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -129,6 +187,7 @@ const Links = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
+                onCascade={handleCascade}
                 isLinksPage={true}
                 isReadOnly={true}
                 sourceIconId={sourceIconId}
