@@ -11,7 +11,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascade, isLinksPage = false }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascade, isLinksPage = false, isReadOnly = false }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -104,6 +104,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascad
         isGenerating={isGenerating}
         formattedTime={formattedTime}
         isLinksPage={isLinksPage}
+        isReadOnly={isReadOnly}
       />
     ));
   };

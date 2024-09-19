@@ -119,6 +119,7 @@ const Links = () => {
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
                 isLinksPage={true}
+                isReadOnly={true}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

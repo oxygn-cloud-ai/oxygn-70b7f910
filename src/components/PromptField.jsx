@@ -5,7 +5,7 @@ import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit } from 'lucide-react
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
@@ -98,7 +98,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           >
             <ClipboardCopy className="h-4 w-4" />
           </Button>
-          {!isLinksPage && (
+          {!isLinksPage && !isReadOnly && (
             <>
               <Button
                 variant="ghost"
@@ -128,7 +128,9 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
         id={label}
         value={value}
         onChange={(e) => {
-          onChange(e.target.value);
+          if (!isReadOnly) {
+            onChange(e.target.value);
+          }
           if (label === 'Admin Result' || label === 'User Result') {
             e.target.style.height = 'auto';
           }
@@ -136,6 +138,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
         className="w-full mt-1"
         rows={4}
         ref={textareaRef}
+        readOnly={isReadOnly}
       />
     </div>
   );
