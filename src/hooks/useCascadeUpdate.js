@@ -63,7 +63,15 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
 
         if (error) throw error;
         
-        toast.success('Cascade information updated successfully');
+        // Update the actual text content in the destination field
+        const { error: contentUpdateError } = await supabase
+          .from('prompts')
+          .update({ [cascadeField]: fieldContent })
+          .eq('row_id', parentData.row_id);
+
+        if (contentUpdateError) throw contentUpdateError;
+
+        toast.success('Cascade information and content updated successfully');
       } catch (error) {
         console.error('Error updating cascade information:', error);
         toast.error(`Failed to update cascade information: ${error.message}`);
