@@ -11,7 +11,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false, onCascade }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -73,6 +73,14 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
     }
   };
 
+  const handleCascade = (fieldName) => {
+    if (onCascade) {
+      onCascade(fieldName);
+    } else {
+      console.log(`Cascade clicked for field: ${fieldName}`);
+    }
+  };
+
   const renderPromptFields = () => {
     if (!selectedItemData) {
       return <div>No prompt data available</div>;
@@ -100,6 +108,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
         formattedTime={formattedTime}
         isLinksPage={isLinksPage}
         isReadOnly={isReadOnly}
+        onCascade={() => handleCascade(field.name)}
       />
     ));
   };
