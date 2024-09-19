@@ -127,12 +127,9 @@ const Projects = () => {
   }, [activeItem, supabase]);
 
   const handleCascade = useCallback((fieldName) => {
-    setCascadeInfo({
-      itemName: selectedItemData?.prompt_name || 'Unknown',
-      fieldName: fieldName
-    });
-    setShowCascadePopup(true);
-  }, [selectedItemData]);
+    const itemName = selectedItemData?.prompt_name || 'Unknown';
+    navigate('/links', { state: { cascadeInfo: { itemName, fieldName } } });
+  }, [selectedItemData, navigate]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;

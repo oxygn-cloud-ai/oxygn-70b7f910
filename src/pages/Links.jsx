@@ -18,6 +18,7 @@ const Links = () => {
   const { models } = useOpenAIModels();
   const navigate = useNavigate();
   const location = useLocation();
+  const [cascadeInfo, setCascadeInfo] = useState(null);
 
   useEffect(() => {
     const handleEscapeKey = (event) => {
@@ -33,6 +34,12 @@ const Links = () => {
       window.removeEventListener('keydown', handleEscapeKey);
     };
   }, [navigate, location]);
+
+  useEffect(() => {
+    if (location.state && location.state.cascadeInfo) {
+      setCascadeInfo(location.state.cascadeInfo);
+    }
+  }, [location.state]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -111,6 +118,13 @@ const Links = () => {
 
   return (
     <div className="container mx-auto p-4">
+      {cascadeInfo && (
+        <div className="mb-4 p-4 bg-blue-100 rounded-lg">
+          <h2 className="text-lg font-semibold">Cascade Information</h2>
+          <p><strong>Selected Item:</strong> {cascadeInfo.itemName}</p>
+          <p><strong>Field:</strong> {cascadeInfo.fieldName}</p>
+        </div>
+      )}
       <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
