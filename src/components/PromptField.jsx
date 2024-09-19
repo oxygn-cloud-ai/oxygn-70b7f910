@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Save, ClipboardCopy, ClipboardPaste, Link, BrainCircuit } from 'lucide-react';
@@ -8,35 +8,12 @@ import { toast } from 'sonner';
 const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime }) => {
   const hasChanged = value !== initialValue;
   const textareaRef = useRef(null);
-  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
       adjustHeight();
     }
   }, [value, label]);
-
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        setIsLinking(false);
-      }
-    };
-
-    const handleClickOutside = (e) => {
-      if (isLinking && !e.target.closest('.link-button')) {
-        setIsLinking(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    document.addEventListener('click', handleClickOutside);
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [isLinking]);
 
   const adjustHeight = () => {
     const textarea = textareaRef.current;
@@ -98,8 +75,8 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsLinking(!isLinking)}
-            className={`h-6 w-6 text-green-700 link-button ${isLinking ? 'cursor-alias' : ''}`}
+            onClick={onCascade}
+            className="h-6 w-6 text-green-700"
             title="Cascade"
           >
             <Link className="h-4 w-4" />
