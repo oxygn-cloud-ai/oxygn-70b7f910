@@ -9,6 +9,7 @@ import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { useNavigate } from 'react-router-dom';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -18,6 +19,7 @@ const Projects = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
+  const navigate = useNavigate();
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -121,6 +123,10 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
+  const handleCascade = useCallback(() => {
+    navigate('/links');
+  }, [navigate]);
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -157,6 +163,7 @@ const Projects = () => {
                 selectedItemData={selectedItemData} 
                 projectRowId={activeItem} 
                 onUpdateField={handleUpdateField}
+                onCascade={handleCascade}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

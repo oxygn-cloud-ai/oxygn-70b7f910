@@ -7,11 +7,11 @@ import { useTimer } from '../hooks/useTimer';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, SmilePlus } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, onCascade }) => {
   const [localData, setLocalData] = useState(selectedItemData || {});
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -74,7 +74,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
   };
 
   const handleCascade = async (fieldName) => {
-    // Cascade functionality removed
+    onCascade(fieldName, localData[fieldName]);
   };
 
   const renderPromptFields = () => {
@@ -87,7 +87,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
       { name: 'input_user_prompt', label: 'Input User Prompt' },
       { name: 'admin_prompt_result', label: 'Admin Result' },
       { name: 'user_prompt_result', label: 'User Result' },
-      { name: 'note', label: 'Notes', icon: <SmilePlus className="h-4 w-4 mr-1" /> }
+      { name: 'note', label: 'Notes' }
     ];
 
     return fields.map(field => (
@@ -103,7 +103,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField }) => {
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         formattedTime={formattedTime}
-        icon={field.icon}
       />
     ));
   };
