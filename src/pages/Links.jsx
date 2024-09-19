@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import TreeItem from '../components/TreeItem';
+import LinksTreeItem from '../components/LinksTreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle } from 'lucide-react';
-import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
@@ -14,8 +12,7 @@ const Links = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
-  const [editingItem, setEditingItem] = useState(null);
+  const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
 
@@ -25,15 +22,6 @@ const Links = () => {
     );
     setActiveItem(itemId);
   }, []);
-
-  const handleAddItem = useCallback(async (parentId) => {
-    const newItemId = await addItem(parentId);
-    if (newItemId) {
-      setActiveItem(newItemId);
-      setExpandedItems(prev => [...prev, parentId].filter(Boolean));
-      refreshTreeData();
-    }
-  }, [addItem, refreshTreeData]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem && supabase) {
@@ -51,7 +39,6 @@ const Links = () => {
         }));
 
         if (fieldName === 'prompt_name') {
-          await updateItemName(activeItem, value);
           await refreshTreeData();
         }
       } catch (error) {
@@ -59,42 +46,21 @@ const Links = () => {
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
       }
     }
-  }, [activeItem, updateItemName, supabase, refreshTreeData]);
-
-  const handleDeleteItem = useCallback(async (itemId) => {
-    if (await deleteItem(itemId)) {
-      setActiveItem(null);
-      setSelectedItemData(null);
-      await refreshTreeData();
-    }
-  }, [deleteItem, refreshTreeData]);
+  }, [activeItem, supabase, refreshTreeData]);
 
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
-      <TreeItem
+      <LinksTreeItem
         key={item.id}
         item={item}
         level={1}
         expandedItems={expandedItems}
         toggleItem={toggleItem}
-        addItem={handleAddItem}
-        startRenaming={(id, name) => setEditingItem({ id, name })}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={async () => {
-          if (editingItem) {
-            await updateItemName(editingItem.id, editingItem.name);
-            setEditingItem(null);
-            await refreshTreeData();
-          }
-        }}
-        cancelRenaming={() => setEditingItem(null)}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
-        deleteItem={handleDeleteItem}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+  ), [expandedItems, toggleItem, activeItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -131,11 +97,6 @@ const Links = () => {
         <Panel defaultSize={30} minSize={20}>
           <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              <div className="mb-2 flex space-x-2">
-                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
-                  <PlusCircle className="h-5 w-5" />
-                </Button>
-              </div>
               {isLoading ? <div>Loading...</div> : (
                 <Accordion
                   type="multiple"
