@@ -13,6 +13,16 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField) => {
           [cascadeField]: fieldContent
         };
 
+        // Log the values before making the Supabase API call
+        console.log('Cascade Update Details:', {
+          isPopup,
+          parentDataRowId: parentData.row_id,
+          cascadeField,
+          fieldName,
+          fieldContent,
+          updateData
+        });
+
         console.log('Supabase API Call:', {
           table: 'prompts',
           method: 'UPDATE',
