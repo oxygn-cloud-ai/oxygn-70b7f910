@@ -55,6 +55,15 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       } else {
         toast.error('Target field not found');
       }
+      
+      // Log the entire call and response details to the console
+      console.log('SmilePlus Button Clicked');
+      console.log('Call Details:');
+      console.log('Label:', label);
+      console.log('Value:', value);
+      console.log('Response Details:');
+      console.log('Target Element:', targetElement);
+      console.log('Action:', 'Copied content to target field');
     }
   };
 
