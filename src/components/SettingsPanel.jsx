@@ -16,7 +16,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
       'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
       'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
       'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
-      'input', 'context_length', 'custom_finetune', 'response_format'
+      'input', 'context_length', 'custom_finetune'
     ];
 
     return (
@@ -100,18 +100,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
             <SettingField
               id={field}
               value={localData[field] || ''}
-              onChange={(value) => {
-                if (field === 'response_format') {
-                  try {
-                    JSON.parse(value);
-                    handleChange(field, value);
-                  } catch (error) {
-                    console.error('Invalid JSON format for Response Format');
-                  }
-                } else {
-                  handleChange(field, value);
-                }
-              }}
+              onChange={(value) => handleChange(field, value)}
               disabled={!localData[`${field}_on`]}
             />
           </div>
@@ -120,7 +109,47 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
     );
   };
 
-  return renderSettingFields();
+  return (
+    <>
+      {renderSettingFields()}
+      <div className="col-span-full mt-4">
+        <div className="flex items-center space-x-2 mb-2">
+          <Checkbox
+            id="response_format-checkbox"
+            checked={localData.response_format_on || false}
+            onCheckedChange={(checked) => handleCheckChange('response_format', checked)}
+          />
+          <label htmlFor="response_format" className="text-sm font-medium text-gray-700 flex-grow">
+            Response Format
+          </label>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleSave('response_format')}
+            disabled={localData.response_format === selectedItemData.response_format}
+            className="h-6 w-6"
+          >
+            <Save className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleReset('response_format')}
+            disabled={localData.response_format === selectedItemData.response_format}
+            className="h-6 w-6"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </div>
+        <SettingField
+          id="response_format"
+          value={localData.response_format || ''}
+          onChange={(value) => handleChange('response_format', value)}
+          disabled={!localData.response_format_on}
+        />
+      </div>
+    </>
+  );
 };
 
 export default SettingsPanel;
