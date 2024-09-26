@@ -41,7 +41,7 @@ const SettingField = ({ id, label, type, value, onChange, disabled }) => {
         onChange={handleChange}
         placeholder={`Enter ${label}`}
         autoComplete="off"
-        className={`w-full mt-1 ${id === 'response_format' ? 'font-mono' : ''}`}
+        className={`w-full mt-1 ${id === 'response_format' ? 'font-mono resize-both min-h-[100px] overflow-auto' : ''}`}
         disabled={disabled}
         rows={id === 'response_format' ? 5 : undefined}
       />
