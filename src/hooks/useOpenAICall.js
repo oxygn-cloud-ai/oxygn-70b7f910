@@ -25,7 +25,6 @@ export const useOpenAICall = () => {
         throw new Error('OpenAI settings are not configured. Please check your settings.');
       }
 
-      // Ensure userMessage is not null or empty
       if (!userMessage || userMessage.trim() === '') {
         throw new Error('User message cannot be empty.');
       }
@@ -45,6 +44,17 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty),
       };
 
+      // Add response_format if response_format_on is true
+      if (projectSettings.response_format_on) {
+        try {
+          const parsedResponseFormat = JSON.parse(projectSettings.response_format);
+          requestBody.response_format = parsedResponseFormat;
+        } catch (error) {
+          console.error('Error parsing response_format:', error);
+          toast.error('Invalid response_format JSON. Using default format.');
+        }
+      }
+
       console.log('OpenAI API Call Details:', {
         url: apiUrl,
         model: requestBody.model,
@@ -53,6 +63,7 @@ export const useOpenAICall = () => {
         topP: requestBody.top_p,
         frequencyPenalty: requestBody.frequency_penalty,
         presencePenalty: requestBody.presence_penalty,
+        responseFormat: requestBody.response_format,
         systemMessage,
         userMessage,
       });
