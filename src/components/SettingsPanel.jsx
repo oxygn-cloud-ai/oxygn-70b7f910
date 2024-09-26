@@ -12,7 +12,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
 
   const renderSettingFields = () => {
     const fields = [
-      'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+      'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
       'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
       'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
       'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
