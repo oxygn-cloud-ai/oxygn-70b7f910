@@ -16,7 +16,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
       'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 'echo', 'suffix',
       'temperature_scaling', 'prompt_tokens', 'response_tokens', 'batch_size',
       'learning_rate_multiplier', 'n_epochs', 'validation_file', 'training_file', 'engine',
-      'input', 'context_length', 'custom_finetune'
+      'input', 'context_length', 'custom_finetune', 'response_format'
     ];
 
     return (
@@ -100,7 +100,18 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
             <SettingField
               id={field}
               value={localData[field] || ''}
-              onChange={(value) => handleChange(field, value)}
+              onChange={(value) => {
+                if (field === 'response_format') {
+                  try {
+                    JSON.parse(value);
+                    handleChange(field, value);
+                  } catch (error) {
+                    console.error('Invalid JSON format for Response Format');
+                  }
+                } else {
+                  handleChange(field, value);
+                }
+              }}
               disabled={!localData[`${field}_on`]}
             />
           </div>
