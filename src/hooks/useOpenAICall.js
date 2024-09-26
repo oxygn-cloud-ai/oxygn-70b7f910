@@ -108,6 +108,19 @@ export const useOpenAICall = () => {
 
       const data = await response.json();
       console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
+
+      // Parse JSON response if response_format_on is true
+      if (projectSettings.response_format_on) {
+        try {
+          const jsonResponse = JSON.parse(data.choices[0].message.content);
+          return JSON.stringify(jsonResponse, null, 2); // Convert parsed JSON back to formatted string
+        } catch (error) {
+          console.error('Error parsing JSON response:', error);
+          toast.error('Failed to parse JSON response. Returning raw response.');
+          return data.choices[0].message.content;
+        }
+      }
+
       return data.choices[0].message.content;
     } catch (error) {
       console.error('Error calling OpenAI:', error);
