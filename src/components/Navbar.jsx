@@ -1,19 +1,17 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { navItems } from '../nav-items';
 
-const Navbar = ({ handleNavigation }) => {
+const Navbar = () => {
   return (
     <nav className="bg-gray-800 text-white p-4">
       <ul className="flex space-x-4">
         {navItems.filter(item => !item.hidden).map((item) => (
           <li key={item.to}>
-            <button
-              onClick={() => handleNavigation(item.to)}
-              className="flex items-center hover:text-gray-300"
-            >
+            <Link to={item.to} className="flex items-center">
               {item.icon}
               <span className="ml-2">{item.title}</span>
-            </button>
+            </Link>
           </li>
         ))}
       </ul>
