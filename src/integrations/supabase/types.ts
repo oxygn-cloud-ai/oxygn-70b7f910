@@ -1,3 +1,5 @@
+import { Prompt } from './types/prompts';
+
 export type Json =
   | string
   | number
@@ -6,27 +8,14 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
-      info: {
-        Row: {
-          content: string | null
-          created: string
-          info_key: string
-        }
-        Insert: {
-          content?: string | null
-          created?: string
-          info_key: string
-        }
-        Update: {
-          content?: string | null
-          created?: string
-          info_key?: string
-        }
-        Relationships: []
-      }
+      prompts: {
+        Row: Prompt;
+        Insert: Partial<Prompt>;
+        Update: Partial<Prompt>;
+      };
       openai_models: {
         Row: {
           created: string
@@ -1692,20 +1681,20 @@ export type Database = {
         }
         Relationships: []
       }
-    }
+    };
     Views: {
       [_ in never]: never
-    }
+    };
     Functions: {
       [_ in never]: never
-    }
+    };
     Enums: {
       [_ in never]: never
-    }
+    };
     CompositeTypes: {
       [_ in never]: never
-    }
-  }
+    };
+  };
 }
 
 type PublicSchema = Database[Extract<keyof Database, "public">]
@@ -1804,3 +1793,4 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
     ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
