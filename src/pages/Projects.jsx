@@ -34,30 +34,32 @@ const Projects = ({ setUnsavedChanges }) => {
     navigate(to);
   }, [navigate]);
 
+  const fetchItemData = useCallback(async (itemId) => {
+    if (supabase && itemId) {
+      try {
+        const { data, error } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', itemId)
+          .single();
+
+        if (error) throw error;
+        
+        setSelectedItemData(data);
+      } catch (error) {
+        console.error('Error fetching item data:', error);
+        toast.error(`Failed to fetch prompt data: ${error.message}`);
+      }
+    }
+  }, [supabase]);
+
   useEffect(() => {
-    if (activeItem && supabase) {
-      const fetchItemData = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('prompts')
-            .select('*')
-            .eq('row_id', activeItem)
-            .single();
-
-          if (error) throw error;
-          
-          setSelectedItemData(data);
-        } catch (error) {
-          console.error('Error fetching item data:', error);
-          toast.error(`Failed to fetch prompt data: ${error.message}`);
-        }
-      };
-
-      fetchItemData();
+    if (activeItem) {
+      fetchItemData(activeItem);
     } else {
       setSelectedItemData(null);
     }
-  }, [activeItem, supabase]);
+  }, [activeItem, fetchItemData]);
 
   const handleCascade = useCallback((fieldName) => {
     const itemName = selectedItemData?.prompt_name || 'Unknown';
@@ -67,7 +69,8 @@ const Projects = ({ setUnsavedChanges }) => {
 
   const handleToggleItem = useCallback((itemId) => {
     setActiveItem(itemId);
-  }, []);
+    fetchItemData(itemId);
+  }, [fetchItemData]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;

@@ -24,6 +24,7 @@ const ProjectTree = ({
     setExpandedItems(prev => 
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
     );
+    setActiveItem(itemId);
     handleNavigation(`/projects/${itemId}`);
   };
 
