@@ -1,55 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { fetchPrompts, addPrompt, updatePrompt, deletePrompt, duplicatePrompt, movePrompt } from '../services/promptService';
 
 const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [defaultAdminPrompt, setDefaultAdminPrompt] = useState('');
 
-  const fetchPrompts = useCallback(async (parentRowId = null) => {
-    if (!supabase) return [];
-    try {
-      let query = supabase
-        .from('prompts')
-        .select('row_id, parent_row_id, prompt_name, note, created')
-        .eq('is_deleted', false)
-        .order('created', { ascending: true });
-
-      if (parentRowId) {
-        query = query.eq('parent_row_id', parentRowId);
-      } else {
-        query = query.is('parent_row_id', null);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
-        const children = await fetchPrompts(prompt.row_id);
-        return {
-          ...prompt,
-          id: prompt.row_id,
-          name: prompt.prompt_name,
-          children: children.length > 0 ? children : undefined
-        };
-      }));
-
-      return promptsWithChildren;
-    } catch (error) {
-      console.error('Error fetching prompts:', error);
-      return [];
-    }
-  }, [supabase]);
-
   const fetchTreeData = useCallback(async () => {
     if (!supabase) return;
     setIsLoading(true);
     try {
-      const data = await fetchPrompts();
+      const data = await fetchPrompts(supabase);
       setTreeData(data);
 
-      // Fetch default admin prompt from settings
       const { data: settingsData, error: settingsError } = await supabase
         .from('settings')
         .select('def_admin_prompt')
@@ -63,7 +27,7 @@ const useTreeData = (supabase) => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchPrompts, supabase]);
+  }, [supabase]);
 
   useEffect(() => {
     if (supabase) {
@@ -74,45 +38,20 @@ const useTreeData = (supabase) => {
   const addItem = useCallback(async (parentId) => {
     if (!supabase) return null;
     try {
-      // Fetch the latest def_admin_prompt value
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('settings')
-        .select('def_admin_prompt')
-        .single();
-
-      if (settingsError) throw settingsError;
-
-      const latestDefaultAdminPrompt = settingsData.def_admin_prompt || '';
-
-      const newItem = {
-        parent_row_id: parentId,
-        prompt_name: 'New Prompt',
-        note: '',
-        created: new Date().toISOString(),
-        is_deleted: false,
-        input_admin_prompt: latestDefaultAdminPrompt
-      };
-
-      const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
-
-      if (error) throw error;
-
+      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
       await fetchTreeData();
-      return data.row_id;
+      return newItemId;
     } catch (error) {
       console.error('Error adding new item:', error);
       toast.error(`Failed to add new item: ${error.message}`);
       return null;
     }
-  }, [supabase, fetchTreeData]);
+  }, [supabase, fetchTreeData, defaultAdminPrompt]);
 
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
     try {
-      const { error } = await supabase.from('prompts').update({ prompt_name: newName }).eq('row_id', id);
-
-      if (error) throw error;
-
+      await updatePrompt(supabase, id, { prompt_name: newName });
       await fetchTreeData();
       return true;
     } catch (error) {
@@ -125,29 +64,7 @@ const useTreeData = (supabase) => {
   const deleteItem = useCallback(async (id) => {
     if (!supabase) return false;
     try {
-      // Mark the item and its children as deleted
-      const markAsDeleted = async (itemId) => {
-        const { error } = await supabase
-          .from('prompts')
-          .update({ is_deleted: true })
-          .eq('row_id', itemId);
-        
-        if (error) throw error;
-
-        // Fetch and mark children as deleted
-        const { data: children, error: childrenError } = await supabase
-          .from('prompts')
-          .select('row_id')
-          .eq('parent_row_id', itemId);
-        
-        if (childrenError) throw childrenError;
-
-        for (const child of children) {
-          await markAsDeleted(child.row_id);
-        }
-      };
-
-      await markAsDeleted(id);
+      await deletePrompt(supabase, id);
       await fetchTreeData();
       toast.success('Item deleted successfully');
       return true;
@@ -161,46 +78,7 @@ const useTreeData = (supabase) => {
   const duplicateItem = useCallback(async (itemId) => {
     if (!supabase) return;
     try {
-      const duplicateRecursive = async (id, parentId) => {
-        const { data: originalItem } = await supabase
-          .from('prompts')
-          .select('*')
-          .eq('row_id', id)
-          .single();
-
-        if (!originalItem) throw new Error('Item not found');
-
-        const newItem = { ...originalItem, row_id: undefined, parent_row_id: parentId };
-        delete newItem.id;
-        newItem.prompt_name = `${newItem.prompt_name} (Copy)`;
-
-        const { data: insertedItem, error: insertError } = await supabase
-          .from('prompts')
-          .insert(newItem)
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        const { data: children } = await supabase
-          .from('prompts')
-          .select('row_id')
-          .eq('parent_row_id', id);
-
-        for (const child of children) {
-          await duplicateRecursive(child.row_id, insertedItem.row_id);
-        }
-
-        return insertedItem.row_id;
-      };
-
-      const { data: originalItem } = await supabase
-        .from('prompts')
-        .select('parent_row_id')
-        .eq('row_id', itemId)
-        .single();
-
-      await duplicateRecursive(itemId, originalItem.parent_row_id);
+      await duplicatePrompt(supabase, itemId);
       await fetchTreeData();
       toast.success('Item duplicated successfully');
     } catch (error) {
@@ -212,13 +90,7 @@ const useTreeData = (supabase) => {
   const moveItem = useCallback(async (itemId, newParentId) => {
     if (!supabase) return;
     try {
-      const { error } = await supabase
-        .from('prompts')
-        .update({ parent_row_id: newParentId })
-        .eq('row_id', itemId);
-
-      if (error) throw error;
-
+      await movePrompt(supabase, itemId, newParentId);
       await fetchTreeData();
       toast.success('Item moved successfully');
     } catch (error) {
