@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import TreeItem from '../components/TreeItem';
-import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { PlusCircle } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import ProjectPanels from '../components/ProjectPanels';
 import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import useTreeData from '../hooks/useTreeData';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -40,7 +35,7 @@ const Projects = () => {
     return `You have unsaved changes in the following fields: ${fields.join(', ')}. Are you sure you want to leave?`;
   }, [unsavedFields]);
 
-  useBeforeUnload(unsavedFieldsMessage);
+  useBeforeUnload(unsavedFieldsMessage());
 
   useEffect(() => {
     if (activeItem && supabase) {
