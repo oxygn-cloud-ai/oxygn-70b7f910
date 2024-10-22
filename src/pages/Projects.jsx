@@ -71,8 +71,9 @@ const Projects = ({ setUnsavedChanges }) => {
 
   const handleToggleItem = useCallback((itemId) => {
     setActiveItem(itemId);
+    fetchItemData(itemId);
     navigate(`/projects/${itemId}`);
-  }, [navigate]);
+  }, [navigate, fetchItemData]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
