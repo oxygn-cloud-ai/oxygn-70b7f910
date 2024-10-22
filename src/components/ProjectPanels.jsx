@@ -66,7 +66,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
   }, [onCascade]);
 
   useEffect(() => {
-    if (onUnsavedChanges) {
+    if (onUnsavedChanges && typeof onUnsavedChanges === 'function') {
       const unsavedFields = getAllUnsavedFields();
       onUnsavedChanges(unsavedFields);
     }
