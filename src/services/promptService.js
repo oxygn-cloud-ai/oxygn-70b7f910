@@ -41,7 +41,36 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
       note: '',
       created: new Date().toISOString(),
       is_deleted: false,
-      input_admin_prompt: defaultAdminPrompt
+      input_admin_prompt: defaultAdminPrompt,
+      frequency_penalty_on: false, // Add this line to set a default value
+      // Add default values for other non-nullable fields
+      model_on: true,
+      temperature_on: true,
+      max_tokens_on: true,
+      top_p_on: false,
+      presence_penalty_on: false,
+      stop_on: false,
+      n_on: false,
+      logit_bias_on: false,
+      o_user_on: false,
+      stream_on: false,
+      best_of_on: false,
+      logprobs_on: false,
+      echo_on: false,
+      suffix_on: false,
+      temperature_scaling_on: false,
+      prompt_tokens_on: false,
+      response_tokens_on: false,
+      batch_size_on: false,
+      learning_rate_multiplier_on: false,
+      n_epochs_on: false,
+      validation_file_on: false,
+      training_file_on: false,
+      engine_on: false,
+      input_on: false,
+      context_length_on: false,
+      custom_finetune_on: false,
+      response_format_on: false
     };
 
     const { data, error } = await supabase.from('prompts').insert(newItem).select().single();

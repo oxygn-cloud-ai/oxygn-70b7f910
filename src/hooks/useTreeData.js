@@ -40,6 +40,7 @@ const useTreeData = (supabase) => {
     try {
       const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
       await fetchTreeData();
+      toast.success('New prompt added successfully');
       return newItemId;
     } catch (error) {
       console.error('Error adding new item:', error);
