@@ -65,6 +65,10 @@ const Projects = ({ setUnsavedChanges }) => {
     setShowParentPromptPopup(true);
   }, [selectedItemData]);
 
+  const handleToggleItem = useCallback((itemId) => {
+    setActiveItem(itemId);
+  }, []);
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -83,7 +87,7 @@ const Projects = ({ setUnsavedChanges }) => {
               duplicateItem={duplicateItem}
               moveItem={moveItem}
               activeItem={activeItem}
-              setActiveItem={setActiveItem}
+              setActiveItem={handleToggleItem}
               refreshTreeData={refreshTreeData}
               handleNavigation={handleNavigation}
             />
