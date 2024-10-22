@@ -42,8 +42,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
       created: new Date().toISOString(),
       is_deleted: false,
       input_admin_prompt: defaultAdminPrompt,
-      frequency_penalty_on: false, // Add this line to set a default value
-      // Add default values for other non-nullable fields
+      frequency_penalty_on: false,
       model_on: true,
       temperature_on: true,
       max_tokens_on: true,
@@ -53,9 +52,11 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
       n_on: false,
       logit_bias_on: false,
       o_user_on: false,
+      stream: false, // Add this line to set a default value for stream
       stream_on: false,
       best_of_on: false,
       logprobs_on: false,
+      echo: false, // Add this line to set a default value for echo
       echo_on: false,
       suffix_on: false,
       temperature_scaling_on: false,
