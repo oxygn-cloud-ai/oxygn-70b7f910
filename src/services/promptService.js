@@ -29,7 +29,7 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
     return promptsWithChildren;
   } catch (error) {
     console.error('Error fetching prompts:', error);
-    return [];
+    throw error;
   }
 };
 

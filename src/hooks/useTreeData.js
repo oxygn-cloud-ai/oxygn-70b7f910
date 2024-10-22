@@ -20,7 +20,7 @@ const useTreeData = (supabase) => {
         .single();
 
       if (settingsError) throw settingsError;
-      setDefaultAdminPrompt(settingsData.def_admin_prompt || '');
+      setDefaultAdminPrompt(settingsData?.def_admin_prompt || '');
     } catch (error) {
       console.error('Error fetching tree data:', error);
       toast.error(`Failed to fetch prompts: ${error.message}`);
