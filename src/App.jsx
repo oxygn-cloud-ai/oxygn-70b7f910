@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-ro
 import { navItems } from "./nav-items";
 import Navbar from "./components/Navbar";
 import { useState, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const queryClient = new QueryClient();
 
@@ -21,14 +22,33 @@ const AppContent = () => {
     };
 
     const message = unsavedFieldsMessage();
-    if (!message || window.confirm(message)) {
-      navigate(to);
+    if (message) {
+      const userConfirmed = window.confirm(message);
+      if (!userConfirmed) {
+        return;
+      }
     }
+    navigate(to);
   }, [navigate, unsavedChanges]);
 
   useEffect(() => {
     console.log("Current location:", location.pathname);
   }, [location]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (Object.values(unsavedChanges).some(Boolean)) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [unsavedChanges]);
 
   return (
     <>
