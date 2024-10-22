@@ -7,12 +7,11 @@ import useTreeData from '../hooks/useTreeData';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useBeforeUnload } from '../hooks/useBeforeUnload';
 import ProjectTree from '../components/ProjectTree';
 import ProjectDetails from '../components/ProjectDetails';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const Projects = () => {
+const Projects = ({ setUnsavedChanges }) => {
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
   const { treeData, addItem, updateItemName, deleteItem, duplicateItem, moveItem, isLoading, refreshTreeData } = useTreeData(supabase);
@@ -20,7 +19,6 @@ const Projects = () => {
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
-  const [unsavedFields, setUnsavedFields] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,37 +27,12 @@ const Projects = () => {
     unsavedFieldsArray.forEach(field => {
       updatedUnsavedFields[field] = true;
     });
-    setUnsavedFields(updatedUnsavedFields);
-  }, []);
-
-  const unsavedFieldsMessage = useCallback(() => {
-    const fields = Object.keys(unsavedFields).filter(field => unsavedFields[field]);
-    if (fields.length === 0) return null;
-    return `You have unsaved changes in the following fields: ${fields.join(', ')}. Are you sure you want to leave?`;
-  }, [unsavedFields]);
-
-  useBeforeUnload(unsavedFieldsMessage());
-
-  useEffect(() => {
-    const handleBeforeNavigate = (event) => {
-      const message = unsavedFieldsMessage();
-      if (message && !window.confirm(message)) {
-        event.preventDefault();
-      }
-    };
-
-    window.addEventListener('popstate', handleBeforeNavigate);
-    return () => {
-      window.removeEventListener('popstate', handleBeforeNavigate);
-    };
-  }, [unsavedFieldsMessage]);
+    setUnsavedChanges(updatedUnsavedFields);
+  }, [setUnsavedChanges]);
 
   const handleNavigation = useCallback((to) => {
-    const message = unsavedFieldsMessage();
-    if (!message || window.confirm(message)) {
-      navigate(to);
-    }
-  }, [navigate, unsavedFieldsMessage]);
+    navigate(to);
+  }, [navigate]);
 
   useEffect(() => {
     if (activeItem && supabase) {
