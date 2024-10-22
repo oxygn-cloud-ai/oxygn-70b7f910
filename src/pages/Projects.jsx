@@ -10,12 +10,14 @@ import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, duplicateItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, duplicateItem, moveItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
@@ -96,9 +98,10 @@ const Projects = () => {
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
         duplicateItem={duplicateItem}
+        moveItem={moveItem}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem]);
+  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem, moveItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -140,59 +143,61 @@ const Projects = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <PanelGroup direction="horizontal">
-        <Panel defaultSize={30} minSize={20}>
-          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
-            <div className="overflow-x-auto whitespace-nowrap w-full">
-              <div className="mb-2 flex space-x-2">
-                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
-                  <PlusCircle className="h-5 w-5" />
-                </Button>
+    <DndProvider backend={HTML5Backend}>
+      <div className="container mx-auto p-4">
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={30} minSize={20}>
+            <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
+              <div className="overflow-x-auto whitespace-nowrap w-full">
+                <div className="mb-2 flex space-x-2">
+                  <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
+                    <PlusCircle className="h-5 w-5" />
+                  </Button>
+                </div>
+                {isLoading ? <div>Loading...</div> : (
+                  <Accordion
+                    type="multiple"
+                    value={expandedItems}
+                    onValueChange={setExpandedItems}
+                    className="w-full min-w-max"
+                  >
+                    {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+                  </Accordion>
+                )}
               </div>
-              {isLoading ? <div>Loading...</div> : (
-                <Accordion
-                  type="multiple"
-                  value={expandedItems}
-                  onValueChange={setExpandedItems}
-                  className="w-full min-w-max"
-                >
-                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-                </Accordion>
-              )}
             </div>
-          </div>
-        </Panel>
-        <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
-        <Panel>
-          {activeItem ? (
-            selectedItemData ? (
-              <ProjectPanels 
-                selectedItemData={selectedItemData} 
-                projectRowId={activeItem} 
-                onUpdateField={handleUpdateField}
-                onCascade={handleCascade}
-              />
+          </Panel>
+          <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
+          <Panel>
+            {activeItem ? (
+              selectedItemData ? (
+                <ProjectPanels 
+                  selectedItemData={selectedItemData} 
+                  projectRowId={activeItem} 
+                  onUpdateField={handleUpdateField}
+                  onCascade={handleCascade}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-gray-500">Loading prompt details...</p>
+                </div>
+              )
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading prompt details...</p>
+                <p className="text-gray-500">Select a prompt to view details</p>
               </div>
-            )
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500">Select a prompt to view details</p>
-            </div>
-          )}
-        </Panel>
-      </PanelGroup>
-      <ParentPromptPopup
-        isOpen={showParentPromptPopup}
-        onClose={() => setShowParentPromptPopup(false)}
-        parentData={selectedItemData}
-        cascadeField={cascadeInfo.fieldName}
-        onUpdateParentData={handleUpdateParentData}
-      />
-    </div>
+            )}
+          </Panel>
+        </PanelGroup>
+        <ParentPromptPopup
+          isOpen={showParentPromptPopup}
+          onClose={() => setShowParentPromptPopup(false)}
+          parentData={selectedItemData}
+          cascadeField={cascadeInfo.fieldName}
+          onUpdateParentData={handleUpdateParentData}
+        />
+      </div>
+    </DndProvider>
   );
 };
 

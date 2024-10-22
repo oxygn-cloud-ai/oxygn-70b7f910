@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDrag, useDrop } from 'react-dnd';
 
 const TreeItem = ({
   item,
@@ -18,10 +19,34 @@ const TreeItem = ({
   setActiveItem,
   deleteItem,
   duplicateItem,
+  moveItem,
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = expandedItems.includes(item.id);
+
+  const [{ isDragging }, drag] = useDrag({
+    type: 'TREE_ITEM',
+    item: { id: item.id, parentId: item.parent_row_id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, drop] = useDrop({
+    accept: 'TREE_ITEM',
+    drop: (draggedItem) => {
+      if (draggedItem.id !== item.id && draggedItem.parentId !== item.id) {
+        moveItem(draggedItem.id, item.id);
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  const ref = useRef(null);
+  drag(drop(ref));
 
   useEffect(() => {
     if (editingItem && editingItem.id === item.id && inputRef.current) {
@@ -80,7 +105,10 @@ const TreeItem = ({
   };
 
   return (
-    <div className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1`}>
+    <div 
+      className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1 ${isDragging ? 'opacity-50' : ''} ${isOver ? 'bg-blue-100' : ''}`}
+      ref={ref}
+    >
       <div
         className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
         style={{ paddingLeft: `${level * 16}px` }}
@@ -146,6 +174,7 @@ const TreeItem = ({
               setActiveItem={setActiveItem}
               deleteItem={deleteItem}
               duplicateItem={duplicateItem}
+              moveItem={moveItem}
             />
           ))}
         </div>

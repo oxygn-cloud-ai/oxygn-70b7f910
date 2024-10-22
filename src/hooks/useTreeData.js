@@ -209,12 +209,31 @@ const useTreeData = (supabase) => {
     }
   }, [supabase, fetchTreeData]);
 
+  const moveItem = useCallback(async (itemId, newParentId) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .update({ parent_row_id: newParentId })
+        .eq('row_id', itemId);
+
+      if (error) throw error;
+
+      await fetchTreeData();
+      toast.success('Item moved successfully');
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast.error(`Failed to move item: ${error.message}`);
+    }
+  }, [supabase, fetchTreeData]);
+
   return { 
     treeData, 
     addItem, 
     updateItemName,
     deleteItem,
     duplicateItem,
+    moveItem,
     isLoading,
     refreshTreeData: fetchTreeData,
     defaultAdminPrompt
