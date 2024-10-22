@@ -33,7 +33,11 @@ const AppContent = () => {
           <Route 
             key={to} 
             path={to} 
-            element={<PageComponent setUnsavedChanges={setUnsavedChanges} />} 
+            element={
+              PageComponent ? 
+                <PageComponent setUnsavedChanges={setUnsavedChanges} /> : 
+                null
+            } 
           />
         ))}
       </Routes>
