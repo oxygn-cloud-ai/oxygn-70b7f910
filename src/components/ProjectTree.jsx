@@ -14,7 +14,8 @@ const ProjectTree = ({
   moveItem,
   activeItem,
   setActiveItem,
-  refreshTreeData
+  refreshTreeData,
+  handleNavigation
 }) => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
@@ -23,7 +24,7 @@ const ProjectTree = ({
     setExpandedItems(prev => 
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
     );
-    setActiveItem(itemId);
+    handleNavigation(`/projects/${itemId}`);
   };
 
   const renderTreeItems = (items) => (

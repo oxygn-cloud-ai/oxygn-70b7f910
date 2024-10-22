@@ -10,6 +10,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useBeforeUnload } from '../hooks/useBeforeUnload';
 import ProjectTree from '../components/ProjectTree';
 import ProjectDetails from '../components/ProjectDetails';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Projects = () => {
   const [activeItem, setActiveItem] = useState(null);
@@ -20,6 +21,8 @@ const Projects = () => {
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
   const [unsavedFields, setUnsavedFields] = useState({});
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleUnsavedChanges = useCallback((unsavedFieldsArray) => {
     const updatedUnsavedFields = {};
@@ -36,6 +39,27 @@ const Projects = () => {
   }, [unsavedFields]);
 
   useBeforeUnload(unsavedFieldsMessage());
+
+  useEffect(() => {
+    const handleBeforeNavigate = (event) => {
+      const message = unsavedFieldsMessage();
+      if (message && !window.confirm(message)) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('popstate', handleBeforeNavigate);
+    return () => {
+      window.removeEventListener('popstate', handleBeforeNavigate);
+    };
+  }, [unsavedFieldsMessage]);
+
+  const handleNavigation = useCallback((to) => {
+    const message = unsavedFieldsMessage();
+    if (!message || window.confirm(message)) {
+      navigate(to);
+    }
+  }, [navigate, unsavedFieldsMessage]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -88,6 +112,7 @@ const Projects = () => {
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               refreshTreeData={refreshTreeData}
+              handleNavigation={handleNavigation}
             />
           </Panel>
           <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
