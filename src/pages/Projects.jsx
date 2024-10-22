@@ -27,11 +27,12 @@ const Projects = () => {
   
   const [unsavedFields, setUnsavedFields] = useState({});
 
-  const handleUnsavedChanges = useCallback((fieldName, hasUnsavedChanges) => {
-    setUnsavedFields(prev => ({
-      ...prev,
-      [fieldName]: hasUnsavedChanges
-    }));
+  const handleUnsavedChanges = useCallback((unsavedFieldsArray) => {
+    const updatedUnsavedFields = {};
+    unsavedFieldsArray.forEach(field => {
+      updatedUnsavedFields[field] = true;
+    });
+    setUnsavedFields(updatedUnsavedFields);
   }, []);
 
   const unsavedFieldsMessage = useCallback(() => {
@@ -152,10 +153,6 @@ const Projects = () => {
     setShowParentPromptPopup(true);
   }, [selectedItemData]);
 
-  const handleUpdateParentData = useCallback((updatedData) => {
-    setSelectedItemData(updatedData);
-  }, []);
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -213,7 +210,6 @@ const Projects = () => {
           onClose={() => setShowParentPromptPopup(false)}
           parentData={selectedItemData}
           cascadeField={cascadeInfo.fieldName}
-          onUpdateParentData={handleUpdateParentData}
         />
       </div>
     </DndProvider>

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false, onCascade, parentData, cascadeField, onUnsavedChanges }) => {
-  const { localData, handleChange, handleSave, handleReset, hasUnsavedChanges } = useProjectData(selectedItemData, projectRowId);
+  const { localData, handleChange, handleSave, handleReset, hasUnsavedChanges, getAllUnsavedFields } = useProjectData(selectedItemData, projectRowId);
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
@@ -66,9 +66,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
   }, [onCascade]);
 
   useEffect(() => {
-    const unsavedFields = Object.keys(localData).filter(field => hasUnsavedChanges(field));
-    onUnsavedChanges(unsavedFields);
-  }, [localData, hasUnsavedChanges, onUnsavedChanges]);
+    if (onUnsavedChanges) {
+      const unsavedFields = getAllUnsavedFields();
+      onUnsavedChanges(unsavedFields);
+    }
+  }, [localData, getAllUnsavedFields, onUnsavedChanges]);
 
   const renderPromptFields = useCallback(() => {
     if (!selectedItemData) {
@@ -104,10 +106,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
       />
     ));
   }, [selectedItemData, localData, handleChange, handleReset, handleSave, isLinksPage, handleGenerate, isGenerating, formattedTime, isReadOnly, handleCascade, parentData, cascadeField, hasUnsavedChanges]);
-
-  if (!selectedItemData) {
-    return <div>Loading prompt data...</div>;
-  }
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
