@@ -5,9 +5,8 @@ import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
 import { useProjectData } from '../hooks/useProjectData';
-import PromptFields from './PromptFields';
+import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
-import TextHighlighter from './TextHighlighter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -22,7 +21,6 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
-  const [isHighlighterOpen, setIsHighlighterOpen] = useState(false);
 
   const handleGenerate = useCallback(async () => {
     if (!settings || !settings.openai_api_key || !settings.openai_url) {
@@ -67,13 +65,40 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
     }
   }, [onCascade]);
 
-  const handleHighlight = useCallback((highlights) => {
-    handleChange('highlights', highlights);
-  }, [handleChange]);
+  const renderPromptFields = useCallback(() => {
+    if (!selectedItemData) {
+      return <div>No prompt data available</div>;
+    }
 
-  const handleSourceInfoChange = useCallback((sourceInfo) => {
-    handleChange('source_info', sourceInfo);
-  }, [handleChange]);
+    const fields = [
+      { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
+      { name: 'input_user_prompt', label: 'Input User Prompt' },
+      { name: 'admin_prompt_result', label: 'Admin Result' },
+      { name: 'user_prompt_result', label: 'User Result' },
+      { name: 'note', label: 'Notes' }
+    ];
+
+    return fields.map(field => (
+      <PromptField
+        key={field.name}
+        label={field.label}
+        value={localData[field.name] || ''}
+        onChange={(value) => handleChange(field.name, value)}
+        onReset={() => handleReset(field.name)}
+        onSave={() => handleSave(field.name)}
+        initialValue={selectedItemData[field.name] || ''}
+        onGenerate={isLinksPage ? null : handleGenerate}
+        isGenerating={isGenerating}
+        formattedTime={formattedTime}
+        isLinksPage={isLinksPage}
+        isReadOnly={isReadOnly}
+        onCascade={() => handleCascade(field.name)}
+        parentData={parentData}
+        cascadeField={cascadeField}
+        hasUnsavedChanges={hasUnsavedChanges(field.name)}
+      />
+    ));
+  }, [selectedItemData, localData, handleChange, handleReset, handleSave, isLinksPage, handleGenerate, isGenerating, formattedTime, isReadOnly, handleCascade, parentData, cascadeField, hasUnsavedChanges]);
 
   if (!selectedItemData) {
     return <div>Loading prompt data...</div>;
@@ -81,72 +106,35 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <PromptFields
-        localData={localData}
-        handleChange={handleChange}
-        handleReset={handleReset}
-        handleSave={handleSave}
-        isLinksPage={isLinksPage}
-        handleGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        formattedTime={formattedTime}
-        isReadOnly={isReadOnly}
-        handleCascade={handleCascade}
-        parentData={parentData}
-        cascadeField={cascadeField}
-        hasUnsavedChanges={hasUnsavedChanges}
-      />
+      <div className="space-y-6">
+        {renderPromptFields()}
+      </div>
       {!isLinksPage && (
-        <>
-          <Collapsible
-            open={isSettingsOpen}
-            onOpenChange={handleSettingsToggle}
-            className="border rounded-lg p-4"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Prompt Settings</h3>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-            <CollapsibleContent>
-              <SettingsPanel
-                localData={localData}
-                selectedItemData={selectedItemData}
-                models={models}
-                handleChange={handleChange}
-                handleSave={handleSave}
-                handleReset={handleReset}
-                hasUnsavedChanges={hasUnsavedChanges}
-              />
-            </CollapsibleContent>
-          </Collapsible>
-          <Collapsible
-            open={isHighlighterOpen}
-            onOpenChange={setIsHighlighterOpen}
-            className="border rounded-lg p-4"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Text Highlighter</h3>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  {isHighlighterOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-            <CollapsibleContent>
-              <TextHighlighter
-                text={localData.input_user_prompt || ''}
-                highlights={localData.highlights || []}
-                onHighlight={handleHighlight}
-                sourceInfo={localData.source_info || {}}
-                onSourceInfoChange={handleSourceInfoChange}
-              />
-            </CollapsibleContent>
-          </Collapsible>
-        </>
+        <Collapsible
+          open={isSettingsOpen}
+          onOpenChange={handleSettingsToggle}
+          className="border rounded-lg p-4"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Prompt Settings</h3>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm">
+                {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <SettingsPanel
+              localData={localData}
+              selectedItemData={selectedItemData}
+              models={models}
+              handleChange={handleChange}
+              handleSave={handleSave}
+              handleReset={handleReset}
+              hasUnsavedChanges={hasUnsavedChanges}
+            />
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   );
