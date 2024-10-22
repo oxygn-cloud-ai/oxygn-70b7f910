@@ -1,9 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, Copy } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import React, { useRef, useState } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
-import { TreeItemActions } from './TreeItemActions';
 import { TreeItemContent } from './TreeItemContent';
 
 const TreeItem = ({
@@ -68,16 +64,10 @@ const TreeItem = ({
         startRenaming={startRenaming}
         isHovered={isHovered}
         setIsHovered={setIsHovered}
+        addItem={addItem}
+        deleteItem={deleteItem}
+        duplicateItem={duplicateItem}
       />
-      {isHovered && (
-        <TreeItemActions
-          item={item}
-          addItem={addItem}
-          deleteItem={deleteItem}
-          duplicateItem={duplicateItem}
-          startRenaming={startRenaming}
-        />
-      )}
       {isExpanded && item.children && item.children.length > 0 && (
         <div>
           {item.children.map((child) => (

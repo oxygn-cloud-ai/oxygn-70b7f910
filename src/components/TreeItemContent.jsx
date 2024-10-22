@@ -2,6 +2,7 @@ import React from 'react';
 import { FileIcon, ChevronRight, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TreeItemActions } from './TreeItemActions';
 
 export const TreeItemContent = ({
   item,
@@ -17,6 +18,9 @@ export const TreeItemContent = ({
   startRenaming,
   isHovered,
   setIsHovered,
+  addItem,
+  deleteItem,
+  duplicateItem,
 }) => {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -35,7 +39,7 @@ export const TreeItemContent = ({
 
   return (
     <div
-      className={`flex items-center hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
+      className={`flex items-center justify-between hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
       style={{ paddingLeft: `${level * 16}px` }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -77,6 +81,15 @@ export const TreeItemContent = ({
           </span>
         )}
       </div>
+      {isHovered && (
+        <TreeItemActions
+          item={item}
+          addItem={addItem}
+          deleteItem={deleteItem}
+          duplicateItem={duplicateItem}
+          startRenaming={startRenaming}
+        />
+      )}
     </div>
   );
 };
