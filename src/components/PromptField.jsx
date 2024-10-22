@@ -5,8 +5,7 @@ import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit } from 'lucide-react
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly }) => {
-  const hasChanged = value !== initialValue;
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges }) => {
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
 
@@ -15,13 +14,11 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       adjustHeight();
     }
 
-    // Add event listener for message responses
     const handleMessage = (event) => {
       console.log('Response received from parent window:', event.data);
     };
     window.addEventListener('message', handleMessage);
 
-    // Clean up the event listener
     return () => {
       window.removeEventListener('message', handleMessage);
     };
@@ -104,8 +101,8 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
                 variant="ghost"
                 size="icon"
                 onClick={onSave}
-                disabled={!hasChanged}
-                className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
+                disabled={!hasUnsavedChanges}
+                className={`h-6 w-6 ${hasUnsavedChanges ? 'text-green-700' : ''}`}
                 title="Save changes"
               >
                 <Save className="h-4 w-4" />
@@ -114,8 +111,8 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
                 variant="ghost"
                 size="icon"
                 onClick={onReset}
-                disabled={!hasChanged}
-                className={`h-6 w-6 ${hasChanged ? 'text-green-700' : ''}`}
+                disabled={!hasUnsavedChanges}
+                className={`h-6 w-6 ${hasUnsavedChanges ? 'text-green-700' : ''}`}
                 title="Reset to initial value"
               >
                 <RotateCcw className="h-4 w-4" />

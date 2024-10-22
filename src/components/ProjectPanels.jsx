@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
+import { useProjectData } from '../hooks/useProjectData';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false, onCascade, parentData, cascadeField }) => {
-  const [localData, setLocalData] = useState(selectedItemData || {});
+  const { localData, handleChange, handleSave, handleReset, hasUnsavedChanges } = useProjectData(selectedItemData, projectRowId);
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
@@ -21,48 +22,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
 
-  useEffect(() => {
-    setLocalData(selectedItemData || {});
-    setIsSettingsOpen(selectedItemData?.prompt_settings_open ?? true);
-  }, [selectedItemData]);
-
-  const handleSave = async (fieldName) => {
-    await onUpdateField(fieldName, localData[fieldName]);
-    // After saving, fetch only the updated field
-    await fetchSingleField(fieldName);
-  };
-
-  const fetchSingleField = async (fieldName) => {
-    if (!supabase || !projectRowId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('prompts')
-        .select(fieldName)
-        .eq('row_id', projectRowId)
-        .single();
-
-      if (error) throw error;
-
-      setLocalData(prevData => ({
-        ...prevData,
-        [fieldName]: data[fieldName]
-      }));
-    } catch (error) {
-      console.error(`Error fetching ${fieldName}:`, error);
-      toast.error(`Failed to refresh ${fieldName}: ${error.message}`);
-    }
-  };
-
-  const handleChange = (fieldName, value) => {
-    setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
-  };
-
-  const handleReset = (fieldName) => {
-    setLocalData(prevData => ({ ...prevData, [fieldName]: selectedItemData[fieldName] }));
-  };
-
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!settings || !settings.openai_api_key || !settings.openai_url) {
       console.error('OpenAI settings are not configured');
       toast.error('OpenAI settings are not configured. Please check your settings.');
@@ -83,9 +43,9 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [settings, localData, callOpenAI, handleChange]);
 
-  const handleSettingsToggle = async (open) => {
+  const handleSettingsToggle = useCallback(async (open) => {
     setIsSettingsOpen(open);
     try {
       await supabase
@@ -95,17 +55,17 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
     } catch (error) {
       console.error('Error updating prompt_settings_open:', error);
     }
-  };
+  }, [supabase, projectRowId]);
 
-  const handleCascade = (fieldName) => {
+  const handleCascade = useCallback((fieldName) => {
     if (onCascade) {
       onCascade(fieldName);
     } else {
       console.log(`Cascade clicked for field: ${fieldName}`);
     }
-  };
+  }, [onCascade]);
 
-  const renderPromptFields = () => {
+  const renderPromptFields = useCallback(() => {
     if (!selectedItemData) {
       return <div>No prompt data available</div>;
     }
@@ -135,9 +95,10 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
         onCascade={() => handleCascade(field.name)}
         parentData={parentData}
         cascadeField={cascadeField}
+        hasUnsavedChanges={hasUnsavedChanges(field.name)}
       />
     ));
-  };
+  }, [selectedItemData, localData, handleChange, handleReset, handleSave, isLinksPage, handleGenerate, isGenerating, formattedTime, isReadOnly, handleCascade, parentData, cascadeField, hasUnsavedChanges]);
 
   if (!selectedItemData) {
     return <div>Loading prompt data...</div>;
@@ -170,6 +131,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
               handleChange={handleChange}
               handleSave={handleSave}
               handleReset={handleReset}
+              hasUnsavedChanges={hasUnsavedChanges}
             />
           </CollapsibleContent>
         </Collapsible>

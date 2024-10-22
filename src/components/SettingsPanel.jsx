@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SettingField from './SettingField';
 import { Save, RotateCcw } from 'lucide-react';
 
-const SettingsPanel = ({ localData, selectedItemData, models, handleChange, handleSave, handleReset }) => {
+const SettingsPanel = ({ localData, selectedItemData, models, handleChange, handleSave, handleReset, hasUnsavedChanges }) => {
   const handleCheckChange = (fieldName, checked) => {
     handleChange(`${fieldName}_on`, checked);
   };
@@ -35,7 +35,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
               variant="ghost"
               size="icon"
               onClick={() => handleSave('model')}
-              disabled={localData.model === selectedItemData.model}
+              disabled={!hasUnsavedChanges('model')}
               className="h-6 w-6"
             >
               <Save className="h-4 w-4" />
@@ -44,7 +44,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
               variant="ghost"
               size="icon"
               onClick={() => handleReset('model')}
-              disabled={localData.model === selectedItemData.model}
+              disabled={!hasUnsavedChanges('model')}
               className="h-6 w-6"
             >
               <RotateCcw className="h-4 w-4" />
@@ -82,7 +82,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
                 variant="ghost"
                 size="icon"
                 onClick={() => handleSave('temperature')}
-                disabled={localData.temperature === selectedItemData.temperature}
+                disabled={!hasUnsavedChanges('temperature')}
                 className="h-6 w-6"
               >
                 <Save className="h-4 w-4" />
@@ -91,7 +91,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
                 variant="ghost"
                 size="icon"
                 onClick={() => handleReset('temperature')}
-                disabled={localData.temperature === selectedItemData.temperature}
+                disabled={!hasUnsavedChanges('temperature')}
                 className="h-6 w-6"
               >
                 <RotateCcw className="h-4 w-4" />
@@ -120,7 +120,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
                 variant="ghost"
                 size="icon"
                 onClick={() => handleSave('response_format')}
-                disabled={localData.response_format === selectedItemData.response_format}
+                disabled={!hasUnsavedChanges('response_format')}
                 className="h-6 w-6"
               >
                 <Save className="h-4 w-4" />
@@ -129,7 +129,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
                 variant="ghost"
                 size="icon"
                 onClick={() => handleReset('response_format')}
-                disabled={localData.response_format === selectedItemData.response_format}
+                disabled={!hasUnsavedChanges('response_format')}
                 className="h-6 w-6"
               >
                 <RotateCcw className="h-4 w-4" />
@@ -158,7 +158,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
                 variant="ghost"
                 size="icon"
                 onClick={() => handleSave(field)}
-                disabled={localData[field] === selectedItemData[field]}
+                disabled={!hasUnsavedChanges(field)}
                 className="h-6 w-6"
               >
                 <Save className="h-4 w-4" />
@@ -167,7 +167,7 @@ const SettingsPanel = ({ localData, selectedItemData, models, handleChange, hand
                 variant="ghost"
                 size="icon"
                 onClick={() => handleReset(field)}
-                disabled={localData[field] === selectedItemData[field]}
+                disabled={!hasUnsavedChanges(field)}
                 className="h-6 w-6"
               >
                 <RotateCcw className="h-4 w-4" />
