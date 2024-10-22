@@ -9,7 +9,7 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import ProjectTree from '../components/ProjectTree';
 import ProjectDetails from '../components/ProjectDetails';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 
 const Projects = ({ setUnsavedChanges }) => {
   const [activeItem, setActiveItem] = useState(null);
@@ -21,6 +21,7 @@ const Projects = ({ setUnsavedChanges }) => {
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
   const navigate = useNavigate();
   const location = useLocation();
+  const { projectId } = useParams();
 
   const handleUnsavedChanges = useCallback((unsavedFieldsArray) => {
     const updatedUnsavedFields = {};
@@ -54,12 +55,13 @@ const Projects = ({ setUnsavedChanges }) => {
   }, [supabase]);
 
   useEffect(() => {
-    if (activeItem) {
-      fetchItemData(activeItem);
+    if (projectId) {
+      setActiveItem(projectId);
+      fetchItemData(projectId);
     } else {
       setSelectedItemData(null);
     }
-  }, [activeItem, fetchItemData]);
+  }, [projectId, fetchItemData]);
 
   const handleCascade = useCallback((fieldName) => {
     const itemName = selectedItemData?.prompt_name || 'Unknown';
@@ -69,8 +71,8 @@ const Projects = ({ setUnsavedChanges }) => {
 
   const handleToggleItem = useCallback((itemId) => {
     setActiveItem(itemId);
-    fetchItemData(itemId);
-  }, [fetchItemData]);
+    navigate(`/projects/${itemId}`);
+  }, [navigate]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
