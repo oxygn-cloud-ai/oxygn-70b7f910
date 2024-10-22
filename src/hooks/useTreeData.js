@@ -11,8 +11,7 @@ const useTreeData = (supabase) => {
     try {
       let query = supabase
         .from('prompts')
-        .select('row_id, parent_row_id, prompt_name, note, created')
-        .eq('is_deleted', false)
+        .select('row_id, parent_row_id, prompt_name, note, created, is_deleted')
         .order('created', { ascending: true });
 
       if (parentRowId) {
@@ -38,7 +37,12 @@ const useTreeData = (supabase) => {
 
       if (error) throw error;
 
-      const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
+      // Filter out deleted prompts and sort by created date
+      const filteredData = data
+        .filter(prompt => !prompt.is_deleted)
+        .sort((a, b) => new Date(a.created) - new Date(b.created));
+
+      const promptsWithChildren = await Promise.all(filteredData.map(async (prompt) => {
         const children = await fetchPrompts(prompt.row_id);
         return {
           ...prompt,
