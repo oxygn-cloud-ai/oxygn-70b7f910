@@ -5,7 +5,7 @@ import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
 import { useProjectData } from '../hooks/useProjectData';
-import PromptField from './PromptField';
+import PromptFields from './PromptFields';
 import SettingsPanel from './SettingsPanel';
 import TextHighlighter from './TextHighlighter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -75,50 +75,27 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
     handleChange('source_info', sourceInfo);
   }, [handleChange]);
 
-  const renderPromptFields = useCallback(() => {
-    if (!selectedItemData) {
-      return <div>No prompt data available</div>;
-    }
-
-    const fields = [
-      { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
-      { name: 'input_user_prompt', label: 'Input User Prompt' },
-      { name: 'admin_prompt_result', label: 'Admin Result' },
-      { name: 'user_prompt_result', label: 'User Result' },
-      { name: 'note', label: 'Notes' }
-    ];
-
-    return fields.map(field => (
-      <PromptField
-        key={field.name}
-        label={field.label}
-        value={localData[field.name] || ''}
-        onChange={(value) => handleChange(field.name, value)}
-        onReset={() => handleReset(field.name)}
-        onSave={() => handleSave(field.name)}
-        initialValue={selectedItemData[field.name] || ''}
-        onGenerate={isLinksPage ? null : handleGenerate}
-        isGenerating={isGenerating}
-        formattedTime={formattedTime}
-        isLinksPage={isLinksPage}
-        isReadOnly={isReadOnly}
-        onCascade={() => handleCascade(field.name)}
-        parentData={parentData}
-        cascadeField={cascadeField}
-        hasUnsavedChanges={hasUnsavedChanges(field.name)}
-      />
-    ));
-  }, [selectedItemData, localData, handleChange, handleReset, handleSave, isLinksPage, handleGenerate, isGenerating, formattedTime, isReadOnly, handleCascade, parentData, cascadeField, hasUnsavedChanges]);
-
   if (!selectedItemData) {
     return <div>Loading prompt data...</div>;
   }
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      <div className="space-y-6">
-        {renderPromptFields()}
-      </div>
+      <PromptFields
+        localData={localData}
+        handleChange={handleChange}
+        handleReset={handleReset}
+        handleSave={handleSave}
+        isLinksPage={isLinksPage}
+        handleGenerate={handleGenerate}
+        isGenerating={isGenerating}
+        formattedTime={formattedTime}
+        isReadOnly={isReadOnly}
+        handleCascade={handleCascade}
+        parentData={parentData}
+        cascadeField={cascadeField}
+        hasUnsavedChanges={hasUnsavedChanges}
+      />
       {!isLinksPage && (
         <>
           <Collapsible
