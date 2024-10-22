@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
@@ -12,7 +12,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false, onCascade, parentData, cascadeField }) => {
+const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false, onCascade, parentData, cascadeField, onUnsavedChanges }) => {
   const { localData, handleChange, handleSave, handleReset, hasUnsavedChanges } = useProjectData(selectedItemData, projectRowId);
   const { models } = useOpenAIModels();
   const supabase = useSupabase();
@@ -64,6 +64,11 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
       console.log(`Cascade clicked for field: ${fieldName}`);
     }
   }, [onCascade]);
+
+  useEffect(() => {
+    const unsavedFields = Object.keys(localData).filter(field => hasUnsavedChanges(field));
+    onUnsavedChanges(unsavedFields);
+  }, [localData, hasUnsavedChanges, onUnsavedChanges]);
 
   const renderPromptFields = useCallback(() => {
     if (!selectedItemData) {

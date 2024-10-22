@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from 'sonner';
 
@@ -12,12 +12,12 @@ export const useProjectData = (initialData, projectRowId) => {
     setUnsavedChanges({});
   }, [initialData]);
 
-  const handleChange = (fieldName, value) => {
+  const handleChange = useCallback((fieldName, value) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
     setUnsavedChanges(prev => ({ ...prev, [fieldName]: true }));
-  };
+  }, []);
 
-  const handleSave = async (fieldName) => {
+  const handleSave = useCallback(async (fieldName) => {
     if (!supabase || !projectRowId) return;
 
     try {
@@ -34,20 +34,25 @@ export const useProjectData = (initialData, projectRowId) => {
       console.error(`Error saving ${fieldName}:`, error);
       toast.error(`Failed to save ${fieldName}: ${error.message}`);
     }
-  };
+  }, [supabase, projectRowId, localData]);
 
-  const handleReset = (fieldName) => {
+  const handleReset = useCallback((fieldName) => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: initialData[fieldName] }));
     setUnsavedChanges(prev => ({ ...prev, [fieldName]: false }));
-  };
+  }, [initialData]);
 
-  const hasUnsavedChanges = (fieldName) => unsavedChanges[fieldName] || false;
+  const hasUnsavedChanges = useCallback((fieldName) => unsavedChanges[fieldName] || false, [unsavedChanges]);
+
+  const getAllUnsavedFields = useCallback(() => {
+    return Object.keys(unsavedChanges).filter(field => unsavedChanges[field]);
+  }, [unsavedChanges]);
 
   return {
     localData,
     handleChange,
     handleSave,
     handleReset,
-    hasUnsavedChanges
+    hasUnsavedChanges,
+    getAllUnsavedFields
   };
 };

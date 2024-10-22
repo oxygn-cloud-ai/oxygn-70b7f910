@@ -12,6 +12,7 @@ import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useBeforeUnload } from '../hooks/useBeforeUnload';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -23,6 +24,23 @@ const Projects = () => {
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
+  
+  const [unsavedFields, setUnsavedFields] = useState({});
+
+  const handleUnsavedChanges = useCallback((fieldName, hasUnsavedChanges) => {
+    setUnsavedFields(prev => ({
+      ...prev,
+      [fieldName]: hasUnsavedChanges
+    }));
+  }, []);
+
+  const unsavedFieldsMessage = useCallback(() => {
+    const fields = Object.keys(unsavedFields).filter(field => unsavedFields[field]);
+    if (fields.length === 0) return null;
+    return `You have unsaved changes in the following fields: ${fields.join(', ')}. Are you sure you want to leave?`;
+  }, [unsavedFields]);
+
+  useBeforeUnload(unsavedFieldsMessage);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -176,6 +194,7 @@ const Projects = () => {
                   projectRowId={activeItem} 
                   onUpdateField={handleUpdateField}
                   onCascade={handleCascade}
+                  onUnsavedChanges={handleUnsavedChanges}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full">
