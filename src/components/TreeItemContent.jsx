@@ -39,7 +39,7 @@ export const TreeItemContent = ({
 
   return (
     <div
-      className={`flex items-center justify-between hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''} group`}
+      className={`flex items-center justify-between hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
       style={{ paddingLeft: `${level * 16}px` }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -81,7 +81,7 @@ export const TreeItemContent = ({
           </span>
         )}
       </div>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+      {isHovered && (
         <TreeItemActions
           item={item}
           addItem={addItem}
@@ -89,7 +89,7 @@ export const TreeItemContent = ({
           duplicateItem={duplicateItem}
           startRenaming={startRenaming}
         />
-      </div>
+      )}
     </div>
   );
 };
