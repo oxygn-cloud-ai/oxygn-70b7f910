@@ -158,11 +158,63 @@ const useTreeData = (supabase) => {
     }
   }, [supabase, fetchTreeData]);
 
+  const duplicateItem = useCallback(async (itemId) => {
+    if (!supabase) return;
+    try {
+      const duplicateRecursive = async (id, parentId) => {
+        const { data: originalItem } = await supabase
+          .from('prompts')
+          .select('*')
+          .eq('row_id', id)
+          .single();
+
+        if (!originalItem) throw new Error('Item not found');
+
+        const newItem = { ...originalItem, row_id: undefined, parent_row_id: parentId };
+        delete newItem.id;
+        newItem.prompt_name = `${newItem.prompt_name} (Copy)`;
+
+        const { data: insertedItem, error: insertError } = await supabase
+          .from('prompts')
+          .insert(newItem)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        const { data: children } = await supabase
+          .from('prompts')
+          .select('row_id')
+          .eq('parent_row_id', id);
+
+        for (const child of children) {
+          await duplicateRecursive(child.row_id, insertedItem.row_id);
+        }
+
+        return insertedItem.row_id;
+      };
+
+      const { data: originalItem } = await supabase
+        .from('prompts')
+        .select('parent_row_id')
+        .eq('row_id', itemId)
+        .single();
+
+      await duplicateRecursive(itemId, originalItem.parent_row_id);
+      await fetchTreeData();
+      toast.success('Item duplicated successfully');
+    } catch (error) {
+      console.error('Error duplicating item:', error);
+      toast.error(`Failed to duplicate item: ${error.message}`);
+    }
+  }, [supabase, fetchTreeData]);
+
   return { 
     treeData, 
     addItem, 
     updateItemName,
     deleteItem,
+    duplicateItem,
     isLoading,
     refreshTreeData: fetchTreeData,
     defaultAdminPrompt

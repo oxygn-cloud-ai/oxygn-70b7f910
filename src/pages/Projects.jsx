@@ -15,7 +15,7 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, duplicateItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
@@ -95,9 +95,10 @@ const Projects = () => {
         activeItem={activeItem}
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
+        duplicateItem={duplicateItem}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem]);
+  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {

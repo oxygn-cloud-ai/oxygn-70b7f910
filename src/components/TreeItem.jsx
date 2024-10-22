@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, PlusIcon, EditIcon, Trash2Icon, ChevronRight, ChevronDown, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -17,6 +17,7 @@ const TreeItem = ({
   activeItem,
   setActiveItem,
   deleteItem,
+  duplicateItem,
 }) => {
   const inputRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -44,6 +45,11 @@ const TreeItem = ({
         icon={<Trash2Icon className="h-3 w-3" />} 
         onClick={() => deleteItem(item.id)} 
         tooltip="Delete" 
+      />
+      <ActionButton 
+        icon={<Copy className="h-3 w-3" />} 
+        onClick={() => duplicateItem(item.id)} 
+        tooltip="Duplicate" 
       />
     </div>
   );
@@ -139,6 +145,7 @@ const TreeItem = ({
               activeItem={activeItem}
               setActiveItem={setActiveItem}
               deleteItem={deleteItem}
+              duplicateItem={duplicateItem}
             />
           ))}
         </div>
