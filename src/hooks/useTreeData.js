@@ -25,6 +25,8 @@ const useTreeData = (supabase) => {
 
       if (error) throw error;
 
+      console.log('Fetched prompts:', data); // Add this line for debugging
+
       const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
         const children = await fetchPrompts(prompt.row_id);
         return {
