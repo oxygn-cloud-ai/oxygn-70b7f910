@@ -11,7 +11,8 @@ const useTreeData = (supabase) => {
     try {
       let query = supabase
         .from('prompts')
-        .select('row_id, parent_row_id, prompt_name, note, created, is_deleted')
+        .select('row_id, parent_row_id, prompt_name, note, created')
+        .eq('is_deleted', false)
         .order('created', { ascending: true });
 
       if (parentRowId) {
@@ -20,29 +21,11 @@ const useTreeData = (supabase) => {
         query = query.is('parent_row_id', null);
       }
 
-      console.log('Supabase API Call:', {
-        url: query.url.toString(),
-        method: 'GET',
-        headers: query.headers,
-        body: null,
-      });
-
       const { data, error } = await query;
-
-      console.log('Supabase API Response:', {
-        status: data ? 200 : 500,
-        data: data,
-        error: error,
-      });
 
       if (error) throw error;
 
-      // Filter out deleted prompts and sort by created date
-      const filteredData = data
-        .filter(prompt => !prompt.is_deleted)
-        .sort((a, b) => new Date(a.created) - new Date(b.created));
-
-      const promptsWithChildren = await Promise.all(filteredData.map(async (prompt) => {
+      const promptsWithChildren = await Promise.all(data.map(async (prompt) => {
         const children = await fetchPrompts(prompt.row_id);
         return {
           ...prompt,
@@ -67,25 +50,10 @@ const useTreeData = (supabase) => {
       setTreeData(data);
 
       // Fetch default admin prompt from settings
-      const settingsQuery = supabase
+      const { data: settingsData, error: settingsError } = await supabase
         .from('settings')
         .select('def_admin_prompt')
         .single();
-
-      console.log('Supabase API Call (Settings):', {
-        url: settingsQuery.url.toString(),
-        method: 'GET',
-        headers: settingsQuery.headers,
-        body: null,
-      });
-
-      const { data: settingsData, error: settingsError } = await settingsQuery;
-
-      console.log('Supabase API Response (Settings):', {
-        status: settingsData ? 200 : 500,
-        data: settingsData,
-        error: settingsError,
-      });
 
       if (settingsError) throw settingsError;
       setDefaultAdminPrompt(settingsData.def_admin_prompt || '');
@@ -107,25 +75,10 @@ const useTreeData = (supabase) => {
     if (!supabase) return null;
     try {
       // Fetch the latest def_admin_prompt value
-      const settingsQuery = supabase
+      const { data: settingsData, error: settingsError } = await supabase
         .from('settings')
         .select('def_admin_prompt')
         .single();
-
-      console.log('Supabase API Call (Settings for Add Item):', {
-        url: settingsQuery.url.toString(),
-        method: 'GET',
-        headers: settingsQuery.headers,
-        body: null,
-      });
-
-      const { data: settingsData, error: settingsError } = await settingsQuery;
-
-      console.log('Supabase API Response (Settings for Add Item):', {
-        status: settingsData ? 200 : 500,
-        data: settingsData,
-        error: settingsError,
-      });
 
       if (settingsError) throw settingsError;
 
@@ -140,22 +93,7 @@ const useTreeData = (supabase) => {
         input_admin_prompt: latestDefaultAdminPrompt
       };
 
-      const insertQuery = supabase.from('prompts').insert(newItem).select().single();
-
-      console.log('Supabase API Call (Insert New Item):', {
-        url: insertQuery.url.toString(),
-        method: 'POST',
-        headers: insertQuery.headers,
-        body: newItem,
-      });
-
-      const { data, error } = await insertQuery;
-
-      console.log('Supabase API Response (Insert New Item):', {
-        status: data ? 200 : 500,
-        data: data,
-        error: error,
-      });
+      const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
 
       if (error) throw error;
 
@@ -171,21 +109,7 @@ const useTreeData = (supabase) => {
   const updateItemName = useCallback(async (id, newName) => {
     if (!supabase) return false;
     try {
-      const updateQuery = supabase.from('prompts').update({ prompt_name: newName }).eq('row_id', id);
-
-      console.log('Supabase API Call (Update Item Name):', {
-        url: updateQuery.url.toString(),
-        method: 'PATCH',
-        headers: updateQuery.headers,
-        body: { prompt_name: newName },
-      });
-
-      const { error } = await updateQuery;
-
-      console.log('Supabase API Response (Update Item Name):', {
-        status: error ? 500 : 200,
-        error: error,
-      });
+      const { error } = await supabase.from('prompts').update({ prompt_name: newName }).eq('row_id', id);
 
       if (error) throw error;
 
@@ -203,47 +127,18 @@ const useTreeData = (supabase) => {
     try {
       // Mark the item and its children as deleted
       const markAsDeleted = async (itemId) => {
-        const updateQuery = supabase
+        const { error } = await supabase
           .from('prompts')
           .update({ is_deleted: true })
           .eq('row_id', itemId);
-
-        console.log('Supabase API Call (Mark as Deleted):', {
-          url: updateQuery.url.toString(),
-          method: 'PATCH',
-          headers: updateQuery.headers,
-          body: { is_deleted: true },
-        });
-        
-        const { error } = await updateQuery;
-
-        console.log('Supabase API Response (Mark as Deleted):', {
-          status: error ? 500 : 200,
-          error: error,
-        });
         
         if (error) throw error;
 
         // Fetch and mark children as deleted
-        const childrenQuery = supabase
+        const { data: children, error: childrenError } = await supabase
           .from('prompts')
           .select('row_id')
           .eq('parent_row_id', itemId);
-
-        console.log('Supabase API Call (Fetch Children):', {
-          url: childrenQuery.url.toString(),
-          method: 'GET',
-          headers: childrenQuery.headers,
-          body: null,
-        });
-        
-        const { data: children, error: childrenError } = await childrenQuery;
-
-        console.log('Supabase API Response (Fetch Children):', {
-          status: children ? 200 : 500,
-          data: children,
-          error: childrenError,
-        });
         
         if (childrenError) throw childrenError;
 
