@@ -7,6 +7,7 @@ import { useTimer } from '../hooks/useTimer';
 import { useProjectData } from '../hooks/useProjectData';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
+import TextHighlighter from './TextHighlighter';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
+  const [isHighlighterOpen, setIsHighlighterOpen] = useState(false);
 
   const handleGenerate = useCallback(async () => {
     if (!settings || !settings.openai_api_key || !settings.openai_url) {
@@ -64,6 +66,14 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
       console.log(`Cascade clicked for field: ${fieldName}`);
     }
   }, [onCascade]);
+
+  const handleHighlight = useCallback((highlights) => {
+    handleChange('highlights', highlights);
+  }, [handleChange]);
+
+  const handleSourceInfoChange = useCallback((sourceInfo) => {
+    handleChange('source_info', sourceInfo);
+  }, [handleChange]);
 
   const renderPromptFields = useCallback(() => {
     if (!selectedItemData) {
@@ -110,31 +120,56 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
         {renderPromptFields()}
       </div>
       {!isLinksPage && (
-        <Collapsible
-          open={isSettingsOpen}
-          onOpenChange={handleSettingsToggle}
-          className="border rounded-lg p-4"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Prompt Settings</h3>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm">
-                {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </Button>
-            </CollapsibleTrigger>
-          </div>
-          <CollapsibleContent>
-            <SettingsPanel
-              localData={localData}
-              selectedItemData={selectedItemData}
-              models={models}
-              handleChange={handleChange}
-              handleSave={handleSave}
-              handleReset={handleReset}
-              hasUnsavedChanges={hasUnsavedChanges}
-            />
-          </CollapsibleContent>
-        </Collapsible>
+        <>
+          <Collapsible
+            open={isSettingsOpen}
+            onOpenChange={handleSettingsToggle}
+            className="border rounded-lg p-4"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Prompt Settings</h3>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent>
+              <SettingsPanel
+                localData={localData}
+                selectedItemData={selectedItemData}
+                models={models}
+                handleChange={handleChange}
+                handleSave={handleSave}
+                handleReset={handleReset}
+                hasUnsavedChanges={hasUnsavedChanges}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+          <Collapsible
+            open={isHighlighterOpen}
+            onOpenChange={setIsHighlighterOpen}
+            className="border rounded-lg p-4"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Text Highlighter</h3>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  {isHighlighterOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            <CollapsibleContent>
+              <TextHighlighter
+                text={localData.input_user_prompt || ''}
+                highlights={localData.highlights || []}
+                onHighlight={handleHighlight}
+                sourceInfo={localData.source_info || {}}
+                onSourceInfoChange={handleSourceInfoChange}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        </>
       )}
     </div>
   );
