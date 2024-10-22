@@ -28,6 +28,30 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
 
   const handleSave = async (fieldName) => {
     await onUpdateField(fieldName, localData[fieldName]);
+    // After saving, fetch only the updated field
+    await fetchSingleField(fieldName);
+  };
+
+  const fetchSingleField = async (fieldName) => {
+    if (!supabase || !projectRowId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('prompts')
+        .select(fieldName)
+        .eq('row_id', projectRowId)
+        .single();
+
+      if (error) throw error;
+
+      setLocalData(prevData => ({
+        ...prevData,
+        [fieldName]: data[fieldName]
+      }));
+    } catch (error) {
+      console.error(`Error fetching ${fieldName}:`, error);
+      toast.error(`Failed to refresh ${fieldName}: ${error.message}`);
+    }
   };
 
   const handleChange = (fieldName, value) => {
