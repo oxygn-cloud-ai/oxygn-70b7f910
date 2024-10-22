@@ -19,7 +19,7 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
   );
 
   return (
-    <div className="flex items-center space-x-1">
+    <div className="flex items-center space-x-1 ml-2">
       <ActionButton 
         icon={<PlusIcon className="h-3 w-3" />} 
         onClick={() => addItem && addItem(item.id)} 
