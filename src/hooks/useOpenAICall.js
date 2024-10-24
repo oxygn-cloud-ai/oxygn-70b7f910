@@ -7,16 +7,10 @@ export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
   const supabase = useSupabase();
   const { settings, isLoading: settingsLoading } = useSettings(supabase);
-  const [apiSettings, setApiSettings] = useState(null);
-
-  useEffect(() => {
-    if (settings && !settingsLoading) {
-      setApiSettings({
-        openai_url: settings.openai_url,
-        openai_api_key: settings.openai_api_key,
-      });
-    }
-  }, [settings, settingsLoading]);
+  const [apiSettings, setApiSettings] = useState({
+    openai_url: import.meta.env.VITE_OPENAI_URL,
+    openai_api_key: import.meta.env.VITE_OPENAI_API_KEY,
+  });
 
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
