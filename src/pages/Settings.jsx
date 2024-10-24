@@ -35,8 +35,6 @@ const Settings = () => {
   };
 
   const settingsFields = [
-    { key: 'openai_url', label: 'OpenAI URL', type: 'text' },
-    { key: 'openai_api_key', label: 'OpenAI API Key', type: 'password' },
     { key: 'build', label: 'Build', type: 'text' },
     { key: 'version', label: 'Version', type: 'text' },
     { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea' },
