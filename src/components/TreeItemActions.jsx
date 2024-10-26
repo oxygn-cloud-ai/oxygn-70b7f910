@@ -1,8 +1,8 @@
 import React from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
-export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming }) => {
+export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming, onMoveUp, onMoveDown }) => {
   const ActionButton = ({ icon, onClick, tooltip }) => (
     <Button
       variant="ghost"
@@ -20,6 +20,16 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
 
   return (
     <div className="flex items-center space-x-1">
+      <ActionButton 
+        icon={<ArrowUp className="h-3 w-3" />} 
+        onClick={() => onMoveUp && onMoveUp(item.id)} 
+        tooltip="Move Up" 
+      />
+      <ActionButton 
+        icon={<ArrowDown className="h-3 w-3" />} 
+        onClick={() => onMoveDown && onMoveDown(item.id)} 
+        tooltip="Move Down" 
+      />
       <ActionButton 
         icon={<PlusIcon className="h-3 w-3" />} 
         onClick={() => addItem && addItem(item.id)} 
