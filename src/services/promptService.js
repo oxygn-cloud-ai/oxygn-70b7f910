@@ -1,4 +1,5 @@
 import { calculatePosition, getInitialPosition } from '../utils/positionUtils';
+import { toast } from 'sonner';
 
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
@@ -36,9 +37,17 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
   }
 };
 
+export const fetchPromptChildren = async (supabase, parentId) => {
+  const children = await fetchPrompts(supabase, parentId);
+  return children.map(child => ({
+    ...child,
+    id: child.row_id,
+    name: child.prompt_name
+  }));
+};
+
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
-    // Get the last position in the current level
     const { data: siblings } = await supabase
       .from('prompts')
       .select('position')
@@ -47,92 +56,53 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
       .limit(1);
 
     const lastPosition = siblings?.[0]?.position;
-    const newPosition = lastPosition ? lastPosition + 1000000 : getInitialPosition();
+    const newPosition = lastPosition ? calculatePosition(lastPosition, null) : getInitialPosition();
 
-    const newItem = {
-      parent_row_id: parentId,
-      prompt_name: 'New Prompt',
-      note: '',
-      created: new Date().toISOString(),
-      is_deleted: false,
-      input_admin_prompt: defaultAdminPrompt,
-      position: newPosition,
-      frequency_penalty_on: false,
-      model_on: true,
-      temperature_on: true,
-      max_tokens_on: true,
-      top_p_on: false,
-      presence_penalty_on: false,
-      stop_on: false,
-      n_on: false,
-      logit_bias_on: false,
-      o_user_on: false,
-      stream: false, // Add this line to set a default value for stream
-      stream_on: false,
-      best_of_on: false,
-      logprobs_on: false,
-      echo: false, // Add this line to set a default value for echo
-      echo_on: false,
-      suffix_on: false,
-      temperature_scaling_on: false,
-      prompt_tokens_on: false,
-      response_tokens_on: false,
-      batch_size_on: false,
-      learning_rate_multiplier_on: false,
-      n_epochs_on: false,
-      validation_file_on: false,
-      training_file_on: false,
-      engine_on: false,
-      input_on: false,
-      context_length_on: false,
-      custom_finetune_on: false,
-      response_format_on: false
-    };
-
-    const { data, error } = await supabase.from('prompts').insert(newItem).select().single();
+    const { data, error } = await supabase
+      .from('prompts')
+      .insert({
+        parent_row_id: parentId,
+        prompt_name: 'New Prompt',
+        position: newPosition,
+        input_admin_prompt: defaultAdminPrompt,
+        frequency_penalty_on: false,
+        model_on: true,
+        temperature_on: true,
+        max_tokens_on: true,
+        top_p_on: false,
+        presence_penalty_on: false,
+        stop_on: false,
+        n_on: false,
+        logit_bias_on: false,
+        o_user_on: false,
+        stream: false,
+        stream_on: false,
+        best_of_on: false,
+        logprobs_on: false,
+        echo: false,
+        echo_on: false,
+        suffix_on: false,
+        temperature_scaling_on: false,
+        prompt_tokens_on: false,
+        response_tokens_on: false,
+        batch_size_on: false,
+        learning_rate_multiplier_on: false,
+        n_epochs_on: false,
+        validation_file_on: false,
+        training_file_on: false,
+        engine_on: false,
+        input_on: false,
+        context_length_on: false,
+        custom_finetune_on: false,
+        response_format_on: false
+      })
+      .select()
+      .single();
 
     if (error) throw error;
-
     return data.row_id;
   } catch (error) {
     console.error('Error adding new prompt:', error);
-    throw error;
-  }
-};
-
-export const updatePromptPosition = async (supabase, rowId, prevRowId, nextRowId) => {
-  try {
-    let prevPosition = null;
-    let nextPosition = null;
-
-    if (prevRowId) {
-      const { data: prevData } = await supabase
-        .from('prompts')
-        .select('position')
-        .eq('row_id', prevRowId)
-        .single();
-      prevPosition = prevData?.position;
-    }
-
-    if (nextRowId) {
-      const { data: nextData } = await supabase
-        .from('prompts')
-        .select('position')
-        .eq('row_id', nextRowId)
-        .single();
-      nextPosition = nextData?.position;
-    }
-
-    const newPosition = calculatePosition(prevPosition, nextPosition);
-
-    const { error } = await supabase
-      .from('prompts')
-      .update({ position: newPosition })
-      .eq('row_id', rowId);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error updating prompt position:', error);
     throw error;
   }
 };

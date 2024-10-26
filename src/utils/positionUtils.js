@@ -16,3 +16,23 @@ export const calculateNewPositions = (items, currentIndex, direction) => {
   }
   return null;
 };
+
+export const calculatePosition = (prevPosition, nextPosition) => {
+  if (!prevPosition && !nextPosition) {
+    return getInitialPosition();
+  }
+  
+  if (!prevPosition) {
+    return nextPosition - 1000000;
+  }
+  
+  if (!nextPosition) {
+    return prevPosition + 1000000;
+  }
+  
+  return (prevPosition + nextPosition) / 2;
+};
+
+export const getInitialPosition = () => {
+  return Date.now() * 1000;
+};
