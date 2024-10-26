@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -103,6 +103,12 @@ export const TreeItemActions = ({
         onClick={() => duplicateItem(item.id)} 
         tooltip="Duplicate" 
       />
+      {import.meta.env.VITE_DEBUG === 'TRUE' && (
+        <ActionButton 
+          icon={<Info className="h-3 w-3" />} 
+          tooltip="Debug Info" 
+        />
+      )}
     </div>
   );
 };
