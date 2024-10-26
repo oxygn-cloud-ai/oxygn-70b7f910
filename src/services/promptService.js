@@ -2,8 +2,9 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
     let query = supabase
       .from('prompts')
-      .select('row_id, parent_row_id, prompt_name, note, created')
+      .select('row_id, parent_row_id, prompt_name, note, created, position')
       .eq('is_deleted', false)
+      .order('position', { ascending: true, nullsLast: true })
       .order('created', { ascending: true });
 
     if (parentRowId) {
