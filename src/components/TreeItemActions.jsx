@@ -11,8 +11,8 @@ export const TreeItemActions = ({
   deleteItem, 
   duplicateItem, 
   startRenaming, 
-  siblings, 
-  onRefreshTreeData 
+  siblings,
+  onRefreshTreeData = () => {} // Provide default empty function
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const supabase = useSupabase();
@@ -33,7 +33,9 @@ export const TreeItemActions = ({
       setIsProcessing(true);
       const success = await movePromptPosition(supabase, item.id, siblings, currentIndex, direction);
       if (success) {
-        await onRefreshTreeData();
+        if (typeof onRefreshTreeData === 'function') {
+          await onRefreshTreeData();
+        }
         toast.success(`Item moved ${direction} successfully`);
       }
     } finally {
