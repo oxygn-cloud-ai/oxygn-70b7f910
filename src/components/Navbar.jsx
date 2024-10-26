@@ -6,7 +6,7 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <nav className="bg-gray-800 text-white p-4">
+    <nav className="bg-white p-4">
       <div className="flex items-center">
         <img 
           src="/head-striped-icon.png" 
@@ -21,7 +21,7 @@ const Navbar = () => {
                 className={`flex items-center px-3 py-2 rounded-md ${
                   location.pathname === item.to 
                     ? 'bg-white text-gray-800' 
-                    : 'hover:bg-gray-700'
+                    : 'bg-gray-700 text-white hover:bg-gray-600'
                 }`}
               >
                 {item.icon}
