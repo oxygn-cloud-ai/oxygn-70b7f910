@@ -24,7 +24,7 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
         selectedItem={parentData.row_id}
         ref={item.id === parentData.row_id ? selectedItemRef : null}
         siblings={items}
-        refreshTreeData={refreshTreeData}
+        onRefreshTreeData={refreshTreeData}
       />
     ));
   };
