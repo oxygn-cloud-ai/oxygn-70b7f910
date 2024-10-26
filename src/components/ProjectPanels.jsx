@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
@@ -12,20 +12,37 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksPage = false, isReadOnly = false, onCascade, parentData, cascadeField }) => {
-  const { localData, handleChange, handleSave, handleReset, hasUnsavedChanges } = useProjectData(selectedItemData, projectRowId);
-  const { models } = useOpenAIModels();
+const ProjectPanels = ({ 
+  selectedItemData, 
+  projectRowId, 
+  onUpdateField, 
+  isLinksPage = false, 
+  isReadOnly = false, 
+  onCascade, 
+  parentData, 
+  cascadeField 
+}) => {
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
+  const { models } = useOpenAIModels();
   const { callOpenAI } = useOpenAICall();
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(selectedItemData?.prompt_settings_open ?? true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(
+    selectedItemData?.prompt_settings_open ?? true
+  );
+
+  const {
+    localData,
+    handleChange,
+    handleSave,
+    handleReset,
+    hasUnsavedChanges
+  } = useProjectData(selectedItemData, projectRowId);
 
   const handleGenerate = useCallback(async () => {
-    if (!settings || !settings.openai_api_key || !settings.openai_url) {
-      console.error('OpenAI settings are not configured');
-      toast.error('OpenAI settings are not configured. Please check your settings.');
+    if (!settings) {
+      toast.error('Settings are not configured. Please check your settings.');
       return;
     }
 
@@ -47,58 +64,31 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
 
   const handleSettingsToggle = useCallback(async (open) => {
     setIsSettingsOpen(open);
-    try {
-      await supabase
-        .from('prompts')
-        .update({ prompt_settings_open: open })
-        .eq('row_id', projectRowId);
-    } catch (error) {
-      console.error('Error updating prompt_settings_open:', error);
+    if (supabase && projectRowId) {
+      try {
+        await supabase
+          .from('prompts')
+          .update({ prompt_settings_open: open })
+          .eq('row_id', projectRowId);
+      } catch (error) {
+        console.error('Error updating prompt_settings_open:', error);
+      }
     }
   }, [supabase, projectRowId]);
 
   const handleCascade = useCallback((fieldName) => {
     if (onCascade) {
       onCascade(fieldName);
-    } else {
-      console.log(`Cascade clicked for field: ${fieldName}`);
     }
   }, [onCascade]);
 
-  const renderPromptFields = useCallback(() => {
-    if (!selectedItemData) {
-      return <div>No prompt data available</div>;
-    }
-
-    const fields = [
-      { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
-      { name: 'input_user_prompt', label: 'Input User Prompt' },
-      { name: 'admin_prompt_result', label: 'Admin Result' },
-      { name: 'user_prompt_result', label: 'User Result' },
-      { name: 'note', label: 'Notes' }
-    ];
-
-    return fields.map(field => (
-      <PromptField
-        key={field.name}
-        label={field.label}
-        value={localData[field.name] || ''}
-        onChange={(value) => handleChange(field.name, value)}
-        onReset={() => handleReset(field.name)}
-        onSave={() => handleSave(field.name)}
-        initialValue={selectedItemData[field.name] || ''}
-        onGenerate={isLinksPage ? null : handleGenerate}
-        isGenerating={isGenerating}
-        formattedTime={formattedTime}
-        isLinksPage={isLinksPage}
-        isReadOnly={isReadOnly}
-        onCascade={() => handleCascade(field.name)}
-        parentData={parentData}
-        cascadeField={cascadeField}
-        hasUnsavedChanges={hasUnsavedChanges(field.name)}
-      />
-    ));
-  }, [selectedItemData, localData, handleChange, handleReset, handleSave, isLinksPage, handleGenerate, isGenerating, formattedTime, isReadOnly, handleCascade, parentData, cascadeField, hasUnsavedChanges]);
+  const fields = useMemo(() => [
+    { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
+    { name: 'input_user_prompt', label: 'Input User Prompt' },
+    { name: 'admin_prompt_result', label: 'Admin Result' },
+    { name: 'user_prompt_result', label: 'User Result' },
+    { name: 'note', label: 'Notes' }
+  ], []);
 
   if (!selectedItemData) {
     return <div>Loading prompt data...</div>;
@@ -107,7 +97,26 @@ const ProjectPanels = ({ selectedItemData, projectRowId, onUpdateField, isLinksP
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
       <div className="space-y-6">
-        {renderPromptFields()}
+        {fields.map(field => (
+          <PromptField
+            key={field.name}
+            label={field.label}
+            value={localData[field.name] || ''}
+            onChange={(value) => handleChange(field.name, value)}
+            onReset={() => handleReset(field.name)}
+            onSave={() => handleSave(field.name)}
+            initialValue={selectedItemData[field.name] || ''}
+            onGenerate={isLinksPage ? null : handleGenerate}
+            isGenerating={isGenerating}
+            formattedTime={formattedTime}
+            isLinksPage={isLinksPage}
+            isReadOnly={isReadOnly}
+            onCascade={() => handleCascade(field.name)}
+            parentData={parentData}
+            cascadeField={cascadeField}
+            hasUnsavedChanges={hasUnsavedChanges(field.name)}
+          />
+        ))}
       </div>
       {!isLinksPage && (
         <Collapsible
