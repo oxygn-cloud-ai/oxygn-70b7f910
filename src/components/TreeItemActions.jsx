@@ -49,12 +49,6 @@ export const TreeItemActions = ({
       await updatePromptPosition(supabase, item.id, positions.prevId, positions.nextId);
       if (onRefreshTreeData) {
         await onRefreshTreeData();
-        // Force a re-render after the move
-        setTimeout(() => {
-          if (onRefreshTreeData) {
-            onRefreshTreeData();
-          }
-        }, 100);
       }
       toast.success(`Item moved ${direction} successfully`);
     } catch (error) {
