@@ -72,6 +72,11 @@ export const TreeItemActions = ({
   return (
     <div className="flex items-center space-x-1">
       <ActionButton 
+        icon={<PlusIcon className="h-3 w-3" />} 
+        onClick={() => addItem && addItem(item.id)} 
+        tooltip="Add Prompt" 
+      />
+      <ActionButton 
         icon={<ArrowUpFromLine className="h-3 w-3" />} 
         onClick={() => handleMove('up')}
         tooltip="Move Up"
@@ -82,11 +87,6 @@ export const TreeItemActions = ({
         onClick={() => handleMove('down')}
         tooltip="Move Down"
         disabled={isLastSibling}
-      />
-      <ActionButton 
-        icon={<PlusIcon className="h-3 w-3" />} 
-        onClick={() => addItem && addItem(item.id)} 
-        tooltip="Add Prompt" 
       />
       <ActionButton 
         icon={<EditIcon className="h-3 w-3" />} 
