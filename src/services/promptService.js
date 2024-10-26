@@ -1,10 +1,12 @@
+import { calculatePosition, getInitialPosition } from '../utils/positionUtils';
+
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
     let query = supabase
       .from('prompts')
       .select('row_id, parent_row_id, prompt_name, note, created, position')
       .eq('is_deleted', false)
-      .order('position', { ascending: true, nullsLast: true })
+      .order('position', { ascending: true })
       .order('created', { ascending: true });
 
     if (parentRowId) {
@@ -36,6 +38,17 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
 
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
+    // Get the last position in the current level
+    const { data: siblings } = await supabase
+      .from('prompts')
+      .select('position')
+      .eq('parent_row_id', parentId)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const lastPosition = siblings?.[0]?.position;
+    const newPosition = lastPosition ? lastPosition + 1000000 : getInitialPosition();
+
     const newItem = {
       parent_row_id: parentId,
       prompt_name: 'New Prompt',
@@ -43,6 +56,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
       created: new Date().toISOString(),
       is_deleted: false,
       input_admin_prompt: defaultAdminPrompt,
+      position: newPosition,
       frequency_penalty_on: false,
       model_on: true,
       temperature_on: true,
@@ -82,6 +96,43 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
     return data.row_id;
   } catch (error) {
     console.error('Error adding new prompt:', error);
+    throw error;
+  }
+};
+
+export const updatePromptPosition = async (supabase, rowId, prevRowId, nextRowId) => {
+  try {
+    let prevPosition = null;
+    let nextPosition = null;
+
+    if (prevRowId) {
+      const { data: prevData } = await supabase
+        .from('prompts')
+        .select('position')
+        .eq('row_id', prevRowId)
+        .single();
+      prevPosition = prevData?.position;
+    }
+
+    if (nextRowId) {
+      const { data: nextData } = await supabase
+        .from('prompts')
+        .select('position')
+        .eq('row_id', nextRowId)
+        .single();
+      nextPosition = nextData?.position;
+    }
+
+    const newPosition = calculatePosition(prevPosition, nextPosition);
+
+    const { error } = await supabase
+      .from('prompts')
+      .update({ position: newPosition })
+      .eq('row_id', rowId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error updating prompt position:', error);
     throw error;
   }
 };
