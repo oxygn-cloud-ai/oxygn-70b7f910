@@ -1,18 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming, onMoveUp, onMoveDown }) => {
-  const ActionButton = ({ icon, onClick, tooltip }) => (
+  const [isMovingUp, setIsMovingUp] = useState(false);
+  const [isMovingDown, setIsMovingDown] = useState(false);
+
+  const handleMoveUp = async () => {
+    setIsMovingUp(true);
+    try {
+      await onMoveUp(item);
+    } finally {
+      setIsMovingUp(false);
+    }
+  };
+
+  const handleMoveDown = async () => {
+    setIsMovingDown(true);
+    try {
+      await onMoveDown(item);
+    } finally {
+      setIsMovingDown(false);
+    }
+  };
+
+  const ActionButton = ({ icon, onClick, tooltip, loading }) => (
     <Button
       variant="ghost"
       size="sm"
-      className="h-5 w-5 p-0"
+      className={`h-5 w-5 p-0 ${loading ? 'cursor-wait' : ''}`}
       onClick={(e) => {
         e.stopPropagation();
-        onClick && onClick(e);
+        if (!loading) {
+          onClick && onClick(e);
+        }
       }}
       title={tooltip}
+      disabled={loading}
     >
       {icon}
     </Button>
@@ -22,13 +46,15 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
     <div className="flex items-center space-x-1">
       <ActionButton 
         icon={<ArrowUp className="h-3 w-3" />} 
-        onClick={() => onMoveUp && onMoveUp(item.id)} 
-        tooltip="Move Up" 
+        onClick={handleMoveUp}
+        tooltip="Move Up"
+        loading={isMovingUp}
       />
       <ActionButton 
         icon={<ArrowDown className="h-3 w-3" />} 
-        onClick={() => onMoveDown && onMoveDown(item.id)} 
-        tooltip="Move Down" 
+        onClick={handleMoveDown}
+        tooltip="Move Down"
+        loading={isMovingDown}
       />
       <ActionButton 
         icon={<PlusIcon className="h-3 w-3" />} 
