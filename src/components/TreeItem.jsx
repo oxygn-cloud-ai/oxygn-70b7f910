@@ -19,7 +19,9 @@ const TreeItem = ({
   duplicateItem,
   moveItem,
   previousPosition,
-  nextPosition
+  nextPosition,
+  onMoveItemUp,
+  onMoveItemDown
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = expandedItems.includes(item.id);
@@ -40,12 +42,7 @@ const TreeItem = ({
     accept: 'TREE_ITEM',
     drop: (draggedItem, monitor) => {
       if (!monitor.didDrop() && draggedItem.id !== item.id && draggedItem.parentId !== item.id) {
-        moveItem(
-          draggedItem.id, 
-          item.parent_row_id,
-          previousPosition,
-          item.position
-        );
+        moveItem(draggedItem.id, item.parent_row_id, previousPosition, item.position);
       }
     },
     collect: (monitor) => ({
@@ -78,6 +75,8 @@ const TreeItem = ({
         addItem={addItem}
         deleteItem={deleteItem}
         duplicateItem={duplicateItem}
+        onMoveUp={() => onMoveItemUp(item)}
+        onMoveDown={() => onMoveItemDown(item)}
       />
       {isExpanded && item.children && item.children.length > 0 && (
         <div>
@@ -101,6 +100,8 @@ const TreeItem = ({
               moveItem={moveItem}
               previousPosition={index > 0 ? item.children[index - 1].position : null}
               nextPosition={index < item.children.length - 1 ? item.children[index + 1].position : null}
+              onMoveItemUp={onMoveItemUp}
+              onMoveItemDown={onMoveItemDown}
             />
           ))}
         </div>
