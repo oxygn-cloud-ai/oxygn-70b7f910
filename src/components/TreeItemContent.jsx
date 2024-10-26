@@ -90,8 +90,8 @@ export const TreeItemContent = ({
           deleteItem={deleteItem}
           duplicateItem={duplicateItem}
           startRenaming={startRenaming}
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
+          onMoveUp={() => onMoveUp(item)}
+          onMoveDown={() => onMoveDown(item)}
         />
       )}
     </div>
