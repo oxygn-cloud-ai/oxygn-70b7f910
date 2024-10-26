@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
 import { toast } from 'sonner';
+import DebugInfoPopup from './DebugInfoPopup';
 
 export const TreeItemActions = ({ 
   item, 
@@ -15,6 +16,7 @@ export const TreeItemActions = ({
   onRefreshTreeData
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
   const supabase = useSupabase();
 
   const handleMove = async (direction) => {
@@ -40,6 +42,23 @@ export const TreeItemActions = ({
       }
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleUpdatePosition = async (newPosition) => {
+    try {
+      const { error } = await supabase
+        .from('prompts')
+        .update({ position: newPosition })
+        .eq('row_id', item.id);
+
+      if (error) throw error;
+      if (typeof onRefreshTreeData === 'function') {
+        await onRefreshTreeData();
+      }
+    } catch (error) {
+      console.error('Error updating position:', error);
+      throw error;
     }
   };
 
@@ -104,10 +123,19 @@ export const TreeItemActions = ({
         tooltip="Duplicate" 
       />
       {import.meta.env.VITE_DEBUG === 'TRUE' && (
-        <ActionButton 
-          icon={<Info className="h-3 w-3" />} 
-          tooltip="Debug Info" 
-        />
+        <>
+          <ActionButton 
+            icon={<Info className="h-3 w-3" />} 
+            onClick={() => setShowDebugInfo(true)}
+            tooltip="Debug Info" 
+          />
+          <DebugInfoPopup
+            isOpen={showDebugInfo}
+            onClose={() => setShowDebugInfo(false)}
+            item={item}
+            onSave={handleUpdatePosition}
+          />
+        </>
       )}
     </div>
   );
