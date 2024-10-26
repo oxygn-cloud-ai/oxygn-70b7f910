@@ -28,13 +28,21 @@ const TreeItem = ({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
+    end: (item, monitor) => {
+      document.body.style.cursor = 'default';
+    },
+    begin: (monitor) => {
+      document.body.style.cursor = 'wait';
+    },
   });
 
   const [{ isOver }, drop] = useDrop({
     accept: 'TREE_ITEM',
-    drop: (draggedItem, monitor) => {
+    drop: async (draggedItem, monitor) => {
       if (!monitor.didDrop() && draggedItem.id !== item.id && draggedItem.parentId !== item.id) {
-        moveItem(draggedItem.id, item.id);
+        document.body.style.cursor = 'wait';
+        await moveItem(draggedItem.id, item.id);
+        document.body.style.cursor = 'default';
       }
     },
     collect: (monitor) => ({
