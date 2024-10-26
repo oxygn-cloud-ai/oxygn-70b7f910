@@ -20,12 +20,15 @@ export const TreeItemActions = ({
   const supabase = useSupabase();
 
   const handleMove = async (direction) => {
-    if (!siblings || !Array.isArray(siblings)) {
+    // Ensure siblings is an array, if not provided use an empty array
+    const siblingsArray = Array.isArray(siblings) ? siblings : [];
+    
+    if (siblingsArray.length === 0) {
       toast.error('Cannot determine item position');
       return;
     }
 
-    const currentIndex = siblings.findIndex(sibling => sibling.id === item.id);
+    const currentIndex = siblingsArray.findIndex(sibling => sibling.id === item.id);
     if (currentIndex === -1) {
       toast.error('Item not found in current level');
       return;
@@ -33,7 +36,7 @@ export const TreeItemActions = ({
 
     try {
       setIsProcessing(true);
-      const success = await movePromptPosition(supabase, item.id, siblings, currentIndex, direction);
+      const success = await movePromptPosition(supabase, item.id, siblingsArray, currentIndex, direction);
       if (success) {
         if (typeof onRefreshTreeData === 'function') {
           await onRefreshTreeData();
@@ -85,8 +88,10 @@ export const TreeItemActions = ({
     </Button>
   );
 
-  const isFirstSibling = siblings && siblings[0]?.id === item.id;
-  const isLastSibling = siblings && siblings[siblings.length - 1]?.id === item.id;
+  // Only calculate these if siblings is a valid array
+  const siblingsArray = Array.isArray(siblings) ? siblings : [];
+  const isFirstSibling = siblingsArray.length > 0 && siblingsArray[0]?.id === item.id;
+  const isLastSibling = siblingsArray.length > 0 && siblingsArray[siblingsArray.length - 1]?.id === item.id;
 
   return (
     <div className="flex items-center space-x-1">
