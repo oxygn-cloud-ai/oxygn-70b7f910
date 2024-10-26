@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlusIcon, EditIcon, Trash2Icon, Copy } from 'lucide-react';
-import { PiArrowSquareUpLight, PiArrowSquareDownLight } from 'phosphor-react';
+import { ArrowSquareUp, ArrowSquareDown } from 'phosphor-react';
 import { Button } from "@/components/ui/button";
 
 export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming }) => {
@@ -22,11 +22,11 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
   return (
     <div className="flex items-center space-x-1">
       <ActionButton 
-        icon={<PiArrowSquareUpLight className="h-4 w-4" />} 
+        icon={<ArrowSquareUp className="h-4 w-4" />} 
         tooltip="Move Up" 
       />
       <ActionButton 
-        icon={<PiArrowSquareDownLight className="h-4 w-4" />} 
+        icon={<ArrowSquareDown className="h-4 w-4" />} 
         tooltip="Move Down" 
       />
       <ActionButton 
