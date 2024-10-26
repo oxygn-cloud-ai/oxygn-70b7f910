@@ -21,8 +21,6 @@ export const useSettings = (supabase) => {
       if (!data) {
         console.log('No settings found, creating default settings');
         const defaultSettings = {
-          openai_url: 'https://api.openai.com/v1/chat/completions',
-          openai_api_key: '',
           build: '',
           version: '',
           def_admin_prompt: ''
@@ -45,7 +43,7 @@ export const useSettings = (supabase) => {
     } catch (error) {
       console.error('Error fetching or creating settings:', error);
       toast.error('Failed to fetch or create settings');
-      setSettings({ openai_url: '', openai_api_key: '', build: '', version: '', def_admin_prompt: '' });
+      setSettings({ build: '', version: '', def_admin_prompt: '' });
     } finally {
       setIsLoading(false);
     }

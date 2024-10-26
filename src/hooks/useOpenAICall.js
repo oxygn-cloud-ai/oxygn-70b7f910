@@ -1,22 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useSettings } from './useSettings';
-import { useSupabase } from './useSupabase';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const supabase = useSupabase();
-  const { settings, isLoading: settingsLoading } = useSettings(supabase);
-  const [apiSettings, setApiSettings] = useState({
+  const apiSettings = {
     openai_url: import.meta.env.VITE_OPENAI_URL,
     openai_api_key: import.meta.env.VITE_OPENAI_API_KEY,
-  });
+  };
 
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
     try {
-      if (!apiSettings || !apiSettings.openai_url || !apiSettings.openai_api_key) {
-        throw new Error('OpenAI settings are not configured. Please check your settings.');
+      if (!apiSettings.openai_url || !apiSettings.openai_api_key) {
+        throw new Error('OpenAI settings are not configured in environment variables.');
       }
 
       if (!userMessage || userMessage.trim() === '') {
@@ -38,7 +34,6 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty),
       };
 
-      // Add response_format if response_format_on is true
       if (projectSettings.response_format_on) {
         try {
           const parsedResponseFormat = JSON.parse(projectSettings.response_format);
@@ -103,11 +98,10 @@ export const useOpenAICall = () => {
       const data = await response.json();
       console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
 
-      // Parse JSON response if response_format_on is true
       if (projectSettings.response_format_on) {
         try {
           const jsonResponse = JSON.parse(data.choices[0].message.content);
-          return JSON.stringify(jsonResponse, null, 2); // Convert parsed JSON back to formatted string
+          return JSON.stringify(jsonResponse, null, 2);
         } catch (error) {
           console.error('Error parsing JSON response:', error);
           toast.error('Failed to parse JSON response. Returning raw response.');
