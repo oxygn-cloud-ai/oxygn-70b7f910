@@ -6,7 +6,7 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <nav className="bg-gray-800 text-white p-4">
+    <nav className="bg-white text-gray-700 p-4 shadow-sm">
       <div className="flex items-center">
         <img 
           src="/head-striped-icon.png" 
@@ -18,10 +18,10 @@ const Navbar = () => {
             <li key={item.to}>
               <Link 
                 to={item.to} 
-                className={`flex items-center px-3 py-2 rounded-md ${
+                className={`flex items-center px-3 py-2 ${
                   location.pathname === item.to 
-                    ? 'bg-white text-gray-800' 
-                    : 'hover:bg-gray-700'
+                    ? 'border-b-2 border-gray-700' 
+                    : 'hover:bg-gray-50'
                 }`}
               >
                 {item.icon}
