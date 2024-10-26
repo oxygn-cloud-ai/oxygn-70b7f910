@@ -1,6 +1,16 @@
 import { calculatePosition, getInitialPosition } from '../utils/positionUtils';
 import { toast } from 'sonner';
 
+const handleSupabaseError = (error, operation) => {
+  console.error(`Error ${operation}:`, error);
+  if (error.message === 'Failed to fetch') {
+    toast.error('Network error: Unable to connect to the database. Please check your internet connection.');
+  } else {
+    toast.error(`Error ${operation}: ${error.message}`);
+  }
+  throw error;
+};
+
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
     let query = supabase
@@ -32,18 +42,21 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
 
     return promptsWithChildren;
   } catch (error) {
-    console.error('Error fetching prompts:', error);
-    throw error;
+    handleSupabaseError(error, 'fetching prompts');
   }
 };
 
 export const fetchPromptChildren = async (supabase, parentId) => {
-  const children = await fetchPrompts(supabase, parentId);
-  return children.map(child => ({
-    ...child,
-    id: child.row_id,
-    name: child.prompt_name
-  }));
+  try {
+    const children = await fetchPrompts(supabase, parentId);
+    return children.map(child => ({
+      ...child,
+      id: child.row_id,
+      name: child.prompt_name
+    }));
+  } catch (error) {
+    handleSupabaseError(error, 'fetching prompt children');
+  }
 };
 
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
@@ -102,8 +115,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
     if (error) throw error;
     return data.row_id;
   } catch (error) {
-    console.error('Error adding new prompt:', error);
-    throw error;
+    handleSupabaseError(error, 'adding new prompt');
   }
 };
 
