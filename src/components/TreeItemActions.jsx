@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
-import { updatePromptPosition } from '../services/promptService';
+import { movePromptPosition } from '../services/promptMutations';
 import { toast } from 'sonner';
 
 export const TreeItemActions = ({ 
@@ -17,78 +17,52 @@ export const TreeItemActions = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const supabase = useSupabase();
 
-  const findSiblingPositions = (direction) => {
-    if (!siblings || !Array.isArray(siblings)) return null;
-    
-    const currentIndex = siblings.findIndex(sibling => sibling.id === item.id);
-    if (currentIndex === -1) return null;
-
-    if (direction === 'up' && currentIndex > 0) {
-      return {
-        prevId: currentIndex > 1 ? siblings[currentIndex - 2].id : null,
-        nextId: siblings[currentIndex - 1].id
-      };
-    } else if (direction === 'down' && currentIndex < siblings.length - 1) {
-      return {
-        prevId: siblings[currentIndex + 1].id,
-        nextId: currentIndex < siblings.length - 2 ? siblings[currentIndex + 2].id : null
-      };
-    }
-    return null;
-  };
-
   const handleMove = async (direction) => {
-    const positions = findSiblingPositions(direction);
-    if (!positions) {
-      toast.error(`Cannot move ${direction} any further`);
+    if (!siblings || !Array.isArray(siblings)) {
+      toast.error('Cannot determine item position');
+      return;
+    }
+
+    const currentIndex = siblings.findIndex(sibling => sibling.id === item.id);
+    if (currentIndex === -1) {
+      toast.error('Item not found in current level');
       return;
     }
 
     try {
       setIsProcessing(true);
-      await updatePromptPosition(supabase, item.id, positions.prevId, positions.nextId);
-      // Wait for a brief moment to ensure the database transaction is complete
-      await new Promise(resolve => setTimeout(resolve, 50));
-      if (onRefreshTreeData) {
+      const success = await movePromptPosition(supabase, item.id, siblings, currentIndex, direction);
+      if (success) {
         await onRefreshTreeData();
+        toast.success(`Item moved ${direction} successfully`);
       }
-      toast.success(`Item moved ${direction} successfully`);
-    } catch (error) {
-      console.error(`Error moving item ${direction}:`, error);
-      toast.error(`Failed to move item ${direction}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const ActionButton = ({ icon, onClick, tooltip, disabled }) => {
-    const handleClick = async (e) => {
-      if (onClick && !disabled) {
-        e.stopPropagation();
-        document.body.style.cursor = 'wait';
-        setIsProcessing(true);
-        try {
-          await onClick(e);
-        } finally {
-          document.body.style.cursor = 'default';
-          setIsProcessing(false);
+  const ActionButton = ({ icon, onClick, tooltip, disabled }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-5 w-5 p-0"
+      onClick={async (e) => {
+        if (onClick && !disabled) {
+          e.stopPropagation();
+          setIsProcessing(true);
+          try {
+            await onClick(e);
+          } finally {
+            setIsProcessing(false);
+          }
         }
-      }
-    };
-
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-5 w-5 p-0"
-        onClick={handleClick}
-        title={tooltip}
-        disabled={disabled || isProcessing}
-      >
-        {icon}
-      </Button>
-    );
-  };
+      }}
+      title={tooltip}
+      disabled={disabled || isProcessing}
+    >
+      {icon}
+    </Button>
+  );
 
   const isFirstSibling = siblings && siblings[0]?.id === item.id;
   const isLastSibling = siblings && siblings[siblings.length - 1]?.id === item.id;
