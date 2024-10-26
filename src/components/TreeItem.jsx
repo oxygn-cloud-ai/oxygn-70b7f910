@@ -24,16 +24,19 @@ const TreeItem = ({
 
   const [{ isDragging }, drag] = useDrag({
     type: 'TREE_ITEM',
-    item: { id: item.id, parentId: item.parent_row_id },
+    item: () => {
+      document.body.style.cursor = 'wait';
+      return { 
+        id: item.id, 
+        parentId: item.parent_row_id 
+      };
+    },
+    end: () => {
+      document.body.style.cursor = 'default';
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-    end: (item, monitor) => {
-      document.body.style.cursor = 'default';
-    },
-    begin: (monitor) => {
-      document.body.style.cursor = 'wait';
-    },
   });
 
   const [{ isOver }, drop] = useDrop({
