@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { fetchPrompts, addPrompt, updatePrompt, deletePrompt, duplicatePrompt, movePrompt } from '../services/promptService';
+import { calculateNewPosition } from '../services/positionService';
 
 const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
@@ -62,6 +63,54 @@ const useTreeData = (supabase) => {
     }
   }, [supabase, fetchTreeData]);
 
+  const moveItemPosition = useCallback(async (itemId, newPosition) => {
+    if (!supabase) return false;
+    try {
+      await supabase
+        .from('prompts')
+        .update({ position: newPosition })
+        .eq('row_id', itemId);
+      await fetchTreeData();
+      return true;
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast.error(`Failed to move item: ${error.message}`);
+      return false;
+    }
+  }, [supabase, fetchTreeData]);
+
+  const moveItemUp = useCallback(async (item) => {
+    if (!item || !supabase) return;
+    const siblings = treeData.filter(i => i.parent_row_id === item.parent_row_id);
+    const currentIndex = siblings.findIndex(i => i.id === item.id);
+    
+    if (currentIndex > 0) {
+      const prevItem = siblings[currentIndex - 1];
+      const newPosition = calculateNewPosition(
+        prevItem.position - 1000,
+        prevItem.position
+      );
+      await moveItemPosition(item.id, newPosition);
+      toast.success('Item moved up successfully');
+    }
+  }, [supabase, treeData, moveItemPosition]);
+
+  const moveItemDown = useCallback(async (item) => {
+    if (!item || !supabase) return;
+    const siblings = treeData.filter(i => i.parent_row_id === item.parent_row_id);
+    const currentIndex = siblings.findIndex(i => i.id === item.id);
+    
+    if (currentIndex < siblings.length - 1) {
+      const nextItem = siblings[currentIndex + 1];
+      const newPosition = calculateNewPosition(
+        nextItem.position,
+        nextItem.position + 1000
+      );
+      await moveItemPosition(item.id, newPosition);
+      toast.success('Item moved down successfully');
+    }
+  }, [supabase, treeData, moveItemPosition]);
+
   const deleteItem = useCallback(async (id) => {
     if (!supabase) return false;
     try {
@@ -107,6 +156,8 @@ const useTreeData = (supabase) => {
     deleteItem,
     duplicateItem,
     moveItem,
+    moveItemUp,
+    moveItemDown,
     isLoading,
     refreshTreeData: fetchTreeData,
     defaultAdminPrompt

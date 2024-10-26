@@ -12,10 +12,8 @@ import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { calculateNewPosition } from '../services/positionService';
 
-// Extract TreeView component to reduce file size
-const TreeView = ({ treeData, expandedItems, setExpandedItems, activeItem, setActiveItem, handleAddItem, editingItem, setEditingItem, updateItemName, handleDeleteItem, duplicateItem, moveItem, refreshTreeData, onMoveItemUp, onMoveItemDown }) => (
+const TreeView = ({ treeData, expandedItems, setExpandedItems, activeItem, setActiveItem, handleAddItem, editingItem, setEditingItem, updateItemName, handleDeleteItem, duplicateItem, moveItem, refreshTreeData, moveItemUp, moveItemDown }) => (
   <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
     <div className="overflow-x-auto whitespace-nowrap w-full">
       <div className="mb-2 flex space-x-2">
@@ -58,8 +56,8 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, activeItem, setAc
             deleteItem={handleDeleteItem}
             duplicateItem={duplicateItem}
             moveItem={moveItem}
-            onMoveItemUp={onMoveItemUp}
-            onMoveItemDown={onMoveItemDown}
+            onMoveItemUp={moveItemUp}
+            onMoveItemDown={moveItemDown}
           />
         )) : <div className="text-gray-500 p-2">No prompts available</div>}
       </Accordion>
@@ -71,7 +69,7 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, duplicateItem, moveItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, updateItemName, deleteItem, duplicateItem, moveItem, moveItemUp, moveItemDown, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
@@ -121,59 +119,15 @@ const Projects = () => {
     }
   }, [deleteItem, refreshTreeData]);
 
-  const handleMoveItemUp = useCallback(async (item) => {
-    if (!item || !supabase) return;
+  const handleCascade = useCallback((fieldName) => {
+    const itemName = selectedItemData?.prompt_name || 'Unknown';
+    setCascadeInfo({ itemName, fieldName });
+    setShowParentPromptPopup(true);
+  }, [selectedItemData]);
 
-    const siblings = treeData.filter(i => i.parent_row_id === item.parent_row_id);
-    const currentIndex = siblings.findIndex(i => i.id === item.id);
-    
-    if (currentIndex > 0) {
-      const prevItem = siblings[currentIndex - 1];
-      const newPosition = calculateNewPosition(
-        prevItem.position - 1000,
-        prevItem.position
-      );
-
-      try {
-        await supabase
-          .from('prompts')
-          .update({ position: newPosition })
-          .eq('row_id', item.id);
-        
-        await refreshTreeData();
-        toast.success('Item moved up successfully');
-      } catch (error) {
-        toast.error('Failed to move item up');
-      }
-    }
-  }, [supabase, treeData, refreshTreeData]);
-
-  const handleMoveItemDown = useCallback(async (item) => {
-    if (!item || !supabase) return;
-
-    const siblings = treeData.filter(i => i.parent_row_id === item.parent_row_id);
-    const currentIndex = siblings.findIndex(i => i.id === item.id);
-    
-    if (currentIndex < siblings.length - 1) {
-      const nextItem = siblings[currentIndex + 1];
-      const newPosition = calculateNewPosition(
-        nextItem.position,
-        nextItem.position + 1000
-      );
-
-      try {
-        await supabase
-          .from('prompts')
-          .update({ position: newPosition })
-          .eq('row_id', item.id);
-        
-        await refreshTreeData();
-        toast.success('Item moved down successfully');
-      } catch (error) {
-        toast.error('Failed to move item down');
-      }
-    }
-  }, [supabase, treeData, refreshTreeData]);
+  const handleUpdateParentData = useCallback((updatedData) => {
+    setSelectedItemData(updatedData);
+  }, []);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -200,16 +154,6 @@ const Projects = () => {
     }
   }, [activeItem, supabase]);
 
-  const handleCascade = useCallback((fieldName) => {
-    const itemName = selectedItemData?.prompt_name || 'Unknown';
-    setCascadeInfo({ itemName, fieldName });
-    setShowParentPromptPopup(true);
-  }, [selectedItemData]);
-
-  const handleUpdateParentData = useCallback((updatedData) => {
-    setSelectedItemData(updatedData);
-  }, []);
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -233,8 +177,8 @@ const Projects = () => {
               duplicateItem={duplicateItem}
               moveItem={moveItem}
               refreshTreeData={refreshTreeData}
-              onMoveItemUp={handleMoveItemUp}
-              onMoveItemDown={handleMoveItemDown}
+              moveItemUp={moveItemUp}
+              moveItemDown={moveItemDown}
             />
           </Panel>
           <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
