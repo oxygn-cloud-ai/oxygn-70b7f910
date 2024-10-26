@@ -20,14 +20,48 @@ export const TreeItemActions = ({
   const supabase = useSupabase();
 
   const handleMove = async (direction) => {
-    // Ensure siblings is an array, if not provided use an empty array
+    // Get siblings array, ensuring it's valid
     const siblingsArray = Array.isArray(siblings) ? siblings : [];
     
+    // If no siblings array was provided, fetch top-level items
     if (siblingsArray.length === 0) {
-      toast.error('Cannot determine item position');
-      return;
+      try {
+        const { data: topLevelItems } = await supabase
+          .from('prompts')
+          .select('row_id, position, prompt_name')
+          .is('parent_row_id', null)
+          .eq('is_deleted', false)
+          .order('position', { ascending: true });
+
+        if (topLevelItems && topLevelItems.length > 0) {
+          const currentIndex = topLevelItems.findIndex(prompt => prompt.row_id === item.id);
+          if (currentIndex === -1) {
+            toast.error('Item not found in current level');
+            return;
+          }
+
+          try {
+            setIsProcessing(true);
+            const success = await movePromptPosition(supabase, item.id, topLevelItems, currentIndex, direction);
+            if (success) {
+              if (typeof onRefreshTreeData === 'function') {
+                await onRefreshTreeData();
+              }
+              toast.success(`Item moved ${direction} successfully`);
+            }
+          } finally {
+            setIsProcessing(false);
+          }
+          return;
+        }
+      } catch (error) {
+        console.error('Error fetching top-level items:', error);
+        toast.error('Failed to fetch items for movement');
+        return;
+      }
     }
 
+    // Handle non-top-level items
     const currentIndex = siblingsArray.findIndex(sibling => sibling.id === item.id);
     if (currentIndex === -1) {
       toast.error('Item not found in current level');
@@ -88,7 +122,7 @@ export const TreeItemActions = ({
     </Button>
   );
 
-  // Only calculate these if siblings is a valid array
+  // Calculate sibling positions
   const siblingsArray = Array.isArray(siblings) ? siblings : [];
   const isFirstSibling = siblingsArray.length > 0 && siblingsArray[0]?.id === item.id;
   const isLastSibling = siblingsArray.length > 0 && siblingsArray[siblingsArray.length - 1]?.id === item.id;
