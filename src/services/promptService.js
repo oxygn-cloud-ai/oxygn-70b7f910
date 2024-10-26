@@ -2,9 +2,9 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
     let query = supabase
       .from('prompts')
-      .select('row_id, parent_row_id, prompt_name, note, created')
+      .select('row_id, parent_row_id, prompt_name, note, created, position')
       .eq('is_deleted', false)
-      .order('created', { ascending: true });
+      .order('position', { ascending: true });
 
     if (parentRowId) {
       query = query.eq('parent_row_id', parentRowId);
@@ -22,7 +22,8 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
         ...prompt,
         id: prompt.row_id,
         name: prompt.prompt_name,
-        children: children.length > 0 ? children : undefined
+        children: children.length > 0 ? children : undefined,
+        position: prompt.position
       };
     }));
 
