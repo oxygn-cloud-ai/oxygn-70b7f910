@@ -3,7 +3,7 @@ import { DialogHeader } from "@/components/ui/dialog";
 import { Accordion } from "@/components/ui/accordion";
 import TreeItem from './TreeItem';
 
-const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, setSelectedItem, parentData, selectedItemRef }) => {
+const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, setSelectedItem, parentData, selectedItemRef, refreshTreeData }) => {
   const toggleItem = (item) => {
     setSelectedItem(item);
   };
@@ -23,6 +23,8 @@ const TreeView = ({ treeData, expandedItems, setExpandedItems, selectedItem, set
         }}
         selectedItem={parentData.row_id}
         ref={item.id === parentData.row_id ? selectedItemRef : null}
+        siblings={items}
+        refreshTreeData={refreshTreeData}
       />
     ));
   };
