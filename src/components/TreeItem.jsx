@@ -18,6 +18,8 @@ const TreeItem = ({
   deleteItem,
   duplicateItem,
   moveItem,
+  siblings,
+  refreshTreeData
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const isExpanded = expandedItems.includes(item.id);
@@ -78,6 +80,8 @@ const TreeItem = ({
         addItem={addItem}
         deleteItem={deleteItem}
         duplicateItem={duplicateItem}
+        siblings={siblings}
+        refreshTreeData={refreshTreeData}
       />
       {isExpanded && item.children && item.children.length > 0 && (
         <div>
@@ -99,6 +103,8 @@ const TreeItem = ({
               deleteItem={deleteItem}
               duplicateItem={duplicateItem}
               moveItem={moveItem}
+              siblings={item.children}
+              refreshTreeData={refreshTreeData}
             />
           ))}
         </div>

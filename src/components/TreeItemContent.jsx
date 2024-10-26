@@ -21,6 +21,8 @@ export const TreeItemContent = ({
   addItem,
   deleteItem,
   duplicateItem,
+  siblings,
+  refreshTreeData
 }) => {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -88,6 +90,8 @@ export const TreeItemContent = ({
           deleteItem={deleteItem}
           duplicateItem={duplicateItem}
           startRenaming={startRenaming}
+          siblings={siblings}
+          refreshTreeData={refreshTreeData}
         />
       )}
     </div>
