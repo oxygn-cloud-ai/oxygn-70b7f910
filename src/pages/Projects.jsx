@@ -99,6 +99,7 @@ const Projects = () => {
         deleteItem={handleDeleteItem}
         duplicateItem={duplicateItem}
         moveItem={moveItem}
+        onRefreshTreeData={refreshTreeData}
       />
     ))
   ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem, moveItem]);

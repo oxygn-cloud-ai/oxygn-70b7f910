@@ -12,7 +12,7 @@ export const TreeItemActions = ({
   duplicateItem, 
   startRenaming, 
   siblings,
-  onRefreshTreeData = () => {} // Provide default empty function
+  onRefreshTreeData
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const supabase = useSupabase();
