@@ -5,7 +5,15 @@ import { useSupabase } from '../hooks/useSupabase';
 import { updatePromptPosition } from '../services/promptService';
 import { toast } from 'sonner';
 
-export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming, siblings, refreshTreeData }) => {
+export const TreeItemActions = ({ 
+  item, 
+  addItem, 
+  deleteItem, 
+  duplicateItem, 
+  startRenaming, 
+  siblings, 
+  onRefreshTreeData 
+}) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const supabase = useSupabase();
 
@@ -39,7 +47,9 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
     try {
       setIsProcessing(true);
       await updatePromptPosition(supabase, item.id, positions.prevId, positions.nextId);
-      await refreshTreeData();
+      if (onRefreshTreeData) {
+        await onRefreshTreeData();
+      }
       toast.success(`Item moved ${direction} successfully`);
     } catch (error) {
       console.error(`Error moving item ${direction}:`, error);
