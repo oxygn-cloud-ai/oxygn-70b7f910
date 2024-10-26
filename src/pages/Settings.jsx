@@ -54,6 +54,15 @@ const Settings = () => {
               onChange={(value) => handleChange(key, value)}
             />
           ))}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Debug</label>
+            <input
+              type="text"
+              value={import.meta.env.VITE_DEBUG || 'NULL'}
+              readOnly
+              className="w-full px-3 py-2 border rounded-md bg-gray-100 text-gray-600"
+            />
+          </div>
         </div>
         <div className="mt-6">
           <Button
