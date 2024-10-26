@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
 import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { useTimer } from '../hooks/useTimer';
 
 export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const formattedTime = useTimer(isProcessing);
 
   const ActionButton = ({ icon, onClick, tooltip }) => {
     const handleClick = async (e) => {
       if (onClick) {
         e.stopPropagation();
+        document.body.style.cursor = 'wait';
         setIsProcessing(true);
         try {
           await onClick(e);
         } finally {
+          document.body.style.cursor = 'default';
           setIsProcessing(false);
         }
       }
@@ -29,7 +29,6 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
         title={tooltip}
       >
         {icon}
-        {isProcessing && <span className="ml-1 text-xs">{formattedTime}</span>}
       </Button>
     );
   };
