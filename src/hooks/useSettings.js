@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 export const useSettings = (supabase) => {
   const [settings, setSettings] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (supabase) {
@@ -13,10 +14,15 @@ export const useSettings = (supabase) => {
 
   const fetchSettings = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const { data, error } = await supabase.from('settings').select('*').limit(1).single();
+      const { data, error: fetchError } = await supabase
+        .from('settings')
+        .select('*')
+        .limit(1)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
       if (!data) {
         console.log('No settings found, creating default settings');
@@ -42,7 +48,8 @@ export const useSettings = (supabase) => {
       }
     } catch (error) {
       console.error('Error fetching or creating settings:', error);
-      toast.error('Failed to fetch or create settings');
+      setError(error);
+      toast.error('Failed to fetch settings');
       setSettings({ build: '', version: '', def_admin_prompt: '' });
     } finally {
       setIsLoading(false);
@@ -51,7 +58,6 @@ export const useSettings = (supabase) => {
 
   const updateSetting = async (key, value) => {
     try {
-      console.log(`Updating setting: ${key} = ${value}`);
       if (!settings) {
         throw new Error('Settings not initialized');
       }
@@ -64,18 +70,17 @@ export const useSettings = (supabase) => {
 
       if (error) throw error;
 
-      if (data.length === 0) {
+      if (!data || data.length === 0) {
         throw new Error('No rows updated');
       }
 
       setSettings(prevSettings => ({ ...prevSettings, [key]: value }));
       console.log('Setting updated successfully:', key, value);
-      toast.success('Setting updated successfully');
     } catch (error) {
       console.error('Error updating setting:', error);
-      toast.error(`Failed to update setting: ${error.message}`);
+      throw error; // Re-throw the error to be handled by the component
     }
   };
 
-  return { settings, updateSetting, isLoading };
+  return { settings, updateSetting, isLoading, error };
 };

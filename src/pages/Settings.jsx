@@ -3,12 +3,14 @@ import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
 import SettingField from '../components/SettingField';
 import { Button } from "@/components/ui/button";
+import { toast } from 'sonner';
 
 const Settings = () => {
   const supabase = useSupabase();
-  const { settings, updateSetting, isLoading } = useSettings(supabase);
+  const { settings, updateSetting, isLoading, error } = useSettings(supabase);
   const [localSettings, setLocalSettings] = useState({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -20,18 +22,31 @@ const Settings = () => {
     return <div>Loading settings...</div>;
   }
 
+  if (error) {
+    return <div>Error loading settings: {error.message}</div>;
+  }
+
   const handleChange = (key, value) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
   const handleSave = async () => {
-    for (const [key, value] of Object.entries(localSettings)) {
-      if (value !== settings[key]) {
-        await updateSetting(key, value);
+    setIsSaving(true);
+    try {
+      for (const [key, value] of Object.entries(localSettings)) {
+        if (value !== settings[key]) {
+          await updateSetting(key, value);
+        }
       }
+      setHasChanges(false);
+      toast.success('Settings saved successfully');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      toast.error('Failed to save settings. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
-    setHasChanges(false);
   };
 
   const settingsFields = [
@@ -42,7 +57,7 @@ const Settings = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <form autoComplete="off">
+      <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
         <div className="space-y-4">
           {settingsFields.map(({ key, label, type }) => (
             <SettingField
@@ -66,11 +81,11 @@ const Settings = () => {
         </div>
         <div className="mt-6">
           <Button
-            variant="link"
             onClick={handleSave}
-            disabled={!hasChanges}
+            disabled={!hasChanges || isSaving}
+            className="relative"
           >
-            Save Changes
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </form>
