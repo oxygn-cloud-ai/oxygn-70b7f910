@@ -21,11 +21,11 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
   return (
     <div className="flex items-center space-x-1">
       <ActionButton 
-        icon={<MoveUp className="h-3 w-3" />} 
+        icon={<MoveUp className="h-4 w-4 stroke-[1.5]" />} 
         tooltip="Move Up" 
       />
       <ActionButton 
-        icon={<MoveDown className="h-3 w-3" />} 
+        icon={<MoveDown className="h-4 w-4 stroke-[1.5]" />} 
         tooltip="Move Down" 
       />
       <ActionButton 
