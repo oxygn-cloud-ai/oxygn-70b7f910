@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, MoveUp, MoveDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, startRenaming }) => {
@@ -20,6 +20,14 @@ export const TreeItemActions = ({ item, addItem, deleteItem, duplicateItem, star
 
   return (
     <div className="flex items-center space-x-1">
+      <ActionButton 
+        icon={<MoveUp className="h-3 w-3" />} 
+        tooltip="Move Up" 
+      />
+      <ActionButton 
+        icon={<MoveDown className="h-3 w-3" />} 
+        tooltip="Move Down" 
+      />
       <ActionButton 
         icon={<PlusIcon className="h-3 w-3" />} 
         onClick={() => addItem && addItem(item.id)} 
