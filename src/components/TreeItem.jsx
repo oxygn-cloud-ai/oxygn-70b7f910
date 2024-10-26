@@ -75,8 +75,8 @@ const TreeItem = ({
         addItem={addItem}
         deleteItem={deleteItem}
         duplicateItem={duplicateItem}
-        onMoveUp={() => onMoveItemUp(item)}
-        onMoveDown={() => onMoveItemDown(item)}
+        onMoveUp={onMoveItemUp}
+        onMoveDown={onMoveItemDown}
       />
       {isExpanded && item.children && item.children.length > 0 && (
         <div>
