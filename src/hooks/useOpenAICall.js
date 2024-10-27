@@ -23,7 +23,6 @@ export const useOpenAICall = () => {
 
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
-    let controller = null;
 
     try {
       if (!apiSettings.openai_url || !apiSettings.openai_api_key) {
@@ -35,13 +34,6 @@ export const useOpenAICall = () => {
       }
 
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
-      
-      controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        if (controller) {
-          controller.abort('Request timeout after 30 seconds');
-        }
-      }, 30000);
 
       // Parse temperature with fallback and validation
       let temperature = 0.7; // Default value
@@ -84,11 +76,8 @@ export const useOpenAICall = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiSettings.openai_api_key}`
         },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
+        body: JSON.stringify(requestBody)
       });
-
-      clearTimeout(timeoutId);
 
       if (!response?.ok) {
         const errorData = await response.json();
@@ -134,17 +123,10 @@ export const useOpenAICall = () => {
 
       return responseData.choices[0].message.content;
     } catch (error) {
-      if (error.name === 'AbortError') {
-        toast.error('Request timed out after 30 seconds');
-        throw new Error('Request timed out after 30 seconds');
-      }
       console.error('Error calling OpenAI:', error);
       toast.error(`OpenAI API error: ${error.message}`);
       throw error;
     } finally {
-      if (controller) {
-        controller.abort();
-      }
       setIsLoading(false);
     }
   }, [apiSettings]);
