@@ -14,7 +14,6 @@ const SettingsPanel = ({
   hasUnsavedChanges 
 }) => {
   const supabase = useSupabase();
-  const [initialValues, setInitialValues] = useState({});
 
   const handleCheckChange = async (fieldName, checked) => {
     handleChange(`${fieldName}_on`, checked);
@@ -43,11 +42,6 @@ const SettingsPanel = ({
 
         if (defaultValues[fieldName]) {
           handleChange(fieldName, defaultValues[fieldName]);
-          setInitialValues(prev => ({
-            ...prev,
-            [fieldName]: defaultValues[fieldName]
-          }));
-
           const { error: saveError } = await supabase
             .from(import.meta.env.VITE_PROMPTS_TBL)
             .update({ [fieldName]: defaultValues[fieldName] })
@@ -60,56 +54,6 @@ const SettingsPanel = ({
       console.error('Error updating field:', error);
       toast.error(`Failed to update ${fieldName}: ${error.message}`);
     }
-  };
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (selectedItemData?.row_id) {
-        try {
-          const { data, error } = await supabase
-            .from(import.meta.env.VITE_PROMPTS_TBL)
-            .select('*')
-            .eq('row_id', selectedItemData.row_id)
-            .single();
-
-          if (error) throw error;
-
-          const newInitialValues = {};
-          Object.keys(data).forEach(key => {
-            if (key.endsWith('_on') || key in localData) {
-              handleChange(key, data[key]);
-              newInitialValues[key] = data[key];
-            }
-          });
-          setInitialValues(newInitialValues);
-        } catch (error) {
-          console.error('Error loading settings:', error);
-          toast.error('Failed to load settings');
-        }
-      }
-    };
-
-    loadSettings();
-  }, [selectedItemData?.row_id]);
-
-  const handleModelChange = async (value) => {
-    handleChange('model', value);
-    try {
-      const { error } = await supabase
-        .from(import.meta.env.VITE_PROMPTS_TBL)
-        .update({ model: value })
-        .eq('row_id', selectedItemData.row_id);
-
-      if (error) throw error;
-      toast.success('Model updated successfully');
-    } catch (error) {
-      console.error('Error updating model:', error);
-      toast.error(`Failed to update model: ${error.message}`);
-    }
-  };
-
-  const hasFieldChanged = (fieldName) => {
-    return localData[fieldName] !== initialValues[fieldName];
   };
 
   const fields = [
@@ -130,12 +74,13 @@ const SettingsPanel = ({
           handleChange={handleChange}
           handleSave={handleSave}
           handleReset={handleReset}
-          hasUnsavedChanges={() => hasFieldChanged('model')}
+          hasUnsavedChanges={hasUnsavedChanges}
           handleCheckChange={handleCheckChange}
+          selectedItemData={selectedItemData}
           customInput={
             <Select
               value={localData.model || ''}
-              onValueChange={handleModelChange}
+              onValueChange={(value) => handleChange('model', value)}
               disabled={!localData.model_on}
             >
               <SelectTrigger className="w-full">
@@ -161,8 +106,9 @@ const SettingsPanel = ({
           handleChange={handleChange}
           handleSave={handleSave}
           handleReset={handleReset}
-          hasUnsavedChanges={() => hasFieldChanged('temperature')}
+          hasUnsavedChanges={hasUnsavedChanges}
           handleCheckChange={handleCheckChange}
+          selectedItemData={selectedItemData}
         />
       </div>
 
@@ -174,8 +120,9 @@ const SettingsPanel = ({
           handleChange={handleChange}
           handleSave={handleSave}
           handleReset={handleReset}
-          hasUnsavedChanges={() => hasFieldChanged(field)}
+          hasUnsavedChanges={hasUnsavedChanges}
           handleCheckChange={handleCheckChange}
+          selectedItemData={selectedItemData}
         />
       ))}
     </div>

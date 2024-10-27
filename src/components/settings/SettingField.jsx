@@ -13,10 +13,14 @@ const SettingField = ({
   handleReset, 
   hasUnsavedChanges,
   handleCheckChange,
-  customInput 
+  customInput,
+  selectedItemData 
 }) => {
-  const hasChanged = hasUnsavedChanges();
   const isChecked = localData[`${field}_on`] || false;
+  const hasChanged = hasUnsavedChanges(field);
+  const initialValue = selectedItemData?.[field];
+  const currentValue = localData[field];
+  const valueChanged = initialValue !== currentValue;
 
   return (
     <div className="relative">
@@ -33,8 +37,8 @@ const SettingField = ({
           variant="ghost"
           size="icon"
           onClick={() => handleSave(field)}
-          disabled={!hasChanged}
-          className={`h-6 w-6 ${hasChanged ? 'text-green-700' : 'text-gray-400'}`}
+          disabled={!valueChanged && !hasChanged}
+          className={`h-6 w-6 ${(valueChanged || hasChanged) ? 'text-green-700' : 'text-gray-400'}`}
         >
           <Save className="h-4 w-4" />
         </Button>
@@ -42,8 +46,8 @@ const SettingField = ({
           variant="ghost"
           size="icon"
           onClick={() => handleReset(field)}
-          disabled={!hasChanged}
-          className={`h-6 w-6 ${hasChanged ? 'text-green-700' : 'text-gray-400'}`}
+          disabled={!valueChanged && !hasChanged}
+          className={`h-6 w-6 ${(valueChanged || hasChanged) ? 'text-green-700' : 'text-gray-400'}`}
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
