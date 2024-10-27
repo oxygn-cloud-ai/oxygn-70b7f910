@@ -12,14 +12,12 @@ export const useOpenAICall = () => {
     const errorMessage = error.message || 'An unknown error occurred';
     const status = error.status || 500;
     
-    // Handle server errors (5xx)
     if (status >= 500) {
       toast.error('Server is temporarily unavailable. Please try again in a few moments.');
       console.error('Server error:', errorMessage);
       return { error: 'SERVER_ERROR' };
     }
     
-    // Handle quota exceeded error
     if (status === 429) {
       try {
         const errorBody = JSON.parse(error.body);
@@ -49,15 +47,12 @@ export const useOpenAICall = () => {
       }
 
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
-
-      // Parse temperature with fallback and validation
-      let temperature = 0.7; // Default value
+      let temperature = 0.7;
+      
       if (projectSettings.temperature_on && projectSettings.temperature !== undefined) {
         const parsedTemp = parseFloat(projectSettings.temperature);
         if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
           temperature = parsedTemp;
-        } else {
-          console.warn('Invalid temperature value, using default of 0.7');
         }
       }
 
@@ -74,13 +69,15 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
       };
 
-      if (projectSettings.response_format_on) {
+      // Only add response_format if it's enabled and valid
+      if (projectSettings.response_format_on && projectSettings.response_format) {
         try {
-          const parsedResponseFormat = JSON.parse(projectSettings.response_format);
-          requestBody.response_format = parsedResponseFormat;
+          const parsedFormat = JSON.parse(projectSettings.response_format);
+          if (parsedFormat && typeof parsedFormat === 'object') {
+            requestBody.response_format = parsedFormat;
+          }
         } catch (error) {
-          console.error('Error parsing response_format:', error);
-          toast.error('Invalid response_format JSON. Using default format.');
+          console.warn('Invalid response_format JSON, skipping:', error);
         }
       }
 
@@ -99,32 +96,35 @@ export const useOpenAICall = () => {
         error.status = response.status;
         error.body = JSON.stringify(errorData, null, 4);
         error.message = `OpenAI API error: ${errorData.error?.message || response.statusText}`;
-        const errorResult = handleApiError(error);
-        if (errorResult.error) {
-          return null;
-        }
         throw error;
       }
 
       const responseData = await response.json();
+      const content = responseData.choices[0].message.content;
 
+      // If response_format is enabled, try to parse as JSON but fallback gracefully
       if (projectSettings.response_format_on) {
         try {
-          const jsonResponse = JSON.parse(responseData.choices[0].message.content);
-          return JSON.stringify(jsonResponse, null, 2);
-        } catch (error) {
-          console.error('Error parsing JSON response:', error);
-          toast.error('Failed to parse JSON response. Returning raw response.');
-          return responseData.choices[0].message.content;
+          // First check if the content is already a valid JSON string
+          const parsed = JSON.parse(content);
+          return JSON.stringify(parsed, null, 2);
+        } catch (firstError) {
+          // If direct parsing fails, try to find JSON within the content
+          try {
+            const jsonMatch = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              return JSON.stringify(parsed, null, 2);
+            }
+          } catch (secondError) {
+            console.warn('Could not extract valid JSON from response, returning raw content');
+          }
         }
       }
 
-      return responseData.choices[0].message.content;
+      return content;
     } catch (error) {
-      const errorResult = handleApiError(error);
-      if (errorResult.error) {
-        return null;
-      }
+      handleApiError(error);
       return null;
     } finally {
       setIsLoading(false);
