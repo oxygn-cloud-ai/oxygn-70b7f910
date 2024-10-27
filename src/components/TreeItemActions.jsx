@@ -27,7 +27,7 @@ export const TreeItemActions = ({
     if (siblingsArray.length === 0) {
       try {
         const { data: topLevelItems } = await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('row_id, position, prompt_name')
           .is('parent_row_id', null)
           .eq('is_deleted', false)
@@ -85,7 +85,7 @@ export const TreeItemActions = ({
   const handleUpdatePosition = async (newPosition) => {
     try {
       const { error } = await supabase
-        .from('prompts')
+        .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ position: newPosition })
         .eq('row_id', item.id);
 

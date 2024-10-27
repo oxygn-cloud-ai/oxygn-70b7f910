@@ -67,7 +67,7 @@ const ProjectPanels = ({
     if (supabase && projectRowId) {
       try {
         await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ prompt_settings_open: open })
           .eq('row_id', projectRowId);
       } catch (error) {
