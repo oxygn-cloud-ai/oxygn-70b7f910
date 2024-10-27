@@ -32,6 +32,51 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
   }
 };
 
+export const duplicatePrompt = async (supabase, itemId) => {
+  try {
+    // Get the original item
+    const { data: originalItem, error: fetchError } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('*')
+      .eq('row_id', itemId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Get siblings for position calculation
+    const { data: siblings } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('position')
+      .eq('parent_row_id', originalItem.parent_row_id)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const lastPosition = siblings?.[0]?.position;
+    const newPosition = lastPosition ? calculatePosition(lastPosition, null) : getInitialPosition();
+
+    // Create new item with copied data
+    const newItem = {
+      ...originalItem,
+      row_id: undefined,
+      prompt_name: `${originalItem.prompt_name} (copy)`,
+      position: newPosition,
+      created: new Date().toISOString()
+    };
+
+    const { data: insertedItem, error: insertError } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .insert(newItem)
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    return insertedItem.row_id;
+  } catch (error) {
+    handleSupabaseError(error, 'duplicating prompt');
+    return null;
+  }
+};
+
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
     const { data: siblings } = await supabase

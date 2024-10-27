@@ -6,23 +6,24 @@ import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ProjectPanels from '../components/ProjectPanels';
-import { toast } from 'sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useTreeOperations } from '../hooks/useTreeOperations';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, deleteItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
+  const { handleAddItem, handleDeleteItem, handleDuplicateItem } = useTreeOperations(supabase, refreshTreeData);
 
   useEffect(() => {
     if (treeData && treeData.length > 0) {
@@ -37,15 +38,6 @@ const Projects = () => {
     );
     setActiveItem(itemId);
   }, []);
-
-  const handleAddItem = useCallback(async (parentId) => {
-    const newItemId = await addItem(parentId);
-    if (newItemId) {
-      setActiveItem(newItemId);
-      setExpandedItems(prev => [...prev, parentId].filter(Boolean));
-      await refreshTreeData();
-    }
-  }, [addItem, refreshTreeData]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem && supabase) {
@@ -71,44 +63,6 @@ const Projects = () => {
       }
     }
   }, [activeItem, supabase, refreshTreeData]);
-
-  const handleDeleteItem = useCallback(async (itemId) => {
-    if (await deleteItem(itemId)) {
-      setActiveItem(null);
-      setSelectedItemData(null);
-      await refreshTreeData();
-    }
-  }, [deleteItem, refreshTreeData]);
-
-  const renderTreeItems = useCallback((items) => (
-    items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={1}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        addItem={handleAddItem}
-        startRenaming={(id, name) => setEditingItem({ id, name })}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={async () => {
-          if (editingItem) {
-            await updateItemName(editingItem.id, editingItem.name);
-            setEditingItem(null);
-            await refreshTreeData();
-          }
-        }}
-        cancelRenaming={() => setEditingItem(null)}
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        deleteItem={handleDeleteItem}
-        duplicateItem={duplicateItem}
-        moveItem={moveItem}
-        onRefreshTreeData={refreshTreeData}
-      />
-    ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem, moveItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
@@ -144,6 +98,36 @@ const Projects = () => {
   const handleUpdateParentData = useCallback((updatedData) => {
     setSelectedItemData(updatedData);
   }, []);
+
+  const renderTreeItems = useCallback((items) => (
+    items.map((item) => (
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={1}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        addItem={handleAddItem}
+        startRenaming={(id, name) => setEditingItem({ id, name })}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={async () => {
+          if (editingItem) {
+            await handleUpdateField('prompt_name', editingItem.name);
+            setEditingItem(null);
+            await refreshTreeData();
+          }
+        }}
+        cancelRenaming={() => setEditingItem(null)}
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        deleteItem={handleDeleteItem}
+        duplicateItem={handleDuplicateItem}
+        moveItem={moveItem}
+        onRefreshTreeData={refreshTreeData}
+      />
+    ))
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
