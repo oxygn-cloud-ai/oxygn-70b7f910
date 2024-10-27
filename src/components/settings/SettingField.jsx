@@ -16,13 +16,14 @@ const SettingField = ({
   customInput 
 }) => {
   const hasChanged = hasUnsavedChanges();
+  const isChecked = localData[`${field}_on`] || false;
 
   return (
     <div className="relative">
       <div className="flex items-center space-x-2 mb-2">
         <Checkbox
           id={`${field}-checkbox`}
-          checked={localData[`${field}_on`] || false}
+          checked={isChecked}
           onCheckedChange={(checked) => handleCheckChange(field, checked)}
         />
         <label htmlFor={field} className="text-sm font-medium text-gray-700 flex-grow">
@@ -54,7 +55,7 @@ const SettingField = ({
           id={field}
           value={localData[field] || ''}
           onChange={(e) => handleChange(field, e.target.value)}
-          disabled={!localData[`${field}_on`]}
+          disabled={!isChecked}
           className="w-full"
         />
       )}
