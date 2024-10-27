@@ -15,6 +15,8 @@ const SettingField = ({
   handleCheckChange,
   customInput 
 }) => {
+  const hasChanged = hasUnsavedChanges();
+
   return (
     <div className="relative">
       <div className="flex items-center space-x-2 mb-2">
@@ -30,8 +32,8 @@ const SettingField = ({
           variant="ghost"
           size="icon"
           onClick={() => handleSave(field)}
-          disabled={!hasUnsavedChanges(field)}
-          className="h-6 w-6"
+          disabled={!hasChanged}
+          className={`h-6 w-6 ${hasChanged ? 'text-green-700' : 'text-gray-400'}`}
         >
           <Save className="h-4 w-4" />
         </Button>
@@ -39,8 +41,8 @@ const SettingField = ({
           variant="ghost"
           size="icon"
           onClick={() => handleReset(field)}
-          disabled={!hasUnsavedChanges(field)}
-          className="h-6 w-6"
+          disabled={!hasChanged}
+          className={`h-6 w-6 ${hasChanged ? 'text-green-700' : 'text-gray-400'}`}
         >
           <RotateCcw className="h-4 w-4" />
         </Button>

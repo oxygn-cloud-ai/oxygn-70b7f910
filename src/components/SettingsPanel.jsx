@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SettingField from './settings/SettingField';
 import { useSupabase } from '../hooks/useSupabase';
@@ -14,6 +14,7 @@ const SettingsPanel = ({
   hasUnsavedChanges 
 }) => {
   const supabase = useSupabase();
+  const [initialValues, setInitialValues] = useState({});
 
   const handleCheckChange = async (fieldName, checked) => {
     handleChange(`${fieldName}_on`, checked);
@@ -42,6 +43,11 @@ const SettingsPanel = ({
 
         if (defaultValues[fieldName]) {
           handleChange(fieldName, defaultValues[fieldName]);
+          setInitialValues(prev => ({
+            ...prev,
+            [fieldName]: defaultValues[fieldName]
+          }));
+
           const { error: saveError } = await supabase
             .from(import.meta.env.VITE_PROMPTS_TBL)
             .update({ [fieldName]: defaultValues[fieldName] })
@@ -68,11 +74,14 @@ const SettingsPanel = ({
 
           if (error) throw error;
 
+          const newInitialValues = {};
           Object.keys(data).forEach(key => {
             if (key.endsWith('_on') || key in localData) {
               handleChange(key, data[key]);
+              newInitialValues[key] = data[key];
             }
           });
+          setInitialValues(newInitialValues);
         } catch (error) {
           console.error('Error loading settings:', error);
           toast.error('Failed to load settings');
@@ -99,6 +108,10 @@ const SettingsPanel = ({
     }
   };
 
+  const hasFieldChanged = (fieldName) => {
+    return localData[fieldName] !== initialValues[fieldName];
+  };
+
   const fields = [
     'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
     'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 
@@ -117,7 +130,7 @@ const SettingsPanel = ({
           handleChange={handleChange}
           handleSave={handleSave}
           handleReset={handleReset}
-          hasUnsavedChanges={hasUnsavedChanges}
+          hasUnsavedChanges={() => hasFieldChanged('model')}
           handleCheckChange={handleCheckChange}
           customInput={
             <Select
@@ -148,7 +161,7 @@ const SettingsPanel = ({
           handleChange={handleChange}
           handleSave={handleSave}
           handleReset={handleReset}
-          hasUnsavedChanges={hasUnsavedChanges}
+          hasUnsavedChanges={() => hasFieldChanged('temperature')}
           handleCheckChange={handleCheckChange}
         />
       </div>
@@ -161,7 +174,7 @@ const SettingsPanel = ({
           handleChange={handleChange}
           handleSave={handleSave}
           handleReset={handleReset}
-          hasUnsavedChanges={hasUnsavedChanges}
+          hasUnsavedChanges={() => hasFieldChanged(field)}
           handleCheckChange={handleCheckChange}
         />
       ))}
