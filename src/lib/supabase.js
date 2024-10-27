@@ -1,14 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_PROJECT_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_API_KEY;
-
-if (!supabaseUrl) {
-  throw new Error('VITE_SUPABASE_PROJECT_URL environment variable is not set');
-}
-
-if (!supabaseAnonKey) {
-  throw new Error('VITE_SUPABASE_API_KEY environment variable is not set');
-}
+const supabaseUrl = import.meta.env.VITE_SUPABASE_PROJECT_URL || 'https://yoxudmifddtjrrqiunaa.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveHVkbWlmZGR0anJycWl1bmFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjYyOTY5NzIsImV4cCI6MjA0MTg3Mjk3Mn0.stJR9YuNFfDAy8p3qGTc7NFn00nMn4lItmD-mVlqN1s';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
