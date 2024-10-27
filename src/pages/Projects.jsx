@@ -1,64 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion } from "@/components/ui/accordion";
-import TreeItem from '../components/TreeItem';
-import useTreeData from '../hooks/useTreeData';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { PlusCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import ProjectPanels from '../components/ProjectPanels';
-import { useSupabase } from '../hooks/useSupabase';
-import { useOpenAIModels } from '../hooks/useOpenAIModels';
-import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useSupabase } from '../hooks/useSupabase';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import useTreeData from '../hooks/useTreeData';
 import { useTreeOperations } from '../hooks/useTreeOperations';
 import { usePromptData } from '../hooks/usePromptData';
+import ProjectPanels from '../components/ProjectPanels';
+import ParentPromptPopup from '../components/ParentPromptPopup';
+import TreeView from '../components/TreeView';
 import { toast } from 'sonner';
-
-// Extract tree rendering logic to a separate component
-const TreeView = ({ treeData, expandedItems, toggleItem, editingItem, setEditingItem, handleUpdateField, refreshTreeData, activeItem, setActiveItem, handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem }) => {
-  const renderTreeItems = useCallback((items) => (
-    items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={1}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        addItem={handleAddItem}
-        startRenaming={(id, name) => setEditingItem({ id, name })}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={async () => {
-          if (editingItem) {
-            // Only update the prompt_name field
-            await handleUpdateField('prompt_name', editingItem.name);
-            setEditingItem(null);
-            await refreshTreeData();
-          }
-        }}
-        cancelRenaming={() => setEditingItem(null)}
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        deleteItem={handleDeleteItem}
-        duplicateItem={handleDuplicateItem}
-        moveItem={handleMoveItem}
-        onRefreshTreeData={refreshTreeData}
-      />
-    ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem]);
-
-  return (
-    <Accordion
-      type="multiple"
-      value={expandedItems}
-      onValueChange={setExpandedItems}
-      className="w-full min-w-max"
-    >
-      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-    </Accordion>
-  );
-};
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
