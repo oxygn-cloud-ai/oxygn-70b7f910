@@ -36,3 +36,45 @@ export const calculatePosition = (prevPosition, nextPosition) => {
 export const getInitialPosition = () => {
   return Date.now() * 1000;
 };
+
+export const buildTree = (data) => {
+  // First, create a map of all items with their children
+  const itemMap = new Map();
+  data.forEach(item => {
+    itemMap.set(item.row_id, {
+      ...item,
+      id: item.row_id,
+      name: item.prompt_name || 'Untitled',
+      children: []
+    });
+  });
+
+  // Build the tree structure
+  const rootItems = [];
+  data.forEach(item => {
+    const mappedItem = itemMap.get(item.row_id);
+    if (item.parent_row_id) {
+      const parent = itemMap.get(item.parent_row_id);
+      if (parent) {
+        parent.children.push(mappedItem);
+      } else {
+        rootItems.push(mappedItem);
+      }
+    } else {
+      rootItems.push(mappedItem);
+    }
+  });
+
+  // Sort items by position
+  const sortByPosition = (items) => {
+    items.sort((a, b) => (a.position || 0) - (b.position || 0));
+    items.forEach(item => {
+      if (item.children && item.children.length > 0) {
+        sortByPosition(item.children);
+      }
+    });
+  };
+
+  sortByPosition(rootItems);
+  return rootItems;
+};
