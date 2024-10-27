@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { fetchPrompts } from '../services/promptService';
+import { fetchPrompts, addPrompt } from '../services/promptService';
 import { retry } from '../utils/retryUtils';
 
 const useTreeData = (supabase) => {
@@ -42,11 +42,30 @@ const useTreeData = (supabase) => {
     }
   }, [supabase]);
 
+  const handleAddItem = useCallback(async (parentId) => {
+    if (!supabase) return null;
+    try {
+      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
+      await fetchTreeData();
+      return newItemId;
+    } catch (error) {
+      console.error('Error adding new prompt:', error);
+      toast.error('Failed to add new prompt');
+      return null;
+    }
+  }, [supabase, defaultAdminPrompt, fetchTreeData]);
+
   useEffect(() => {
     fetchTreeData();
   }, [fetchTreeData]);
 
-  return { treeData, defaultAdminPrompt, isLoading, refreshTreeData: fetchTreeData };
+  return { 
+    treeData, 
+    defaultAdminPrompt, 
+    isLoading, 
+    refreshTreeData: fetchTreeData,
+    addItem: handleAddItem 
+  };
 };
 
 export default useTreeData;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import TreeItem from '../components/TreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
@@ -17,14 +17,13 @@ const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
   const supabase = useSupabase();
-  const { treeData, addItem, updateItemName, deleteItem, duplicateItem, moveItem, isLoading, refreshTreeData } = useTreeData(supabase);
+  const { treeData, addItem, isLoading, refreshTreeData } = useTreeData(supabase);
   const [editingItem, setEditingItem] = useState(null);
   const [selectedItemData, setSelectedItemData] = useState(null);
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
 
-  // Initialize expanded items when treeData loads
   useEffect(() => {
     if (treeData && treeData.length > 0) {
       const rootIds = treeData.map(item => item.id);
@@ -44,7 +43,7 @@ const Projects = () => {
     if (newItemId) {
       setActiveItem(newItemId);
       setExpandedItems(prev => [...prev, parentId].filter(Boolean));
-      refreshTreeData();
+      await refreshTreeData();
     }
   }, [addItem, refreshTreeData]);
 
@@ -64,7 +63,6 @@ const Projects = () => {
         }));
 
         if (fieldName === 'prompt_name') {
-          await updateItemName(activeItem, value);
           await refreshTreeData();
         }
       } catch (error) {
@@ -72,7 +70,7 @@ const Projects = () => {
         toast.error(`Failed to update ${fieldName}: ${error.message}`);
       }
     }
-  }, [activeItem, updateItemName, supabase, refreshTreeData]);
+  }, [activeItem, supabase, refreshTreeData]);
 
   const handleDeleteItem = useCallback(async (itemId) => {
     if (await deleteItem(itemId)) {
@@ -110,7 +108,7 @@ const Projects = () => {
         onRefreshTreeData={refreshTreeData}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, updateItemName, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem, moveItem]);
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, duplicateItem, moveItem]);
 
   useEffect(() => {
     if (activeItem && supabase) {
