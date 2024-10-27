@@ -12,6 +12,15 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 
   if (positionError) throw positionError;
 
+  // Get default settings from the settings table
+  const { data: settingsData, error: settingsError } = await supabase
+    .from(import.meta.env.VITE_SETTINGS_TBL)
+    .select('*')
+    .limit(1)
+    .single();
+
+  if (settingsError) throw settingsError;
+
   // Calculate the new position (either max + 1000000 or start at 1000000)
   const newPosition = maxPositionData && maxPositionData.length > 0
     ? maxPositionData[0].position + 1000000
@@ -21,7 +30,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
       parent_row_id: parentId,
-      input_admin_prompt: defaultAdminPrompt,
+      input_admin_prompt: defaultAdminPrompt || settingsData?.def_admin_prompt || '',
       is_deleted: false,
       prompt_name: 'New Prompt',
       position: newPosition,
@@ -36,17 +45,17 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       echo: false,
       response_format: '{"type": "text"}',
       model: 'gpt-3.5-turbo',
-      // Default settings toggles
-      temperature_on: false,
-      max_tokens_on: false,
-      top_p_on: false,
+      // Default settings toggles - set to true by default for essential parameters
+      temperature_on: true,
+      max_tokens_on: true,
+      top_p_on: true,
       frequency_penalty_on: false,
       presence_penalty_on: false,
       n_on: false,
       stream_on: false,
       echo_on: false,
-      response_format_on: false,
-      model_on: false,
+      response_format_on: true,
+      model_on: true,
       stop_on: false,
       logit_bias_on: false,
       o_user_on: false,
