@@ -8,6 +8,19 @@ export const useOpenAICall = () => {
     openai_api_key: import.meta.env.VITE_OPENAI_API_KEY,
   };
 
+  const handleApiError = (error) => {
+    const errorMessage = error.message || 'An unknown error occurred';
+    const status = error.status || 500;
+    
+    if (status === 502) {
+      toast.error('Server connection failed. Please try again in a few moments.');
+      console.error('Server connection error:', errorMessage);
+      return null;
+    }
+    
+    throw error;
+  };
+
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
     try {
@@ -20,6 +33,9 @@ export const useOpenAICall = () => {
       }
 
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
       const requestBody = {
         model: projectSettings.model,
@@ -44,33 +60,28 @@ export const useOpenAICall = () => {
         }
       }
 
-      console.log('OpenAI API Call Details:', {
-        url: apiUrl,
-        model: requestBody.model,
-        temperature: requestBody.temperature,
-        maxTokens: requestBody.max_tokens,
-        topP: requestBody.top_p,
-        frequencyPenalty: requestBody.frequency_penalty,
-        presencePenalty: requestBody.presence_penalty,
-        responseFormat: requestBody.response_format,
-        systemMessage,
-        userMessage,
-      });
-
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiSettings.openai_api_key}`
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      }).catch(error => {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out after 30 seconds');
+        }
+        return handleApiError(error);
       });
 
-      if (!response.ok) {
+      clearTimeout(timeoutId);
+
+      if (!response?.ok) {
         const errorData = await response.json();
         console.error('OpenAI API Error:', errorData);
 
-        if (errorData.error && errorData.error.code === 'model_not_found') {
+        if (errorData.error?.code === 'model_not_found') {
           console.log('Model not found, attempting with fallback model gpt-3.5-turbo');
           requestBody.model = 'gpt-3.5-turbo';
           
@@ -88,15 +99,13 @@ export const useOpenAICall = () => {
           }
 
           const fallbackData = await fallbackResponse.json();
-          console.log('OpenAI API Fallback Response:', JSON.stringify(fallbackData, null, 2));
           return fallbackData.choices[0].message.content;
         }
 
-        throw new Error(`OpenAI API error: ${errorData.error.message || response.statusText}`);
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('OpenAI API Response:', JSON.stringify(data, null, 2));
 
       if (projectSettings.response_format_on) {
         try {
