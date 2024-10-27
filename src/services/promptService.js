@@ -19,12 +19,16 @@ export const fetchPrompts = async (supabase) => {
 
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
   try {
+    // Get the current timestamp for a unique name
+    const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    
     const { data, error } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .insert([{
         parent_row_id: parentId,
         input_admin_prompt: defaultAdminPrompt,
-        is_deleted: false
+        is_deleted: false,
+        prompt_name: `New Prompt ${timestamp}` // Add a default prompt name
       }])
       .select()
       .single();
