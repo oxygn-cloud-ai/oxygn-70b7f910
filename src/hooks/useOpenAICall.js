@@ -21,18 +21,6 @@ export const useOpenAICall = () => {
     throw error;
   };
 
-  const getFallbackModel = (currentModel) => {
-    // Map of deprecated models to their recommended replacements
-    const modelReplacements = {
-      'text-davinci-002': 'gpt-3.5-turbo',
-      'text-davinci-003': 'gpt-3.5-turbo',
-      'code-davinci-002': 'gpt-4',
-      // Add more model mappings as needed
-    };
-
-    return modelReplacements[currentModel] || 'gpt-3.5-turbo';
-  };
-
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
     try {
@@ -72,45 +60,53 @@ export const useOpenAICall = () => {
         }
       }
 
-      const makeRequest = async (model) => {
-        const currentRequestBody = { ...requestBody, model };
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiSettings.openai_api_key}`
-          },
-          body: JSON.stringify(currentRequestBody),
-          signal: controller.signal
-        });
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiSettings.openai_api_key}`
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      }).catch(error => {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out after 30 seconds');
+        }
+        return handleApiError(error);
+      });
 
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          if (responseData.error?.code === 'model_not_found') {
-            throw new Error('model_not_found');
+      clearTimeout(timeoutId);
+
+      if (!response?.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('OpenAI API Error:', errorData);
+
+        if (errorData.error?.code === 'model_not_found') {
+          console.log('Model not found, attempting with fallback model gpt-3.5-turbo');
+          requestBody.model = 'gpt-3.5-turbo';
+          
+          const fallbackResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiSettings.openai_api_key}`
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!fallbackResponse.ok) {
+            const fallbackErrorData = await fallbackResponse.json().catch(() => ({}));
+            throw new Error(`Fallback OpenAI API error: ${fallbackErrorData.error?.message || fallbackResponse.statusText}`);
           }
-          throw new Error(responseData.error?.message || response.statusText);
+
+          const fallbackData = await fallbackResponse.json();
+          return fallbackData.choices[0].message.content;
         }
 
-        return responseData;
-      };
-
-      let responseData;
-      try {
-        responseData = await makeRequest(requestBody.model);
-      } catch (error) {
-        if (error.message === 'model_not_found') {
-          const fallbackModel = getFallbackModel(requestBody.model);
-          console.log(`Model ${requestBody.model} not found, attempting with fallback model ${fallbackModel}`);
-          toast.info(`Using fallback model: ${fallbackModel}`);
-          responseData = await makeRequest(fallbackModel);
-        } else {
-          throw error;
-        }
-      } finally {
-        clearTimeout(timeoutId);
+        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
       }
+
+      const responseData = await response.json();
 
       if (projectSettings.response_format_on) {
         try {
