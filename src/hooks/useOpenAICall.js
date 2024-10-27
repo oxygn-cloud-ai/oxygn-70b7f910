@@ -43,13 +43,25 @@ export const useOpenAICall = () => {
         }
       }, 30000);
 
+      // Parse temperature with fallback and validation
+      let temperature = 0.7; // Default value
+      if (projectSettings.temperature_on && projectSettings.temperature !== undefined) {
+        const parsedTemp = parseFloat(projectSettings.temperature);
+        // OpenAI requires temperature to be between 0 and 2
+        if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
+          temperature = parsedTemp;
+        } else {
+          console.warn('Invalid temperature value, using default of 0.7');
+        }
+      }
+
       const requestBody = {
         model: projectSettings.model || 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage.trim() }
         ],
-        temperature: parseFloat(projectSettings.temperature) || 0.7,
+        temperature,
         max_tokens: parseInt(projectSettings.max_tokens) || 2048,
         top_p: parseFloat(projectSettings.top_p) || 1,
         frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
