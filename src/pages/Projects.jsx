@@ -23,7 +23,7 @@ const Projects = () => {
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
-  const { handleAddItem, handleDeleteItem, handleDuplicateItem } = useTreeOperations(supabase, refreshTreeData);
+  const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
 
   useEffect(() => {
     if (treeData && treeData.length > 0) {
@@ -123,11 +123,11 @@ const Projects = () => {
         setActiveItem={setActiveItem}
         deleteItem={handleDeleteItem}
         duplicateItem={handleDuplicateItem}
-        moveItem={moveItem}
+        moveItem={handleMoveItem}
         onRefreshTreeData={refreshTreeData}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem]);
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;

@@ -45,9 +45,29 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData]);
 
+  const handleMoveItem = useCallback(async (itemId, targetParentId) => {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ parent_row_id: targetParentId })
+        .eq('row_id', itemId);
+
+      if (error) throw error;
+      await refreshTreeData();
+      toast.success('Item moved successfully');
+      return true;
+    } catch (error) {
+      console.error('Error moving item:', error);
+      toast.error('Failed to move item');
+      return false;
+    }
+  }, [supabase, refreshTreeData]);
+
   return {
     handleAddItem,
     handleDeleteItem,
-    handleDuplicateItem
+    handleDuplicateItem,
+    handleMoveItem
   };
 };
