@@ -1,10 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { useSupabase } from './useSupabase';
 
 export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelectedItemData) => {
-  const supabase = useSupabase();
-
   const handleCascade = useCallback(async (fieldName, selectedItemData) => {
     if (isPopup && parentData && cascadeField) {
       try {
@@ -35,37 +32,16 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelec
           endChar: fieldContent.length
         };
 
-        console.log('Cascade Update Details:', {
-          isPopup,
-          parentDataRowId: parentData.row_id,
-          cascadeField,
-          fieldName,
-          updateData
-        });
-
-        console.log('Supabase API Call:', {
-          table: 'prompts',
-          method: 'UPDATE',
-          data: { [`src_${cascadeField}`]: updateData },
-          condition: { row_id: parentData.row_id }
-        });
-
         const { data, error } = await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ [`src_${cascadeField}`]: updateData })
           .eq('row_id', parentData.row_id)
           .select();
 
-        console.log('Supabase API Response:', {
-          data: data,
-          error: error
-        });
-
         if (error) throw error;
         
-        // Update the actual text content in the destination field
         const { error: contentUpdateError } = await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ [cascadeField]: fieldContent })
           .eq('row_id', parentData.row_id);
 
@@ -73,7 +49,6 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelec
 
         toast.success('Cascade information and content updated successfully');
 
-        // Refresh the selected item data on the prompts page
         if (refreshSelectedItemData) {
           await refreshSelectedItemData(parentData.row_id);
         }
@@ -82,7 +57,7 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelec
         toast.error(`Failed to update cascade information: ${error.message}`);
       }
     }
-  }, [isPopup, parentData, cascadeField, supabase, refreshSelectedItemData]);
+  }, [isPopup, parentData, cascadeField, refreshSelectedItemData]);
 
   return { handleCascade };
 };

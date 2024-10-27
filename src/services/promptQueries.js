@@ -1,14 +1,18 @@
 import { handleSupabaseError } from './errorHandling';
 
-export const fetchPromptChildren = async (supabase, parentId) => {
+export const fetchPrompts = async (supabase, parentId) => {
   try {
-    const children = await fetchPrompts(supabase, parentId);
-    return children.map(child => ({
-      ...child,
-      id: child.row_id,
-      name: child.prompt_name
-    }));
+    const { data, error } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('*')
+      .eq('parent_row_id', parentId)
+      .eq('is_deleted', false)
+      .order('position');
+
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    handleSupabaseError(error, 'fetching prompt children');
+    handleSupabaseError(error, 'fetching prompts');
+    return [];
   }
 };
