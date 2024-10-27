@@ -23,7 +23,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       parent_row_id: parentId,
       input_admin_prompt: defaultAdminPrompt,
       is_deleted: false,
-      prompt_name: `New Prompt ${timestamp}`,
+      prompt_name: 'New Prompt',
       position: newPosition,
       batch_size_on: false,
       best_of_on: false,
