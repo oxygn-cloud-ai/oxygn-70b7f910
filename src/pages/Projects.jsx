@@ -39,12 +39,10 @@ const Projects = () => {
       const success = await updateField(activeItem, fieldName, value);
       if (success) {
         if (fieldName === 'prompt_name') {
-          // For prompt_name updates, update the local state immediately
           setSelectedItemData(prev => ({
             ...prev,
             prompt_name: value
           }));
-          // Only refresh tree data for name changes
           await refreshTreeData();
         } else {
           setSelectedItemData(prev => ({
@@ -61,7 +59,10 @@ const Projects = () => {
       if (activeItem) {
         const data = await fetchItemData(activeItem);
         if (data) {
-          setSelectedItemData(data);
+          setSelectedItemData(prev => ({
+            ...prev,
+            ...data
+          }));
         }
       } else {
         setSelectedItemData(null);
