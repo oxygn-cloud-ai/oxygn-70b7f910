@@ -11,6 +11,7 @@ import { usePromptData } from '../hooks/usePromptData';
 import ProjectPanels from '../components/ProjectPanels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import TreeView from '../components/TreeView';
+import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from 'sonner';
 
 const Projects = () => {
@@ -25,32 +26,6 @@ const Projects = () => {
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
-
-  useEffect(() => {
-    const loadExpandedState = async () => {
-      if (!supabase || !treeData.length) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from(import.meta.env.VITE_PROMPTS_TBL)
-          .select('row_id, expanded_item')
-          .eq('is_deleted', false);
-
-        if (error) throw error;
-
-        const expandedIds = data
-          .filter(item => item.expanded_item)
-          .map(item => item.row_id);
-
-        setExpandedItems(expandedIds);
-      } catch (error) {
-        console.error('Error loading expanded state:', error);
-        toast.error('Failed to load expanded states');
-      }
-    };
-
-    loadExpandedState();
-  }, [treeData, supabase]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -86,12 +61,6 @@ const Projects = () => {
     loadItemData();
   }, [activeItem, fetchItemData]);
 
-  const handleCascade = useCallback((fieldName) => {
-    const itemName = selectedItemData?.prompt_name || 'Unknown';
-    setCascadeInfo({ itemName, fieldName });
-    setShowParentPromptPopup(true);
-  }, [selectedItemData]);
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -102,32 +71,30 @@ const Projects = () => {
         <PanelGroup direction="horizontal">
           <Panel defaultSize={30} minSize={20}>
             <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
-              <div className="overflow-x-auto whitespace-nowrap w-full">
-                <div className="mb-2 flex space-x-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
-                    <PlusCircle className="h-5 w-5" />
-                  </Button>
-                </div>
-                {isLoading ? (
-                  <div>Loading...</div>
-                ) : (
-                  <TreeView
-                    treeData={treeData}
-                    expandedItems={expandedItems}
-                    toggleItem={toggleItem}
-                    editingItem={editingItem}
-                    setEditingItem={setEditingItem}
-                    handleUpdateField={handleUpdateField}
-                    refreshTreeData={refreshTreeData}
-                    activeItem={activeItem}
-                    setActiveItem={setActiveItem}
-                    handleAddItem={handleAddItem}
-                    handleDeleteItem={handleDeleteItem}
-                    handleDuplicateItem={handleDuplicateItem}
-                    handleMoveItem={handleMoveItem}
-                  />
-                )}
+              <div className="mb-2 flex space-x-2">
+                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
+                  <PlusCircle className="h-5 w-5" />
+                </Button>
               </div>
+              {isLoading ? (
+                <div>Loading...</div>
+              ) : (
+                <TreeView
+                  treeData={treeData}
+                  expandedItems={expandedItems}
+                  toggleItem={toggleItem}
+                  editingItem={editingItem}
+                  setEditingItem={setEditingItem}
+                  handleUpdateField={handleUpdateField}
+                  refreshTreeData={refreshTreeData}
+                  activeItem={activeItem}
+                  setActiveItem={setActiveItem}
+                  handleAddItem={handleAddItem}
+                  handleDeleteItem={handleDeleteItem}
+                  handleDuplicateItem={handleDuplicateItem}
+                  handleMoveItem={handleMoveItem}
+                />
+              )}
             </div>
           </Panel>
           <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
@@ -138,7 +105,6 @@ const Projects = () => {
                   selectedItemData={selectedItemData} 
                   projectRowId={activeItem} 
                   onUpdateField={handleUpdateField}
-                  onCascade={handleCascade}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full">
