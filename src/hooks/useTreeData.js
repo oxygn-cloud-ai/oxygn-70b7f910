@@ -7,7 +7,10 @@ const useTreeData = (supabase) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshTreeData = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      setTreeData([]);
+      return;
+    }
     
     try {
       const data = await fetchPrompts(supabase);
@@ -15,6 +18,7 @@ const useTreeData = (supabase) => {
     } catch (error) {
       console.error('Error refreshing tree data:', error);
       toast.error('Failed to refresh tree data');
+      setTreeData([]);
     }
   }, [supabase]);
 
@@ -25,10 +29,16 @@ const useTreeData = (supabase) => {
       setIsLoading(false);
     };
 
-    loadTreeData();
-  }, [refreshTreeData]);
+    if (supabase) {
+      loadTreeData();
+    }
+  }, [refreshTreeData, supabase]);
 
-  return { treeData, isLoading, refreshTreeData };
+  return { 
+    treeData, 
+    isLoading, 
+    refreshTreeData 
+  };
 };
 
 export default useTreeData;
