@@ -12,7 +12,8 @@ const SettingField = ({
   handleSave, 
   handleReset, 
   hasUnsavedChanges,
-  handleCheckChange 
+  handleCheckChange,
+  customInput 
 }) => {
   return (
     <div className="relative">
@@ -44,13 +45,17 @@ const SettingField = ({
           <RotateCcw className="h-4 w-4" />
         </Button>
       </div>
-      <Input
-        id={field}
-        value={localData[field] || ''}
-        onChange={(e) => handleChange(field, e.target.value)}
-        disabled={!localData[`${field}_on`]}
-        className="w-full"
-      />
+      {customInput ? (
+        customInput
+      ) : (
+        <Input
+          id={field}
+          value={localData[field] || ''}
+          onChange={(e) => handleChange(field, e.target.value)}
+          disabled={!localData[`${field}_on`]}
+          className="w-full"
+        />
+      )}
     </div>
   );
 };
