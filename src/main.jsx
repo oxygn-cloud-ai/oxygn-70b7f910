@@ -3,7 +3,7 @@ import App from "./App.jsx";
 import "./index.css";
 import { toast } from "sonner";
 
-// Load environment variables synchronously before any other code runs
+// Load and validate environment variables before mounting the app
 (() => {
   const requiredEnvVars = {
     'SUPABASE_PROJECT_URL': import.meta.env.VITE_SUPABASE_PROJECT_URL,
