@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { fetchPrompts, addPrompt } from '../services/promptService';
+import { fetchPrompts, addPrompt, deletePrompt } from '../services/promptService';
 import { retry } from '../utils/retryUtils';
 
 const useTreeData = (supabase) => {
@@ -12,7 +12,6 @@ const useTreeData = (supabase) => {
     if (!supabase) return;
 
     try {
-      // Use retry utility for fetching prompts
       const data = await retry(() => fetchPrompts(supabase), {
         retries: 3,
         delay: 1000
@@ -20,7 +19,6 @@ const useTreeData = (supabase) => {
       
       setTreeData(data);
 
-      // Use retry utility for fetching settings
       const { data: settingsData, error: settingsError } = await retry(() => 
         supabase
           .from(import.meta.env.VITE_SETTINGS_TBL)
@@ -55,6 +53,19 @@ const useTreeData = (supabase) => {
     }
   }, [supabase, defaultAdminPrompt, fetchTreeData]);
 
+  const handleDeleteItem = useCallback(async (itemId) => {
+    if (!supabase) return false;
+    try {
+      await deletePrompt(supabase, itemId);
+      await fetchTreeData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting prompt:', error);
+      toast.error('Failed to delete prompt');
+      return false;
+    }
+  }, [supabase, fetchTreeData]);
+
   useEffect(() => {
     fetchTreeData();
   }, [fetchTreeData]);
@@ -64,7 +75,8 @@ const useTreeData = (supabase) => {
     defaultAdminPrompt, 
     isLoading, 
     refreshTreeData: fetchTreeData,
-    addItem: handleAddItem 
+    addItem: handleAddItem,
+    deleteItem: handleDeleteItem
   };
 };
 

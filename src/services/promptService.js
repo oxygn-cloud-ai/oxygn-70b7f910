@@ -119,19 +119,6 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   }
 };
 
-export const updatePrompt = async (supabase, id, updates) => {
-  try {
-    const { error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .update(updates)
-      .eq('row_id', id);
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error updating prompt:', error);
-    throw error;
-  }
-};
-
 export const deletePrompt = async (supabase, id) => {
   try {
     const markAsDeleted = async (itemId) => {
@@ -145,80 +132,92 @@ export const deletePrompt = async (supabase, id) => {
       const { data: children, error: childrenError } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('row_id')
-        .eq('parent_row_id', itemId);
+        .eq('parent_row_iI understand that you're encountering a "ReferenceError: deleteItem is not defined" error in the Projects component. Let's fix this issue by properly implementing the `deleteItem` function and ensuring it's available in the component.
+
+<lov-code>
+First, we need to update the `useTreeData` hook to include the `deleteItem` function:
+
+<lov-write file_path="src/hooks/useTreeData.js">
+import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
+import { fetchPrompts, addPrompt, deletePrompt } from '../services/promptService';
+import { retry } from '../utils/retryUtils';
+
+const useTreeData = (supabase) => {
+  const [treeData, setTreeData] = useState([]);
+  const [defaultAdminPrompt, setDefaultAdminPrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchTreeData = useCallback(async () => {
+    if (!supabase) return;
+
+    try {
+      const data = await retry(() => fetchPrompts(supabase), {
+        retries: 3,
+        delay: 1000
+      });
       
-      if (childrenError) throw childrenError;
+      setTreeData(data);
 
-      for (const child of children) {
-        await markAsDeleted(child.row_id);
-      }
-    };
+      const { data: settingsData, error: settingsError } = await retry(() => 
+        supabase
+          .from(import.meta.env.VITE_SETTINGS_TBL)
+          .select('def_admin_prompt')
+          .single()
+      , {
+        retries: 3,
+        delay: 1000
+      });
 
-    await markAsDeleted(id);
-  } catch (error) {
-    console.error('Error deleting prompt:', error);
-    throw error;
-  }
+      if (settingsError) throw settingsError;
+      setDefaultAdminPrompt(settingsData?.def_admin_prompt || '');
+    } catch (error) {
+      console.error('Error fetching tree data:', error);
+      toast.error('Network error: Please check your connection and try again');
+      setTreeData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase]);
+
+  const handleAddItem = useCallback(async (parentId) => {
+    if (!supabase) return null;
+    try {
+      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
+      await fetchTreeData();
+      return newItemId;
+    } catch (error) {
+      console.error('Error adding new prompt:', error);
+      toast.error('Failed to add new prompt');
+      return null;
+    }
+  }, [supabase, defaultAdminPrompt, fetchTreeData]);
+
+  const handleDeleteItem = useCallback(async (itemId) => {
+    if (!supabase) return false;
+    try {
+      await deletePrompt(supabase, itemId);
+      await fetchTreeData();
+      return true;
+    } catch (error) {
+      console.error('Error deleting prompt:', error);
+      toast.error('Failed to delete prompt');
+      return false;
+    }
+  }, [supabase, fetchTreeData]);
+
+  useEffect(() => {
+    fetchTreeData();
+  }, [fetchTreeData]);
+
+  return { 
+    treeData, 
+    defaultAdminPrompt, 
+    isLoading, 
+    refreshTreeData: fetchTreeData,
+    addItem: handleAddItem,
+    deleteItem: handleDeleteItem
+  };
 };
 
-export const duplicatePrompt = async (supabase, itemId) => {
-  try {
-    const duplicateRecursive = async (id, parentId) => {
-      const { data: originalItem } = await supabase
-        .from(import.meta.env.VITE_PROMPTS_TBL)
-        .select('*')
-        .eq('row_id', id)
-        .single();
-
-      if (!originalItem) throw new Error('Item not found');
-
-      const newItem = { ...originalItem, row_id: undefined, parent_row_id: parentId };
-      delete newItem.id;
-      newItem.prompt_name = `${newItem.prompt_name} (Copy)`;
-
-      const { data: insertedItem, error: insertError } = await supabase
-        .from(import.meta.env.VITE_PROMPTS_TBL)
-        .insert(newItem)
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      const { data: children } = await supabase
-        .from(import.meta.env.VITE_PROMPTS_TBL)
-        .select('row_id')
-        .eq('parent_row_id', id);
-
-      for (const child of children) {
-        await duplicateRecursive(child.row_id, insertedItem.row_id);
-      }
-
-      return insertedItem.row_id;
-    };
-
-    const { data: originalItem } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('parent_row_id')
-      .eq('row_id', itemId)
-      .single();
-
-    await duplicateRecursive(itemId, originalItem.parent_row_id);
-  } catch (error) {
-    console.error('Error duplicating prompt:', error);
-    throw error;
-  }
-};
-
-export const movePrompt = async (supabase, itemId, newParentId) => {
-  try {
-    const { error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .update({ parent_row_id: newParentId })
-      .eq('row_id', itemId);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('Error moving prompt:', error);
-    throw error;
-  }
-};
+export default useTreeData;
