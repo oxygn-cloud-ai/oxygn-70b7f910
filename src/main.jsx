@@ -3,8 +3,8 @@ import App from "./App.jsx";
 import "./index.css";
 import { toast } from "sonner";
 
-// Load and verify environment variables before mounting the app
-const verifyEnvVariables = () => {
+// Load environment variables synchronously before any other code runs
+(() => {
   const requiredEnvVars = {
     'DEBUG': import.meta.env.VITE_DEBUG,
     'SUPABASE_PROJECT_URL': import.meta.env.VITE_SUPABASE_PROJECT_URL,
@@ -24,14 +24,10 @@ const verifyEnvVariables = () => {
   if (missingVars.length > 0) {
     const errorMessage = `Missing required environment variables: ${missingVars.join(', ')}`;
     console.error(errorMessage);
-    toast.error(errorMessage);
+    document.body.innerHTML = `<div style="color: red; padding: 20px;">${errorMessage}</div>`;
     throw new Error(errorMessage);
   }
+})();
 
-  return true;
-};
-
-// Only mount the app if all environment variables are present
-if (verifyEnvVariables()) {
-  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-}
+// Only mount the app if environment check passes
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
