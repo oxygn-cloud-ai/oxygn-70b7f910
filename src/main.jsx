@@ -6,13 +6,12 @@ import { toast } from "sonner";
 // Load environment variables synchronously before any other code runs
 (() => {
   const requiredEnvVars = {
-    'DEBUG': import.meta.env.VITE_DEBUG,
     'SUPABASE_PROJECT_URL': import.meta.env.VITE_SUPABASE_PROJECT_URL,
+    'SUPABASE_API_KEY': import.meta.env.VITE_SUPABASE_API_KEY,
     'PROMPTS_TABLE': import.meta.env.VITE_PROMPTS_TBL,
     'SETTINGS_TABLE': import.meta.env.VITE_SETTINGS_TBL,
     'MODELS_TABLE': import.meta.env.VITE_MODELS_TBL,
     'INFO_TABLE': import.meta.env.VITE_INFO_TBL,
-    'SUPABASE_API_KEY': import.meta.env.VITE_SUPABASE_API_KEY,
     'OPENAI_API_KEY': import.meta.env.VITE_OPENAI_API_KEY,
     'OPENAI_URL': import.meta.env.VITE_OPENAI_URL
   };
