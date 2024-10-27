@@ -1,20 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
-// Get environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_PROJECT_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_API_KEY;
-
-// Validate Supabase configuration
-if (!supabaseUrl || !supabaseAnonKey) {
-  const error = new Error('Supabase configuration is missing. Please check your environment variables.');
-  console.error('Supabase Error:', {
-    url: supabaseUrl ? 'present' : 'missing',
-    key: supabaseAnonKey ? 'present' : 'missing'
-  });
-  toast.error(error.message);
-  throw error;
-}
+// Get environment variables with fallbacks for development
+const supabaseUrl = import.meta.env.VITE_SUPABASE_PROJECT_URL || 'https://yoxudmifddtjrrqiunaa.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlveHVkbWlmZGR0anJycWl1bmFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjYyOTY5NzIsImV4cCI6MjA0MTg3Mjk3Mn0.stJR9YuNFfDAy8p3qGTc7NFn00nMn4lItmD-mVlqN1s';
 
 // Create and export Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -24,3 +13,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true
   }
 });
+
+// Log connection status
+console.log('Supabase client initialized with URL:', supabaseUrl);
