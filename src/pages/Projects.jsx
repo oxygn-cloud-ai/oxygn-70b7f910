@@ -12,6 +12,7 @@ import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useTreeOperations } from '../hooks/useTreeOperations';
+import { usePromptData } from '../hooks/usePromptData';
 import { toast } from 'sonner';
 
 const Projects = () => {
@@ -25,8 +26,8 @@ const Projects = () => {
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
+  const { updateField, fetchItemData } = usePromptData(supabase);
 
-  // Load expanded state from database
   useEffect(() => {
     const loadExpandedState = async () => {
       if (!supabase || !treeData.length) return;
@@ -77,15 +78,9 @@ const Projects = () => {
   }, [expandedItems, supabase]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
-    if (activeItem && supabase) {
-      try {
-        const { error } = await supabase
-          .from(import.meta.env.VITE_PROMPTS_TBL)
-          .update({ [fieldName]: value })
-          .eq('row_id', activeItem);
-
-        if (error) throw error;
-        
+    if (activeItem) {
+      const success = await updateField(activeItem, fieldName, value);
+      if (success) {
         setSelectedItemData(prevData => ({
           ...prevData,
           [fieldName]: value
@@ -94,37 +89,24 @@ const Projects = () => {
         if (fieldName === 'prompt_name') {
           await refreshTreeData();
         }
-      } catch (error) {
-        console.error('Error updating field:', error);
-        toast.error(`Failed to update ${fieldName}: ${error.message}`);
       }
     }
-  }, [activeItem, supabase, refreshTreeData]);
+  }, [activeItem, updateField, refreshTreeData]);
 
   useEffect(() => {
-    if (activeItem && supabase) {
-      const fetchItemData = async () => {
-        try {
-          const { data, error } = await supabase
-            .from(import.meta.env.VITE_PROMPTS_TBL)
-            .select('*')
-            .eq('row_id', activeItem)
-            .single();
-
-          if (error) throw error;
-          
+    const loadItemData = async () => {
+      if (activeItem) {
+        const data = await fetchItemData(activeItem);
+        if (data) {
           setSelectedItemData(data);
-        } catch (error) {
-          console.error('Error fetching item data:', error);
-          toast.error(`Failed to fetch prompt data: ${error.message}`);
         }
-      };
+      } else {
+        setSelectedItemData(null);
+      }
+    };
 
-      fetchItemData();
-    } else {
-      setSelectedItemData(null);
-    }
-  }, [activeItem, supabase]);
+    loadItemData();
+  }, [activeItem, fetchItemData]);
 
   const handleCascade = useCallback((fieldName) => {
     const itemName = selectedItemData?.prompt_name || 'Unknown';
