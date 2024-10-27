@@ -18,6 +18,14 @@ const Settings = () => {
     }
   }, [settings]);
 
+  if (isLoading || !supabase) {
+    return <div>Loading settings...</div>;
+  }
+
+  if (error) {
+    return <div>Error loading settings: {error.message}</div>;
+  }
+
   const handleChange = (key, value) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
@@ -47,16 +55,6 @@ const Settings = () => {
     { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea' },
   ];
 
-  const envVariables = {
-    'DEBUG': import.meta.env.VITE_DEBUG,
-    'SUPABASE_PROJECT_URL': import.meta.env.VITE_SUPABASE_PROJECT_URL,
-    'PROMPTS_TABLE': import.meta.env.VITE_PROMPTS_TBL,
-    'SETTINGS_TABLE': import.meta.env.VITE_SETTINGS_TBL,
-    'MODELS_TABLE': import.meta.env.VITE_MODELS_TBL,
-    'INFO_TABLE': import.meta.env.VITE_INFO_TBL,
-    'OPENAI_URL': import.meta.env.VITE_OPENAI_URL
-  };
-
   return (
     <div className="container mx-auto p-4">
       <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
@@ -71,19 +69,14 @@ const Settings = () => {
               onChange={(value) => handleChange(key, value)}
             />
           ))}
-          <div className="space-y-4 mt-8">
-            <h2 className="text-lg font-semibold">ENV Variables</h2>
-            {Object.entries(envVariables).map(([key, value]) => (
-              <div key={key} className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">{key}</label>
-                <input
-                  type="text"
-                  value={value || 'NULL'}
-                  readOnly
-                  className="w-full px-3 py-2 border rounded-md bg-gray-100 text-gray-600"
-                />
-              </div>
-            ))}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Debug</label>
+            <input
+              type="text"
+              value={import.meta.env.VITE_DEBUG || 'NULL'}
+              readOnly
+              className="w-full px-3 py-2 border rounded-md bg-gray-100 text-gray-600"
+            />
           </div>
         </div>
         <div className="mt-6">

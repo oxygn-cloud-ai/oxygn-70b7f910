@@ -16,14 +16,8 @@ export const useSettings = (supabase) => {
     setIsLoading(true);
     setError(null);
     try {
-      const settingsTable = import.meta.env.VITE_SETTINGS_TBL;
-      
-      if (!settingsTable) {
-        throw new Error('Settings table environment variable is not defined');
-      }
-
       const { data, error: fetchError } = await supabase
-        .from(settingsTable)
+        .from('settings')
         .select('*')
         .limit(1)
         .single();
@@ -39,7 +33,7 @@ export const useSettings = (supabase) => {
         };
 
         const { data: insertedData, error: insertError } = await supabase
-          .from(settingsTable)
+          .from('settings')
           .insert(defaultSettings)
           .select()
           .single();
@@ -68,14 +62,8 @@ export const useSettings = (supabase) => {
         throw new Error('Settings not initialized');
       }
 
-      const settingsTable = import.meta.env.VITE_SETTINGS_TBL;
-      
-      if (!settingsTable) {
-        throw new Error('Settings table environment variable is not defined');
-      }
-
       const { data, error } = await supabase
-        .from(settingsTable)
+        .from('settings')
         .update({ [key]: value })
         .eq('setting_id', settings.setting_id)
         .select();
@@ -90,7 +78,7 @@ export const useSettings = (supabase) => {
       console.log('Setting updated successfully:', key, value);
     } catch (error) {
       console.error('Error updating setting:', error);
-      throw error;
+      throw error; // Re-throw the error to be handled by the component
     }
   };
 

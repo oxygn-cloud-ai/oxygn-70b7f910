@@ -13,14 +13,8 @@ const handleSupabaseError = (error, operation) => {
 
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-    
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
     let query = supabase
-      .from(promptsTable)
+      .from('prompts')
       .select('row_id, parent_row_id, prompt_name, note, created, position')
       .eq('is_deleted', false)
       .order('position', { ascending: true })
@@ -52,16 +46,23 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
   }
 };
 
+export const fetchPromptChildren = async (supabase, parentId) => {
+  try {
+    const children = await fetchPrompts(supabase, parentId);
+    return children.map(child => ({
+      ...child,
+      id: child.row_id,
+      name: child.prompt_name
+    }));
+  } catch (error) {
+    handleSupabaseError(error, 'fetching prompt children');
+  }
+};
+
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-    
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
     const { data: siblings } = await supabase
-      .from(promptsTable)
+      .from('prompts')
       .select('position')
       .eq('parent_row_id', parentId)
       .order('position', { ascending: false })
@@ -71,7 +72,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
     const newPosition = lastPosition ? calculatePosition(lastPosition, null) : getInitialPosition();
 
     const { data, error } = await supabase
-      .from(promptsTable)
+      .from('prompts')
       .insert({
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
@@ -120,16 +121,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
 
 export const updatePrompt = async (supabase, id, updates) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-    
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
-    const { error } = await supabase
-      .from(promptsTable)
-      .update(updates)
-      .eq('row_id', id);
+    const { error } = await supabase.from('prompts').update(updates).eq('row_id', id);
     if (error) throw error;
   } catch (error) {
     console.error('Error updating prompt:', error);
@@ -139,22 +131,16 @@ export const updatePrompt = async (supabase, id, updates) => {
 
 export const deletePrompt = async (supabase, id) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-    
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
     const markAsDeleted = async (itemId) => {
       const { error } = await supabase
-        .from(promptsTable)
+        .from('prompts')
         .update({ is_deleted: true })
         .eq('row_id', itemId);
       
       if (error) throw error;
 
       const { data: children, error: childrenError } = await supabase
-        .from(promptsTable)
+        .from('prompts')
         .select('row_id')
         .eq('parent_row_id', itemId);
       
@@ -174,15 +160,9 @@ export const deletePrompt = async (supabase, id) => {
 
 export const duplicatePrompt = async (supabase, itemId) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-    
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
     const duplicateRecursive = async (id, parentId) => {
       const { data: originalItem } = await supabase
-        .from(promptsTable)
+        .from('prompts')
         .select('*')
         .eq('row_id', id)
         .single();
@@ -194,7 +174,7 @@ export const duplicatePrompt = async (supabase, itemId) => {
       newItem.prompt_name = `${newItem.prompt_name} (Copy)`;
 
       const { data: insertedItem, error: insertError } = await supabase
-        .from(promptsTable)
+        .from('prompts')
         .insert(newItem)
         .select()
         .single();
@@ -202,7 +182,7 @@ export const duplicatePrompt = async (supabase, itemId) => {
       if (insertError) throw insertError;
 
       const { data: children } = await supabase
-        .from(promptsTable)
+        .from('prompts')
         .select('row_id')
         .eq('parent_row_id', id);
 
@@ -214,7 +194,7 @@ export const duplicatePrompt = async (supabase, itemId) => {
     };
 
     const { data: originalItem } = await supabase
-      .from(promptsTable)
+      .from('prompts')
       .select('parent_row_id')
       .eq('row_id', itemId)
       .single();
@@ -228,14 +208,8 @@ export const duplicatePrompt = async (supabase, itemId) => {
 
 export const movePrompt = async (supabase, itemId, newParentId) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-    
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
     const { error } = await supabase
-      .from(promptsTable)
+      .from('prompts')
       .update({ parent_row_id: newParentId })
       .eq('row_id', itemId);
 

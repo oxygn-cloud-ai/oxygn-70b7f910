@@ -1,13 +1,7 @@
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
-    const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
-      
-    if (!promptsTable) {
-      throw new Error('Prompts table environment variable is not defined');
-    }
-
     let query = supabase
-      .from(promptsTable)
+      .from('prompts')
       .select('row_id, parent_row_id, prompt_name, note, created, position')
       .eq('is_deleted', false)
       .order('position', { ascending: true })
