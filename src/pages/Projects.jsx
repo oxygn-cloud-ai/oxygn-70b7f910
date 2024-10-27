@@ -12,6 +12,7 @@ import ParentPromptPopup from '../components/ParentPromptPopup';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useTreeOperations } from '../hooks/useTreeOperations';
+import { toast } from 'sonner';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -25,20 +26,55 @@ const Projects = () => {
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
 
-  // Only set initial expanded state once when treeData is first loaded
+  // Load expanded state from database
   useEffect(() => {
-    if (treeData && treeData.length > 0 && expandedItems.length === 0) {
-      const rootIds = treeData.map(item => item.id);
-      setExpandedItems(rootIds);
-    }
-  }, [treeData]);
+    const loadExpandedState = async () => {
+      if (!supabase || !treeData.length) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from(import.meta.env.VITE_PROMPTS_TBL)
+          .select('row_id, expanded_item')
+          .eq('is_deleted', false);
 
-  const toggleItem = useCallback((itemId) => {
-    setExpandedItems(prev => 
-      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
-    );
-    setActiveItem(itemId);
-  }, []);
+        if (error) throw error;
+
+        const expandedIds = data
+          .filter(item => item.expanded_item)
+          .map(item => item.row_id);
+
+        setExpandedItems(expandedIds);
+      } catch (error) {
+        console.error('Error loading expanded state:', error);
+        toast.error('Failed to load expanded states');
+      }
+    };
+
+    loadExpandedState();
+  }, [treeData, supabase]);
+
+  const toggleItem = useCallback(async (itemId) => {
+    if (!supabase) return;
+
+    const newExpandedState = expandedItems.includes(itemId)
+      ? expandedItems.filter(id => id !== itemId)
+      : [...expandedItems, itemId];
+
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ expanded_item: !expandedItems.includes(itemId) })
+        .eq('row_id', itemId);
+
+      if (error) throw error;
+
+      setExpandedItems(newExpandedState);
+      setActiveItem(itemId);
+    } catch (error) {
+      console.error('Error updating expanded state:', error);
+      toast.error('Failed to update expanded state');
+    }
+  }, [expandedItems, supabase]);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem && supabase) {
@@ -64,41 +100,6 @@ const Projects = () => {
       }
     }
   }, [activeItem, supabase, refreshTreeData]);
-
-  useEffect(() => {
-    if (activeItem && supabase) {
-      const fetchItemData = async () => {
-        try {
-          const { data, error } = await supabase
-            .from(import.meta.env.VITE_PROMPTS_TBL)
-            .select('*')
-            .eq('row_id', activeItem)
-            .single();
-
-          if (error) throw error;
-          
-          setSelectedItemData(data);
-        } catch (error) {
-          console.error('Error fetching item data:', error);
-          toast.error(`Failed to fetch prompt data: ${error.message}`);
-        }
-      };
-
-      fetchItemData();
-    } else {
-      setSelectedItemData(null);
-    }
-  }, [activeItem, supabase]);
-
-  const handleCascade = useCallback((fieldName) => {
-    const itemName = selectedItemData?.prompt_name || 'Unknown';
-    setCascadeInfo({ itemName, fieldName });
-    setShowParentPromptPopup(true);
-  }, [selectedItemData]);
-
-  const handleUpdateParentData = useCallback((updatedData) => {
-    setSelectedItemData(updatedData);
-  }, []);
 
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
@@ -128,7 +129,7 @@ const Projects = () => {
         onRefreshTreeData={refreshTreeData}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem]);
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField]);
 
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
