@@ -35,7 +35,7 @@ export const useOpenAICall = () => {
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const requestBody = {
         model: projectSettings.model,
@@ -78,7 +78,7 @@ export const useOpenAICall = () => {
       clearTimeout(timeoutId);
 
       if (!response?.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         console.error('OpenAI API Error:', errorData);
 
         if (errorData.error?.code === 'model_not_found') {
@@ -95,7 +95,8 @@ export const useOpenAICall = () => {
           });
 
           if (!fallbackResponse.ok) {
-            throw new Error(`Fallback OpenAI API error: ${fallbackResponse.statusText}`);
+            const fallbackErrorData = await fallbackResponse.json().catch(() => ({}));
+            throw new Error(`Fallback OpenAI API error: ${fallbackErrorData.error?.message || fallbackResponse.statusText}`);
           }
 
           const fallbackData = await fallbackResponse.json();
@@ -105,20 +106,20 @@ export const useOpenAICall = () => {
         throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
 
       if (projectSettings.response_format_on) {
         try {
-          const jsonResponse = JSON.parse(data.choices[0].message.content);
+          const jsonResponse = JSON.parse(responseData.choices[0].message.content);
           return JSON.stringify(jsonResponse, null, 2);
         } catch (error) {
           console.error('Error parsing JSON response:', error);
           toast.error('Failed to parse JSON response. Returning raw response.');
-          return data.choices[0].message.content;
+          return responseData.choices[0].message.content;
         }
       }
 
-      return data.choices[0].message.content;
+      return responseData.choices[0].message.content;
     } catch (error) {
       console.error('Error calling OpenAI:', error);
       toast.error(`OpenAI API error: ${error.message}`);
