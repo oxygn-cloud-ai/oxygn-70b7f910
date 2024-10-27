@@ -101,6 +101,41 @@ const Projects = () => {
     }
   }, [activeItem, supabase, refreshTreeData]);
 
+  useEffect(() => {
+    if (activeItem && supabase) {
+      const fetchItemData = async () => {
+        try {
+          const { data, error } = await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .select('*')
+            .eq('row_id', activeItem)
+            .single();
+
+          if (error) throw error;
+          
+          setSelectedItemData(data);
+        } catch (error) {
+          console.error('Error fetching item data:', error);
+          toast.error(`Failed to fetch prompt data: ${error.message}`);
+        }
+      };
+
+      fetchItemData();
+    } else {
+      setSelectedItemData(null);
+    }
+  }, [activeItem, supabase]);
+
+  const handleCascade = useCallback((fieldName) => {
+    const itemName = selectedItemData?.prompt_name || 'Unknown';
+    setCascadeInfo({ itemName, fieldName });
+    setShowParentPromptPopup(true);
+  }, [selectedItemData]);
+
+  const handleUpdateParentData = useCallback((updatedData) => {
+    setSelectedItemData(updatedData);
+  }, []);
+
   const renderTreeItems = useCallback((items) => (
     items.map((item) => (
       <TreeItem
