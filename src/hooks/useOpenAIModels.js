@@ -13,8 +13,14 @@ export const useOpenAIModels = () => {
   const fetchModels = async () => {
     try {
       setIsLoading(true);
+      const modelsTable = import.meta.env.VITE_MODELS_TBL;
+      
+      if (!modelsTable) {
+        throw new Error('Models table environment variable is not defined');
+      }
+
       const query = supabase
-        .from(import.meta.env.VITE_MODELS_TBL)
+        .from(modelsTable)
         .select('model, max_tokens')
         .eq('is_deleted', false);
       
