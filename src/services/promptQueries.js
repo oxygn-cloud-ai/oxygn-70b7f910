@@ -1,7 +1,7 @@
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
     let query = supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('row_id, parent_row_id, prompt_name, note, created, position')
       .eq('is_deleted', false)
       .order('position', { ascending: true })
