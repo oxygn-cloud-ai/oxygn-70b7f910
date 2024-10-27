@@ -1,3 +1,5 @@
+import { retry } from '../utils/retryUtils';
+
 export const fetchPrompts = async (supabase, parentRowId = null) => {
   try {
     let query = supabase
@@ -13,7 +15,11 @@ export const fetchPrompts = async (supabase, parentRowId = null) => {
       query = query.is('parent_row_id', null);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await retry(() => query, {
+      retries: 3,
+      delay: 1000
+    });
+    
     if (error) throw error;
     return data;
   } catch (error) {
