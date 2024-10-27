@@ -24,6 +24,14 @@ const Projects = () => {
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
 
+  // Initialize expanded items when treeData loads
+  useEffect(() => {
+    if (treeData && treeData.length > 0) {
+      const rootIds = treeData.map(item => item.id);
+      setExpandedItems(rootIds);
+    }
+  }, [treeData]);
+
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
