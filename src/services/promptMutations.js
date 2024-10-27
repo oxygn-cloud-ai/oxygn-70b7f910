@@ -57,10 +57,8 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
     let newPosition;
     
     if (direction === 'up' && currentIndex > 0) {
-      // Calculate new position between the previous two items
       newPosition = (siblings[currentIndex - 1].position + (siblings[currentIndex - 2]?.position || 0)) / 2;
     } else if (direction === 'down' && currentIndex < siblings.length - 1) {
-      // Calculate new position between the next two items
       newPosition = (siblings[currentIndex + 1].position + (siblings[currentIndex + 2]?.position || siblings[currentIndex + 1].position + 1000000)) / 2;
     } else {
       return false;

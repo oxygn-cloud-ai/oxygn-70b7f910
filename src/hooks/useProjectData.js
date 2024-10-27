@@ -22,7 +22,7 @@ export const useProjectData = (initialData, projectRowId) => {
 
     try {
       const { error } = await supabase
-        .from('prompts')
+        .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ [fieldName]: localData[fieldName] })
         .eq('row_id', projectRowId);
 
