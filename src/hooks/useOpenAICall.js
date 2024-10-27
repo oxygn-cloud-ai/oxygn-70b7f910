@@ -43,16 +43,16 @@ export const useOpenAICall = () => {
         }
       }, 30000);
 
-      // Parse temperature with fallback and validation
-      let temperature = 0.7; // Default value
+      // Only use temperature if it's enabled and has a valid value
+      let temperature;
       if (projectSettings.temperature_on && projectSettings.temperature !== undefined) {
         const parsedTemp = parseFloat(projectSettings.temperature);
-        // OpenAI requires temperature to be between 0 and 2
-        if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
-          temperature = parsedTemp;
-        } else {
-          console.warn('Invalid temperature value, using default of 0.7');
+        if (isNaN(parsedTemp) || parsedTemp < 0 || parsedTemp > 2) {
+          throw new Error('Temperature must be a number between 0 and 2');
         }
+        temperature = parsedTemp;
+      } else {
+        throw new Error('Temperature setting is required but not enabled or set');
       }
 
       const requestBody = {
@@ -74,7 +74,8 @@ export const useOpenAICall = () => {
           requestBody.response_format = parsedResponseFormat;
         } catch (error) {
           console.error('Error parsing response_format:', error);
-          toast.error('Invalid response_format JSON. Using default format.');
+          toast.error('Invalid response_format JSON');
+          throw error;
         }
       }
 
@@ -95,25 +96,8 @@ export const useOpenAICall = () => {
         console.error('OpenAI API Error:', errorData);
 
         if (errorData.error?.code === 'model_not_found') {
-          toast.warning('Model not found, falling back to gpt-3.5-turbo');
-          requestBody.model = 'gpt-3.5-turbo';
-          
-          const fallbackResponse = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiSettings.openai_api_key}`
-            },
-            body: JSON.stringify(requestBody)
-          });
-
-          if (!fallbackResponse.ok) {
-            const fallbackErrorData = await fallbackResponse.json();
-            throw new Error(`Fallback OpenAI API error: ${fallbackErrorData.error?.message || fallbackResponse.statusText}`);
-          }
-
-          const fallbackData = await fallbackResponse.json();
-          return fallbackData.choices[0].message.content;
+          toast.error('Model not found. Please check your model settings.');
+          throw new Error(`Model not found: ${requestBody.model}`);
         }
 
         throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
@@ -127,8 +111,8 @@ export const useOpenAICall = () => {
           return JSON.stringify(jsonResponse, null, 2);
         } catch (error) {
           console.error('Error parsing JSON response:', error);
-          toast.error('Failed to parse JSON response. Returning raw response.');
-          return responseData.choices[0].message.content;
+          toast.error('Failed to parse JSON response');
+          throw error;
         }
       }
 
