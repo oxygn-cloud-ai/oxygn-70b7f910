@@ -23,6 +23,8 @@ export const useOpenAICall = () => {
 
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
     setIsLoading(true);
+    let controller = null;
+
     try {
       if (!apiSettings.openai_url || !apiSettings.openai_api_key) {
         throw new Error('OpenAI settings are not configured in environment variables.');
@@ -34,20 +36,24 @@ export const useOpenAICall = () => {
 
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        if (controller) {
+          controller.abort('Request timeout after 30 seconds');
+        }
+      }, 30000);
 
       const requestBody = {
-        model: projectSettings.model,
+        model: projectSettings.model || 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage.trim() }
         ],
-        temperature: parseFloat(projectSettings.temperature),
-        max_tokens: parseInt(projectSettings.max_tokens),
-        top_p: parseFloat(projectSettings.top_p),
-        frequency_penalty: parseFloat(projectSettings.frequency_penalty),
-        presence_penalty: parseFloat(projectSettings.presence_penalty),
+        temperature: parseFloat(projectSettings.temperature) || 0.7,
+        max_tokens: parseInt(projectSettings.max_tokens) || 2048,
+        top_p: parseFloat(projectSettings.top_p) || 1,
+        frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
+        presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
       };
 
       if (projectSettings.response_format_on) {
@@ -68,21 +74,16 @@ export const useOpenAICall = () => {
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal
-      }).catch(error => {
-        if (error.name === 'AbortError') {
-          throw new Error('Request timed out after 30 seconds');
-        }
-        return handleApiError(error);
       });
 
       clearTimeout(timeoutId);
 
       if (!response?.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json();
         console.error('OpenAI API Error:', errorData);
 
         if (errorData.error?.code === 'model_not_found') {
-          console.log('Model not found, attempting with fallback model gpt-3.5-turbo');
+          toast.warning('Model not found, falling back to gpt-3.5-turbo');
           requestBody.model = 'gpt-3.5-turbo';
           
           const fallbackResponse = await fetch(apiUrl, {
@@ -95,7 +96,7 @@ export const useOpenAICall = () => {
           });
 
           if (!fallbackResponse.ok) {
-            const fallbackErrorData = await fallbackResponse.json().catch(() => ({}));
+            const fallbackErrorData = await fallbackResponse.json();
             throw new Error(`Fallback OpenAI API error: ${fallbackErrorData.error?.message || fallbackResponse.statusText}`);
           }
 
@@ -121,10 +122,17 @@ export const useOpenAICall = () => {
 
       return responseData.choices[0].message.content;
     } catch (error) {
+      if (error.name === 'AbortError') {
+        toast.error('Request timed out after 30 seconds');
+        throw new Error('Request timed out after 30 seconds');
+      }
       console.error('Error calling OpenAI:', error);
       toast.error(`OpenAI API error: ${error.message}`);
       throw error;
     } finally {
+      if (controller) {
+        controller.abort();
+      }
       setIsLoading(false);
     }
   }, [apiSettings]);
