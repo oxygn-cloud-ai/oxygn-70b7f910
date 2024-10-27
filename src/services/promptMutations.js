@@ -1,6 +1,37 @@
 import { calculatePosition, getInitialPosition } from '../utils/positionUtils';
 import { handleSupabaseError } from './errorHandling';
 
+export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
+  try {
+    if (direction === 'up' && currentIndex > 0) {
+      const newPosition = (siblings[currentIndex - 1].position + (siblings[currentIndex - 2]?.position || 0)) / 2;
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ position: newPosition })
+        .eq('row_id', itemId);
+
+      if (error) throw error;
+      return true;
+    } 
+    
+    if (direction === 'down' && currentIndex < siblings.length - 1) {
+      const newPosition = (siblings[currentIndex + 1].position + (siblings[currentIndex + 2]?.position || siblings[currentIndex + 1].position + 1000000)) / 2;
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ position: newPosition })
+        .eq('row_id', itemId);
+
+      if (error) throw error;
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    handleSupabaseError(error, 'moving prompt position');
+    return false;
+  }
+};
+
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
     const { data: siblings } = await supabase
@@ -58,5 +89,33 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
     return data.row_id;
   } catch (error) {
     handleSupabaseError(error, 'adding new prompt');
+  }
+};
+
+export const deletePrompt = async (supabase, id) => {
+  try {
+    const markAsDeleted = async (itemId) => {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ is_deleted: true })
+        .eq('row_id', itemId);
+      
+      if (error) throw error;
+
+      const { data: children, error: childrenError } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id')
+        .eq('parent_row_id', itemId);
+      
+      if (childrenError) throw childrenError;
+
+      for (const child of children) {
+        await markAsDeleted(child.row_id);
+      }
+    };
+
+    await markAsDeleted(id);
+  } catch (error) {
+    handleSupabaseError(error, 'deleting prompt');
   }
 };
