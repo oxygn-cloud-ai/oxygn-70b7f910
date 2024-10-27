@@ -15,7 +15,7 @@ export const useOpenAICall = () => {
         const errorBody = JSON.parse(error.body);
         if (errorBody.error?.code === 'insufficient_quota') {
           toast.error('OpenAI API quota exceeded. Please check your billing details or try again later.');
-          return;
+          return { error: 'QUOTA_EXCEEDED' };
         }
       } catch (parseError) {
         console.error('Error parsing error response:', parseError);
@@ -29,10 +29,11 @@ export const useOpenAICall = () => {
     if (status === 502) {
       toast.error('Server connection failed. Please try again in a few moments.');
       console.error('Server connection error:', errorMessage);
-      return null;
+      return { error: 'CONNECTION_FAILED' };
     }
     
-    throw error;
+    toast.error(`OpenAI API error: ${errorMessage}`);
+    return { error: 'API_ERROR' };
   };
 
   const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
@@ -98,6 +99,10 @@ export const useOpenAICall = () => {
         error.status = response.status;
         error.body = JSON.stringify(errorData, null, 4);
         error.message = `OpenAI API error: ${errorData.error?.message || response.statusText}`;
+        const errorResult = handleApiError(error);
+        if (errorResult.error) {
+          return null;
+        }
         throw error;
       }
 
@@ -116,7 +121,10 @@ export const useOpenAICall = () => {
 
       return responseData.choices[0].message.content;
     } catch (error) {
-      handleApiError(error);
+      const errorResult = handleApiError(error);
+      if (errorResult.error) {
+        return null;
+      }
       return null;
     } finally {
       setIsLoading(false);
