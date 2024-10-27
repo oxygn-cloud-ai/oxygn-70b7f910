@@ -6,6 +6,7 @@ import { navItems } from "./nav-items";
 import Navbar from "./components/Navbar";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { getSupabaseClient } from "./lib/supabase";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,8 @@ const App = () => {
         console.error('Missing environment variables:', missingVars);
       } else {
         console.log('All environment variables loaded successfully');
+        // Initialize Supabase client after environment variables are confirmed to be loaded
+        getSupabaseClient();
       }
     };
 
