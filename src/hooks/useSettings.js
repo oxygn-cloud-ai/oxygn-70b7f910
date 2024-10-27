@@ -17,7 +17,7 @@ export const useSettings = (supabase) => {
     setError(null);
     try {
       const { data, error: fetchError } = await supabase
-        .from('settings')
+        .from(import.meta.env.VITE_SETTINGS_TBL)
         .select('*')
         .limit(1)
         .single();
@@ -33,7 +33,7 @@ export const useSettings = (supabase) => {
         };
 
         const { data: insertedData, error: insertError } = await supabase
-          .from('settings')
+          .from(import.meta.env.VITE_SETTINGS_TBL)
           .insert(defaultSettings)
           .select()
           .single();
@@ -63,7 +63,7 @@ export const useSettings = (supabase) => {
       }
 
       const { data, error } = await supabase
-        .from('settings')
+        .from(import.meta.env.VITE_SETTINGS_TBL)
         .update({ [key]: value })
         .eq('setting_id', settings.setting_id)
         .select();
@@ -78,7 +78,7 @@ export const useSettings = (supabase) => {
       console.log('Setting updated successfully:', key, value);
     } catch (error) {
       console.error('Error updating setting:', error);
-      throw error; // Re-throw the error to be handled by the component
+      throw error;
     }
   };
 
