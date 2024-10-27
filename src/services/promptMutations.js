@@ -2,6 +2,12 @@ import { toast } from 'sonner';
 import { calculateNewPositions } from '../utils/positionUtils';
 
 export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
+  const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
+    
+  if (!promptsTable) {
+    throw new Error('Prompts table environment variable is not defined');
+  }
+
   const positions = calculateNewPositions(siblings, currentIndex, direction);
   if (!positions) {
     toast.error(`Cannot move ${direction} any further`);
@@ -10,7 +16,7 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 
   try {
     const { error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .from(promptsTable)
       .update({ position: positions.newPosition })
       .eq('row_id', itemId);
 
@@ -24,9 +30,15 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 };
 
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
+  const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
+    
+  if (!promptsTable) {
+    throw new Error('Prompts table environment variable is not defined');
+  }
+
   try {
     const { data: siblings } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .from(promptsTable)
       .select('position')
       .eq('parent_row_id', parentId)
       .order('position', { ascending: false })
@@ -36,7 +48,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
     const newPosition = lastPosition ? lastPosition + 1000000 : Date.now() * 1000;
 
     const { data, error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .from(promptsTable)
       .insert({
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
@@ -87,9 +99,15 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
 };
 
 export const deletePrompt = async (supabase, id) => {
+  const promptsTable = import.meta.env.VITE_PROMPTS_TBL;
+    
+  if (!promptsTable) {
+    throw new Error('Prompts table environment variable is not defined');
+  }
+
   try {
     const { error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .from(promptsTable)
       .update({ is_deleted: true })
       .eq('row_id', id);
     
