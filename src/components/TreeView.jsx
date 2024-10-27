@@ -31,10 +31,8 @@ const TreeView = ({
         setEditingItem={setEditingItem}
         finishRenaming={async () => {
           if (editingItem) {
-            // Only update the prompt_name field
             await handleUpdateField('prompt_name', editingItem.name);
             setEditingItem(null);
-            await refreshTreeData();
           }
         }}
         cancelRenaming={() => setEditingItem(null)}
@@ -47,7 +45,7 @@ const TreeView = ({
         onRefreshTreeData={refreshTreeData}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem]);
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem, refreshTreeData]);
 
   return (
     <Accordion

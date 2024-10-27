@@ -38,13 +38,23 @@ const Projects = () => {
     if (activeItem) {
       const success = await updateField(activeItem, fieldName, value);
       if (success) {
-        setSelectedItemData(prevData => ({
-          ...prevData,
-          [fieldName]: value
-        }));
+        if (fieldName === 'prompt_name') {
+          // For prompt_name updates, update the local state immediately
+          setSelectedItemData(prev => ({
+            ...prev,
+            prompt_name: value
+          }));
+          // Only refresh tree data for name changes
+          await refreshTreeData();
+        } else {
+          setSelectedItemData(prev => ({
+            ...prev,
+            [fieldName]: value
+          }));
+        }
       }
     }
-  }, [activeItem, updateField]);
+  }, [activeItem, updateField, refreshTreeData]);
 
   useEffect(() => {
     const loadItemData = async () => {
