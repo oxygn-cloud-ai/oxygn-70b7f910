@@ -1,83 +1,34 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchPrompts } from '../services/promptService';
 import { toast } from 'sonner';
-import { fetchPrompts, addPrompt, deletePrompt } from '../services/promptService';
-import { retry } from '../utils/retryUtils';
 
 const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
-  const [defaultAdminPrompt, setDefaultAdminPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchTreeData = useCallback(async () => {
+  const refreshTreeData = useCallback(async () => {
     if (!supabase) return;
-
+    
     try {
-      const data = await retry(() => fetchPrompts(supabase), {
-        retries: 3,
-        delay: 1000
-      });
-      
-      setTreeData(data);
-
-      const { data: settingsData, error: settingsError } = await retry(() => 
-        supabase
-          .from(import.meta.env.VITE_SETTINGS_TBL)
-          .select('def_admin_prompt')
-          .single()
-      , {
-        retries: 3,
-        delay: 1000
-      });
-
-      if (settingsError) throw settingsError;
-      setDefaultAdminPrompt(settingsData?.def_admin_prompt || '');
+      const data = await fetchPrompts(supabase);
+      setTreeData(data || []);
     } catch (error) {
-      console.error('Error fetching tree data:', error);
-      toast.error('Network error: Please check your connection and try again');
-      setTreeData([]);
-    } finally {
-      setIsLoading(false);
+      console.error('Error refreshing tree data:', error);
+      toast.error('Failed to refresh tree data');
     }
   }, [supabase]);
 
-  const handleAddItem = useCallback(async (parentId) => {
-    if (!supabase) return null;
-    try {
-      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
-      await fetchTreeData();
-      return newItemId;
-    } catch (error) {
-      console.error('Error adding new prompt:', error);
-      toast.error('Failed to add new prompt');
-      return null;
-    }
-  }, [supabase, defaultAdminPrompt, fetchTreeData]);
-
-  const handleDeleteItem = useCallback(async (itemId) => {
-    if (!supabase) return false;
-    try {
-      await deletePrompt(supabase, itemId);
-      await fetchTreeData();
-      return true;
-    } catch (error) {
-      console.error('Error deleting prompt:', error);
-      toast.error('Failed to delete prompt');
-      return false;
-    }
-  }, [supabase, fetchTreeData]);
-
   useEffect(() => {
-    fetchTreeData();
-  }, [fetchTreeData]);
+    const loadTreeData = async () => {
+      setIsLoading(true);
+      await refreshTreeData();
+      setIsLoading(false);
+    };
 
-  return { 
-    treeData, 
-    defaultAdminPrompt, 
-    isLoading, 
-    refreshTreeData: fetchTreeData,
-    addItem: handleAddItem,
-    deleteItem: handleDeleteItem
-  };
+    loadTreeData();
+  }, [refreshTreeData]);
+
+  return { treeData, isLoading, refreshTreeData };
 };
 
 export default useTreeData;
