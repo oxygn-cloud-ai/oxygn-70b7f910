@@ -9,6 +9,20 @@ export const useOpenAICall = () => {
   };
 
   const handleApiError = (error) => {
+    // Check for quota exceeded error
+    if (error.status === 429) {
+      try {
+        const errorBody = JSON.parse(error.body);
+        if (errorBody.error?.code === 'insufficient_quota') {
+          toast.error('OpenAI API quota exceeded. Please check your billing details or try again later.');
+          return;
+        }
+      } catch (parseError) {
+        console.error('Error parsing error response:', parseError);
+      }
+    }
+    
+    // Handle other errors
     const errorMessage = error.message || 'An unknown error occurred';
     const status = error.status || 500;
     
@@ -39,7 +53,6 @@ export const useOpenAICall = () => {
       let temperature = 0.7; // Default value
       if (projectSettings.temperature_on && projectSettings.temperature !== undefined) {
         const parsedTemp = parseFloat(projectSettings.temperature);
-        // OpenAI requires temperature to be between 0 and 2
         if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
           temperature = parsedTemp;
         } else {
@@ -81,31 +94,11 @@ export const useOpenAICall = () => {
 
       if (!response?.ok) {
         const errorData = await response.json();
-        console.error('OpenAI API Error:', errorData);
-
-        if (errorData.error?.code === 'model_not_found') {
-          toast.warning('Model not found, falling back to gpt-3.5-turbo');
-          requestBody.model = 'gpt-3.5-turbo';
-          
-          const fallbackResponse = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiSettings.openai_api_key}`
-            },
-            body: JSON.stringify(requestBody)
-          });
-
-          if (!fallbackResponse.ok) {
-            const fallbackErrorData = await fallbackResponse.json();
-            throw new Error(`Fallback OpenAI API error: ${fallbackErrorData.error?.message || fallbackResponse.statusText}`);
-          }
-
-          const fallbackData = await fallbackResponse.json();
-          return fallbackData.choices[0].message.content;
-        }
-
-        throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+        const error = new Error();
+        error.status = response.status;
+        error.body = JSON.stringify(errorData, null, 4);
+        error.message = `OpenAI API error: ${errorData.error?.message || response.statusText}`;
+        throw error;
       }
 
       const responseData = await response.json();
@@ -123,9 +116,8 @@ export const useOpenAICall = () => {
 
       return responseData.choices[0].message.content;
     } catch (error) {
-      console.error('Error calling OpenAI:', error);
-      toast.error(`OpenAI API error: ${error.message}`);
-      throw error;
+      handleApiError(error);
+      return null;
     } finally {
       setIsLoading(false);
     }
