@@ -9,8 +9,18 @@ export const useOpenAICall = () => {
   };
 
   const handleApiError = (error) => {
-    // Check for quota exceeded error
-    if (error.status === 429) {
+    const errorMessage = error.message || 'An unknown error occurred';
+    const status = error.status || 500;
+    
+    // Handle server errors (5xx)
+    if (status >= 500) {
+      toast.error('Server is temporarily unavailable. Please try again in a few moments.');
+      console.error('Server error:', errorMessage);
+      return { error: 'SERVER_ERROR' };
+    }
+    
+    // Handle quota exceeded error
+    if (status === 429) {
       try {
         const errorBody = JSON.parse(error.body);
         if (errorBody.error?.code === 'insufficient_quota') {
@@ -21,18 +31,8 @@ export const useOpenAICall = () => {
         console.error('Error parsing error response:', parseError);
       }
     }
-    
-    // Handle other errors
-    const errorMessage = error.message || 'An unknown error occurred';
-    const status = error.status || 500;
-    
-    if (status === 502) {
-      toast.error('Server connection failed. Please try again in a few moments.');
-      console.error('Server connection error:', errorMessage);
-      return { error: 'CONNECTION_FAILED' };
-    }
-    
-    toast.error(`OpenAI API error: ${errorMessage}`);
+
+    toast.error(`API error: ${errorMessage}`);
     return { error: 'API_ERROR' };
   };
 
