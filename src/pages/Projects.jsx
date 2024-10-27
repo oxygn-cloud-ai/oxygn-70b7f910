@@ -25,8 +25,9 @@ const Projects = () => {
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
 
+  // Only set initial expanded state once when treeData is first loaded
   useEffect(() => {
-    if (treeData && treeData.length > 0) {
+    if (treeData && treeData.length > 0 && expandedItems.length === 0) {
       const rootIds = treeData.map(item => item.id);
       setExpandedItems(rootIds);
     }
