@@ -7,7 +7,40 @@ import { Save, RotateCcw } from 'lucide-react';
 
 const SettingsPanel = ({ localData, selectedItemData, models, handleChange, handleSave, handleReset, hasUnsavedChanges }) => {
   const handleCheckChange = (fieldName, checked) => {
+    // Update both the _on field and initialize the value field if it's being enabled
     handleChange(`${fieldName}_on`, checked);
+    
+    // If checkbox is being checked and the field doesn't have a value, initialize it
+    if (checked && !localData[fieldName]) {
+      // Initialize with appropriate default values based on field type
+      switch (fieldName) {
+        case 'temperature':
+          handleChange(fieldName, '0.7');
+          break;
+        case 'max_tokens':
+          handleChange(fieldName, '2048');
+          break;
+        case 'top_p':
+          handleChange(fieldName, '1');
+          break;
+        case 'frequency_penalty':
+        case 'presence_penalty':
+          handleChange(fieldName, '0');
+          break;
+        case 'n':
+          handleChange(fieldName, '1');
+          break;
+        case 'stream':
+        case 'echo':
+          handleChange(fieldName, false);
+          break;
+        case 'response_format':
+          handleChange(fieldName, '{"type": "text"}');
+          break;
+        default:
+          handleChange(fieldName, '');
+      }
+    }
   };
 
   const renderSettingFields = () => {
