@@ -15,7 +15,7 @@ const useTreeData = (supabase) => {
       setTreeData(data);
 
       const { data: settingsData, error: settingsError } = await supabase
-        .from('settings')
+        .from(import.meta.env.VITE_SETTINGS_TBL)
         .select('def_admin_prompt')
         .single();
 

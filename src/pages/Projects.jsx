@@ -44,7 +44,7 @@ const Projects = () => {
     if (activeItem && supabase) {
       try {
         const { error } = await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ [fieldName]: value })
           .eq('row_id', activeItem);
 
@@ -109,7 +109,7 @@ const Projects = () => {
       const fetchItemData = async () => {
         try {
           const { data, error } = await supabase
-            .from('prompts')
+            .from(import.meta.env.VITE_PROMPTS_TBL)
             .select('*')
             .eq('row_id', activeItem)
             .single();

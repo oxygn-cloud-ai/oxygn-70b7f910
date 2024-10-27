@@ -10,7 +10,7 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 
   try {
     const { error } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .update({ position: positions.newPosition })
       .eq('row_id', itemId);
 
@@ -26,17 +26,17 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
     const { data: siblings } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('position')
       .eq('parent_row_id', parentId)
       .order('position', { ascending: false })
       .limit(1);
 
     const lastPosition = siblings?.[0]?.position;
-    const newPosition = lastPosition ? lastPosition + 1000000 : Date.now() * 1000;
+    const newPosition = lastPosition ? calculateNewPositions(lastPosition, null) : getInitialPosition();
 
     const { data, error } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .insert({
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
@@ -77,7 +77,6 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
       .single();
 
     if (error) throw error;
-    toast.success('New prompt added successfully');
     return data.row_id;
   } catch (error) {
     console.error('Error adding prompt:', error);
@@ -86,18 +85,106 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   }
 };
 
-export const deletePrompt = async (supabase, id) => {
+export const updatePrompt = async (supabase, id, updates) => {
   try {
     const { error } = await supabase
-      .from('prompts')
-      .update({ is_deleted: true })
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .update(updates)
       .eq('row_id', id);
-    
     if (error) throw error;
-    toast.success('Prompt deleted successfully');
+  } catch (error) {
+    console.error('Error updating prompt:', error);
+    throw error;
+  }
+};
+
+export const deletePrompt = async (supabase, id) => {
+  try {
+    const markAsDeleted = async (itemId) => {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ is_deleted: true })
+        .eq('row_id', itemId);
+      
+      if (error) throw error;
+
+      const { data: children, error: childrenError } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id')
+        .eq('parent_row_id', itemId);
+      
+      if (childrenError) throw childrenError;
+
+      for (const child of children) {
+        await markAsDeleted(child.row_id);
+      }
+    };
+
+    await markAsDeleted(id);
   } catch (error) {
     console.error('Error deleting prompt:', error);
-    toast.error('Failed to delete prompt');
+    throw error;
+  }
+};
+
+export const duplicatePrompt = async (supabase, itemId) => {
+  try {
+    const duplicateRecursive = async (id, parentId) => {
+      const { data: originalItem } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('*')
+        .eq('row_id', id)
+        .single();
+
+      if (!originalItem) throw new Error('Item not found');
+
+      const newItem = { ...originalItem, row_id: undefined, parent_row_id: parentId };
+      delete newItem.id;
+      newItem.prompt_name = `${newItem.prompt_name} (Copy)`;
+
+      const { data: insertedItem, error: insertError } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .insert(newItem)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      const { data: children } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id')
+        .eq('parent_row_id', id);
+
+      for (const child of children) {
+        await duplicateRecursive(child.row_id, insertedItem.row_id);
+      }
+
+      return insertedItem.row_id;
+    };
+
+    const { data: originalItem } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('parent_row_id')
+      .eq('row_id', itemId)
+      .single();
+
+    await duplicateRecursive(itemId, originalItem.parent_row_id);
+  } catch (error) {
+    console.error('Error duplicating prompt:', error);
+    throw error;
+  }
+};
+
+export const movePrompt = async (supabase, itemId, newParentId) => {
+  try {
+    const { error } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .update({ parent_row_id: newParentId })
+      .eq('row_id', itemId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Error moving prompt:', error);
     throw error;
   }
 };

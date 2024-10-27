@@ -21,7 +21,7 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null, onUpda
     if (supabase) {
       try {
         const { data, error } = await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('*')
           .eq('row_id', rowId)
           .single();
@@ -52,7 +52,7 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null, onUpda
     if (activeItem && supabase) {
       try {
         const { error } = await supabase
-          .from('prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ [fieldName]: value })
           .eq('row_id', activeItem);
 
