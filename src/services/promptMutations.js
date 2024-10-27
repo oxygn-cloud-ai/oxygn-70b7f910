@@ -1,5 +1,22 @@
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
   const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+  // First, get the maximum position value for the current level
+  const { data: maxPositionData, error: positionError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('position')
+    .eq('parent_row_id', parentId)
+    .eq('is_deleted', false)
+    .order('position', { ascending: false })
+    .limit(1);
+
+  if (positionError) throw positionError;
+
+  // Calculate the new position (either max + 1000000 or start at 1000000)
+  const newPosition = maxPositionData && maxPositionData.length > 0
+    ? maxPositionData[0].position + 1000000
+    : 1000000;
+
   const { data, error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
@@ -7,6 +24,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       input_admin_prompt: defaultAdminPrompt,
       is_deleted: false,
       prompt_name: `New Prompt ${timestamp}`,
+      position: newPosition,
       batch_size_on: false,
       best_of_on: false,
       context_length_on: false,
