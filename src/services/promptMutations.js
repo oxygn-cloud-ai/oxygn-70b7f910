@@ -47,3 +47,34 @@ export const duplicatePrompt = async (supabase, itemId) => {
   if (insertError) throw insertError;
   return newData[0].row_id;
 };
+
+export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
+  if (!supabase || !itemId || !siblings || currentIndex === undefined || !direction) {
+    return false;
+  }
+
+  try {
+    let newPosition;
+    
+    if (direction === 'up' && currentIndex > 0) {
+      // Calculate new position between the previous two items
+      newPosition = (siblings[currentIndex - 1].position + (siblings[currentIndex - 2]?.position || 0)) / 2;
+    } else if (direction === 'down' && currentIndex < siblings.length - 1) {
+      // Calculate new position between the next two items
+      newPosition = (siblings[currentIndex + 1].position + (siblings[currentIndex + 2]?.position || siblings[currentIndex + 1].position + 1000000)) / 2;
+    } else {
+      return false;
+    }
+
+    const { error } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .update({ position: newPosition })
+      .eq('row_id', itemId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error moving prompt position:', error);
+    throw error;
+  }
+};
