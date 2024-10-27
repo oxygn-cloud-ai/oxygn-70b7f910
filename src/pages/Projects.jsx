@@ -15,6 +15,51 @@ import { useTreeOperations } from '../hooks/useTreeOperations';
 import { usePromptData } from '../hooks/usePromptData';
 import { toast } from 'sonner';
 
+// Extract tree rendering logic to a separate component
+const TreeView = ({ treeData, expandedItems, toggleItem, editingItem, setEditingItem, handleUpdateField, refreshTreeData, activeItem, setActiveItem, handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem }) => {
+  const renderTreeItems = useCallback((items) => (
+    items.map((item) => (
+      <TreeItem
+        key={item.id}
+        item={item}
+        level={1}
+        expandedItems={expandedItems}
+        toggleItem={toggleItem}
+        addItem={handleAddItem}
+        startRenaming={(id, name) => setEditingItem({ id, name })}
+        editingItem={editingItem}
+        setEditingItem={setEditingItem}
+        finishRenaming={async () => {
+          if (editingItem) {
+            // Only update the prompt_name field
+            await handleUpdateField('prompt_name', editingItem.name);
+            setEditingItem(null);
+            await refreshTreeData();
+          }
+        }}
+        cancelRenaming={() => setEditingItem(null)}
+        activeItem={activeItem}
+        setActiveItem={setActiveItem}
+        deleteItem={handleDeleteItem}
+        duplicateItem={handleDuplicateItem}
+        moveItem={handleMoveItem}
+        onRefreshTreeData={refreshTreeData}
+      />
+    ))
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem]);
+
+  return (
+    <Accordion
+      type="multiple"
+      value={expandedItems}
+      onValueChange={setExpandedItems}
+      className="w-full min-w-max"
+    >
+      {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
+    </Accordion>
+  );
+};
+
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
@@ -54,28 +99,12 @@ const Projects = () => {
     loadExpandedState();
   }, [treeData, supabase]);
 
-  const toggleItem = useCallback(async (itemId) => {
-    if (!supabase) return;
-
-    const newExpandedState = expandedItems.includes(itemId)
-      ? expandedItems.filter(id => id !== itemId)
-      : [...expandedItems, itemId];
-
-    try {
-      const { error } = await supabase
-        .from(import.meta.env.VITE_PROMPTS_TBL)
-        .update({ expanded_item: !expandedItems.includes(itemId) })
-        .eq('row_id', itemId);
-
-      if (error) throw error;
-
-      setExpandedItems(newExpandedState);
-      setActiveItem(itemId);
-    } catch (error) {
-      console.error('Error updating expanded state:', error);
-      toast.error('Failed to update expanded state');
-    }
-  }, [expandedItems, supabase]);
+  const toggleItem = useCallback((itemId) => {
+    setExpandedItems(prev => 
+      prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
+    );
+    setActiveItem(itemId);
+  }, []);
 
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (activeItem) {
@@ -85,13 +114,9 @@ const Projects = () => {
           ...prevData,
           [fieldName]: value
         }));
-
-        if (fieldName === 'prompt_name') {
-          await refreshTreeData();
-        }
       }
     }
-  }, [activeItem, updateField, refreshTreeData]);
+  }, [activeItem, updateField]);
 
   useEffect(() => {
     const loadItemData = async () => {
@@ -114,40 +139,6 @@ const Projects = () => {
     setShowParentPromptPopup(true);
   }, [selectedItemData]);
 
-  const handleUpdateParentData = useCallback((updatedData) => {
-    setSelectedItemData(updatedData);
-  }, []);
-
-  const renderTreeItems = useCallback((items) => (
-    items.map((item) => (
-      <TreeItem
-        key={item.id}
-        item={item}
-        level={1}
-        expandedItems={expandedItems}
-        toggleItem={toggleItem}
-        addItem={handleAddItem}
-        startRenaming={(id, name) => setEditingItem({ id, name })}
-        editingItem={editingItem}
-        setEditingItem={setEditingItem}
-        finishRenaming={async () => {
-          if (editingItem) {
-            await handleUpdateField('prompt_name', editingItem.name);
-            setEditingItem(null);
-            await refreshTreeData();
-          }
-        }}
-        cancelRenaming={() => setEditingItem(null)}
-        activeItem={activeItem}
-        setActiveItem={setActiveItem}
-        deleteItem={handleDeleteItem}
-        duplicateItem={handleDuplicateItem}
-        moveItem={handleMoveItem}
-        onRefreshTreeData={refreshTreeData}
-      />
-    ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, refreshTreeData, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField]);
-
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -164,15 +155,24 @@ const Projects = () => {
                     <PlusCircle className="h-5 w-5" />
                   </Button>
                 </div>
-                {isLoading ? <div>Loading...</div> : (
-                  <Accordion
-                    type="multiple"
-                    value={expandedItems}
-                    onValueChange={setExpandedItems}
-                    className="w-full min-w-max"
-                  >
-                    {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
-                  </Accordion>
+                {isLoading ? (
+                  <div>Loading...</div>
+                ) : (
+                  <TreeView
+                    treeData={treeData}
+                    expandedItems={expandedItems}
+                    toggleItem={toggleItem}
+                    editingItem={editingItem}
+                    setEditingItem={setEditingItem}
+                    handleUpdateField={handleUpdateField}
+                    refreshTreeData={refreshTreeData}
+                    activeItem={activeItem}
+                    setActiveItem={setActiveItem}
+                    handleAddItem={handleAddItem}
+                    handleDeleteItem={handleDeleteItem}
+                    handleDuplicateItem={handleDuplicateItem}
+                    handleMoveItem={handleMoveItem}
+                  />
                 )}
               </div>
             </div>
@@ -204,7 +204,6 @@ const Projects = () => {
           onClose={() => setShowParentPromptPopup(false)}
           parentData={selectedItemData}
           cascadeField={cascadeInfo.fieldName}
-          onUpdateParentData={handleUpdateParentData}
         />
       </div>
     </DndProvider>
