@@ -17,7 +17,7 @@ export const useSettings = (supabase) => {
     setError(null);
     try {
       const { data, error: fetchError } = await supabase
-        .from(import.meta.env.VITE_INFO_TBL)
+        .from(import.meta.env.VITE_SETTINGS_TBL)
         .select('*')
         .limit(1)
         .single();
@@ -33,7 +33,7 @@ export const useSettings = (supabase) => {
         };
 
         const { data: insertedData, error: insertError } = await supabase
-          .from(import.meta.env.VITE_INFO_TBL)
+          .from(import.meta.env.VITE_SETTINGS_TBL)
           .insert(defaultSettings)
           .select()
           .single();
@@ -63,7 +63,7 @@ export const useSettings = (supabase) => {
       }
 
       const { data, error } = await supabase
-        .from(import.meta.env.VITE_INFO_TBL)
+        .from(import.meta.env.VITE_SETTINGS_TBL)
         .update({ [key]: value })
         .eq('setting_id', settings.setting_id)
         .select();
