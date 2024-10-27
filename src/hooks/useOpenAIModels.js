@@ -14,7 +14,7 @@ export const useOpenAIModels = () => {
     try {
       setIsLoading(true);
       const query = supabase
-        .from('openai_models')
+        .from(import.meta.env.VITE_MODELS_TBL)
         .select('model, max_tokens')
         .eq('is_deleted', false);
       

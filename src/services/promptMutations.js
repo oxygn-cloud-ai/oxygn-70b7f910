@@ -10,7 +10,7 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 
   try {
     const { error } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .update({ position: positions.newPosition })
       .eq('row_id', itemId);
 
@@ -26,7 +26,7 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
   try {
     const { data: siblings } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('position')
       .eq('parent_row_id', parentId)
       .order('position', { ascending: false })
@@ -36,7 +36,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
     const newPosition = lastPosition ? lastPosition + 1000000 : Date.now() * 1000;
 
     const { data, error } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .insert({
         parent_row_id: parentId,
         prompt_name: 'New Prompt',
@@ -89,7 +89,7 @@ export const addPrompt = async (supabase, parentId, defaultAdminPrompt) => {
 export const deletePrompt = async (supabase, id) => {
   try {
     const { error } = await supabase
-      .from('prompts')
+      .from(import.meta.env.VITE_PROMPTS_TBL)
       .update({ is_deleted: true })
       .eq('row_id', id);
     
