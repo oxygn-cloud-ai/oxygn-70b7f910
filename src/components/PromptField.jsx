@@ -42,6 +42,36 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   };
 
+  const handleSave = async () => {
+    // Create source info JSON structure
+    const fieldKey = label.toLowerCase().replace(' ', '_');
+    const sourceInfo = {
+      [fieldKey]: {
+        parts: [
+          {
+            type: "user_input",
+            text: value,
+            order: 1
+          }
+        ],
+        metadata: {
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+          part_count: 1
+        }
+      }
+    };
+
+    // Call the original onSave and also save the source info
+    try {
+      await onSave(sourceInfo);
+      toast.success('Content and source information saved');
+    } catch (err) {
+      console.error('Failed to save: ', err);
+      toast.error('Failed to save content');
+    }
+  };
+
   const renderLabel = () => {
     if ((label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isLinksPage) {
       return (
@@ -100,7 +130,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onSave}
+                onClick={handleSave}
                 disabled={!hasUnsavedChanges}
                 className={`h-6 w-6 ${hasUnsavedChanges ? 'text-green-700' : ''}`}
                 title="Save changes"

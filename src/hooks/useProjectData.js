@@ -17,13 +17,22 @@ export const useProjectData = (initialData, projectRowId) => {
     setUnsavedChanges(prev => ({ ...prev, [fieldName]: true }));
   };
 
-  const handleSave = async (fieldName) => {
+  const handleSave = async (fieldName, sourceInfo = null) => {
     if (!supabase || !projectRowId) return;
 
     try {
+      const updateData = {
+        [fieldName]: localData[fieldName]
+      };
+
+      // If sourceInfo is provided, add it to the update
+      if (sourceInfo) {
+        updateData.source_fsource_info = sourceInfo;
+      }
+
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
-        .update({ [fieldName]: localData[fieldName] })
+        .update(updateData)
         .eq('row_id', projectRowId);
 
       if (error) throw error;
