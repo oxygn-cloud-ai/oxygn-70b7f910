@@ -41,10 +41,26 @@ export const useProjectData = (initialData, projectRowId) => {
         }));
       }
 
-      const { error } = await supabase
+      // Log the API call details
+      console.log('Supabase API Call:', {
+        table: import.meta.env.VITE_PROMPTS_TBL,
+        method: 'UPDATE',
+        filters: { row_id: projectRowId },
+        data: updateData
+      });
+
+      const { data, error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .update(updateData)
         .eq('row_id', projectRowId);
+
+      // Log the API response
+      console.log('Supabase API Response:', {
+        success: !error,
+        data: data,
+        error: error,
+        timestamp: new Date().toISOString()
+      });
 
       if (error) throw error;
 
