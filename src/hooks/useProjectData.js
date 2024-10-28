@@ -25,9 +25,13 @@ export const useProjectData = (initialData, projectRowId) => {
         [fieldName]: localData[fieldName]
       };
 
-      // If sourceInfo is provided, add it to the update
+      // If sourceInfo is provided, update it in the source_info column
       if (sourceInfo) {
-        updateData.source_info = sourceInfo;
+        const currentSourceInfo = localData.source_info || {};
+        updateData.source_info = {
+          ...currentSourceInfo,
+          ...sourceInfo
+        };
       }
 
       const { error } = await supabase
