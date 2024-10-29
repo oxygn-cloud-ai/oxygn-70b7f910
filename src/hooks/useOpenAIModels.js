@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../integrations/supabase/supabase';
 
 export const useOpenAIModels = () => {
   const [models, setModels] = useState([]);
