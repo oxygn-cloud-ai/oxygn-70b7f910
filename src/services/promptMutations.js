@@ -93,65 +93,96 @@ export const deletePrompt = async (supabase, itemId) => {
 };
 
 export const duplicatePrompt = async (supabase, itemId) => {
-  const { data: sourceData, error: fetchError } = await supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('*')
-    .eq('row_id', itemId)
-    .single();
+  // Helper function to duplicate a single prompt and get its new ID
+  const duplicateSinglePrompt = async (sourceData, newParentId = null) => {
+    const newPromptData = {
+      ...sourceData,
+      parent_row_id: newParentId ?? sourceData.parent_row_id,
+      input_admin_prompt: sourceData.input_admin_prompt,
+      input_user_prompt: sourceData.input_user_prompt,
+      prompt_name: `${sourceData.prompt_name || 'New Prompt'} (copy)`,
+      is_deleted: false,
+      // Ensure all required boolean fields have default values
+      frequency_penalty_on: sourceData.frequency_penalty_on ?? false,
+      presence_penalty_on: sourceData.presence_penalty_on ?? false,
+      temperature_on: sourceData.temperature_on ?? true,
+      max_tokens_on: sourceData.max_tokens_on ?? true,
+      top_p_on: sourceData.top_p_on ?? true,
+      n_on: sourceData.n_on ?? false,
+      stream_on: sourceData.stream_on ?? false,
+      echo_on: sourceData.echo_on ?? false,
+      response_format_on: sourceData.response_format_on ?? true,
+      model_on: sourceData.model_on ?? true,
+      stop_on: sourceData.stop_on ?? false,
+      logit_bias_on: sourceData.logit_bias_on ?? false,
+      o_user_on: sourceData.o_user_on ?? false,
+      best_of_on: sourceData.best_of_on ?? false,
+      logprobs_on: sourceData.logprobs_on ?? false,
+      suffix_on: sourceData.suffix_on ?? false,
+      temperature_scaling_on: sourceData.temperature_scaling_on ?? false,
+      prompt_tokens_on: sourceData.prompt_tokens_on ?? false,
+      response_tokens_on: sourceData.response_tokens_on ?? false,
+      batch_size_on: sourceData.batch_size_on ?? false,
+      learning_rate_multiplier_on: sourceData.learning_rate_multiplier_on ?? false,
+      n_epochs_on: sourceData.n_epochs_on ?? false,
+      validation_file_on: sourceData.validation_file_on ?? false,
+      training_file_on: sourceData.training_file_on ?? false,
+      engine_on: sourceData.engine_on ?? false,
+      input_on: sourceData.input_on ?? false,
+      context_length_on: sourceData.context_length_on ?? false,
+      custom_finetune_on: sourceData.custom_finetune_on ?? false,
+      prompt_settings_open: sourceData.prompt_settings_open ?? true
+    };
 
-  if (fetchError) throw fetchError;
+    // Remove the row_id and created timestamp so new ones will be generated
+    delete newPromptData.row_id;
+    delete newPromptData.created;
 
-  // Set required fields with default values if they're null
-  const newPromptData = {
-    ...sourceData,
-    parent_row_id: sourceData.parent_row_id,
-    input_admin_prompt: sourceData.input_admin_prompt,
-    input_user_prompt: sourceData.input_user_prompt,
-    prompt_name: `${sourceData.prompt_name || 'New Prompt'} (copy)`,
-    is_deleted: false,
-    // Ensure all required boolean fields have default values
-    frequency_penalty_on: sourceData.frequency_penalty_on ?? false,
-    presence_penalty_on: sourceData.presence_penalty_on ?? false,
-    temperature_on: sourceData.temperature_on ?? true,
-    max_tokens_on: sourceData.max_tokens_on ?? true,
-    top_p_on: sourceData.top_p_on ?? true,
-    n_on: sourceData.n_on ?? false,
-    stream_on: sourceData.stream_on ?? false,
-    echo_on: sourceData.echo_on ?? false,
-    response_format_on: sourceData.response_format_on ?? true,
-    model_on: sourceData.model_on ?? true,
-    stop_on: sourceData.stop_on ?? false,
-    logit_bias_on: sourceData.logit_bias_on ?? false,
-    o_user_on: sourceData.o_user_on ?? false,
-    best_of_on: sourceData.best_of_on ?? false,
-    logprobs_on: sourceData.logprobs_on ?? false,
-    suffix_on: sourceData.suffix_on ?? false,
-    temperature_scaling_on: sourceData.temperature_scaling_on ?? false,
-    prompt_tokens_on: sourceData.prompt_tokens_on ?? false,
-    response_tokens_on: sourceData.response_tokens_on ?? false,
-    batch_size_on: sourceData.batch_size_on ?? false,
-    learning_rate_multiplier_on: sourceData.learning_rate_multiplier_on ?? false,
-    n_epochs_on: sourceData.n_epochs_on ?? false,
-    validation_file_on: sourceData.validation_file_on ?? false,
-    training_file_on: sourceData.training_file_on ?? false,
-    engine_on: sourceData.engine_on ?? false,
-    input_on: sourceData.input_on ?? false,
-    context_length_on: sourceData.context_length_on ?? false,
-    custom_finetune_on: sourceData.custom_finetune_on ?? false,
-    prompt_settings_open: sourceData.prompt_settings_open ?? true
+    const { data: newData, error: insertError } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .insert([newPromptData])
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    return newData.row_id;
   };
 
-  // Remove the row_id so a new one will be generated
-  delete newPromptData.row_id;
-  delete newPromptData.created;
+  // Recursive function to duplicate a prompt and all its descendants
+  const duplicatePromptTree = async (promptId, newParentId = null) => {
+    // Fetch the source prompt
+    const { data: sourceData, error: fetchError } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('*')
+      .eq('row_id', promptId)
+      .single();
 
-  const { data: newData, error: insertError } = await supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .insert([newPromptData])
-    .select();
+    if (fetchError) throw fetchError;
 
-  if (insertError) throw insertError;
-  return newData[0].row_id;
+    // Duplicate the current prompt
+    const newPromptId = await duplicateSinglePrompt(sourceData, newParentId);
+
+    // Fetch all children of the source prompt
+    const { data: children, error: childrenError } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('*')
+      .eq('parent_row_id', promptId)
+      .eq('is_deleted', false);
+
+    if (childrenError) throw childrenError;
+
+    // Recursively duplicate all children
+    if (children && children.length > 0) {
+      for (const child of children) {
+        await duplicatePromptTree(child.row_id, newPromptId);
+      }
+    }
+
+    return newPromptId;
+  };
+
+  // Start the duplication process from the root prompt
+  return await duplicatePromptTree(itemId);
 };
 
 export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
