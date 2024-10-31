@@ -1,0 +1,8 @@
+VITE_SUPABASE_PROJECT_URL=https://your-project-url.supabase.co
+VITE_SUPABASE_API_KEY=your-api-key
+VITE_PROMPTS_TBL=prompts
+VITE_SETTINGS_TBL=settings
+VITE_MODELS_TBL=models
+VITE_INFO_TBL=info
+VITE_OPENAI_URL=https://api.openai.com/v1
+VITE_DEBUG=TRUE
