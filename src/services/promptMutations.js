@@ -101,17 +101,53 @@ export const duplicatePrompt = async (supabase, itemId) => {
 
   if (fetchError) throw fetchError;
 
-  const { parent_row_id, input_admin_prompt, input_user_prompt } = sourceData;
-  
+  // Set required fields with default values if they're null
+  const newPromptData = {
+    ...sourceData,
+    parent_row_id: sourceData.parent_row_id,
+    input_admin_prompt: sourceData.input_admin_prompt,
+    input_user_prompt: sourceData.input_user_prompt,
+    prompt_name: `${sourceData.prompt_name || 'New Prompt'} (copy)`,
+    is_deleted: false,
+    // Ensure all required boolean fields have default values
+    frequency_penalty_on: sourceData.frequency_penalty_on ?? false,
+    presence_penalty_on: sourceData.presence_penalty_on ?? false,
+    temperature_on: sourceData.temperature_on ?? true,
+    max_tokens_on: sourceData.max_tokens_on ?? true,
+    top_p_on: sourceData.top_p_on ?? true,
+    n_on: sourceData.n_on ?? false,
+    stream_on: sourceData.stream_on ?? false,
+    echo_on: sourceData.echo_on ?? false,
+    response_format_on: sourceData.response_format_on ?? true,
+    model_on: sourceData.model_on ?? true,
+    stop_on: sourceData.stop_on ?? false,
+    logit_bias_on: sourceData.logit_bias_on ?? false,
+    o_user_on: sourceData.o_user_on ?? false,
+    best_of_on: sourceData.best_of_on ?? false,
+    logprobs_on: sourceData.logprobs_on ?? false,
+    suffix_on: sourceData.suffix_on ?? false,
+    temperature_scaling_on: sourceData.temperature_scaling_on ?? false,
+    prompt_tokens_on: sourceData.prompt_tokens_on ?? false,
+    response_tokens_on: sourceData.response_tokens_on ?? false,
+    batch_size_on: sourceData.batch_size_on ?? false,
+    learning_rate_multiplier_on: sourceData.learning_rate_multiplier_on ?? false,
+    n_epochs_on: sourceData.n_epochs_on ?? false,
+    validation_file_on: sourceData.validation_file_on ?? false,
+    training_file_on: sourceData.training_file_on ?? false,
+    engine_on: sourceData.engine_on ?? false,
+    input_on: sourceData.input_on ?? false,
+    context_length_on: sourceData.context_length_on ?? false,
+    custom_finetune_on: sourceData.custom_finetune_on ?? false,
+    prompt_settings_open: sourceData.prompt_settings_open ?? true
+  };
+
+  // Remove the row_id so a new one will be generated
+  delete newPromptData.row_id;
+  delete newPromptData.created;
+
   const { data: newData, error: insertError } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
-    .insert([{
-      parent_row_id,
-      input_admin_prompt,
-      input_user_prompt,
-      prompt_name: `${sourceData.prompt_name || 'New Prompt'} (copy)`,
-      is_deleted: false
-    }])
+    .insert([newPromptData])
     .select();
 
   if (insertError) throw insertError;
