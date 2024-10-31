@@ -9,6 +9,10 @@ export const useOpenAIModels = () => {
   useEffect(() => {
     const fetchModels = async () => {
       try {
+        if (!import.meta.env.VITE_MODELS_TBL) {
+          throw new Error('VITE_MODELS_TBL environment variable is not set');
+        }
+
         const { data, error } = await supabase
           .from(import.meta.env.VITE_MODELS_TBL)
           .select('*')

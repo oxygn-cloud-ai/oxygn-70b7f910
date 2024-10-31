@@ -2,6 +2,10 @@ import { buildTree } from '../utils/positionUtils';
 
 export const fetchPrompts = async (supabase) => {
   try {
+    if (!import.meta.env.VITE_PROMPTS_TBL) {
+      throw new Error('VITE_PROMPTS_TBL environment variable is not set');
+    }
+
     const { data, error } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('*')
