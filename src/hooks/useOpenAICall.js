@@ -111,16 +111,6 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
       };
 
-      // Add response_tokens if enabled
-      if (projectSettings.response_tokens_on && projectSettings.response_tokens) {
-        requestBody.response_tokens = parseInt(projectSettings.response_tokens);
-      }
-
-      // Add best_of if enabled
-      if (projectSettings.best_of_on && projectSettings.best_of) {
-        requestBody.best_of = parseInt(projectSettings.best_of);
-      }
-
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
