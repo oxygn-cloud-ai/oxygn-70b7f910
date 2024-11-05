@@ -89,27 +89,28 @@ export const useOpenAICall = () => {
       }
 
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
-      let temperature = 0.7;
       
-      if (projectSettings.temperature_on && projectSettings.temperature !== undefined) {
-        const parsedTemp = parseFloat(projectSettings.temperature);
-        if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
-          temperature = parsedTemp;
-        }
-      }
-
       const requestBody = {
         model: projectSettings.model || 'gpt-3.5-turbo',
         messages: [
           { role: 'system', content: finalSystemMessage },
           { role: 'user', content: finalUserMessage.trim() }
         ],
-        temperature,
-        max_tokens: parseInt(projectSettings.max_tokens) || 2048,
-        top_p: parseFloat(projectSettings.top_p) || 1,
-        frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
-        presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
+        temperature: projectSettings.temperature_on ? parseFloat(projectSettings.temperature) || 0.7 : 0.7,
+        max_tokens: projectSettings.max_tokens_on ? parseInt(projectSettings.max_tokens) || 2048 : 2048,
+        top_p: projectSettings.top_p_on ? parseFloat(projectSettings.top_p) || 1 : 1,
+        frequency_penalty: projectSettings.frequency_penalty_on ? parseFloat(projectSettings.frequency_penalty) || 0 : 0,
+        presence_penalty: projectSettings.presence_penalty_on ? parseFloat(projectSettings.presence_penalty) || 0 : 0,
       };
+
+      // Add optional parameters only if they are enabled
+      if (projectSettings.best_of_on && projectSettings.best_of) {
+        requestBody.best_of = parseInt(projectSettings.best_of);
+      }
+
+      if (projectSettings.response_tokens_on && projectSettings.response_tokens) {
+        requestBody.response_tokens = parseInt(projectSettings.response_tokens);
+      }
 
       // Log request details to console
       console.log('OpenAI API Request Details:', {
