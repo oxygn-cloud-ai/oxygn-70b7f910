@@ -103,15 +103,6 @@ export const useOpenAICall = () => {
         presence_penalty: projectSettings.presence_penalty_on ? parseFloat(projectSettings.presence_penalty) || 0 : 0,
       };
 
-      // Add optional parameters only if they are enabled
-      if (projectSettings.best_of_on && projectSettings.best_of) {
-        requestBody.best_of = parseInt(projectSettings.best_of);
-      }
-
-      if (projectSettings.response_tokens_on && projectSettings.response_tokens) {
-        requestBody.response_tokens = parseInt(projectSettings.response_tokens);
-      }
-
       // Log request details to console
       console.log('OpenAI API Request Details:', {
         url: apiUrl,
