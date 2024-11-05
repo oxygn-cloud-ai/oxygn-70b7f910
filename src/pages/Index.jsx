@@ -13,7 +13,7 @@ const Index = () => {
         <p className="text-xl text-gray-300 mb-4">Cygnify Prompt Library Manager</p>
         <img 
           src="head-striped-icon-wht.png"
-          alt="Striped Head Icon" 
+          alt="Qonsol" 
           className="mx-auto"
         />
       </div>
