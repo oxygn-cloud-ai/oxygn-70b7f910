@@ -1,6 +1,18 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
+const MAX_TOKENS = 16000; // Leave some buffer for the response
+const ESTIMATED_TOKENS_PER_CHAR = 0.4; // Rough estimate of tokens per character
+
+const estimateTokenCount = (text) => {
+  return Math.ceil(text.length * ESTIMATED_TOKENS_PER_CHAR);
+};
+
+const truncateText = (text, maxTokens) => {
+  const estimatedMaxChars = Math.floor(maxTokens / ESTIMATED_TOKENS_PER_CHAR);
+  return text.slice(0, estimatedMaxChars);
+};
+
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
   const apiSettings = {
@@ -30,6 +42,18 @@ export const useOpenAICall = () => {
       }
     }
 
+    if (status === 400) {
+      try {
+        const errorBody = JSON.parse(error.body);
+        if (errorBody.error?.code === 'context_length_exceeded') {
+          toast.error('The input text is too long. It will be automatically truncated.');
+          return { error: 'CONTEXT_LENGTH_EXCEEDED' };
+        }
+      } catch (parseError) {
+        console.error('Error parsing error response:', parseError);
+      }
+    }
+
     toast.error(`API error: ${errorMessage}`);
     return { error: 'API_ERROR' };
   };
@@ -46,6 +70,25 @@ export const useOpenAICall = () => {
         throw new Error('User message cannot be empty.');
       }
 
+      // Estimate token count and truncate if necessary
+      const systemTokens = estimateTokenCount(systemMessage);
+      const userTokens = estimateTokenCount(userMessage);
+      const totalInputTokens = systemTokens + userTokens;
+
+      let finalSystemMessage = systemMessage;
+      let finalUserMessage = userMessage;
+
+      if (totalInputTokens > MAX_TOKENS) {
+        const availableTokens = MAX_TOKENS;
+        const systemRatio = systemTokens / totalInputTokens;
+        const userRatio = userTokens / totalInputTokens;
+
+        finalSystemMessage = truncateText(systemMessage, Math.floor(availableTokens * systemRatio));
+        finalUserMessage = truncateText(userMessage, Math.floor(availableTokens * userRatio));
+
+        toast.warning('Input text was truncated to fit within model limits.');
+      }
+
       const apiUrl = apiSettings.openai_url.replace(/\/$/, '');
       let temperature = 0.7;
       
@@ -59,8 +102,8 @@ export const useOpenAICall = () => {
       const requestBody = {
         model: projectSettings.model || 'gpt-3.5-turbo',
         messages: [
-          { role: 'system', content: systemMessage },
-          { role: 'user', content: userMessage.trim() }
+          { role: 'system', content: finalSystemMessage },
+          { role: 'user', content: finalUserMessage.trim() }
         ],
         temperature,
         max_tokens: parseInt(projectSettings.max_tokens) || 2048,
@@ -68,18 +111,6 @@ export const useOpenAICall = () => {
         frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
         presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
       };
-
-      // Only add response_format if it's enabled and valid
-      if (projectSettings.response_format_on && projectSettings.response_format) {
-        try {
-          const parsedFormat = JSON.parse(projectSettings.response_format);
-          if (parsedFormat && typeof parsedFormat === 'object') {
-            requestBody.response_format = parsedFormat;
-          }
-        } catch (error) {
-          console.warn('Invalid response_format JSON, skipping:', error);
-        }
-      }
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -101,26 +132,6 @@ export const useOpenAICall = () => {
 
       const responseData = await response.json();
       const content = responseData.choices[0].message.content;
-
-      // If response_format is enabled, try to parse as JSON but fallback gracefully
-      if (projectSettings.response_format_on) {
-        try {
-          // First check if the content is already a valid JSON string
-          const parsed = JSON.parse(content);
-          return JSON.stringify(parsed, null, 2);
-        } catch (firstError) {
-          // If direct parsing fails, try to find JSON within the content
-          try {
-            const jsonMatch = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-            if (jsonMatch) {
-              const parsed = JSON.parse(jsonMatch[0]);
-              return JSON.stringify(parsed, null, 2);
-            }
-          } catch (secondError) {
-            console.warn('Could not extract valid JSON from response, returning raw content');
-          }
-        }
-      }
 
       return content;
     } catch (error) {
