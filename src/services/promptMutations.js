@@ -1,3 +1,5 @@
+import { deletePrompt } from './promptDeletion';
+
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
   const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -80,16 +82,6 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 
   if (error) throw error;
   return data[0].row_id;
-};
-
-export const deletePrompt = async (supabase, itemId) => {
-  const { error } = await supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .update({ is_deleted: true })
-    .eq('row_id', itemId);
-
-  if (error) throw error;
-  return true;
 };
 
 export const duplicatePrompt = async (supabase, itemId) => {

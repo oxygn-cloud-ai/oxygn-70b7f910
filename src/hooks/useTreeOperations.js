@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { addPrompt, deletePrompt, duplicatePrompt } from '../services/promptMutations';
+import { addPrompt, duplicatePrompt } from '../services/promptMutations';
+import { deletePrompt } from '../services/promptDeletion';
 
 export const useTreeOperations = (supabase, refreshTreeData) => {
   const handleAddItem = useCallback(async (parentId) => {
