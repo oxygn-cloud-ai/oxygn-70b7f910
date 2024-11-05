@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 
-const MAX_TOKENS = 16000; // Leave some buffer for the response
-const ESTIMATED_TOKENS_PER_CHAR = 0.4; // Rough estimate of tokens per character
+const MAX_TOKENS = 16000;
+const ESTIMATED_TOKENS_PER_CHAR = 0.4;
 
 const estimateTokenCount = (text) => {
   return Math.ceil(text.length * ESTIMATED_TOKENS_PER_CHAR);
@@ -70,7 +70,6 @@ export const useOpenAICall = () => {
         throw new Error('User message cannot be empty.');
       }
 
-      // Estimate token count and truncate if necessary
       const systemTokens = estimateTokenCount(systemMessage);
       const userTokens = estimateTokenCount(userMessage);
       const totalInputTokens = systemTokens + userTokens;
@@ -111,6 +110,16 @@ export const useOpenAICall = () => {
         frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
         presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
       };
+
+      // Add response_tokens if enabled
+      if (projectSettings.response_tokens_on && projectSettings.response_tokens) {
+        requestBody.response_tokens = parseInt(projectSettings.response_tokens);
+      }
+
+      // Add best_of if enabled
+      if (projectSettings.best_of_on && projectSettings.best_of) {
+        requestBody.best_of = parseInt(projectSettings.best_of);
+      }
 
       const response = await fetch(apiUrl, {
         method: 'POST',
