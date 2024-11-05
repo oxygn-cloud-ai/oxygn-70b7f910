@@ -105,22 +105,27 @@ export const useOpenAICall = () => {
           { role: 'user', content: finalUserMessage.trim() }
         ],
         temperature,
-        max_tokens: parseInt(projectSettings.max_tokens) || 2048,
       };
 
-      // Add best_of if enabled
-      if (projectSettings.best_of_on && projectSettings.best_of) {
-        requestBody.best_of = parseInt(projectSettings.best_of);
-      }
-
-      // Add response_tokens if enabled
+      // Add max_tokens if response_tokens is enabled
       if (projectSettings.response_tokens_on && projectSettings.response_tokens) {
-        requestBody.max_tokens = parseInt(projectSettings.response_tokens);
+        const maxTokens = parseInt(projectSettings.response_tokens);
+        if (!isNaN(maxTokens) && maxTokens > 0) {
+          requestBody.max_tokens = maxTokens;
+        }
+      } else if (projectSettings.max_tokens_on && projectSettings.max_tokens) {
+        const maxTokens = parseInt(projectSettings.max_tokens);
+        if (!isNaN(maxTokens) && maxTokens > 0) {
+          requestBody.max_tokens = maxTokens;
+        }
       }
 
       // Add top_p if enabled
       if (projectSettings.top_p_on && projectSettings.top_p) {
-        requestBody.top_p = parseFloat(projectSettings.top_p);
+        const topP = parseFloat(projectSettings.top_p);
+        if (!isNaN(topP) && topP >= 0 && topP <= 1) {
+          requestBody.top_p = topP;
+        }
       }
 
       // Add other conditional parameters
