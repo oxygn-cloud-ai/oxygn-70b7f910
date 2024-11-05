@@ -14,7 +14,7 @@ const Index = () => {
         <img 
           src="head-striped-icon-wht.png"
           alt="Qonsol" 
-          className="mx-auto"
+          className="w-[35%] mx-auto"
         />
       </div>
     </div>
