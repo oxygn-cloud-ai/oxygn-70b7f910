@@ -106,9 +106,9 @@ export const useOpenAICall = () => {
         ],
         temperature,
         max_tokens: parseInt(projectSettings.max_tokens) || 2048,
-        top_p: parseFloat(projectSettings.top_p) || 1,
-        frequency_penalty: parseFloat(projectSettings.frequency_penalty) || 0,
-        presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
+        top_p: projectSettings.top_p_on ? parseFloat(projectSettings.top_p) || 1 : 1,
+        frequency_penalty: projectSettings.frequency_penalty_on ? parseFloat(projectSettings.frequency_penalty) || 0 : 0,
+        presence_penalty: projectSettings.presence_penalty_on ? parseFloat(projectSettings.presence_penalty) || 0 : 0,
       };
 
       // Log request details to console
