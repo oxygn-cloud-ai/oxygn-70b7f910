@@ -6,11 +6,16 @@ const Index = () => {
       <div className="text-center">
         <img 
           src="cygnify-white.gif"
-          alt="Striped Head Icon" 
+          alt="Cygnify" 
           className="w-[20%] mx-auto mb-4"
         />
         <h1 className="text-4xl font-bold mb-4 text-white">Qonsol Prototype 6 for Cygnify</h1>
         <p className="text-xl text-gray-300">Cygnify Prompt Library Manager</p>
+         <img 
+          src="striped-head-icon.png"
+          alt="Oxygn" 
+          className="w-[100%] mx-auto mb-4"
+        />
       </div>
     </div>
   );
