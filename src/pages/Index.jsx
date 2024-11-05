@@ -9,12 +9,12 @@ const Index = () => {
           alt="Cygnify" 
           className="w-[20%] mx-auto mb-4"
         />
-        <h1 className="text-4xl font-bold mb-4 text-white">Qonsol Prototype 6 for Cygnify</h1>
+        <h1 className="text-4xl font-bold mb-4 text-white">Qonsol Prototype 6</h1>
         <p className="text-xl text-gray-300 mb-4">Cygnify Prompt Library Manager</p>
         <img 
           src="head-striped-icon-wht.png"
           alt="Qonsol" 
-          className="w-[35%] mx-auto"
+          className="w-[35%] mx-auto mb-4"
         />
       </div>
     </div>
