@@ -111,6 +111,17 @@ export const useOpenAICall = () => {
         presence_penalty: parseFloat(projectSettings.presence_penalty) || 0,
       };
 
+      // Log request details to console
+      console.log('OpenAI API Request Details:', {
+        url: apiUrl,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer [REDACTED]'
+        },
+        body: JSON.stringify(requestBody, null, 2)
+      });
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
