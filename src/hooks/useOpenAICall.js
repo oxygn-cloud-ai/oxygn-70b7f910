@@ -106,10 +106,30 @@ export const useOpenAICall = () => {
         ],
         temperature,
         max_tokens: parseInt(projectSettings.max_tokens) || 2048,
-        top_p: projectSettings.top_p_on ? parseFloat(projectSettings.top_p) || 1 : 1,
-        frequency_penalty: projectSettings.frequency_penalty_on ? parseFloat(projectSettings.frequency_penalty) || 0 : 0,
-        presence_penalty: projectSettings.presence_penalty_on ? parseFloat(projectSettings.presence_penalty) || 0 : 0,
       };
+
+      // Add best_of if enabled
+      if (projectSettings.best_of_on && projectSettings.best_of) {
+        requestBody.best_of = parseInt(projectSettings.best_of);
+      }
+
+      // Add response_tokens if enabled
+      if (projectSettings.response_tokens_on && projectSettings.response_tokens) {
+        requestBody.max_tokens = parseInt(projectSettings.response_tokens);
+      }
+
+      // Add top_p if enabled
+      if (projectSettings.top_p_on && projectSettings.top_p) {
+        requestBody.top_p = parseFloat(projectSettings.top_p);
+      }
+
+      // Add other conditional parameters
+      if (projectSettings.frequency_penalty_on) {
+        requestBody.frequency_penalty = parseFloat(projectSettings.frequency_penalty) || 0;
+      }
+      if (projectSettings.presence_penalty_on) {
+        requestBody.presence_penalty = parseFloat(projectSettings.presence_penalty) || 0;
+      }
 
       // Log request details to console
       console.log('OpenAI API Request Details:', {
