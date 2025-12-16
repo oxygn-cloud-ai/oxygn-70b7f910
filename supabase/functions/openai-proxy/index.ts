@@ -117,9 +117,9 @@ serve(async (req) => {
     // Chat completions (main API call)
     if (action === 'chat') {
       console.log('Processing chat request...');
-      const { model, messages, ...settings } = body;
+      const { model, messages, web_search_enabled, ...settings } = body;
 
-      const modelId = model || 'gpt-3.5-turbo';
+      const modelId = model || 'gpt-4o-mini';
       
       // Models that don't support temperature parameter
       const noTemperatureModels = ['o1', 'o3', 'o4', 'gpt-5'];
@@ -132,6 +132,17 @@ serve(async (req) => {
         model: modelId,
         messages,
       };
+
+      // Add web search tool if enabled
+      if (web_search_enabled) {
+        console.log('Web search enabled for this request');
+        requestBody.tools = [
+          {
+            type: "web_search_preview",
+            search_context_size: "medium"
+          }
+        ];
+      }
 
       // Add optional parameters based on model capabilities
       if (!isNoTempModel && settings.temperature !== undefined) {
@@ -152,7 +163,12 @@ serve(async (req) => {
       if (settings.frequency_penalty !== undefined) requestBody.frequency_penalty = settings.frequency_penalty;
       if (settings.presence_penalty !== undefined) requestBody.presence_penalty = settings.presence_penalty;
 
-      console.log('OpenAI request:', { model: requestBody.model, messageCount: messages?.length, isNoTempModel });
+      console.log('OpenAI request:', { 
+        model: requestBody.model, 
+        messageCount: messages?.length, 
+        isNoTempModel,
+        webSearchEnabled: !!web_search_enabled 
+      });
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -174,8 +190,22 @@ serve(async (req) => {
       }
 
       console.log('OpenAI response received, tokens:', responseData.usage);
+      
+      // Extract citations if web search was used
+      let citations = [];
+      if (web_search_enabled && responseData.choices?.[0]?.message?.annotations) {
+        citations = responseData.choices[0].message.annotations
+          .filter((a: any) => a.type === 'url_citation')
+          .map((a: any) => ({
+            url: a.url_citation?.url,
+            title: a.url_citation?.title,
+            text: a.text
+          }));
+        console.log('Web search citations found:', citations.length);
+      }
+
       return new Response(
-        JSON.stringify(responseData),
+        JSON.stringify({ ...responseData, citations }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
