@@ -97,26 +97,34 @@ const ProjectPanels = ({
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
       <div className="space-y-6">
-        {fields.map(field => (
-          <PromptField
-            key={field.name}
-            label={field.label}
-            value={localData[field.name] || ''}
-            onChange={(value) => handleChange(field.name, value)}
-            onReset={() => handleReset(field.name)}
-            onSave={() => handleSave(field.name)}
-            initialValue={selectedItemData[field.name] || ''}
-            onGenerate={isLinksPage ? null : handleGenerate}
-            isGenerating={isGenerating}
-            formattedTime={formattedTime}
-            isLinksPage={isLinksPage}
-            isReadOnly={isReadOnly}
-            onCascade={() => handleCascade(field.name)}
-            parentData={parentData}
-            cascadeField={cascadeField}
-            hasUnsavedChanges={hasUnsavedChanges(field.name)}
-          />
-        ))}
+        {fields
+          .filter(field => {
+            // Hide admin_prompt_result if it has no value
+            if (field.name === 'admin_prompt_result') {
+              return !!(localData.admin_prompt_result || selectedItemData?.admin_prompt_result);
+            }
+            return true;
+          })
+          .map(field => (
+            <PromptField
+              key={field.name}
+              label={field.label}
+              value={localData[field.name] || ''}
+              onChange={(value) => handleChange(field.name, value)}
+              onReset={() => handleReset(field.name)}
+              onSave={() => handleSave(field.name)}
+              initialValue={selectedItemData[field.name] || ''}
+              onGenerate={isLinksPage ? null : handleGenerate}
+              isGenerating={isGenerating}
+              formattedTime={formattedTime}
+              isLinksPage={isLinksPage}
+              isReadOnly={isReadOnly}
+              onCascade={() => handleCascade(field.name)}
+              parentData={parentData}
+              cascadeField={cascadeField}
+              hasUnsavedChanges={hasUnsavedChanges(field.name)}
+            />
+          ))}
       </div>
       {!isLinksPage && (
         <Collapsible
