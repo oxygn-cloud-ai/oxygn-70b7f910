@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key } from 'lucide-react';
+import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -26,6 +26,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+const MAX_SETTING_VALUE_LENGTH = 2000;
+const MAX_SETTING_DESC_LENGTH = 500;
+const SETTING_KEY_REGEX = /^[a-zA-Z0-9_:\-]{1,64}$/;
+
 const Settings = () => {
   const supabase = useSupabase();
   const { settings, updateSetting, addSetting, deleteSetting, isLoading, error, refetch } = useSettings(supabase);
@@ -35,6 +39,16 @@ const Settings = () => {
   const [newSettingDesc, setNewSettingDesc] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    // Useful when database values change outside this page (e.g. seeded via backend tools)
+    const onFocus = () => {
+      refetch?.();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refetch]);
 
   if (isLoading || !supabase) {
     return (
@@ -52,16 +66,34 @@ const Settings = () => {
     );
   }
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+      toast.success('Settings refreshed');
+    } catch (err) {
+      toast.error('Failed to refresh settings');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleValueChange = (key, value) => {
     setEditedValues(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async (key) => {
-    if (editedValues[key] === undefined) return;
-    
+    const nextValue = editedValues[key];
+    if (nextValue === undefined) return;
+
+    if (String(nextValue).length > MAX_SETTING_VALUE_LENGTH) {
+      toast.error(`Value is too long (max ${MAX_SETTING_VALUE_LENGTH} characters)`);
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await updateSetting(key, editedValues[key]);
+      await updateSetting(key, nextValue);
       setEditedValues(prev => {
         const newValues = { ...prev };
         delete newValues[key];
@@ -76,13 +108,30 @@ const Settings = () => {
   };
 
   const handleAddSetting = async () => {
-    if (!newSettingKey.trim()) {
+    const key = newSettingKey.trim();
+
+    if (!key) {
       toast.error('Setting key is required');
       return;
     }
 
+    if (!SETTING_KEY_REGEX.test(key)) {
+      toast.error('Key must be 1-64 chars: letters, numbers, _, -, :');
+      return;
+    }
+
+    if (newSettingValue.length > MAX_SETTING_VALUE_LENGTH) {
+      toast.error(`Value is too long (max ${MAX_SETTING_VALUE_LENGTH} characters)`);
+      return;
+    }
+
+    if (newSettingDesc.length > MAX_SETTING_DESC_LENGTH) {
+      toast.error(`Description is too long (max ${MAX_SETTING_DESC_LENGTH} characters)`);
+      return;
+    }
+
     try {
-      await addSetting(newSettingKey.trim(), newSettingValue, newSettingDesc);
+      await addSetting(key, newSettingValue, newSettingDesc);
       setNewSettingKey('');
       setNewSettingValue('');
       setNewSettingDesc('');
@@ -111,7 +160,7 @@ const Settings = () => {
 
   const envVariables = {
     'Debug Mode': import.meta.env.VITE_DEBUG,
-    'Supabase URL': import.meta.env.VITE_SUPABASE_URL,
+    'Backend URL': import.meta.env.VITE_SUPABASE_URL,
     'Prompts Table': import.meta.env.VITE_PROMPTS_TBL,
     'Settings Table': import.meta.env.VITE_SETTINGS_TBL,
     'Models Table': import.meta.env.VITE_MODELS_TBL,
@@ -122,7 +171,7 @@ const Settings = () => {
   return (
     <div className="container mx-auto p-6 max-w-4xl space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <SettingsIcon className="h-8 w-8 text-primary" />
           <div>
@@ -130,6 +179,16 @@ const Settings = () => {
             <p className="text-muted-foreground">Manage application configuration</p>
           </div>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Core Settings */}
