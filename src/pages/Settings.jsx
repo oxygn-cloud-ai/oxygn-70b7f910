@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot, ChevronDown, ChevronUp } from 'lucide-react';
 import { ModelSettingsPanel } from '../components/InlineModelSettings';
+import { PromptNamingSettings } from '../components/PromptNamingSettings';
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { ALL_SETTINGS } from '../config/modelCapabilities';
 import {
@@ -327,6 +328,9 @@ const Settings = () => {
           })}
         </CardContent>
       </Card>
+
+      {/* Prompt Naming Defaults */}
+      <PromptNamingSettings settings={settings} updateSetting={updateSetting} />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
