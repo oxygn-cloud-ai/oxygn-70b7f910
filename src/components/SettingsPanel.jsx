@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SettingField from './settings/SettingField';
 import { useSupabase } from '../hooks/useSupabase';
+import { useSettings } from '../hooks/useSettings';
 import { toast } from 'sonner';
+import { ALL_SETTINGS, getModelCapabilities, isSettingSupported } from '../config/modelCapabilities';
 
 const SettingsPanel = ({ 
   localData, 
@@ -14,6 +16,21 @@ const SettingsPanel = ({
   hasUnsavedChanges 
 }) => {
   const supabase = useSupabase();
+  const { settings } = useSettings(supabase);
+  const [defaultModel, setDefaultModel] = useState(null);
+
+  // Get default model from global settings
+  useEffect(() => {
+    const globalDefaultModel = settings?.default_model?.value;
+    if (globalDefaultModel && !localData.model) {
+      setDefaultModel(globalDefaultModel);
+    }
+  }, [settings, localData.model]);
+
+  // Get the currently selected model (or default)
+  const currentModel = localData.model || defaultModel || models[0]?.model_id;
+  const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
+  const currentProvider = currentModelData?.provider || 'openai';
 
   const handleCheckChange = async (fieldName, checked) => {
     handleChange(`${fieldName}_on`, checked);
@@ -37,10 +54,10 @@ const SettingsPanel = ({
           stream: false,
           echo: false,
           response_format: '{"type": "text"}',
-          model: models[0]?.model || 'gpt-3.5-turbo'
+          model: currentModel
         };
 
-        if (defaultValues[fieldName]) {
+        if (defaultValues[fieldName] !== undefined) {
           handleChange(fieldName, defaultValues[fieldName]);
           const { error: saveError } = await supabase
             .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -56,16 +73,29 @@ const SettingsPanel = ({
     }
   };
 
-  const fields = [
-    'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
-    'stop', 'n', 'logit_bias', 'o_user', 'stream', 'best_of', 'logprobs', 
-    'echo', 'suffix', 'temperature_scaling', 'prompt_tokens', 'response_tokens', 
-    'batch_size', 'learning_rate_multiplier', 'n_epochs', 'validation_file', 
-    'training_file', 'engine', 'input', 'context_length', 'custom_finetune'
-  ];
+  const handleModelChange = async (value) => {
+    handleChange('model', value);
+    
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ model: value })
+        .eq('row_id', selectedItemData.row_id);
+
+      if (error) throw error;
+      toast.success('Model updated');
+    } catch (error) {
+      console.error('Error updating model:', error);
+      toast.error(`Failed to update model: ${error.message}`);
+    }
+  };
+
+  // Settings to display (excluding model which is handled separately)
+  const settingKeys = Object.keys(ALL_SETTINGS);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Model Selection - Always first */}
       <div className="col-span-1">
         <SettingField
           field="model"
@@ -77,19 +107,25 @@ const SettingsPanel = ({
           hasUnsavedChanges={hasUnsavedChanges}
           handleCheckChange={handleCheckChange}
           selectedItemData={selectedItemData}
+          isSupported={true}
           customInput={
             <Select
-              value={localData.model || ''}
-              onValueChange={(value) => handleChange('model', value)}
+              value={localData.model || defaultModel || ''}
+              onValueChange={handleModelChange}
               disabled={!localData.model_on}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a model" />
+                <SelectValue placeholder={defaultModel ? `Default: ${defaultModel}` : "Select a model"} />
               </SelectTrigger>
               <SelectContent>
+                {defaultModel && (
+                  <SelectItem value={defaultModel} className="text-muted-foreground">
+                    Default ({defaultModel})
+                  </SelectItem>
+                )}
                 {models.map((model) => (
-                  <SelectItem key={model.model} value={model.model}>
-                    {model.model}
+                  <SelectItem key={model.row_id} value={model.model_id}>
+                    {model.model_name} ({model.provider})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -98,33 +134,28 @@ const SettingsPanel = ({
         />
       </div>
 
-      <div className="col-span-1">
-        <SettingField
-          field="temperature"
-          label="Temperature"
-          localData={localData}
-          handleChange={handleChange}
-          handleSave={handleSave}
-          handleReset={handleReset}
-          hasUnsavedChanges={hasUnsavedChanges}
-          handleCheckChange={handleCheckChange}
-          selectedItemData={selectedItemData}
-        />
-      </div>
-
-      {fields.map(field => (
-        <SettingField
-          key={field}
-          field={field}
-          localData={localData}
-          handleChange={handleChange}
-          handleSave={handleSave}
-          handleReset={handleReset}
-          hasUnsavedChanges={hasUnsavedChanges}
-          handleCheckChange={handleCheckChange}
-          selectedItemData={selectedItemData}
-        />
-      ))}
+      {/* Render all settings with support status */}
+      {settingKeys.map(field => {
+        const isSupported = isSettingSupported(field, currentModel, currentProvider);
+        const settingInfo = ALL_SETTINGS[field];
+        
+        return (
+          <SettingField
+            key={field}
+            field={field}
+            label={settingInfo.label}
+            description={settingInfo.description}
+            localData={localData}
+            handleChange={handleChange}
+            handleSave={handleSave}
+            handleReset={handleReset}
+            hasUnsavedChanges={hasUnsavedChanges}
+            handleCheckChange={handleCheckChange}
+            selectedItemData={selectedItemData}
+            isSupported={isSupported}
+          />
+        );
+      })}
     </div>
   );
 };
