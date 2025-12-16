@@ -133,6 +133,7 @@ export type Database = {
       }
       cyg_prompts: {
         Row: {
+          admin_prompt_result: string | null
           best_of: string | null
           best_of_on: boolean | null
           context_length: string | null
@@ -155,6 +156,7 @@ export type Database = {
           model_on: boolean | null
           n: string | null
           n_on: boolean | null
+          note: string | null
           o_user: string | null
           o_user_on: boolean | null
           output_response: string | null
@@ -178,8 +180,10 @@ export type Database = {
           top_p: string | null
           top_p_on: boolean | null
           updated_at: string
+          user_prompt_result: string | null
         }
         Insert: {
+          admin_prompt_result?: string | null
           best_of?: string | null
           best_of_on?: boolean | null
           context_length?: string | null
@@ -202,6 +206,7 @@ export type Database = {
           model_on?: boolean | null
           n?: string | null
           n_on?: boolean | null
+          note?: string | null
           o_user?: string | null
           o_user_on?: boolean | null
           output_response?: string | null
@@ -225,8 +230,10 @@ export type Database = {
           top_p?: string | null
           top_p_on?: boolean | null
           updated_at?: string
+          user_prompt_result?: string | null
         }
         Update: {
+          admin_prompt_result?: string | null
           best_of?: string | null
           best_of_on?: boolean | null
           context_length?: string | null
@@ -249,6 +256,7 @@ export type Database = {
           model_on?: boolean | null
           n?: string | null
           n_on?: boolean | null
+          note?: string | null
           o_user?: string | null
           o_user_on?: boolean | null
           output_response?: string | null
@@ -272,6 +280,7 @@ export type Database = {
           top_p?: string | null
           top_p_on?: boolean | null
           updated_at?: string
+          user_prompt_result?: string | null
         }
         Relationships: [
           {
