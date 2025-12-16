@@ -83,111 +83,55 @@ const HealthCheck = () => {
   };
 
   const checkOpenAIConfig = () => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    const apiUrl = import.meta.env.VITE_OPENAI_URL;
-
-    const apiKeyResult = apiKey 
-      ? { status: 'success', message: `Configured (${apiKey.slice(0, 7)}...${apiKey.slice(-4)})` }
-      : { status: 'error', message: 'Not configured' };
-
-    const apiUrlResult = apiUrl
-      ? { status: 'success', message: apiUrl }
-      : { status: 'error', message: 'Not configured' };
-
-    return { apiKey: apiKeyResult, apiUrl: apiUrlResult };
+    // Edge function handles the API key securely
+    return { 
+      apiKey: { status: 'success', message: 'Managed via edge function secret' },
+      apiUrl: { status: 'success', message: 'https://api.openai.com/v1/chat/completions' }
+    };
   };
 
   const checkOpenAIConnection = async () => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    const apiUrl = import.meta.env.VITE_OPENAI_URL;
-
-    if (!apiKey || !apiUrl) {
-      return { status: 'error', message: 'API key or URL not configured', latency: null };
-    }
-
-    // Validate API key format
-    if (!apiKey.startsWith('sk-')) {
-      return { status: 'error', message: 'Invalid API key format (should start with sk-)', latency: null };
-    }
-
-    // Check if it's a valid OpenAI URL
-    const isOpenAIUrl = apiUrl.includes('api.openai.com');
-    
-    if (isOpenAIUrl) {
-      // Direct browser calls to OpenAI are blocked by CORS
-      // We can only validate configuration, not actual connectivity
-      return { 
-        status: 'warning', 
-        message: 'Config OK - CORS prevents browser test. Use Generate to verify.', 
-        latency: null 
-      };
-    }
-
-    // If using a proxy/custom endpoint, try to test it
     try {
-      const start = Date.now();
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: 'Hi' }],
-          max_tokens: 1,
-        }),
+      const { data, error } = await supabase.functions.invoke('openai-proxy', {
+        body: { action: 'health' }
       });
-      const latency = Date.now() - start;
 
-      if (response.ok) {
-        return { status: 'success', message: `Connected (${latency}ms)`, latency };
+      if (error) {
+        console.error('Edge function error:', error);
+        return { status: 'error', message: `Edge function error: ${error.message}`, latency: null };
       }
 
-      const errorData = await response.json().catch(() => ({}));
-      const errorMessage = errorData.error?.message || response.statusText;
-
-      if (response.status === 401) {
-        return { status: 'error', message: 'Invalid API key', latency: null };
-      }
-      if (response.status === 429) {
-        if (errorData.error?.code === 'insufficient_quota') {
-          return { status: 'warning', message: 'Quota exceeded - check billing', latency };
-        }
-        return { status: 'warning', message: 'Rate limited - try again later', latency };
-      }
-      if (response.status >= 500) {
-        return { status: 'warning', message: `Server error (${response.status})`, latency };
-      }
-
-      return { status: 'error', message: errorMessage, latency };
+      return {
+        status: data.status || 'error',
+        message: data.message || 'Unknown response',
+        latency: data.latency || null
+      };
     } catch (err) {
-      // CORS or network error
-      if (err.message.includes('Failed to fetch') || err.name === 'TypeError') {
-        return { status: 'warning', message: 'Network/CORS error - config appears valid', latency: null };
-      }
+      console.error('Connection check error:', err);
       return { status: 'error', message: `Connection failed: ${err.message}`, latency: null };
     }
   };
 
   const checkOpenAIModels = async () => {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    try {
+      const { data, error } = await supabase.functions.invoke('openai-proxy', {
+        body: { action: 'models' }
+      });
 
-    if (!apiKey) {
-      return { status: 'error', message: 'API key not configured', available: [] };
-    }
+      if (error) {
+        console.error('Edge function error:', error);
+        return { status: 'error', message: `Edge function error: ${error.message}`, available: [] };
+      }
 
-    // Direct browser calls to OpenAI are blocked by CORS
-    // Return success based on key format validation
-    if (apiKey.startsWith('sk-')) {
-      return { 
-        status: 'success', 
-        message: 'API key configured (models list unavailable due to CORS)', 
-        available: [] 
+      return {
+        status: data.status || 'error',
+        message: data.message || 'Unknown response',
+        available: data.available || []
       };
+    } catch (err) {
+      console.error('Models check error:', err);
+      return { status: 'error', message: `Failed: ${err.message}`, available: [] };
     }
-
-    return { status: 'error', message: 'Invalid API key format', available: [] };
   };
 
   const runHealthCheck = async () => {
