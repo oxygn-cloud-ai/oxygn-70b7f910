@@ -4,14 +4,14 @@
 export const MODEL_CAPABILITIES = {
   // OpenAI models
   openai: {
-    default: ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-4': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-4o': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-4o-mini': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-5': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-5-mini': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-5.2': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
-    'gpt-5.2-pro': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
+    default: ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-4': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-4o': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-4o-mini': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-5': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-5-mini': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-5.2': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
+    'gpt-5.2-pro': ['max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
     'o3': ['max_tokens', 'top_p', 'stop', 'stream', 'response_format'],
     'o4-mini': ['max_tokens', 'top_p', 'stop', 'stream', 'response_format'],
   },
@@ -106,6 +106,12 @@ export const ALL_SETTINGS = {
     description: 'End-user identifier',
     details: 'A unique identifier representing your end-user, which helps OpenAI monitor and detect abuse. Should not contain PII.',
     docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-user'
+  },
+  web_search: { 
+    label: 'Web Search', 
+    description: 'Enable real-time web search',
+    details: 'When enabled, the AI can search the web for current information to provide up-to-date answers. Responses will include citations to sources. Best for questions about recent events or current data.',
+    docUrl: 'https://platform.openai.com/docs/guides/tools-web-search'
   },
 };
 
