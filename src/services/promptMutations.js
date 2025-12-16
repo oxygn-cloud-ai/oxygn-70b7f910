@@ -2,13 +2,21 @@ import { deletePrompt } from './promptDeletion';
 
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
   // First, get the maximum position value for the current level
-  const { data: maxPositionData, error: positionError } = await supabase
+  let query = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .select('position')
-    .eq('parent_row_id', parentId)
     .eq('is_deleted', false)
     .order('position', { ascending: false })
     .limit(1);
+  
+  // Handle null parent_row_id correctly
+  if (parentId === null) {
+    query = query.is('parent_row_id', null);
+  } else {
+    query = query.eq('parent_row_id', parentId);
+  }
+
+  const { data: maxPositionData, error: positionError } = await query;
 
   if (positionError) throw positionError;
 
