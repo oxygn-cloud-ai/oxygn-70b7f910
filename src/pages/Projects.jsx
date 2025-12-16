@@ -24,8 +24,20 @@ const Projects = () => {
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
-  const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
+  const { handleAddItem: addItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
+
+  // Wrap handleAddItem to auto-expand parent when adding a child
+  const handleAddItem = useCallback(async (parentId) => {
+    const newItemId = await addItem(parentId);
+    if (newItemId && parentId) {
+      // Expand the parent to show the new child
+      setExpandedItems(prev => 
+        prev.includes(parentId) ? prev : [...prev, parentId]
+      );
+    }
+    return newItemId;
+  }, [addItem]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
