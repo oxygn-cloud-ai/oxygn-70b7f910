@@ -123,6 +123,7 @@ const ProjectPanels = ({
               parentData={parentData}
               cascadeField={cascadeField}
               hasUnsavedChanges={hasUnsavedChanges(field.name)}
+              promptId={projectRowId}
             />
           ))}
       </div>
