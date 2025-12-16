@@ -62,7 +62,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   // Get sibling count for sequence number
   let siblingsQuery = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('row_id', { count: 'exact' })
+    .select('row_id', { count: 'exact', head: true })
     .eq('is_deleted', false);
   
   if (parentId === null) {
@@ -71,7 +71,8 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     siblingsQuery = siblingsQuery.eq('parent_row_id', parentId);
   }
   
-  const { count: siblingCount } = await siblingsQuery;
+  const { count: siblingCount, error: countError } = await siblingsQuery;
+  console.log('Sibling count query result:', { siblingCount, countError, parentId });
   const sequenceNumber = siblingCount || 0;
 
   // Get prompt context (level and top-level name)
@@ -86,11 +87,15 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 
   let newPromptName;
   
+  console.log('Naming context:', { level, topLevelName, sequenceNumber, hasNamingSettings: !!namingSettingsData?.setting_value });
+  
   if (namingSettingsData?.setting_value) {
     try {
       const namingConfig = JSON.parse(namingSettingsData.setting_value);
       const levelConfig = getLevelNamingConfig(namingConfig, level, topLevelName);
+      console.log('Level config:', levelConfig);
       newPromptName = generatePromptName(levelConfig, sequenceNumber);
+      console.log('Generated name:', newPromptName);
     } catch (e) {
       console.error('Failed to parse naming config:', e);
     }
