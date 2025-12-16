@@ -35,7 +35,7 @@ export const MODEL_CAPABILITIES = {
   
   // Other/custom models - allow all common settings
   other: {
-    default: ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'context_length'],
+    default: ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'],
   }
 };
 
@@ -52,11 +52,6 @@ export const ALL_SETTINGS = {
   response_format: { label: 'Response Format', description: 'Output format (e.g., JSON)' },
   logit_bias: { label: 'Logit Bias', description: 'Token probability adjustments' },
   o_user: { label: 'User ID', description: 'End-user identifier' },
-  context_length: { label: 'Context Length', description: 'Max context window' },
-  best_of: { label: 'Best Of', description: 'Server-side generations' },
-  logprobs: { label: 'Log Probs', description: 'Log probabilities' },
-  echo: { label: 'Echo', description: 'Echo back prompt' },
-  suffix: { label: 'Suffix', description: 'Text after completion' },
 };
 
 // Get supported settings for a specific model
