@@ -11,7 +11,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       const { data: settingsData } = await supabase
         .from(import.meta.env.VITE_SETTINGS_TBL)
         .select('setting_value')
-        .eq('setting_key', 'default_admin_prompt')
+        .eq('setting_key', 'def_admin_prompt')
         .maybeSingle();
       
       const defaultAdminPrompt = settingsData?.setting_value || '';
