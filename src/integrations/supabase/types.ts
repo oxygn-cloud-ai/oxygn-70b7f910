@@ -181,6 +181,7 @@ export type Database = {
           top_p_on: boolean | null
           updated_at: string
           user_prompt_result: string | null
+          web_search_on: boolean | null
         }
         Insert: {
           admin_prompt_result?: string | null
@@ -231,6 +232,7 @@ export type Database = {
           top_p_on?: boolean | null
           updated_at?: string
           user_prompt_result?: string | null
+          web_search_on?: boolean | null
         }
         Update: {
           admin_prompt_result?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           top_p_on?: boolean | null
           updated_at?: string
           user_prompt_result?: string | null
+          web_search_on?: boolean | null
         }
         Relationships: [
           {
