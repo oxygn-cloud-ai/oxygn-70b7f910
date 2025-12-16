@@ -119,19 +119,40 @@ serve(async (req) => {
       console.log('Processing chat request...');
       const { model, messages, ...settings } = body;
 
+      const modelId = model || 'gpt-3.5-turbo';
+      
+      // Models that don't support temperature parameter
+      const noTemperatureModels = ['o1', 'o3', 'o4', 'gpt-5'];
+      const isNoTempModel = noTemperatureModels.some(m => modelId.toLowerCase().includes(m));
+      
+      // Models that use max_completion_tokens instead of max_tokens
+      const useMaxCompletionTokens = ['gpt-5', 'gpt-4.1', 'o3', 'o4'].some(m => modelId.toLowerCase().includes(m));
+
       const requestBody: any = {
-        model: model || 'gpt-3.5-turbo',
+        model: modelId,
         messages,
       };
 
-      // Add optional parameters
-      if (settings.temperature !== undefined) requestBody.temperature = settings.temperature;
-      if (settings.max_tokens !== undefined) requestBody.max_tokens = settings.max_tokens;
-      if (settings.top_p !== undefined) requestBody.top_p = settings.top_p;
+      // Add optional parameters based on model capabilities
+      if (!isNoTempModel && settings.temperature !== undefined) {
+        requestBody.temperature = settings.temperature;
+      }
+      
+      if (settings.max_tokens !== undefined) {
+        if (useMaxCompletionTokens) {
+          requestBody.max_completion_tokens = settings.max_tokens;
+        } else {
+          requestBody.max_tokens = settings.max_tokens;
+        }
+      }
+      
+      if (!isNoTempModel && settings.top_p !== undefined) {
+        requestBody.top_p = settings.top_p;
+      }
       if (settings.frequency_penalty !== undefined) requestBody.frequency_penalty = settings.frequency_penalty;
       if (settings.presence_penalty !== undefined) requestBody.presence_penalty = settings.presence_penalty;
 
-      console.log('OpenAI request:', { model: requestBody.model, messageCount: messages?.length });
+      console.log('OpenAI request:', { model: requestBody.model, messageCount: messages?.length, isNoTempModel });
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
