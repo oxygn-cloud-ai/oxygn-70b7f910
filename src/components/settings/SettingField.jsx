@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Info, ExternalLink } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -10,6 +10,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const MAX_HISTORY = 99;
 
@@ -17,6 +22,8 @@ const SettingField = ({
   field, 
   label, 
   description,
+  details,
+  docUrl,
   localData, 
   handleChange, 
   handleSave, 
@@ -37,7 +44,7 @@ const SettingField = ({
     const initialValue = selectedItemData?.[field];
     if (initialValue !== undefined && initialValue !== null) {
       setValueHistory([initialValue]);
-      setHistoryIndex(-1); // -1 means we're at the current value
+      setHistoryIndex(-1);
     }
   }, [selectedItemData?.row_id, field]);
 
@@ -45,14 +52,12 @@ const SettingField = ({
   const handleValueChange = useCallback((newValue) => {
     const currentValue = localData[field];
     
-    // Only add to history if value actually changed and isn't already the last history item
     if (currentValue !== undefined && 
         currentValue !== null && 
         currentValue !== '' &&
         (valueHistory.length === 0 || valueHistory[valueHistory.length - 1] !== currentValue)) {
       setValueHistory(prev => {
         const newHistory = [...prev, currentValue];
-        // Keep only last MAX_HISTORY values
         if (newHistory.length > MAX_HISTORY) {
           return newHistory.slice(-MAX_HISTORY);
         }
@@ -60,7 +65,7 @@ const SettingField = ({
       });
     }
     
-    setHistoryIndex(-1); // Reset to current when typing new value
+    setHistoryIndex(-1);
     handleChange(field, newValue);
   }, [field, localData, handleChange, valueHistory]);
 
@@ -68,7 +73,6 @@ const SettingField = ({
   const handleCycleBack = useCallback(() => {
     if (valueHistory.length === 0) return;
     
-    // If we're at current value (-1), add it to history first
     if (historyIndex === -1) {
       const currentValue = localData[field];
       if (currentValue !== undefined && 
@@ -85,7 +89,6 @@ const SettingField = ({
       }
     }
     
-    // Calculate new index (cycle through history)
     const newIndex = historyIndex === -1 
       ? valueHistory.length - 1 
       : (historyIndex - 1 + valueHistory.length) % valueHistory.length;
@@ -129,6 +132,41 @@ const SettingField = ({
         >
           {label || field}
         </label>
+        
+        {/* Info popover */}
+        {(details || docUrl) && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" side="top">
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">{label || field}</h4>
+                {details && (
+                  <p className="text-xs text-muted-foreground">{details}</p>
+                )}
+                {docUrl && (
+                  <a 
+                    href={docUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    OpenAI Documentation
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
