@@ -91,13 +91,18 @@ export const useOpenAICall = () => {
 
       const requestBody = {
         action: 'chat',
-        model: projectSettings?.model || 'gpt-3.5-turbo',
+        model: projectSettings?.model || 'gpt-4o-mini',
         messages: [
           { role: 'system', content: finalSystemMessage },
           { role: 'user', content: finalUserMessage.trim() },
         ],
         temperature,
       };
+
+      // Add web search if enabled
+      if (projectSettings?.web_search_on) {
+        requestBody.web_search_enabled = true;
+      }
 
       // Add max_tokens if response_tokens is enabled
       if (projectSettings?.response_tokens_on && projectSettings?.response_tokens) {
@@ -127,6 +132,11 @@ export const useOpenAICall = () => {
       if (projectSettings?.presence_penalty_on) {
         requestBody.presence_penalty = parseFloat(projectSettings.presence_penalty) || 0;
       }
+
+      console.log('OpenAI request body:', { 
+        model: requestBody.model, 
+        webSearchEnabled: requestBody.web_search_enabled 
+      });
 
       const { data, error } = await supabase.functions.invoke('openai-proxy', {
         body: requestBody,
