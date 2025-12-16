@@ -25,13 +25,39 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     ? (maxPositionData[0].position || 0) + 1000000
     : 1000000;
 
+  // Get all existing prompt names to find the next available number
+  const { data: existingPrompts, error: nameError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('prompt_name')
+    .eq('is_deleted', false);
+
+  if (nameError) throw nameError;
+
+  // Find the highest "New Prompt N" number
+  let maxNumber = 0;
+  const newPromptRegex = /^New Prompt(?: (\d+))?$/;
+  
+  if (existingPrompts) {
+    existingPrompts.forEach(prompt => {
+      const match = prompt.prompt_name?.match(newPromptRegex);
+      if (match) {
+        const num = match[1] ? parseInt(match[1], 10) : 1;
+        if (num > maxNumber) {
+          maxNumber = num;
+        }
+      }
+    });
+  }
+
+  const newPromptName = `New Prompt ${maxNumber + 1}`;
+
   const { data, error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
       parent_row_id: parentId,
       input_admin_prompt: defaultAdminPrompt || '',
       is_deleted: false,
-      prompt_name: 'New Prompt',
+      prompt_name: newPromptName,
       position: newPosition
     }])
     .select();
