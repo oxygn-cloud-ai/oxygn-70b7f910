@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
 const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges }) => {
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
@@ -102,7 +103,18 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
   return (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-1">
-        <Label htmlFor={label}>{renderLabel()}</Label>
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="h-6 w-6 mr-1"
+            title={isCollapsed ? "Expand field" : "Collapse field"}
+          >
+            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
+          <Label htmlFor={label}>{renderLabel()}</Label>
+        </div>
         <div className="flex space-x-2">
           <Button
             variant="ghost"
@@ -151,22 +163,24 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           )}
         </div>
       </div>
-      <Textarea
-        id={label}
-        value={value}
-        onChange={(e) => {
-          if (!isReadOnly) {
-            onChange(e.target.value);
-          }
-          if (label === 'Admin Result' || label === 'User Result') {
-            e.target.style.height = 'auto';
-          }
-        }}
-        className="w-full mt-1"
-        rows={4}
-        ref={textareaRef}
-        readOnly={isReadOnly}
-      />
+      {!isCollapsed && (
+        <Textarea
+          id={label}
+          value={value}
+          onChange={(e) => {
+            if (!isReadOnly) {
+              onChange(e.target.value);
+            }
+            if (label === 'Admin Result' || label === 'User Result') {
+              e.target.style.height = 'auto';
+            }
+          }}
+          className="w-full mt-1"
+          rows={4}
+          ref={textareaRef}
+          readOnly={isReadOnly}
+        />
+      )}
     </div>
   );
 };
