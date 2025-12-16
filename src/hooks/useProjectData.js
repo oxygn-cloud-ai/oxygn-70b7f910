@@ -21,61 +21,12 @@ export const useProjectData = (initialData, projectRowId) => {
     if (!supabase || !projectRowId) return;
 
     try {
-      // Create source info for the field being saved
-      const sourceInfo = {
-        [`src_${fieldName}`]: {
-          parts: [
-            {
-              type: "user_input",
-              text: localData[fieldName],
-              order: 1
-            }
-          ],
-          metadata: {
-            created_at: new Date().toISOString(),
-            last_updated: new Date().toISOString(),
-            part_count: 1
-          }
-        }
-      };
-
-      // Prepare update data with both the field value and source info
-      const updateData = {
-        [fieldName]: localData[fieldName],
-        source_info: {
-          ...(localData.source_info || {}),
-          ...sourceInfo
-        }
-      };
-
-      // Log the API call details
-      console.log('Supabase API Call:', {
-        table: import.meta.env.VITE_PROMPTS_TBL,
-        method: 'UPDATE',
-        filters: { row_id: projectRowId },
-        data: updateData
-      });
-
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
-        .update(updateData)
+        .update({ [fieldName]: localData[fieldName] })
         .eq('row_id', projectRowId);
 
-      // Log the API response
-      console.log('Supabase API Response:', {
-        success: !error,
-        data: data,
-        error: error,
-        timestamp: new Date().toISOString()
-      });
-
       if (error) throw error;
-
-      // Update local state with the new source info
-      setLocalData(prevData => ({
-        ...prevData,
-        source_info: updateData.source_info
-      }));
 
       setUnsavedChanges(prev => ({ ...prev, [fieldName]: false }));
       toast.success(`${fieldName} saved successfully`);
