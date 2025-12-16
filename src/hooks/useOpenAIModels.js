@@ -16,8 +16,8 @@ export const useOpenAIModels = () => {
         const { data, error } = await supabase
           .from(import.meta.env.VITE_MODELS_TBL)
           .select('*')
-          .eq('is_deleted', false)
-          .order('model', { ascending: true });
+          .eq('is_active', true)
+          .order('model_name', { ascending: true });
 
         if (error) throw error;
         setModels(data || []);
