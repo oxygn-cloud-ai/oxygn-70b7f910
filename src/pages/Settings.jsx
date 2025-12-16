@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
+import { useModels } from '../hooks/useModels';
 import { useSupabase } from '../hooks/useSupabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from 'sonner';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,6 +28,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const MAX_SETTING_VALUE_LENGTH = 2000;
 const MAX_SETTING_DESC_LENGTH = 500;
@@ -41,14 +51,21 @@ const Settings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const { models, isLoading: modelsLoading, toggleModelActive, addModel, deleteModel, refetch: refetchModels } = useModels();
+  const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
+  const [newModelId, setNewModelId] = useState('');
+  const [newModelName, setNewModelName] = useState('');
+  const [newModelProvider, setNewModelProvider] = useState('openai');
+
   useEffect(() => {
     // Useful when database values change outside this page (e.g. seeded via backend tools)
     const onFocus = () => {
       refetch?.();
+      refetchModels?.();
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [refetch]);
+  }, [refetch, refetchModels]);
 
   if (isLoading || !supabase) {
     return (
@@ -69,12 +86,27 @@ const Settings = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([refetch(), refetchModels()]);
       toast.success('Settings refreshed');
     } catch (err) {
       toast.error('Failed to refresh settings');
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleAddModel = async () => {
+    if (!newModelId.trim() || !newModelName.trim()) {
+      toast.error('Model ID and name are required');
+      return;
+    }
+
+    const result = await addModel(newModelId.trim(), newModelName.trim(), newModelProvider);
+    if (result) {
+      setNewModelId('');
+      setNewModelName('');
+      setNewModelProvider('openai');
+      setIsAddModelDialogOpen(false);
     }
   };
 
@@ -364,6 +396,128 @@ const Settings = () => {
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI Models */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              AI Models
+            </CardTitle>
+            <CardDescription>Manage available AI models for prompts</CardDescription>
+          </div>
+          <Dialog open={isAddModelDialogOpen} onOpenChange={setIsAddModelDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Model
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Model</DialogTitle>
+                <DialogDescription>Add a new AI model to the available options</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="modelId">Model ID</Label>
+                  <Input
+                    id="modelId"
+                    placeholder="e.g., gpt-4o-mini"
+                    value={newModelId}
+                    onChange={(e) => setNewModelId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modelName">Display Name</Label>
+                  <Input
+                    id="modelName"
+                    placeholder="e.g., GPT-4o Mini"
+                    value={newModelName}
+                    onChange={(e) => setNewModelName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="provider">Provider</Label>
+                  <Select value={newModelProvider} onValueChange={setNewModelProvider}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="anthropic">Anthropic</SelectItem>
+                      <SelectItem value="google">Google</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddModelDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleAddModel}>Add Model</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          {modelsLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading models...</div>
+          ) : models.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No models configured. Click "Add Model" to create one.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Model</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {models.map((model) => (
+                  <TableRow key={model.row_id}>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{model.model_name}</div>
+                        <code className="text-xs text-muted-foreground">{model.model_id}</code>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize">
+                        {model.provider || 'unknown'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={model.is_active}
+                          onCheckedChange={(checked) => toggleModelActive(model.row_id, checked)}
+                        />
+                        <span className={`text-sm ${model.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {model.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => deleteModel(model.row_id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
