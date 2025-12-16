@@ -66,7 +66,15 @@ const Projects = () => {
     }
   }, [activeItem, updateField, refreshTreeData]);
 
-  useEffect(() => {
+  const handleCascade = useCallback((fieldName) => {
+    if (selectedItemData) {
+      setCascadeInfo({ 
+        itemName: selectedItemData.prompt_name || 'Prompt', 
+        fieldName 
+      });
+      setShowParentPromptPopup(true);
+    }
+  }, [selectedItemData]);
     const loadItemData = async () => {
       if (activeItem) {
         const data = await fetchItemData(activeItem);
@@ -128,6 +136,7 @@ const Projects = () => {
                   selectedItemData={selectedItemData} 
                   projectRowId={activeItem} 
                   onUpdateField={handleUpdateField}
+                  onCascade={handleCascade}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full">
