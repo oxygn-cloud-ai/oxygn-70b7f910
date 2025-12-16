@@ -121,6 +121,91 @@ serve(async (req) => {
 
       const modelId = model || 'gpt-4o-mini';
       
+      // Use Responses API for web search (required by OpenAI)
+      if (web_search_enabled) {
+        console.log('Web search enabled - using Responses API');
+        
+        // Convert messages to input format for Responses API
+        const systemMessage = messages.find((m: any) => m.role === 'system')?.content || '';
+        const userMessage = messages.find((m: any) => m.role === 'user')?.content || '';
+        
+        const requestBody: any = {
+          model: modelId,
+          input: userMessage,
+          instructions: systemMessage,
+          tools: [{ type: "web_search" }],
+        };
+
+        console.log('Responses API request:', { model: modelId, hasInput: !!userMessage });
+
+        const response = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+          console.error('OpenAI Responses API error:', responseData);
+          return new Response(
+            JSON.stringify({ error: responseData.error?.message || 'OpenAI API error' }),
+            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Responses API response received');
+        
+        // Extract text and citations from Responses API format
+        let outputText = '';
+        let citations: any[] = [];
+        
+        if (responseData.output) {
+          for (const item of responseData.output) {
+            if (item.type === 'message' && item.content) {
+              for (const content of item.content) {
+                if (content.type === 'output_text') {
+                  outputText = content.text;
+                  if (content.annotations) {
+                    citations = content.annotations
+                      .filter((a: any) => a.type === 'url_citation')
+                      .map((a: any) => ({
+                        url: a.url,
+                        title: a.title,
+                        startIndex: a.start_index,
+                        endIndex: a.end_index
+                      }));
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Format response like Chat Completions for compatibility
+        const formattedResponse = {
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: outputText
+            },
+            finish_reason: 'stop'
+          }],
+          citations,
+          usage: responseData.usage
+        };
+
+        console.log('Web search citations found:', citations.length);
+        return new Response(
+          JSON.stringify(formattedResponse),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Standard Chat Completions API (no web search)
       // Models that don't support temperature parameter
       const noTemperatureModels = ['o1', 'o3', 'o4', 'gpt-5'];
       const isNoTempModel = noTemperatureModels.some(m => modelId.toLowerCase().includes(m));
@@ -132,17 +217,6 @@ serve(async (req) => {
         model: modelId,
         messages,
       };
-
-      // Add web search tool if enabled
-      if (web_search_enabled) {
-        console.log('Web search enabled for this request');
-        requestBody.tools = [
-          {
-            type: "web_search_preview",
-            search_context_size: "medium"
-          }
-        ];
-      }
 
       // Add optional parameters based on model capabilities
       if (!isNoTempModel && settings.temperature !== undefined) {
@@ -163,11 +237,10 @@ serve(async (req) => {
       if (settings.frequency_penalty !== undefined) requestBody.frequency_penalty = settings.frequency_penalty;
       if (settings.presence_penalty !== undefined) requestBody.presence_penalty = settings.presence_penalty;
 
-      console.log('OpenAI request:', { 
+      console.log('OpenAI Chat request:', { 
         model: requestBody.model, 
         messageCount: messages?.length, 
-        isNoTempModel,
-        webSearchEnabled: !!web_search_enabled 
+        isNoTempModel
       });
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -190,22 +263,9 @@ serve(async (req) => {
       }
 
       console.log('OpenAI response received, tokens:', responseData.usage);
-      
-      // Extract citations if web search was used
-      let citations = [];
-      if (web_search_enabled && responseData.choices?.[0]?.message?.annotations) {
-        citations = responseData.choices[0].message.annotations
-          .filter((a: any) => a.type === 'url_citation')
-          .map((a: any) => ({
-            url: a.url_citation?.url,
-            title: a.url_citation?.title,
-            text: a.text
-          }));
-        console.log('Web search citations found:', citations.length);
-      }
 
       return new Response(
-        JSON.stringify({ ...responseData, citations }),
+        JSON.stringify(responseData),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
