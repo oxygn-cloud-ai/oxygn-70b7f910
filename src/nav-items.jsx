@@ -1,9 +1,10 @@
-import { HomeIcon, FolderIcon, SettingsIcon, LinkIcon, PaintbrushIcon } from "lucide-react";
+import { HomeIcon, FolderIcon, SettingsIcon, LinkIcon, PaintbrushIcon, HeartPulse } from "lucide-react";
 import Index from "./pages/Index.jsx";
 import Projects from "./pages/Projects.jsx";
 import Settings from "./pages/Settings.jsx";
 import Links from "./pages/Links.jsx";
 import Studio from "./pages/Studio.jsx";
+import HealthCheck from "./pages/HealthCheck.jsx";
 
 export const navItems = [
   {
@@ -29,6 +30,12 @@ export const navItems = [
     to: "/settings",
     icon: <SettingsIcon className="h-4 w-4" />,
     page: <Settings />,
+  },
+  {
+    title: "Health",
+    to: "/health",
+    icon: <HeartPulse className="h-4 w-4" />,
+    page: <HealthCheck />,
   },
   {
     title: "Links",
