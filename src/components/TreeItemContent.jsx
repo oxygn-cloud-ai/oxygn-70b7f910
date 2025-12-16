@@ -37,7 +37,7 @@ export const TreeItemContent = ({
     toggleItem(item.id);
   };
 
-  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
+  const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? item.prompt_name : 'New Prompt';
 
   return (
     <div
