@@ -11,8 +11,10 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot, Sliders } from 'lucide-react';
-import ModelDefaultsSection from '../components/ModelDefaultsSection';
+import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot, ChevronDown, ChevronUp } from 'lucide-react';
+import { ModelSettingsPanel } from '../components/InlineModelSettings';
+import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
+import { ALL_SETTINGS } from '../config/modelCapabilities';
 import {
   Table,
   TableBody,
@@ -56,9 +58,17 @@ const Settings = () => {
   const { models, isLoading: modelsLoading, toggleModelActive, addModel, deleteModel, refetch: refetchModels } = useModels();
   const { modelDefaults, updateModelDefault, refetch: refetchModelDefaults } = useModelDefaults();
   const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
+  const [expandedModels, setExpandedModels] = useState({});
   const [newModelId, setNewModelId] = useState('');
   const [newModelName, setNewModelName] = useState('');
   const [newModelProvider, setNewModelProvider] = useState('openai');
+
+  const toggleModelExpanded = (modelId) => {
+    setExpandedModels(prev => ({
+      ...prev,
+      [modelId]: !prev[modelId]
+    }));
+  };
 
   useEffect(() => {
     // Useful when database values change outside this page (e.g. seeded via backend tools)
@@ -512,89 +522,86 @@ const Settings = () => {
               No models configured. Click "Add Model" to create one.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {models.map((model) => (
-                  <TableRow key={model.row_id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{model.model_name}</div>
-                        <code className="text-xs text-muted-foreground">{model.model_id}</code>
+            <div className="space-y-2">
+              {models.map((model) => {
+                const isExpanded = expandedModels[model.model_id];
+                const defaultsCount = Object.keys(ALL_SETTINGS).filter(
+                  key => modelDefaults[model.model_id]?.[`${key}_on`]
+                ).length;
+                
+                return (
+                  <Collapsible 
+                    key={model.row_id} 
+                    open={isExpanded}
+                    onOpenChange={() => toggleModelExpanded(model.model_id)}
+                  >
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between p-3 bg-background">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <div className="font-medium">{model.model_name}</div>
+                            <code className="text-xs text-muted-foreground">{model.model_id}</code>
+                          </div>
+                          <Badge variant="outline" className="capitalize">
+                            {model.provider || 'unknown'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={model.is_active}
+                              onCheckedChange={(checked) => toggleModelActive(model.row_id, checked)}
+                            />
+                            <span className={`text-sm ${model.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
+                              {model.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleModelExpanded(model.model_id)}
+                            className="h-8 w-8"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
+                          {defaultsCount > 0 && !isExpanded && (
+                            <span className="text-xs text-muted-foreground">
+                              ({defaultsCount})
+                            </span>
+                          )}
+                          
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteModel(model.row_id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {model.provider || 'unknown'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={model.is_active}
-                          onCheckedChange={(checked) => toggleModelActive(model.row_id, checked)}
+                      
+                      <CollapsibleContent>
+                        <ModelSettingsPanel
+                          model={model}
+                          defaults={modelDefaults[model.model_id]}
+                          onUpdateDefault={updateModelDefault}
                         />
-                        <span className={`text-sm ${model.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
-                          {model.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => deleteModel(model.row_id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Model Default Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sliders className="h-5 w-5" />
-            Model Default Settings
-          </CardTitle>
-          <CardDescription>
-            Configure default settings for each model. These will be applied when creating new prompts.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {modelsLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading models...</div>
-          ) : models.filter(m => m.is_active).length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No active models. Enable models above to configure their defaults.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {models.filter(m => m.is_active).map((model) => (
-                <ModelDefaultsSection
-                  key={model.row_id}
-                  model={model}
-                  defaults={modelDefaults[model.model_id]}
-                  onUpdateDefault={updateModelDefault}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Environment Variables */}
       <Card>
