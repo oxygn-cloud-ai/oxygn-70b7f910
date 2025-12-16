@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { useModels } from '../hooks/useModels';
+import { useModelDefaults } from '../hooks/useModelDefaults';
 import { useSupabase } from '../hooks/useSupabase';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot } from 'lucide-react';
+import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot, Sliders } from 'lucide-react';
+import ModelDefaultsSection from '../components/ModelDefaultsSection';
 import {
   Table,
   TableBody,
@@ -52,6 +54,7 @@ const Settings = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const { models, isLoading: modelsLoading, toggleModelActive, addModel, deleteModel, refetch: refetchModels } = useModels();
+  const { modelDefaults, updateModelDefault, refetch: refetchModelDefaults } = useModelDefaults();
   const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
   const [newModelId, setNewModelId] = useState('');
   const [newModelName, setNewModelName] = useState('');
@@ -556,6 +559,39 @@ const Settings = () => {
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Model Default Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sliders className="h-5 w-5" />
+            Model Default Settings
+          </CardTitle>
+          <CardDescription>
+            Configure default settings for each model. These will be applied when creating new prompts.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {modelsLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading models...</div>
+          ) : models.filter(m => m.is_active).length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No active models. Enable models above to configure their defaults.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {models.filter(m => m.is_active).map((model) => (
+                <ModelDefaultsSection
+                  key={model.row_id}
+                  model={model}
+                  defaults={modelDefaults[model.model_id]}
+                  onUpdateDefault={updateModelDefault}
+                />
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

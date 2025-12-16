@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      cyg_model_defaults: {
+        Row: {
+          created_at: string
+          frequency_penalty: string | null
+          frequency_penalty_on: boolean | null
+          logit_bias: string | null
+          logit_bias_on: boolean | null
+          max_tokens: string | null
+          max_tokens_on: boolean | null
+          model_id: string
+          n: string | null
+          n_on: boolean | null
+          o_user: string | null
+          o_user_on: boolean | null
+          presence_penalty: string | null
+          presence_penalty_on: boolean | null
+          response_format: string | null
+          response_format_on: boolean | null
+          row_id: string
+          stop: string | null
+          stop_on: boolean | null
+          stream: boolean | null
+          stream_on: boolean | null
+          temperature: string | null
+          temperature_on: boolean | null
+          top_p: string | null
+          top_p_on: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          frequency_penalty?: string | null
+          frequency_penalty_on?: boolean | null
+          logit_bias?: string | null
+          logit_bias_on?: boolean | null
+          max_tokens?: string | null
+          max_tokens_on?: boolean | null
+          model_id: string
+          n?: string | null
+          n_on?: boolean | null
+          o_user?: string | null
+          o_user_on?: boolean | null
+          presence_penalty?: string | null
+          presence_penalty_on?: boolean | null
+          response_format?: string | null
+          response_format_on?: boolean | null
+          row_id?: string
+          stop?: string | null
+          stop_on?: boolean | null
+          stream?: boolean | null
+          stream_on?: boolean | null
+          temperature?: string | null
+          temperature_on?: boolean | null
+          top_p?: string | null
+          top_p_on?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          frequency_penalty?: string | null
+          frequency_penalty_on?: boolean | null
+          logit_bias?: string | null
+          logit_bias_on?: boolean | null
+          max_tokens?: string | null
+          max_tokens_on?: boolean | null
+          model_id?: string
+          n?: string | null
+          n_on?: boolean | null
+          o_user?: string | null
+          o_user_on?: boolean | null
+          presence_penalty?: string | null
+          presence_penalty_on?: boolean | null
+          response_format?: string | null
+          response_format_on?: boolean | null
+          row_id?: string
+          stop?: string | null
+          stop_on?: boolean | null
+          stream?: boolean | null
+          stream_on?: boolean | null
+          temperature?: string | null
+          temperature_on?: boolean | null
+          top_p?: string | null
+          top_p_on?: boolean | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cyg_models: {
         Row: {
           created_at: string
