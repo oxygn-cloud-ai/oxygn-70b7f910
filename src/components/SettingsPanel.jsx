@@ -150,6 +150,7 @@ const SettingsPanel = ({
             description={settingInfo.description}
             details={settingInfo.details}
             docUrl={settingInfo.docUrl}
+            type={settingInfo.type || 'text'}
             localData={localData}
             handleChange={handleChange}
             handleSave={handleSave}

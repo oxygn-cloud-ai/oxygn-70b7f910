@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { RotateCcw, Info, ExternalLink } from 'lucide-react';
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -30,7 +31,8 @@ const SettingField = ({
   handleCheckChange,
   customInput,
   selectedItemData,
-  isSupported = true
+  isSupported = true,
+  type = 'text' // 'text' or 'switch'
 }) => {
   const isChecked = localData[`${field}_on`] || false;
   const isDisabled = !isSupported;
@@ -117,12 +119,21 @@ const SettingField = ({
         : "bg-background border-border hover:border-primary/50"
     )}>
       <div className="flex items-center space-x-2 mb-2">
-        <Checkbox
-          id={`${field}-checkbox`}
-          checked={isChecked}
-          onCheckedChange={(checked) => !isDisabled && handleCheckChange(field, checked)}
-          disabled={isDisabled}
-        />
+        {type === 'switch' ? (
+          <Switch
+            id={`${field}-switch`}
+            checked={isChecked}
+            onCheckedChange={(checked) => !isDisabled && handleCheckChange(field, checked)}
+            disabled={isDisabled}
+          />
+        ) : (
+          <Checkbox
+            id={`${field}-checkbox`}
+            checked={isChecked}
+            onCheckedChange={(checked) => !isDisabled && handleCheckChange(field, checked)}
+            disabled={isDisabled}
+          />
+        )}
         <label 
           htmlFor={field} 
           className={cn(
@@ -190,7 +201,7 @@ const SettingField = ({
         </TooltipProvider>
       </div>
       
-      {customInput ? (
+      {type === 'switch' ? null : customInput ? (
         customInput
       ) : (
         <Input
