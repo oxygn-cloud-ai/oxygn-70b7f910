@@ -104,6 +104,20 @@ export const ModelSettingsPanel = ({
 
   const settingKeys = Object.keys(ALL_SETTINGS);
 
+  const defaultValues = {
+    temperature: '0.7',
+    max_tokens: '2048',
+    top_p: '1',
+    frequency_penalty: '0',
+    presence_penalty: '0',
+    n: '1',
+    stream: 'false',
+    response_format: '{"type": "text"}',
+    stop: '',
+    logit_bias: '',
+    o_user: '',
+  };
+
   return (
     <div className="p-4 bg-muted/30 border-t">
       <p className="text-sm text-muted-foreground mb-3">
@@ -114,7 +128,9 @@ export const ModelSettingsPanel = ({
           const settingInfo = ALL_SETTINGS[field];
           const isSupported = isSettingSupported(field, model.model_id, model.provider);
           const isEnabled = modelDefaults[`${field}_on`] || false;
-          const value = modelDefaults[field] || '';
+          const value = modelDefaults[field] !== undefined && modelDefaults[field] !== null 
+            ? modelDefaults[field] 
+            : (isEnabled ? defaultValues[field] || '' : '');
 
           return (
             <div 
@@ -177,7 +193,7 @@ export const ModelSettingsPanel = ({
                 onChange={(e) => handleValueChange(field, e.target.value)}
                 disabled={!isEnabled || !isSupported}
                 className="w-full h-7 text-xs"
-                placeholder={!isSupported ? "N/A" : ""}
+                placeholder={!isSupported ? "N/A" : (defaultValues[field] || "Enter value")}
               />
             </div>
           );
