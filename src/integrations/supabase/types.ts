@@ -14,7 +14,137 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cyg_models: {
+        Row: {
+          created_at: string
+          is_active: boolean | null
+          model_id: string
+          model_name: string
+          provider: string | null
+          row_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean | null
+          model_id: string
+          model_name: string
+          provider?: string | null
+          row_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean | null
+          model_id?: string
+          model_name?: string
+          provider?: string | null
+          row_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cyg_prompts: {
+        Row: {
+          created_at: string
+          input_admin_prompt: string | null
+          input_user_prompt: string | null
+          is_deleted: boolean | null
+          output_response: string | null
+          parent_row_id: string | null
+          position: number | null
+          prompt_name: string
+          row_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          input_admin_prompt?: string | null
+          input_user_prompt?: string | null
+          is_deleted?: boolean | null
+          output_response?: string | null
+          parent_row_id?: string | null
+          position?: number | null
+          prompt_name?: string
+          row_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          input_admin_prompt?: string | null
+          input_user_prompt?: string | null
+          is_deleted?: boolean | null
+          output_response?: string | null
+          parent_row_id?: string | null
+          position?: number | null
+          prompt_name?: string
+          row_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cyg_prompts_parent_row_id_fkey"
+            columns: ["parent_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
+      cyg_settings: {
+        Row: {
+          created_at: string
+          row_id: string
+          setting_description: string | null
+          setting_key: string
+          setting_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          row_id?: string
+          setting_description?: string | null
+          setting_key: string
+          setting_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          row_id?: string
+          setting_description?: string | null
+          setting_key?: string
+          setting_value?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          project_description: string | null
+          project_id: string | null
+          project_name: string
+          project_row_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          project_description?: string | null
+          project_id?: string | null
+          project_name?: string
+          project_row_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          project_description?: string | null
+          project_id?: string | null
+          project_name?: string
+          project_row_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
