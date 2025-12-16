@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TEMPLATE_CODES, DATE_FORMAT_EXAMPLES, processNamingTemplate } from '@/utils/namingTemplates';
 import {
   Table,
   TableBody,
@@ -14,6 +16,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+const TemplateCodesHelp = () => (
+  <Popover>
+    <PopoverTrigger asChild>
+      <Button variant="ghost" size="sm" className="h-6 px-2 text-muted-foreground">
+        <HelpCircle className="h-4 w-4 mr-1" />
+        Template Codes
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent className="w-96" align="start">
+      <div className="space-y-3">
+        <h4 className="font-semibold text-sm">Available Template Codes</h4>
+        <div className="space-y-2">
+          {TEMPLATE_CODES.map(({ code, description, example }) => (
+            <div key={code} className="text-xs">
+              <code className="bg-muted px-1 py-0.5 rounded font-mono">{code}</code>
+              <span className="text-muted-foreground ml-2">{description}</span>
+            </div>
+          ))}
+        </div>
+        <div className="pt-2 border-t">
+          <h5 className="font-medium text-xs mb-2">Date Format Examples</h5>
+          <div className="grid grid-cols-2 gap-1 text-xs">
+            {DATE_FORMAT_EXAMPLES.map(({ format, example }) => (
+              <div key={format}>
+                <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">{'{{date:' + format + '}}'}</code>
+                <span className="text-muted-foreground ml-1">→ {example}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </PopoverContent>
+  </Popover>
+);
 
 const DEFAULT_NAMING_CONFIG = {
   levels: [
@@ -180,53 +217,72 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[80px]">Level</TableHead>
+            <TableHead className="w-[60px]">Level</TableHead>
             <TableHead>Default Name</TableHead>
             <TableHead>Prefix</TableHead>
             <TableHead>Suffix</TableHead>
-            <TableHead className="w-[60px]"></TableHead>
+            <TableHead>Preview (1st, 2nd, 3rd)</TableHead>
+            <TableHead className="w-[50px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {levels.map((level, index) => (
-            <TableRow key={index}>
-              <TableCell className="text-muted-foreground">{index}</TableCell>
-              <TableCell>
-                <Input
-                  value={level.name}
-                  onChange={(e) => onLevelChange(index, 'name', e.target.value)}
-                  placeholder="Default name"
-                  className="h-8"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  value={level.prefix}
-                  onChange={(e) => onLevelChange(index, 'prefix', e.target.value)}
-                  placeholder="Prefix"
-                  className="h-8"
-                />
-              </TableCell>
-              <TableCell>
-                <Input
-                  value={level.suffix}
-                  onChange={(e) => onLevelChange(index, 'suffix', e.target.value)}
-                  placeholder="Suffix"
-                  className="h-8"
-                />
-              </TableCell>
-              <TableCell>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => onRemoveLevel(index)}
-                  className="h-8 w-8"
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+          {levels.map((level, index) => {
+            const previews = [0, 1, 2].map(seq => {
+              const prefix = processNamingTemplate(level.prefix || '', seq);
+              const name = processNamingTemplate(level.name || '', seq);
+              const suffix = processNamingTemplate(level.suffix || '', seq);
+              return `${prefix}${name}${suffix}`;
+            });
+            
+            return (
+              <TableRow key={index}>
+                <TableCell className="text-muted-foreground">{index}</TableCell>
+                <TableCell>
+                  <Input
+                    value={level.name}
+                    onChange={(e) => onLevelChange(index, 'name', e.target.value)}
+                    placeholder="Default name"
+                    className="h-8"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={level.prefix}
+                    onChange={(e) => onLevelChange(index, 'prefix', e.target.value)}
+                    placeholder="Prefix"
+                    className="h-8"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={level.suffix}
+                    onChange={(e) => onLevelChange(index, 'suffix', e.target.value)}
+                    placeholder="Suffix"
+                    className="h-8"
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    {previews.map((preview, i) => (
+                      <div key={i} className="truncate max-w-[150px]" title={preview}>
+                        {preview || <span className="italic">empty</span>}
+                      </div>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onRemoveLevel(index)}
+                    className="h-8 w-8"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
       <Button variant="outline" size="sm" onClick={onAddLevel}>
@@ -254,6 +310,14 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
         )}
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Template codes help */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Use template codes in prefix/suffix fields for dynamic naming.
+          </p>
+          <TemplateCodesHelp />
+        </div>
+
         {/* Default Levels */}
         <div className="space-y-3">
           <Label className="text-base font-semibold">Default Naming (All Prompts)</Label>
