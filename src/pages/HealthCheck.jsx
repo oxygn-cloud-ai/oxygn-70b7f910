@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, RefreshCw, Database, User, Table2 } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCw, Database, User, Table2, Bot, Key, Globe, Zap } from 'lucide-react';
 
 const REQUIRED_TABLES = [
   import.meta.env.VITE_PROMPTS_TBL || 'cyg_prompts',
@@ -18,6 +18,12 @@ const HealthCheck = () => {
     database: { status: 'pending', message: '' },
     tables: {},
     auth: { status: 'pending', message: '', user: null },
+    openai: {
+      apiKey: { status: 'pending', message: '' },
+      apiUrl: { status: 'pending', message: '' },
+      connection: { status: 'pending', message: '', latency: null },
+      models: { status: 'pending', message: '', available: [] },
+    },
   });
 
   const checkDatabaseConnection = async () => {
@@ -76,6 +82,105 @@ const HealthCheck = () => {
     }
   };
 
+  const checkOpenAIConfig = () => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl = import.meta.env.VITE_OPENAI_URL;
+
+    const apiKeyResult = apiKey 
+      ? { status: 'success', message: `Configured (${apiKey.slice(0, 7)}...${apiKey.slice(-4)})` }
+      : { status: 'error', message: 'Not configured' };
+
+    const apiUrlResult = apiUrl
+      ? { status: 'success', message: apiUrl }
+      : { status: 'error', message: 'Not configured' };
+
+    return { apiKey: apiKeyResult, apiUrl: apiUrlResult };
+  };
+
+  const checkOpenAIConnection = async () => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl = import.meta.env.VITE_OPENAI_URL;
+
+    if (!apiKey || !apiUrl) {
+      return { status: 'error', message: 'API key or URL not configured', latency: null };
+    }
+
+    try {
+      const start = Date.now();
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: 'Hi' }],
+          max_tokens: 1,
+        }),
+      });
+      const latency = Date.now() - start;
+
+      if (response.ok) {
+        return { status: 'success', message: `Connected (${latency}ms)`, latency };
+      }
+
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || response.statusText;
+
+      if (response.status === 401) {
+        return { status: 'error', message: 'Invalid API key', latency: null };
+      }
+      if (response.status === 429) {
+        if (errorData.error?.code === 'insufficient_quota') {
+          return { status: 'warning', message: 'Quota exceeded - check billing', latency };
+        }
+        return { status: 'warning', message: 'Rate limited - try again later', latency };
+      }
+      if (response.status >= 500) {
+        return { status: 'warning', message: `OpenAI server error (${response.status})`, latency };
+      }
+
+      return { status: 'error', message: errorMessage, latency };
+    } catch (err) {
+      return { status: 'error', message: `Connection failed: ${err.message}`, latency: null };
+    }
+  };
+
+  const checkOpenAIModels = async () => {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+    if (!apiKey) {
+      return { status: 'error', message: 'API key not configured', available: [] };
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+      });
+
+      if (!response.ok) {
+        return { status: 'error', message: 'Could not fetch models', available: [] };
+      }
+
+      const data = await response.json();
+      const chatModels = data.data
+        .filter(m => m.id.includes('gpt'))
+        .map(m => m.id)
+        .sort();
+
+      return { 
+        status: 'success', 
+        message: `${chatModels.length} GPT models available`, 
+        available: chatModels 
+      };
+    } catch (err) {
+      return { status: 'error', message: err.message, available: [] };
+    }
+  };
+
   const runHealthCheck = async () => {
     setIsLoading(true);
     
@@ -89,10 +194,23 @@ const HealthCheck = () => {
       tableResults[table] = await checkTable(table);
     }
 
+    // OpenAI checks
+    const openaiConfig = checkOpenAIConfig();
+    const [openaiConnection, openaiModels] = await Promise.all([
+      checkOpenAIConnection(),
+      checkOpenAIModels(),
+    ]);
+
     setResults({
       database: dbResult,
       tables: tableResults,
       auth: authResult,
+      openai: {
+        apiKey: openaiConfig.apiKey,
+        apiUrl: openaiConfig.apiUrl,
+        connection: openaiConnection,
+        models: openaiModels,
+      },
     });
     
     setIsLoading(false);
@@ -110,6 +228,7 @@ const HealthCheck = () => {
       case 'error':
       case 'missing':
         return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'warning':
       case 'unauthenticated':
         return <XCircle className="h-5 w-5 text-yellow-500" />;
       default:
@@ -123,6 +242,7 @@ const HealthCheck = () => {
       authenticated: 'bg-green-100 text-green-800 border-green-200',
       error: 'bg-red-100 text-red-800 border-red-200',
       missing: 'bg-red-100 text-red-800 border-red-200',
+      warning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       unauthenticated: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       pending: 'bg-gray-100 text-gray-800 border-gray-200',
     };
@@ -227,6 +347,90 @@ const HealthCheck = () => {
                 <div><strong>Email:</strong> {results.auth.user.email}</div>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* OpenAI Status */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <Bot className="h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <CardTitle className="text-lg">OpenAI API Status</CardTitle>
+                <CardDescription>API configuration and connectivity</CardDescription>
+              </div>
+              <StatusIcon status={results.openai.connection.status} />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {/* API Key */}
+              <div className="flex items-center justify-between py-2 border-b">
+                <div className="flex items-center gap-3">
+                  <Key className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">API Key</span>
+                    <p className="text-xs text-muted-foreground">{results.openai.apiKey.message}</p>
+                  </div>
+                </div>
+                <StatusBadge status={results.openai.apiKey.status} />
+              </div>
+
+              {/* API URL */}
+              <div className="flex items-center justify-between py-2 border-b">
+                <div className="flex items-center gap-3">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">API Endpoint</span>
+                    <p className="text-xs text-muted-foreground truncate max-w-[250px]">{results.openai.apiUrl.message}</p>
+                  </div>
+                </div>
+                <StatusBadge status={results.openai.apiUrl.status} />
+              </div>
+
+              {/* Connection Test */}
+              <div className="flex items-center justify-between py-2 border-b">
+                <div className="flex items-center gap-3">
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">Connection Test</span>
+                    <p className="text-xs text-muted-foreground">{results.openai.connection.message}</p>
+                  </div>
+                </div>
+                <StatusBadge status={results.openai.connection.status} />
+              </div>
+
+              {/* Available Models */}
+              <div className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-3">
+                  <Bot className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">Available Models</span>
+                    <p className="text-xs text-muted-foreground">{results.openai.models.message}</p>
+                  </div>
+                </div>
+                <StatusBadge status={results.openai.models.status} />
+              </div>
+
+              {/* Show available models if any */}
+              {results.openai.models.available.length > 0 && (
+                <div className="mt-3 p-3 bg-muted rounded-lg">
+                  <p className="text-xs font-medium mb-2">GPT Models:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {results.openai.models.available.slice(0, 10).map(model => (
+                      <Badge key={model} variant="secondary" className="text-xs">
+                        {model}
+                      </Badge>
+                    ))}
+                    {results.openai.models.available.length > 10 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{results.openai.models.available.length - 10} more
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
