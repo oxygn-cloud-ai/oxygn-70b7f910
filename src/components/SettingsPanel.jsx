@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SettingField from './settings/SettingField';
 import { useSupabase } from '../hooks/useSupabase';
@@ -16,19 +16,15 @@ const SettingsPanel = ({
   hasUnsavedChanges 
 }) => {
   const supabase = useSupabase();
-  const { settings } = useSettings(supabase);
-  const [defaultModel, setDefaultModel] = useState(null);
+  const { settings, isLoading: settingsLoading } = useSettings(supabase);
 
   // Get default model from global settings
-  useEffect(() => {
-    const globalDefaultModel = settings?.default_model?.value;
-    if (globalDefaultModel && !localData.model) {
-      setDefaultModel(globalDefaultModel);
-    }
-  }, [settings, localData.model]);
+  const defaultModel = useMemo(() => {
+    return settings?.default_model?.value || models[0]?.model_id || '';
+  }, [settings, models]);
 
-  // Get the currently selected model (or default)
-  const currentModel = localData.model || defaultModel || models[0]?.model_id;
+  // Get the currently selected model (prompt's model or default)
+  const currentModel = localData.model || defaultModel;
   const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
   const currentProvider = currentModelData?.provider || 'openai';
 
@@ -90,8 +86,9 @@ const SettingsPanel = ({
     }
   };
 
-  // Settings to display (excluding model which is handled separately)
-  const settingKeys = Object.keys(ALL_SETTINGS);
+  // Get the default model display name
+  const defaultModelData = models.find(m => m.model_id === defaultModel);
+  const defaultModelName = defaultModelData?.model_name || defaultModel;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -100,6 +97,7 @@ const SettingsPanel = ({
         <SettingField
           field="model"
           label="Model"
+          description={defaultModel ? `Default: ${defaultModelName}` : 'Select a model'}
           localData={localData}
           handleChange={handleChange}
           handleSave={handleSave}
@@ -110,22 +108,18 @@ const SettingsPanel = ({
           isSupported={true}
           customInput={
             <Select
-              value={localData.model || defaultModel || ''}
+              value={localData.model || ''}
               onValueChange={handleModelChange}
               disabled={!localData.model_on}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={defaultModel ? `Default: ${defaultModel}` : "Select a model"} />
+                <SelectValue placeholder={defaultModel ? `Using default: ${defaultModelName}` : "Select a model"} />
               </SelectTrigger>
               <SelectContent>
-                {defaultModel && (
-                  <SelectItem value={defaultModel} className="text-muted-foreground">
-                    Default ({defaultModel})
-                  </SelectItem>
-                )}
                 {models.map((model) => (
                   <SelectItem key={model.row_id} value={model.model_id}>
                     {model.model_name} ({model.provider})
+                    {model.model_id === defaultModel && ' (default)'}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -233,6 +233,42 @@ const Settings = () => {
           <CardDescription>Essential application configuration</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Default Model Selection */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="default_model">Default Model</Label>
+              {editedValues['default_model'] !== undefined && 
+               editedValues['default_model'] !== (settings['default_model']?.value || '') && (
+                <Button
+                  size="sm"
+                  onClick={() => handleSave('default_model')}
+                  disabled={isSaving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </Button>
+              )}
+            </div>
+            <Select
+              value={editedValues['default_model'] !== undefined 
+                ? editedValues['default_model'] 
+                : (settings['default_model']?.value || '')}
+              onValueChange={(value) => handleValueChange('default_model', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select default model for prompts" />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((model) => (
+                  <SelectItem key={model.row_id} value={model.model_id}>
+                    {model.model_name} ({model.provider})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Default model used for new prompts</p>
+          </div>
+
           {coreSettings.map(({ key, label, type, description }) => {
             const settingData = settings[key];
             const currentValue = editedValues[key] !== undefined 
