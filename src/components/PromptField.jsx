@@ -5,10 +5,25 @@ import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit, ChevronUp, ChevronD
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId }) => {
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Generate storage key for this specific field
+  const storageKey = `promptField_collapsed_${promptId}_${label}`;
+  
+  // Initialize collapse state from localStorage, default to true (collapsed)
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const stored = localStorage.getItem(storageKey);
+    return stored !== null ? JSON.parse(stored) : true;
+  });
+  
+  // Persist collapse state to localStorage when it changes
+  const handleToggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem(storageKey, JSON.stringify(newState));
+  };
 
   useEffect(() => {
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
@@ -107,7 +122,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={handleToggleCollapse}
             className="h-6 w-6 mr-1"
             title={isCollapsed ? "Expand field" : "Collapse field"}
           >
