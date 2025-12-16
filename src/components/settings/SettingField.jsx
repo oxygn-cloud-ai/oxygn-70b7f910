@@ -1,7 +1,5 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
-import { Save, RotateCcw } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -18,21 +16,22 @@ const SettingField = ({
   localData, 
   handleChange, 
   handleSave, 
-  handleReset, 
-  hasUnsavedChanges,
   handleCheckChange,
   customInput,
   selectedItemData,
   isSupported = true
 }) => {
   const isChecked = localData[`${field}_on`] || false;
-  const hasChanged = hasUnsavedChanges(field);
-  const initialValue = selectedItemData?.[field];
-  const currentValue = localData[field];
-  const valueChanged = initialValue !== currentValue;
-
-  // Disabled if not supported by current model
   const isDisabled = !isSupported;
+
+  // Auto-save on blur
+  const handleBlur = useCallback(() => {
+    const initialValue = selectedItemData?.[field];
+    const currentValue = localData[field];
+    if (initialValue !== currentValue) {
+      handleSave(field);
+    }
+  }, [field, localData, selectedItemData, handleSave]);
 
   const fieldContent = (
     <div className={cn(
@@ -57,30 +56,6 @@ const SettingField = ({
         >
           {label || field}
         </label>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => handleSave(field)}
-          disabled={(!valueChanged && !hasChanged) || isDisabled}
-          className={cn(
-            "h-6 w-6",
-            (valueChanged || hasChanged) && !isDisabled ? 'text-primary' : 'text-muted-foreground'
-          )}
-        >
-          <Save className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => handleReset(field)}
-          disabled={(!valueChanged && !hasChanged) || isDisabled}
-          className={cn(
-            "h-6 w-6",
-            (valueChanged || hasChanged) && !isDisabled ? 'text-primary' : 'text-muted-foreground'
-          )}
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
       </div>
       
       {customInput ? (
@@ -90,6 +65,7 @@ const SettingField = ({
           id={field}
           value={localData[field] || ''}
           onChange={(e) => handleChange(field, e.target.value)}
+          onBlur={handleBlur}
           disabled={!isChecked || isDisabled}
           className={cn(
             "w-full",
