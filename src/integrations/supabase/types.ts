@@ -46,39 +46,144 @@ export type Database = {
       }
       cyg_prompts: {
         Row: {
+          best_of: string | null
+          best_of_on: boolean | null
+          context_length: string | null
+          context_length_on: boolean | null
           created_at: string
+          echo: boolean | null
+          echo_on: boolean | null
+          frequency_penalty: string | null
+          frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
           input_user_prompt: string | null
           is_deleted: boolean | null
+          logit_bias: string | null
+          logit_bias_on: boolean | null
+          logprobs: string | null
+          logprobs_on: boolean | null
+          max_tokens: string | null
+          max_tokens_on: boolean | null
+          model: string | null
+          model_on: boolean | null
+          n: string | null
+          n_on: boolean | null
+          o_user: string | null
+          o_user_on: boolean | null
           output_response: string | null
           parent_row_id: string | null
           position: number | null
+          presence_penalty: string | null
+          presence_penalty_on: boolean | null
           prompt_name: string
+          response_format: string | null
+          response_format_on: boolean | null
           row_id: string
+          settings_expanded: boolean | null
+          stop: string | null
+          stop_on: boolean | null
+          stream: boolean | null
+          stream_on: boolean | null
+          suffix: string | null
+          suffix_on: boolean | null
+          temperature: string | null
+          temperature_on: boolean | null
+          top_p: string | null
+          top_p_on: boolean | null
           updated_at: string
         }
         Insert: {
+          best_of?: string | null
+          best_of_on?: boolean | null
+          context_length?: string | null
+          context_length_on?: boolean | null
           created_at?: string
+          echo?: boolean | null
+          echo_on?: boolean | null
+          frequency_penalty?: string | null
+          frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
           is_deleted?: boolean | null
+          logit_bias?: string | null
+          logit_bias_on?: boolean | null
+          logprobs?: string | null
+          logprobs_on?: boolean | null
+          max_tokens?: string | null
+          max_tokens_on?: boolean | null
+          model?: string | null
+          model_on?: boolean | null
+          n?: string | null
+          n_on?: boolean | null
+          o_user?: string | null
+          o_user_on?: boolean | null
           output_response?: string | null
           parent_row_id?: string | null
           position?: number | null
+          presence_penalty?: string | null
+          presence_penalty_on?: boolean | null
           prompt_name?: string
+          response_format?: string | null
+          response_format_on?: boolean | null
           row_id?: string
+          settings_expanded?: boolean | null
+          stop?: string | null
+          stop_on?: boolean | null
+          stream?: boolean | null
+          stream_on?: boolean | null
+          suffix?: string | null
+          suffix_on?: boolean | null
+          temperature?: string | null
+          temperature_on?: boolean | null
+          top_p?: string | null
+          top_p_on?: boolean | null
           updated_at?: string
         }
         Update: {
+          best_of?: string | null
+          best_of_on?: boolean | null
+          context_length?: string | null
+          context_length_on?: boolean | null
           created_at?: string
+          echo?: boolean | null
+          echo_on?: boolean | null
+          frequency_penalty?: string | null
+          frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
           is_deleted?: boolean | null
+          logit_bias?: string | null
+          logit_bias_on?: boolean | null
+          logprobs?: string | null
+          logprobs_on?: boolean | null
+          max_tokens?: string | null
+          max_tokens_on?: boolean | null
+          model?: string | null
+          model_on?: boolean | null
+          n?: string | null
+          n_on?: boolean | null
+          o_user?: string | null
+          o_user_on?: boolean | null
           output_response?: string | null
           parent_row_id?: string | null
           position?: number | null
+          presence_penalty?: string | null
+          presence_penalty_on?: boolean | null
           prompt_name?: string
+          response_format?: string | null
+          response_format_on?: boolean | null
           row_id?: string
+          settings_expanded?: boolean | null
+          stop?: string | null
+          stop_on?: boolean | null
+          stream?: boolean | null
+          stream_on?: boolean | null
+          suffix?: string | null
+          suffix_on?: boolean | null
+          temperature?: string | null
+          temperature_on?: boolean | null
+          top_p?: string | null
+          top_p_on?: boolean | null
           updated_at?: string
         }
         Relationships: [
