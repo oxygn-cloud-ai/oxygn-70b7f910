@@ -90,6 +90,9 @@ const SettingsPanel = ({
   const defaultModelData = models.find(m => m.model_id === defaultModel);
   const defaultModelName = defaultModelData?.model_name || defaultModel;
 
+  // Settings to display (excluding model which is handled separately)
+  const settingKeys = Object.keys(ALL_SETTINGS);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* Model Selection - Always first */}
