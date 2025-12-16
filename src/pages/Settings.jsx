@@ -102,6 +102,13 @@ const Settings = () => {
     }
   };
 
+  // Core settings that should always be available
+  const coreSettings = [
+    { key: 'build', label: 'Build', type: 'text', description: 'Current build identifier' },
+    { key: 'version', label: 'Version', type: 'text', description: 'Application version' },
+    { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea', description: 'Default system prompt for new prompts' },
+  ];
+
   const envVariables = {
     'Debug Mode': import.meta.env.VITE_DEBUG,
     'Supabase URL': import.meta.env.VITE_SUPABASE_URL,
@@ -125,7 +132,62 @@ const Settings = () => {
         </div>
       </div>
 
-      {/* Database Settings */}
+      {/* Core Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SettingsIcon className="h-5 w-5" />
+            Core Settings
+          </CardTitle>
+          <CardDescription>Essential application configuration</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {coreSettings.map(({ key, label, type, description }) => {
+            const settingData = settings[key];
+            const currentValue = editedValues[key] !== undefined 
+              ? editedValues[key] 
+              : (settingData?.value || '');
+            const originalValue = settingData?.value || '';
+            const hasChanges = editedValues[key] !== undefined && editedValues[key] !== originalValue;
+
+            return (
+              <div key={key} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor={key}>{label}</Label>
+                  {hasChanges && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleSave(key)}
+                      disabled={isSaving}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save
+                    </Button>
+                  )}
+                </div>
+                {type === 'textarea' ? (
+                  <Textarea
+                    id={key}
+                    value={currentValue}
+                    onChange={(e) => handleValueChange(key, e.target.value)}
+                    placeholder={description}
+                    rows={4}
+                  />
+                ) : (
+                  <Input
+                    id={key}
+                    value={currentValue}
+                    onChange={(e) => handleValueChange(key, e.target.value)}
+                    placeholder={description}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">{description}</p>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <div>
