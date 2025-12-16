@@ -1,86 +1,135 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 
 export const useSettings = (supabase) => {
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (supabase) {
-      fetchSettings();
-    }
-  }, [supabase]);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
+    if (!supabase) return;
+    
     setIsLoading(true);
     setError(null);
     try {
       const { data, error: fetchError } = await supabase
         .from(import.meta.env.VITE_SETTINGS_TBL)
-        .select('*')
-        .limit(1)
-        .single();
+        .select('*');
 
       if (fetchError) throw fetchError;
 
-      if (!data) {
-        console.log('No settings found, creating default settings');
-        const defaultSettings = {
-          build: '',
-          version: '',
-          def_admin_prompt: ''
-        };
-
-        const { data: insertedData, error: insertError } = await supabase
-          .from(import.meta.env.VITE_SETTINGS_TBL)
-          .insert(defaultSettings)
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        console.log('Default settings created:', insertedData);
-        setSettings(insertedData);
-      } else {
-        console.log('Settings loaded:', data);
-        setSettings(data);
+      // Convert array of key-value pairs to an object
+      const settingsObj = {};
+      if (data && data.length > 0) {
+        data.forEach(row => {
+          settingsObj[row.setting_key] = {
+            value: row.setting_value || '',
+            description: row.setting_description || '',
+            row_id: row.row_id
+          };
+        });
       }
-    } catch (error) {
-      console.error('Error fetching or creating settings:', error);
-      setError(error);
+      
+      setSettings(settingsObj);
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+      setError(err);
       toast.error('Failed to fetch settings');
-      setSettings({ build: '', version: '', def_admin_prompt: '' });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const updateSetting = async (key, value) => {
+    if (!supabase) return;
+    
     try {
-      if (!settings) {
-        throw new Error('Settings not initialized');
+      const existingSetting = settings[key];
+      
+      if (existingSetting?.row_id) {
+        // Update existing setting
+        const { error } = await supabase
+          .from(import.meta.env.VITE_SETTINGS_TBL)
+          .update({ setting_value: value })
+          .eq('row_id', existingSetting.row_id);
+
+        if (error) throw error;
+      } else {
+        // Insert new setting
+        const { error } = await supabase
+          .from(import.meta.env.VITE_SETTINGS_TBL)
+          .insert({ setting_key: key, setting_value: value });
+
+        if (error) throw error;
       }
 
-      const { data, error } = await supabase
-        .from(import.meta.env.VITE_SETTINGS_TBL)
-        .update({ [key]: value })
-        .eq('setting_id', settings.setting_id)
-        .select();
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        throw new Error('No rows updated');
-      }
-
-      setSettings(prevSettings => ({ ...prevSettings, [key]: value }));
-      console.log('Setting updated successfully:', key, value);
-    } catch (error) {
-      console.error('Error updating setting:', error);
-      throw error;
+      setSettings(prev => ({
+        ...prev,
+        [key]: { ...prev[key], value }
+      }));
+    } catch (err) {
+      console.error('Error updating setting:', err);
+      throw err;
     }
   };
 
-  return { settings, updateSetting, isLoading, error };
+  const addSetting = async (key, value, description = '') => {
+    if (!supabase) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from(import.meta.env.VITE_SETTINGS_TBL)
+        .insert({ setting_key: key, setting_value: value, setting_description: description })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setSettings(prev => ({
+        ...prev,
+        [key]: { value, description, row_id: data.row_id }
+      }));
+      
+      return data;
+    } catch (err) {
+      console.error('Error adding setting:', err);
+      throw err;
+    }
+  };
+
+  const deleteSetting = async (key) => {
+    if (!supabase || !settings[key]?.row_id) return;
+    
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_SETTINGS_TBL)
+        .delete()
+        .eq('row_id', settings[key].row_id);
+
+      if (error) throw error;
+
+      setSettings(prev => {
+        const newSettings = { ...prev };
+        delete newSettings[key];
+        return newSettings;
+      });
+    } catch (err) {
+      console.error('Error deleting setting:', err);
+      throw err;
+    }
+  };
+
+  return { 
+    settings, 
+    updateSetting, 
+    addSetting, 
+    deleteSetting, 
+    isLoading, 
+    error,
+    refetch: fetchSettings 
+  };
 };
