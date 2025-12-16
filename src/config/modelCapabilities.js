@@ -87,7 +87,8 @@ export const ALL_SETTINGS = {
     label: 'Stream', 
     description: 'Stream responses',
     details: 'If set, partial message deltas will be sent as server-sent events. Tokens will be sent as they become available, with the stream terminated by a data: [DONE] message.',
-    docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream'
+    docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-stream',
+    type: 'switch'
   },
   response_format: { 
     label: 'Response Format', 
@@ -111,7 +112,8 @@ export const ALL_SETTINGS = {
     label: 'Web Search', 
     description: 'Enable real-time web search',
     details: 'When enabled, the AI can search the web for current information to provide up-to-date answers. Responses will include citations to sources. Best for questions about recent events or current data.',
-    docUrl: 'https://platform.openai.com/docs/guides/tools-web-search'
+    docUrl: 'https://platform.openai.com/docs/guides/tools-web-search',
+    type: 'switch'
   },
 };
 
