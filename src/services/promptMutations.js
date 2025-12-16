@@ -1,4 +1,38 @@
 import { deletePrompt } from './promptDeletion';
+import { getLevelNamingConfig, generatePromptName } from '@/utils/namingTemplates';
+
+// Helper to calculate the depth level and find top-level ancestor
+const getPromptContext = async (supabase, parentId) => {
+  if (!parentId) {
+    return { level: 0, topLevelName: null };
+  }
+
+  let currentId = parentId;
+  let level = 1;
+  let topLevelName = null;
+  
+  // Walk up the tree to find depth and top-level ancestor
+  while (currentId) {
+    const { data: parent } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('row_id, parent_row_id, prompt_name')
+      .eq('row_id', currentId)
+      .maybeSingle();
+    
+    if (!parent) break;
+    
+    if (!parent.parent_row_id) {
+      // This is the top-level prompt
+      topLevelName = parent.prompt_name;
+      break;
+    }
+    
+    currentId = parent.parent_row_id;
+    level++;
+  }
+  
+  return { level, topLevelName };
+};
 
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
   // First, get the maximum position value for the current level
@@ -25,31 +59,69 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     ? (maxPositionData[0].position || 0) + 1000000
     : 1000000;
 
-  // Get all existing prompt names to find the next available number
-  const { data: existingPrompts, error: nameError } = await supabase
+  // Get sibling count for sequence number
+  let siblingsQuery = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('prompt_name')
+    .select('row_id', { count: 'exact' })
     .eq('is_deleted', false);
-
-  if (nameError) throw nameError;
-
-  // Find the highest "New Prompt N" number
-  let maxNumber = 0;
-  const newPromptRegex = /^New Prompt(?: (\d+))?$/;
   
-  if (existingPrompts) {
-    existingPrompts.forEach(prompt => {
-      const match = prompt.prompt_name?.match(newPromptRegex);
-      if (match) {
-        const num = match[1] ? parseInt(match[1], 10) : 1;
-        if (num > maxNumber) {
-          maxNumber = num;
-        }
-      }
-    });
+  if (parentId === null) {
+    siblingsQuery = siblingsQuery.is('parent_row_id', null);
+  } else {
+    siblingsQuery = siblingsQuery.eq('parent_row_id', parentId);
+  }
+  
+  const { count: siblingCount } = await siblingsQuery;
+  const sequenceNumber = siblingCount || 0;
+
+  // Get prompt context (level and top-level name)
+  const { level, topLevelName } = await getPromptContext(supabase, parentId);
+
+  // Get naming settings
+  const { data: namingSettingsData } = await supabase
+    .from(import.meta.env.VITE_SETTINGS_TBL)
+    .select('setting_value')
+    .eq('setting_key', 'prompt_naming_defaults')
+    .maybeSingle();
+
+  let newPromptName;
+  
+  if (namingSettingsData?.setting_value) {
+    try {
+      const namingConfig = JSON.parse(namingSettingsData.setting_value);
+      const levelConfig = getLevelNamingConfig(namingConfig, level, topLevelName);
+      newPromptName = generatePromptName(levelConfig, sequenceNumber);
+    } catch (e) {
+      console.error('Failed to parse naming config:', e);
+    }
   }
 
-  const newPromptName = `New Prompt ${maxNumber + 1}`;
+  // Fallback to old naming logic if no naming config or parsing failed
+  if (!newPromptName) {
+    const { data: existingPrompts, error: nameError } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('prompt_name')
+      .eq('is_deleted', false);
+
+    if (nameError) throw nameError;
+
+    let maxNumber = 0;
+    const newPromptRegex = /^New Prompt(?: (\d+))?$/;
+    
+    if (existingPrompts) {
+      existingPrompts.forEach(prompt => {
+        const match = prompt.prompt_name?.match(newPromptRegex);
+        if (match) {
+          const num = match[1] ? parseInt(match[1], 10) : 1;
+          if (num > maxNumber) {
+            maxNumber = num;
+          }
+        }
+      });
+    }
+
+    newPromptName = `New Prompt ${maxNumber + 1}`;
+  }
 
   // Get default model from settings
   const { data: settingsData } = await supabase
