@@ -28,6 +28,9 @@ const SettingsPanel = ({
   const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
   const currentProvider = currentModelData?.provider || 'openai';
 
+  // Boolean-only settings (no value column, just the _on toggle)
+  const booleanOnlySettings = ['web_search'];
+
   const handleCheckChange = async (fieldName, checked) => {
     handleChange(`${fieldName}_on`, checked);
     
@@ -38,6 +41,9 @@ const SettingsPanel = ({
         .eq('row_id', selectedItemData.row_id);
 
       if (error) throw error;
+
+      // Skip default value handling for boolean-only settings
+      if (booleanOnlySettings.includes(fieldName)) return;
 
       if (checked && !localData[fieldName]) {
         const defaultValues = {
@@ -65,7 +71,7 @@ const SettingsPanel = ({
       }
     } catch (error) {
       console.error('Error updating field:', error);
-      toast.error(`Failed to update ${fieldName}: ${error.message}`);
+      toast.error(`Failed to save ${fieldName}: ${error.message}`);
     }
   };
 
