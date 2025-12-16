@@ -51,6 +51,42 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 
   const newPromptName = `New Prompt ${maxNumber + 1}`;
 
+  // Get default model from settings
+  const { data: settingsData } = await supabase
+    .from(import.meta.env.VITE_SETTINGS_TBL)
+    .select('setting_value')
+    .eq('setting_key', 'default_model')
+    .maybeSingle();
+
+  const defaultModelId = settingsData?.setting_value;
+
+  // Get model defaults if a default model is set
+  let modelDefaults = {};
+  if (defaultModelId) {
+    const { data: defaultsData } = await supabase
+      .from('cyg_model_defaults')
+      .select('*')
+      .eq('model_id', defaultModelId)
+      .maybeSingle();
+
+    if (defaultsData) {
+      // Copy over all enabled settings from model defaults
+      const settingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+        'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
+      
+      settingFields.forEach(field => {
+        if (defaultsData[`${field}_on`]) {
+          modelDefaults[field] = defaultsData[field];
+          modelDefaults[`${field}_on`] = true;
+        }
+      });
+      
+      // Set the model
+      modelDefaults.model = defaultModelId;
+      modelDefaults.model_on = true;
+    }
+  }
+
   const { data, error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
@@ -58,7 +94,8 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       input_admin_prompt: defaultAdminPrompt || '',
       is_deleted: false,
       prompt_name: newPromptName,
-      position: newPosition
+      position: newPosition,
+      ...modelDefaults
     }])
     .select();
 
