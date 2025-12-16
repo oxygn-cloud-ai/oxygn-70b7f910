@@ -75,6 +75,8 @@ const Projects = () => {
       setShowParentPromptPopup(true);
     }
   }, [selectedItemData]);
+
+  useEffect(() => {
     const loadItemData = async () => {
       if (activeItem) {
         const data = await fetchItemData(activeItem);
