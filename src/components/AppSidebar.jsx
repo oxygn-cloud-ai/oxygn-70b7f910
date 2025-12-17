@@ -51,7 +51,6 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
