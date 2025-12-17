@@ -62,7 +62,7 @@ export function QonsolSettingsSection({
 
       <Card>
         <CardHeader>
-          <CardTitle>Core Settings</CardTitle>
+          <CardTitle>Qonsol Settings</CardTitle>
           <CardDescription>Essential application configuration</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
