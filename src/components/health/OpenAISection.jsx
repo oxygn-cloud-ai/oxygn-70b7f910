@@ -105,25 +105,6 @@ const OpenAISection = ({ results, isLoading, onRefresh }) => {
               </div>
               <StatusBadge status={results.openai.models.status} />
             </div>
-
-            {/* Show available models if any */}
-            {results.openai.models.available.length > 0 && (
-              <div className="mt-3 p-3 bg-muted rounded-lg">
-                <p className="text-xs font-medium mb-2">GPT Models:</p>
-                <div className="flex flex-wrap gap-1">
-                  {results.openai.models.available.slice(0, 10).map(model => (
-                    <Badge key={model} variant="secondary" className="text-xs">
-                      {model}
-                    </Badge>
-                  ))}
-                  {results.openai.models.available.length > 10 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{results.openai.models.available.length - 10} more
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
