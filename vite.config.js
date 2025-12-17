@@ -14,13 +14,14 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   optimizeDeps: {
-    // Keep Vite defaults; manually forcing/pre-including React can accidentally create
-    // multiple pre-bundled React copies and trigger `useState` dispatcher null errors.
+    // Prevent Vite from pre-bundling React into multiple optimized chunks.
+    // This is a common cause of `ReactCurrentDispatcher` being null (hooks crash).
+    exclude: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
   resolve: {
     // Ensure all deps (and the app) share ONE React instance.
     // Avoid file-path aliases for react/react-dom because they can *create* duplicates in Vite.
-    dedupe: ["react", "react-dom", "react-dom/client"],
+    dedupe: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
     alias: [
       {
         find: "@",
