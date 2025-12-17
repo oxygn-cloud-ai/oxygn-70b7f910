@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   optimizeDeps: {
     include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    force: true, // Force fresh rebuild to fix React instance mismatch
   },
   resolve: {
     dedupe: ["react", "react-dom"],
