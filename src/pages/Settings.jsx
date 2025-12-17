@@ -4,8 +4,7 @@ import { useModels } from '../hooks/useModels';
 import { useModelDefaults } from '../hooks/useModelDefaults';
 import { useSupabase } from '../hooks/useSupabase';
 import { toast } from 'sonner';
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { SettingsSidebar } from '../components/SettingsSidebar';
+import { useSettingsSection } from '../App';
 import { QonsolSettingsSection } from '../components/settings/QonsolSettingsSection';
 import { PromptNamingSection } from '../components/settings/PromptNamingSection';
 import { AIModelsSection } from '../components/settings/AIModelsSection';
@@ -19,7 +18,8 @@ const Settings = () => {
   const [editedValues, setEditedValues] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeSection, setActiveSection] = useState('qonsol');
+  
+  const { activeSection } = useSettingsSection();
 
   const { models, isLoading: modelsLoading, toggleModelActive, addModel, deleteModel, refetch: refetchModels } = useModels();
   const { modelDefaults, updateModelDefault, refetch: refetchModelDefaults } = useModelDefaults();
@@ -157,22 +157,9 @@ const Settings = () => {
   };
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full">
-        <SettingsSidebar 
-          activeSection={activeSection} 
-          onSectionChange={setActiveSection} 
-        />
-        <main className="flex-1 p-6 overflow-auto">
-          <div className="md:hidden mb-4">
-            <SidebarTrigger />
-          </div>
-          <div className="max-w-4xl">
-            {renderActiveSection()}
-          </div>
-        </main>
-      </div>
-    </SidebarProvider>
+    <div className="p-6 max-w-4xl">
+      {renderActiveSection()}
+    </div>
   );
 };
 
