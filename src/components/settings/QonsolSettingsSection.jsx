@@ -72,12 +72,12 @@ export function QonsolSettingsSection({
               {editedValues['default_model'] !== undefined && 
                editedValues['default_model'] !== (settings['default_model']?.value || '') && (
                 <Button
-                  size="sm"
+                  size="icon"
+                  variant="ghost"
                   onClick={() => onSave('default_model')}
                   disabled={isSaving}
                 >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
+                  <Save className="h-4 w-4" />
                 </Button>
               )}
             </div>
@@ -115,12 +115,12 @@ export function QonsolSettingsSection({
                   <Label htmlFor={key}>{label}</Label>
                   {hasChanges && (
                     <Button
-                      size="sm"
+                      size="icon"
+                      variant="ghost"
                       onClick={() => onSave(key)}
                       disabled={isSaving}
                     >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save
+                      <Save className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
