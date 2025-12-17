@@ -20,34 +20,50 @@ export const SettingsSectionContext = createContext({
 
 export const useSettingsSection = () => useContext(SettingsSectionContext);
 
+// Context for health section state
+export const HealthSectionContext = createContext({
+  activeSection: 'database',
+  setActiveSection: () => {},
+});
+
+export const useHealthSection = () => useContext(HealthSectionContext);
+
 const AppLayout = () => {
   const [activeSettingsSection, setActiveSettingsSection] = useState('qonsol');
+  const [activeHealthSection, setActiveHealthSection] = useState('database');
 
   return (
     <SettingsSectionContext.Provider value={{ 
       activeSection: activeSettingsSection, 
       setActiveSection: setActiveSettingsSection 
     }}>
-      <SidebarProvider defaultOpen={true}>
-        <div className="flex min-h-screen w-full">
-          <AppSidebar 
-            activeSettingsSection={activeSettingsSection}
-            onSettingsSectionChange={setActiveSettingsSection}
-          />
-          <main className="flex-1 flex flex-col">
-            <div className="md:hidden p-2 border-b border-border">
-              <SidebarTrigger />
-            </div>
-            <div className="flex-1 overflow-auto">
-              <Routes>
-                {navItems.map(({ to, page }) => (
-                  <Route key={to} path={to} element={page} />
-                ))}
-              </Routes>
-            </div>
-          </main>
-        </div>
-      </SidebarProvider>
+      <HealthSectionContext.Provider value={{ 
+        activeSection: activeHealthSection, 
+        setActiveSection: setActiveHealthSection 
+      }}>
+        <SidebarProvider defaultOpen={true}>
+          <div className="flex min-h-screen w-full">
+            <AppSidebar 
+              activeSettingsSection={activeSettingsSection}
+              onSettingsSectionChange={setActiveSettingsSection}
+              activeHealthSection={activeHealthSection}
+              onHealthSectionChange={setActiveHealthSection}
+            />
+            <main className="flex-1 flex flex-col">
+              <div className="md:hidden p-2 border-b border-border">
+                <SidebarTrigger />
+              </div>
+              <div className="flex-1 overflow-auto">
+                <Routes>
+                  {navItems.map(({ to, page }) => (
+                    <Route key={to} path={to} element={page} />
+                  ))}
+                </Routes>
+              </div>
+            </main>
+          </div>
+        </SidebarProvider>
+      </HealthSectionContext.Provider>
     </SettingsSectionContext.Provider>
   );
 };
