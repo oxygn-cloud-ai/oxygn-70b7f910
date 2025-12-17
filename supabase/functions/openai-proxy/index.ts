@@ -1,9 +1,48 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
+
+function isAllowedDomain(email: string | undefined): boolean {
+  if (!email) return false;
+  const domain = email.split('@')[1]?.toLowerCase();
+  return ALLOWED_DOMAINS.includes(domain);
+}
+
+async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { valid: false, error: 'Missing authorization header' };
+  }
+
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+  
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return { valid: false, error: 'Server configuration error' };
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } }
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { valid: false, error: 'Invalid or expired token' };
+  }
+
+  if (!isAllowedDomain(user.email)) {
+    return { valid: false, error: 'Access denied. Only chocfin.com and oxygn.cloud accounts are allowed.' };
+  }
+
+  return { valid: true, user };
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -12,6 +51,18 @@ serve(async (req) => {
   }
 
   try {
+    // Validate user and domain
+    const validation = await validateUser(req);
+    if (!validation.valid) {
+      console.error('Auth validation failed:', validation.error);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('User validated:', validation.user?.email);
+
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
@@ -23,7 +74,7 @@ serve(async (req) => {
     }
 
     const { action, ...body } = await req.json();
-    console.log('OpenAI proxy request:', { action, hasBody: !!body });
+    console.log('OpenAI proxy request:', { action, hasBody: !!body, user: validation.user?.email });
 
     // Health check / connection test
     if (action === 'health') {
