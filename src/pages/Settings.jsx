@@ -10,7 +10,7 @@ import { PromptNamingSection } from '../components/settings/PromptNamingSection'
 import { AIModelsSection } from '../components/settings/AIModelsSection';
 import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
 
-const MAX_SETTING_VALUE_LENGTH = 2000;
+const MAX_SETTING_VALUE_LENGTH = 500000;
 
 const Settings = () => {
   const supabase = useSupabase();
