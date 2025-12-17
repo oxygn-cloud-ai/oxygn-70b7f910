@@ -24,29 +24,10 @@ export default defineConfig(({ mode }) => ({
     force: true, // Force fresh rebuild to fix React instance mismatch
   },
   resolve: {
-    dedupe: ["react", "react-dom"],
+    // Ensure all deps (and the app) share ONE React instance.
+    // Avoid file-path aliases for react/react-dom because they can *create* duplicates in Vite.
+    dedupe: ["react", "react-dom", "react-dom/client"],
     alias: [
-      // Force a single React instance (prevents `ReactCurrentDispatcher` null hook errors)
-      {
-        find: /^react$/,
-        replacement: resolve(projectRoot, "node_modules/react/index.js"),
-      },
-      {
-        find: /^react-dom$/,
-        replacement: resolve(projectRoot, "node_modules/react-dom/index.js"),
-      },
-      {
-        find: /^react-dom\/client$/,
-        replacement: resolve(projectRoot, "node_modules/react-dom/client.js"),
-      },
-      {
-        find: /^react\/jsx-runtime$/,
-        replacement: resolve(projectRoot, "node_modules/react/jsx-runtime.js"),
-      },
-      {
-        find: /^react\/jsx-dev-runtime$/,
-        replacement: resolve(projectRoot, "node_modules/react/jsx-dev-runtime.js"),
-      },
       {
         find: "@",
         replacement: fileURLToPath(new URL("./src", import.meta.url)),
