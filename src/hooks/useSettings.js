@@ -58,19 +58,26 @@ export const useSettings = (supabase) => {
           .eq('row_id', existingSetting.row_id);
 
         if (error) throw error;
+        
+        setSettings(prev => ({
+          ...prev,
+          [key]: { ...prev[key], value }
+        }));
       } else {
-        // Insert new setting
-        const { error } = await supabase
+        // Insert new setting and capture the row_id
+        const { data, error } = await supabase
           .from(import.meta.env.VITE_SETTINGS_TBL)
-          .insert({ setting_key: key, setting_value: value });
+          .insert({ setting_key: key, setting_value: value })
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        setSettings(prev => ({
+          ...prev,
+          [key]: { value, description: '', row_id: data.row_id }
+        }));
       }
-
-      setSettings(prev => ({
-        ...prev,
-        [key]: { ...prev[key], value }
-      }));
     } catch (err) {
       console.error('Error updating setting:', err);
       throw err;
