@@ -19,7 +19,7 @@ const Index = () => {
             className="w-[20%] mx-auto"
           />
         </div>
-        <h1 className="text-4xl font-bold mb-4 text-white">Qonsol Prototype 6</h1>
+        <h1 className="text-4xl font-bold mb-4 text-white">Qonsol Policy Builder 7</h1>
         <p className="text-xl text-gray-300 mb-4">Prompt Library Manager</p>
       </div>
     </div>
