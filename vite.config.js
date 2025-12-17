@@ -14,7 +14,13 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   optimizeDeps: {
-    include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+    ],
     force: true, // Force fresh rebuild to fix React instance mismatch
   },
   resolve: {
@@ -23,11 +29,15 @@ export default defineConfig(({ mode }) => ({
       // Force a single React instance (prevents `ReactCurrentDispatcher` null hook errors)
       {
         find: /^react$/,
-        replacement: resolve(projectRoot, "node_modules/react"),
+        replacement: resolve(projectRoot, "node_modules/react/index.js"),
       },
       {
         find: /^react-dom$/,
-        replacement: resolve(projectRoot, "node_modules/react-dom"),
+        replacement: resolve(projectRoot, "node_modules/react-dom/index.js"),
+      },
+      {
+        find: /^react-dom\/client$/,
+        replacement: resolve(projectRoot, "node_modules/react-dom/client.js"),
       },
       {
         find: /^react\/jsx-runtime$/,
