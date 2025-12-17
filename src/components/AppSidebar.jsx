@@ -30,6 +30,7 @@ const settingsSubItems = [
   { id: 'qonsol', title: 'Qonsol Settings', icon: Settings },
   { id: 'naming', title: 'Prompt Naming', icon: FileText },
   { id: 'models', title: 'AI Models', icon: Bot },
+  { id: 'assistants', title: 'Assistant Defaults', icon: Bot },
   { id: 'database', title: 'Database & Env', icon: Database },
 ];
 

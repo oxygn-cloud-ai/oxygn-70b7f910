@@ -1,8 +1,14 @@
 import React from 'react';
-import { FileIcon, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileIcon, ChevronRight, ChevronDown, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TreeItemActions } from './TreeItemActions';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const TreeItemContent = ({
   item,
@@ -64,7 +70,20 @@ export const TreeItemContent = ({
         ) : (
           <div className="w-4 h-4 flex-shrink-0" />
         )}
-        <FileIcon className="h-4 w-4 flex-shrink-0" />
+        {item.is_assistant ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Bot className="h-4 w-4 flex-shrink-0 text-primary" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Assistant {item.assistantStatus === 'active' ? '(Active)' : '(Not Instantiated)'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <FileIcon className="h-4 w-4 flex-shrink-0" />
+        )}
         {editingItem && editingItem.id === item.id ? (
           <Input
             value={editingItem.name}
