@@ -14,14 +14,8 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   optimizeDeps: {
-    include: [
-      "react",
-      "react-dom",
-      "react-dom/client",
-      "react/jsx-runtime",
-      "react/jsx-dev-runtime",
-    ],
-    force: true, // Force fresh rebuild to fix React instance mismatch
+    // Keep Vite defaults; manually forcing/pre-including React can accidentally create
+    // multiple pre-bundled React copies and trigger `useState` dispatcher null errors.
   },
   resolve: {
     // Ensure all deps (and the app) share ONE React instance.
