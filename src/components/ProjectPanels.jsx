@@ -11,8 +11,11 @@ import SettingsPanel from './SettingsPanel';
 import AssistantPanel from './AssistantPanel';
 import ChildPromptPanel from './ChildPromptPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ 
@@ -98,6 +101,25 @@ const ProjectPanels = ({
   // Get assistant data if this is a top-level prompt marked as assistant
   const { assistant } = useAssistant(selectedItemData?.is_assistant ? projectRowId : null);
 
+  const handleEnableAssistant = useCallback(async () => {
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ is_assistant: true })
+        .eq('row_id', projectRowId);
+      
+      if (error) throw error;
+      
+      if (onUpdateField) {
+        onUpdateField('is_assistant', true);
+      }
+      toast.success('Assistant mode enabled');
+    } catch (error) {
+      console.error('Error enabling assistant mode:', error);
+      toast.error('Failed to enable assistant mode');
+    }
+  }, [supabase, projectRowId, onUpdateField]);
+
   if (!selectedItemData) {
     return <div>Loading prompt data...</div>;
   }
@@ -127,6 +149,27 @@ const ProjectPanels = ({
   // Standard prompt view
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
+      {/* Assistant Mode Toggle - only show for top-level prompts */}
+      {isTopLevel && !isLinksPage && (
+        <Card className="border-dashed">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Bot className="h-4 w-4" />
+              Assistant Mode
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Convert this prompt into an OpenAI Assistant with persistent context and conversation threads.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" size="sm" onClick={handleEnableAssistant}>
+              <Bot className="h-4 w-4 mr-2" />
+              Enable Assistant Mode
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      
       <div className="space-y-6">
         {fields
           .filter(field => {
