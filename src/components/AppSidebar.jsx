@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, Paintbrush, HeartPulse, LogOut, ChevronLeft } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, Paintbrush, HeartPulse, LogOut, ChevronLeft, User, Settings2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -23,7 +23,6 @@ const mainNavItems = [
   { id: 'home', title: 'Home', icon: Home, to: '/' },
   { id: 'prompts', title: 'Prompts', icon: Folder, to: '/projects' },
   { id: 'studio', title: 'Studio', icon: Paintbrush, to: '/studio' },
-  { id: 'health', title: 'Health', icon: HeartPulse, to: '/health' },
 ];
 
 const settingsSubItems = [
@@ -34,12 +33,20 @@ const settingsSubItems = [
   { id: 'database', title: 'Database & Env', icon: Database },
 ];
 
-export function AppSidebar({ activeSettingsSection, onSettingsSectionChange }) {
+const healthSubItems = [
+  { id: 'database', title: 'Database', icon: Database },
+  { id: 'auth', title: 'Authentication', icon: User },
+  { id: 'openai', title: 'OpenAI API', icon: Bot },
+  { id: 'environment', title: 'Environment', icon: Settings2 },
+];
+
+export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, activeHealthSection, onHealthSectionChange }) {
   const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { user, signOut } = useAuth();
   const isCollapsed = state === 'collapsed';
   const isOnSettings = location.pathname === '/settings';
+  const isOnHealth = location.pathname === '/health';
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -74,6 +81,37 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              
+              {/* Health with sub-menu */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isOnHealth}
+                  tooltip="Health"
+                >
+                  <Link to="/health">
+                    <HeartPulse className="h-4 w-4" />
+                    <span>Health</span>
+                  </Link>
+                </SidebarMenuButton>
+                
+                {/* Health sub-items - only show when on health page and not collapsed */}
+                {isOnHealth && !isCollapsed && (
+                  <SidebarMenuSub>
+                    {healthSubItems.map((item) => (
+                      <SidebarMenuSubItem key={item.id}>
+                        <SidebarMenuSubButton
+                          onClick={() => onHealthSectionChange?.(item.id)}
+                          isActive={activeHealthSection === item.id}
+                        >
+                          <item.icon className="h-3 w-3" />
+                          <span>{item.title}</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
               
               {/* Settings with sub-menu */}
               <SidebarMenuItem>
