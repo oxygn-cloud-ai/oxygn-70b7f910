@@ -1,0 +1,412 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    const { action, assistant_row_id, ...body } = await req.json();
+
+    console.log('Assistant manager request:', { action, assistant_row_id });
+
+    // INSTANTIATE - Create Assistant in OpenAI
+    if (action === 'instantiate') {
+      // Fetch assistant config
+      const { data: assistant, error: fetchError } = await supabase
+        .from('cyg_assistants')
+        .select('*, cyg_assistant_files(*)')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (fetchError || !assistant) {
+        console.error('Failed to fetch assistant:', fetchError);
+        return new Response(
+          JSON.stringify({ error: 'Assistant not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch tool defaults if using global
+      let toolConfig = {
+        code_interpreter_enabled: assistant.code_interpreter_enabled,
+        file_search_enabled: assistant.file_search_enabled,
+        function_calling_enabled: assistant.function_calling_enabled,
+      };
+
+      if (assistant.use_global_tool_defaults) {
+        const { data: defaults } = await supabase
+          .from('cyg_assistant_tool_defaults')
+          .select('*')
+          .limit(1)
+          .single();
+
+        if (defaults) {
+          toolConfig = {
+            code_interpreter_enabled: defaults.code_interpreter_enabled,
+            file_search_enabled: defaults.file_search_enabled,
+            function_calling_enabled: defaults.function_calling_enabled,
+          };
+        }
+      }
+
+      // Fetch prompt for model settings if not overridden
+      const { data: prompt } = await supabase
+        .from('cyg_prompts')
+        .select('model, temperature, max_tokens, top_p')
+        .eq('row_id', assistant.prompt_row_id)
+        .single();
+
+      const modelId = assistant.model_override || prompt?.model || 'gpt-4o';
+
+      // Upload files to OpenAI if any
+      const uploadedFileIds: string[] = [];
+      const files = assistant.cyg_assistant_files || [];
+
+      for (const file of files) {
+        if (file.openai_file_id) {
+          uploadedFileIds.push(file.openai_file_id);
+          continue;
+        }
+
+        // Download file from storage
+        const { data: fileData, error: downloadError } = await supabase
+          .storage
+          .from('assistant-files')
+          .download(file.storage_path);
+
+        if (downloadError || !fileData) {
+          console.error('Failed to download file:', file.storage_path, downloadError);
+          continue;
+        }
+
+        // Upload to OpenAI Files API
+        const formData = new FormData();
+        formData.append('file', fileData, file.original_filename);
+        formData.append('purpose', 'assistants');
+
+        const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          uploadedFileIds.push(uploadResult.id);
+
+          // Update file record with OpenAI file ID
+          await supabase
+            .from('cyg_assistant_files')
+            .update({ openai_file_id: uploadResult.id, upload_status: 'uploaded' })
+            .eq('row_id', file.row_id);
+
+          console.log('Uploaded file to OpenAI:', uploadResult.id);
+        } else {
+          const error = await uploadResponse.json();
+          console.error('Failed to upload file to OpenAI:', error);
+          await supabase
+            .from('cyg_assistant_files')
+            .update({ upload_status: 'error' })
+            .eq('row_id', file.row_id);
+        }
+      }
+
+      // Create vector store if file_search is enabled and we have files
+      let vectorStoreId = assistant.vector_store_id;
+
+      if (toolConfig.file_search_enabled && uploadedFileIds.length > 0 && !vectorStoreId) {
+        // Check if using shared vector store
+        if (assistant.use_shared_vector_store && assistant.shared_vector_store_row_id) {
+          const { data: sharedStore } = await supabase
+            .from('cyg_vector_stores')
+            .select('openai_vector_store_id')
+            .eq('row_id', assistant.shared_vector_store_row_id)
+            .single();
+
+          if (sharedStore?.openai_vector_store_id) {
+            vectorStoreId = sharedStore.openai_vector_store_id;
+          }
+        }
+
+        // Create new vector store if not using shared
+        if (!vectorStoreId) {
+          const vsResponse = await fetch('https://api.openai.com/v1/vector_stores', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: `${assistant.name} - Vector Store`,
+              file_ids: uploadedFileIds,
+            }),
+          });
+
+          if (vsResponse.ok) {
+            const vsResult = await vsResponse.json();
+            vectorStoreId = vsResult.id;
+            console.log('Created vector store:', vectorStoreId);
+          } else {
+            console.error('Failed to create vector store:', await vsResponse.json());
+          }
+        }
+      }
+
+      // Build tools array
+      const tools: any[] = [];
+      if (toolConfig.code_interpreter_enabled) {
+        tools.push({ type: 'code_interpreter' });
+      }
+      if (toolConfig.file_search_enabled) {
+        tools.push({ type: 'file_search' });
+      }
+
+      // Create Assistant in OpenAI
+      const assistantBody: any = {
+        name: assistant.name,
+        instructions: assistant.instructions || '',
+        model: modelId,
+        tools,
+      };
+
+      // Add tool resources if we have files
+      if (vectorStoreId && toolConfig.file_search_enabled) {
+        assistantBody.tool_resources = {
+          file_search: { vector_store_ids: [vectorStoreId] },
+        };
+      }
+      if (toolConfig.code_interpreter_enabled && uploadedFileIds.length > 0) {
+        assistantBody.tool_resources = {
+          ...assistantBody.tool_resources,
+          code_interpreter: { file_ids: uploadedFileIds },
+        };
+      }
+
+      console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, tools: tools.length });
+
+      const createResponse = await fetch('https://api.openai.com/v1/assistants', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+        },
+        body: JSON.stringify(assistantBody),
+      });
+
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        console.error('Failed to create assistant:', error);
+        
+        await supabase
+          .from('cyg_assistants')
+          .update({ 
+            status: 'error', 
+            last_error: error.error?.message || 'Failed to create assistant' 
+          })
+          .eq('row_id', assistant_row_id);
+
+        return new Response(
+          JSON.stringify({ error: error.error?.message || 'Failed to create assistant' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const createdAssistant = await createResponse.json();
+      console.log('Created assistant:', createdAssistant.id);
+
+      // Update database with OpenAI IDs
+      await supabase
+        .from('cyg_assistants')
+        .update({
+          openai_assistant_id: createdAssistant.id,
+          vector_store_id: vectorStoreId,
+          status: 'active',
+          last_instantiated_at: new Date().toISOString(),
+          last_error: null,
+        })
+        .eq('row_id', assistant_row_id);
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          assistant_id: createdAssistant.id,
+          vector_store_id: vectorStoreId,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // DESTROY - Delete Assistant from OpenAI
+    if (action === 'destroy') {
+      const { data: assistant } = await supabase
+        .from('cyg_assistants')
+        .select('openai_assistant_id, vector_store_id')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (assistant?.openai_assistant_id) {
+        // Delete assistant from OpenAI
+        await fetch(`https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2',
+          },
+        });
+        console.log('Deleted OpenAI assistant:', assistant.openai_assistant_id);
+      }
+
+      // Note: We keep the vector store as files might be reused
+
+      // Update database
+      await supabase
+        .from('cyg_assistants')
+        .update({
+          openai_assistant_id: null,
+          status: 'not_instantiated',
+          last_error: null,
+        })
+        .eq('row_id', assistant_row_id);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // UPDATE - Update Assistant in OpenAI
+    if (action === 'update') {
+      const { data: assistant } = await supabase
+        .from('cyg_assistants')
+        .select('*')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (!assistant?.openai_assistant_id) {
+        return new Response(
+          JSON.stringify({ error: 'Assistant not instantiated' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Build update body
+      const updateBody: any = {};
+      if (body.name) updateBody.name = body.name;
+      if (body.instructions !== undefined) updateBody.instructions = body.instructions;
+      if (body.model) updateBody.model = body.model;
+
+      const updateResponse = await fetch(
+        `https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2',
+          },
+          body: JSON.stringify(updateBody),
+        }
+      );
+
+      if (!updateResponse.ok) {
+        const error = await updateResponse.json();
+        return new Response(
+          JSON.stringify({ error: error.error?.message || 'Failed to update assistant' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Updated OpenAI assistant:', assistant.openai_assistant_id);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // SYNC - Re-upload files and recreate vector store
+    if (action === 'sync') {
+      // This is essentially destroy + instantiate for files/vector store
+      // First, get current state
+      const { data: assistant } = await supabase
+        .from('cyg_assistants')
+        .select('*, cyg_assistant_files(*)')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (!assistant) {
+        return new Response(
+          JSON.stringify({ error: 'Assistant not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Reset file upload statuses
+      await supabase
+        .from('cyg_assistant_files')
+        .update({ openai_file_id: null, upload_status: 'pending' })
+        .eq('assistant_row_id', assistant_row_id);
+
+      // Clear vector store
+      await supabase
+        .from('cyg_assistants')
+        .update({ vector_store_id: null })
+        .eq('row_id', assistant_row_id);
+
+      // If assistant is active, re-instantiate
+      if (assistant.openai_assistant_id) {
+        // Destroy first
+        await fetch(`https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2',
+          },
+        });
+
+        await supabase
+          .from('cyg_assistants')
+          .update({ openai_assistant_id: null, status: 'not_instantiated' })
+          .eq('row_id', assistant_row_id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'Files reset. Re-instantiate to apply changes.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Invalid action. Use: instantiate, destroy, update, or sync' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Assistant manager error:', error);
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
