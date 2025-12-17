@@ -133,7 +133,7 @@ export function QonsolSettingsSection({
                     value={currentValue}
                     onChange={(e) => onValueChange(key, e.target.value)}
                     placeholder={description}
-                    rows={4}
+                    rows={20}
                   />
                 ) : (
                   <Input
