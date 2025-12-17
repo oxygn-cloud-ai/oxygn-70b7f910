@@ -48,6 +48,7 @@ export function QonsolSettingsSection({
               <Button
                 variant="ghost"
                 size="icon"
+                className="bg-transparent"
                 onClick={onRefresh}
                 disabled={isRefreshing}
               >
@@ -74,6 +75,7 @@ export function QonsolSettingsSection({
                 <Button
                   size="icon"
                   variant="ghost"
+                  className="bg-transparent"
                   onClick={() => onSave('default_model')}
                   disabled={isSaving}
                 >
@@ -117,6 +119,7 @@ export function QonsolSettingsSection({
                     <Button
                       size="icon"
                       variant="ghost"
+                      className="bg-transparent"
                       onClick={() => onSave(key)}
                       disabled={isSaving}
                     >
