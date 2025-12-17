@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchPrompts } from '../services/promptService';
 import { toast } from 'sonner';
 
