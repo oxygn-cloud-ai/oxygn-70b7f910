@@ -42,7 +42,7 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange }) {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
-      <SidebarHeader className="h-14 flex items-center justify-between px-2 border-b border-border">
+      <SidebarHeader className="flex flex-col items-start gap-4 px-2 py-4 border-b border-border">
         <img 
           src="/head-striped-icon.png" 
           alt="Logo" 
