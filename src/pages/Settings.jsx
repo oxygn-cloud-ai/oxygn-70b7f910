@@ -3,76 +3,28 @@ import { useSettings } from '../hooks/useSettings';
 import { useModels } from '../hooks/useModels';
 import { useModelDefaults } from '../hooks/useModelDefaults';
 import { useSupabase } from '../hooks/useSupabase';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from 'sonner';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Save, Settings as SettingsIcon, Server, Key, RefreshCw, Bot, ChevronDown, ChevronUp } from 'lucide-react';
-import { ModelSettingsPanel } from '../components/InlineModelSettings';
-import { PromptNamingSettings } from '../components/PromptNamingSettings';
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
-import { ALL_SETTINGS } from '../config/modelCapabilities';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SettingsSidebar } from '../components/SettingsSidebar';
+import { QonsolSettingsSection } from '../components/settings/QonsolSettingsSection';
+import { PromptNamingSection } from '../components/settings/PromptNamingSection';
+import { AIModelsSection } from '../components/settings/AIModelsSection';
+import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
 
 const MAX_SETTING_VALUE_LENGTH = 2000;
-const MAX_SETTING_DESC_LENGTH = 500;
-const SETTING_KEY_REGEX = /^[a-zA-Z0-9_:\-]{1,64}$/;
 
 const Settings = () => {
   const supabase = useSupabase();
   const { settings, updateSetting, addSetting, deleteSetting, isLoading, error, refetch } = useSettings(supabase);
   const [editedValues, setEditedValues] = useState({});
-  const [newSettingKey, setNewSettingKey] = useState('');
-  const [newSettingValue, setNewSettingValue] = useState('');
-  const [newSettingDesc, setNewSettingDesc] = useState('');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeSection, setActiveSection] = useState('qonsol');
 
   const { models, isLoading: modelsLoading, toggleModelActive, addModel, deleteModel, refetch: refetchModels } = useModels();
   const { modelDefaults, updateModelDefault, refetch: refetchModelDefaults } = useModelDefaults();
-  const [isAddModelDialogOpen, setIsAddModelDialogOpen] = useState(false);
-  const [expandedModels, setExpandedModels] = useState({});
-  const [newModelId, setNewModelId] = useState('');
-  const [newModelName, setNewModelName] = useState('');
-  const [newModelProvider, setNewModelProvider] = useState('openai');
-
-  const toggleModelExpanded = (modelId) => {
-    setExpandedModels(prev => ({
-      ...prev,
-      [modelId]: !prev[modelId]
-    }));
-  };
 
   useEffect(() => {
-    // Useful when database values change outside this page (e.g. seeded via backend tools)
     const onFocus = () => {
       refetch?.();
       refetchModels?.();
@@ -100,27 +52,12 @@ const Settings = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetch(), refetchModels()]);
+      await Promise.all([refetch(), refetchModels(), refetchModelDefaults()]);
       toast.success('Settings refreshed');
     } catch (err) {
       toast.error('Failed to refresh settings');
     } finally {
       setIsRefreshing(false);
-    }
-  };
-
-  const handleAddModel = async () => {
-    if (!newModelId.trim() || !newModelName.trim()) {
-      toast.error('Model ID and name are required');
-      return;
-    }
-
-    const result = await addModel(newModelId.trim(), newModelName.trim(), newModelProvider);
-    if (result) {
-      setNewModelId('');
-      setNewModelName('');
-      setNewModelProvider('openai');
-      setIsAddModelDialogOpen(false);
     }
   };
 
@@ -153,41 +90,6 @@ const Settings = () => {
     }
   };
 
-  const handleAddSetting = async () => {
-    const key = newSettingKey.trim();
-
-    if (!key) {
-      toast.error('Setting key is required');
-      return;
-    }
-
-    if (!SETTING_KEY_REGEX.test(key)) {
-      toast.error('Key must be 1-64 chars: letters, numbers, _, -, :');
-      return;
-    }
-
-    if (newSettingValue.length > MAX_SETTING_VALUE_LENGTH) {
-      toast.error(`Value is too long (max ${MAX_SETTING_VALUE_LENGTH} characters)`);
-      return;
-    }
-
-    if (newSettingDesc.length > MAX_SETTING_DESC_LENGTH) {
-      toast.error(`Description is too long (max ${MAX_SETTING_DESC_LENGTH} characters)`);
-      return;
-    }
-
-    try {
-      await addSetting(key, newSettingValue, newSettingDesc);
-      setNewSettingKey('');
-      setNewSettingValue('');
-      setNewSettingDesc('');
-      setIsAddDialogOpen(false);
-      toast.success('Setting added successfully');
-    } catch (err) {
-      toast.error('Failed to add setting');
-    }
-  };
-
   const handleDeleteSetting = async (key) => {
     try {
       await deleteSetting(key);
@@ -197,449 +99,80 @@ const Settings = () => {
     }
   };
 
-  // Core settings that should always be available
-  const coreSettings = [
-    { key: 'build', label: 'Build', type: 'text', description: 'Current build identifier' },
-    { key: 'version', label: 'Version', type: 'text', description: 'Application version' },
-    { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea', description: 'Default system prompt for new prompts' },
-  ];
-
-  const envVariables = {
-    'Debug Mode': import.meta.env.VITE_DEBUG,
-    'Backend URL': import.meta.env.VITE_SUPABASE_URL,
-    'Prompts Table': import.meta.env.VITE_PROMPTS_TBL,
-    'Settings Table': import.meta.env.VITE_SETTINGS_TBL,
-    'Models Table': import.meta.env.VITE_MODELS_TBL,
+  const renderActiveSection = () => {
+    switch (activeSection) {
+      case 'qonsol':
+        return (
+          <QonsolSettingsSection
+            settings={settings}
+            models={models}
+            editedValues={editedValues}
+            isSaving={isSaving}
+            isRefreshing={isRefreshing}
+            onValueChange={handleValueChange}
+            onSave={handleSave}
+            onRefresh={handleRefresh}
+          />
+        );
+      case 'naming':
+        return (
+          <PromptNamingSection
+            settings={settings}
+            updateSetting={updateSetting}
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
+          />
+        );
+      case 'models':
+        return (
+          <AIModelsSection
+            models={models}
+            modelsLoading={modelsLoading}
+            modelDefaults={modelDefaults}
+            toggleModelActive={toggleModelActive}
+            addModel={addModel}
+            deleteModel={deleteModel}
+            updateModelDefault={updateModelDefault}
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
+          />
+        );
+      case 'database':
+        return (
+          <DatabaseEnvironmentSection
+            settings={settings}
+            editedValues={editedValues}
+            isSaving={isSaving}
+            isRefreshing={isRefreshing}
+            onValueChange={handleValueChange}
+            onSave={handleSave}
+            onAddSetting={addSetting}
+            onDeleteSetting={handleDeleteSetting}
+            onRefresh={handleRefresh}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
-  const settingsArray = Object.entries(settings);
-
   return (
-    <div className="container mx-auto p-6 max-w-4xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <SettingsIcon className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Manage application configuration</p>
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex min-h-screen w-full">
+        <SettingsSidebar 
+          activeSection={activeSection} 
+          onSectionChange={setActiveSection} 
+        />
+        <main className="flex-1 p-6 overflow-auto">
+          <div className="md:hidden mb-4">
+            <SidebarTrigger />
           </div>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+          <div className="max-w-4xl">
+            {renderActiveSection()}
+          </div>
+        </main>
       </div>
-
-      {/* Core Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SettingsIcon className="h-5 w-5" />
-            Core Settings
-          </CardTitle>
-          <CardDescription>Essential application configuration</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Default Model Selection */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="default_model">Default Model</Label>
-              {editedValues['default_model'] !== undefined && 
-               editedValues['default_model'] !== (settings['default_model']?.value || '') && (
-                <Button
-                  size="sm"
-                  onClick={() => handleSave('default_model')}
-                  disabled={isSaving}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </Button>
-              )}
-            </div>
-            <Select
-              value={editedValues['default_model'] !== undefined 
-                ? editedValues['default_model'] 
-                : (settings['default_model']?.value || '')}
-              onValueChange={(value) => handleValueChange('default_model', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select default model for prompts" />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((model) => (
-                  <SelectItem key={model.row_id} value={model.model_id}>
-                    {model.model_name} ({model.provider})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">Default model used for new prompts</p>
-          </div>
-
-          {coreSettings.map(({ key, label, type, description }) => {
-            const settingData = settings[key];
-            const currentValue = editedValues[key] !== undefined 
-              ? editedValues[key] 
-              : (settingData?.value || '');
-            const originalValue = settingData?.value || '';
-            const hasChanges = editedValues[key] !== undefined && editedValues[key] !== originalValue;
-
-            return (
-              <div key={key} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor={key}>{label}</Label>
-                  {hasChanges && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleSave(key)}
-                      disabled={isSaving}
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save
-                    </Button>
-                  )}
-                </div>
-                {type === 'textarea' ? (
-                  <Textarea
-                    id={key}
-                    value={currentValue}
-                    onChange={(e) => handleValueChange(key, e.target.value)}
-                    placeholder={description}
-                    rows={4}
-                  />
-                ) : (
-                  <Input
-                    id={key}
-                    value={currentValue}
-                    onChange={(e) => handleValueChange(key, e.target.value)}
-                    placeholder={description}
-                  />
-                )}
-                <p className="text-xs text-muted-foreground">{description}</p>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      {/* Prompt Naming Defaults */}
-      <PromptNamingSettings settings={settings} updateSetting={updateSetting} />
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Database Settings
-            </CardTitle>
-            <CardDescription>Key-value configuration stored in the database</CardDescription>
-          </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Setting
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Setting</DialogTitle>
-                <DialogDescription>Create a new configuration setting</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="key">Setting Key</Label>
-                  <Input
-                    id="key"
-                    placeholder="e.g., api_timeout"
-                    value={newSettingKey}
-                    onChange={(e) => setNewSettingKey(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="value">Value</Label>
-                  <Input
-                    id="value"
-                    placeholder="e.g., 30000"
-                    value={newSettingValue}
-                    onChange={(e) => setNewSettingValue(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description (optional)</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="What this setting controls..."
-                    value={newSettingDesc}
-                    onChange={(e) => setNewSettingDesc(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddSetting}>Add Setting</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {settingsArray.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No settings configured yet. Click "Add Setting" to create one.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Key</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {settingsArray.map(([key, data]) => {
-                  const currentValue = editedValues[key] !== undefined ? editedValues[key] : data.value;
-                  const hasChanges = editedValues[key] !== undefined && editedValues[key] !== data.value;
-                  
-                  return (
-                    <TableRow key={key}>
-                      <TableCell className="font-medium">
-                        <div>
-                          {key}
-                          {data.description && (
-                            <p className="text-xs text-muted-foreground mt-1">{data.description}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={currentValue}
-                          onChange={(e) => handleValueChange(key, e.target.value)}
-                          className="max-w-md"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {hasChanges && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleSave(key)}
-                              disabled={isSaving}
-                            >
-                              <Save className="h-4 w-4 text-primary" />
-                            </Button>
-                          )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDeleteSetting(key)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* AI Models */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              AI Models
-            </CardTitle>
-            <CardDescription>Manage available AI models for prompts</CardDescription>
-          </div>
-          <Dialog open={isAddModelDialogOpen} onOpenChange={setIsAddModelDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Model
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Model</DialogTitle>
-                <DialogDescription>Add a new AI model to the available options</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="modelId">Model ID</Label>
-                  <Input
-                    id="modelId"
-                    placeholder="e.g., gpt-4o-mini"
-                    value={newModelId}
-                    onChange={(e) => setNewModelId(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="modelName">Display Name</Label>
-                  <Input
-                    id="modelName"
-                    placeholder="e.g., GPT-4o Mini"
-                    value={newModelName}
-                    onChange={(e) => setNewModelName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="provider">Provider</Label>
-                  <Select value={newModelProvider} onValueChange={setNewModelProvider}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openai">OpenAI</SelectItem>
-                      <SelectItem value="anthropic">Anthropic</SelectItem>
-                      <SelectItem value="google">Google</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddModelDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddModel}>Add Model</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {modelsLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading models...</div>
-          ) : models.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No models configured. Click "Add Model" to create one.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {models.map((model) => {
-                const isExpanded = expandedModels[model.model_id];
-                const defaultsCount = Object.keys(ALL_SETTINGS).filter(
-                  key => modelDefaults[model.model_id]?.[`${key}_on`]
-                ).length;
-                
-                return (
-                  <Collapsible 
-                    key={model.row_id} 
-                    open={isExpanded}
-                    onOpenChange={() => toggleModelExpanded(model.model_id)}
-                  >
-                    <div className="border rounded-lg overflow-hidden">
-                      <div className="flex items-center justify-between p-3 bg-background">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{model.model_name}</div>
-                            <code className="text-xs text-muted-foreground">{model.model_id}</code>
-                          </div>
-                          <Badge variant="outline" className="capitalize">
-                            {model.provider || 'unknown'}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={model.is_active}
-                              onCheckedChange={(checked) => toggleModelActive(model.row_id, checked)}
-                            />
-                            <span className={`text-sm ${model.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
-                              {model.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleModelExpanded(model.model_id)}
-                            className="h-8 w-8"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                          {defaultsCount > 0 && !isExpanded && (
-                            <span className="text-xs text-muted-foreground">
-                              ({defaultsCount})
-                            </span>
-                          )}
-                          
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => deleteModel(model.row_id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <CollapsibleContent>
-                        <ModelSettingsPanel
-                          model={model}
-                          defaults={modelDefaults[model.model_id]}
-                          onUpdateDefault={updateModelDefault}
-                        />
-                      </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-
-      {/* Environment Variables */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            Environment Variables
-          </CardTitle>
-          <CardDescription>Read-only configuration from environment</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[200px]">Variable</TableHead>
-                <TableHead>Value</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.entries(envVariables).map(([key, value]) => (
-                <TableRow key={key}>
-                  <TableCell className="font-medium">{key}</TableCell>
-                  <TableCell>
-                    <code className="px-2 py-1 bg-muted rounded text-sm">
-                      {value || 'Not set'}
-                    </code>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+    </SidebarProvider>
   );
 };
 
