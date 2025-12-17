@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, Paintbrush, HeartPulse, LogOut } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, Paintbrush, HeartPulse, LogOut, ChevronLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -34,7 +34,7 @@ const settingsSubItems = [
 ];
 
 export function AppSidebar({ activeSettingsSection, onSettingsSectionChange }) {
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { user, signOut } = useAuth();
   const isCollapsed = state === 'collapsed';
@@ -42,12 +42,18 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange }) {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
-      <SidebarHeader className="h-14 flex items-center justify-center border-b border-border">
+      <SidebarHeader className="h-14 flex items-center justify-between px-2 border-b border-border">
         <img 
           src="/head-striped-icon.png" 
           alt="Logo" 
           className="h-8 w-8"
         />
+        <button
+          onClick={toggleSidebar}
+          className="p-1 rounded-md hover:bg-accent bg-transparent transition-transform"
+        >
+          <ChevronLeft className={`h-4 w-4 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+        </button>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
