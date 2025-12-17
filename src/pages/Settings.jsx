@@ -9,6 +9,7 @@ import { QonsolSettingsSection } from '../components/settings/QonsolSettingsSect
 import { PromptNamingSection } from '../components/settings/PromptNamingSection';
 import { AIModelsSection } from '../components/settings/AIModelsSection';
 import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
+import { AssistantDefaultsSection } from '../components/settings/AssistantDefaultsSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -148,6 +149,13 @@ const Settings = () => {
             onSave={handleSave}
             onAddSetting={addSetting}
             onDeleteSetting={handleDeleteSetting}
+            onRefresh={handleRefresh}
+          />
+        );
+      case 'assistants':
+        return (
+          <AssistantDefaultsSection
+            isRefreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
         );

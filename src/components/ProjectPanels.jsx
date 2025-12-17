@@ -5,8 +5,11 @@ import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAICall } from '../hooks/useOpenAICall';
 import { useTimer } from '../hooks/useTimer';
 import { useProjectData } from '../hooks/useProjectData';
+import { useAssistant } from '../hooks/useAssistant';
 import PromptField from './PromptField';
 import SettingsPanel from './SettingsPanel';
+import AssistantPanel from './AssistantPanel';
+import ChildPromptPanel from './ChildPromptPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -20,7 +23,9 @@ const ProjectPanels = ({
   isReadOnly = false, 
   onCascade, 
   parentData, 
-  cascadeField 
+  cascadeField,
+  isTopLevel = false,
+  parentAssistantRowId = null,
 }) => {
   const supabase = useSupabase();
   const { settings } = useSettings(supabase);
@@ -90,10 +95,36 @@ const ProjectPanels = ({
     { name: 'note', label: 'Notes' }
   ], []);
 
+  // Get assistant data if this is a top-level prompt marked as assistant
+  const { assistant } = useAssistant(selectedItemData?.is_assistant ? projectRowId : null);
+
   if (!selectedItemData) {
     return <div>Loading prompt data...</div>;
   }
 
+  // If this is a top-level prompt AND marked as an assistant, show AssistantPanel
+  if (isTopLevel && selectedItemData.is_assistant) {
+    return (
+      <AssistantPanel
+        promptRowId={projectRowId}
+        selectedItemData={selectedItemData}
+      />
+    );
+  }
+
+  // If this is a child of an assistant, show ChildPromptPanel
+  if (parentAssistantRowId) {
+    return (
+      <ChildPromptPanel
+        selectedItemData={selectedItemData}
+        projectRowId={projectRowId}
+        parentAssistantRowId={parentAssistantRowId}
+        onUpdateField={onUpdateField}
+      />
+    );
+  }
+
+  // Standard prompt view
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
       <div className="space-y-6">
