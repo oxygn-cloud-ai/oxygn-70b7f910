@@ -1,1 +1,13 @@
 project_id = "edxkisyskfazjmqpburj"
+
+[functions.openai-proxy]
+verify_jwt = false
+
+[functions.assistant-manager]
+verify_jwt = false
+
+[functions.thread-manager]
+verify_jwt = false
+
+[functions.assistant-run]
+verify_jwt = false

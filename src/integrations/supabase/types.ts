@@ -14,6 +14,164 @@ export type Database = {
   }
   public: {
     Tables: {
+      cyg_assistant_files: {
+        Row: {
+          assistant_row_id: string | null
+          created_at: string
+          file_size: number | null
+          mime_type: string | null
+          openai_file_id: string | null
+          original_filename: string
+          row_id: string
+          storage_path: string
+          upload_status: string | null
+        }
+        Insert: {
+          assistant_row_id?: string | null
+          created_at?: string
+          file_size?: number | null
+          mime_type?: string | null
+          openai_file_id?: string | null
+          original_filename: string
+          row_id?: string
+          storage_path: string
+          upload_status?: string | null
+        }
+        Update: {
+          assistant_row_id?: string | null
+          created_at?: string
+          file_size?: number | null
+          mime_type?: string | null
+          openai_file_id?: string | null
+          original_filename?: string
+          row_id?: string
+          storage_path?: string
+          upload_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cyg_assistant_files_assistant_row_id_fkey"
+            columns: ["assistant_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_assistants"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
+      cyg_assistant_tool_defaults: {
+        Row: {
+          code_interpreter_enabled: boolean | null
+          created_at: string
+          file_search_enabled: boolean | null
+          function_calling_enabled: boolean | null
+          row_id: string
+          updated_at: string
+        }
+        Insert: {
+          code_interpreter_enabled?: boolean | null
+          created_at?: string
+          file_search_enabled?: boolean | null
+          function_calling_enabled?: boolean | null
+          row_id?: string
+          updated_at?: string
+        }
+        Update: {
+          code_interpreter_enabled?: boolean | null
+          created_at?: string
+          file_search_enabled?: boolean | null
+          function_calling_enabled?: boolean | null
+          row_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cyg_assistants: {
+        Row: {
+          code_interpreter_enabled: boolean | null
+          created_at: string
+          file_search_enabled: boolean | null
+          function_calling_enabled: boolean | null
+          instructions: string | null
+          last_error: string | null
+          last_instantiated_at: string | null
+          max_tokens_override: string | null
+          model_override: string | null
+          name: string
+          openai_assistant_id: string | null
+          prompt_row_id: string | null
+          row_id: string
+          shared_vector_store_row_id: string | null
+          status: string | null
+          temperature_override: string | null
+          top_p_override: string | null
+          updated_at: string
+          use_global_tool_defaults: boolean | null
+          use_shared_vector_store: boolean | null
+          vector_store_id: string | null
+        }
+        Insert: {
+          code_interpreter_enabled?: boolean | null
+          created_at?: string
+          file_search_enabled?: boolean | null
+          function_calling_enabled?: boolean | null
+          instructions?: string | null
+          last_error?: string | null
+          last_instantiated_at?: string | null
+          max_tokens_override?: string | null
+          model_override?: string | null
+          name?: string
+          openai_assistant_id?: string | null
+          prompt_row_id?: string | null
+          row_id?: string
+          shared_vector_store_row_id?: string | null
+          status?: string | null
+          temperature_override?: string | null
+          top_p_override?: string | null
+          updated_at?: string
+          use_global_tool_defaults?: boolean | null
+          use_shared_vector_store?: boolean | null
+          vector_store_id?: string | null
+        }
+        Update: {
+          code_interpreter_enabled?: boolean | null
+          created_at?: string
+          file_search_enabled?: boolean | null
+          function_calling_enabled?: boolean | null
+          instructions?: string | null
+          last_error?: string | null
+          last_instantiated_at?: string | null
+          max_tokens_override?: string | null
+          model_override?: string | null
+          name?: string
+          openai_assistant_id?: string | null
+          prompt_row_id?: string | null
+          row_id?: string
+          shared_vector_store_row_id?: string | null
+          status?: string | null
+          temperature_override?: string | null
+          top_p_override?: string | null
+          updated_at?: string
+          use_global_tool_defaults?: boolean | null
+          use_shared_vector_store?: boolean | null
+          vector_store_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cyg_assistants_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: true
+            referencedRelation: "cyg_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "cyg_assistants_shared_vector_store_row_id_fkey"
+            columns: ["shared_vector_store_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_vector_stores"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
       cyg_model_defaults: {
         Row: {
           created_at: string
@@ -145,6 +303,7 @@ export type Database = {
           frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
           input_user_prompt: string | null
+          is_assistant: boolean | null
           is_deleted: boolean | null
           logit_bias: string | null
           logit_bias_on: boolean | null
@@ -177,6 +336,7 @@ export type Database = {
           suffix_on: boolean | null
           temperature: string | null
           temperature_on: boolean | null
+          thread_mode: string | null
           top_p: string | null
           top_p_on: boolean | null
           updated_at: string
@@ -196,6 +356,7 @@ export type Database = {
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
+          is_assistant?: boolean | null
           is_deleted?: boolean | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
@@ -228,6 +389,7 @@ export type Database = {
           suffix_on?: boolean | null
           temperature?: string | null
           temperature_on?: boolean | null
+          thread_mode?: string | null
           top_p?: string | null
           top_p_on?: boolean | null
           updated_at?: string
@@ -247,6 +409,7 @@ export type Database = {
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
+          is_assistant?: boolean | null
           is_deleted?: boolean | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
@@ -279,6 +442,7 @@ export type Database = {
           suffix_on?: boolean | null
           temperature?: string | null
           temperature_on?: boolean | null
+          thread_mode?: string | null
           top_p?: string | null
           top_p_on?: boolean | null
           updated_at?: string
@@ -318,6 +482,87 @@ export type Database = {
           setting_description?: string | null
           setting_key?: string
           setting_value?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cyg_threads: {
+        Row: {
+          assistant_row_id: string | null
+          child_prompt_row_id: string | null
+          created_at: string
+          is_active: boolean | null
+          last_message_at: string | null
+          message_count: number | null
+          name: string | null
+          openai_thread_id: string
+          row_id: string
+        }
+        Insert: {
+          assistant_row_id?: string | null
+          child_prompt_row_id?: string | null
+          created_at?: string
+          is_active?: boolean | null
+          last_message_at?: string | null
+          message_count?: number | null
+          name?: string | null
+          openai_thread_id: string
+          row_id?: string
+        }
+        Update: {
+          assistant_row_id?: string | null
+          child_prompt_row_id?: string | null
+          created_at?: string
+          is_active?: boolean | null
+          last_message_at?: string | null
+          message_count?: number | null
+          name?: string | null
+          openai_thread_id?: string
+          row_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cyg_threads_assistant_row_id_fkey"
+            columns: ["assistant_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_assistants"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "cyg_threads_child_prompt_row_id_fkey"
+            columns: ["child_prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
+      cyg_vector_stores: {
+        Row: {
+          created_at: string
+          description: string | null
+          is_shared: boolean | null
+          name: string
+          openai_vector_store_id: string | null
+          row_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          is_shared?: boolean | null
+          name: string
+          openai_vector_store_id?: string | null
+          row_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          is_shared?: boolean | null
+          name?: string
+          openai_vector_store_id?: string | null
+          row_id?: string
           updated_at?: string
         }
         Relationships: []
