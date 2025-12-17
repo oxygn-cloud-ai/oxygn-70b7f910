@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const MAX_SETTING_VALUE_LENGTH = 2000;
+const MAX_SETTING_VALUE_LENGTH = 500000;
 const MAX_SETTING_DESC_LENGTH = 500;
 const SETTING_KEY_REGEX = /^[a-zA-Z0-9_:\-]{1,64}$/;
 
