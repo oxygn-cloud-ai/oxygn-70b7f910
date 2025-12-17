@@ -139,6 +139,7 @@ const Projects = () => {
                   projectRowId={activeItem} 
                   onUpdateField={handleUpdateField}
                   onCascade={handleCascade}
+                  isTopLevel={!selectedItemData.parent_row_id}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full">
