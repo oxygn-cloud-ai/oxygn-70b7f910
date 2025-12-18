@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import {
   Toast,
   ToastClose,
@@ -6,10 +7,17 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast, setToastHistoryCallback } from "@/components/ui/use-toast"
+import { useToastHistory } from "@/contexts/ToastHistoryContext"
 
 export function Toaster() {
   const { toasts } = useToast()
+  const { addToHistory } = useToastHistory()
+
+  useEffect(() => {
+    setToastHistoryCallback(addToHistory)
+    return () => setToastHistoryCallback(null)
+  }, [addToHistory])
 
   return (
     (<ToastProvider>

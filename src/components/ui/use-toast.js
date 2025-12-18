@@ -83,14 +83,24 @@ export const reducer = (state, action) => {
 }
 
 const listeners = []
+let historyCallback = null
 
 let memoryState = { toasts: [] }
+
+export function setToastHistoryCallback(callback) {
+  historyCallback = callback
+}
 
 function dispatch(action) {
   memoryState = reducer(memoryState, action)
   listeners.forEach((listener) => {
     listener(memoryState)
   })
+  
+  // Add to history when a toast is added
+  if (action.type === "ADD_TOAST" && historyCallback) {
+    historyCallback(action.toast)
+  }
 }
 
 function toast({
