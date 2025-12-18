@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info, Check, X } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info, Check, X, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -8,6 +8,7 @@ import DebugInfoPopup from './DebugInfoPopup';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
 
 export const TreeItemActions = ({ 
   item, 
@@ -22,6 +23,7 @@ export const TreeItemActions = ({
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkCount, setBulkCount] = useState('2');
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, isAdding: false });
   const longPressTimer = useRef(null);
   const supabase = useSupabase();
 
@@ -112,9 +114,14 @@ export const TreeItemActions = ({
       return;
     }
     setShowBulkAdd(false);
+    setBulkProgress({ current: 0, total: count, isAdding: true });
+    
     for (let i = 0; i < count; i++) {
       await addItem(item.id);
+      setBulkProgress(prev => ({ ...prev, current: i + 1 }));
     }
+    
+    setBulkProgress({ current: 0, total: 0, isAdding: false });
     toast.success(`Added ${count} child prompts`);
   };
 
@@ -175,23 +182,37 @@ export const TreeItemActions = ({
 
   return (
     <div className="flex items-center space-x-1">
-      <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 w-5 p-0"
-            onClick={handleAddClick}
-            onMouseDown={startLongPress}
-            onMouseLeave={cancelLongPress}
-            onTouchStart={startLongPress}
-            title="Add Prompt (long-press for bulk)"
-            disabled={isProcessing}
-          >
-            <PlusIcon className="h-3 w-3" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-1.5" onClick={(e) => e.stopPropagation()}>
+      {bulkProgress.isAdding ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1 px-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="text-[10px] text-muted-foreground">{bulkProgress.current}/{bulkProgress.total}</span>
+                <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-12 h-1.5" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>Adding {bulkProgress.current} of {bulkProgress.total} prompts...</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 w-5 p-0"
+              onClick={handleAddClick}
+              onMouseDown={startLongPress}
+              onMouseLeave={cancelLongPress}
+              onTouchStart={startLongPress}
+              title="Add Prompt (long-press for bulk)"
+              disabled={isProcessing}
+            >
+              <PlusIcon className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-1.5" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center gap-1">
             <Input
               type="number"
@@ -225,7 +246,8 @@ export const TreeItemActions = ({
             </TooltipProvider>
           </div>
         </PopoverContent>
-      </Popover>
+        </Popover>
+      )}
       <ActionButton 
         icon={<ArrowUpFromLine className="h-3 w-3" />} 
         onClick={() => handleMove('up')}
