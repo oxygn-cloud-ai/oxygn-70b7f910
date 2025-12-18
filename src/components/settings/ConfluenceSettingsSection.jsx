@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, TestTube, Eye, EyeOff, CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
+import { Save, TestTube, CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 
 const ConfluenceSettingsSection = ({ 
@@ -14,7 +14,7 @@ const ConfluenceSettingsSection = ({
   onSave, 
   isSaving 
 }) => {
-  const [showToken, setShowToken] = useState(false);
+  
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const { testConnection } = useConfluencePages();
@@ -138,27 +138,14 @@ const ConfluenceSettingsSection = ({
             <div className="space-y-2">
               <Label htmlFor="confluence_api_token">API Token</Label>
               <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="confluence_api_token"
-                    type={showToken && apiToken ? 'text' : 'password'}
-                    placeholder={hasStoredToken ? '••••••••••••••••' : 'Enter API token'}
-                    value={apiToken}
-                    onChange={(e) => onValueChange('confluence_api_token', e.target.value)}
-                    className="pr-10"
-                  />
-                  {apiToken && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3"
-                      onClick={() => setShowToken(!showToken)}
-                    >
-                      {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  )}
-                </div>
+                <Input
+                  id="confluence_api_token"
+                  type="password"
+                  placeholder={hasStoredToken ? '••••••••••••••••' : 'Enter API token'}
+                  value={apiToken}
+                  onChange={(e) => onValueChange('confluence_api_token', e.target.value)}
+                  className="flex-1"
+                />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
