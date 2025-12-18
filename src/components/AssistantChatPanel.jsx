@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { toast } from 'sonner';
 import { Bot, Plus, Trash2, MessageSquare, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +13,7 @@ import StudioChat from './StudioChat';
 
 const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) => {
   const supabase = useSupabase();
+  const { registerCall } = useApiCallContext();
   const [assistant, setAssistant] = useState(null);
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
@@ -186,6 +188,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   const sendMessage = useCallback(async (userMessage) => {
     if (!supabase || !assistant?.row_id || !userMessage.trim()) return;
 
+    const unregisterCall = registerCall();
     setIsSending(true);
 
     // Optimistic update
@@ -237,9 +240,10 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
       // Remove optimistic message
       setMessages(prev => prev.filter(m => m.id !== tempUserMessage.id));
     } finally {
+      unregisterCall();
       setIsSending(false);
     }
-  }, [supabase, assistant, activeThread]);
+  }, [supabase, assistant, activeThread, registerCall]);
 
   // Initial fetch
   useEffect(() => {
