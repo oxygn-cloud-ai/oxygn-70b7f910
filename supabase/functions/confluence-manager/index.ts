@@ -156,6 +156,54 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'get-space-tree': {
+        const { spaceKey } = params;
+        const config = await getConfluenceConfig();
+        
+        // Fetch all pages in the space with ancestors to build hierarchy
+        const data = await confluenceRequest(
+          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors&limit=500`,
+          config
+        );
+        
+        // Build a map of all pages
+        const pagesMap = new Map<string, any>();
+        const pages = data.results || [];
+        
+        pages.forEach((page: any) => {
+          pagesMap.set(page.id, {
+            id: page.id,
+            title: page.title,
+            spaceKey: page.space?.key,
+            spaceName: page.space?.name,
+            url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
+            parentId: page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1].id : null,
+            children: []
+          });
+        });
+        
+        // Build tree structure
+        const rootPages: any[] = [];
+        
+        pagesMap.forEach((page) => {
+          if (page.parentId && pagesMap.has(page.parentId)) {
+            pagesMap.get(page.parentId).children.push(page);
+          } else {
+            rootPages.push(page);
+          }
+        });
+        
+        // Sort children alphabetically
+        const sortChildren = (pages: any[]) => {
+          pages.sort((a, b) => a.title.localeCompare(b.title));
+          pages.forEach(page => sortChildren(page.children));
+        };
+        sortChildren(rootPages);
+        
+        result = { tree: rootPages, totalPages: pages.length };
+        break;
+      }
+
       case 'get-page': {
         const { pageId } = params;
         const config = await getConfluenceConfig();

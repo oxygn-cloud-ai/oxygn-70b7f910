@@ -6,9 +6,11 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
   const [pages, setPages] = useState([]);
   const [spaces, setSpaces] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
+  const [spaceTree, setSpaceTree] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingTree, setIsLoadingTree] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
 
   const invokeFunction = async (action, params = {}) => {
@@ -62,6 +64,26 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       console.error('Error listing spaces:', error);
       toast.error('Failed to list Confluence spaces');
       return [];
+    }
+  };
+
+  const getSpaceTree = async (spaceKey) => {
+    if (!spaceKey) {
+      setSpaceTree([]);
+      return [];
+    }
+    
+    setIsLoadingTree(true);
+    try {
+      const data = await invokeFunction('get-space-tree', { spaceKey });
+      setSpaceTree(data.tree || []);
+      return data.tree;
+    } catch (error) {
+      console.error('Error getting space tree:', error);
+      toast.error('Failed to load space pages');
+      return [];
+    } finally {
+      setIsLoadingTree(false);
     }
   };
 
@@ -161,22 +183,30 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     setSearchResults([]);
   };
 
+  const clearSpaceTree = () => {
+    setSpaceTree([]);
+  };
+
   return {
     pages,
     spaces,
     searchResults,
+    spaceTree,
     isLoading,
     isSyncing,
     isSearching,
+    isLoadingTree,
     connectionStatus,
     fetchAttachedPages,
     testConnection,
     listSpaces,
+    getSpaceTree,
     searchPages,
     attachPage,
     detachPage,
     syncPage,
     syncToOpenAI,
-    clearSearch
+    clearSearch,
+    clearSpaceTree
   };
 };
