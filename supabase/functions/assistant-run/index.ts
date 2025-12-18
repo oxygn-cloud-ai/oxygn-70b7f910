@@ -132,9 +132,9 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const { child_prompt_row_id, user_message, template_variables } = await req.json();
+    const { child_prompt_row_id, user_message, template_variables, child_thread_strategy: requestStrategy } = await req.json();
 
-    console.log('Assistant run request:', { child_prompt_row_id, user: validation.user?.email });
+    console.log('Assistant run request:', { child_prompt_row_id, user: validation.user?.email, requestStrategy });
 
     // Fetch child prompt with parent info
     const { data: childPrompt, error: promptError } = await supabase
@@ -215,28 +215,34 @@ serve(async (req) => {
       );
     }
 
-    // Determine thread based on thread_mode
+    // Determine thread strategy - use request value or fall back to stored value
+    const childThreadStrategy = requestStrategy || childPrompt.child_thread_strategy || 'isolated';
+    const threadMode = childPrompt.thread_mode || 'new';
+    
+    console.log('Thread strategy:', childThreadStrategy, 'Thread mode:', threadMode);
+
+    // Determine thread based on strategy
     let threadId: string;
     let threadRowId: string | null = null;
-    const threadMode = childPrompt.thread_mode || 'new';
 
-    if (threadMode === 'reuse') {
-      // Try to find existing active thread for this child prompt
-      const { data: existingThread } = await supabase
+    if (childThreadStrategy === 'parent') {
+      // Use parent assistant's Studio thread (where child_prompt_row_id is null)
+      const { data: studioThread } = await supabase
         .from('cyg_threads')
         .select('row_id, openai_thread_id')
-        .eq('child_prompt_row_id', child_prompt_row_id)
+        .eq('assistant_row_id', assistant.row_id)
+        .is('child_prompt_row_id', null)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (existingThread) {
-        threadId = existingThread.openai_thread_id;
-        threadRowId = existingThread.row_id;
-        console.log('Reusing thread:', threadId);
+      if (studioThread) {
+        threadId = studioThread.openai_thread_id;
+        threadRowId = studioThread.row_id;
+        console.log('Using parent Studio thread:', threadId);
       } else {
-        // Create new thread if none exists
+        // Create new Studio thread for parent
         const threadResponse = await fetch('https://api.openai.com/v1/threads', {
           method: 'POST',
           headers: {
@@ -258,7 +264,60 @@ serve(async (req) => {
         const thread = await threadResponse.json();
         threadId = thread.id;
 
-        // Save thread
+        // Save as Studio thread (no child_prompt_row_id)
+        const { data: savedThread } = await supabase
+          .from('cyg_threads')
+          .insert({
+            assistant_row_id: assistant.row_id,
+            child_prompt_row_id: null,
+            openai_thread_id: threadId,
+            name: `Studio Thread`,
+          })
+          .select()
+          .single();
+
+        threadRowId = savedThread?.row_id || null;
+        console.log('Created new parent Studio thread:', threadId);
+      }
+    } else if (threadMode === 'reuse') {
+      // Isolated strategy with reuse mode - find or create child-specific thread
+      const { data: existingThread } = await supabase
+        .from('cyg_threads')
+        .select('row_id, openai_thread_id')
+        .eq('child_prompt_row_id', child_prompt_row_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingThread) {
+        threadId = existingThread.openai_thread_id;
+        threadRowId = existingThread.row_id;
+        console.log('Reusing child thread:', threadId);
+      } else {
+        // Create new thread for this child
+        const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2',
+          },
+          body: JSON.stringify({}),
+        });
+
+        if (!threadResponse.ok) {
+          const error = await threadResponse.json();
+          return new Response(
+            JSON.stringify({ error: error.error?.message || 'Failed to create thread' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const thread = await threadResponse.json();
+        threadId = thread.id;
+
+        // Save thread for this child
         const { data: savedThread } = await supabase
           .from('cyg_threads')
           .insert({
@@ -271,10 +330,10 @@ serve(async (req) => {
           .single();
 
         threadRowId = savedThread?.row_id || null;
-        console.log('Created new thread for reuse:', threadId);
+        console.log('Created new child thread for reuse:', threadId);
       }
     } else {
-      // Create new thread for this run
+      // Isolated strategy with new mode - create ephemeral thread
       const threadResponse = await fetch('https://api.openai.com/v1/threads', {
         method: 'POST',
         headers: {

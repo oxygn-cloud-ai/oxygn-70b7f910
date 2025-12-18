@@ -218,6 +218,20 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   // For top-level prompts, set is_assistant to true
   const isTopLevel = parentId === null;
 
+  // For child prompts, get parent's default_child_thread_strategy
+  let childThreadStrategy = 'isolated';
+  if (!isTopLevel) {
+    const { data: parentData } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('default_child_thread_strategy')
+      .eq('row_id', parentId)
+      .maybeSingle();
+    
+    if (parentData?.default_child_thread_strategy) {
+      childThreadStrategy = parentData.default_child_thread_strategy;
+    }
+  }
+
   const { data, error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
@@ -227,6 +241,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       prompt_name: newPromptName,
       position: newPosition,
       is_assistant: isTopLevel, // Auto-set for top-level prompts
+      child_thread_strategy: isTopLevel ? 'isolated' : childThreadStrategy,
       ...modelDefaults
     }])
     .select();

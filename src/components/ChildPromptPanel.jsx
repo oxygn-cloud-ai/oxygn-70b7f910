@@ -7,7 +7,11 @@ import PromptField from './PromptField';
 import ThreadSelector from './ThreadSelector';
 import ThreadHistory from './ThreadHistory';
 import { Button } from "@/components/ui/button";
-import { Play, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Play, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ChildPromptPanel = ({
@@ -42,10 +46,10 @@ const ChildPromptPanel = ({
   const { runAssistant } = useAssistantRun();
 
   const threadMode = localData.thread_mode || 'new';
+  const childThreadStrategy = localData.child_thread_strategy || 'isolated';
 
   const handleThreadModeChange = useCallback(async (mode) => {
     handleChange('thread_mode', mode);
-    // Save immediately
     if (supabase && projectRowId) {
       try {
         await supabase
@@ -54,6 +58,20 @@ const ChildPromptPanel = ({
           .eq('row_id', projectRowId);
       } catch (error) {
         console.error('Error updating thread mode:', error);
+      }
+    }
+  }, [handleChange, supabase, projectRowId]);
+
+  const handleThreadStrategyChange = useCallback(async (strategy) => {
+    handleChange('child_thread_strategy', strategy);
+    if (supabase && projectRowId) {
+      try {
+        await supabase
+          .from('cyg_prompts')
+          .update({ child_thread_strategy: strategy })
+          .eq('row_id', projectRowId);
+      } catch (error) {
+        console.error('Error updating thread strategy:', error);
       }
     }
   }, [handleChange, supabase, projectRowId]);
@@ -71,12 +89,12 @@ const ChildPromptPanel = ({
         childPromptRowId: projectRowId,
         userMessage: localData.input_user_prompt || '',
         threadMode: threadMode,
-        existingThreadRowId: threadMode === 'reuse' ? activeThread?.row_id : null,
+        childThreadStrategy: childThreadStrategy,
+        existingThreadRowId: threadMode === 'reuse' && childThreadStrategy === 'isolated' ? activeThread?.row_id : null,
       });
 
       if (result.response) {
         handleChange('user_prompt_result', result.response);
-        // Auto-save the response
         if (supabase && projectRowId) {
           await supabase
             .from('cyg_prompts')
@@ -91,7 +109,7 @@ const ChildPromptPanel = ({
     } finally {
       setIsRunning(false);
     }
-  }, [parentAssistantRowId, projectRowId, localData, threadMode, activeThread, runAssistant, handleChange, supabase]);
+  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase]);
 
   const fields = useMemo(() => [
     { name: 'input_user_prompt', label: 'User Message' },
@@ -105,20 +123,58 @@ const ChildPromptPanel = ({
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
-      {/* Thread Selector */}
-      <ThreadSelector
-        threads={threads}
-        activeThread={activeThread}
-        onSelectThread={setActiveThread}
-        onCreateThread={createThread}
-        onDeleteThread={deleteThread}
-        threadMode={threadMode}
-        onThreadModeChange={handleThreadModeChange}
-        isLoading={isLoadingThreads}
-      />
+      {/* Thread Strategy Selector */}
+      <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+        <div className="flex-1">
+          <div className="flex items-center gap-1 mb-1">
+            <Label className="text-xs font-medium">Thread Strategy</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                  <Info className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 bg-popover" side="top">
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Thread Strategy</h4>
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Parent Thread:</strong> Messages go to the parent assistant's Studio thread, maintaining shared conversation context.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Isolated:</strong> This child prompt has its own separate threads.
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+          <Select value={childThreadStrategy} onValueChange={handleThreadStrategyChange}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              <SelectItem value="parent">Use Parent Thread</SelectItem>
+              <SelectItem value="isolated">Isolated Threads</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-      {/* Thread History Button */}
-      {threadMode === 'reuse' && activeThread && (
+      {/* Thread Selector - Only show for isolated strategy */}
+      {childThreadStrategy === 'isolated' && (
+        <ThreadSelector
+          threads={threads}
+          activeThread={activeThread}
+          onSelectThread={setActiveThread}
+          onCreateThread={createThread}
+          onDeleteThread={deleteThread}
+          threadMode={threadMode}
+          onThreadModeChange={handleThreadModeChange}
+          isLoading={isLoadingThreads}
+        />
+      )}
+
+      {/* Thread History Button - Only for isolated reuse mode */}
+      {childThreadStrategy === 'isolated' && threadMode === 'reuse' && activeThread && (
         <div className="flex justify-end">
           <ThreadHistory
             messages={messages}
@@ -126,6 +182,13 @@ const ChildPromptPanel = ({
             onFetchMessages={fetchMessages}
             threadRowId={activeThread.row_id}
           />
+        </div>
+      )}
+
+      {/* Parent Thread Info */}
+      {childThreadStrategy === 'parent' && (
+        <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+          Messages will be sent to the parent assistant's Studio thread. View the full conversation in the chat panel.
         </div>
       )}
 

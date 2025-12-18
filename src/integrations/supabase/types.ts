@@ -294,9 +294,11 @@ export type Database = {
           admin_prompt_result: string | null
           best_of: string | null
           best_of_on: boolean | null
+          child_thread_strategy: string | null
           context_length: string | null
           context_length_on: boolean | null
           created_at: string
+          default_child_thread_strategy: string | null
           echo: boolean | null
           echo_on: boolean | null
           frequency_penalty: string | null
@@ -347,9 +349,11 @@ export type Database = {
           admin_prompt_result?: string | null
           best_of?: string | null
           best_of_on?: boolean | null
+          child_thread_strategy?: string | null
           context_length?: string | null
           context_length_on?: boolean | null
           created_at?: string
+          default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
           frequency_penalty?: string | null
@@ -400,9 +404,11 @@ export type Database = {
           admin_prompt_result?: string | null
           best_of?: string | null
           best_of_on?: boolean | null
+          child_thread_strategy?: string | null
           context_length?: string | null
           context_length_on?: boolean | null
           created_at?: string
+          default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
           frequency_penalty?: string | null
