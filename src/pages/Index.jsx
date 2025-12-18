@@ -8,8 +8,8 @@ const Index = () => {
         <div className="flex justify-center">
           <div className="relative">
             <img 
-              src="/head-striped-icon-wht.png"
-              alt="Qonsol" 
+              src="/favicon.png"
+              alt="Chocolate" 
               className="w-16 h-16 drop-shadow-lg"
             />
             <div className="absolute -inset-2 bg-primary/20 rounded-full blur-xl -z-10" />

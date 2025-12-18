@@ -57,8 +57,8 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
       <SidebarHeader className="flex flex-col items-start gap-3 px-3 py-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <img 
-            src="/head-striped-icon.png" 
-            alt="Qonsol Logo" 
+            src="/favicon.png" 
+            alt="Chocolate Logo" 
             className="h-8 w-8 transition-transform hover:scale-105"
           />
           {!isCollapsed && (
