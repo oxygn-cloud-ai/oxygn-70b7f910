@@ -207,23 +207,33 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   };
 
   return (
-    <div className="space-y-4 p-4 h-[calc(100vh-8rem)] overflow-auto">
+    <div className="space-y-4 p-4 h-full overflow-auto scrollbar-thin">
       {/* Status Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5" />
-          <span className="font-semibold">Assistant Configuration</span>
-          <Badge variant={isActive ? 'default' : isDestroyed ? 'destructive' : isError ? 'destructive' : 'secondary'}>
-            {isActive ? '● Active' : isDestroyed ? '○ Destroyed' : isError ? '✕ Error' : '○ Not Instantiated'}
-          </Badge>
+      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${isActive ? 'bg-primary/10' : 'bg-muted'}`}>
+            <Bot className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+          </div>
+          <div>
+            <span className="font-semibold text-foreground">Assistant Configuration</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant={isActive ? 'success' : isDestroyed ? 'destructive' : isError ? 'destructive' : 'muted'}>
+                {isActive ? '● Active' : isDestroyed ? '○ Destroyed' : isError ? '✕ Error' : '○ Not Instantiated'}
+              </Badge>
+              {currentModelData && (
+                <span className="text-xs text-muted-foreground">{currentModelData.model_name}</span>
+              )}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           {isDestroyed && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={handleReInstantiate} disabled={isInstantiating}>
+                  <Button variant="outline" size="sm" onClick={handleReInstantiate} disabled={isInstantiating} className="gap-1.5">
                     {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                    Re-enable
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Re-enable Assistant</TooltipContent>
@@ -234,7 +244,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={destroy}>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={destroy}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>

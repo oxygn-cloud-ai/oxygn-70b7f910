@@ -270,18 +270,20 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
 
   if (isLoadingAssistant) {
     return (
-      <div className="h-full flex items-center justify-center border-l border-border">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="h-full flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
   if (!assistant || assistant.status !== 'active') {
     return (
-      <div className="h-full flex items-center justify-center border-l border-border bg-muted/30">
-        <div className="text-center text-muted-foreground p-8">
-          <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">Assistant Not Active</p>
+      <div className="h-full flex items-center justify-center bg-muted/20">
+        <div className="text-center text-muted-foreground p-8 max-w-xs">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+            <Bot className="h-8 w-8 opacity-50" />
+          </div>
+          <p className="font-medium text-foreground">Assistant Not Active</p>
           <p className="text-sm mt-1">
             {assistant?.status === 'destroyed' 
               ? 'Re-enable the assistant to start chatting'
@@ -293,16 +295,21 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   }
 
   return (
-    <div className="h-full flex border-l border-border overflow-hidden">
+    <div className="h-full flex overflow-hidden bg-background">
       {/* Thread sidebar */}
-      <div className="w-48 border-r border-border bg-muted/30 flex flex-col overflow-hidden">
+      <div className="w-48 border-r border-border bg-card/50 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-border flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">Threads</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Threads</span>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={createThread}>
-                  <Plus className="h-3 w-3" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 hover:bg-primary/10 hover:text-primary" 
+                  onClick={createThread}
+                >
+                  <Plus className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>New Thread</TooltipContent>
@@ -312,22 +319,26 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
             {isLoadingThreads ? (
-              [1, 2].map(i => <Skeleton key={i} className="h-12 w-full" />)
+              [1, 2].map(i => <Skeleton key={i} className="h-12 w-full rounded-md" />)
             ) : threads.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No threads yet</p>
+              <div className="text-center py-6 px-2">
+                <MessageSquare className="h-6 w-6 mx-auto mb-2 text-muted-foreground/50" />
+                <p className="text-xs text-muted-foreground">No threads yet</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">Start a conversation below</p>
+              </div>
             ) : (
               threads.map(thread => (
                 <div
                   key={thread.row_id}
                   onClick={() => switchThread(thread.row_id)}
                   className={cn(
-                    'group flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer text-sm',
+                    'group flex items-start gap-2 px-2 py-2 rounded-md cursor-pointer text-sm transition-colors',
                     activeThread?.row_id === thread.row_id
-                      ? 'bg-primary/10 text-primary'
-                      : 'hover:bg-muted/50'
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'hover:bg-muted/50 border border-transparent'
                   )}
                 >
-                  <MessageSquare className="h-3 w-3 mt-0.5 shrink-0" />
+                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium truncate">{thread.name || 'Untitled'}</div>
                     {thread.last_message_at && (
@@ -342,7 +353,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                          className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
                           onClick={(e) => { e.stopPropagation(); deleteThread(thread.row_id); }}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -361,9 +372,9 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
       {/* Chat area */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {selectedChildPromptId && selectedChildPromptName && (
-          <div className="px-3 py-1.5 bg-muted/50 border-b border-border">
+          <div className="px-4 py-2 bg-accent/10 border-b border-border">
             <span className="text-xs text-muted-foreground">
-              Viewing: <span className="font-medium text-foreground">{selectedChildPromptName}</span>
+              Context: <span className="font-medium text-accent">{selectedChildPromptName}</span>
             </span>
           </div>
         )}
@@ -375,6 +386,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
             isSending={isSending}
             disabled={false}
             placeholder={`Message ${promptName || 'Assistant'}...`}
+            assistantName={promptName || 'Assistant'}
           />
         </div>
       </div>
