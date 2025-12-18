@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,21 +15,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, FolderOpen } from 'lucide-react';
+import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, FolderOpen, X } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
 
-// Recursive tree node component
-const TreeNode = ({ node, level = 0, onAttach, attachingPageId, expandedNodes, toggleExpand }) => {
-  const hasChildren = node.children && node.children.length > 0;
+// Recursive tree node component with lazy loading
+const TreeNode = ({ 
+  node, 
+  level = 0, 
+  onAttach, 
+  attachingPageId, 
+  expandedNodes, 
+  toggleExpand,
+  loadingNodes,
+  spaceKey
+}) => {
+  const hasChildren = node.hasChildren || (node.children && node.children.length > 0);
   const isExpanded = expandedNodes.has(node.id);
+  const isLoading = loadingNodes.has(node.id);
+  const hasLoadedChildren = node.loaded || (node.children && node.children.length > 0);
 
   return (
     <div>
       <div
         className={cn(
-          "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 group",
-          level > 0 && "ml-4"
+          "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 group"
         )}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
       >
@@ -39,9 +49,12 @@ const TreeNode = ({ node, level = 0, onAttach, attachingPageId, expandedNodes, t
               variant="ghost"
               size="icon"
               className="h-5 w-5 p-0"
-              onClick={() => toggleExpand(node.id)}
+              onClick={() => toggleExpand(node.id, spaceKey)}
+              disabled={isLoading}
             >
-              {isExpanded ? (
+              {isLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : isExpanded ? (
                 <ChevronDown className="h-3.5 w-3.5" />
               ) : (
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -78,7 +91,7 @@ const TreeNode = ({ node, level = 0, onAttach, attachingPageId, expandedNodes, t
           )}
         </Button>
       </div>
-      {hasChildren && isExpanded && (
+      {hasLoadedChildren && isExpanded && node.children && (
         <div>
           {node.children.map((child) => (
             <TreeNode
@@ -89,8 +102,18 @@ const TreeNode = ({ node, level = 0, onAttach, attachingPageId, expandedNodes, t
               attachingPageId={attachingPageId}
               expandedNodes={expandedNodes}
               toggleExpand={toggleExpand}
+              loadingNodes={loadingNodes}
+              spaceKey={spaceKey}
             />
           ))}
+          {node.children.length === 0 && (
+            <div 
+              className="text-xs text-muted-foreground py-1"
+              style={{ paddingLeft: `${(level + 1) * 16 + 28}px` }}
+            >
+              No child pages
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -108,15 +131,20 @@ const ConfluenceSearchModal = ({
   const [selectedSpace, setSelectedSpace] = useState('');
   const [attachingPageId, setAttachingPageId] = useState(null);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
+  const [loadingNodes, setLoadingNodes] = useState(new Set());
+  const abortControllerRef = useRef(null);
   
   const { 
     spaces, 
     searchResults, 
     spaceTree,
+    setSpaceTree,
     isSearching, 
     isLoadingTree,
     listSpaces, 
     getSpaceTree,
+    getPageChildren,
+    cancelTreeLoading,
     searchPages, 
     attachPage,
     clearSearch,
@@ -133,17 +161,30 @@ const ConfluenceSearchModal = ({
   // Load space tree when space is selected
   useEffect(() => {
     if (selectedSpace && selectedSpace !== 'all') {
-      getSpaceTree(selectedSpace);
+      // Cancel any previous loading
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      
+      getSpaceTree(selectedSpace, abortControllerRef.current.signal);
       setExpandedNodes(new Set());
     } else {
       clearSpaceTree();
     }
   }, [selectedSpace, getSpaceTree, clearSpaceTree]);
 
-  // Debounced search
+  // Debounced search - also cancels tree loading
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.length >= 2) {
+        // Cancel tree loading when searching
+        if (isLoadingTree) {
+          cancelTreeLoading();
+          if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+          }
+        }
         searchPages(searchQuery, selectedSpace === 'all' ? null : selectedSpace);
       } else {
         clearSearch();
@@ -151,7 +192,7 @@ const ConfluenceSearchModal = ({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedSpace, searchPages, clearSearch]);
+  }, [searchQuery, selectedSpace, searchPages, clearSearch, isLoadingTree, cancelTreeLoading]);
 
   // Clear state when modal closes
   useEffect(() => {
@@ -159,8 +200,12 @@ const ConfluenceSearchModal = ({
       setSearchQuery('');
       setSelectedSpace('');
       setExpandedNodes(new Set());
+      setLoadingNodes(new Set());
       clearSearch();
       clearSpaceTree();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
     }
   }, [open, clearSearch, clearSpaceTree]);
 
@@ -174,34 +219,71 @@ const ConfluenceSearchModal = ({
     }
   };
 
-  const toggleExpand = (nodeId) => {
-    setExpandedNodes(prev => {
-      const next = new Set(prev);
-      if (next.has(nodeId)) {
+  const handleCancelLoad = () => {
+    cancelTreeLoading();
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  };
+
+  const toggleExpand = async (nodeId, spaceKey) => {
+    const isCurrentlyExpanded = expandedNodes.has(nodeId);
+    
+    if (isCurrentlyExpanded) {
+      // Collapse
+      setExpandedNodes(prev => {
+        const next = new Set(prev);
         next.delete(nodeId);
-      } else {
-        next.add(nodeId);
-      }
-      return next;
-    });
-  };
-
-  const expandAll = () => {
-    const getAllIds = (nodes) => {
-      const ids = [];
-      nodes.forEach(node => {
-        if (node.children?.length > 0) {
-          ids.push(node.id);
-          ids.push(...getAllIds(node.children));
-        }
+        return next;
       });
-      return ids;
-    };
-    setExpandedNodes(new Set(getAllIds(spaceTree)));
-  };
-
-  const collapseAll = () => {
-    setExpandedNodes(new Set());
+    } else {
+      // Expand - load children if not loaded
+      const findNode = (nodes) => {
+        for (const node of nodes) {
+          if (node.id === nodeId) return node;
+          if (node.children) {
+            const found = findNode(node.children);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const node = findNode(spaceTree);
+      
+      if (node && !node.loaded && node.children?.length === 0) {
+        // Need to load children
+        setLoadingNodes(prev => new Set(prev).add(nodeId));
+        
+        try {
+          const children = await getPageChildren(nodeId, spaceKey);
+          
+          // Update tree with children
+          const updateNode = (nodes) => {
+            return nodes.map(n => {
+              if (n.id === nodeId) {
+                return { ...n, children, loaded: true, hasChildren: children.length > 0 };
+              }
+              if (n.children) {
+                return { ...n, children: updateNode(n.children) };
+              }
+              return n;
+            });
+          };
+          
+          setSpaceTree(prev => updateNode(prev));
+        } finally {
+          setLoadingNodes(prev => {
+            const next = new Set(prev);
+            next.delete(nodeId);
+            return next;
+          });
+        }
+      }
+      
+      // Expand
+      setExpandedNodes(prev => new Set(prev).add(nodeId));
+    }
   };
 
   // Show search results if searching, otherwise show tree
@@ -242,26 +324,28 @@ const ConfluenceSearchModal = ({
             </div>
           </div>
 
-          {/* Tree controls */}
-          {showTree && spaceTree.length > 0 && (
-            <div className="flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">
-                {spaceTree.length} root pages
-              </span>
-              <span className="text-muted-foreground">•</span>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={expandAll}>
-                Expand all
-              </Button>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={collapseAll}>
-                Collapse all
+          {/* Loading indicator with cancel button */}
+          {isLoadingTree && (
+            <div className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading pages...</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-7 px-2"
+                onClick={handleCancelLoad}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Cancel
               </Button>
             </div>
           )}
 
           {/* Results area */}
           <ScrollArea className="h-[400px] border rounded-md">
-            {/* Loading state */}
-            {(isSearching || isLoadingTree) ? (
+            {isSearching ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
@@ -315,7 +399,7 @@ const ConfluenceSearchModal = ({
                   ))}
                 </div>
               )
-            ) : showTree ? (
+            ) : showTree && !isLoadingTree ? (
               // Tree view
               spaceTree.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -332,18 +416,20 @@ const ConfluenceSearchModal = ({
                       attachingPageId={attachingPageId}
                       expandedNodes={expandedNodes}
                       toggleExpand={toggleExpand}
+                      loadingNodes={loadingNodes}
+                      spaceKey={selectedSpace}
                     />
                   ))}
                 </div>
               )
-            ) : (
+            ) : !isLoadingTree ? (
               // Empty state - prompt to select space or search
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <FolderOpen className="h-12 w-12 mb-2 opacity-50" />
                 <p>Select a space to browse pages</p>
                 <p className="text-xs mt-1">or search across all spaces</p>
               </div>
-            )}
+            ) : null}
           </ScrollArea>
         </div>
       </DialogContent>
