@@ -4,7 +4,8 @@ import { addPrompt, duplicatePrompt } from '../services/promptMutations';
 import { deletePrompt } from '../services/promptDeletion';
 
 export const useTreeOperations = (supabase, refreshTreeData) => {
-  const handleAddItem = useCallback(async (parentId) => {
+  // skipRefresh: when true, don't refresh tree (useful for bulk operations)
+  const handleAddItem = useCallback(async (parentId, { skipRefresh = false } = {}) => {
     if (!supabase) return null;
     try {
       // Fetch default admin prompt from settings
@@ -17,7 +18,9 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       const defaultAdminPrompt = settingsData?.setting_value || '';
       
       const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
-      await refreshTreeData();
+      if (!skipRefresh) {
+        await refreshTreeData();
+      }
       return newItemId;
     } catch (error) {
       console.error('Error adding new prompt:', error);
