@@ -3,30 +3,33 @@ import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="text-center space-y-6">
-        {/* Logo */}
-        <div className="flex justify-center">
-          <img 
-            src={chocolateFullLogo}
-            alt="Chocolate Finance" 
-            className="h-20 object-contain drop-shadow-md"
-          />
-        </div>
+    <div className="min-h-screen flex flex-col bg-white">
+      {/* Logo - positioned higher */}
+      <div className="pt-16 pb-8 flex justify-center">
+        <img 
+          src={chocolateFullLogo}
+          alt="Chocolate Finance" 
+          className="h-24 object-contain drop-shadow-md"
+        />
+      </div>
 
-        {/* Title */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-chocolate-espresso tracking-tight">
-            Qonsol Policy Builder
-            <span className="text-primary ml-2">7</span>
-          </h1>
-        </div>
+      {/* Content - centered in remaining space */}
+      <div className="flex-1 flex items-center justify-center -mt-20">
+        <div className="text-center space-y-6">
+          {/* Title */}
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-chocolate-espresso tracking-tight">
+              Qonsol Policy Builder
+              <span className="text-primary ml-2">7</span>
+            </h1>
+          </div>
 
-        {/* Decorative elements */}
-        <div className="flex justify-center gap-1.5 pt-6 opacity-60">
-          <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" />
-          <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" style={{ animationDelay: '0.2s' }} />
-          <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" style={{ animationDelay: '0.4s' }} />
+          {/* Decorative elements */}
+          <div className="flex justify-center gap-1.5 pt-6 opacity-60">
+            <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" style={{ animationDelay: '0.2s' }} />
+            <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" style={{ animationDelay: '0.4s' }} />
+          </div>
         </div>
       </div>
     </div>
