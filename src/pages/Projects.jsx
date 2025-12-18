@@ -112,7 +112,7 @@ const Projects = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto p-4 h-[calc(100vh-6rem)]">
+      <div className="w-full px-4 py-4 h-[calc(100vh-6rem)]">
         <PanelGroup direction="horizontal" className="h-full">
           {/* Tree Panel */}
           <Panel defaultSize={showChatPanel ? 20 : 30} minSize={15}>
