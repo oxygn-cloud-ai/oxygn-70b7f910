@@ -59,52 +59,72 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
     }
   }, [supabase, assistantRowId, fetchFiles]);
 
-  const uploadFile = useCallback(async (file) => {
+  const uploadFile = useCallback(async (filesOrFile) => {
     if (!supabase || !assistantRowId) return null;
 
+    // Support both single file and array of files
+    const filesToUpload = Array.isArray(filesOrFile) ? filesOrFile : [filesOrFile];
+    if (filesToUpload.length === 0) return null;
+
     setIsUploading(true);
+    const uploadedFiles = [];
+
     try {
-      // Generate unique path
-      const timestamp = Date.now();
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storagePath = `${assistantRowId}/${timestamp}_${safeName}`;
+      for (const file of filesToUpload) {
+        // Generate unique path
+        const timestamp = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePath = `${assistantRowId}/${timestamp}_${safeName}`;
 
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('assistant-files')
-        .upload(storagePath, file);
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from('assistant-files')
+          .upload(storagePath, file);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Error uploading file:', file.name, uploadError);
+          toast.error(`Failed to upload ${file.name}`);
+          continue;
+        }
 
-      // Create database record
-      const { data, error: dbError } = await supabase
-        .from('cyg_assistant_files')
-        .insert({
-          assistant_row_id: assistantRowId,
-          storage_path: storagePath,
-          original_filename: file.name,
-          file_size: file.size,
-          mime_type: file.type,
-          upload_status: 'pending',
-        })
-        .select()
-        .single();
+        // Create database record
+        const { data, error: dbError } = await supabase
+          .from('cyg_assistant_files')
+          .insert({
+            assistant_row_id: assistantRowId,
+            storage_path: storagePath,
+            original_filename: file.name,
+            file_size: file.size,
+            mime_type: file.type,
+            upload_status: 'pending',
+          })
+          .select()
+          .single();
 
-      if (dbError) throw dbError;
+        if (dbError) {
+          console.error('Error creating file record:', file.name, dbError);
+          toast.error(`Failed to save ${file.name}`);
+          continue;
+        }
 
-      setFiles(prev => [data, ...prev]);
-      toast.success(`${file.name} uploaded`);
-
-      // Auto-sync if assistant is active
-      if (assistantStatus === 'active') {
-        toast.info('Syncing file to assistant...');
-        await syncFiles();
+        uploadedFiles.push(data);
+        setFiles(prev => [data, ...prev]);
       }
 
-      return data;
+      if (uploadedFiles.length > 0) {
+        toast.success(`${uploadedFiles.length} file(s) uploaded`);
+
+        // Auto-sync if assistant is active
+        if (assistantStatus === 'active') {
+          toast.info('Syncing files to assistant...');
+          await syncFiles();
+        }
+      }
+
+      return uploadedFiles;
     } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error(`Failed to upload ${file.name}`);
+      console.error('Error in uploadFile:', error);
+      toast.error('Failed to upload files');
       return null;
     } finally {
       setIsUploading(false);

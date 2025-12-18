@@ -112,9 +112,9 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   };
 
   const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await uploadFile(file);
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length > 0) {
+      await uploadFile(selectedFiles);
       e.target.value = '';
     }
   };
@@ -282,7 +282,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
                 </Tooltip>
               </TooltipProvider>
               <label>
-                <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                <input type="file" multiple className="hidden" onChange={handleFileUpload} disabled={isUploading} />
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -290,7 +290,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
                         <span><Upload className="h-3 w-3" /></span>
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Upload File</TooltipContent>
+                    <TooltipContent>Upload Files</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </label>
