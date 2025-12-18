@@ -763,9 +763,10 @@ serve(async (req) => {
 
       const files = assistant.cyg_assistant_files || [];
       const pendingFiles = files.filter((f: any) => !f.openai_file_id || f.upload_status === 'pending');
-      const uploadedFileIds: string[] = files.filter((f: any) => f.openai_file_id).map((f: any) => f.openai_file_id);
+      const existingFileIds: string[] = files.filter((f: any) => f.openai_file_id).map((f: any) => f.openai_file_id);
+      const newlyUploadedFileIds: string[] = [];
 
-      console.log('Syncing files:', { total: files.length, pending: pendingFiles.length, alreadyUploaded: uploadedFileIds.length });
+      console.log('Syncing files:', { total: files.length, pending: pendingFiles.length, alreadyUploaded: existingFileIds.length });
 
       // Upload pending files to OpenAI
       for (const file of pendingFiles) {
@@ -802,7 +803,7 @@ serve(async (req) => {
 
         if (uploadResponse.ok) {
           const uploadResult = await uploadResponse.json();
-          uploadedFileIds.push(uploadResult.id);
+          newlyUploadedFileIds.push(uploadResult.id);
 
           await supabase
             .from('cyg_assistant_files')
@@ -820,8 +821,11 @@ serve(async (req) => {
         }
       }
 
+      // Combine all file IDs for tool resources
+      const allFileIds = [...existingFileIds, ...newlyUploadedFileIds];
+
       // If assistant is active and has files, update its tool resources
-      if (assistant.openai_assistant_id && uploadedFileIds.length > 0) {
+      if (assistant.openai_assistant_id && allFileIds.length > 0) {
         // Fetch global defaults first
         const { data: globalDefaults } = await supabase
           .from('cyg_assistant_tool_defaults')
@@ -845,11 +849,11 @@ serve(async (req) => {
         // Create or update vector store if file_search is enabled
         let vectorStoreId = assistant.vector_store_id;
 
-        if (toolConfig.file_search_enabled && uploadedFileIds.length > 0) {
-          if (vectorStoreId) {
-            // Add files to existing vector store
-            for (const fileId of uploadedFileIds) {
-              await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+        if (toolConfig.file_search_enabled) {
+          if (vectorStoreId && newlyUploadedFileIds.length > 0) {
+            // Add ONLY newly uploaded files to existing vector store
+            for (const fileId of newlyUploadedFileIds) {
+              const addFileResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${OPENAI_API_KEY}`,
@@ -858,10 +862,14 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({ file_id: fileId }),
               });
+              if (!addFileResponse.ok) {
+                const error = await addFileResponse.json();
+                console.error('Failed to add file to vector store:', fileId, error);
+              }
             }
-            console.log('Added files to existing vector store:', vectorStoreId);
-          } else {
-            // Create new vector store
+            console.log('Added', newlyUploadedFileIds.length, 'new files to existing vector store:', vectorStoreId);
+          } else if (!vectorStoreId && allFileIds.length > 0) {
+            // Create new vector store with all files
             const vsResponse = await fetch('https://api.openai.com/v1/vector_stores', {
               method: 'POST',
               headers: {
@@ -871,7 +879,7 @@ serve(async (req) => {
               },
               body: JSON.stringify({
                 name: `${assistant.name} - Vector Store`,
-                file_ids: uploadedFileIds,
+                file_ids: allFileIds,
               }),
             });
 
@@ -893,8 +901,8 @@ serve(async (req) => {
         if (toolConfig.file_search_enabled && vectorStoreId) {
           toolResources.file_search = { vector_store_ids: [vectorStoreId] };
         }
-        if (toolConfig.code_interpreter_enabled && uploadedFileIds.length > 0) {
-          toolResources.code_interpreter = { file_ids: uploadedFileIds };
+        if (toolConfig.code_interpreter_enabled && allFileIds.length > 0) {
+          toolResources.code_interpreter = { file_ids: allFileIds };
         }
 
         if (Object.keys(toolResources).length > 0) {
@@ -923,9 +931,9 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Synced ${pendingFiles.length} files`,
-          uploaded_count: pendingFiles.length,
-          total_files: uploadedFileIds.length,
+          message: `Synced ${newlyUploadedFileIds.length} files`,
+          uploaded_count: newlyUploadedFileIds.length,
+          total_files: allFileIds.length,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
