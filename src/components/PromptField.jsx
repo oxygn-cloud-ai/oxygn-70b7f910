@@ -1,24 +1,28 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link, BrainCircuit, ChevronUp, ChevronDown } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId }) => {
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
   
-  // Generate storage key for this specific field
   const storageKey = `promptField_collapsed_${promptId}_${label}`;
   
-  // Initialize collapse state from localStorage, default to true (collapsed)
+  // Default to expanded (false) for better UX
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const stored = localStorage.getItem(storageKey);
-    return stored !== null ? JSON.parse(stored) : true;
+    return stored !== null ? JSON.parse(stored) : false;
   });
   
-  // Persist collapse state to localStorage when it changes
   const handleToggleCollapse = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
@@ -51,15 +55,14 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success('Content copied to clipboard');
+      toast.success('Copied to clipboard');
     } catch (err) {
       console.error('Failed to copy: ', err);
-      toast.error('Failed to copy content');
+      toast.error('Failed to copy');
     }
   };
 
   const handleSave = async () => {
-    // Create source info JSON structure
     const fieldKey = label.toLowerCase().replace(' ', '_');
     const sourceInfo = {
       [fieldKey]: {
@@ -78,123 +81,136 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       }
     };
 
-    // Call the original onSave and also save the source info
     try {
       await onSave(sourceInfo);
-      toast.success('Content and source information saved');
+      toast.success('Saved');
     } catch (err) {
       console.error('Failed to save: ', err);
-      toast.error('Failed to save content');
+      toast.error('Failed to save');
     }
   };
 
-  const renderLabel = () => {
-    if ((label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isLinksPage) {
-      return (
-        <div className="flex items-center">
-          <span>{label}</span>
+  const ActionButton = ({ icon, onClick, tooltip, disabled, active, variant = 'default' }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
-            onClick={onGenerate}
-            className="ml-2 p-0"
-            title="Generate"
+            size="sm"
+            onClick={onClick}
+            disabled={disabled}
+            className={`
+              h-7 w-7 p-0 transition-all
+              ${active ? 'text-primary hover:text-primary/80' : 'text-muted-foreground hover:text-foreground'}
+              ${variant === 'generate' ? 'hover:bg-primary/10' : 'hover:bg-muted'}
+              ${disabled ? 'opacity-40' : ''}
+            `}
           >
-            <BrainCircuit className="h-4 w-4 text-green-700" />
+            {icon}
           </Button>
-          {isGenerating && (
-            <span className="ml-2 text-xs text-green-700">{formattedTime}</span>
-          )}
-        </div>
-      );
-    }
-    return (
-      <div className="flex items-center">
-        <span>{label}</span>
-      </div>
-    );
-  };
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 
   return (
-    <div className="mb-4">
-      <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center">
+    <div className={`
+      rounded-lg border transition-all duration-200
+      ${hasUnsavedChanges ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}
+    `}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={handleToggleCollapse}
-            className="h-6 w-6 mr-1"
-            title={isCollapsed ? "Expand field" : "Collapse field"}
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
           >
             {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
           </Button>
-          <Label htmlFor={label}>{renderLabel()}</Label>
+          <Label htmlFor={label} className="text-sm font-medium text-foreground cursor-pointer">
+            {label}
+          </Label>
+          {hasUnsavedChanges && (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          )}
         </div>
-        <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onMouseDown={() => setIsLinking(true)}
-            onMouseUp={() => setIsLinking(false)}
-            onMouseLeave={() => setIsLinking(false)}
+
+        {/* Actions */}
+        <div className="flex items-center gap-0.5">
+          {(label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isLinksPage && (
+            <div className="flex items-center mr-1">
+              <ActionButton
+                icon={<Sparkles className={`h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />}
+                onClick={onGenerate}
+                tooltip={isGenerating ? `Generating... ${formattedTime}` : 'Generate response'}
+                disabled={isGenerating}
+                variant="generate"
+                active={true}
+              />
+              {isGenerating && (
+                <span className="text-xs text-primary font-medium ml-1">{formattedTime}</span>
+              )}
+            </div>
+          )}
+
+          <ActionButton
+            icon={<Link2 className="h-4 w-4" />}
             onClick={() => onCascade(label)}
-            className={`h-6 w-6 text-green-700 ${isLinking ? 'cursor-alias' : ''}`}
-            title="Cascade"
-          >
-            <Link className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+            tooltip="Cascade to children"
+          />
+          <ActionButton
+            icon={<ClipboardCopy className="h-4 w-4" />}
             onClick={handleCopy}
-            className="h-6 w-6 text-green-700"
-            title="Copy to clipboard"
-          >
-            <ClipboardCopy className="h-4 w-4" />
-          </Button>
+            tooltip="Copy to clipboard"
+          />
+          
           {!isLinksPage && !isReadOnly && (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
+              <ActionButton
+                icon={<Save className="h-4 w-4" />}
                 onClick={handleSave}
                 disabled={!hasUnsavedChanges}
-                className={`h-6 w-6 ${hasUnsavedChanges ? 'text-green-700' : ''}`}
-                title="Save changes"
-              >
-                <Save className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
+                tooltip="Save changes"
+                active={hasUnsavedChanges}
+              />
+              <ActionButton
+                icon={<RotateCcw className="h-4 w-4" />}
                 onClick={onReset}
                 disabled={!hasUnsavedChanges}
-                className={`h-6 w-6 ${hasUnsavedChanges ? 'text-green-700' : ''}`}
-                title="Reset to initial value"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
+                tooltip="Reset changes"
+                active={hasUnsavedChanges}
+              />
             </>
           )}
         </div>
       </div>
+
+      {/* Content */}
       {!isCollapsed && (
-        <Textarea
-          id={label}
-          value={value}
-          onChange={(e) => {
-            if (!isReadOnly) {
-              onChange(e.target.value);
-            }
-            if (label === 'Admin Result' || label === 'User Result') {
-              e.target.style.height = 'auto';
-            }
-          }}
-          className="w-full mt-1"
-          rows={4}
-          ref={textareaRef}
-          readOnly={isReadOnly}
-        />
+        <div className="p-3">
+          <Textarea
+            id={label}
+            value={value}
+            onChange={(e) => {
+              if (!isReadOnly) {
+                onChange(e.target.value);
+              }
+              if (label === 'Admin Result' || label === 'User Result') {
+                e.target.style.height = 'auto';
+              }
+            }}
+            className="w-full min-h-[100px] resize-y border-border bg-background focus:ring-primary focus:border-primary"
+            rows={4}
+            ref={textareaRef}
+            readOnly={isReadOnly}
+            placeholder={`Enter ${label.toLowerCase()}...`}
+          />
+        </div>
       )}
     </div>
   );

@@ -19,7 +19,8 @@ const TreeItem = ({
   duplicateItem,
   moveItem,
   siblings,
-  onRefreshTreeData
+  onRefreshTreeData,
+  searchQuery
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTreeHovered, setIsTreeHovered] = useState(false);
@@ -29,7 +30,7 @@ const TreeItem = ({
   const [{ isDragging }, drag] = useDrag({
     type: 'TREE_ITEM',
     item: () => {
-      document.body.style.cursor = 'wait';
+      document.body.style.cursor = 'grabbing';
       return { 
         id: item.id, 
         parentId: item.parent_row_id 
@@ -62,7 +63,14 @@ const TreeItem = ({
 
   return (
     <div 
-      className={`border-none ${level === 1 ? 'pt-3' : 'pt-0'} pb-0.1 ${isDragging ? 'opacity-50' : ''} ${isOver ? 'bg-blue-100' : ''}`}
+      className={`
+        border-none 
+        ${level === 1 ? 'pt-1.5' : 'pt-0.5'} 
+        pb-0.5 
+        transition-all duration-150
+        ${isDragging ? 'opacity-40 scale-[0.98]' : ''} 
+        ${isOver ? 'bg-primary/10 rounded-md ring-1 ring-primary/30' : ''}
+      `}
       ref={ref}
       onMouseEnter={() => setIsTreeHovered(true)}
       onMouseLeave={() => setIsTreeHovered(false)}
@@ -86,25 +94,34 @@ const TreeItem = ({
         duplicateItem={duplicateItem}
         siblings={siblings}
         onRefreshTreeData={onRefreshTreeData}
+        searchQuery={searchQuery}
       />
       {isExpanded && hasChildren && (
-        <div className="relative">
-          {/* Vertical line from parent */}
+        <div className="relative ml-2">
+          {/* Vertical connection line */}
           <div 
-            className={`absolute left-3 top-0 w-px bg-gray-300 transition-opacity duration-200 ${isTreeHovered ? 'opacity-100' : 'opacity-0'}`}
+            className={`
+              absolute left-3 top-0 w-px bg-border 
+              transition-opacity duration-200 
+              ${isTreeHovered ? 'opacity-100' : 'opacity-40'}
+            `}
             style={{ 
-              height: 'calc(100% - 12px)',
+              height: 'calc(100% - 8px)',
               marginLeft: `${(level - 1) * 16}px`
             }}
           />
           {item.children.map((child, index) => (
             <div key={child.id} className="relative">
-              {/* Horizontal line to child */}
+              {/* Horizontal connection line */}
               <div 
-                className={`absolute top-3 h-px bg-gray-300 transition-opacity duration-200 ${isTreeHovered ? 'opacity-100' : 'opacity-0'}`}
+                className={`
+                  absolute top-3 h-px bg-border 
+                  transition-opacity duration-200 
+                  ${isTreeHovered ? 'opacity-100' : 'opacity-40'}
+                `}
                 style={{ 
                   left: `${12 + (level - 1) * 16}px`,
-                  width: '12px'
+                  width: '10px'
                 }}
               />
               <TreeItem
@@ -125,6 +142,7 @@ const TreeItem = ({
                 moveItem={moveItem}
                 siblings={item.children}
                 onRefreshTreeData={onRefreshTreeData}
+                searchQuery={searchQuery}
               />
             </div>
           ))}

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { PlusCircle, Loader2, Check, X, Square } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { Loader2 } from 'lucide-react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useSupabase } from '../hooks/useSupabase';
@@ -12,12 +11,9 @@ import ProjectPanels from '../components/ProjectPanels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import TreeView from '../components/TreeView';
 import AssistantChatPanel from '../components/AssistantChatPanel';
+import EmptyState from '../components/EmptyState';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from 'sonner';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Progress } from "@/components/ui/progress";
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -33,22 +29,13 @@ const Projects = () => {
   const { handleAddItem: addItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
 
-  // Bulk add state for top-level button
-  const [showBulkAdd, setShowBulkAdd] = useState(false);
-  const [bulkCount, setBulkCount] = useState('2');
-  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, isAdding: false });
-  const longPressTimer = useRef(null);
-  const longPressTriggered = useRef(false);
-  const cancelBulkAdd = useRef(false);
-
   // Wrap handleAddItem to auto-expand parent when adding a child and prevent multi-click
   const handleAddItem = useCallback(async (parentId) => {
-    if (isAddingPrompt) return null; // Prevent multi-click
+    if (isAddingPrompt) return null;
     setIsAddingPrompt(true);
     try {
       const newItemId = await addItem(parentId);
       if (newItemId && parentId) {
-        // Expand the parent to show the new child
         setExpandedItems(prev => 
           prev.includes(parentId) ? prev : [...prev, parentId]
         );
@@ -58,63 +45,6 @@ const Projects = () => {
       setIsAddingPrompt(false);
     }
   }, [addItem, isAddingPrompt]);
-
-  // Bulk add handlers for top-level button
-  const handleBulkAdd = async () => {
-    const count = parseInt(bulkCount, 10);
-    if (isNaN(count) || count < 1 || count > 999) {
-      toast.error('Please enter a number between 1 and 999');
-      return;
-    }
-    setShowBulkAdd(false);
-    cancelBulkAdd.current = false;
-    setBulkProgress({ current: 0, total: count, isAdding: true });
-    
-    let added = 0;
-    for (let i = 0; i < count; i++) {
-      if (cancelBulkAdd.current) {
-        toast.info(`Cancelled after adding ${added} prompts`);
-        break;
-      }
-      await addItem(null);
-      added++;
-      setBulkProgress(prev => ({ ...prev, current: added }));
-    }
-    
-    setBulkProgress({ current: 0, total: 0, isAdding: false });
-    if (!cancelBulkAdd.current) {
-      toast.success(`Added ${count} top-level prompts`);
-    }
-    cancelBulkAdd.current = false;
-  };
-
-  const handleCancelBulkAdd = useCallback(() => {
-    cancelBulkAdd.current = true;
-  }, []);
-
-  const startLongPress = useCallback((e) => {
-    e.preventDefault();
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
-      setShowBulkAdd(true);
-    }, 500);
-  }, []);
-
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  const handleAddClick = useCallback(() => {
-    cancelLongPress();
-    if (!longPressTriggered.current && !showBulkAdd) {
-      handleAddItem(null);
-    }
-    longPressTriggered.current = false;
-  }, [cancelLongPress, showBulkAdd, handleAddItem]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -175,17 +105,13 @@ const Projects = () => {
   const findTopLevelAncestor = useCallback((rowId, data = treeData) => {
     for (const item of data) {
       if (item.id === rowId) {
-        // This item is at this level, return it if top-level
         return item.parent_row_id ? null : item;
       }
       if (item.children && item.children.length > 0) {
-        // Check if rowId is in this subtree
         const foundInChildren = findTopLevelAncestor(rowId, item.children);
         if (foundInChildren !== null) {
-          // The item was found in this subtree, so this item is an ancestor
           return item.parent_row_id ? null : item;
         }
-        // Also check if the item is a direct child
         const isDirectChild = item.children.some(c => c.id === rowId);
         if (isDirectChild) {
           return item.parent_row_id ? null : item;
@@ -203,7 +129,6 @@ const Projects = () => {
     if (!activeItem || !treeData.length) return null;
     if (isTopLevel) return selectedItemData;
     
-    // Walk up the tree to find top-level parent
     const findAncestorInTree = (items, targetId, ancestors = []) => {
       for (const item of items) {
         if (item.id === targetId) {
@@ -225,93 +150,29 @@ const Projects = () => {
     ? selectedItemData?.is_assistant 
     : topLevelAncestor?.is_assistant;
   
-  // The row_id to pass to AssistantChatPanel (always the top-level prompt)
+  // The row_id to pass to AssistantChatPanel
   const chatPanelPromptRowId = isTopLevel ? activeItem : topLevelAncestor?.id;
   const chatPanelPromptName = isTopLevel ? selectedItemData?.prompt_name : topLevelAncestor?.prompt_name;
 
   if (!supabase) {
-    return <div>Loading Supabase client...</div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="w-full px-4 py-4 h-[calc(100vh-6rem)]">
+      <div className="w-full h-[calc(100vh-4rem)] bg-background">
         <PanelGroup direction="horizontal" className="h-full">
           {/* Tree Panel */}
-          <Panel defaultSize={showChatPanel ? 20 : 30} minSize={15}>
-            <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
-              <div className="mb-2 flex space-x-2">
-                {bulkProgress.isAdding ? (
-                  <div className="flex items-center gap-1 px-1">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-xs text-muted-foreground">{bulkProgress.current}/{bulkProgress.total}</span>
-                    <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-16 h-1.5" />
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCancelBulkAdd}>
-                            <Square className="h-3 w-3 fill-current" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Cancel</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                ) : (
-                  <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={handleAddClick}
-                        onMouseDown={startLongPress}
-                        onMouseLeave={cancelLongPress}
-                        onTouchStart={startLongPress}
-                        disabled={isAddingPrompt}
-                        title="Add Prompt (long-press for bulk)"
-                      >
-                        <PlusCircle className={`h-5 w-5 ${isAddingPrompt ? 'animate-spin' : ''}`} />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-1.5" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="1"
-                          max="999"
-                          value={bulkCount}
-                          onChange={(e) => setBulkCount(e.target.value)}
-                          className="h-6 w-14 text-xs text-center px-1"
-                          onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
-                          autoFocus
-                        />
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleBulkAdd}>
-                                <Check className="h-3 w-3" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Add</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowBulkAdd(false)}>
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Cancel</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
+          <Panel defaultSize={showChatPanel ? 22 : 28} minSize={18}>
+            <div className="h-full border-r border-border bg-card/50">
               {isLoading ? (
-                <div>Loading...</div>
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
               ) : (
                 <TreeView
                   treeData={treeData}
@@ -332,11 +193,16 @@ const Projects = () => {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-2 bg-muted hover:bg-muted-foreground/20 transition-colors" />
+          {/* Resize Handle */}
+          <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/30 active:bg-primary/50 transition-colors cursor-col-resize group">
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
+            </div>
+          </PanelResizeHandle>
 
           {/* Details Panel */}
-          <Panel defaultSize={showChatPanel ? 40 : 70} minSize={30}>
-            <div className="h-full overflow-y-auto">
+          <Panel defaultSize={showChatPanel ? 40 : 72} minSize={30}>
+            <div className="h-full overflow-y-auto bg-background">
               {activeItem ? (
                 selectedItemData ? (
                   <ProjectPanels 
@@ -348,27 +214,36 @@ const Projects = () => {
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">Loading prompt details...</p>
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 )
               ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Select a prompt to view details</p>
-                </div>
+                <EmptyState
+                  icon="folder"
+                  title="Select a prompt"
+                  description="Choose a prompt from the panel on the left to view and edit its details."
+                  className="h-full"
+                />
               )}
             </div>
           </Panel>
 
-          {/* Chat Panel - show for any prompt with a top-level ancestor that has an active assistant */}
+          {/* Chat Panel */}
           {showChatPanel && chatPanelPromptRowId && (
             <>
-              <PanelResizeHandle className="w-2 bg-muted hover:bg-muted-foreground/20 transition-colors" />
-              <Panel defaultSize={40} minSize={25}>
-                <AssistantChatPanel
-                  promptRowId={chatPanelPromptRowId}
-                  promptName={chatPanelPromptName}
-                  selectedChildPromptId={!isTopLevel ? activeItem : null}
-                />
+              <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/30 active:bg-primary/50 transition-colors cursor-col-resize group">
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
+                </div>
+              </PanelResizeHandle>
+              <Panel defaultSize={38} minSize={25}>
+                <div className="h-full border-l border-border">
+                  <AssistantChatPanel
+                    promptRowId={chatPanelPromptRowId}
+                    promptName={chatPanelPromptName}
+                    selectedChildPromptId={!isTopLevel ? activeItem : null}
+                  />
+                </div>
               </Panel>
             </>
           )}

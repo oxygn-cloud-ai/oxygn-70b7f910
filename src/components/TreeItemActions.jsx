@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info, Check, X, Loader2, Square } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -29,10 +29,8 @@ export const TreeItemActions = ({
   const supabase = useSupabase();
 
   const handleMove = async (direction) => {
-    // Get siblings array, ensuring it's valid
     const siblingsArray = Array.isArray(siblings) ? siblings : [];
     
-    // If no siblings array was provided, fetch top-level items
     if (siblingsArray.length === 0) {
       try {
         const { data: topLevelItems } = await supabase
@@ -56,7 +54,7 @@ export const TreeItemActions = ({
               if (typeof onRefreshTreeData === 'function') {
                 await onRefreshTreeData();
               }
-              toast.success(`Item moved ${direction} successfully`);
+              toast.success(`Moved ${direction}`);
             }
           } finally {
             setIsProcessing(false);
@@ -65,12 +63,11 @@ export const TreeItemActions = ({
         }
       } catch (error) {
         console.error('Error fetching top-level items:', error);
-        toast.error('Failed to fetch items for movement');
+        toast.error('Failed to move item');
         return;
       }
     }
 
-    // Handle non-top-level items
     const currentIndex = siblingsArray.findIndex(sibling => sibling.id === item.id);
     if (currentIndex === -1) {
       toast.error('Item not found in current level');
@@ -84,7 +81,7 @@ export const TreeItemActions = ({
         if (typeof onRefreshTreeData === 'function') {
           await onRefreshTreeData();
         }
-        toast.success(`Item moved ${direction} successfully`);
+        toast.success(`Moved ${direction}`);
       }
     } finally {
       setIsProcessing(false);
@@ -160,152 +157,154 @@ export const TreeItemActions = ({
 
   const handleAddClick = useCallback((e) => {
     cancelLongPress();
-    // Only add single item if long press didn't trigger
     if (!longPressTriggered.current && !showBulkAdd && addItem) {
       addItem(item.id);
     }
     longPressTriggered.current = false;
   }, [cancelLongPress, showBulkAdd, addItem, item.id]);
 
-  const ActionButton = ({ icon, onClick, tooltip, disabled }) => (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-5 w-5 p-0"
-      onClick={async (e) => {
-        if (onClick && !disabled) {
-          e.stopPropagation();
-          setIsProcessing(true);
-          try {
-            await onClick(e);
-          } finally {
-            setIsProcessing(false);
-          }
-        }
-      }}
-      title={tooltip}
-      disabled={disabled || isProcessing}
-    >
-      {icon}
-    </Button>
-  );
-
-  // Calculate sibling positions
   const siblingsArray = Array.isArray(siblings) ? siblings : [];
   const isFirstSibling = siblingsArray.length > 0 && siblingsArray[0]?.id === item.id;
   const isLastSibling = siblingsArray.length > 0 && siblingsArray[siblingsArray.length - 1]?.id === item.id;
 
+  const ActionButton = ({ icon, onClick, tooltip, disabled, variant = 'default' }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`
+              h-6 w-6 p-0 
+              ${variant === 'destructive' ? 'hover:bg-destructive/10 hover:text-destructive' : 'hover:bg-muted'}
+              ${disabled ? 'opacity-30 cursor-not-allowed' : ''}
+            `}
+            onClick={async (e) => {
+              if (onClick && !disabled) {
+                e.stopPropagation();
+                setIsProcessing(true);
+                try {
+                  await onClick(e);
+                } finally {
+                  setIsProcessing(false);
+                }
+              }
+            }}
+            disabled={disabled || isProcessing}
+          >
+            {icon}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
   return (
-    <div className="flex items-center space-x-1">
+    <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
       {bulkProgress.isAdding ? (
-        <div className="flex items-center gap-1 px-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          <span className="text-[10px] text-muted-foreground">{bulkProgress.current}/{bulkProgress.total}</span>
-          <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-12 h-1.5" />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCancelBulkAdd}>
-                  <Square className="h-3 w-3 fill-current" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Cancel</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-muted rounded">
+          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+          <span className="text-[10px] text-muted-foreground font-medium">
+            {bulkProgress.current}/{bulkProgress.total}
+          </span>
+          <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-10 h-1" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-5 w-5 p-0 hover:bg-destructive/10" 
+            onClick={handleCancelBulkAdd}
+          >
+            <Square className="h-2.5 w-2.5 fill-current text-destructive" />
+          </Button>
         </div>
       ) : (
-        <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 w-5 p-0"
-              onClick={handleAddClick}
-              onMouseDown={startLongPress}
-              onMouseLeave={cancelLongPress}
-              onTouchStart={startLongPress}
-              title="Add Prompt (long-press for bulk)"
-              disabled={isProcessing}
-            >
-              <PlusIcon className="h-3 w-3" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-1.5" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-1">
-            <Input
-              type="number"
-              min="1"
-              max="999"
-              value={bulkCount}
-              onChange={(e) => setBulkCount(e.target.value)}
-              className="h-6 w-14 text-xs text-center px-1"
-              onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
-              autoFocus
-            />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleBulkAdd}>
-                    <Check className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Add</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowBulkAdd(false)}>
-                    <X className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Cancel</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </PopoverContent>
-        </Popover>
-      )}
-      <ActionButton 
-        icon={<ArrowUpFromLine className="h-3 w-3" />} 
-        onClick={() => handleMove('up')}
-        tooltip="Move Up"
-        disabled={isFirstSibling}
-      />
-      <ActionButton 
-        icon={<ArrowDownFromLine className="h-3 w-3" />} 
-        onClick={() => handleMove('down')}
-        tooltip="Move Down"
-        disabled={isLastSibling}
-      />
-      <ActionButton 
-        icon={<EditIcon className="h-3 w-3" />} 
-        onClick={() => startRenaming(item.id, item.prompt_name)} 
-        tooltip="Rename" 
-      />
-      <ActionButton 
-        icon={<Trash2Icon className="h-3 w-3" />} 
-        onClick={() => deleteItem(item.id)} 
-        tooltip="Delete" 
-      />
-      <ActionButton 
-        icon={<Copy className="h-3 w-3" />} 
-        onClick={() => duplicateItem(item.id)} 
-        tooltip="Duplicate" 
-      />
-      {import.meta.env.VITE_DEBUG === 'TRUE' && (
         <>
+          <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 hover:bg-primary/10 hover:text-primary"
+                onClick={handleAddClick}
+                onMouseDown={startLongPress}
+                onMouseLeave={cancelLongPress}
+                onTouchStart={startLongPress}
+                disabled={isProcessing}
+              >
+                <PlusIcon className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2 bg-popover" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Add</span>
+                <Input
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={bulkCount}
+                  onChange={(e) => setBulkCount(e.target.value)}
+                  className="h-7 w-14 text-xs text-center px-1"
+                  onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
+                  autoFocus
+                />
+                <span className="text-xs text-muted-foreground">children</span>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-primary/10" onClick={handleBulkAdd}>
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowBulkAdd(false)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <ActionButton 
-            icon={<Info className="h-3 w-3" />} 
-            onClick={() => setShowDebugInfo(true)}
-            tooltip="Debug Info" 
+            icon={<ArrowUp className="h-3.5 w-3.5" />} 
+            onClick={() => handleMove('up')}
+            tooltip="Move up"
+            disabled={isFirstSibling}
           />
-          <DebugInfoPopup
-            isOpen={showDebugInfo}
-            onClose={() => setShowDebugInfo(false)}
-            item={item}
-            onSave={handleUpdatePosition}
+          <ActionButton 
+            icon={<ArrowDown className="h-3.5 w-3.5" />} 
+            onClick={() => handleMove('down')}
+            tooltip="Move down"
+            disabled={isLastSibling}
           />
+          <ActionButton 
+            icon={<EditIcon className="h-3.5 w-3.5" />} 
+            onClick={() => startRenaming(item.id, item.prompt_name)} 
+            tooltip="Rename" 
+          />
+          <ActionButton 
+            icon={<Copy className="h-3.5 w-3.5" />} 
+            onClick={() => duplicateItem(item.id)} 
+            tooltip="Duplicate" 
+          />
+          <ActionButton 
+            icon={<Trash2Icon className="h-3.5 w-3.5" />} 
+            onClick={() => deleteItem(item.id)} 
+            tooltip="Delete"
+            variant="destructive"
+          />
+          
+          {import.meta.env.VITE_DEBUG === 'TRUE' && (
+            <>
+              <ActionButton 
+                icon={<Info className="h-3.5 w-3.5" />} 
+                onClick={() => setShowDebugInfo(true)}
+                tooltip="Debug info" 
+              />
+              <DebugInfoPopup
+                isOpen={showDebugInfo}
+                onClose={() => setShowDebugInfo(false)}
+                item={item}
+                onSave={handleUpdatePosition}
+              />
+            </>
+          )}
         </>
       )}
     </div>

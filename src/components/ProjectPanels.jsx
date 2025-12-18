@@ -11,7 +11,7 @@ import SettingsPanel from './SettingsPanel';
 import AssistantPanel from './AssistantPanel';
 import ChildPromptPanel from './ChildPromptPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, Bot } from 'lucide-react';
+import { ChevronDown, ChevronUp, Bot, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
@@ -35,7 +35,7 @@ const ProjectPanels = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating);
   const [isSettingsOpen, setIsSettingsOpen] = useState(
-    selectedItemData?.prompt_settings_open ?? true
+    selectedItemData?.prompt_settings_open ?? false
   );
 
   const {
@@ -60,7 +60,6 @@ const ProjectPanels = ({
         localData,
         {
           onSuccess: async (content) => {
-            // Save to database even if user navigates away
             if (supabase && projectRowId) {
               const { error } = await supabase
                 .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -75,7 +74,6 @@ const ProjectPanels = ({
         }
       );
       
-      // Update local state if still on page
       if (result) {
         handleChange('user_prompt_result', result);
       }
@@ -115,7 +113,6 @@ const ProjectPanels = ({
     { name: 'note', label: 'Notes' }
   ], []);
 
-  // Get assistant data if this is a top-level prompt marked as assistant
   const { assistant } = useAssistant(selectedItemData?.is_assistant ? projectRowId : null);
 
   const handleEnableAssistant = useCallback(async () => {
@@ -138,7 +135,11 @@ const ProjectPanels = ({
   }, [supabase, projectRowId, onUpdateField]);
 
   if (!selectedItemData) {
-    return <div>Loading prompt data...</div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Loading prompt data...</p>
+      </div>
+    );
   }
 
   // If this is a top-level prompt AND marked as an assistant, show AssistantPanel
@@ -165,21 +166,27 @@ const ProjectPanels = ({
 
   // Standard prompt view
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-8rem)] overflow-auto p-4">
+    <div className="flex flex-col gap-4 h-full overflow-auto p-4">
       {/* Assistant Mode Toggle - only show for top-level prompts */}
       {isTopLevel && !isLinksPage && (
-        <Card className="border-dashed">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Bot className="h-4 w-4" />
+        <Card className="border-dashed border-primary/30 bg-primary/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <div className="p-1.5 rounded bg-primary/10">
+                <Bot className="h-4 w-4 text-primary" />
+              </div>
               Assistant Mode
             </CardTitle>
             <CardDescription className="text-xs">
               Convert this prompt into an OpenAI Assistant with persistent context and conversation threads.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button variant="outline" size="sm" onClick={handleEnableAssistant}>
+          <CardContent className="pt-0">
+            <Button 
+              size="sm" 
+              onClick={handleEnableAssistant}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
               <Bot className="h-4 w-4 mr-2" />
               Enable Assistant Mode
             </Button>
@@ -187,10 +194,10 @@ const ProjectPanels = ({
         </Card>
       )}
       
-      <div className="space-y-6">
+      {/* Prompt Fields */}
+      <div className="space-y-4">
         {fields
           .filter(field => {
-            // Hide admin_prompt_result if it has no value
             if (field.name === 'admin_prompt_result') {
               return !!(localData.admin_prompt_result || selectedItemData?.admin_prompt_result);
             }
@@ -218,30 +225,37 @@ const ProjectPanels = ({
             />
           ))}
       </div>
+
+      {/* Settings Section */}
       {!isLinksPage && (
         <Collapsible
           open={isSettingsOpen}
           onOpenChange={handleSettingsToggle}
-          className="border rounded-lg p-4"
+          className="border border-border rounded-lg bg-card"
         >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Prompt Settings</h3>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+            <div className="flex items-center gap-2">
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium">Prompt Settings</h3>
+            </div>
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                 {isSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </CollapsibleTrigger>
           </div>
           <CollapsibleContent>
-            <SettingsPanel
-              localData={localData}
-              selectedItemData={selectedItemData}
-              models={models}
-              handleChange={handleChange}
-              handleSave={handleSave}
-              handleReset={handleReset}
-              hasUnsavedChanges={hasUnsavedChanges}
-            />
+            <div className="p-4">
+              <SettingsPanel
+                localData={localData}
+                selectedItemData={selectedItemData}
+                models={models}
+                handleChange={handleChange}
+                handleSave={handleSave}
+                handleReset={handleReset}
+                hasUnsavedChanges={hasUnsavedChanges}
+              />
+            </div>
           </CollapsibleContent>
         </Collapsible>
       )}
