@@ -34,6 +34,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const [useGlobalDefaults, setUseGlobalDefaults] = useState(true);
   const [codeInterpreter, setCodeInterpreter] = useState(true);
   const [fileSearch, setFileSearch] = useState(true);
+  const [confluenceEnabled, setConfluenceEnabled] = useState(false);
   const [modelOverride, setModelOverride] = useState('');
   const [temperature, setTemperature] = useState('');
   const [maxTokens, setMaxTokens] = useState('');
@@ -60,6 +61,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setUseGlobalDefaults(assistant.use_global_tool_defaults ?? true);
       setCodeInterpreter(assistant.code_interpreter_enabled ?? toolDefaults?.code_interpreter_enabled ?? true);
       setFileSearch(assistant.file_search_enabled ?? toolDefaults?.file_search_enabled ?? true);
+      setConfluenceEnabled(assistant.confluence_enabled ?? false);
       setModelOverride(assistant.model_override || '');
       setTemperature(assistant.temperature_override || '');
       setMaxTokens(assistant.max_tokens_override || '');
@@ -470,6 +472,58 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
                   </div>
                 </>
               )}
+              <div className="border-t pt-3 mt-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Label>Confluence Live Browsing</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                          <Info className="h-3 w-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 bg-popover" side="top">
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm">Confluence Live Browsing</h4>
+                          <p className="text-xs text-muted-foreground">
+                            When enabled, the assistant can search, read, and navigate Confluence pages during conversations. 
+                            This allows real-time access to your team's documentation.
+                          </p>
+                          <p className="text-xs text-muted-foreground italic">
+                            Requires Confluence credentials in Settings.
+                          </p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <Switch 
+                    checked={confluenceEnabled} 
+                    onCheckedChange={async (v) => { 
+                      setConfluenceEnabled(v); 
+                      await handleSave('confluence_enabled', v);
+                      // Sync to OpenAI if active
+                      if (assistant?.status === 'active' && assistant?.openai_assistant_id) {
+                        try {
+                          await supabase.functions.invoke('assistant-manager', {
+                            body: {
+                              action: 'update',
+                              assistant_row_id: assistant.row_id,
+                              confluence_enabled: v,
+                            },
+                          });
+                        } catch (error) {
+                          console.error('Failed to sync confluence setting to OpenAI:', error);
+                        }
+                      }
+                    }} 
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {confluenceEnabled 
+                    ? 'Assistant can search and read Confluence pages live' 
+                    : 'Attached pages are used as static context only'}
+                </p>
+              </div>
             </CardContent>
           </CollapsibleContent>
         </Card>
