@@ -39,6 +39,8 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const [topP, setTopP] = useState('');
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [childDefaultsOpen, setChildDefaultsOpen] = useState(false);
+  const [defaultChildThreadStrategy, setDefaultChildThreadStrategy] = useState('isolated');
 
   // Get default model from global settings
   const defaultModel = useMemo(() => {
@@ -63,6 +65,26 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setTopP(assistant.top_p_override || '');
     }
   }, [assistant, toolDefaults]);
+
+  // Load parent prompt's default child thread strategy
+  useEffect(() => {
+    if (selectedItemData?.default_child_thread_strategy) {
+      setDefaultChildThreadStrategy(selectedItemData.default_child_thread_strategy);
+    }
+  }, [selectedItemData?.default_child_thread_strategy]);
+
+  // Save parent prompt field (not assistant field)
+  const handleParentPromptSave = async (field, value) => {
+    if (!supabase || !promptRowId) return;
+    try {
+      await supabase
+        .from('cyg_prompts')
+        .update({ [field]: value })
+        .eq('row_id', promptRowId);
+    } catch (error) {
+      console.error('Error saving parent prompt field:', error);
+    }
+  };
 
   const handleSave = async (field, value) => {
     await updateAssistant({ [field]: value });
@@ -343,6 +365,68 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
                 <p className="text-xs font-medium text-muted-foreground border-b pb-1">Run-Time Settings (applied when executing)</p>
                 <SettingRow field="max_tokens" value={maxTokens} setValue={setMaxTokens} onSave={(v) => handleSave('max_tokens_override', v)} type="input" />
                 <p className="text-[10px] text-muted-foreground italic">Additional run-time settings (frequency_penalty, presence_penalty, stop, etc.) are inherited from the parent prompt configuration.</p>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Child Prompt Defaults - Collapsible */}
+      <Collapsible open={childDefaultsOpen} onOpenChange={setChildDefaultsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Child Prompt Defaults</CardTitle>
+                {childDefaultsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div>
+                <div className="flex items-center gap-1 mb-1">
+                  <Label className="text-xs">Default Thread Strategy</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                        <Info className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 bg-popover" side="top">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Thread Strategy</h4>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Parent Thread:</strong> Child prompt executions use the parent assistant's Studio thread, maintaining shared conversation history.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Isolated Thread:</strong> Each child prompt has its own thread(s), keeping conversations separate.
+                        </p>
+                        <p className="text-xs text-muted-foreground italic">This sets the default for new child prompts. Each child can override this setting.</p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Select 
+                  value={defaultChildThreadStrategy} 
+                  onValueChange={(v) => { 
+                    setDefaultChildThreadStrategy(v); 
+                    handleParentPromptSave('default_child_thread_strategy', v); 
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="parent">Use Parent Thread</SelectItem>
+                    <SelectItem value="isolated">Isolated Threads</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {defaultChildThreadStrategy === 'parent' 
+                    ? 'New child prompts will share the parent Studio thread' 
+                    : 'New child prompts will have their own isolated threads'}
+                </p>
               </div>
             </CardContent>
           </CollapsibleContent>
