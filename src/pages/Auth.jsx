@@ -48,7 +48,7 @@ const Auth = () => {
           </div>
 
           <CardTitle className="text-2xl font-bold text-foreground">
-            Welcome to Qonsol
+            Qonsol
           </CardTitle>
         </CardHeader>
 

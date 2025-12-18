@@ -1,4 +1,5 @@
 import React from 'react';
+import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
 const Index = () => {
   return (
@@ -6,22 +7,10 @@ const Index = () => {
       <div className="text-center space-y-6">
         {/* Logo */}
         <div className="flex justify-center">
-          <div className="relative">
-            <img 
-              src="/favicon.png"
-              alt="Chocolate" 
-              className="w-16 h-16 drop-shadow-lg"
-            />
-            <div className="absolute -inset-2 bg-primary/20 rounded-full blur-xl -z-10" />
-          </div>
-        </div>
-
-        {/* Animated Logo */}
-        <div className="flex justify-center">
           <img 
-            src="/cygnify-white.gif"
-            alt="Cygnify" 
-            className="h-8 opacity-90"
+            src={chocolateFullLogo}
+            alt="Chocolate Finance" 
+            className="h-20 object-contain"
           />
         </div>
 
