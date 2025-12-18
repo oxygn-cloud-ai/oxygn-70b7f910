@@ -141,21 +141,23 @@ const ConfluenceSettingsSection = ({
                 <div className="relative flex-1">
                   <Input
                     id="confluence_api_token"
-                    type={showToken ? 'text' : 'password'}
+                    type={showToken && apiToken ? 'text' : 'password'}
                     placeholder={hasStoredToken ? '••••••••••••••••' : 'Enter API token'}
                     value={apiToken}
                     onChange={(e) => onValueChange('confluence_api_token', e.target.value)}
                     className="pr-10"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => setShowToken(!showToken)}
-                  >
-                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
+                  {apiToken && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowToken(!showToken)}
+                    >
+                      {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  )}
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
