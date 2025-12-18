@@ -646,7 +646,7 @@ serve(async (req) => {
       );
     }
 
-    // SYNC - Re-upload files and recreate vector store
+    // SYNC - Upload pending files to OpenAI and update assistant
     if (action === 'sync') {
       const { data: assistant } = await supabase
         .from('cyg_assistants')
@@ -661,36 +661,166 @@ serve(async (req) => {
         );
       }
 
-      // Reset file upload statuses
-      await supabase
-        .from('cyg_assistant_files')
-        .update({ openai_file_id: null, upload_status: 'pending' })
-        .eq('assistant_row_id', assistant_row_id);
+      const files = assistant.cyg_assistant_files || [];
+      const pendingFiles = files.filter((f: any) => !f.openai_file_id || f.upload_status === 'pending');
+      const uploadedFileIds: string[] = files.filter((f: any) => f.openai_file_id).map((f: any) => f.openai_file_id);
 
-      // Clear vector store
-      await supabase
-        .from('cyg_assistants')
-        .update({ vector_store_id: null })
-        .eq('row_id', assistant_row_id);
+      console.log('Syncing files:', { total: files.length, pending: pendingFiles.length, alreadyUploaded: uploadedFileIds.length });
 
-      // If assistant is active, re-instantiate
-      if (assistant.openai_assistant_id) {
-        await fetch(`https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'OpenAI-Beta': 'assistants=v2',
-          },
+      // Upload pending files to OpenAI
+      for (const file of pendingFiles) {
+        const { data: fileData, error: downloadError } = await supabase
+          .storage
+          .from('assistant-files')
+          .download(file.storage_path);
+
+        if (downloadError || !fileData) {
+          console.error('Failed to download file:', file.storage_path, downloadError);
+          await supabase
+            .from('cyg_assistant_files')
+            .update({ upload_status: 'error' })
+            .eq('row_id', file.row_id);
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileData, file.original_filename);
+        formData.append('purpose', 'assistants');
+
+        const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          body: formData,
         });
 
-        await supabase
-          .from('cyg_assistants')
-          .update({ openai_assistant_id: null, status: 'not_instantiated' })
-          .eq('row_id', assistant_row_id);
+        if (uploadResponse.ok) {
+          const uploadResult = await uploadResponse.json();
+          uploadedFileIds.push(uploadResult.id);
+
+          await supabase
+            .from('cyg_assistant_files')
+            .update({ openai_file_id: uploadResult.id, upload_status: 'uploaded' })
+            .eq('row_id', file.row_id);
+
+          console.log('Uploaded file to OpenAI:', uploadResult.id, file.original_filename);
+        } else {
+          const error = await uploadResponse.json();
+          console.error('Failed to upload file to OpenAI:', error);
+          await supabase
+            .from('cyg_assistant_files')
+            .update({ upload_status: 'error' })
+            .eq('row_id', file.row_id);
+        }
+      }
+
+      // If assistant is active and has files, update its tool resources
+      if (assistant.openai_assistant_id && uploadedFileIds.length > 0) {
+        // Fetch tool config
+        let toolConfig = {
+          code_interpreter_enabled: assistant.code_interpreter_enabled,
+          file_search_enabled: assistant.file_search_enabled,
+        };
+
+        if (assistant.use_global_tool_defaults) {
+          const { data: defaults } = await supabase
+            .from('cyg_assistant_tool_defaults')
+            .select('*')
+            .limit(1)
+            .single();
+
+          if (defaults) {
+            toolConfig = {
+              code_interpreter_enabled: defaults.code_interpreter_enabled,
+              file_search_enabled: defaults.file_search_enabled,
+            };
+          }
+        }
+
+        // Create or update vector store if file_search is enabled
+        let vectorStoreId = assistant.vector_store_id;
+
+        if (toolConfig.file_search_enabled && uploadedFileIds.length > 0) {
+          if (vectorStoreId) {
+            // Add files to existing vector store
+            for (const fileId of uploadedFileIds) {
+              await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                  'OpenAI-Beta': 'assistants=v2',
+                },
+                body: JSON.stringify({ file_id: fileId }),
+              });
+            }
+            console.log('Added files to existing vector store:', vectorStoreId);
+          } else {
+            // Create new vector store
+            const vsResponse = await fetch('https://api.openai.com/v1/vector_stores', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+                'OpenAI-Beta': 'assistants=v2',
+              },
+              body: JSON.stringify({
+                name: `${assistant.name} - Vector Store`,
+                file_ids: uploadedFileIds,
+              }),
+            });
+
+            if (vsResponse.ok) {
+              const vsResult = await vsResponse.json();
+              vectorStoreId = vsResult.id;
+              console.log('Created new vector store:', vectorStoreId);
+
+              await supabase
+                .from('cyg_assistants')
+                .update({ vector_store_id: vectorStoreId })
+                .eq('row_id', assistant_row_id);
+            }
+          }
+        }
+
+        // Update assistant with new tool resources
+        const toolResources: any = {};
+        if (toolConfig.file_search_enabled && vectorStoreId) {
+          toolResources.file_search = { vector_store_ids: [vectorStoreId] };
+        }
+        if (toolConfig.code_interpreter_enabled && uploadedFileIds.length > 0) {
+          toolResources.code_interpreter = { file_ids: uploadedFileIds };
+        }
+
+        if (Object.keys(toolResources).length > 0) {
+          const updateResponse = await fetch(
+            `https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+                'OpenAI-Beta': 'assistants=v2',
+              },
+              body: JSON.stringify({ tool_resources: toolResources }),
+            }
+          );
+
+          if (!updateResponse.ok) {
+            const error = await updateResponse.json();
+            console.error('Failed to update assistant tool resources:', error);
+          } else {
+            console.log('Updated assistant with new tool resources');
+          }
+        }
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: 'Files reset. Re-instantiate to apply changes.' }),
+        JSON.stringify({ 
+          success: true, 
+          message: `Synced ${pendingFiles.length} files`,
+          uploaded_count: pendingFiles.length,
+          total_files: uploadedFileIds.length,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

@@ -22,8 +22,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
-  const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, sync, reInstantiate } = useAssistant(promptRowId);
-  const { files, isUploading, uploadFile, deleteFile } = useAssistantFiles(assistant?.row_id);
+  const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, reInstantiate } = useAssistant(promptRowId);
+  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id, assistant?.status);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
   const { models } = useOpenAIModels();
   const { settings } = useSettings(supabase);
@@ -231,11 +231,11 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={sync} disabled={!isActive}>
-                      <RefreshCw className="h-3 w-3" />
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={syncFiles} disabled={!isActive || isSyncing}>
+                      <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Sync Files</TooltipContent>
+                  <TooltipContent>Sync Files to OpenAI</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <label>
@@ -261,15 +261,17 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
             <div className="space-y-1">
               {files.map(file => (
                 <div key={file.row_id} className="flex items-center justify-between text-sm py-1 px-2 bg-muted rounded">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-3 w-3" />
-                    <span className="truncate max-w-48">{file.original_filename}</span>
-                    <span className="text-xs text-muted-foreground">({(file.file_size / 1024).toFixed(1)} KB)</span>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileText className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{file.original_filename}</span>
+                    <Badge variant={file.upload_status === 'uploaded' ? 'default' : file.upload_status === 'error' ? 'destructive' : 'secondary'} className="text-[10px] px-1 py-0 h-4">
+                      {file.upload_status === 'uploaded' ? '✓' : file.upload_status === 'error' ? '✕' : '○'}
+                    </Badge>
                   </div>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteFile(file.row_id)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => deleteFile(file.row_id)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
