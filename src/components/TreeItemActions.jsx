@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
 import { toast } from 'sonner';
 import DebugInfoPopup from './DebugInfoPopup';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Input } from "@/components/ui/input";
 
 export const TreeItemActions = ({ 
   item, 
@@ -17,6 +19,9 @@ export const TreeItemActions = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [showBulkAdd, setShowBulkAdd] = useState(false);
+  const [bulkCount, setBulkCount] = useState('2');
+  const longPressTimer = useRef(null);
   const supabase = useSupabase();
 
   const handleMove = async (direction) => {
@@ -99,6 +104,40 @@ export const TreeItemActions = ({
     }
   };
 
+  const handleBulkAdd = async () => {
+    const count = parseInt(bulkCount, 10);
+    if (isNaN(count) || count < 1 || count > 20) {
+      toast.error('Please enter a number between 1 and 20');
+      return;
+    }
+    setShowBulkAdd(false);
+    for (let i = 0; i < count; i++) {
+      await addItem(item.id);
+    }
+    toast.success(`Added ${count} child prompts`);
+  };
+
+  const startLongPress = useCallback((e) => {
+    e.preventDefault();
+    longPressTimer.current = setTimeout(() => {
+      setShowBulkAdd(true);
+    }, 500);
+  }, []);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleAddClick = useCallback((e) => {
+    cancelLongPress();
+    if (!showBulkAdd && addItem) {
+      addItem(item.id);
+    }
+  }, [cancelLongPress, showBulkAdd, addItem, item.id]);
+
   const ActionButton = ({ icon, onClick, tooltip, disabled }) => (
     <Button
       variant="ghost"
@@ -129,11 +168,44 @@ export const TreeItemActions = ({
 
   return (
     <div className="flex items-center space-x-1">
-      <ActionButton 
-        icon={<PlusIcon className="h-3 w-3" />} 
-        onClick={() => addItem && addItem(item.id)} 
-        tooltip="Add Prompt" 
-      />
+      <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0"
+            onClick={handleAddClick}
+            onMouseDown={startLongPress}
+            onMouseUp={cancelLongPress}
+            onMouseLeave={cancelLongPress}
+            onTouchStart={startLongPress}
+            onTouchEnd={cancelLongPress}
+            title="Add Prompt (long-press for bulk)"
+            disabled={isProcessing}
+          >
+            <PlusIcon className="h-3 w-3" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs text-muted-foreground">Number of children to add:</label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min="1"
+                max="20"
+                value={bulkCount}
+                onChange={(e) => setBulkCount(e.target.value)}
+                className="h-7 text-sm"
+                onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
+              />
+              <Button size="sm" className="h-7" onClick={handleBulkAdd}>
+                Add
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
       <ActionButton 
         icon={<ArrowUpFromLine className="h-3 w-3" />} 
         onClick={() => handleMove('up')}
