@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAssistant } from '../hooks/useAssistant';
 import { useAssistantFiles } from '../hooks/useAssistantFiles';
 import { useAssistantToolDefaults } from '../hooks/useAssistantToolDefaults';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { useSettings } from '../hooks/useSettings';
+import { useSupabase } from '../hooks/useSupabase';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -13,13 +15,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { ALL_SETTINGS, isSettingSupported } from '../config/modelCapabilities';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const AssistantPanel = ({ promptRowId, selectedItemData }) => {
+  const supabase = useSupabase();
   const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, sync, reInstantiate } = useAssistant(promptRowId);
   const { files, isUploading, uploadFile, deleteFile } = useAssistantFiles(assistant?.row_id);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
   const { models } = useOpenAIModels();
+  const { settings } = useSettings(supabase);
 
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -30,6 +37,18 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const [temperature, setTemperature] = useState('');
   const [maxTokens, setMaxTokens] = useState('');
   const [topP, setTopP] = useState('');
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+
+  // Get default model from global settings
+  const defaultModel = useMemo(() => {
+    return settings?.default_model?.value || models?.[0]?.model_id || '';
+  }, [settings, models]);
+
+  // Get current effective model
+  const currentModel = modelOverride || selectedItemData?.model || defaultModel;
+  const currentModelData = models?.find(m => m.model_id === currentModel || m.model_name === currentModel);
+  const currentProvider = currentModelData?.provider || 'openai';
 
   useEffect(() => {
     if (assistant) {
@@ -65,7 +84,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
     return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
-  // Assistant should always exist for top-level prompts now
   if (!assistant) {
     return (
       <div className="flex items-center justify-center h-full p-8">
@@ -80,6 +98,70 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const isActive = assistant.status === 'active';
   const isDestroyed = assistant.status === 'destroyed';
   const isError = assistant.status === 'error';
+
+  // Settings that OpenAI Assistants API supports at assistant level
+  const assistantLevelSettings = ['temperature', 'top_p', 'response_format'];
+  // Settings passed at run time
+  const runTimeSettings = ['max_tokens', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'logit_bias', 'o_user'];
+
+  const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
+    const settingInfo = ALL_SETTINGS[field];
+    const isSupported = isSettingSupported(field, currentModel, currentProvider);
+    
+    if (!settingInfo) return null;
+
+    return (
+      <div className={`${!isSupported ? 'opacity-50' : ''}`}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-1">
+            <Label className="text-xs">{settingInfo.label}</Label>
+            {(settingInfo.details || settingInfo.docUrl) && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                    <Info className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 bg-popover" side="top">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">{settingInfo.label}</h4>
+                    {settingInfo.details && <p className="text-xs text-muted-foreground">{settingInfo.details}</p>}
+                    {settingInfo.docUrl && (
+                      <a href={settingInfo.docUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                        Documentation <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
+          {type === 'slider' && <span className="text-xs text-muted-foreground">{value || 'Default'}</span>}
+        </div>
+        {!isSupported ? (
+          <p className="text-xs text-muted-foreground italic">Not supported by this model</p>
+        ) : type === 'slider' ? (
+          <Slider
+            value={[parseFloat(value) || (field === 'top_p' ? 1 : field === 'temperature' ? 1 : 0)]}
+            min={min} max={max} step={step}
+            onValueChange={([v]) => setValue(v.toString())}
+            onValueCommit={([v]) => onSave(v.toString())}
+          />
+        ) : type === 'switch' ? (
+          <Switch checked={!!value} onCheckedChange={(v) => { setValue(v); onSave(v); }} />
+        ) : (
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={() => onSave(value || null)}
+            placeholder="Default"
+            className="h-8 text-sm"
+          />
+        )}
+        <p className="text-[10px] text-muted-foreground mt-0.5">{settingInfo.description}</p>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4 p-4 h-[calc(100vh-8rem)] overflow-auto">
@@ -97,12 +179,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={handleReInstantiate}
-                    disabled={isInstantiating}
-                  >
+                  <Button variant="outline" size="icon" onClick={handleReInstantiate} disabled={isInstantiating}>
                     {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
@@ -206,79 +283,85 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
         </CardContent>
       </Card>
 
-      {/* Model Settings */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Model Settings</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <Label>Model Override</Label>
-            <Select value={modelOverride || 'inherit'} onValueChange={(v) => { const val = v === 'inherit' ? '' : v; setModelOverride(val); handleSave('model_override', val || null); }}>
-              <SelectTrigger><SelectValue placeholder="Inherit from prompt" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inherit">Inherit from prompt</SelectItem>
-                {models?.map(m => <SelectItem key={m.model_id} value={m.model_id}>{m.model_name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label>Temperature</Label>
-              <span className="text-xs text-muted-foreground">{temperature || 'Default'}</span>
-            </div>
-            <Slider 
-              value={[parseFloat(temperature) || 1]} 
-              min={0} max={2} step={0.1} 
-              onValueChange={([v]) => setTemperature(v.toString())}
-              onValueCommit={([v]) => handleSave('temperature_override', v.toString())}
-            />
-          </div>
-          <div>
-            <Label>Max Tokens</Label>
-            <Input 
-              type="number" 
-              value={maxTokens} 
-              onChange={(e) => setMaxTokens(e.target.value)} 
-              onBlur={() => handleSave('max_tokens_override', maxTokens || null)} 
-              placeholder="Default"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <Label>Top P</Label>
-              <span className="text-xs text-muted-foreground">{topP || 'Default'}</span>
-            </div>
-            <Slider 
-              value={[parseFloat(topP) || 1]} 
-              min={0} max={1} step={0.05} 
-              onValueChange={([v]) => setTopP(v.toString())}
-              onValueCommit={([v]) => handleSave('top_p_override', v.toString())}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Model Settings - Collapsible */}
+      <Collapsible open={modelSettingsOpen} onOpenChange={setModelSettingsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Model Settings</CardTitle>
+                {modelSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4 pt-0">
+              {/* Model Selection */}
+              <div>
+                <Label className="text-xs">Model Override</Label>
+                <Select value={modelOverride || 'inherit'} onValueChange={(v) => { const val = v === 'inherit' ? '' : v; setModelOverride(val); handleSave('model_override', val || null); }}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Inherit from prompt" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="inherit">Inherit from prompt</SelectItem>
+                    {models?.map(m => <SelectItem key={m.model_id} value={m.model_id}>{m.model_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Current: {currentModelData?.model_name || currentModel || 'None'}</p>
+              </div>
 
-      {/* Tools */}
-      <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-sm">Tools & Capabilities</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label>Use Global Defaults</Label>
-            <Switch checked={useGlobalDefaults} onCheckedChange={(v) => { setUseGlobalDefaults(v); handleSave('use_global_tool_defaults', v); }} />
-          </div>
-          {!useGlobalDefaults && (
-            <>
-              <div className="flex items-center justify-between">
-                <Label>Code Interpreter</Label>
-                <Switch checked={codeInterpreter} onCheckedChange={(v) => { setCodeInterpreter(v); handleSave('code_interpreter_enabled', v); }} />
+              {/* Assistant-level settings */}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground border-b pb-1">Assistant-Level Settings</p>
+                <SettingRow field="temperature" value={temperature} setValue={setTemperature} onSave={(v) => handleSave('temperature_override', v)} type="slider" min={0} max={2} step={0.1} />
+                <SettingRow field="top_p" value={topP} setValue={setTopP} onSave={(v) => handleSave('top_p_override', v)} type="slider" min={0} max={1} step={0.05} />
               </div>
-              <div className="flex items-center justify-between">
-                <Label>File Search</Label>
-                <Switch checked={fileSearch} onCheckedChange={(v) => { setFileSearch(v); handleSave('file_search_enabled', v); }} />
+
+              {/* Run-time settings */}
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-muted-foreground border-b pb-1">Run-Time Settings (applied when executing)</p>
+                <SettingRow field="max_tokens" value={maxTokens} setValue={setMaxTokens} onSave={(v) => handleSave('max_tokens_override', v)} type="input" />
+                <p className="text-[10px] text-muted-foreground italic">Additional run-time settings (frequency_penalty, presence_penalty, stop, etc.) are inherited from the parent prompt configuration.</p>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Tools - Collapsible */}
+      <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Tools & Capabilities</CardTitle>
+                {toolsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div className="flex items-center justify-between">
+                <Label>Use Global Defaults</Label>
+                <Switch checked={useGlobalDefaults} onCheckedChange={(v) => { setUseGlobalDefaults(v); handleSave('use_global_tool_defaults', v); }} />
+              </div>
+              {!useGlobalDefaults && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <Label>Code Interpreter</Label>
+                    <Switch checked={codeInterpreter} onCheckedChange={(v) => { setCodeInterpreter(v); handleSave('code_interpreter_enabled', v); }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>File Search</Label>
+                    <Switch checked={fileSearch} onCheckedChange={(v) => { setFileSearch(v); handleSave('file_search_enabled', v); }} />
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Re-instantiate for error state */}
       {isError && (
