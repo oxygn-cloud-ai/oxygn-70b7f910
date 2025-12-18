@@ -24,9 +24,9 @@ const Index = () => {
 
         {/* Decorative elements */}
         <div className="flex justify-center gap-1.5 pt-6 opacity-60">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.2s' }} />
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0.4s' }} />
+          <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" />
+          <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" style={{ animationDelay: '0.2s' }} />
+          <div className="w-1.5 h-1.5 rounded-full bg-chocolate-espresso animate-pulse" style={{ animationDelay: '0.4s' }} />
         </div>
       </div>
     </div>
