@@ -116,18 +116,26 @@ export const TreeItemActions = ({
     setBulkProgress({ current: 0, total: count, isAdding: true });
     
     let added = 0;
-    for (let i = 0; i < count; i++) {
-      if (cancelBulkAdd.current) {
-        toast.info(`Cancelled after adding ${added} prompts`);
-        break;
+    try {
+      for (let i = 0; i < count; i++) {
+        if (cancelBulkAdd.current) {
+          toast.info(`Cancelled after adding ${added} prompts`);
+          break;
+        }
+        // Skip refresh during bulk add - we'll refresh once at the end
+        await addItem(item.id, { skipRefresh: true });
+        added++;
+        setBulkProgress(prev => ({ ...prev, current: added }));
       }
-      await addItem(item.id);
-      added++;
-      setBulkProgress(prev => ({ ...prev, current: added }));
+    } finally {
+      // Always refresh tree once at the end
+      if (added > 0 && onRefreshTreeData) {
+        await onRefreshTreeData();
+      }
+      setBulkProgress({ current: 0, total: 0, isAdding: false });
     }
     
-    setBulkProgress({ current: 0, total: 0, isAdding: false });
-    if (!cancelBulkAdd.current) {
+    if (!cancelBulkAdd.current && added === count) {
       toast.success(`Added ${count} child prompts`);
     }
     cancelBulkAdd.current = false;
