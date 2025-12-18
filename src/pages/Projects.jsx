@@ -11,6 +11,7 @@ import { usePromptData } from '../hooks/usePromptData';
 import ProjectPanels from '../components/ProjectPanels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import TreeView from '../components/TreeView';
+import AssistantChatPanel from '../components/AssistantChatPanel';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from 'sonner';
 
@@ -94,6 +95,10 @@ const Projects = () => {
     loadItemData();
   }, [activeItem, fetchItemData]);
 
+  // Determine if we should show the chat panel (top-level prompt with active assistant)
+  const isTopLevel = selectedItemData && !selectedItemData.parent_row_id;
+  const showChatPanel = isTopLevel && selectedItemData?.is_assistant;
+
   if (!supabase) {
     return <div>Loading Supabase client...</div>;
   }
@@ -102,7 +107,8 @@ const Projects = () => {
     <DndProvider backend={HTML5Backend}>
       <div className="container mx-auto p-4">
         <PanelGroup direction="horizontal">
-          <Panel defaultSize={30} minSize={20}>
+          {/* Tree Panel */}
+          <Panel defaultSize={showChatPanel ? 20 : 30} minSize={15}>
             <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
               <div className="mb-2 flex space-x-2">
                 <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
@@ -130,8 +136,11 @@ const Projects = () => {
               )}
             </div>
           </Panel>
-          <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
-          <Panel>
+
+          <PanelResizeHandle className="w-2 bg-muted hover:bg-muted-foreground/20 transition-colors" />
+
+          {/* Details Panel */}
+          <Panel defaultSize={showChatPanel ? 40 : 70} minSize={30}>
             {activeItem ? (
               selectedItemData ? (
                 <ProjectPanels 
@@ -139,20 +148,34 @@ const Projects = () => {
                   projectRowId={activeItem} 
                   onUpdateField={handleUpdateField}
                   onCascade={handleCascade}
-                  isTopLevel={!selectedItemData.parent_row_id}
+                  isTopLevel={isTopLevel}
                 />
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-gray-500">Loading prompt details...</p>
+                  <p className="text-muted-foreground">Loading prompt details...</p>
                 </div>
               )
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Select a prompt to view details</p>
+                <p className="text-muted-foreground">Select a prompt to view details</p>
               </div>
             )}
           </Panel>
+
+          {/* Chat Panel - only show for top-level prompts with active assistant */}
+          {showChatPanel && (
+            <>
+              <PanelResizeHandle className="w-2 bg-muted hover:bg-muted-foreground/20 transition-colors" />
+              <Panel defaultSize={40} minSize={25}>
+                <AssistantChatPanel
+                  promptRowId={activeItem}
+                  promptName={selectedItemData?.prompt_name}
+                />
+              </Panel>
+            </>
+          )}
         </PanelGroup>
+
         <ParentPromptPopup
           isOpen={showParentPromptPopup}
           onClose={() => setShowParentPromptPopup(false)}

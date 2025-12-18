@@ -78,6 +78,80 @@ serve(async (req) => {
 
     console.log('Assistant manager request:', { action, assistant_row_id, user: validation.user?.email });
 
+    // LIST - Fetch all assistants from OpenAI and cross-reference with local data
+    if (action === 'list') {
+      // Fetch all assistants from OpenAI
+      const openaiResponse = await fetch('https://api.openai.com/v1/assistants?limit=100', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      });
+
+      if (!openaiResponse.ok) {
+        const error = await openaiResponse.json();
+        console.error('Failed to fetch OpenAI assistants:', error);
+        return new Response(
+          JSON.stringify({ error: error.error?.message || 'Failed to fetch assistants from OpenAI' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const openaiData = await openaiResponse.json();
+      const openaiAssistants = openaiData.data || [];
+
+      // Fetch local assistant records with linked prompt names
+      const { data: localAssistants, error: localError } = await supabase
+        .from('cyg_assistants')
+        .select(`
+          row_id,
+          name,
+          status,
+          openai_assistant_id,
+          prompt_row_id,
+          cyg_prompts!cyg_assistants_prompt_row_id_fkey(
+            row_id,
+            prompt_name
+          )
+        `);
+
+      if (localError) {
+        console.error('Failed to fetch local assistants:', localError);
+      }
+
+      // Create a map of openai_assistant_id -> local record
+      const localMap = new Map();
+      (localAssistants || []).forEach((la: any) => {
+        if (la.openai_assistant_id) {
+          localMap.set(la.openai_assistant_id, la);
+        }
+      });
+
+      // Enrich OpenAI assistants with local data
+      const enrichedAssistants = openaiAssistants.map((oa: any) => {
+        const local = localMap.get(oa.id);
+        return {
+          openai_id: oa.id,
+          name: oa.name,
+          model: oa.model,
+          created_at: oa.created_at,
+          local_row_id: local?.row_id || null,
+          local_status: local?.status || null,
+          prompt_row_id: local?.prompt_row_id || null,
+          prompt_name: local?.cyg_prompts?.prompt_name || null,
+          is_orphaned: !local,
+        };
+      });
+
+      console.log(`Listed ${enrichedAssistants.length} assistants from OpenAI`);
+
+      return new Response(
+        JSON.stringify({ assistants: enrichedAssistants }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // INSTANTIATE - Create Assistant in OpenAI
     if (action === 'instantiate') {
       // Fetch assistant config
@@ -306,7 +380,150 @@ serve(async (req) => {
       );
     }
 
-    // DESTROY - Delete Assistant from OpenAI
+    // RE-INSTANTIATE - Re-enable a destroyed assistant
+    if (action === 're-instantiate') {
+      // First update status to not_instantiated, then call instantiate logic
+      const { data: assistant, error: fetchError } = await supabase
+        .from('cyg_assistants')
+        .select('*')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (fetchError || !assistant) {
+        console.error('Failed to fetch assistant:', fetchError);
+        return new Response(
+          JSON.stringify({ error: 'Assistant not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Reset status and clear any old OpenAI ID
+      await supabase
+        .from('cyg_assistants')
+        .update({ 
+          status: 'not_instantiated', 
+          openai_assistant_id: null,
+          last_error: null 
+        })
+        .eq('row_id', assistant_row_id);
+
+      // Now instantiate (reuse instantiate logic by making recursive call)
+      const instantiateReq = new Request(req.url, {
+        method: 'POST',
+        headers: req.headers,
+        body: JSON.stringify({ action: 'instantiate', assistant_row_id }),
+      });
+
+      // Inline instantiate logic to avoid recursion issues
+      // ... Actually, let's just duplicate the core instantiate code here for simplicity
+      // Re-fetch after status update
+      const { data: refreshedAssistant } = await supabase
+        .from('cyg_assistants')
+        .select('*, cyg_assistant_files(*)')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (!refreshedAssistant) {
+        return new Response(
+          JSON.stringify({ error: 'Assistant not found after refresh' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch tool defaults if using global
+      let toolConfig = {
+        code_interpreter_enabled: refreshedAssistant.code_interpreter_enabled,
+        file_search_enabled: refreshedAssistant.file_search_enabled,
+        function_calling_enabled: refreshedAssistant.function_calling_enabled,
+      };
+
+      if (refreshedAssistant.use_global_tool_defaults) {
+        const { data: defaults } = await supabase
+          .from('cyg_assistant_tool_defaults')
+          .select('*')
+          .limit(1)
+          .single();
+
+        if (defaults) {
+          toolConfig = {
+            code_interpreter_enabled: defaults.code_interpreter_enabled,
+            file_search_enabled: defaults.file_search_enabled,
+            function_calling_enabled: defaults.function_calling_enabled,
+          };
+        }
+      }
+
+      // Fetch prompt for model
+      const { data: prompt } = await supabase
+        .from('cyg_prompts')
+        .select('model')
+        .eq('row_id', refreshedAssistant.prompt_row_id)
+        .single();
+
+      const modelId = refreshedAssistant.model_override || prompt?.model || 'gpt-4o';
+
+      // Build tools
+      const tools: any[] = [];
+      if (toolConfig.code_interpreter_enabled) tools.push({ type: 'code_interpreter' });
+      if (toolConfig.file_search_enabled) tools.push({ type: 'file_search' });
+
+      const assistantBody: any = {
+        name: refreshedAssistant.name,
+        instructions: refreshedAssistant.instructions || '',
+        model: modelId,
+        tools,
+      };
+
+      console.log('Re-instantiating OpenAI Assistant:', { name: refreshedAssistant.name, model: modelId });
+
+      const createResponse = await fetch('https://api.openai.com/v1/assistants', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+        },
+        body: JSON.stringify(assistantBody),
+      });
+
+      if (!createResponse.ok) {
+        const error = await createResponse.json();
+        console.error('Failed to re-instantiate assistant:', error);
+        
+        await supabase
+          .from('cyg_assistants')
+          .update({ 
+            status: 'error', 
+            last_error: error.error?.message || 'Failed to re-instantiate assistant' 
+          })
+          .eq('row_id', assistant_row_id);
+
+        return new Response(
+          JSON.stringify({ error: error.error?.message || 'Failed to re-instantiate assistant' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const createdAssistant = await createResponse.json();
+      console.log('Re-instantiated assistant:', createdAssistant.id);
+
+      await supabase
+        .from('cyg_assistants')
+        .update({
+          openai_assistant_id: createdAssistant.id,
+          status: 'active',
+          last_instantiated_at: new Date().toISOString(),
+          last_error: null,
+        })
+        .eq('row_id', assistant_row_id);
+
+      return new Response(
+        JSON.stringify({ success: true, assistant_id: createdAssistant.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // DESTROY - Delete Assistant from OpenAI (marks as 'destroyed' locally)
     if (action === 'destroy') {
       const { data: assistant } = await supabase
         .from('cyg_assistants')
@@ -326,17 +543,52 @@ serve(async (req) => {
         console.log('Deleted OpenAI assistant:', assistant.openai_assistant_id);
       }
 
-      // Note: We keep the vector store as files might be reused
-
-      // Update database
+      // Update database - mark as destroyed
       await supabase
         .from('cyg_assistants')
         .update({
           openai_assistant_id: null,
-          status: 'not_instantiated',
+          status: 'destroyed',
           last_error: null,
         })
         .eq('row_id', assistant_row_id);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // DESTROY_BY_OPENAI_ID - Delete assistant by OpenAI ID (for orphaned assistants)
+    if (action === 'destroy_by_openai_id') {
+      const { openai_assistant_id } = body;
+      
+      if (!openai_assistant_id) {
+        return new Response(
+          JSON.stringify({ error: 'openai_assistant_id required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Delete from OpenAI
+      const deleteResponse = await fetch(`https://api.openai.com/v1/assistants/${openai_assistant_id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      });
+
+      if (!deleteResponse.ok) {
+        const error = await deleteResponse.json();
+        console.error('Failed to delete OpenAI assistant:', error);
+        return new Response(
+          JSON.stringify({ error: error.error?.message || 'Failed to delete assistant' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log('Deleted orphaned OpenAI assistant:', openai_assistant_id);
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -396,8 +648,6 @@ serve(async (req) => {
 
     // SYNC - Re-upload files and recreate vector store
     if (action === 'sync') {
-      // This is essentially destroy + instantiate for files/vector store
-      // First, get current state
       const { data: assistant } = await supabase
         .from('cyg_assistants')
         .select('*, cyg_assistant_files(*)')
@@ -425,7 +675,6 @@ serve(async (req) => {
 
       // If assistant is active, re-instantiate
       if (assistant.openai_assistant_id) {
-        // Destroy first
         await fetch(`https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`, {
           method: 'DELETE',
           headers: {
@@ -447,7 +696,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use: instantiate, destroy, update, or sync' }),
+      JSON.stringify({ error: 'Invalid action. Use: list, instantiate, re-instantiate, destroy, destroy_by_openai_id, update, or sync' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

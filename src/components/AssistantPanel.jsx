@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAssistant } from '../hooks/useAssistant';
 import { useAssistantFiles } from '../hooks/useAssistantFiles';
 import { useAssistantToolDefaults } from '../hooks/useAssistantToolDefaults';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -10,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Bot, Trash2, Upload, RefreshCw, Play, X, FileText, Info, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2 } from 'lucide-react';
 
-const AssistantPanel = ({ promptRowId, promptData }) => {
-  const { assistant, isLoading, isInstantiating, createAssistant, updateAssistant, instantiate, destroy, sync } = useAssistant(promptRowId);
+const AssistantPanel = ({ promptRowId, selectedItemData }) => {
+  const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, sync, reInstantiate } = useAssistant(promptRowId);
   const { files, isUploading, uploadFile, deleteFile } = useAssistantFiles(assistant?.row_id);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
 
@@ -33,10 +33,6 @@ const AssistantPanel = ({ promptRowId, promptData }) => {
     }
   }, [assistant, toolDefaults]);
 
-  const handleCreateAssistant = async () => {
-    await createAssistant({ name: promptData?.prompt_name || 'New Assistant' });
-  };
-
   const handleSave = async (field, value) => {
     await updateAssistant({ [field]: value });
   };
@@ -49,40 +45,72 @@ const AssistantPanel = ({ promptRowId, promptData }) => {
     }
   };
 
+  const handleReInstantiate = async () => {
+    await reInstantiate();
+  };
+
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
+  // Assistant should always exist for top-level prompts now
   if (!assistant) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" /> Enable Assistant Mode</CardTitle>
-          <CardDescription>Convert this prompt into an OpenAI Assistant with persistent context, file handling, and conversation threads.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={handleCreateAssistant}><Bot className="h-4 w-4 mr-2" /> Create Assistant</Button>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-full p-8">
+        <div className="text-center text-muted-foreground">
+          <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>Loading assistant configuration...</p>
+        </div>
+      </div>
     );
   }
 
   const isActive = assistant.status === 'active';
+  const isDestroyed = assistant.status === 'destroyed';
+  const isError = assistant.status === 'error';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 h-[calc(100vh-8rem)] overflow-auto">
       {/* Status Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5" />
           <span className="font-semibold">Assistant Configuration</span>
-          <Badge variant={isActive ? 'default' : 'secondary'}>
-            {isActive ? '● Active' : '○ Not Instantiated'}
+          <Badge variant={isActive ? 'default' : isDestroyed ? 'destructive' : isError ? 'destructive' : 'secondary'}>
+            {isActive ? '● Active' : isDestroyed ? '○ Destroyed' : isError ? '✕ Error' : '○ Not Instantiated'}
           </Badge>
         </div>
-        {isActive && (
-          <Button variant="destructive" size="sm" onClick={destroy}><Trash2 className="h-4 w-4 mr-1" /> Destroy</Button>
-        )}
+        <div className="flex items-center gap-1">
+          {isDestroyed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={handleReInstantiate}
+                    disabled={isInstantiating}
+                  >
+                    {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Re-enable Assistant</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {isActive && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={destroy}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Destroy Assistant</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </div>
 
       {/* Name & Instructions */}
@@ -111,12 +139,28 @@ const AssistantPanel = ({ promptRowId, promptData }) => {
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm">Files ({files.length})</CardTitle>
             <div className="flex gap-1">
-              <Button variant="ghost" size="sm" onClick={sync} disabled={!isActive}><RefreshCw className="h-3 w-3" /></Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={sync} disabled={!isActive}>
+                      <RefreshCw className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Sync Files</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <label>
                 <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                <Button variant="ghost" size="sm" asChild disabled={isUploading}>
-                  <span><Upload className="h-3 w-3" /></span>
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild disabled={isUploading}>
+                        <span><Upload className="h-3 w-3" /></span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Upload File</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </label>
             </div>
           </div>
@@ -133,7 +177,16 @@ const AssistantPanel = ({ promptRowId, promptData }) => {
                     <span className="truncate max-w-48">{file.original_filename}</span>
                     <span className="text-xs text-muted-foreground">({(file.file_size / 1024).toFixed(1)} KB)</span>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => deleteFile(file.row_id)}><X className="h-3 w-3" /></Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteFile(file.row_id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Remove File</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               ))}
             </div>
@@ -164,14 +217,24 @@ const AssistantPanel = ({ promptRowId, promptData }) => {
         </CardContent>
       </Card>
 
-      {/* Instantiate Button */}
-      {!isActive && (
-        <Button className="w-full" onClick={instantiate} disabled={isInstantiating}>
-          {isInstantiating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-          {isInstantiating ? 'Instantiating...' : 'Instantiate Assistant'}
-        </Button>
+      {/* Re-instantiate for error state */}
+      {isError && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button className="w-full" variant="outline" onClick={instantiate} disabled={isInstantiating}>
+                {isInstantiating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                Retry Instantiation
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Try to instantiate the assistant again</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
-      {assistant.last_error && <p className="text-sm text-destructive">Error: {assistant.last_error}</p>}
+
+      {assistant.last_error && (
+        <p className="text-sm text-destructive">Error: {assistant.last_error}</p>
+      )}
     </div>
   );
 };

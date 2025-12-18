@@ -34,6 +34,55 @@ const getPromptContext = async (supabase, parentId) => {
   return { level, topLevelName };
 };
 
+// Helper to create and instantiate an assistant for a top-level prompt
+const createAndInstantiateAssistant = async (supabase, promptRowId, promptName) => {
+  try {
+    // Create cyg_assistants record
+    const { data: assistant, error: createError } = await supabase
+      .from('cyg_assistants')
+      .insert([{
+        prompt_row_id: promptRowId,
+        name: promptName,
+        status: 'not_instantiated',
+        use_global_tool_defaults: true,
+      }])
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Failed to create assistant record:', createError);
+      return null;
+    }
+
+    console.log('Created assistant record:', assistant.row_id);
+
+    // Call edge function to instantiate in OpenAI
+    const { data: instantiateResult, error: instantiateError } = await supabase.functions.invoke('assistant-manager', {
+      body: {
+        action: 'instantiate',
+        assistant_row_id: assistant.row_id,
+      },
+    });
+
+    if (instantiateError) {
+      console.error('Failed to instantiate assistant:', instantiateError);
+      // Don't fail the prompt creation, just log the error
+      return assistant.row_id;
+    }
+
+    if (instantiateResult?.error) {
+      console.error('Assistant instantiation error:', instantiateResult.error);
+      return assistant.row_id;
+    }
+
+    console.log('Instantiated assistant in OpenAI:', instantiateResult?.assistant_id);
+    return assistant.row_id;
+  } catch (error) {
+    console.error('Error in createAndInstantiateAssistant:', error);
+    return null;
+  }
+};
+
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
   // First, get the maximum position value for the current level
   let query = supabase
@@ -164,6 +213,9 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     }
   }
 
+  // For top-level prompts, set is_assistant to true
+  const isTopLevel = parentId === null;
+
   const { data, error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
@@ -172,12 +224,21 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       is_deleted: false,
       prompt_name: newPromptName,
       position: newPosition,
+      is_assistant: isTopLevel, // Auto-set for top-level prompts
       ...modelDefaults
     }])
     .select();
 
   if (error) throw error;
-  return data[0].row_id;
+
+  const newPromptRowId = data[0].row_id;
+
+  // For top-level prompts, create and instantiate assistant
+  if (isTopLevel) {
+    await createAndInstantiateAssistant(supabase, newPromptRowId, newPromptName);
+  }
+
+  return newPromptRowId;
 };
 
 export const duplicatePrompt = async (supabase, itemId) => {
