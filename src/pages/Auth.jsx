@@ -85,24 +85,6 @@ const Auth = () => {
             <span className="font-medium">Sign in with Google</span>
           </Button>
 
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="px-2 bg-card text-muted-foreground">Authorized domains</span>
-            </div>
-          </div>
-          
-          {/* Domain Info */}
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/50 text-sm">
-              <span className="font-medium text-foreground">chocfin.com</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="font-medium text-foreground">oxygn.cloud</span>
-            </div>
-          </div>
 
           {/* Footer text */}
           <p className="text-center text-xs text-muted-foreground">
