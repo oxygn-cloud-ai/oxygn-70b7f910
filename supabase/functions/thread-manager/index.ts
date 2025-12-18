@@ -137,7 +137,9 @@ serve(async (req) => {
 
     // LIST - List threads for an assistant or child prompt
     if (action === 'list') {
-      const { assistant_row_id, child_prompt_row_id } = body;
+      const { assistant_row_id, child_prompt_row_id, include_parent_threads } = body;
+
+      console.log('Listing threads:', { assistant_row_id, child_prompt_row_id, include_parent_threads });
 
       let query = supabase
         .from('cyg_threads')
@@ -147,18 +149,31 @@ serve(async (req) => {
       if (assistant_row_id) {
         query = query.eq('assistant_row_id', assistant_row_id);
       }
+      
+      // Handle child_prompt_row_id filtering properly
       if (child_prompt_row_id) {
-        query = query.eq('child_prompt_row_id', child_prompt_row_id);
+        // If include_parent_threads is true, get both child-specific AND parent (null) threads
+        if (include_parent_threads) {
+          query = query.or(`child_prompt_row_id.eq.${child_prompt_row_id},child_prompt_row_id.is.null`);
+        } else {
+          query = query.eq('child_prompt_row_id', child_prompt_row_id);
+        }
+      } else if (child_prompt_row_id === null) {
+        // Explicitly looking for parent threads only
+        query = query.is('child_prompt_row_id', null);
       }
 
       const { data: threads, error } = await query;
 
       if (error) {
+        console.error('Failed to fetch threads:', error);
         return new Response(
           JSON.stringify({ error: 'Failed to fetch threads' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      console.log('Found threads:', threads?.length || 0);
 
       return new Response(
         JSON.stringify({ threads }),

@@ -567,15 +567,34 @@ serve(async (req) => {
     const files = assistant.cyg_assistant_files || [];
     const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
     
+    console.log('Assistant files:', {
+      total: files.length,
+      uploaded: uploadedFiles.length,
+      fileDetails: files.map((f: any) => ({
+        name: f.original_filename,
+        status: f.upload_status,
+        hasOpenAIId: !!f.openai_file_id,
+      })),
+    });
+    
+    // Only attach files to message if they're not already in the assistant's vector store
+    // Files in the vector store are automatically searchable by the assistant
+    const hasVectorStore = !!assistant.vector_store_id;
     const attachments = [
-      ...uploadedFiles.map((f: any) => ({
+      // Only attach files to message if no vector store (they'll be in a temp vector store)
+      ...(hasVectorStore ? [] : uploadedFiles.map((f: any) => ({
         file_id: f.openai_file_id,
         tools: [{ type: 'file_search' }],
-      })),
+      }))),
       ...confluenceFileAttachments,
     ];
 
-    console.log('Attaching files to message:', attachments.length, '(including Confluence:', confluenceFileAttachments.length, ')');
+    console.log('File handling:', {
+      hasVectorStore,
+      vectorStoreId: assistant.vector_store_id,
+      messageAttachments: attachments.length,
+      confluenceAttachments: confluenceFileAttachments.length,
+    });
 
     // Add message to thread with file attachments
     const messageBody: any = {
