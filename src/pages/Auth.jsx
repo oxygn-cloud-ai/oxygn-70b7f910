@@ -41,8 +41,8 @@ const Auth = () => {
           <div className="flex justify-center mb-4">
             <div className="relative">
               <img 
-                src="/head-striped-icon.png" 
-                alt="Qonsol" 
+                src="/favicon.png" 
+                alt="Chocolate" 
                 className="h-16 w-16 drop-shadow-md"
               />
               <div className="absolute -inset-2 bg-primary/20 rounded-full blur-xl -z-10" />
