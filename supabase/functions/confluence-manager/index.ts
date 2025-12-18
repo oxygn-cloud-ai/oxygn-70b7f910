@@ -231,12 +231,19 @@ Deno.serve(async (req) => {
           return null;
         };
 
-        // Build nodes
+        // Build nodes - first pass: create all nodes
         const pageMap = new Map<string, any>();
+        let nullParentCount = 0;
+        let missingParentCount = 0;
+        
         for (const page of allPages) {
-          const parentId = page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1]?.id : null;
-          pageMap.set(page.id, {
-            id: page.id,
+          // Get immediate parent from ancestors array (last element is immediate parent)
+          const ancestors = page.ancestors || [];
+          const immediateParent = ancestors.length > 0 ? ancestors[ancestors.length - 1] : null;
+          const parentId = immediateParent?.id ? String(immediateParent.id) : null;
+          
+          pageMap.set(String(page.id), {
+            id: String(page.id),
             title: page.title,
             type: 'page',
             spaceKey: page.space?.key || spaceKey,
@@ -246,16 +253,27 @@ Deno.serve(async (req) => {
             position: getPosition(page),
             children: [],
             loaded: true,
-            isHomepage: page.id === spaceHomepageId,
+            isHomepage: String(page.id) === String(spaceHomepageId),
           });
+          
+          if (!parentId) nullParentCount++;
         }
+        
+        console.log(`[confluence-manager] Pages with null parentId: ${nullParentCount}`);
 
         // Attach children to parents
         for (const node of pageMap.values()) {
-          if (node.parentId && pageMap.has(node.parentId)) {
-            pageMap.get(node.parentId).children.push(node);
+          if (node.parentId) {
+            const parent = pageMap.get(node.parentId);
+            if (parent) {
+              parent.children.push(node);
+            } else {
+              missingParentCount++;
+            }
           }
         }
+        
+        console.log(`[confluence-manager] Pages with missing parent in set: ${missingParentCount}`);
 
         const sortNodes = (nodes: any[]) => {
           nodes.sort((a, b) => {
@@ -269,7 +287,7 @@ Deno.serve(async (req) => {
           }
         };
 
-        // Roots: pages with no parent in our set
+        // Roots: pages with no parent in our set (should only be homepage + orphans)
         const roots: any[] = [];
         for (const node of pageMap.values()) {
           const hasParentInSet = node.parentId && pageMap.has(node.parentId);
@@ -279,8 +297,9 @@ Deno.serve(async (req) => {
         sortNodes(roots);
 
         // Make homepage appear first (Confluence sidebar behavior)
-        if (spaceHomepageId) {
-          const idx = roots.findIndex((r) => r.id === spaceHomepageId);
+        const homepageIdStr = spaceHomepageId ? String(spaceHomepageId) : null;
+        if (homepageIdStr) {
+          const idx = roots.findIndex((r) => r.id === homepageIdStr);
           if (idx > 0) {
             const [home] = roots.splice(idx, 1);
             roots.unshift(home);
