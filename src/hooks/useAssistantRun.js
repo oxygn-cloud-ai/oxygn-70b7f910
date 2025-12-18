@@ -1,11 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
-import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { toast } from 'sonner';
 
 export const useAssistantRun = () => {
   const supabase = useSupabase();
-  const { registerCall } = useApiCallContext();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
 
