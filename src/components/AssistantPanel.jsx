@@ -19,6 +19,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { ALL_SETTINGS, isSettingSupported } from '../config/modelCapabilities';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import ConfluencePagesSection from './ConfluencePagesSection';
 
 const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
@@ -324,6 +325,13 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Confluence Pages */}
+      <ConfluencePagesSection 
+        assistantRowId={assistant?.row_id}
+        assistantId={assistant?.openai_assistant_id}
+        isActive={isActive}
+      />
 
       {/* Model Settings - Collapsible */}
       <Collapsible open={modelSettingsOpen} onOpenChange={setModelSettingsOpen}>
