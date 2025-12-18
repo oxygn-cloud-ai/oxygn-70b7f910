@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,20 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, FolderOpen, X, Home, BookOpen, Folder } from 'lucide-react';
+import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, X } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
 
-// Get icon for node type
-const getNodeIcon = (node) => {
-  if (node.isContainer) return Folder;
-  if (node.isHomepage) return Home;
-  if (node.type === 'blogpost') return BookOpen;
-  if (node.hasChildren || node.children?.length > 0) return FolderOpen;
-  return FileText;
-};
-
-// Recursive tree node component with lazy loading
+// Confluence-style tree node
 const TreeNode = ({ 
   node, 
   level = 0, 
@@ -37,86 +28,115 @@ const TreeNode = ({
   expandedNodes, 
   toggleExpand,
   loadingNodes,
-  spaceKey
+  spaceKey,
+  isLast = false,
+  parentLines = []
 }) => {
   const hasChildren = node.hasChildren || (node.children && node.children.length > 0);
   const isExpanded = expandedNodes.has(node.id);
   const isLoading = loadingNodes.has(node.id);
   const hasLoadedChildren = node.loaded || (node.children && node.children.length > 0);
   const isContainer = node.isContainer;
-  const canAttach = !isContainer; // Can't attach containers
-  const NodeIcon = getNodeIcon(node);
+  const canAttach = !isContainer;
+
+  // Build tree lines for proper indentation
+  const renderTreeLines = () => {
+    if (level === 0) return null;
+    
+    return (
+      <div className="flex">
+        {parentLines.map((showLine, idx) => (
+          <div key={idx} className="w-5 flex-shrink-0 relative">
+            {showLine && (
+              <div className="absolute left-2 top-0 bottom-0 w-px bg-border" />
+            )}
+          </div>
+        ))}
+        <div className="w-5 flex-shrink-0 relative">
+          {/* Horizontal connector */}
+          <div className="absolute left-2 top-1/2 w-2 h-px bg-border" />
+          {/* Vertical line (only if not last) */}
+          {!isLast && (
+            <div className="absolute left-2 top-1/2 bottom-0 w-px bg-border" />
+          )}
+          {/* Vertical line from top */}
+          <div className="absolute left-2 top-0 h-1/2 w-px bg-border" />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
       <div
         className={cn(
-          "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 group",
-          isContainer && "bg-muted/30"
+          "flex items-center group hover:bg-muted/50 rounded-sm",
+          isContainer && "font-medium"
         )}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
       >
-        <div className="flex items-center gap-1 flex-1 min-w-0">
+        {/* Tree structure lines */}
+        {level > 0 && renderTreeLines()}
+        
+        {/* Expand/collapse chevron */}
+        <div className="w-5 flex-shrink-0 flex items-center justify-center">
           {hasChildren ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 p-0"
+            <button
+              className="p-0.5 hover:bg-muted rounded"
               onClick={() => toggleExpand(node.id, spaceKey)}
               disabled={isLoading}
             >
               {isLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
               ) : isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
               ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
               )}
-            </Button>
+            </button>
           ) : (
-            <span className="w-5" />
+            <span className="w-3" />
           )}
-          <NodeIcon className={cn(
-            "h-4 w-4 flex-shrink-0",
-            isContainer ? "text-primary" : "text-muted-foreground"
-          )} />
-          <span className={cn(
-            "text-sm truncate",
-            isContainer && "font-medium"
-          )}>
-            {node.title}
-          </span>
+        </div>
+
+        {/* Page icon */}
+        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-1.5" />
+        
+        {/* Title */}
+        <span className="text-sm truncate flex-1 py-1">{node.title}</span>
+        
+        {/* Actions (visible on hover) */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1">
           {node.url && !isContainer && (
             <a
               href={node.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+              className="p-1 hover:bg-muted rounded"
               onClick={(e) => e.stopPropagation()}
             >
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
             </a>
           )}
+          {canAttach && (
+            <button
+              className="p-1 hover:bg-muted rounded"
+              onClick={() => onAttach(node.id)}
+              disabled={attachingPageId === node.id}
+            >
+              {attachingPageId === node.id ? (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              ) : (
+                <Plus className="h-3 w-3 text-muted-foreground" />
+              )}
+            </button>
+          )}
         </div>
-        {canAttach && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={() => onAttach(node.id)}
-            disabled={attachingPageId === node.id}
-          >
-            {attachingPageId === node.id ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Plus className="h-3.5 w-3.5" />
-            )}
-          </Button>
-        )}
       </div>
-      {hasLoadedChildren && isExpanded && node.children && (
+
+      {/* Children */}
+      {hasLoadedChildren && isExpanded && node.children && node.children.length > 0 && (
         <div>
-          {node.children.map((child) => (
+          {node.children.map((child, idx) => (
             <TreeNode
               key={child.id}
               node={child}
@@ -127,16 +147,10 @@ const TreeNode = ({
               toggleExpand={toggleExpand}
               loadingNodes={loadingNodes}
               spaceKey={spaceKey}
+              isLast={idx === node.children.length - 1}
+              parentLines={[...parentLines, !isLast]}
             />
           ))}
-          {node.children.length === 0 && (
-            <div 
-              className="text-xs text-muted-foreground py-1"
-              style={{ paddingLeft: `${(level + 1) * 16 + 28}px` }}
-            >
-              No child pages
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -181,10 +195,9 @@ const ConfluenceSearchModal = ({
     }
   }, [open, spaces.length, listSpaces]);
 
-  // Load space tree when space is selected
+  // Load space tree when space is selected and auto-expand first level
   useEffect(() => {
     if (selectedSpace && selectedSpace !== 'all') {
-      // Cancel any previous loading
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -197,11 +210,26 @@ const ConfluenceSearchModal = ({
     }
   }, [selectedSpace, getSpaceTree, clearSpaceTree]);
 
-  // Debounced search - also cancels tree loading
+  // Auto-expand top-level items when tree loads
+  useEffect(() => {
+    if (spaceTree.length > 0 && expandedNodes.size === 0) {
+      // Auto-expand first few top-level items
+      const toExpand = new Set();
+      spaceTree.slice(0, 5).forEach(node => {
+        if (node.hasChildren || node.children?.length > 0) {
+          toExpand.add(node.id);
+        }
+      });
+      if (toExpand.size > 0) {
+        setExpandedNodes(toExpand);
+      }
+    }
+  }, [spaceTree]);
+
+  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchQuery.length >= 2) {
-        // Cancel tree loading when searching
         if (isLoadingTree) {
           cancelTreeLoading();
           if (abortControllerRef.current) {
@@ -213,7 +241,6 @@ const ConfluenceSearchModal = ({
         clearSearch();
       }
     }, 300);
-
     return () => clearTimeout(timer);
   }, [searchQuery, selectedSpace, searchPages, clearSearch, isLoadingTree, cancelTreeLoading]);
 
@@ -253,14 +280,12 @@ const ConfluenceSearchModal = ({
     const isCurrentlyExpanded = expandedNodes.has(nodeId);
     
     if (isCurrentlyExpanded) {
-      // Collapse
       setExpandedNodes(prev => {
         const next = new Set(prev);
         next.delete(nodeId);
         return next;
       });
     } else {
-      // Expand - load children if not loaded
       const findNode = (nodes) => {
         for (const node of nodes) {
           if (node.id === nodeId) return node;
@@ -274,15 +299,12 @@ const ConfluenceSearchModal = ({
       
       const node = findNode(spaceTree);
       
-      // Skip loading for containers (already loaded) or if already loaded
       if (node && !node.loaded && !node.isContainer && node.children?.length === 0) {
-        // Need to load children
         setLoadingNodes(prev => new Set(prev).add(nodeId));
         
         try {
           const children = await getPageChildren(nodeId, spaceKey);
           
-          // Update tree with children
           const updateNode = (nodes) => {
             return nodes.map(n => {
               if (n.id === nodeId) {
@@ -305,27 +327,25 @@ const ConfluenceSearchModal = ({
         }
       }
       
-      // Expand
       setExpandedNodes(prev => new Set(prev).add(nodeId));
     }
   };
 
-  // Show search results if searching, otherwise show tree
   const showSearchResults = searchQuery.length >= 2;
   const showTree = selectedSpace && selectedSpace !== 'all' && !showSearchResults;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[650px]">
+      <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Browse Confluence</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Space selector and search */}
           <div className="flex gap-2">
             <Select value={selectedSpace} onValueChange={setSelectedSpace}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[220px]">
                 <SelectValue placeholder="Select a space..." />
               </SelectTrigger>
               <SelectContent>
@@ -348,7 +368,7 @@ const ConfluenceSearchModal = ({
             </div>
           </div>
 
-          {/* Loading indicator with cancel button */}
+          {/* Loading indicator */}
           {isLoadingTree && (
             <div className="flex items-center justify-between bg-muted/50 rounded-md px-3 py-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -368,71 +388,70 @@ const ConfluenceSearchModal = ({
           )}
 
           {/* Results area */}
-          <ScrollArea className="h-[400px] border rounded-md">
+          <ScrollArea className="h-[450px] border rounded-md bg-background">
             {isSearching ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : showSearchResults ? (
-              // Search results
               searchResults.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <FileText className="h-12 w-12 mb-2 opacity-50" />
-                  <p>No pages found</p>
+                  <FileText className="h-10 w-10 mb-2 opacity-50" />
+                  <p className="text-sm">No pages found</p>
                 </div>
               ) : (
-                <div className="p-2 space-y-1">
+                <div className="p-2 space-y-0.5">
                   {searchResults.map((page) => (
                     <div
                       key={page.id}
-                      className="flex items-center justify-between p-3 rounded-md hover:bg-muted/50 group"
+                      className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 group"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span className="font-medium truncate">{page.title}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span className="truncate">{page.spaceName || page.spaceKey}</span>
-                          {page.url && (
-                            <a
-                              href={page.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-sm truncate block">{page.title}</span>
+                          <span className="text-xs text-muted-foreground truncate block">
+                            {page.spaceName || page.spaceKey}
+                          </span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleAttach(page.id)}
-                        disabled={attachingPageId === page.id}
-                      >
-                        {attachingPageId === page.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Plus className="h-4 w-4" />
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {page.url && (
+                          <a
+                            href={page.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1 hover:bg-muted rounded"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                          </a>
                         )}
-                      </Button>
+                        <button
+                          className="p-1 hover:bg-muted rounded"
+                          onClick={() => handleAttach(page.id)}
+                          disabled={attachingPageId === page.id}
+                        >
+                          {attachingPageId === page.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Plus className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )
             ) : showTree && !isLoadingTree ? (
-              // Tree view
               spaceTree.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <FolderOpen className="h-12 w-12 mb-2 opacity-50" />
-                  <p>No pages in this space</p>
+                  <FileText className="h-10 w-10 mb-2 opacity-50" />
+                  <p className="text-sm">No pages in this space</p>
                 </div>
               ) : (
                 <div className="p-2">
-                  {spaceTree.map((node) => (
+                  {spaceTree.map((node, idx) => (
                     <TreeNode
                       key={node.id}
                       node={node}
@@ -442,15 +461,16 @@ const ConfluenceSearchModal = ({
                       toggleExpand={toggleExpand}
                       loadingNodes={loadingNodes}
                       spaceKey={selectedSpace}
+                      isLast={idx === spaceTree.length - 1}
+                      parentLines={[]}
                     />
                   ))}
                 </div>
               )
             ) : !isLoadingTree ? (
-              // Empty state - prompt to select space or search
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <FolderOpen className="h-12 w-12 mb-2 opacity-50" />
-                <p>Select a space to browse pages</p>
+                <FileText className="h-10 w-10 mb-2 opacity-50" />
+                <p className="text-sm">Select a space to browse pages</p>
                 <p className="text-xs mt-1">or search across all spaces</p>
               </div>
             ) : null}

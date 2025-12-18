@@ -3,34 +3,29 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FileStack, RefreshCw, Search, X, ExternalLink, Upload, Loader2, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileText, RefreshCw, Search, X, ExternalLink, Upload, Loader2, ChevronRight, ChevronDown } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import ConfluenceSearchModal from './ConfluenceSearchModal';
-import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 // Helper to build tree from flat pages list
 const buildPageTree = (pages) => {
   const pageMap = new Map();
   const rootPages = [];
   
-  // First pass: create map of all pages by page_id
   pages.forEach(page => {
     pageMap.set(page.page_id, { ...page, children: [] });
   });
   
-  // Second pass: build tree structure
   pages.forEach(page => {
     const node = pageMap.get(page.page_id);
     if (page.parent_page_id && pageMap.has(page.parent_page_id)) {
-      // Has parent in our set - add as child
       pageMap.get(page.parent_page_id).children.push(node);
     } else {
-      // No parent or parent not in our set - it's a root
       rootPages.push(node);
     }
   });
   
-  // Sort children alphabetically
   const sortNodes = (nodes) => {
     nodes.sort((a, b) => a.page_title.localeCompare(b.page_title));
     nodes.forEach(node => sortNodes(node.children));
@@ -40,31 +35,55 @@ const buildPageTree = (pages) => {
   return rootPages;
 };
 
-// Recursive tree node component
+// Confluence-style tree node for attached pages
 const PageTreeNode = ({ 
   page, 
-  depth = 0, 
+  level = 0, 
   syncingPageId, 
   onSync, 
   onSyncToOpenAI, 
   onDetach, 
   assistantId, 
-  isActive 
+  isActive,
+  isLast = false,
+  parentLines = []
 }) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = page.children?.length > 0;
-  
+
+  const renderTreeLines = () => {
+    if (level === 0) return null;
+    
+    return (
+      <div className="flex">
+        {parentLines.map((showLine, idx) => (
+          <div key={idx} className="w-4 flex-shrink-0 relative">
+            {showLine && (
+              <div className="absolute left-1.5 top-0 bottom-0 w-px bg-border" />
+            )}
+          </div>
+        ))}
+        <div className="w-4 flex-shrink-0 relative">
+          <div className="absolute left-1.5 top-1/2 w-1.5 h-px bg-border" />
+          {!isLast && (
+            <div className="absolute left-1.5 top-1/2 bottom-0 w-px bg-border" />
+          )}
+          <div className="absolute left-1.5 top-0 h-1/2 w-px bg-border" />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
-      <div 
-        className="flex items-center justify-between text-sm py-1.5 px-2 bg-muted/50 rounded group hover:bg-muted transition-colors"
-        style={{ marginLeft: depth * 16 }}
-      >
-        <div className="flex-1 min-w-0 flex items-center gap-1">
+      <div className="flex items-center group hover:bg-muted/50 rounded-sm">
+        {level > 0 && renderTreeLines()}
+        
+        <div className="w-4 flex-shrink-0 flex items-center justify-center">
           {hasChildren ? (
-            <button 
-              onClick={() => setExpanded(!expanded)} 
-              className="p-0.5 hover:bg-background rounded"
+            <button
+              className="p-0.5 hover:bg-muted rounded"
+              onClick={() => setExpanded(!expanded)}
             >
               {expanded ? (
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -73,30 +92,38 @@ const PageTreeNode = ({
               )}
             </button>
           ) : (
-            <span className="w-4" />
-          )}
-          <FileStack className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium">{page.page_title}</span>
-          <Badge 
-            variant={page.sync_status === 'synced' ? 'default' : page.sync_status === 'error' ? 'destructive' : 'secondary'} 
-            className="text-[10px] px-1 py-0 h-4"
-          >
-            {page.sync_status === 'synced' ? '✓' : page.sync_status === 'error' ? '✕' : '○'}
-          </Badge>
-          {page.openai_file_id && (
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">OpenAI</Badge>
+            <span className="w-3" />
           )}
         </div>
+
+        <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mr-1" />
+        
+        <span className="text-sm truncate flex-1 py-1">{page.page_title}</span>
+        
+        <Badge 
+          variant={page.sync_status === 'synced' ? 'default' : page.sync_status === 'error' ? 'destructive' : 'secondary'} 
+          className="text-[10px] px-1 py-0 h-4 mr-1"
+        >
+          {page.sync_status === 'synced' ? '✓' : page.sync_status === 'error' ? '✕' : '○'}
+        </Badge>
+        
+        {page.openai_file_id && (
+          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 mr-1">OpenAI</Badge>
+        )}
+
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           {page.page_url && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                    <a href={page.page_url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </Button>
+                  <a 
+                    href={page.page_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="p-1 hover:bg-muted rounded"
+                  >
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                  </a>
                 </TooltipTrigger>
                 <TooltipContent>Open in Confluence</TooltipContent>
               </Tooltip>
@@ -105,15 +132,16 @@ const PageTreeNode = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6" 
+                <button 
+                  className="p-1 hover:bg-muted rounded"
                   onClick={() => onSync(page.row_id)}
                   disabled={syncingPageId === page.row_id}
                 >
-                  <RefreshCw className={`h-3 w-3 ${syncingPageId === page.row_id ? 'animate-spin' : ''}`} />
-                </Button>
+                  <RefreshCw className={cn(
+                    "h-3 w-3 text-muted-foreground",
+                    syncingPageId === page.row_id && "animate-spin"
+                  )} />
+                </button>
               </TooltipTrigger>
               <TooltipContent>Refresh Content</TooltipContent>
             </Tooltip>
@@ -122,15 +150,13 @@ const PageTreeNode = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-6 w-6" 
+                  <button 
+                    className="p-1 hover:bg-muted rounded"
                     onClick={() => onSyncToOpenAI(page.row_id)}
                     disabled={syncingPageId === page.row_id}
                   >
-                    <Upload className="h-3 w-3" />
-                  </Button>
+                    <Upload className="h-3 w-3 text-muted-foreground" />
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>Upload to OpenAI</TooltipContent>
               </Tooltip>
@@ -139,33 +165,34 @@ const PageTreeNode = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6" 
+                <button 
+                  className="p-1 hover:bg-muted rounded"
                   onClick={() => onDetach(page.row_id)}
                 >
-                  <X className="h-3 w-3" />
-                </Button>
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </button>
               </TooltipTrigger>
               <TooltipContent>Detach Page</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
       </div>
+
       {hasChildren && expanded && (
-        <div className="mt-0.5 space-y-0.5">
-          {page.children.map(child => (
+        <div>
+          {page.children.map((child, idx) => (
             <PageTreeNode
               key={child.row_id}
               page={child}
-              depth={depth + 1}
+              level={level + 1}
               syncingPageId={syncingPageId}
               onSync={onSync}
               onSyncToOpenAI={onSyncToOpenAI}
               onDetach={onDetach}
               assistantId={assistantId}
               isActive={isActive}
+              isLast={idx === page.children.length - 1}
+              parentLines={[...parentLines, !isLast]}
             />
           ))}
         </div>
@@ -186,14 +213,12 @@ const ConfluencePagesSection = ({
   const {
     pages,
     isLoading,
-    isSyncing,
     fetchAttachedPages,
     detachPage,
     syncPage,
     syncToOpenAI
   } = useConfluencePages(assistantRowId, promptRowId);
 
-  // Build hierarchical tree from flat pages
   const pageTree = useMemo(() => buildPageTree(pages), [pages]);
 
   const handleSync = async (rowId) => {
@@ -221,26 +246,24 @@ const ConfluencePagesSection = ({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileStack className="h-4 w-4 text-muted-foreground" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-sm">Confluence Pages ({pages.length})</CardTitle>
             </div>
-            <div className="flex gap-1">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7" 
-                      onClick={() => setSearchModalOpen(true)}
-                    >
-                      <Search className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Browse Confluence</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7" 
+                    onClick={() => setSearchModalOpen(true)}
+                  >
+                    <Search className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Browse Confluence</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </CardHeader>
         <CardContent>
@@ -251,8 +274,8 @@ const ConfluencePagesSection = ({
           ) : pages.length === 0 ? (
             <p className="text-sm text-muted-foreground">No Confluence pages attached</p>
           ) : (
-            <div className="space-y-0.5">
-              {pageTree.map(page => (
+            <div>
+              {pageTree.map((page, idx) => (
                 <PageTreeNode
                   key={page.row_id}
                   page={page}
@@ -262,6 +285,8 @@ const ConfluencePagesSection = ({
                   onDetach={detachPage}
                   assistantId={assistantId}
                   isActive={isActive}
+                  isLast={idx === pageTree.length - 1}
+                  parentLines={[]}
                 />
               ))}
             </div>
