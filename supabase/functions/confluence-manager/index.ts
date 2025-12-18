@@ -258,11 +258,16 @@ Deno.serve(async (req) => {
         const { pageId, assistantRowId, promptRowId } = params;
         const config = await getConfluenceConfig();
         
-        // Fetch page content
-        const data = await confluenceRequest(`/content/${pageId}?expand=body.storage,space`, config);
+        // Fetch page content with ancestors for hierarchy
+        const data = await confluenceRequest(`/content/${pageId}?expand=body.storage,space,ancestors`, config);
         
         const contentHtml = data.body?.storage?.value || '';
         const contentText = htmlToText(contentHtml);
+        
+        // Get parent page ID from ancestors (last ancestor is direct parent)
+        const parentPageId = data.ancestors?.length > 0 
+          ? data.ancestors[data.ancestors.length - 1]?.id 
+          : null;
         
         // Insert into database
         const { data: inserted, error } = await supabase
@@ -277,6 +282,7 @@ Deno.serve(async (req) => {
             page_url: data._links?.webui ? `${config.baseUrl}${data._links.webui}` : null,
             content_html: contentHtml,
             content_text: contentText,
+            parent_page_id: parentPageId,
             last_synced_at: new Date().toISOString(),
             sync_status: 'synced'
           })

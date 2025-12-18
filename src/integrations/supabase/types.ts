@@ -186,6 +186,7 @@ export type Database = {
           page_id: string
           page_title: string
           page_url: string | null
+          parent_page_id: string | null
           prompt_row_id: string | null
           row_id: string
           space_key: string | null
@@ -203,6 +204,7 @@ export type Database = {
           page_id: string
           page_title: string
           page_url?: string | null
+          parent_page_id?: string | null
           prompt_row_id?: string | null
           row_id?: string
           space_key?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           page_id?: string
           page_title?: string
           page_url?: string | null
+          parent_page_id?: string | null
           prompt_row_id?: string | null
           row_id?: string
           space_key?: string | null
