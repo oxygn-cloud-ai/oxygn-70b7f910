@@ -121,8 +121,10 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   }
   
   const { count: siblingCount, error: countError } = await siblingsQuery;
-  console.log('Sibling count query result:', { siblingCount, countError, parentId });
-  const sequenceNumber = siblingCount || 0;
+  
+  // Ensure siblingCount is a valid number
+  const sequenceNumber = typeof siblingCount === 'number' ? siblingCount : parseInt(siblingCount, 10) || 0;
+  console.log('Sibling count query result:', { siblingCount, countError, parentId, sequenceNumber });
 
   // Get prompt context (level and top-level name)
   const { level, topLevelName } = await getPromptContext(supabase, parentId);
@@ -233,9 +235,11 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 
   const newPromptRowId = data[0].row_id;
 
-  // For top-level prompts, create and instantiate assistant
+  // For top-level prompts, create and instantiate assistant (non-blocking for speed)
   if (isTopLevel) {
-    await createAndInstantiateAssistant(supabase, newPromptRowId, newPromptName);
+    // Fire-and-forget: don't await, let it complete in background
+    createAndInstantiateAssistant(supabase, newPromptRowId, newPromptName)
+      .catch(err => console.error('Background assistant creation failed:', err));
   }
 
   return newPromptRowId;

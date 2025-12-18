@@ -25,20 +25,27 @@ const Projects = () => {
   const { models } = useOpenAIModels();
   const [showParentPromptPopup, setShowParentPromptPopup] = useState(false);
   const [cascadeInfo, setCascadeInfo] = useState({ itemName: '', fieldName: '' });
+  const [isAddingPrompt, setIsAddingPrompt] = useState(false);
   const { handleAddItem: addItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
 
-  // Wrap handleAddItem to auto-expand parent when adding a child
+  // Wrap handleAddItem to auto-expand parent when adding a child and prevent multi-click
   const handleAddItem = useCallback(async (parentId) => {
-    const newItemId = await addItem(parentId);
-    if (newItemId && parentId) {
-      // Expand the parent to show the new child
-      setExpandedItems(prev => 
-        prev.includes(parentId) ? prev : [...prev, parentId]
-      );
+    if (isAddingPrompt) return null; // Prevent multi-click
+    setIsAddingPrompt(true);
+    try {
+      const newItemId = await addItem(parentId);
+      if (newItemId && parentId) {
+        // Expand the parent to show the new child
+        setExpandedItems(prev => 
+          prev.includes(parentId) ? prev : [...prev, parentId]
+        );
+      }
+      return newItemId;
+    } finally {
+      setIsAddingPrompt(false);
     }
-    return newItemId;
-  }, [addItem]);
+  }, [addItem, isAddingPrompt]);
 
   const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
@@ -111,8 +118,13 @@ const Projects = () => {
           <Panel defaultSize={showChatPanel ? 20 : 30} minSize={15}>
             <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
               <div className="mb-2 flex space-x-2">
-                <Button variant="ghost" size="icon" onClick={() => handleAddItem(null)}>
-                  <PlusCircle className="h-5 w-5" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => handleAddItem(null)}
+                  disabled={isAddingPrompt}
+                >
+                  <PlusCircle className={`h-5 w-5 ${isAddingPrompt ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
               {isLoading ? (
