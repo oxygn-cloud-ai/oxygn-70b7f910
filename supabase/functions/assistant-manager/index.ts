@@ -285,10 +285,16 @@ serve(async (req) => {
           continue;
         }
 
-        // Upload to OpenAI Files API
+        // Upload to OpenAI Files API - convert Blob to File to preserve filename
+        const fileWithName = new File(
+          [fileData],
+          file.original_filename,
+          { type: file.mime_type || 'application/octet-stream' }
+        );
         const formData = new FormData();
-        formData.append('file', fileData, file.original_filename);
+        formData.append('file', fileWithName);
         formData.append('purpose', 'assistants');
+        console.log('Uploading file with name:', file.original_filename);
 
         const uploadResponse = await fetch('https://api.openai.com/v1/files', {
           method: 'POST',
@@ -777,9 +783,16 @@ serve(async (req) => {
           continue;
         }
 
+        // Convert Blob to File to preserve filename in Deno
+        const fileWithName = new File(
+          [fileData],
+          file.original_filename,
+          { type: file.mime_type || 'application/octet-stream' }
+        );
         const formData = new FormData();
-        formData.append('file', fileData, file.original_filename);
+        formData.append('file', fileWithName);
         formData.append('purpose', 'assistants');
+        console.log('Uploading file with name:', file.original_filename);
 
         const uploadResponse = await fetch('https://api.openai.com/v1/files', {
           method: 'POST',
