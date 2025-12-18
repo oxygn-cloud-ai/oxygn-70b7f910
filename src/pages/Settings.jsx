@@ -11,6 +11,7 @@ import { AIModelsSection } from '../components/settings/AIModelsSection';
 import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
 import { AssistantDefaultsSection } from '../components/settings/AssistantDefaultsSection';
 import { OpenAIAssistantsSection } from '../components/settings/OpenAIAssistantsSection';
+import ConfluenceSettingsSection from '../components/settings/ConfluenceSettingsSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -165,6 +166,16 @@ const Settings = () => {
           <OpenAIAssistantsSection
             isRefreshing={isRefreshing}
             onRefresh={handleRefresh}
+          />
+        );
+      case 'confluence':
+        return (
+          <ConfluenceSettingsSection
+            settings={settings}
+            editedValues={editedValues}
+            onValueChange={handleValueChange}
+            onSave={handleSave}
+            isSaving={isSaving}
           />
         );
       default:

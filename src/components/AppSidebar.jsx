@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -30,6 +30,7 @@ const settingsSubItems = [
   { id: 'models', title: 'AI Models', icon: Bot },
   { id: 'assistants', title: 'Assistant Defaults', icon: Bot },
   { id: 'openai-assistants', title: 'OpenAI Assistants', icon: Cpu },
+  { id: 'confluence', title: 'Confluence', icon: FileStack },
   { id: 'database', title: 'Database & Env', icon: Database },
 ];
 

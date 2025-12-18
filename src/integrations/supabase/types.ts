@@ -172,6 +172,75 @@ export type Database = {
           },
         ]
       }
+      cyg_confluence_pages: {
+        Row: {
+          assistant_row_id: string | null
+          content_html: string | null
+          content_text: string | null
+          created_at: string
+          last_synced_at: string | null
+          openai_file_id: string | null
+          page_id: string
+          page_title: string
+          page_url: string | null
+          prompt_row_id: string | null
+          row_id: string
+          space_key: string | null
+          space_name: string | null
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assistant_row_id?: string | null
+          content_html?: string | null
+          content_text?: string | null
+          created_at?: string
+          last_synced_at?: string | null
+          openai_file_id?: string | null
+          page_id: string
+          page_title: string
+          page_url?: string | null
+          prompt_row_id?: string | null
+          row_id?: string
+          space_key?: string | null
+          space_name?: string | null
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assistant_row_id?: string | null
+          content_html?: string | null
+          content_text?: string | null
+          created_at?: string
+          last_synced_at?: string | null
+          openai_file_id?: string | null
+          page_id?: string
+          page_title?: string
+          page_url?: string | null
+          prompt_row_id?: string | null
+          row_id?: string
+          space_key?: string | null
+          space_name?: string | null
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cyg_confluence_pages_assistant_row_id_fkey"
+            columns: ["assistant_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_assistants"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "cyg_confluence_pages_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "cyg_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
       cyg_model_defaults: {
         Row: {
           created_at: string

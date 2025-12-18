@@ -6,12 +6,14 @@ import { useSupabase } from '../hooks/useSupabase';
 import PromptField from './PromptField';
 import ThreadSelector from './ThreadSelector';
 import ThreadHistory from './ThreadHistory';
+import ConfluencePagesSection from './ConfluencePagesSection';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Play, Loader2, Info } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Play, Loader2, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 const ChildPromptPanel = ({
@@ -22,6 +24,7 @@ const ChildPromptPanel = ({
 }) => {
   const supabase = useSupabase();
   const [isRunning, setIsRunning] = useState(false);
+  const [confluenceOpen, setConfluenceOpen] = useState(false);
 
   const {
     localData,
@@ -191,6 +194,22 @@ const ChildPromptPanel = ({
           Messages will be sent to the parent assistant's Studio thread. View the full conversation in the chat panel.
         </div>
       )}
+
+      {/* Confluence Pages - Collapsible */}
+      <Collapsible open={confluenceOpen} onOpenChange={setConfluenceOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors">
+            <span className="text-xs font-medium">Confluence Context</span>
+            {confluenceOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2">
+          <ConfluencePagesSection 
+            promptRowId={projectRowId}
+            isActive={true}
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Prompt Fields */}
       <div className="space-y-6">
