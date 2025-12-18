@@ -8,6 +8,49 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
+// Map friendly model IDs to actual OpenAI model names
+const MODEL_MAPPING: Record<string, string> = {
+  // GPT-5 family
+  'gpt-5': 'gpt-5-2025-08-07',
+  'gpt-5-pro': 'gpt-5-2025-08-07',
+  'gpt-5.1': 'gpt-5-2025-08-07',
+  'gpt-5.2': 'gpt-5-2025-08-07',
+  'gpt-5.2-pro': 'gpt-5-2025-08-07',
+  'gpt-5-mini': 'gpt-5-mini-2025-08-07',
+  'gpt-5-nano': 'gpt-5-nano-2025-08-07',
+  'gpt-5-codex': 'gpt-5-2025-08-07',
+  'gpt-5.1-codex': 'gpt-5-2025-08-07',
+  'gpt-5.1-codex-max': 'gpt-5-2025-08-07',
+  'gpt-5.1-codex-mini': 'gpt-5-mini-2025-08-07',
+  // GPT-4.1 family
+  'gpt-4.1': 'gpt-4.1-2025-04-14',
+  'gpt-4.1-mini': 'gpt-4.1-mini-2025-04-14',
+  'gpt-4.1-nano': 'gpt-4.1-mini-2025-04-14',
+  // Reasoning models
+  'o3': 'o3-2025-04-16',
+  'o3-mini': 'o4-mini-2025-04-16',
+  'o3-pro': 'o3-2025-04-16',
+  'o4-mini': 'o4-mini-2025-04-16',
+  'o1': 'o1-2024-12-17',
+  'o1-pro': 'o1-2024-12-17',
+  // Legacy models (pass through)
+  'gpt-4o': 'gpt-4o',
+  'gpt-4o-mini': 'gpt-4o-mini',
+  'gpt-4-turbo': 'gpt-4-turbo',
+};
+
+// Models that require Responses API instead of Chat Completions
+const RESPONSES_API_MODELS = ['gpt-5-2025-08-07', 'gpt-5-mini-2025-08-07', 'gpt-5-nano-2025-08-07'];
+
+function resolveModelId(modelId: string): string {
+  return MODEL_MAPPING[modelId] || modelId;
+}
+
+function requiresResponsesApi(modelId: string): boolean {
+  const resolved = resolveModelId(modelId);
+  return RESPONSES_API_MODELS.includes(resolved);
+}
+
 function isAllowedDomain(email: string | undefined): boolean {
   if (!email) return false;
   const domain = email.split('@')[1]?.toLowerCase();
@@ -170,11 +213,14 @@ serve(async (req) => {
       console.log('Processing chat request...');
       const { model, messages, web_search_enabled, ...settings } = body;
 
-      const modelId = model || 'gpt-4o-mini';
+      const requestedModel = model || 'gpt-4o-mini';
+      const modelId = resolveModelId(requestedModel);
       
-      // Use Responses API for web search (required by OpenAI)
-      if (web_search_enabled) {
-        console.log('Web search enabled - using Responses API');
+      console.log('Model resolution:', { requested: requestedModel, resolved: modelId });
+      
+      // Use Responses API for web search OR for models that require it
+      if (web_search_enabled || requiresResponsesApi(requestedModel)) {
+        console.log('Using Responses API:', { webSearch: web_search_enabled, modelRequires: requiresResponsesApi(requestedModel) });
         
         // Convert messages to input format for Responses API
         const systemMessage = messages.find((m: any) => m.role === 'system')?.content || '';
@@ -184,8 +230,12 @@ serve(async (req) => {
           model: modelId,
           input: userMessage,
           instructions: systemMessage,
-          tools: [{ type: "web_search" }],
         };
+        
+        // Only add web_search tool if explicitly enabled
+        if (web_search_enabled) {
+          requestBody.tools = [{ type: "web_search" }];
+        }
 
         console.log('Responses API request:', { model: modelId, hasInput: !!userMessage });
 
