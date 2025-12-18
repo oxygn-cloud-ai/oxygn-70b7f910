@@ -66,6 +66,24 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
 
   const handleSave = async (field, value) => {
     await updateAssistant({ [field]: value });
+    
+    // Sync name and instructions changes to OpenAI if assistant is active
+    if (assistant?.status === 'active' && assistant?.openai_assistant_id && (field === 'name' || field === 'instructions')) {
+      try {
+        const response = await supabase.functions.invoke('assistant-manager', {
+          body: {
+            action: 'update',
+            assistant_row_id: assistant.row_id,
+            [field]: value,
+          },
+        });
+        if (response.error) {
+          console.error('Failed to sync to OpenAI:', response.error);
+        }
+      } catch (error) {
+        console.error('Error syncing to OpenAI:', error);
+      }
+    }
   };
 
   const handleFileUpload = async (e) => {
