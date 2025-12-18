@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
             title: page.title,
             spaceKey: page.space?.key,
             spaceName: page.space?.name,
-            url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null
+            url: page._links?.webui ? `${config.baseUrl}/wiki${page._links.webui}` : null
           })) || []
         };
         break;
@@ -290,7 +290,7 @@ Deno.serve(async (req) => {
             type: contentType,
             spaceKey: content.space?.key || spaceKey,
             spaceName: content.space?.name || spaceName,
-            url: content._links?.webui ? `${config.baseUrl}${content._links.webui}` : null,
+            url: content._links?.webui ? `${config.baseUrl}/wiki${content._links.webui}` : null,
             parentId,
             position: getPosition(content),
             children: [],
@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
             type: 'blogpost',
             spaceKey,
             spaceName,
-            url: blog._links?.webui ? `${config.baseUrl}${blog._links.webui}` : null,
+            url: blog._links?.webui ? `${config.baseUrl}/wiki${blog._links.webui}` : null,
             hasChildren: false,
             children: [],
             loaded: true,
@@ -418,7 +418,7 @@ Deno.serve(async (req) => {
           title: page.title,
           type: 'page',
           spaceKey,
-          url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
+          url: page._links?.webui ? `${config.baseUrl}/wiki${page._links.webui}` : null,
           // We don't know if it has children until expanded; keep lazy-loading behavior
           hasChildren: true,
           children: [],
@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
             title: data.title,
             spaceKey: data.space?.key,
             spaceName: data.space?.name,
-            url: data._links?.webui ? `${config.baseUrl}${data._links.webui}` : null,
+            url: data._links?.webui ? `${config.baseUrl}/wiki${data._links.webui}` : null,
             contentHtml,
             contentText
           }
@@ -477,7 +477,7 @@ Deno.serve(async (req) => {
             page_title: data.title,
             space_key: data.space?.key,
             space_name: data.space?.name,
-            page_url: data._links?.webui ? `${config.baseUrl}${data._links.webui}` : null,
+            page_url: data._links?.webui ? `${config.baseUrl}/wiki${data._links.webui}` : null,
             content_html: contentHtml,
             content_text: contentText,
             parent_page_id: parentPageId,
