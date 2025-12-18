@@ -267,9 +267,9 @@ const AssistantChatPanel = ({ promptRowId, promptName }) => {
   }
 
   return (
-    <div className="h-full flex border-l border-border">
+    <div className="h-full flex border-l border-border overflow-hidden">
       {/* Thread sidebar */}
-      <div className="w-48 border-r border-border bg-muted/30 flex flex-col">
+      <div className="w-48 border-r border-border bg-muted/30 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-border flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">Threads</span>
           <TooltipProvider>
@@ -333,7 +333,7 @@ const AssistantChatPanel = ({ promptRowId, promptName }) => {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         <StudioChat
           messages={messages}
           onSendMessage={sendMessage}

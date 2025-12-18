@@ -112,8 +112,8 @@ const Projects = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="container mx-auto p-4">
-        <PanelGroup direction="horizontal">
+      <div className="container mx-auto p-4 h-[calc(100vh-6rem)]">
+        <PanelGroup direction="horizontal" className="h-full">
           {/* Tree Panel */}
           <Panel defaultSize={showChatPanel ? 20 : 30} minSize={15}>
             <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
@@ -153,25 +153,27 @@ const Projects = () => {
 
           {/* Details Panel */}
           <Panel defaultSize={showChatPanel ? 40 : 70} minSize={30}>
-            {activeItem ? (
-              selectedItemData ? (
-                <ProjectPanels 
-                  selectedItemData={selectedItemData} 
-                  projectRowId={activeItem} 
-                  onUpdateField={handleUpdateField}
-                  onCascade={handleCascade}
-                  isTopLevel={isTopLevel}
-                />
+            <div className="h-full overflow-y-auto">
+              {activeItem ? (
+                selectedItemData ? (
+                  <ProjectPanels 
+                    selectedItemData={selectedItemData} 
+                    projectRowId={activeItem} 
+                    onUpdateField={handleUpdateField}
+                    onCascade={handleCascade}
+                    isTopLevel={isTopLevel}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">Loading prompt details...</p>
+                  </div>
+                )
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-muted-foreground">Loading prompt details...</p>
+                  <p className="text-muted-foreground">Select a prompt to view details</p>
                 </div>
-              )
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">Select a prompt to view details</p>
-              </div>
-            )}
+              )}
+            </div>
           </Panel>
 
           {/* Chat Panel - only show for top-level prompts with active assistant */}
