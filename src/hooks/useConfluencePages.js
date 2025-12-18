@@ -1,6 +1,18 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+// Move invokeFunction outside component to ensure stable reference
+const invokeFunction = async (action, params = {}) => {
+  const { data, error } = await supabase.functions.invoke('confluence-manager', {
+    body: { action, ...params }
+  });
+  
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  
+  return data;
+};
 
 export const useConfluencePages = (assistantRowId = null, promptRowId = null) => {
   const [pages, setPages] = useState([]);
@@ -12,17 +24,6 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
-
-  const invokeFunction = async (action, params = {}) => {
-    const { data, error } = await supabase.functions.invoke('confluence-manager', {
-      body: { action, ...params }
-    });
-    
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    
-    return data;
-  };
 
   const fetchAttachedPages = useCallback(async () => {
     if (!assistantRowId && !promptRowId) return;
@@ -43,7 +44,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     fetchAttachedPages();
   }, [fetchAttachedPages]);
 
-  const testConnection = async () => {
+  const testConnection = useCallback(async () => {
     try {
       const data = await invokeFunction('test-connection');
       setConnectionStatus(data);
@@ -53,9 +54,9 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       setConnectionStatus(status);
       return status;
     }
-  };
+  }, []);
 
-  const listSpaces = async () => {
+  const listSpaces = useCallback(async () => {
     try {
       const data = await invokeFunction('list-spaces');
       setSpaces(data.spaces || []);
@@ -65,9 +66,9 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       toast.error('Failed to list Confluence spaces');
       return [];
     }
-  };
+  }, []);
 
-  const getSpaceTree = async (spaceKey, abortSignal) => {
+  const getSpaceTree = useCallback(async (spaceKey, abortSignal) => {
     if (!spaceKey) {
       setSpaceTree([]);
       return [];
@@ -89,9 +90,9 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
         setIsLoadingTree(false);
       }
     }
-  };
+  }, []);
 
-  const getPageChildren = async (pageId, spaceKey) => {
+  const getPageChildren = useCallback(async (pageId, spaceKey) => {
     try {
       const data = await invokeFunction('get-page-children', { pageId, spaceKey });
       return data.children || [];
@@ -99,14 +100,14 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       console.error('Error getting page children:', error);
       return [];
     }
-  };
+  }, []);
 
-  const cancelTreeLoading = () => {
+  const cancelTreeLoading = useCallback(() => {
     setIsLoadingTree(false);
     setSpaceTree([]);
-  };
+  }, []);
 
-  const searchPages = async (query, spaceKey = null) => {
+  const searchPages = useCallback(async (query, spaceKey = null) => {
     if (!query || query.length < 2) {
       setSearchResults([]);
       return [];
@@ -124,7 +125,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     } finally {
       setIsSearching(false);
     }
-  };
+  }, []);
 
   const attachPage = async (pageId) => {
     try {
@@ -198,13 +199,13 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     }
   };
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchResults([]);
-  };
+  }, []);
 
-  const clearSpaceTree = () => {
+  const clearSpaceTree = useCallback(() => {
     setSpaceTree([]);
-  };
+  }, []);
 
   return {
     pages,
