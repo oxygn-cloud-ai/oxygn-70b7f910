@@ -159,9 +159,9 @@ Deno.serve(async (req) => {
       case 'get-space-tree': {
         const { spaceKey } = params;
         const config = await getConfluenceConfig();
-        
+
         console.log(`[confluence-manager] Fetching comprehensive space tree for: ${spaceKey}`);
-        
+
         // Fetch space info to get the homepage
         let spaceHomepageId: string | null = null;
         let spaceName = spaceKey;
@@ -176,33 +176,65 @@ Deno.serve(async (req) => {
         } catch (e) {
           console.log(`[confluence-manager] Could not fetch space info:`, e);
         }
-        
-        // Fetch all pages in the space with their ancestors
-        const pagesData = await confluenceRequest(
-          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,children.page&limit=500`,
-          config
+
+        // Confluence caps page size; fetch all pages with pagination
+        const fetchAllContent = async (baseEndpoint: string, limit = 200) => {
+          const results: any[] = [];
+          let start = 0;
+
+          while (true) {
+            const sep = baseEndpoint.includes('?') ? '&' : '?';
+            const endpoint = `${baseEndpoint}${sep}start=${start}&limit=${limit}`;
+            const data = await confluenceRequest(endpoint, config);
+
+            const pageResults = data?.results || [];
+            results.push(...pageResults);
+
+            const isLastPage = pageResults.length < limit || !data?._links?.next;
+            if (isLastPage) break;
+
+            start += limit;
+            // Hard safety cap to avoid runaway loops
+            if (start > 20000) break;
+          }
+
+          return results;
+        };
+
+        // Fetch all pages in the space with their ancestors + position (Confluence ordering)
+        const allPages = await fetchAllContent(
+          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,extensions.position`,
+          200
         );
-        
+
         // Fetch all blog posts in the space
         let blogPosts: any[] = [];
         try {
-          const blogsData = await confluenceRequest(
-            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=blogpost&status=current&limit=100`,
-            config
+          blogPosts = await fetchAllContent(
+            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=blogpost&status=current`,
+            200
           );
-          blogPosts = blogsData.results || [];
           console.log(`[confluence-manager] Fetched ${blogPosts.length} blog posts`);
         } catch (e) {
           console.log(`[confluence-manager] Could not fetch blogs:`, e);
         }
-        
-        console.log(`[confluence-manager] Fetched ${pagesData.results?.length || 0} pages from space ${spaceKey}`);
-        
-        // Build a map of all pages
-        const allPages = pagesData.results || [];
-        const pageMap = new Map();
-        
-        allPages.forEach((page: any) => {
+
+        console.log(`[confluence-manager] Fetched ${allPages.length} pages from space ${spaceKey}`);
+
+        const getPosition = (content: any): number | null => {
+          const pos = content?.extensions?.position;
+          if (typeof pos === 'number' && Number.isFinite(pos)) return pos;
+          if (typeof pos === 'string') {
+            const n = Number(pos);
+            return Number.isFinite(n) ? n : null;
+          }
+          return null;
+        };
+
+        // Build nodes
+        const pageMap = new Map<string, any>();
+        for (const page of allPages) {
+          const parentId = page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1]?.id : null;
           pageMap.set(page.id, {
             id: page.id,
             title: page.title,
@@ -210,50 +242,63 @@ Deno.serve(async (req) => {
             spaceKey: page.space?.key || spaceKey,
             spaceName: page.space?.name || spaceName,
             url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
-            hasChildren: page.children?.page?.size > 0,
+            parentId,
+            position: getPosition(page),
             children: [],
-            loaded: false,
-            parentId: page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1]?.id : null,
-            isHomepage: page.id === spaceHomepageId
+            loaded: true,
+            isHomepage: page.id === spaceHomepageId,
           });
-        });
-        
-        // Build hierarchy - attach children to parents
-        pageMap.forEach((page: any) => {
-          if (page.parentId && pageMap.has(page.parentId)) {
-            const parent = pageMap.get(page.parentId);
-            parent.children.push(page);
-            parent.hasChildren = true;
-            parent.loaded = true; // Mark as loaded since we have children
+        }
+
+        // Attach children to parents
+        for (const node of pageMap.values()) {
+          if (node.parentId && pageMap.has(node.parentId)) {
+            pageMap.get(node.parentId).children.push(node);
           }
-        });
-        
-        // Sort children at each level alphabetically
-        const sortChildren = (nodes: any[]) => {
-          nodes.sort((a, b) => a.title.localeCompare(b.title));
-          nodes.forEach(node => {
-            if (node.children?.length > 0) {
-              sortChildren(node.children);
-            }
+        }
+
+        const sortNodes = (nodes: any[]) => {
+          nodes.sort((a, b) => {
+            const ap = a.position ?? Number.MAX_SAFE_INTEGER;
+            const bp = b.position ?? Number.MAX_SAFE_INTEGER;
+            if (ap !== bp) return ap - bp;
+            return (a.title || '').localeCompare(b.title || '');
           });
+          for (const n of nodes) {
+            if (n.children?.length) sortNodes(n.children);
+          }
         };
-        
-        // Find top-level pages - those with no parent in our set
-        // These go directly in the tree
-        const topLevelPages: any[] = [];
-        pageMap.forEach((page: any) => {
-          const hasParentInSet = page.parentId && pageMap.has(page.parentId);
-          if (!hasParentInSet) {
-            topLevelPages.push(page);
+
+        // Roots: pages with no parent in our set
+        const roots: any[] = [];
+        for (const node of pageMap.values()) {
+          const hasParentInSet = node.parentId && pageMap.has(node.parentId);
+          if (!hasParentInSet) roots.push(node);
+        }
+
+        sortNodes(roots);
+
+        // Make homepage appear first (Confluence sidebar behavior)
+        if (spaceHomepageId) {
+          const idx = roots.findIndex((r) => r.id === spaceHomepageId);
+          if (idx > 0) {
+            const [home] = roots.splice(idx, 1);
+            roots.unshift(home);
           }
-        });
-        
-        sortChildren(topLevelPages);
-        
-        // Build the final tree - pages first, then blogs
-        const tree: any[] = [...topLevelPages];
-        
-        // Add a "Blog Posts" container if there are blogs
+        }
+
+        // Mark hasChildren from built tree
+        const markHasChildren = (nodes: any[]) => {
+          for (const n of nodes) {
+            n.hasChildren = (n.children?.length || 0) > 0;
+            if (n.hasChildren) markHasChildren(n.children);
+          }
+        };
+        markHasChildren(roots);
+
+        const tree: any[] = [...roots];
+
+        // Blog section (separate content type; Confluence shows it separately)
         if (blogPosts.length > 0) {
           const blogNodes = blogPosts.map((blog: any) => ({
             id: blog.id,
@@ -264,23 +309,32 @@ Deno.serve(async (req) => {
             url: blog._links?.webui ? `${config.baseUrl}${blog._links.webui}` : null,
             hasChildren: false,
             children: [],
-            loaded: true
-          })).sort((a: any, b: any) => a.title.localeCompare(b.title));
-          
+            loaded: true,
+            position: getPosition(blog),
+          }));
+
+          // Keep Confluence ordering (position) if present; otherwise fallback to title
+          blogNodes.sort((a: any, b: any) => {
+            const ap = a.position ?? Number.MAX_SAFE_INTEGER;
+            const bp = b.position ?? Number.MAX_SAFE_INTEGER;
+            if (ap !== bp) return ap - bp;
+            return (a.title || '').localeCompare(b.title || '');
+          });
+
           tree.push({
-            id: `__blogs_container_${spaceKey}`,
-            title: '📝 Blog Posts',
+            id: `__blog_container_${spaceKey}`,
+            title: 'Blog',
             type: 'container',
             isContainer: true,
             hasChildren: true,
             children: blogNodes,
             loaded: true,
-            spaceKey
+            spaceKey,
           });
         }
-        
+
         console.log(`[confluence-manager] Built tree with ${tree.length} top-level items, ${allPages.length} pages total`);
-        
+
         result = { tree, totalPages: allPages.length, totalBlogs: blogPosts.length, spaceName };
         break;
       }
@@ -288,24 +342,26 @@ Deno.serve(async (req) => {
       case 'get-page-children': {
         const { pageId, spaceKey } = params;
         const config = await getConfluenceConfig();
-        
-        // Fetch children of a specific page
+
+        // Fetch children of a specific page (Confluence returns them in the UI order)
         const data = await confluenceRequest(
-          `/content/${pageId}/child/page?limit=100`,
+          `/content/${pageId}/child/page?limit=200&expand=extensions.position`,
           config
         );
-        
+
         const children = (data.results || []).map((page: any) => ({
           id: page.id,
           title: page.title,
-          spaceKey: spaceKey,
+          type: 'page',
+          spaceKey,
           url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
-          hasChildren: true, // Assume might have children
+          // We don't know if it has children until expanded; keep lazy-loading behavior
+          hasChildren: true,
           children: [],
-          loaded: false
-        })).sort((a: any, b: any) => a.title.localeCompare(b.title));
-        
-        result = { children, hasMore: data.size >= 100 };
+          loaded: false,
+        }));
+
+        result = { children, hasMore: data.size >= 200 };
         break;
       }
 
