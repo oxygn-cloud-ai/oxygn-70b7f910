@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info, Check, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import DebugInfoPopup from './DebugInfoPopup';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export const TreeItemActions = ({ 
   item, 
@@ -117,9 +118,13 @@ export const TreeItemActions = ({
     toast.success(`Added ${count} child prompts`);
   };
 
+  const longPressTriggered = useRef(false);
+
   const startLongPress = useCallback((e) => {
     e.preventDefault();
+    longPressTriggered.current = false;
     longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
       setShowBulkAdd(true);
     }, 500);
   }, []);
@@ -133,9 +138,11 @@ export const TreeItemActions = ({
 
   const handleAddClick = useCallback((e) => {
     cancelLongPress();
-    if (!showBulkAdd && addItem) {
+    // Only add single item if long press didn't trigger
+    if (!longPressTriggered.current && !showBulkAdd && addItem) {
       addItem(item.id);
     }
+    longPressTriggered.current = false;
   }, [cancelLongPress, showBulkAdd, addItem, item.id]);
 
   const ActionButton = ({ icon, onClick, tooltip, disabled }) => (
@@ -176,33 +183,46 @@ export const TreeItemActions = ({
             className="h-5 w-5 p-0"
             onClick={handleAddClick}
             onMouseDown={startLongPress}
-            onMouseUp={cancelLongPress}
             onMouseLeave={cancelLongPress}
             onTouchStart={startLongPress}
-            onTouchEnd={cancelLongPress}
             title="Add Prompt (long-press for bulk)"
             disabled={isProcessing}
           >
             <PlusIcon className="h-3 w-3" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-48 p-2" onClick={(e) => e.stopPropagation()}>
-          <div className="flex flex-col gap-2">
-            <label className="text-xs text-muted-foreground">Number of children to add:</label>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                min="1"
-                max="20"
-                value={bulkCount}
-                onChange={(e) => setBulkCount(e.target.value)}
-                className="h-7 text-sm"
-                onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
-              />
-              <Button size="sm" className="h-7" onClick={handleBulkAdd}>
-                Add
-              </Button>
-            </div>
+        <PopoverContent className="w-auto p-1.5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min="1"
+              max="20"
+              value={bulkCount}
+              onChange={(e) => setBulkCount(e.target.value)}
+              className="h-6 w-12 text-xs text-center px-1"
+              onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
+              autoFocus
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleBulkAdd}>
+                    <Check className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowBulkAdd(false)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Cancel</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </PopoverContent>
       </Popover>
