@@ -1,7 +1,8 @@
 import React from 'react';
-import { FileIcon, ChevronRight, ChevronDown, Bot } from 'lucide-react';
+import { FileText, ChevronRight, ChevronDown, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { TreeItemActions } from './TreeItemActions';
 import {
   Tooltip,
@@ -28,7 +29,8 @@ export const TreeItemContent = ({
   deleteItem,
   duplicateItem,
   siblings,
-  onRefreshTreeData
+  onRefreshTreeData,
+  searchQuery
 }) => {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -44,46 +46,85 @@ export const TreeItemContent = ({
   };
 
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? item.prompt_name : 'New Prompt';
+  const hasChildren = item.children && item.children.length > 0;
+  const childCount = item.children?.length || 0;
+
+  // Highlight search matches
+  const highlightMatch = (text) => {
+    if (!searchQuery || !text) return text;
+    const regex = new RegExp(`(${searchQuery})`, 'gi');
+    const parts = text.split(regex);
+    return parts.map((part, i) => 
+      regex.test(part) ? (
+        <mark key={i} className="bg-primary/20 text-primary rounded px-0.5">
+          {part}
+        </mark>
+      ) : part
+    );
+  };
 
   return (
     <div
-      className={`flex items-center justify-between hover:bg-gray-100 py-0 px-2 rounded ${isActive ? 'bg-blue-100' : ''}`}
-      style={{ paddingLeft: `${level * 16}px` }}
+      className={`
+        group flex items-center justify-between 
+        py-1.5 px-2 rounded-md
+        transition-all duration-150 cursor-pointer
+        ${isActive 
+          ? 'bg-primary/10 border border-primary/30 shadow-sm' 
+          : 'hover:bg-muted/60 border border-transparent'
+        }
+      `}
+      style={{ paddingLeft: `${level * 14 + 4}px` }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => setActiveItem(item.id)}
     >
-      <div className="flex items-center space-x-1 flex-grow">
-        {item.children && item.children.length > 0 ? (
+      <div className="flex items-center gap-1.5 flex-grow min-w-0">
+        {/* Expand/Collapse Button */}
+        {hasChildren ? (
           <Button
             variant="ghost"
             size="sm"
-            className="p-0 h-4 w-4"
+            className="p-0 h-5 w-5 flex-shrink-0 hover:bg-muted"
             onClick={handleToggle}
           >
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 flex-shrink-0" />
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
             ) : (
-              <ChevronRight className="h-4 w-4 flex-shrink-0" />
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
             )}
           </Button>
         ) : (
-          <div className="w-4 h-4 flex-shrink-0" />
+          <div className="w-5 h-5 flex-shrink-0" />
         )}
+
+        {/* Type Icon */}
         {item.is_assistant ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Bot className="h-4 w-4 flex-shrink-0 text-primary" />
+                <div className={`
+                  flex items-center justify-center w-5 h-5 rounded flex-shrink-0
+                  ${item.assistantStatus === 'active' 
+                    ? 'bg-primary/15 text-primary' 
+                    : 'bg-muted text-muted-foreground'
+                  }
+                `}>
+                  <Bot className="h-3.5 w-3.5" />
+                </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Assistant {item.assistantStatus === 'active' ? '(Active)' : '(Not Instantiated)'}</p>
+              <TooltipContent side="right" className="text-xs">
+                Assistant {item.assistantStatus === 'active' ? '• Active' : '• Not Instantiated'}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : (
-          <FileIcon className="h-4 w-4 flex-shrink-0" />
+          <div className="flex items-center justify-center w-5 h-5 rounded flex-shrink-0 text-muted-foreground">
+            <FileText className="h-3.5 w-3.5" />
+          </div>
         )}
+
+        {/* Name */}
         {editingItem && editingItem.id === item.id ? (
           <Input
             value={editingItem.name}
@@ -91,18 +132,38 @@ export const TreeItemContent = ({
             onKeyDown={handleKeyDown}
             onBlur={cancelRenaming}
             onClick={(e) => e.stopPropagation()}
-            className="h-6 py-1 px-1 text-sm"
+            className="h-6 py-0.5 px-1.5 text-sm flex-1 min-w-0 focus:ring-primary"
+            autoFocus
           />
         ) : (
           <span 
-            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+            className={`
+              truncate text-sm font-medium
+              ${isActive ? 'text-primary' : 'text-foreground'}
+            `}
             onDoubleClick={() => startRenaming(item.id, item.prompt_name)}
+            title={displayName}
           >
-            {displayName}
+            {highlightMatch(displayName)}
           </span>
         )}
+
+        {/* Child count badge */}
+        {hasChildren && !isExpanded && (
+          <Badge 
+            variant="secondary" 
+            className="ml-1 h-4 px-1.5 text-[10px] font-medium bg-muted text-muted-foreground"
+          >
+            {childCount}
+          </Badge>
+        )}
       </div>
-      {isHovered && (
+
+      {/* Actions - only show on hover */}
+      <div className={`
+        flex-shrink-0 transition-opacity duration-150
+        ${isHovered ? 'opacity-100' : 'opacity-0'}
+      `}>
         <TreeItemActions
           item={item}
           addItem={addItem}
@@ -112,7 +173,7 @@ export const TreeItemContent = ({
           siblings={siblings}
           onRefreshTreeData={onRefreshTreeData}
         />
-      )}
+      </div>
     </div>
   );
 };
