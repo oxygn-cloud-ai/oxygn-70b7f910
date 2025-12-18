@@ -6,7 +6,6 @@ import { useApiCallContext } from '@/contexts/ApiCallContext';
 export const useAssistantRun = () => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
-
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
   const isMountedRef = useRef(true);
@@ -18,14 +17,8 @@ export const useAssistantRun = () => {
     };
   }, []);
 
-  const setIsRunningSafe = useCallback((next) => {
-    if (!isMountedRef.current) return;
-    setIsRunning(next);
-  }, []);
-
-  const setLastResponseSafe = useCallback((next) => {
-    if (!isMountedRef.current) return;
-    setLastResponse(next);
+  const safeSetState = useCallback((setter, value) => {
+    if (isMountedRef.current) setter(value);
   }, []);
 
   const runPrompt = useCallback(
@@ -35,7 +28,7 @@ export const useAssistantRun = () => {
       const { onSuccess } = options;
       const unregisterCall = registerCall();
 
-      setIsRunningSafe(true);
+      safeSetState(setIsRunning, true);
       try {
         const { data, error } = await supabase.functions.invoke('assistant-run', {
           body: {
@@ -43,39 +36,35 @@ export const useAssistantRun = () => {
             user_message: userMessage,
             template_variables: templateVariables,
           },
-          signal: unregisterCall?.signal,
         });
 
         if (error) throw error;
         if (data.error) throw new Error(data.error);
 
-        setLastResponseSafe(data);
+        safeSetState(setLastResponse, data);
 
-        // Call success callback (for background completion)
-        if (onSuccess) {
-          await onSuccess(data);
+        if (typeof onSuccess === 'function') {
+          try {
+            await onSuccess(data);
+          } catch (e) {
+            console.error('onSuccess callback error:', e);
+          }
         }
 
         toast.success('Run completed');
         return data;
       } catch (error) {
-        if (error?.name === 'AbortError') {
-          toast.info('Run cancelled');
-          return null;
-        }
-
         console.error('Error running assistant:', error);
         toast.error(`Run failed: ${error.message}`);
         return null;
       } finally {
-        unregisterCall?.();
-        setIsRunningSafe(false);
+        unregisterCall();
+        safeSetState(setIsRunning, false);
       }
     },
-    [registerCall, setIsRunningSafe, setLastResponseSafe, supabase]
+    [registerCall, safeSetState, supabase]
   );
 
-  // Alternative call signature used by ChildPromptPanel
   const runAssistant = useCallback(
     async ({
       assistantRowId,
@@ -90,7 +79,7 @@ export const useAssistantRun = () => {
 
       const unregisterCall = registerCall();
 
-      setIsRunningSafe(true);
+      safeSetState(setIsRunning, true);
       try {
         const { data, error } = await supabase.functions.invoke('assistant-run', {
           body: {
@@ -100,26 +89,31 @@ export const useAssistantRun = () => {
             child_thread_strategy: childThreadStrategy,
             existing_thread_row_id: existingThreadRowId,
           },
-          signal: unregisterCall?.signal,
         });
 
         if (error) throw error;
         if (data.error) throw new Error(data.error);
 
-        setLastResponseSafe(data);
+        safeSetState(setLastResponse, data);
 
-        // Call success callback (for background completion)
-        if (onSuccess) {
-          await onSuccess(data);
+        if (typeof onSuccess === 'function') {
+          try {
+            await onSuccess(data);
+          } catch (e) {
+            console.error('onSuccess callback error:', e);
+          }
         }
 
         return data;
+      } catch (error) {
+        console.error('Error running assistant:', error);
+        throw error;
       } finally {
-        unregisterCall?.();
-        setIsRunningSafe(false);
+        unregisterCall();
+        safeSetState(setIsRunning, false);
       }
     },
-    [registerCall, setIsRunningSafe, setLastResponseSafe, supabase]
+    [registerCall, safeSetState, supabase]
   );
 
   return {
@@ -129,4 +123,3 @@ export const useAssistantRun = () => {
     lastResponse,
   };
 };
-

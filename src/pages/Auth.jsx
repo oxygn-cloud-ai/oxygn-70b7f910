@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
-import { useGuardedNavigate } from '@/hooks/useGuardedNavigate';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const Auth = () => {
   const { signInWithGoogle, isAuthenticated, loading } = useAuth();
-  const navigate = useGuardedNavigate();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && isAuthenticated) {

@@ -1,13 +1,13 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import GuardedLink from '@/components/GuardedLink';
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -75,10 +75,10 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                     isActive={location.pathname === item.to}
                     tooltip={item.title}
                   >
-                    <Link to={item.to}>
+                    <GuardedLink to={item.to}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
-                    </Link>
+                    </GuardedLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -90,13 +90,12 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                   isActive={isOnHealth}
                   tooltip="Health"
                 >
-                  <Link to="/health">
+                  <GuardedLink to="/health">
                     <HeartPulse className="h-4 w-4" />
                     <span>Health</span>
-                  </Link>
+                  </GuardedLink>
                 </SidebarMenuButton>
                 
-                {/* Health sub-items - only show when on health page and not collapsed */}
                 {isOnHealth && !isCollapsed && (
                   <SidebarMenuSub>
                     {healthSubItems.map((item) => (
@@ -121,13 +120,12 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                   isActive={isOnSettings}
                   tooltip="Settings"
                 >
-                  <Link to="/settings">
+                  <GuardedLink to="/settings">
                     <Settings className="h-4 w-4" />
                     <span>Settings</span>
-                  </Link>
+                  </GuardedLink>
                 </SidebarMenuButton>
                 
-                {/* Settings sub-items - only show when on settings page and not collapsed */}
                 {isOnSettings && !isCollapsed && (
                   <SidebarMenuSub>
                     {settingsSubItems.map((item) => (
