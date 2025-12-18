@@ -88,6 +88,7 @@ export type Database = {
       cyg_assistants: {
         Row: {
           code_interpreter_enabled: boolean | null
+          confluence_enabled: boolean | null
           created_at: string
           file_search_enabled: boolean | null
           function_calling_enabled: boolean | null
@@ -111,6 +112,7 @@ export type Database = {
         }
         Insert: {
           code_interpreter_enabled?: boolean | null
+          confluence_enabled?: boolean | null
           created_at?: string
           file_search_enabled?: boolean | null
           function_calling_enabled?: boolean | null
@@ -134,6 +136,7 @@ export type Database = {
         }
         Update: {
           code_interpreter_enabled?: boolean | null
+          confluence_enabled?: boolean | null
           created_at?: string
           file_search_enabled?: boolean | null
           function_calling_enabled?: boolean | null
@@ -364,6 +367,7 @@ export type Database = {
           best_of: string | null
           best_of_on: boolean | null
           child_thread_strategy: string | null
+          confluence_enabled: boolean | null
           context_length: string | null
           context_length_on: boolean | null
           created_at: string
@@ -419,6 +423,7 @@ export type Database = {
           best_of?: string | null
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
+          confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
           created_at?: string
@@ -474,6 +479,7 @@ export type Database = {
           best_of?: string | null
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
+          confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
           created_at?: string

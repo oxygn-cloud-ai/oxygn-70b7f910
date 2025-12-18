@@ -44,6 +44,67 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
+// Build Confluence function tools for assistants
+function getConfluenceTools() {
+  return [
+    {
+      type: "function",
+      function: {
+        name: "confluence_search",
+        description: "Search Confluence documentation for relevant pages. Use this when you need to find information in the team's knowledge base.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Search query to find relevant pages"
+            },
+            space_key: {
+              type: "string",
+              description: "Optional: Limit search to a specific Confluence space"
+            }
+          },
+          required: ["query"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "confluence_read",
+        description: "Read the full content of a specific Confluence page. Use this after searching to get detailed information.",
+        parameters: {
+          type: "object",
+          properties: {
+            page_id: {
+              type: "string",
+              description: "The Confluence page ID to read"
+            }
+          },
+          required: ["page_id"]
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "confluence_list_children",
+        description: "List child pages under a specific Confluence page. Use this to explore page hierarchy.",
+        parameters: {
+          type: "object",
+          properties: {
+            page_id: {
+              type: "string",
+              description: "The parent Confluence page ID"
+            }
+          },
+          required: ["page_id"]
+        }
+      }
+    }
+  ];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -110,6 +171,7 @@ serve(async (req) => {
           status,
           openai_assistant_id,
           prompt_row_id,
+          confluence_enabled,
           cyg_prompts!cyg_assistants_prompt_row_id_fkey(
             row_id,
             prompt_name
@@ -141,6 +203,7 @@ serve(async (req) => {
           prompt_row_id: local?.prompt_row_id || null,
           prompt_name: local?.cyg_prompts?.prompt_name || null,
           is_orphaned: !local,
+          confluence_enabled: local?.confluence_enabled || false,
         };
       });
 
@@ -303,6 +366,10 @@ serve(async (req) => {
       if (toolConfig.file_search_enabled) {
         tools.push({ type: 'file_search' });
       }
+      // Add Confluence tools if enabled
+      if (assistant.confluence_enabled) {
+        tools.push(...getConfluenceTools());
+      }
 
       // Create Assistant in OpenAI
       const assistantBody: any = {
@@ -325,7 +392,7 @@ serve(async (req) => {
         };
       }
 
-      console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, tools: tools.length });
+      console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, tools: tools.length, confluenceEnabled: assistant.confluence_enabled });
 
       const createResponse = await fetch('https://api.openai.com/v1/assistants', {
         method: 'POST',
@@ -407,15 +474,6 @@ serve(async (req) => {
         })
         .eq('row_id', assistant_row_id);
 
-      // Now instantiate (reuse instantiate logic by making recursive call)
-      const instantiateReq = new Request(req.url, {
-        method: 'POST',
-        headers: req.headers,
-        body: JSON.stringify({ action: 'instantiate', assistant_row_id }),
-      });
-
-      // Inline instantiate logic to avoid recursion issues
-      // ... Actually, let's just duplicate the core instantiate code here for simplicity
       // Re-fetch after status update
       const { data: refreshedAssistant } = await supabase
         .from('cyg_assistants')
@@ -466,6 +524,10 @@ serve(async (req) => {
       const tools: any[] = [];
       if (toolConfig.code_interpreter_enabled) tools.push({ type: 'code_interpreter' });
       if (toolConfig.file_search_enabled) tools.push({ type: 'file_search' });
+      // Add Confluence tools if enabled
+      if (refreshedAssistant.confluence_enabled) {
+        tools.push(...getConfluenceTools());
+      }
 
       const assistantBody: any = {
         name: refreshedAssistant.name,
@@ -474,7 +536,7 @@ serve(async (req) => {
         tools,
       };
 
-      console.log('Re-instantiating OpenAI Assistant:', { name: refreshedAssistant.name, model: modelId });
+      console.log('Re-instantiating OpenAI Assistant:', { name: refreshedAssistant.name, model: modelId, confluenceEnabled: refreshedAssistant.confluence_enabled });
 
       const createResponse = await fetch('https://api.openai.com/v1/assistants', {
         method: 'POST',
@@ -616,6 +678,38 @@ serve(async (req) => {
       if (body.name) updateBody.name = body.name;
       if (body.instructions !== undefined) updateBody.instructions = body.instructions;
       if (body.model) updateBody.model = body.model;
+      
+      // Handle Confluence tools update
+      if (body.confluence_enabled !== undefined) {
+        // Fetch tool defaults to rebuild tools array
+        let toolConfig = {
+          code_interpreter_enabled: assistant.code_interpreter_enabled,
+          file_search_enabled: assistant.file_search_enabled,
+        };
+
+        if (assistant.use_global_tool_defaults) {
+          const { data: defaults } = await supabase
+            .from('cyg_assistant_tool_defaults')
+            .select('*')
+            .limit(1)
+            .single();
+
+          if (defaults) {
+            toolConfig = {
+              code_interpreter_enabled: defaults.code_interpreter_enabled,
+              file_search_enabled: defaults.file_search_enabled,
+            };
+          }
+        }
+
+        const tools: any[] = [];
+        if (toolConfig.code_interpreter_enabled) tools.push({ type: 'code_interpreter' });
+        if (toolConfig.file_search_enabled) tools.push({ type: 'file_search' });
+        if (body.confluence_enabled) {
+          tools.push(...getConfluenceTools());
+        }
+        updateBody.tools = tools;
+      }
 
       const updateResponse = await fetch(
         `https://api.openai.com/v1/assistants/${assistant.openai_assistant_id}`,
