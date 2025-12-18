@@ -942,71 +942,183 @@ serve(async (req) => {
     // ============ DELETE-FILE ACTION ============
     if (action === 'delete-file') {
       const { openai_file_id, assistant_row_id } = body;
-      
+
       if (!openai_file_id) {
         return new Response(
-          JSON.stringify({ error: 'openai_file_id is required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ success: false, error: 'openai_file_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
         );
       }
 
-      console.log(`Deleting file ${openai_file_id} from OpenAI`);
+      console.log('[delete-file] Start', { openai_file_id, assistant_row_id });
 
-      // Delete file from OpenAI Files API
-      const deleteResponse = await fetch(
+      // Resolve assistant context (vector store + tool config) so we can remove references too.
+      let openaiAssistantId: string | null = null;
+      let vectorStoreId: string | null = null;
+      let toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean } | null = null;
+      let remainingFileIds: string[] = [];
+
+      if (assistant_row_id) {
+        const { data: assistant, error: assistantError } = await supabase
+          .from('cyg_assistants')
+          .select('openai_assistant_id, vector_store_id, use_shared_vector_store, shared_vector_store_row_id, use_global_tool_defaults, code_interpreter_enabled, file_search_enabled')
+          .eq('row_id', assistant_row_id)
+          .single();
+
+        if (assistantError) {
+          console.error('[delete-file] Failed to load assistant:', assistantError);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to load assistant' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+
+        openaiAssistantId = assistant?.openai_assistant_id ?? null;
+        vectorStoreId = assistant?.vector_store_id ?? null;
+
+        // If assistant uses a shared vector store, resolve its OpenAI vector store id.
+        if (!vectorStoreId && assistant?.use_shared_vector_store && assistant?.shared_vector_store_row_id) {
+          const { data: sharedStore, error: sharedError } = await supabase
+            .from('cyg_vector_stores')
+            .select('openai_vector_store_id')
+            .eq('row_id', assistant.shared_vector_store_row_id)
+            .single();
+
+          if (sharedError) {
+            console.error('[delete-file] Failed to load shared vector store:', sharedError);
+          } else {
+            vectorStoreId = sharedStore?.openai_vector_store_id ?? null;
+          }
+        }
+
+        // Fetch global defaults to determine effective tool config
+        const { data: globalDefaults } = await supabase
+          .from('cyg_assistant_tool_defaults')
+          .select('*')
+          .limit(1)
+          .single();
+
+        toolConfig = {
+          code_interpreter_enabled: assistant?.use_global_tool_defaults
+            ? (globalDefaults?.code_interpreter_enabled ?? false)
+            : (assistant?.code_interpreter_enabled ?? globalDefaults?.code_interpreter_enabled ?? false),
+          file_search_enabled: assistant?.use_global_tool_defaults
+            ? (globalDefaults?.file_search_enabled ?? true)
+            : (assistant?.file_search_enabled ?? globalDefaults?.file_search_enabled ?? true),
+        };
+
+        // Compute remaining file ids for code interpreter (exclude this file)
+        const { data: remainingFiles, error: remainingError } = await supabase
+          .from('cyg_assistant_files')
+          .select('openai_file_id')
+          .eq('assistant_row_id', assistant_row_id)
+          .not('openai_file_id', 'is', null)
+          .neq('openai_file_id', openai_file_id);
+
+        if (remainingError) {
+          console.error('[delete-file] Failed to load remaining file ids:', remainingError);
+        } else {
+          remainingFileIds = (remainingFiles ?? [])
+            .map((r: any) => r.openai_file_id)
+            .filter((id: any) => typeof id === 'string' && id.length > 0);
+        }
+
+        console.log('[delete-file] Resolved context', {
+          openaiAssistantId,
+          vectorStoreId,
+          toolConfig,
+          remainingFileIdsCount: remainingFileIds.length,
+        });
+      }
+
+      // 1) Remove from vector store FIRST (so deletion from Files API doesn't break VS removal)
+      if (vectorStoreId) {
+        console.log('[delete-file] Removing from vector store', { vectorStoreId, openai_file_id });
+
+        const vsDeleteResponse = await fetch(
+          `https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${openai_file_id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'OpenAI-Beta': 'assistants=v2',
+            },
+          },
+        );
+
+        if (!vsDeleteResponse.ok && vsDeleteResponse.status !== 404) {
+          const t = await vsDeleteResponse.text();
+          console.error('[delete-file] Vector store delete failed:', vsDeleteResponse.status, t);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to remove file from vector store' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        }
+      }
+
+      // 2) Delete the file itself from OpenAI
+      console.log('[delete-file] Deleting file from OpenAI files API', { openai_file_id });
+
+      const fileDeleteResponse = await fetch(
         `https://api.openai.com/v1/files/${openai_file_id}`,
         {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${OPENAI_API_KEY}`,
           },
-        }
+        },
       );
 
-      if (!deleteResponse.ok) {
-        const error = await deleteResponse.json();
-        console.error('Failed to delete file from OpenAI:', error);
-        // Continue anyway - file might already be deleted
-      } else {
-        console.log(`File ${openai_file_id} deleted from OpenAI`);
+      if (!fileDeleteResponse.ok && fileDeleteResponse.status !== 404) {
+        const t = await fileDeleteResponse.text();
+        console.error('[delete-file] File delete failed:', fileDeleteResponse.status, t);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to delete file from OpenAI' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
 
-      // If assistant_row_id provided, update the assistant's vector store
-      if (assistant_row_id) {
-        const { data: assistant } = await supabase
-          .from('cyg_assistants')
-          .select('openai_assistant_id, vector_store_id')
-          .eq('row_id', assistant_row_id)
-          .single();
+      // 3) Remove any assistant tool references (especially code_interpreter file_ids)
+      if (openaiAssistantId && toolConfig) {
+        const toolResources: any = {};
+        if (toolConfig.file_search_enabled && vectorStoreId) {
+          toolResources.file_search = { vector_store_ids: [vectorStoreId] };
+        }
+        if (toolConfig.code_interpreter_enabled) {
+          toolResources.code_interpreter = { file_ids: remainingFileIds };
+        }
 
-        if (assistant?.vector_store_id) {
-          console.log(`Removing file from vector store ${assistant.vector_store_id}`);
-          
-          // Remove file from vector store
-          const vsDeleteResponse = await fetch(
-            `https://api.openai.com/v1/vector_stores/${assistant.vector_store_id}/files/${openai_file_id}`,
+        if (Object.keys(toolResources).length > 0) {
+          console.log('[delete-file] Updating assistant tool_resources', { openaiAssistantId });
+
+          const updateResponse = await fetch(
+            `https://api.openai.com/v1/assistants/${openaiAssistantId}`,
             {
-              method: 'DELETE',
+              method: 'POST',
               headers: {
                 'Authorization': `Bearer ${OPENAI_API_KEY}`,
                 'Content-Type': 'application/json',
                 'OpenAI-Beta': 'assistants=v2',
               },
-            }
+              body: JSON.stringify({ tool_resources: toolResources }),
+            },
           );
 
-          if (!vsDeleteResponse.ok) {
-            const vsError = await vsDeleteResponse.json();
-            console.warn('Failed to remove file from vector store:', vsError);
-          } else {
-            console.log(`File removed from vector store`);
+          if (!updateResponse.ok) {
+            const t = await updateResponse.text();
+            console.error('[delete-file] Assistant update failed:', updateResponse.status, t);
+            return new Response(
+              JSON.stringify({ success: false, error: 'Failed to update assistant tool resources' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+            );
           }
         }
       }
 
+      console.log('[delete-file] Completed', { openai_file_id });
       return new Response(
-        JSON.stringify({ success: true, message: 'File deleted from OpenAI' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
