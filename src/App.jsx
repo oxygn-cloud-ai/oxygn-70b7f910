@@ -5,10 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { navItems } from "./nav-items";
 import { AuthProvider } from "./contexts/AuthContext";
-import { ApiCallProvider } from "./contexts/ApiCallContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import NavigationGuard from "./components/NavigationGuard";
-import BackgroundCallsIndicator from "./components/BackgroundCallsIndicator";
 import Auth from "./pages/Auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
@@ -45,8 +42,6 @@ const AppLayout = () => {
         setActiveSection: setActiveHealthSection 
       }}>
         <SidebarProvider defaultOpen={true}>
-          <NavigationGuard />
-          <BackgroundCallsIndicator />
           <div className="flex min-h-screen w-full">
             <AppSidebar 
               activeSettingsSection={activeSettingsSection}
@@ -79,19 +74,17 @@ const App = () => (
       <Toaster />
       <BrowserRouter>
         <AuthProvider>
-          <ApiCallProvider>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </ApiCallProvider>
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

@@ -1,5 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
-import { useBlocker } from 'react-router-dom';
+import React, { useEffect } from 'react';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import {
   AlertDialog,
@@ -14,13 +13,16 @@ import {
 import { Loader2 } from 'lucide-react';
 
 const NavigationGuard = () => {
-  const { isApiCallInProgress, pendingCallsCount, cancelAllCalls } = useApiCallContext();
-
-  // Block navigation when API call is in progress
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      isApiCallInProgress && currentLocation.pathname !== nextLocation.pathname
-  );
+  const { 
+    isApiCallInProgress, 
+    pendingCallsCount, 
+    cancelAllCalls,
+    showNavigationDialog,
+    setShowNavigationDialog,
+    pendingNavigation,
+    confirmNavigation,
+    cancelNavigation,
+  } = useApiCallContext();
 
   // Handle browser back/forward and tab close
   useEffect(() => {
@@ -36,26 +38,26 @@ const NavigationGuard = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isApiCallInProgress]);
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = () => {
     cancelAllCalls();
-    blocker.proceed?.();
-  }, [cancelAllCalls, blocker]);
+    confirmNavigation();
+  };
 
-  const handleContinueInBackground = useCallback(() => {
+  const handleContinueInBackground = () => {
     // Allow navigation but let calls continue
-    blocker.proceed?.();
-  }, [blocker]);
+    confirmNavigation();
+  };
 
-  const handleStay = useCallback(() => {
-    blocker.reset?.();
-  }, [blocker]);
+  const handleStay = () => {
+    cancelNavigation();
+  };
 
-  if (blocker.state !== 'blocked') {
+  if (!showNavigationDialog) {
     return null;
   }
 
   return (
-    <AlertDialog open={true}>
+    <AlertDialog open={true} onOpenChange={(open) => !open && handleStay()}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
