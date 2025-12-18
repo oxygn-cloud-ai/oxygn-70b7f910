@@ -385,18 +385,15 @@ serve(async (req) => {
         tools,
       };
 
-      // Add tool resources if we have files
+      // Add tool resources - files go to vector store for file_search, not code_interpreter
       if (vectorStoreId && toolConfig.file_search_enabled) {
         assistantBody.tool_resources = {
           file_search: { vector_store_ids: [vectorStoreId] },
         };
       }
-      if (toolConfig.code_interpreter_enabled && uploadedFileIds.length > 0) {
-        assistantBody.tool_resources = {
-          ...assistantBody.tool_resources,
-          code_interpreter: { file_ids: uploadedFileIds },
-        };
-      }
+      // Note: We don't add files to code_interpreter by default.
+      // Code interpreter is for running Python code, not for file retrieval.
+      // Files for RAG/search go to the vector store via file_search.
 
       console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, tools: tools.length, confluenceEnabled: assistant.confluence_enabled });
 
@@ -896,14 +893,12 @@ serve(async (req) => {
           }
         }
 
-        // Update assistant with new tool resources
+        // Update assistant with tool resources - files go to vector store for file_search
         const toolResources: any = {};
         if (toolConfig.file_search_enabled && vectorStoreId) {
           toolResources.file_search = { vector_store_ids: [vectorStoreId] };
         }
-        if (toolConfig.code_interpreter_enabled && allFileIds.length > 0) {
-          toolResources.code_interpreter = { file_ids: allFileIds };
-        }
+        // Note: We don't add files to code_interpreter - it's for running Python, not retrieval
 
         if (Object.keys(toolResources).length > 0) {
           const updateResponse = await fetch(

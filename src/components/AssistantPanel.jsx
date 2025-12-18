@@ -59,7 +59,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setName(assistant.name || '');
       setInstructions(assistant.instructions || '');
       setUseGlobalDefaults(assistant.use_global_tool_defaults ?? true);
-      setCodeInterpreter(assistant.code_interpreter_enabled ?? toolDefaults?.code_interpreter_enabled ?? true);
+      setCodeInterpreter(assistant.code_interpreter_enabled ?? toolDefaults?.code_interpreter_enabled ?? false);
       setFileSearch(assistant.file_search_enabled ?? toolDefaults?.file_search_enabled ?? true);
       setConfluenceEnabled(assistant.confluence_enabled ?? false);
       setModelOverride(assistant.model_override || '');

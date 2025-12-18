@@ -89,7 +89,7 @@ export function AssistantDefaultsSection({
               </p>
             </div>
             <Switch
-              checked={toolDefaults?.code_interpreter_enabled ?? true}
+              checked={toolDefaults?.code_interpreter_enabled ?? false}
               onCheckedChange={(checked) => handleToggle('code_interpreter_enabled', checked)}
             />
           </div>
