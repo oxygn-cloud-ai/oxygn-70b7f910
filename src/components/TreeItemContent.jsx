@@ -66,7 +66,7 @@ export const TreeItemContent = ({
   return (
     <div
       className={`
-        group flex items-center justify-between 
+        group flex items-center
         py-1.5 px-2 rounded-md
         transition-all duration-150 cursor-pointer
         ${isActive 
@@ -79,7 +79,7 @@ export const TreeItemContent = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => setActiveItem(item.id)}
     >
-      <div className="flex items-center gap-1.5 flex-grow min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0">
         {/* Expand/Collapse Button */}
         {hasChildren ? (
           <Button
@@ -159,9 +159,9 @@ export const TreeItemContent = ({
         )}
       </div>
 
-      {/* Actions - only show on hover */}
+      {/* Actions - only show on hover, immediately after content */}
       <div className={`
-        flex-shrink-0 transition-opacity duration-150
+        flex-shrink-0 ml-2 transition-opacity duration-150
         ${isHovered ? 'opacity-100' : 'opacity-0'}
       `}>
         <TreeItemActions
