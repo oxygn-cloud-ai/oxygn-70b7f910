@@ -206,6 +206,47 @@ Deno.serve(async (req) => {
           `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,extensions.position`,
           200
         );
+        console.log(`[confluence-manager] Fetched ${allPages.length} pages from space ${spaceKey}`);
+
+        // Fetch folders (Confluence Cloud feature) - they can be parents of pages
+        let allFolders: any[] = [];
+        try {
+          allFolders = await fetchAllContent(
+            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=folder&status=current&expand=ancestors,extensions.position`,
+            200
+          );
+          console.log(`[confluence-manager] Fetched ${allFolders.length} folders from space ${spaceKey}`);
+        } catch (e) {
+          console.log(`[confluence-manager] Could not fetch folders (may not be supported):`, e);
+        }
+
+        // Fetch whiteboards - they can also be in the tree
+        let allWhiteboards: any[] = [];
+        try {
+          allWhiteboards = await fetchAllContent(
+            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=whiteboard&status=current&expand=ancestors,extensions.position`,
+            200
+          );
+          console.log(`[confluence-manager] Fetched ${allWhiteboards.length} whiteboards from space ${spaceKey}`);
+        } catch (e) {
+          console.log(`[confluence-manager] Could not fetch whiteboards (may not be supported):`, e);
+        }
+
+        // Fetch databases - they can also be in the tree
+        let allDatabases: any[] = [];
+        try {
+          allDatabases = await fetchAllContent(
+            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=database&status=current&expand=ancestors,extensions.position`,
+            200
+          );
+          console.log(`[confluence-manager] Fetched ${allDatabases.length} databases from space ${spaceKey}`);
+        } catch (e) {
+          console.log(`[confluence-manager] Could not fetch databases (may not be supported):`, e);
+        }
+
+        // Combine all content types
+        const allContent = [...allPages, ...allFolders, ...allWhiteboards, ...allDatabases];
+        console.log(`[confluence-manager] Total content items: ${allContent.length}`);
 
         // Fetch all blog posts in the space
         let blogPosts: any[] = [];
@@ -219,8 +260,6 @@ Deno.serve(async (req) => {
           console.log(`[confluence-manager] Could not fetch blogs:`, e);
         }
 
-        console.log(`[confluence-manager] Fetched ${allPages.length} pages from space ${spaceKey}`);
-
         const getPosition = (content: any): number | null => {
           const pos = content?.extensions?.position;
           if (typeof pos === 'number' && Number.isFinite(pos)) return pos;
@@ -231,35 +270,41 @@ Deno.serve(async (req) => {
           return null;
         };
 
-        // Build nodes - first pass: create all nodes
+        // Build nodes - first pass: create all nodes from ALL content types
         const pageMap = new Map<string, any>();
         let nullParentCount = 0;
         let missingParentCount = 0;
         
-        for (const page of allPages) {
+        for (const content of allContent) {
           // Get immediate parent from ancestors array (last element is immediate parent)
-          const ancestors = page.ancestors || [];
+          const ancestors = content.ancestors || [];
           const immediateParent = ancestors.length > 0 ? ancestors[ancestors.length - 1] : null;
           const parentId = immediateParent?.id ? String(immediateParent.id) : null;
           
-          pageMap.set(String(page.id), {
-            id: String(page.id),
-            title: page.title,
-            type: 'page',
-            spaceKey: page.space?.key || spaceKey,
-            spaceName: page.space?.name || spaceName,
-            url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
+          // Determine content type for icon display
+          const contentType = content.type || 'page';
+          
+          pageMap.set(String(content.id), {
+            id: String(content.id),
+            title: content.title,
+            type: contentType,
+            spaceKey: content.space?.key || spaceKey,
+            spaceName: content.space?.name || spaceName,
+            url: content._links?.webui ? `${config.baseUrl}${content._links.webui}` : null,
             parentId,
-            position: getPosition(page),
+            position: getPosition(content),
             children: [],
             loaded: true,
-            isHomepage: String(page.id) === String(spaceHomepageId),
+            isHomepage: String(content.id) === String(spaceHomepageId),
+            isFolder: contentType === 'folder',
+            isWhiteboard: contentType === 'whiteboard',
+            isDatabase: contentType === 'database',
           });
           
           if (!parentId) nullParentCount++;
         }
         
-        console.log(`[confluence-manager] Pages with null parentId: ${nullParentCount}`);
+        console.log(`[confluence-manager] Content items with null parentId: ${nullParentCount}`);
 
         // Attach children to parents
         for (const node of pageMap.values()) {
@@ -273,7 +318,7 @@ Deno.serve(async (req) => {
           }
         }
         
-        console.log(`[confluence-manager] Pages with missing parent in set: ${missingParentCount}`);
+        console.log(`[confluence-manager] Content items with missing parent in set: ${missingParentCount}`);
 
         const sortNodes = (nodes: any[]) => {
           nodes.sort((a, b) => {
