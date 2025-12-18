@@ -4,8 +4,8 @@ import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 const Index = () => {
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      {/* Logo - positioned higher */}
-      <div className="pt-16 pb-8 flex justify-center">
+      {/* Logo - positioned at ~1/3 from top */}
+      <div className="pt-[20vh] pb-8 flex justify-center">
         <img 
           src={chocolateFullLogo}
           alt="Chocolate Finance" 
