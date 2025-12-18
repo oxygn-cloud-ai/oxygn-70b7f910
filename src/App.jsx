@@ -9,12 +9,15 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
+import { ApiCallProvider } from "@/contexts/ApiCallContext";
+import NavigationGuard from "@/components/NavigationGuard";
+import BackgroundCallsIndicator from "@/components/BackgroundCallsIndicator";
 
 const queryClient = new QueryClient();
 
 // Context for settings section state
 export const SettingsSectionContext = createContext({
-  activeSection: 'qonsol',
+  activeSection: "qonsol",
   setActiveSection: () => {},
 });
 
@@ -22,28 +25,32 @@ export const useSettingsSection = () => useContext(SettingsSectionContext);
 
 // Context for health section state
 export const HealthSectionContext = createContext({
-  activeSection: 'database',
+  activeSection: "database",
   setActiveSection: () => {},
 });
 
 export const useHealthSection = () => useContext(HealthSectionContext);
 
 const AppLayout = () => {
-  const [activeSettingsSection, setActiveSettingsSection] = useState('qonsol');
-  const [activeHealthSection, setActiveHealthSection] = useState('database');
+  const [activeSettingsSection, setActiveSettingsSection] = useState("qonsol");
+  const [activeHealthSection, setActiveHealthSection] = useState("database");
 
   return (
-    <SettingsSectionContext.Provider value={{ 
-      activeSection: activeSettingsSection, 
-      setActiveSection: setActiveSettingsSection 
-    }}>
-      <HealthSectionContext.Provider value={{ 
-        activeSection: activeHealthSection, 
-        setActiveSection: setActiveHealthSection 
-      }}>
+    <SettingsSectionContext.Provider
+      value={{
+        activeSection: activeSettingsSection,
+        setActiveSection: setActiveSettingsSection,
+      }}
+    >
+      <HealthSectionContext.Provider
+        value={{
+          activeSection: activeHealthSection,
+          setActiveSection: setActiveHealthSection,
+        }}
+      >
         <SidebarProvider defaultOpen={true}>
           <div className="flex min-h-screen w-full">
-            <AppSidebar 
+            <AppSidebar
               activeSettingsSection={activeSettingsSection}
               onSettingsSectionChange={setActiveSettingsSection}
               activeHealthSection={activeHealthSection}
@@ -73,22 +80,27 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </AuthProvider>
+        <ApiCallProvider>
+          <AuthProvider>
+            <NavigationGuard />
+            <BackgroundCallsIndicator />
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </AuthProvider>
+        </ApiCallProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
 
 export default App;
+

@@ -9,9 +9,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import StudioChat from './StudioChat';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 
 const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) => {
   const supabase = useSupabase();
+  const { registerCall } = useApiCallContext();
   const [assistant, setAssistant] = useState(null);
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
@@ -206,6 +208,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
           thread_row_id: activeThread?.row_id || null,
           include_child_context: true,
         },
+        signal: unregisterCall?.signal,
       });
 
       if (error) throw error;
