@@ -44,6 +44,7 @@ const ChildPromptPanel = ({
     createThread,
     deleteThread,
     fetchMessages,
+    refetch: refetchThreads,
   } = useThreads(parentAssistantRowId, projectRowId);
 
   const { runAssistant } = useAssistantRun();
@@ -108,6 +109,8 @@ const ChildPromptPanel = ({
       if (result?.response) {
         handleChange('user_prompt_result', result.response);
         toast.success('Assistant response received');
+        // Refetch threads to pick up any newly created threads
+        refetchThreads();
       }
     } catch (error) {
       console.error('Error running assistant:', error);
@@ -115,7 +118,7 @@ const ChildPromptPanel = ({
     } finally {
       setIsRunning(false);
     }
-  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase]);
+  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase, refetchThreads]);
 
   const fields = useMemo(() => [
     { name: 'input_user_prompt', label: 'User Message' },
