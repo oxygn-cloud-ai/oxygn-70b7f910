@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from 'sonner';
 
-export const useAssistantFiles = (assistantRowId) => {
+export const useAssistantFiles = (assistantRowId, assistantStatus) => {
   const supabase = useSupabase();
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     if (!supabase || !assistantRowId) return;
@@ -30,6 +31,33 @@ export const useAssistantFiles = (assistantRowId) => {
   useEffect(() => {
     fetchFiles();
   }, [fetchFiles]);
+
+  // Sync files to OpenAI
+  const syncFiles = useCallback(async () => {
+    if (!supabase || !assistantRowId) return false;
+
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('assistant-manager', {
+        body: { action: 'sync', assistant_row_id: assistantRowId },
+      });
+
+      if (error) throw error;
+
+      if (data.uploaded_count > 0) {
+        toast.success(`Synced ${data.uploaded_count} file(s) to assistant`);
+      }
+      
+      await fetchFiles();
+      return true;
+    } catch (error) {
+      console.error('Error syncing files:', error);
+      toast.error('Failed to sync files');
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [supabase, assistantRowId, fetchFiles]);
 
   const uploadFile = useCallback(async (file) => {
     if (!supabase || !assistantRowId) return null;
@@ -66,6 +94,13 @@ export const useAssistantFiles = (assistantRowId) => {
 
       setFiles(prev => [data, ...prev]);
       toast.success(`${file.name} uploaded`);
+
+      // Auto-sync if assistant is active
+      if (assistantStatus === 'active') {
+        toast.info('Syncing file to assistant...');
+        await syncFiles();
+      }
+
       return data;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -74,7 +109,7 @@ export const useAssistantFiles = (assistantRowId) => {
     } finally {
       setIsUploading(false);
     }
-  }, [supabase, assistantRowId]);
+  }, [supabase, assistantRowId, assistantStatus, syncFiles]);
 
   const deleteFile = useCallback(async (fileRowId) => {
     if (!supabase) return false;
@@ -113,8 +148,10 @@ export const useAssistantFiles = (assistantRowId) => {
     files,
     isLoading,
     isUploading,
+    isSyncing,
     uploadFile,
     deleteFile,
+    syncFiles,
     refetch: fetchFiles,
   };
 };
