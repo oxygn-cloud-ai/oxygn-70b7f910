@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info, Check, X, Loader2 } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUpFromLine, ArrowDownFromLine, Info, Check, X, Loader2, Square } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -25,6 +25,7 @@ export const TreeItemActions = ({
   const [bulkCount, setBulkCount] = useState('2');
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, isAdding: false });
   const longPressTimer = useRef(null);
+  const cancelBulkAdd = useRef(false);
   const supabase = useSupabase();
 
   const handleMove = async (direction) => {
@@ -114,16 +115,30 @@ export const TreeItemActions = ({
       return;
     }
     setShowBulkAdd(false);
+    cancelBulkAdd.current = false;
     setBulkProgress({ current: 0, total: count, isAdding: true });
     
+    let added = 0;
     for (let i = 0; i < count; i++) {
+      if (cancelBulkAdd.current) {
+        toast.info(`Cancelled after adding ${added} prompts`);
+        break;
+      }
       await addItem(item.id);
-      setBulkProgress(prev => ({ ...prev, current: i + 1 }));
+      added++;
+      setBulkProgress(prev => ({ ...prev, current: added }));
     }
     
     setBulkProgress({ current: 0, total: 0, isAdding: false });
-    toast.success(`Added ${count} child prompts`);
+    if (!cancelBulkAdd.current) {
+      toast.success(`Added ${count} child prompts`);
+    }
+    cancelBulkAdd.current = false;
   };
+
+  const handleCancelBulkAdd = useCallback(() => {
+    cancelBulkAdd.current = true;
+  }, []);
 
   const longPressTriggered = useRef(false);
 
@@ -183,18 +198,21 @@ export const TreeItemActions = ({
   return (
     <div className="flex items-center space-x-1">
       {bulkProgress.isAdding ? (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-1 px-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="text-[10px] text-muted-foreground">{bulkProgress.current}/{bulkProgress.total}</span>
-                <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-12 h-1.5" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>Adding {bulkProgress.current} of {bulkProgress.total} prompts...</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex items-center gap-1 px-1">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span className="text-[10px] text-muted-foreground">{bulkProgress.current}/{bulkProgress.total}</span>
+          <Progress value={(bulkProgress.current / bulkProgress.total) * 100} className="w-12 h-1.5" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleCancelBulkAdd}>
+                  <Square className="h-3 w-3 fill-current" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Cancel</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       ) : (
         <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
           <PopoverTrigger asChild>
