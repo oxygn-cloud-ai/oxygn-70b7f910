@@ -16,7 +16,7 @@ const Index = () => {
 
         {/* Title */}
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-foreground tracking-tight">
+          <h1 className="text-4xl font-bold text-chocolate-espresso tracking-tight">
             Qonsol Policy Builder
             <span className="text-primary ml-2">7</span>
           </h1>
