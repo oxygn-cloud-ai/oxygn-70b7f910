@@ -2,26 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useAssistant } from '../hooks/useAssistant';
 import { useAssistantFiles } from '../hooks/useAssistantFiles';
 import { useAssistantToolDefaults } from '../hooks/useAssistantToolDefaults';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2 } from 'lucide-react';
 
 const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, sync, reInstantiate } = useAssistant(promptRowId);
   const { files, isUploading, uploadFile, deleteFile } = useAssistantFiles(assistant?.row_id);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
+  const { models } = useOpenAIModels();
 
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
   const [useGlobalDefaults, setUseGlobalDefaults] = useState(true);
   const [codeInterpreter, setCodeInterpreter] = useState(true);
   const [fileSearch, setFileSearch] = useState(true);
+  const [modelOverride, setModelOverride] = useState('');
+  const [temperature, setTemperature] = useState('');
+  const [maxTokens, setMaxTokens] = useState('');
+  const [topP, setTopP] = useState('');
 
   useEffect(() => {
     if (assistant) {
@@ -30,6 +38,10 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setUseGlobalDefaults(assistant.use_global_tool_defaults ?? true);
       setCodeInterpreter(assistant.code_interpreter_enabled ?? toolDefaults?.code_interpreter_enabled ?? true);
       setFileSearch(assistant.file_search_enabled ?? toolDefaults?.file_search_enabled ?? true);
+      setModelOverride(assistant.model_override || '');
+      setTemperature(assistant.temperature_override || '');
+      setMaxTokens(assistant.max_tokens_override || '');
+      setTopP(assistant.top_p_override || '');
     }
   }, [assistant, toolDefaults]);
 
@@ -191,6 +203,57 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Model Settings */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Model Settings</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label>Model Override</Label>
+            <Select value={modelOverride || 'inherit'} onValueChange={(v) => { const val = v === 'inherit' ? '' : v; setModelOverride(val); handleSave('model_override', val || null); }}>
+              <SelectTrigger><SelectValue placeholder="Inherit from prompt" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Inherit from prompt</SelectItem>
+                {models?.map(m => <SelectItem key={m.model_id} value={m.model_id}>{m.model_name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Temperature</Label>
+              <span className="text-xs text-muted-foreground">{temperature || 'Default'}</span>
+            </div>
+            <Slider 
+              value={[parseFloat(temperature) || 1]} 
+              min={0} max={2} step={0.1} 
+              onValueChange={([v]) => setTemperature(v.toString())}
+              onValueCommit={([v]) => handleSave('temperature_override', v.toString())}
+            />
+          </div>
+          <div>
+            <Label>Max Tokens</Label>
+            <Input 
+              type="number" 
+              value={maxTokens} 
+              onChange={(e) => setMaxTokens(e.target.value)} 
+              onBlur={() => handleSave('max_tokens_override', maxTokens || null)} 
+              placeholder="Default"
+            />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Top P</Label>
+              <span className="text-xs text-muted-foreground">{topP || 'Default'}</span>
+            </div>
+            <Slider 
+              value={[parseFloat(topP) || 1]} 
+              min={0} max={1} step={0.05} 
+              onValueChange={([v]) => setTopP(v.toString())}
+              onValueCommit={([v]) => handleSave('top_p_override', v.toString())}
+            />
+          </div>
         </CardContent>
       </Card>
 
