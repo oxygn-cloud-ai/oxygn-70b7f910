@@ -107,8 +107,8 @@ export const TreeItemActions = ({
 
   const handleBulkAdd = async () => {
     const count = parseInt(bulkCount, 10);
-    if (isNaN(count) || count < 1 || count > 20) {
-      toast.error('Please enter a number between 1 and 20');
+    if (isNaN(count) || count < 1 || count > 999) {
+      toast.error('Please enter a number between 1 and 999');
       return;
     }
     setShowBulkAdd(false);
@@ -196,10 +196,10 @@ export const TreeItemActions = ({
             <Input
               type="number"
               min="1"
-              max="20"
+              max="999"
               value={bulkCount}
               onChange={(e) => setBulkCount(e.target.value)}
-              className="h-6 w-12 text-xs text-center px-1"
+              className="h-6 w-14 text-xs text-center px-1"
               onKeyDown={(e) => e.key === 'Enter' && handleBulkAdd()}
               autoFocus
             />
