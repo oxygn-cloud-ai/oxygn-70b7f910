@@ -931,8 +931,79 @@ serve(async (req) => {
       );
     }
 
+    // ============ DELETE-FILE ACTION ============
+    if (action === 'delete-file') {
+      const { openai_file_id, assistant_row_id } = body;
+      
+      if (!openai_file_id) {
+        return new Response(
+          JSON.stringify({ error: 'openai_file_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Deleting file ${openai_file_id} from OpenAI`);
+
+      // Delete file from OpenAI Files API
+      const deleteResponse = await fetch(
+        `https://api.openai.com/v1/files/${openai_file_id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          },
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        const error = await deleteResponse.json();
+        console.error('Failed to delete file from OpenAI:', error);
+        // Continue anyway - file might already be deleted
+      } else {
+        console.log(`File ${openai_file_id} deleted from OpenAI`);
+      }
+
+      // If assistant_row_id provided, update the assistant's vector store
+      if (assistant_row_id) {
+        const { data: assistant } = await supabase
+          .from('cyg_assistants')
+          .select('openai_assistant_id, vector_store_id')
+          .eq('row_id', assistant_row_id)
+          .single();
+
+        if (assistant?.vector_store_id) {
+          console.log(`Removing file from vector store ${assistant.vector_store_id}`);
+          
+          // Remove file from vector store
+          const vsDeleteResponse = await fetch(
+            `https://api.openai.com/v1/vector_stores/${assistant.vector_store_id}/files/${openai_file_id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+                'OpenAI-Beta': 'assistants=v2',
+              },
+            }
+          );
+
+          if (!vsDeleteResponse.ok) {
+            const vsError = await vsDeleteResponse.json();
+            console.warn('Failed to remove file from vector store:', vsError);
+          } else {
+            console.log(`File removed from vector store`);
+          }
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, message: 'File deleted from OpenAI' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use: list, instantiate, re-instantiate, destroy, destroy_by_openai_id, update, or sync' }),
+      JSON.stringify({ error: 'Invalid action. Use: list, instantiate, re-instantiate, destroy, destroy_by_openai_id, update, sync, or delete-file' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
