@@ -10,7 +10,7 @@ const Index = () => {
           <img 
             src={chocolateFullLogo}
             alt="Chocolate Finance" 
-            className="h-20 object-contain"
+            className="h-20 object-contain drop-shadow-md"
           />
         </div>
 
