@@ -213,7 +213,8 @@ Deno.serve(async (req) => {
             hasChildren: page.children?.page?.size > 0,
             children: [],
             loaded: false,
-            parentId: page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1]?.id : null
+            parentId: page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1]?.id : null,
+            isHomepage: page.id === spaceHomepageId
           });
         });
         
@@ -223,10 +224,11 @@ Deno.serve(async (req) => {
             const parent = pageMap.get(page.parentId);
             parent.children.push(page);
             parent.hasChildren = true;
+            parent.loaded = true; // Mark as loaded since we have children
           }
         });
         
-        // Sort children at each level
+        // Sort children at each level alphabetically
         const sortChildren = (nodes: any[]) => {
           nodes.sort((a, b) => a.title.localeCompare(b.title));
           nodes.forEach(node => {
@@ -236,46 +238,20 @@ Deno.serve(async (req) => {
           });
         };
         
-        // Find root pages - those with no parent or parent not in our set
-        // Exclude the homepage itself if we found it
-        const rootPages: any[] = [];
+        // Find top-level pages - those with no parent in our set
+        // These go directly in the tree
+        const topLevelPages: any[] = [];
         pageMap.forEach((page: any) => {
-          const isHomepage = page.id === spaceHomepageId;
           const hasParentInSet = page.parentId && pageMap.has(page.parentId);
-          
-          if (!hasParentInSet && !isHomepage) {
-            rootPages.push(page);
+          if (!hasParentInSet) {
+            topLevelPages.push(page);
           }
         });
         
-        sortChildren(rootPages);
+        sortChildren(topLevelPages);
         
-        // Build the final tree structure
-        const tree: any[] = [];
-        
-        // Add homepage first if it exists
-        if (spaceHomepageId && pageMap.has(spaceHomepageId)) {
-          const homepage = pageMap.get(spaceHomepageId);
-          tree.push({
-            ...homepage,
-            title: `📄 ${homepage.title} (Homepage)`,
-            isHomepage: true
-          });
-        }
-        
-        // Add a "Pages" container with root pages
-        if (rootPages.length > 0) {
-          tree.push({
-            id: `__pages_container_${spaceKey}`,
-            title: '📁 Pages',
-            type: 'container',
-            isContainer: true,
-            hasChildren: true,
-            children: rootPages,
-            loaded: true,
-            spaceKey
-          });
-        }
+        // Build the final tree - pages first, then blogs
+        const tree: any[] = [...topLevelPages];
         
         // Add a "Blog Posts" container if there are blogs
         if (blogPosts.length > 0) {
@@ -303,7 +279,7 @@ Deno.serve(async (req) => {
           });
         }
         
-        console.log(`[confluence-manager] Built tree with ${tree.length} top-level items, ${allPages.length} pages, ${blogPosts.length} blogs`);
+        console.log(`[confluence-manager] Built tree with ${tree.length} top-level items, ${allPages.length} pages total`);
         
         result = { tree, totalPages: allPages.length, totalBlogs: blogPosts.length, spaceName };
         break;
