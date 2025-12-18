@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 
 const MAX_TOKENS = 16000;
 const ESTIMATED_TOKENS_PER_CHAR = 0.4;
@@ -16,6 +17,8 @@ const truncateText = (text, maxTokens) => {
 
 export const useOpenAICall = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const { registerCall, addBackgroundCall, removeBackgroundCall } = useApiCallContext();
+  const pendingCallRef = useRef(null);
 
   const handleApiError = (error) => {
     const errorMessage = error?.message || 'An unknown error occurred';
@@ -55,8 +58,13 @@ export const useOpenAICall = () => {
     return { error: 'API_ERROR' };
   };
 
-  const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings) => {
+  const callOpenAI = useCallback(async (systemMessage, userMessage, projectSettings, options = {}) => {
+    const { onSuccess, rowId, fieldName } = options;
+    
     setIsLoading(true);
+    
+    // Register this call with the context
+    const unregisterCall = registerCall();
 
     try {
       if (!userMessage || userMessage.trim() === '') {
@@ -144,7 +152,6 @@ export const useOpenAICall = () => {
 
       if (error) {
         const e = new Error(error.message || 'OpenAI proxy error');
-        // Supabase errors sometimes include status on context
         e.status = error.status || error.context?.status || 500;
         e.body = error.context?.body;
         throw e;
@@ -155,14 +162,63 @@ export const useOpenAICall = () => {
         throw new Error('Empty response from OpenAI');
       }
 
+      // Call success callback if provided (for background completion)
+      if (onSuccess) {
+        await onSuccess(content);
+      }
+
       return content;
     } catch (error) {
       handleApiError(error);
       return null;
     } finally {
+      unregisterCall();
       setIsLoading(false);
     }
-  }, []);
+  }, [registerCall]);
 
-  return { callOpenAI, isLoading };
+  // Version that supports background completion with database update
+  const callOpenAIWithSave = useCallback(async (systemMessage, userMessage, projectSettings, saveConfig) => {
+    const { supabaseClient, tableName, rowId, fieldName, onLocalUpdate } = saveConfig;
+    
+    const backgroundCallId = addBackgroundCall({
+      type: 'openai',
+      rowId,
+      fieldName,
+      startedAt: new Date(),
+    });
+
+    try {
+      const content = await callOpenAI(systemMessage, userMessage, projectSettings, {
+        onSuccess: async (result) => {
+          // Save to database
+          if (supabaseClient && tableName && rowId && fieldName) {
+            const { error } = await supabaseClient
+              .from(tableName)
+              .update({ [fieldName]: result })
+              .eq('row_id', rowId);
+            
+            if (error) {
+              console.error('Failed to save API result:', error);
+              toast.error('Failed to save API response');
+            } else {
+              toast.success('API response saved successfully');
+              // Update local state if callback provided
+              if (onLocalUpdate) {
+                onLocalUpdate(result);
+              }
+            }
+          }
+        },
+        rowId,
+        fieldName,
+      });
+
+      return content;
+    } finally {
+      removeBackgroundCall(backgroundCallId);
+    }
+  }, [callOpenAI, addBackgroundCall, removeBackgroundCall]);
+
+  return { callOpenAI, callOpenAIWithSave, isLoading };
 };

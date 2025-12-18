@@ -59,16 +59,37 @@ const ProjectPanels = ({
       const result = await callOpenAI(
         localData.input_admin_prompt,
         localData.input_user_prompt,
-        localData
+        localData,
+        {
+          // This callback runs even if user navigates away
+          onSuccess: async (content) => {
+            if (supabase && projectRowId) {
+              const { error } = await supabase
+                .from(import.meta.env.VITE_PROMPTS_TBL)
+                .update({ user_prompt_result: content })
+                .eq('row_id', projectRowId);
+              
+              if (error) {
+                console.error('Failed to save result:', error);
+              }
+            }
+          },
+          rowId: projectRowId,
+          fieldName: 'user_prompt_result',
+        }
       );
-      handleChange('user_prompt_result', result);
+      
+      // Update local state if still on page
+      if (result) {
+        handleChange('user_prompt_result', result);
+      }
     } catch (error) {
       console.error('Error calling OpenAI:', error);
       toast.error(`Error generating response: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }
-  }, [settings, localData, callOpenAI, handleChange]);
+  }, [settings, localData, callOpenAI, handleChange, supabase, projectRowId]);
 
   const handleSettingsToggle = useCallback(async (open) => {
     setIsSettingsOpen(open);

@@ -94,16 +94,19 @@ const ChildPromptPanel = ({
         threadMode: threadMode,
         childThreadStrategy: childThreadStrategy,
         existingThreadRowId: threadMode === 'reuse' && childThreadStrategy === 'isolated' ? activeThread?.row_id : null,
+        // This callback runs even if user navigates away
+        onSuccess: async (data) => {
+          if (data.response && supabase && projectRowId) {
+            await supabase
+              .from('cyg_prompts')
+              .update({ user_prompt_result: data.response })
+              .eq('row_id', projectRowId);
+          }
+        },
       });
 
-      if (result.response) {
+      if (result?.response) {
         handleChange('user_prompt_result', result.response);
-        if (supabase && projectRowId) {
-          await supabase
-            .from('cyg_prompts')
-            .update({ user_prompt_result: result.response })
-            .eq('row_id', projectRowId);
-        }
         toast.success('Assistant response received');
       }
     } catch (error) {

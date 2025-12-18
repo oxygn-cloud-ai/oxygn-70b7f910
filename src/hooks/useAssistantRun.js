@@ -1,15 +1,20 @@
 import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { toast } from 'sonner';
 
 export const useAssistantRun = () => {
   const supabase = useSupabase();
+  const { registerCall } = useApiCallContext();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
 
-  const runPrompt = useCallback(async (childPromptRowId, userMessage, templateVariables = {}) => {
+  const runPrompt = useCallback(async (childPromptRowId, userMessage, templateVariables = {}, options = {}) => {
     if (!supabase || !childPromptRowId) return null;
 
+    const { onSuccess } = options;
+    const unregisterCall = registerCall();
+    
     setIsRunning(true);
     try {
       const { data, error } = await supabase.functions.invoke('assistant-run', {
@@ -24,6 +29,12 @@ export const useAssistantRun = () => {
       if (data.error) throw new Error(data.error);
 
       setLastResponse(data);
+      
+      // Call success callback (for background completion)
+      if (onSuccess) {
+        await onSuccess(data);
+      }
+      
       toast.success('Run completed');
       return data;
     } catch (error) {
@@ -31,9 +42,10 @@ export const useAssistantRun = () => {
       toast.error(`Run failed: ${error.message}`);
       return null;
     } finally {
+      unregisterCall();
       setIsRunning(false);
     }
-  }, [supabase]);
+  }, [supabase, registerCall]);
 
   // Alternative call signature used by ChildPromptPanel
   const runAssistant = useCallback(async ({ 
@@ -42,10 +54,13 @@ export const useAssistantRun = () => {
     userMessage, 
     threadMode, 
     childThreadStrategy,
-    existingThreadRowId 
+    existingThreadRowId,
+    onSuccess,
   }) => {
     if (!supabase || !childPromptRowId) return { response: null };
 
+    const unregisterCall = registerCall();
+    
     setIsRunning(true);
     try {
       const { data, error } = await supabase.functions.invoke('assistant-run', {
@@ -62,14 +77,21 @@ export const useAssistantRun = () => {
       if (data.error) throw new Error(data.error);
 
       setLastResponse(data);
+      
+      // Call success callback (for background completion)
+      if (onSuccess) {
+        await onSuccess(data);
+      }
+      
       return data;
     } catch (error) {
       console.error('Error running assistant:', error);
       throw error;
     } finally {
+      unregisterCall();
       setIsRunning(false);
     }
-  }, [supabase]);
+  }, [supabase, registerCall]);
 
   return {
     runPrompt,
