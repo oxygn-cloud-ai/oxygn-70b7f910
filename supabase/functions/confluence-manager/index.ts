@@ -160,29 +160,50 @@ Deno.serve(async (req) => {
         const { spaceKey } = params;
         const config = await getConfluenceConfig();
         
-        // Fetch only root pages (pages with 0 or 1 ancestor - the space home)
-        // This is much faster than fetching all pages
+        console.log(`[confluence-manager] Fetching space tree for: ${spaceKey}`);
+        
+        // Fetch all pages in the space with their ancestors
         const data = await confluenceRequest(
-          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors&limit=100`,
+          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,children.page&limit=200`,
           config
         );
         
-        // Filter to only root-level pages (no ancestors or just the space home page)
-        const rootPages = (data.results || [])
-          .filter((page: any) => !page.ancestors || page.ancestors.length <= 1)
-          .map((page: any) => ({
+        console.log(`[confluence-manager] Fetched ${data.results?.length || 0} pages from space ${spaceKey}`);
+        
+        // Build a map of all pages
+        const allPages = data.results || [];
+        const pageMap = new Map();
+        
+        allPages.forEach((page: any) => {
+          pageMap.set(page.id, {
             id: page.id,
             title: page.title,
-            spaceKey: page.space?.key,
+            spaceKey: page.space?.key || spaceKey,
             spaceName: page.space?.name,
             url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
-            hasChildren: true, // Assume all pages might have children, we'll check on expand
+            hasChildren: page.children?.page?.size > 0,
             children: [],
-            loaded: false
-          }))
-          .sort((a: any, b: any) => a.title.localeCompare(b.title));
+            loaded: false,
+            parentId: page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1]?.id : null
+          });
+        });
         
-        result = { tree: rootPages, totalPages: rootPages.length };
+        // Find root pages (pages with no parent in our fetched set, or whose parent is the space homepage)
+        const rootPages: any[] = [];
+        pageMap.forEach((page: any) => {
+          // A page is a root if it has no parent, or if its parent is not in our page map
+          // (meaning it's directly under the space or under the homepage which we didn't fetch)
+          if (!page.parentId || !pageMap.has(page.parentId)) {
+            rootPages.push(page);
+          }
+        });
+        
+        // Sort alphabetically
+        rootPages.sort((a: any, b: any) => a.title.localeCompare(b.title));
+        
+        console.log(`[confluence-manager] Found ${rootPages.length} root pages`);
+        
+        result = { tree: rootPages, totalPages: allPages.length };
         break;
       }
 
