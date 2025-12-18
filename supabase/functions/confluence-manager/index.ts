@@ -160,47 +160,53 @@ Deno.serve(async (req) => {
         const { spaceKey } = params;
         const config = await getConfluenceConfig();
         
-        // Fetch all pages in the space with ancestors to build hierarchy
+        // Fetch only root pages (pages with 0 or 1 ancestor - the space home)
+        // This is much faster than fetching all pages
         const data = await confluenceRequest(
-          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors&limit=500`,
+          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors&limit=100`,
           config
         );
         
-        // Build a map of all pages
-        const pagesMap = new Map<string, any>();
-        const pages = data.results || [];
-        
-        pages.forEach((page: any) => {
-          pagesMap.set(page.id, {
+        // Filter to only root-level pages (no ancestors or just the space home page)
+        const rootPages = (data.results || [])
+          .filter((page: any) => !page.ancestors || page.ancestors.length <= 1)
+          .map((page: any) => ({
             id: page.id,
             title: page.title,
             spaceKey: page.space?.key,
             spaceName: page.space?.name,
             url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
-            parentId: page.ancestors?.length > 0 ? page.ancestors[page.ancestors.length - 1].id : null,
-            children: []
-          });
-        });
+            hasChildren: true, // Assume all pages might have children, we'll check on expand
+            children: [],
+            loaded: false
+          }))
+          .sort((a: any, b: any) => a.title.localeCompare(b.title));
         
-        // Build tree structure
-        const rootPages: any[] = [];
+        result = { tree: rootPages, totalPages: rootPages.length };
+        break;
+      }
+
+      case 'get-page-children': {
+        const { pageId, spaceKey } = params;
+        const config = await getConfluenceConfig();
         
-        pagesMap.forEach((page) => {
-          if (page.parentId && pagesMap.has(page.parentId)) {
-            pagesMap.get(page.parentId).children.push(page);
-          } else {
-            rootPages.push(page);
-          }
-        });
+        // Fetch children of a specific page
+        const data = await confluenceRequest(
+          `/content/${pageId}/child/page?limit=100`,
+          config
+        );
         
-        // Sort children alphabetically
-        const sortChildren = (pages: any[]) => {
-          pages.sort((a, b) => a.title.localeCompare(b.title));
-          pages.forEach(page => sortChildren(page.children));
-        };
-        sortChildren(rootPages);
+        const children = (data.results || []).map((page: any) => ({
+          id: page.id,
+          title: page.title,
+          spaceKey: spaceKey,
+          url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
+          hasChildren: true, // Assume might have children
+          children: [],
+          loaded: false
+        })).sort((a: any, b: any) => a.title.localeCompare(b.title));
         
-        result = { tree: rootPages, totalPages: pages.length };
+        result = { children, hasMore: data.size >= 100 };
         break;
       }
 

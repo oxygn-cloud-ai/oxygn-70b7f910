@@ -67,7 +67,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     }
   };
 
-  const getSpaceTree = async (spaceKey) => {
+  const getSpaceTree = async (spaceKey, abortSignal) => {
     if (!spaceKey) {
       setSpaceTree([]);
       return [];
@@ -76,15 +76,34 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     setIsLoadingTree(true);
     try {
       const data = await invokeFunction('get-space-tree', { spaceKey });
+      if (abortSignal?.aborted) return [];
       setSpaceTree(data.tree || []);
       return data.tree;
     } catch (error) {
+      if (abortSignal?.aborted) return [];
       console.error('Error getting space tree:', error);
       toast.error('Failed to load space pages');
       return [];
     } finally {
-      setIsLoadingTree(false);
+      if (!abortSignal?.aborted) {
+        setIsLoadingTree(false);
+      }
     }
+  };
+
+  const getPageChildren = async (pageId, spaceKey) => {
+    try {
+      const data = await invokeFunction('get-page-children', { pageId, spaceKey });
+      return data.children || [];
+    } catch (error) {
+      console.error('Error getting page children:', error);
+      return [];
+    }
+  };
+
+  const cancelTreeLoading = () => {
+    setIsLoadingTree(false);
+    setSpaceTree([]);
   };
 
   const searchPages = async (query, spaceKey = null) => {
@@ -192,6 +211,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     spaces,
     searchResults,
     spaceTree,
+    setSpaceTree,
     isLoading,
     isSyncing,
     isSearching,
@@ -201,6 +221,8 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     testConnection,
     listSpaces,
     getSpaceTree,
+    getPageChildren,
+    cancelTreeLoading,
     searchPages,
     attachPage,
     detachPage,
