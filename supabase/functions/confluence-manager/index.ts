@@ -291,7 +291,21 @@ Deno.serve(async (req) => {
         
         if (error) throw error;
         
-        result = { success: true, page: inserted };
+        // Auto-enable confluence_enabled on the assistant for live browsing
+        if (assistantRowId) {
+          const { error: updateError } = await supabase
+            .from('cyg_assistants')
+            .update({ confluence_enabled: true })
+            .eq('row_id', assistantRowId);
+          
+          if (updateError) {
+            console.log('[confluence-manager] Warning: Could not auto-enable confluence on assistant:', updateError);
+          } else {
+            console.log('[confluence-manager] Auto-enabled confluence_enabled on assistant:', assistantRowId);
+          }
+        }
+        
+        result = { success: true, page: inserted, confluenceAutoEnabled: !!assistantRowId };
         break;
       }
 
