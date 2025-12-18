@@ -59,7 +59,7 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
           <img 
             src="/favicon.png" 
             alt="Chocolate Logo" 
-            className="h-8 w-8 transition-transform hover:scale-105"
+            className="h-8 w-8 flex-shrink-0 object-contain transition-transform hover:scale-105"
           />
           {!isCollapsed && (
             <div className="flex flex-col">
