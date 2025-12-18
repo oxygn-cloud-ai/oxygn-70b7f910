@@ -172,10 +172,10 @@ serve(async (req) => {
       );
     }
 
-    // Fetch assistant config
+    // Fetch assistant config with files
     const { data: assistant, error: assistantError } = await supabase
       .from('cyg_assistants')
-      .select('*')
+      .select('*, cyg_assistant_files(*)')
       .eq('prompt_row_id', parentRowId)
       .single();
 
@@ -298,7 +298,27 @@ serve(async (req) => {
       console.log('Created ephemeral thread:', threadId);
     }
 
-    // Add message to thread
+    // Build file attachments from uploaded files
+    const files = assistant.cyg_assistant_files || [];
+    const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
+    
+    const attachments = uploadedFiles.map((f: any) => ({
+      file_id: f.openai_file_id,
+      tools: [{ type: 'file_search' }],
+    }));
+
+    console.log('Attaching files to message:', attachments.length);
+
+    // Add message to thread with file attachments
+    const messageBody: any = {
+      role: 'user',
+      content: finalMessage,
+    };
+    
+    if (attachments.length > 0) {
+      messageBody.attachments = attachments;
+    }
+
     const messageResponse = await fetch(
       `https://api.openai.com/v1/threads/${threadId}/messages`,
       {
@@ -308,10 +328,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({
-          role: 'user',
-          content: finalMessage,
-        }),
+        body: JSON.stringify(messageBody),
       }
     );
 

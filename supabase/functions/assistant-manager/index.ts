@@ -715,26 +715,25 @@ serve(async (req) => {
 
       // If assistant is active and has files, update its tool resources
       if (assistant.openai_assistant_id && uploadedFileIds.length > 0) {
-        // Fetch tool config
-        let toolConfig = {
-          code_interpreter_enabled: assistant.code_interpreter_enabled,
-          file_search_enabled: assistant.file_search_enabled,
+        // Fetch global defaults first
+        const { data: globalDefaults } = await supabase
+          .from('cyg_assistant_tool_defaults')
+          .select('*')
+          .limit(1)
+          .single();
+
+        // Determine tool config: use global if use_global_tool_defaults is true,
+        // OR if the assistant's own value is null (treat null as "inherit from global")
+        const toolConfig = {
+          code_interpreter_enabled: assistant.use_global_tool_defaults 
+            ? globalDefaults?.code_interpreter_enabled 
+            : (assistant.code_interpreter_enabled ?? globalDefaults?.code_interpreter_enabled ?? false),
+          file_search_enabled: assistant.use_global_tool_defaults 
+            ? globalDefaults?.file_search_enabled 
+            : (assistant.file_search_enabled ?? globalDefaults?.file_search_enabled ?? true),
         };
 
-        if (assistant.use_global_tool_defaults) {
-          const { data: defaults } = await supabase
-            .from('cyg_assistant_tool_defaults')
-            .select('*')
-            .limit(1)
-            .single();
-
-          if (defaults) {
-            toolConfig = {
-              code_interpreter_enabled: defaults.code_interpreter_enabled,
-              file_search_enabled: defaults.file_search_enabled,
-            };
-          }
-        }
+        console.log('Tool config for sync:', toolConfig);
 
         // Create or update vector store if file_search is enabled
         let vectorStoreId = assistant.vector_store_id;

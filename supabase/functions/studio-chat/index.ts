@@ -125,10 +125,10 @@ serve(async (req) => {
 
     console.log('Studio chat request:', { assistant_row_id, user: validation.user?.email });
 
-    // Fetch assistant details
+    // Fetch assistant details with files
     const { data: assistant, error: assistantError } = await supabase
       .from('cyg_assistants')
-      .select('*, cyg_prompts!cyg_assistants_prompt_row_id_fkey(*)')
+      .select('*, cyg_prompts!cyg_assistants_prompt_row_id_fkey(*), cyg_assistant_files(*)')
       .eq('row_id', assistant_row_id)
       .single();
 
@@ -245,7 +245,27 @@ serve(async (req) => {
       threadRowId = newThread.row_id;
     }
 
-    // Add message to thread
+    // Build file attachments from uploaded files
+    const files = assistant.cyg_assistant_files || [];
+    const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
+    
+    const attachments = uploadedFiles.map((f: any) => ({
+      file_id: f.openai_file_id,
+      tools: [{ type: 'file_search' }],
+    }));
+
+    console.log('Attaching files to message:', attachments.length);
+
+    // Add message to thread with file attachments
+    const messageBody: any = {
+      role: 'user',
+      content: user_message,
+    };
+    
+    if (attachments.length > 0) {
+      messageBody.attachments = attachments;
+    }
+
     const messageResponse = await fetch(
       `https://api.openai.com/v1/threads/${openaiThreadId}/messages`,
       {
@@ -255,10 +275,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'OpenAI-Beta': 'assistants=v2',
         },
-        body: JSON.stringify({
-          role: 'user',
-          content: user_message,
-        }),
+        body: JSON.stringify(messageBody),
       }
     );
 
