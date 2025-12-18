@@ -21,7 +21,9 @@ const ConfluenceSettingsSection = ({
 
   const baseUrl = editedValues.confluence_base_url ?? settings.confluence_base_url?.value ?? '';
   const email = editedValues.confluence_email ?? settings.confluence_email?.value ?? '';
-  const apiToken = editedValues.confluence_api_token ?? settings.confluence_api_token?.value ?? '';
+  const savedApiToken = settings.confluence_api_token?.value ?? '';
+  const apiToken = editedValues.confluence_api_token ?? '';
+  const hasStoredToken = !!savedApiToken && editedValues.confluence_api_token === undefined;
 
   const handleTestConnection = async () => {
     // First save any pending changes
@@ -140,7 +142,7 @@ const ConfluenceSettingsSection = ({
                   <Input
                     id="confluence_api_token"
                     type={showToken ? 'text' : 'password'}
-                    placeholder="••••••••••••••••"
+                    placeholder={hasStoredToken ? '••••••••••••••••' : 'Enter API token'}
                     value={apiToken}
                     onChange={(e) => onValueChange('confluence_api_token', e.target.value)}
                     className="pr-10"
@@ -170,7 +172,9 @@ const ConfluenceSettingsSection = ({
                 </Tooltip>
               </div>
               <p className="text-xs text-muted-foreground">
-                Create an API token from your Atlassian account settings
+                {hasStoredToken 
+                  ? 'API token is saved. Enter a new value to update it.'
+                  : 'Create an API token from your Atlassian account settings'}
               </p>
             </div>
 
@@ -182,7 +186,7 @@ const ConfluenceSettingsSection = ({
                     <Button
                       variant="outline"
                       onClick={handleTestConnection}
-                      disabled={isTesting || !baseUrl || !email || !apiToken}
+                      disabled={isTesting || !baseUrl || !email || (!apiToken && !hasStoredToken)}
                     >
                       {isTesting ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
