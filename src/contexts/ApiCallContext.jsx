@@ -1,71 +1,50 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
-// Default context with no-op functions for when used outside provider
-const defaultContextValue = {
-  isApiCallInProgress: false,
-  pendingCallsCount: 0,
-  registerCall: () => {
-    const cleanup = () => {};
-    cleanup.signal = undefined;
-    cleanup.abort = () => {};
-    return cleanup;
-  },
-  cancelAllCalls: () => {},
-  backgroundCalls: [],
-  addBackgroundCall: () => 0,
-  removeBackgroundCall: () => {},
-  showNavigationDialog: false,
-  setShowNavigationDialog: () => {},
-  pendingNavigation: null,
-  confirmNavigation: () => {},
-  cancelNavigation: () => {},
-  navigateWithGuard: () => {},
+const ApiCallContext = createContext(null);
+
+export const useApiCallContext = () => {
+  const ctx = useContext(ApiCallContext);
+  // Return safe defaults if used outside provider
+  if (!ctx) {
+    return {
+      isApiCallInProgress: false,
+      pendingCallsCount: 0,
+      registerCall: () => () => {},
+      cancelAllCalls: () => {},
+      backgroundCalls: [],
+      addBackgroundCall: () => 0,
+      removeBackgroundCall: () => {},
+      showNavigationDialog: false,
+      pendingDestination: null,
+      requestNavigation: () => false,
+      confirmNavigation: () => {},
+      cancelNavigation: () => {},
+    };
+  }
+  return ctx;
 };
-
-const ApiCallContext = createContext(defaultContextValue);
-
-export const useApiCallContext = () => useContext(ApiCallContext);
 
 export const ApiCallProvider = ({ children }) => {
   const [pendingCallsCount, setPendingCallsCount] = useState(0);
   const [backgroundCalls, setBackgroundCalls] = useState([]);
   const [showNavigationDialog, setShowNavigationDialog] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState(null);
-  const abortControllersRef = useRef(new Map());
+  const [pendingDestination, setPendingDestination] = useState(null);
+  const pendingNavigateRef = useRef(null);
   const callIdRef = useRef(0);
 
-  const registerCall = useCallback((onComplete) => {
+  // Register an active API call. Returns a cleanup function.
+  const registerCall = useCallback(() => {
     const callId = ++callIdRef.current;
-    const abortController = new AbortController();
-
-    abortControllersRef.current.set(callId, { abortController, onComplete });
     setPendingCallsCount((prev) => prev + 1);
 
-    const cleanup = (wasCompleted = true) => {
-      abortControllersRef.current.delete(callId);
+    const cleanup = () => {
       setPendingCallsCount((prev) => Math.max(0, prev - 1));
-
-      if (typeof onComplete === 'function') {
-        try {
-          onComplete({ wasCompleted });
-        } catch (e) {
-          // ignore
-        }
-      }
     };
-
-    // Attach abort signal to the cleanup function (backwards-compatible API)
-    cleanup.signal = abortController.signal;
-    cleanup.abort = () => abortController.abort();
 
     return cleanup;
   }, []);
 
   const cancelAllCalls = useCallback(() => {
-    abortControllersRef.current.forEach(({ abortController }) => {
-      abortController.abort();
-    });
-    abortControllersRef.current.clear();
     setPendingCallsCount(0);
   }, []);
 
@@ -79,32 +58,39 @@ export const ApiCallProvider = ({ children }) => {
     setBackgroundCalls((prev) => prev.filter((call) => call.id !== id));
   }, []);
 
-  const confirmNavigation = useCallback(() => {
-    if (pendingNavigation) {
-      const nav = pendingNavigation;
-      setPendingNavigation(null);
-      setShowNavigationDialog(false);
-      // Execute the pending navigation
-      nav();
-    }
-  }, [pendingNavigation]);
-
-  const cancelNavigation = useCallback(() => {
-    setPendingNavigation(null);
-    setShowNavigationDialog(false);
-  }, []);
-
-  const navigateWithGuard = useCallback(
-    (navigateFn) => {
+  /**
+   * Request navigation to a destination.
+   * If calls are in progress, shows dialog and returns false.
+   * If no calls, executes navigate immediately and returns true.
+   */
+  const requestNavigation = useCallback(
+    (destination, navigateFn) => {
       if (pendingCallsCount > 0) {
-        setPendingNavigation(() => navigateFn);
+        setPendingDestination(destination);
+        pendingNavigateRef.current = navigateFn;
         setShowNavigationDialog(true);
-      } else {
-        navigateFn();
+        return false;
       }
+      // No calls in progress, navigate immediately
+      navigateFn();
+      return true;
     },
     [pendingCallsCount]
   );
+
+  const confirmNavigation = useCallback(() => {
+    setShowNavigationDialog(false);
+    const nav = pendingNavigateRef.current;
+    setPendingDestination(null);
+    pendingNavigateRef.current = null;
+    if (nav) nav();
+  }, []);
+
+  const cancelNavigation = useCallback(() => {
+    setShowNavigationDialog(false);
+    setPendingDestination(null);
+    pendingNavigateRef.current = null;
+  }, []);
 
   const value = {
     isApiCallInProgress: pendingCallsCount > 0,
@@ -115,13 +101,11 @@ export const ApiCallProvider = ({ children }) => {
     addBackgroundCall,
     removeBackgroundCall,
     showNavigationDialog,
-    setShowNavigationDialog,
-    pendingNavigation,
+    pendingDestination,
+    requestNavigation,
     confirmNavigation,
     cancelNavigation,
-    navigateWithGuard,
   };
 
   return <ApiCallContext.Provider value={value}>{children}</ApiCallContext.Provider>;
 };
-

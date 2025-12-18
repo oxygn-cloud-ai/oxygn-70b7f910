@@ -6,9 +6,7 @@ import { useApiCallContext } from '@/contexts/ApiCallContext';
 const MAX_TOKENS = 16000;
 const ESTIMATED_TOKENS_PER_CHAR = 0.4;
 
-const estimateTokenCount = (text) => {
-  return Math.ceil(text.length * ESTIMATED_TOKENS_PER_CHAR);
-};
+const estimateTokenCount = (text) => Math.ceil(text.length * ESTIMATED_TOKENS_PER_CHAR);
 
 const truncateText = (text, maxTokens) => {
   const estimatedMaxChars = Math.floor(maxTokens / ESTIMATED_TOKENS_PER_CHAR);
@@ -27,22 +25,16 @@ export const useOpenAICall = () => {
     };
   }, []);
 
-  const setLoadingSafe = useCallback((next) => {
-    if (!isMountedRef.current) return;
-    setIsLoading(next);
+  const setLoadingSafe = useCallback((value) => {
+    if (isMountedRef.current) setIsLoading(value);
   }, []);
 
-  const handleApiError = (error) => {
-    if (error?.name === 'AbortError') {
-      toast.info('Request cancelled');
-      return { error: 'CANCELLED' };
-    }
-
+  const handleApiError = useCallback((error) => {
     const errorMessage = error?.message || 'An unknown error occurred';
     const status = error?.status || 500;
 
     if (status >= 500) {
-      toast.error('Server is temporarily unavailable. Please try again in a few moments.');
+      toast.error('Server is temporarily unavailable. Please try again.');
       console.error('Server error:', errorMessage);
       return { error: 'SERVER_ERROR' };
     }
@@ -51,33 +43,28 @@ export const useOpenAICall = () => {
       try {
         const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
         if (errorBody?.error?.code === 'insufficient_quota') {
-          toast.error('OpenAI API quota exceeded. Please check your billing details or try again later.');
+          toast.error('OpenAI API quota exceeded.');
           return { error: 'QUOTA_EXCEEDED' };
         }
-      } catch (parseError) {
-        console.error('Error parsing error response:', parseError);
-      }
+      } catch {}
     }
 
     if (status === 400) {
       try {
         const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
         if (errorBody?.error?.code === 'context_length_exceeded') {
-          toast.error('The input text is too long. It will be automatically truncated.');
+          toast.error('Input text too long. It will be truncated.');
           return { error: 'CONTEXT_LENGTH_EXCEEDED' };
         }
-      } catch (parseError) {
-        console.error('Error parsing error response:', parseError);
-      }
+      } catch {}
     }
 
     toast.error(`API error: ${errorMessage}`);
     return { error: 'API_ERROR' };
-  };
+  }, []);
 
   /**
-   * options:
-   * - onSuccess?: async (content) => void
+   * Call OpenAI with optional onSuccess callback for background completion.
    */
   const callOpenAI = useCallback(
     async (systemMessage, userMessage, projectSettings, options = {}) => {
@@ -125,12 +112,10 @@ export const useOpenAICall = () => {
           temperature,
         };
 
-        // Add web search if enabled
         if (projectSettings?.web_search_on) {
           requestBody.web_search_enabled = true;
         }
 
-        // Add max_tokens if response_tokens is enabled
         if (projectSettings?.response_tokens_on && projectSettings?.response_tokens) {
           const maxTokens = parseInt(projectSettings.response_tokens);
           if (!isNaN(maxTokens) && maxTokens > 0) {
@@ -143,7 +128,6 @@ export const useOpenAICall = () => {
           }
         }
 
-        // Add top_p if enabled
         if (projectSettings?.top_p_on && projectSettings?.top_p) {
           const topP = parseFloat(projectSettings.top_p);
           if (!isNaN(topP) && topP >= 0 && topP <= 1) {
@@ -151,7 +135,6 @@ export const useOpenAICall = () => {
           }
         }
 
-        // Add other conditional parameters
         if (projectSettings?.frequency_penalty_on) {
           requestBody.frequency_penalty = parseFloat(projectSettings.frequency_penalty) || 0;
         }
@@ -159,14 +142,10 @@ export const useOpenAICall = () => {
           requestBody.presence_penalty = parseFloat(projectSettings.presence_penalty) || 0;
         }
 
-        console.log('OpenAI request body:', {
-          model: requestBody.model,
-          webSearchEnabled: requestBody.web_search_enabled,
-        });
+        console.log('OpenAI request:', { model: requestBody.model, webSearch: requestBody.web_search_enabled });
 
         const { data, error } = await supabase.functions.invoke('openai-proxy', {
           body: requestBody,
-          signal: unregisterCall?.signal,
         });
 
         if (error) {
@@ -181,8 +160,13 @@ export const useOpenAICall = () => {
           throw new Error('Empty response from OpenAI');
         }
 
+        // Run success callback (for background DB updates)
         if (typeof options?.onSuccess === 'function') {
-          await options.onSuccess(content);
+          try {
+            await options.onSuccess(content);
+          } catch (e) {
+            console.error('onSuccess callback error:', e);
+          }
         }
 
         return content;
@@ -190,14 +174,16 @@ export const useOpenAICall = () => {
         handleApiError(error);
         return null;
       } finally {
-        unregisterCall?.();
+        unregisterCall();
         setLoadingSafe(false);
       }
     },
-    [registerCall, setLoadingSafe]
+    [registerCall, setLoadingSafe, handleApiError]
   );
 
-  // Version that supports background completion with database update
+  /**
+   * Call OpenAI and save result to database (supports background completion).
+   */
   const callOpenAIWithSave = useCallback(
     async (systemMessage, userMessage, projectSettings, saveConfig) => {
       const { supabaseClient, tableName, rowId, fieldName, onLocalUpdate } = saveConfig || {};
@@ -225,6 +211,7 @@ export const useOpenAICall = () => {
               return;
             }
 
+            toast.success('Response saved');
             if (typeof onLocalUpdate === 'function' && isMountedRef.current) {
               onLocalUpdate(result);
             }
@@ -241,4 +228,3 @@ export const useOpenAICall = () => {
 
   return { callOpenAI, callOpenAIWithSave, isLoading };
 };
-

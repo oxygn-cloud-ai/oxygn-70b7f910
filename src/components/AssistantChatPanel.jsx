@@ -208,7 +208,6 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
           thread_row_id: activeThread?.row_id || null,
           include_child_context: true,
         },
-        signal: unregisterCall?.signal,
       });
 
       if (error) throw error;

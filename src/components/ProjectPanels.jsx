@@ -13,8 +13,6 @@ import ChildPromptPanel from './ChildPromptPanel';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 
@@ -61,8 +59,8 @@ const ProjectPanels = ({
         localData.input_user_prompt,
         localData,
         {
-          // This callback runs even if user navigates away
           onSuccess: async (content) => {
+            // Save to database even if user navigates away
             if (supabase && projectRowId) {
               const { error } = await supabase
                 .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -74,8 +72,6 @@ const ProjectPanels = ({
               }
             }
           },
-          rowId: projectRowId,
-          fieldName: 'user_prompt_result',
         }
       );
       
