@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import StudioChat from './StudioChat';
 
-const AssistantChatPanel = ({ promptRowId, promptName }) => {
+const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) => {
   const supabase = useSupabase();
   const [assistant, setAssistant] = useState(null);
   const [threads, setThreads] = useState([]);
@@ -20,6 +20,28 @@ const AssistantChatPanel = ({ promptRowId, promptName }) => {
   const [isLoadingThreads, setIsLoadingThreads] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [selectedChildPromptName, setSelectedChildPromptName] = useState(null);
+
+  // Fetch child prompt name when viewing a child prompt
+  useEffect(() => {
+    const fetchChildPromptName = async () => {
+      if (!supabase || !selectedChildPromptId) {
+        setSelectedChildPromptName(null);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from('cyg_prompts')
+          .select('prompt_name')
+          .eq('row_id', selectedChildPromptId)
+          .single();
+        setSelectedChildPromptName(data?.prompt_name || null);
+      } catch {
+        setSelectedChildPromptName(null);
+      }
+    };
+    fetchChildPromptName();
+  }, [supabase, selectedChildPromptId]);
 
   // Fetch assistant for this prompt
   const fetchAssistant = useCallback(async () => {
@@ -333,15 +355,24 @@ const AssistantChatPanel = ({ promptRowId, promptName }) => {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-hidden">
-        <StudioChat
-          messages={messages}
-          onSendMessage={sendMessage}
-          isLoadingMessages={isLoadingMessages}
-          isSending={isSending}
-          disabled={false}
-          placeholder={`Message ${promptName || 'Assistant'}...`}
-        />
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {selectedChildPromptId && selectedChildPromptName && (
+          <div className="px-3 py-1.5 bg-muted/50 border-b border-border">
+            <span className="text-xs text-muted-foreground">
+              Viewing: <span className="font-medium text-foreground">{selectedChildPromptName}</span>
+            </span>
+          </div>
+        )}
+        <div className="flex-1 overflow-hidden">
+          <StudioChat
+            messages={messages}
+            onSendMessage={sendMessage}
+            isLoadingMessages={isLoadingMessages}
+            isSending={isSending}
+            disabled={false}
+            placeholder={`Message ${promptName || 'Assistant'}...`}
+          />
+        </div>
       </div>
     </div>
   );
