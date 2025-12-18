@@ -24,6 +24,7 @@ const getNodeIcon = (node) => {
   if (node.isContainer) return Folder;
   if (node.isHomepage) return Home;
   if (node.type === 'blogpost') return BookOpen;
+  if (node.hasChildren || node.children?.length > 0) return FolderOpen;
   return FileText;
 };
 
