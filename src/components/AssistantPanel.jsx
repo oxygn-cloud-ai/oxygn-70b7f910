@@ -306,7 +306,23 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
                 <div key={file.row_id} className="flex items-center justify-between text-sm py-1 px-2 bg-muted rounded">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <FileText className="h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">{file.original_filename}</span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="truncate cursor-help">{file.original_filename}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <div className="text-xs space-y-1">
+                            <div><strong>Local:</strong> {file.original_filename}</div>
+                            {file.openai_file_id ? (
+                              <div><strong>OpenAI ID:</strong> {file.openai_file_id}</div>
+                            ) : (
+                              <div className="text-muted-foreground">Not yet uploaded to OpenAI</div>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     <Badge variant={file.upload_status === 'uploaded' ? 'default' : file.upload_status === 'error' ? 'destructive' : 'secondary'} className="text-[10px] px-1 py-0 h-4">
                       {file.upload_status === 'uploaded' ? '✓' : file.upload_status === 'error' ? '✕' : '○'}
                     </Badge>
