@@ -34,6 +34,14 @@ const MAX_SETTING_VALUE_LENGTH = 500000;
 const MAX_SETTING_DESC_LENGTH = 500;
 const SETTING_KEY_REGEX = /^[a-zA-Z0-9_:\-]{1,64}$/;
 
+// Keys that should always be masked (never displayed)
+const SENSITIVE_KEYS = ['api_key', 'api_token', 'secret', 'password', 'credential'];
+
+const isSensitiveKey = (key) => {
+  const lowerKey = key.toLowerCase();
+  return SENSITIVE_KEYS.some(sensitive => lowerKey.includes(sensitive));
+};
+
 const envVariables = {
   'Debug Mode': import.meta.env.VITE_DEBUG,
   'Backend URL': import.meta.env.VITE_SUPABASE_URL,
@@ -213,11 +221,21 @@ export function DatabaseEnvironmentSection({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Input
-                          value={currentValue}
-                          onChange={(e) => onValueChange(key, e.target.value)}
-                          className="max-w-md"
-                        />
+                        {isSensitiveKey(key) ? (
+                          <Input
+                            type="password"
+                            value={currentValue}
+                            onChange={(e) => onValueChange(key, e.target.value)}
+                            className="max-w-md"
+                            placeholder={data.value ? '••••••••••••••••' : 'Enter value'}
+                          />
+                        ) : (
+                          <Input
+                            value={currentValue}
+                            onChange={(e) => onValueChange(key, e.target.value)}
+                            className="max-w-md"
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
