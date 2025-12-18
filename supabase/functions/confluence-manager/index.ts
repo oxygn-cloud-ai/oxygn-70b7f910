@@ -160,26 +160,55 @@ Deno.serve(async (req) => {
         const { spaceKey } = params;
         const config = await getConfluenceConfig();
         
-        console.log(`[confluence-manager] Fetching space tree for: ${spaceKey}`);
+        console.log(`[confluence-manager] Fetching comprehensive space tree for: ${spaceKey}`);
+        
+        // Fetch space info to get the homepage
+        let spaceHomepageId: string | null = null;
+        let spaceName = spaceKey;
+        try {
+          const spaceData = await confluenceRequest(
+            `/space/${encodeURIComponent(spaceKey)}?expand=homepage`,
+            config
+          );
+          spaceHomepageId = spaceData.homepage?.id || null;
+          spaceName = spaceData.name || spaceKey;
+          console.log(`[confluence-manager] Space homepage ID: ${spaceHomepageId}`);
+        } catch (e) {
+          console.log(`[confluence-manager] Could not fetch space info:`, e);
+        }
         
         // Fetch all pages in the space with their ancestors
-        const data = await confluenceRequest(
-          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,children.page&limit=200`,
+        const pagesData = await confluenceRequest(
+          `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,children.page&limit=500`,
           config
         );
         
-        console.log(`[confluence-manager] Fetched ${data.results?.length || 0} pages from space ${spaceKey}`);
+        // Fetch all blog posts in the space
+        let blogPosts: any[] = [];
+        try {
+          const blogsData = await confluenceRequest(
+            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=blogpost&status=current&limit=100`,
+            config
+          );
+          blogPosts = blogsData.results || [];
+          console.log(`[confluence-manager] Fetched ${blogPosts.length} blog posts`);
+        } catch (e) {
+          console.log(`[confluence-manager] Could not fetch blogs:`, e);
+        }
+        
+        console.log(`[confluence-manager] Fetched ${pagesData.results?.length || 0} pages from space ${spaceKey}`);
         
         // Build a map of all pages
-        const allPages = data.results || [];
+        const allPages = pagesData.results || [];
         const pageMap = new Map();
         
         allPages.forEach((page: any) => {
           pageMap.set(page.id, {
             id: page.id,
             title: page.title,
+            type: 'page',
             spaceKey: page.space?.key || spaceKey,
-            spaceName: page.space?.name,
+            spaceName: page.space?.name || spaceName,
             url: page._links?.webui ? `${config.baseUrl}${page._links.webui}` : null,
             hasChildren: page.children?.page?.size > 0,
             children: [],
@@ -188,22 +217,95 @@ Deno.serve(async (req) => {
           });
         });
         
-        // Find root pages (pages with no parent in our fetched set, or whose parent is the space homepage)
+        // Build hierarchy - attach children to parents
+        pageMap.forEach((page: any) => {
+          if (page.parentId && pageMap.has(page.parentId)) {
+            const parent = pageMap.get(page.parentId);
+            parent.children.push(page);
+            parent.hasChildren = true;
+          }
+        });
+        
+        // Sort children at each level
+        const sortChildren = (nodes: any[]) => {
+          nodes.sort((a, b) => a.title.localeCompare(b.title));
+          nodes.forEach(node => {
+            if (node.children?.length > 0) {
+              sortChildren(node.children);
+            }
+          });
+        };
+        
+        // Find root pages - those with no parent or parent not in our set
+        // Exclude the homepage itself if we found it
         const rootPages: any[] = [];
         pageMap.forEach((page: any) => {
-          // A page is a root if it has no parent, or if its parent is not in our page map
-          // (meaning it's directly under the space or under the homepage which we didn't fetch)
-          if (!page.parentId || !pageMap.has(page.parentId)) {
+          const isHomepage = page.id === spaceHomepageId;
+          const hasParentInSet = page.parentId && pageMap.has(page.parentId);
+          
+          if (!hasParentInSet && !isHomepage) {
             rootPages.push(page);
           }
         });
         
-        // Sort alphabetically
-        rootPages.sort((a: any, b: any) => a.title.localeCompare(b.title));
+        sortChildren(rootPages);
         
-        console.log(`[confluence-manager] Found ${rootPages.length} root pages`);
+        // Build the final tree structure
+        const tree: any[] = [];
         
-        result = { tree: rootPages, totalPages: allPages.length };
+        // Add homepage first if it exists
+        if (spaceHomepageId && pageMap.has(spaceHomepageId)) {
+          const homepage = pageMap.get(spaceHomepageId);
+          tree.push({
+            ...homepage,
+            title: `📄 ${homepage.title} (Homepage)`,
+            isHomepage: true
+          });
+        }
+        
+        // Add a "Pages" container with root pages
+        if (rootPages.length > 0) {
+          tree.push({
+            id: `__pages_container_${spaceKey}`,
+            title: '📁 Pages',
+            type: 'container',
+            isContainer: true,
+            hasChildren: true,
+            children: rootPages,
+            loaded: true,
+            spaceKey
+          });
+        }
+        
+        // Add a "Blog Posts" container if there are blogs
+        if (blogPosts.length > 0) {
+          const blogNodes = blogPosts.map((blog: any) => ({
+            id: blog.id,
+            title: blog.title,
+            type: 'blogpost',
+            spaceKey,
+            spaceName,
+            url: blog._links?.webui ? `${config.baseUrl}${blog._links.webui}` : null,
+            hasChildren: false,
+            children: [],
+            loaded: true
+          })).sort((a: any, b: any) => a.title.localeCompare(b.title));
+          
+          tree.push({
+            id: `__blogs_container_${spaceKey}`,
+            title: '📝 Blog Posts',
+            type: 'container',
+            isContainer: true,
+            hasChildren: true,
+            children: blogNodes,
+            loaded: true,
+            spaceKey
+          });
+        }
+        
+        console.log(`[confluence-manager] Built tree with ${tree.length} top-level items, ${allPages.length} pages, ${blogPosts.length} blogs`);
+        
+        result = { tree, totalPages: allPages.length, totalBlogs: blogPosts.length, spaceName };
         break;
       }
 
