@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState } from "react";
-import { Toaster } from "@/components/ui/sonner";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Toaster, setToastHistoryCallback } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -12,6 +12,7 @@ import { AppSidebar } from "./components/AppSidebar";
 import { ApiCallProvider } from "@/contexts/ApiCallContext";
 import NavigationGuard from "@/components/NavigationGuard";
 import BackgroundCallsIndicator from "@/components/BackgroundCallsIndicator";
+import { ToastHistoryProvider, useToastHistory } from "@/contexts/ToastHistoryContext";
 
 const queryClient = new QueryClient();
 
@@ -75,30 +76,45 @@ const AppLayout = () => {
   );
 };
 
+// Component to connect toast history
+const ToastHistoryConnector = () => {
+  const { addToHistory } = useToastHistory();
+  
+  useEffect(() => {
+    setToastHistoryCallback(addToHistory);
+    return () => setToastHistoryCallback(null);
+  }, [addToHistory]);
+  
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <BrowserRouter>
-        <ApiCallProvider>
-          <AuthProvider>
-            <NavigationGuard />
-            <BackgroundCallsIndicator />
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route
-                path="/*"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </AuthProvider>
-        </ApiCallProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ToastHistoryProvider>
+      <TooltipProvider>
+        <Toaster />
+        <ToastHistoryConnector />
+        <BrowserRouter>
+          <ApiCallProvider>
+            <AuthProvider>
+              <NavigationGuard />
+              <BackgroundCallsIndicator />
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route
+                  path="/*"
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </AuthProvider>
+          </ApiCallProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ToastHistoryProvider>
   </QueryClientProvider>
 );
 

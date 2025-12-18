@@ -20,6 +20,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
+import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 const mainNavItems = [
   { id: 'home', title: 'Home', icon: Home, to: '/' },
@@ -213,18 +216,24 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
               </p>
             </div>
           )}
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={signOut}
-                tooltip="Sign out"
-                className="text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign out</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <div className="flex items-center justify-between gap-1">
+            <ToastHistoryPopover />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={signOut}
+                  className="h-8 w-8 text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Sign out</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </SidebarFooter>
       )}
     </Sidebar>
