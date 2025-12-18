@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, X, Folder, Layout, Database } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
 
@@ -98,8 +98,16 @@ const TreeNode = ({
           )}
         </div>
 
-        {/* Page icon */}
-        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-1.5" />
+        {/* Content type icon */}
+        {node.isFolder ? (
+          <Folder className="h-4 w-4 text-amber-500 flex-shrink-0 mr-1.5" />
+        ) : node.isWhiteboard ? (
+          <Layout className="h-4 w-4 text-purple-500 flex-shrink-0 mr-1.5" />
+        ) : node.isDatabase ? (
+          <Database className="h-4 w-4 text-blue-500 flex-shrink-0 mr-1.5" />
+        ) : (
+          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-1.5" />
+        )}
         
         {/* Title */}
         <span className="text-sm truncate flex-1 py-1">{node.title}</span>
