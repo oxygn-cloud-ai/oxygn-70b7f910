@@ -15,9 +15,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, FolderOpen, X } from 'lucide-react';
+import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, FolderOpen, X, Home, BookOpen, Folder } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
+
+// Get icon for node type
+const getNodeIcon = (node) => {
+  if (node.isContainer) return Folder;
+  if (node.isHomepage) return Home;
+  if (node.type === 'blogpost') return BookOpen;
+  return FileText;
+};
 
 // Recursive tree node component with lazy loading
 const TreeNode = ({ 
@@ -34,12 +42,16 @@ const TreeNode = ({
   const isExpanded = expandedNodes.has(node.id);
   const isLoading = loadingNodes.has(node.id);
   const hasLoadedChildren = node.loaded || (node.children && node.children.length > 0);
+  const isContainer = node.isContainer;
+  const canAttach = !isContainer; // Can't attach containers
+  const NodeIcon = getNodeIcon(node);
 
   return (
     <div>
       <div
         className={cn(
-          "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 group"
+          "flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50 group",
+          isContainer && "bg-muted/30"
         )}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
       >
@@ -63,9 +75,17 @@ const TreeNode = ({
           ) : (
             <span className="w-5" />
           )}
-          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className="text-sm truncate">{node.title}</span>
-          {node.url && (
+          <NodeIcon className={cn(
+            "h-4 w-4 flex-shrink-0",
+            isContainer ? "text-primary" : "text-muted-foreground"
+          )} />
+          <span className={cn(
+            "text-sm truncate",
+            isContainer && "font-medium"
+          )}>
+            {node.title}
+          </span>
+          {node.url && !isContainer && (
             <a
               href={node.url}
               target="_blank"
@@ -77,19 +97,21 @@ const TreeNode = ({
             </a>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => onAttach(node.id)}
-          disabled={attachingPageId === node.id}
-        >
-          {attachingPageId === node.id ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-        </Button>
+        {canAttach && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => onAttach(node.id)}
+            disabled={attachingPageId === node.id}
+          >
+            {attachingPageId === node.id ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
+          </Button>
+        )}
       </div>
       {hasLoadedChildren && isExpanded && node.children && (
         <div>
@@ -251,7 +273,8 @@ const ConfluenceSearchModal = ({
       
       const node = findNode(spaceTree);
       
-      if (node && !node.loaded && node.children?.length === 0) {
+      // Skip loading for containers (already loaded) or if already loaded
+      if (node && !node.loaded && !node.isContainer && node.children?.length === 0) {
         // Need to load children
         setLoadingNodes(prev => new Set(prev).add(nodeId));
         
