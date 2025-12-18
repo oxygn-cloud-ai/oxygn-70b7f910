@@ -142,17 +142,18 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
       // If file was uploaded to OpenAI, delete it there first
       if (file.openai_file_id) {
         console.log('Deleting file from OpenAI:', file.openai_file_id);
-        const { error: openaiError } = await supabase.functions.invoke('assistant-manager', {
-          body: { 
-            action: 'delete-file', 
+        const { data: deleteData, error: openaiError } = await supabase.functions.invoke('assistant-manager', {
+          body: {
+            action: 'delete-file',
             openai_file_id: file.openai_file_id,
             assistant_row_id: assistantRowId,
           },
         });
 
-        if (openaiError) {
-          console.warn('OpenAI delete error:', openaiError);
-          // Continue with local deletion anyway
+        if (openaiError || deleteData?.success === false) {
+          console.warn('OpenAI delete error:', openaiError || deleteData);
+          toast.error('Failed to fully remove file from assistant. Please try again.');
+          return false;
         }
       }
 
