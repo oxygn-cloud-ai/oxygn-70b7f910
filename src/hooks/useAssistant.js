@@ -141,6 +141,30 @@ export const useAssistant = (promptRowId) => {
     }
   }, [supabase, assistant?.row_id, fetchAssistant]);
 
+  const reInstantiate = useCallback(async () => {
+    if (!assistant?.row_id) return false;
+
+    setIsInstantiating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('assistant-manager', {
+        body: { action: 're-instantiate', assistant_row_id: assistant.row_id },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      await fetchAssistant();
+      toast.success('Assistant re-enabled successfully');
+      return true;
+    } catch (error) {
+      console.error('Error re-instantiating assistant:', error);
+      toast.error(`Failed to re-enable: ${error.message}`);
+      return false;
+    } finally {
+      setIsInstantiating(false);
+    }
+  }, [supabase, assistant?.row_id, fetchAssistant]);
+
   return {
     assistant,
     isLoading,
@@ -150,6 +174,7 @@ export const useAssistant = (promptRowId) => {
     instantiate,
     destroy,
     sync,
+    reInstantiate,
     refetch: fetchAssistant,
   };
 };

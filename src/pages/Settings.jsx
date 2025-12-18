@@ -10,6 +10,7 @@ import { PromptNamingSection } from '../components/settings/PromptNamingSection'
 import { AIModelsSection } from '../components/settings/AIModelsSection';
 import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
 import { AssistantDefaultsSection } from '../components/settings/AssistantDefaultsSection';
+import { OpenAIAssistantsSection } from '../components/settings/OpenAIAssistantsSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -155,6 +156,13 @@ const Settings = () => {
       case 'assistants':
         return (
           <AssistantDefaultsSection
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
+          />
+        );
+      case 'openai-assistants':
+        return (
+          <OpenAIAssistantsSection
             isRefreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
