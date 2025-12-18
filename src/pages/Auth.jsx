@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
 const Auth = () => {
   const { signInWithGoogle, isAuthenticated, loading } = useAuth();
@@ -39,14 +40,11 @@ const Auth = () => {
         <CardHeader className="text-center pb-2">
           {/* Logo */}
           <div className="flex justify-center mb-4">
-            <div className="relative">
-              <img 
-                src="/favicon.png" 
-                alt="Chocolate" 
-                className="h-16 w-16 drop-shadow-md"
-              />
-              <div className="absolute -inset-2 bg-primary/20 rounded-full blur-xl -z-10" />
-            </div>
+            <img 
+              src={chocolateFullLogo} 
+              alt="Chocolate Finance" 
+              className="h-16 object-contain"
+            />
           </div>
 
           <CardTitle className="text-2xl font-bold text-foreground">
