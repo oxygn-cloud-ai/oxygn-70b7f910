@@ -32,12 +32,14 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
         return;
       }
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('cyg_prompts')
           .select('prompt_name')
           .eq('row_id', selectedChildPromptId)
-          .single();
-        setSelectedChildPromptName(data?.prompt_name || null);
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        setSelectedChildPromptName(data?.prompt_name ?? null);
       } catch {
         setSelectedChildPromptName(null);
       }
@@ -55,10 +57,12 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
         .from('cyg_assistants')
         .select('*')
         .eq('prompt_row_id', promptRowId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      setAssistant(data);
+      // When no assistant exists for a prompt, PostgREST returns "0 rows".
+      // We treat that as a normal state (no assistant yet) to avoid noisy HTTP errors.
+      if (error && error.code !== 'PGRST116') throw error;
+      setAssistant(data ?? null);
     } catch (error) {
       console.error('Failed to fetch assistant:', error);
       setAssistant(null);
