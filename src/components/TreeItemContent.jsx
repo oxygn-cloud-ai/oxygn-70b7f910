@@ -158,25 +158,17 @@ export const TreeItemContent = ({
         {item.showOwner && item.ownerDisplay && (
           canChangeOwner ? (
             <Popover>
-              <TooltipProvider>
-                <Tooltip>
-                  <PopoverTrigger asChild>
-                    <TooltipTrigger asChild>
-                      <Badge 
-                        variant="outline" 
-                        className="ml-1 h-4 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-0.5 cursor-pointer hover:border-primary/50 hover:text-primary transition-colors"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <User className="h-2.5 w-2.5" />
-                        {item.ownerDisplay}
-                      </Badge>
-                    </TooltipTrigger>
-                  </PopoverTrigger>
-                  <TooltipContent side="right" className="text-xs">
-                    Click to change owner
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="ml-1 inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium rounded-sm border border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-primary transition-colors bg-transparent"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Click to change owner"
+                >
+                  <User className="h-2.5 w-2.5" />
+                  {item.ownerDisplay}
+                </button>
+              </PopoverTrigger>
               <PopoverContent 
                 className="w-64 p-2 bg-popover" 
                 onClick={(e) => e.stopPropagation()}
