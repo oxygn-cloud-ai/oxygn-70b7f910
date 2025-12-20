@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import TreeItem from './TreeItem';
 import SearchFilter from './SearchFilter';
@@ -160,7 +160,8 @@ const TreeView = ({
             icon="search"
             title="No results found"
             description={`No prompts match "${searchQuery}"${filterType !== 'all' ? ` with filter "${filterType}"` : ''}`}
-            actionLabel="Clear Search"
+            actionIcon={<X className="h-5 w-5" />}
+            actionAriaLabel="Clear search"
             onAction={() => { setSearchQuery(''); setFilterType('all'); }}
           />
         )}
