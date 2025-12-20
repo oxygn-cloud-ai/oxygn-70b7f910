@@ -729,6 +729,7 @@ export type Database = {
           template_description: string | null
           template_name: string
           updated_at: string
+          variable_definitions: Json | null
           version: number | null
         }
         Insert: {
@@ -742,6 +743,7 @@ export type Database = {
           template_description?: string | null
           template_name?: string
           updated_at?: string
+          variable_definitions?: Json | null
           version?: number | null
         }
         Update: {
@@ -755,6 +757,7 @@ export type Database = {
           template_description?: string | null
           template_name?: string
           updated_at?: string
+          variable_definitions?: Json | null
           version?: number | null
         }
         Relationships: []
