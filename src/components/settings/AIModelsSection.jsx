@@ -9,7 +9,7 @@ import { Bot, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-rea
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { ModelSettingsPanel } from '../InlineModelSettings';
 import { ALL_SETTINGS } from '../../config/modelCapabilities';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import {
   Dialog,
   DialogContent,

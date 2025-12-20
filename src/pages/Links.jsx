@@ -4,7 +4,7 @@ import LinksTreeItem from '../components/LinksTreeItem';
 import useTreeData from '../hooks/useTreeData';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import ProjectPanels from '../components/ProjectPanels';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useSupabase } from '../hooks/useSupabase';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useCascadeUpdate } from '../hooks/useCascadeUpdate';

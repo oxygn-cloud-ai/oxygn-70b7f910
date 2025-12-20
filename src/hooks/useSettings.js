@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 export const useSettings = (supabase) => {
   const [settings, setSettings] = useState({});

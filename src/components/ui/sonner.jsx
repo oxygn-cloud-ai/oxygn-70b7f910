@@ -1,75 +1,66 @@
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, toast as sonnerToast } from "sonner"
 
-// Toast history for tracking all notifications
+// Toast history callback - set by ToastHistoryConnector
 let toastHistoryCallback = null;
-let sonnerPatched = false;
 
 export const setToastHistoryCallback = (callback) => {
   toastHistoryCallback = callback;
 };
 
-const recordToHistory = (variant, message, options) => {
-  if (!toastHistoryCallback) return;
+// Wrapped toast functions that record to history
+const createWrappedToast = () => {
+  const recordToHistory = (variant, message, options) => {
+    if (!toastHistoryCallback) return;
+    toastHistoryCallback({
+      id: Date.now().toString(),
+      title: typeof message === "string" ? message : options?.title,
+      description: options?.description,
+      variant,
+    });
+  };
 
-  toastHistoryCallback({
-    id: Date.now().toString(),
-    title: typeof message === "string" ? message : options?.title,
-    description: options?.description,
-    variant,
-  });
+  return Object.assign(
+    (message, options) => {
+      recordToHistory("default", message, options);
+      return sonnerToast(message, options);
+    },
+    {
+      success: (message, options) => {
+        recordToHistory("success", message, options);
+        return sonnerToast.success(message, options);
+      },
+      error: (message, options) => {
+        recordToHistory("destructive", message, options);
+        return sonnerToast.error(message, options);
+      },
+      info: (message, options) => {
+        recordToHistory("default", message, options);
+        return sonnerToast.info(message, options);
+      },
+      warning: (message, options) => {
+        recordToHistory("warning", message, options);
+        return sonnerToast.warning(message, options);
+      },
+      loading: (message, options) => {
+        recordToHistory("default", message, options);
+        return sonnerToast.loading(message, options);
+      },
+      promise: sonnerToast.promise,
+      dismiss: sonnerToast.dismiss,
+      custom: sonnerToast.custom,
+      message: sonnerToast.message,
+    }
+  );
 };
 
-// Patch Sonner's exported toast methods so even `import { toast } from 'sonner'`
-// gets recorded in our history.
-if (!sonnerPatched) {
-  sonnerPatched = true;
+export const toast = createWrappedToast();
 
-  const original = {
-    success: sonnerToast.success,
-    error: sonnerToast.error,
-    info: sonnerToast.info,
-    warning: sonnerToast.warning,
-    loading: sonnerToast.loading,
-  };
-
-  sonnerToast.success = (message, options) => {
-    recordToHistory("success", message, options);
-    return original.success(message, options);
-  };
-
-  sonnerToast.error = (message, options) => {
-    recordToHistory("destructive", message, options);
-    return original.error(message, options);
-  };
-
-  sonnerToast.info = (message, options) => {
-    recordToHistory("default", message, options);
-    return original.info(message, options);
-  };
-
-  sonnerToast.warning = (message, options) => {
-    recordToHistory("warning", message, options);
-    return original.warning(message, options);
-  };
-
-  sonnerToast.loading = (message, options) => {
-    recordToHistory("default", message, options);
-    return original.loading(message, options);
-  };
-}
-
-// Re-export Sonner's toast (now patched) for internal imports.
-export const toast = sonnerToast;
-
-
-const Toaster = ({
-  ...props
-}) => {
-  const { theme = "system" } = useTheme()
+const Toaster = ({ ...props }) => {
+  const { theme = "system" } = useTheme();
 
   return (
-    (<Sonner
+    <Sonner
       theme={theme}
       position="bottom-left"
       className="toaster group"
@@ -84,8 +75,9 @@ const Toaster = ({
             "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
         },
       }}
-      {...props} />)
+      {...props}
+    />
   );
-}
+};
 
 export { Toaster }

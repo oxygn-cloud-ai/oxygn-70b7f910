@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 

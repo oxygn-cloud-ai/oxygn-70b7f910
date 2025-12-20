@@ -3,7 +3,7 @@ import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, 
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import DebugInfoPopup from './DebugInfoPopup';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";

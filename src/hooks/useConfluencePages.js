@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 // Move invokeFunction outside component to ensure stable reference
 const invokeFunction = async (action, params = {}) => {

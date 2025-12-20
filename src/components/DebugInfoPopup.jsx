@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
   const [position, setPosition] = useState(item.position || '');

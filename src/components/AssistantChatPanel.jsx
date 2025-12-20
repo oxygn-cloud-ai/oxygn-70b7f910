@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { Bot, Loader2 } from 'lucide-react';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import ChatPanel from './chat/ChatPanel';

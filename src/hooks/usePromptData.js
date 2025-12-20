@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 export const usePromptData = (supabase) => {
   const updateField = useCallback(async (rowId, fieldName, value) => {

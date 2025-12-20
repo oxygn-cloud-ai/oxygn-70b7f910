@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save, FileText, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TEMPLATE_CODES, DATE_FORMAT_EXAMPLES, processNamingTemplate } from '@/utils/namingTemplates';
