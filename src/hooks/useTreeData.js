@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchPrompts } from '../services/promptService';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const useTreeData = (supabase) => {
   const [treeData, setTreeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
 
   const refreshTreeData = useCallback(async () => {
     if (!supabase) {
@@ -13,14 +15,14 @@ const useTreeData = (supabase) => {
     }
     
     try {
-      const data = await fetchPrompts(supabase);
+      const data = await fetchPrompts(supabase, user?.id);
       setTreeData(data || []);
     } catch (error) {
       console.error('Error refreshing tree data:', error);
       toast.error('Failed to refresh tree data');
       setTreeData([]);
     }
-  }, [supabase]);
+  }, [supabase, user?.id]);
 
   useEffect(() => {
     const loadTreeData = async () => {

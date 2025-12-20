@@ -1,6 +1,6 @@
 import { buildTree } from '../utils/positionUtils';
 
-export const fetchPrompts = async (supabase) => {
+export const fetchPrompts = async (supabase, currentUserId = null) => {
   try {
     if (!import.meta.env.VITE_PROMPTS_TBL) {
       throw new Error('VITE_PROMPTS_TBL environment variable is not set');
@@ -14,7 +14,42 @@ export const fetchPrompts = async (supabase) => {
 
     if (error) throw error;
 
-    return buildTree(data || []);
+    // Collect unique owner IDs for top-level prompts that aren't the current user
+    const ownerIds = [...new Set(
+      (data || [])
+        .filter(p => !p.parent_row_id && p.owner_id && p.owner_id !== currentUserId)
+        .map(p => p.owner_id)
+    )];
+
+    // Fetch owner emails using RPC
+    const ownerEmails = new Map();
+    for (const ownerId of ownerIds) {
+      try {
+        const { data: email } = await supabase.rpc('get_user_email', { _user_id: ownerId });
+        if (email) {
+          // Extract just the username part before @
+          const username = email.split('@')[0];
+          ownerEmails.set(ownerId, username);
+        }
+      } catch {
+        // Fallback to short ID if email fetch fails
+        ownerEmails.set(ownerId, ownerId.substring(0, 8));
+      }
+    }
+
+    // Add owner display info to prompts
+    const promptsWithOwnerInfo = (data || []).map(prompt => {
+      if (!prompt.parent_row_id && prompt.owner_id && prompt.owner_id !== currentUserId) {
+        return {
+          ...prompt,
+          showOwner: true,
+          ownerDisplay: ownerEmails.get(prompt.owner_id) || prompt.owner_id.substring(0, 8)
+        };
+      }
+      return prompt;
+    });
+
+    return buildTree(promptsWithOwnerInfo);
   } catch (error) {
     console.error('Error fetching prompts:', error);
     throw error;

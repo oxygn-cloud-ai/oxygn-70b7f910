@@ -764,6 +764,7 @@ export type Database = {
         Returns: boolean
       }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
+      get_user_email: { Args: { _user_id: string }; Returns: string }
       is_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_allowed_domain: { Args: { email: string }; Returns: boolean }
       owns_prompt: {
