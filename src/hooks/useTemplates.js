@@ -18,7 +18,7 @@ export const useTemplates = () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('cyg_templates')
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
         .select('*')
         .eq('is_deleted', false)
         .order('created_at', { ascending: false });
@@ -49,7 +49,7 @@ export const useTemplates = () => {
   }) => {
     try {
       const { data, error } = await supabase
-        .from('cyg_templates')
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
         .insert({
           template_name: name,
           template_description: description,
@@ -80,13 +80,13 @@ export const useTemplates = () => {
     try {
       // First get current version
       const { data: current } = await supabase
-        .from('cyg_templates')
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
         .select('version')
         .eq('row_id', rowId)
         .single();
 
       const { error } = await supabase
-        .from('cyg_templates')
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
         .update({
           ...updates,
           version: (current?.version || 0) + 1,
@@ -113,7 +113,7 @@ export const useTemplates = () => {
   const deleteTemplate = useCallback(async (rowId) => {
     try {
       const { error } = await supabase
-        .from('cyg_templates')
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
         .update({ is_deleted: true })
         .eq('row_id', rowId);
 
@@ -135,7 +135,7 @@ export const useTemplates = () => {
   const getTemplate = useCallback(async (rowId) => {
     try {
       const { data, error } = await supabase
-        .from('cyg_templates')
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
         .select('*')
         .eq('row_id', rowId)
         .single();

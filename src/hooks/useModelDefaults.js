@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
-const TABLE_NAME = 'cyg_model_defaults';
-
 export const useModelDefaults = () => {
   const [modelDefaults, setModelDefaults] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -11,7 +9,7 @@ export const useModelDefaults = () => {
   const fetchModelDefaults = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from(TABLE_NAME)
+        .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
         .select('*');
 
       if (error) throw error;
@@ -44,7 +42,7 @@ export const useModelDefaults = () => {
       if (existing) {
         // Update existing record
         const { error } = await supabase
-          .from(TABLE_NAME)
+          .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
           .update({ [field]: value, updated_at: new Date().toISOString() })
           .eq('model_id', modelId);
 
@@ -52,7 +50,7 @@ export const useModelDefaults = () => {
       } else {
         // Insert new record
         const { error } = await supabase
-          .from(TABLE_NAME)
+          .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
           .insert({ model_id: modelId, [field]: value });
 
         if (error) throw error;

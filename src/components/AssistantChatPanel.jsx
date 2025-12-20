@@ -27,7 +27,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
       if (!supabase || !promptRowId) return;
       try {
         const { count } = await supabase
-          .from('cyg_prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('*', { count: 'exact', head: true })
           .eq('parent_row_id', promptRowId)
           .eq('is_deleted', false);
@@ -48,7 +48,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
       }
       try {
         const { data, error } = await supabase
-          .from('cyg_prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('prompt_name')
           .eq('row_id', selectedChildPromptId)
           .maybeSingle();
@@ -66,7 +66,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     setIsLoadingAssistant(true);
     try {
       const { data, error } = await supabase
-        .from('cyg_assistants')
+        .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .select('*')
         .eq('prompt_row_id', promptRowId)
         .maybeSingle();
@@ -85,7 +85,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     setIsLoadingThreads(true);
     try {
       const { data, error } = await supabase
-        .from('cyg_threads')
+        .from(import.meta.env.VITE_THREADS_TBL)
         .select('*')
         .eq('assistant_row_id', assistantRowId)
         .is('child_prompt_row_id', null)
@@ -163,7 +163,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     if (!supabase) return;
     try {
       const { error } = await supabase
-        .from('cyg_threads')
+        .from(import.meta.env.VITE_THREADS_TBL)
         .update({ name: newName })
         .eq('row_id', threadRowId);
       if (error) throw error;

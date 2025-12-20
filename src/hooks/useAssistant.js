@@ -17,7 +17,7 @@ export const useAssistant = (promptRowId) => {
 
     try {
       const { data, error } = await supabase
-        .from('cyg_assistants')
+        .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .select('*')
         .eq('prompt_row_id', promptRowId)
         .maybeSingle();
@@ -31,13 +31,13 @@ export const useAssistant = (promptRowId) => {
         
         // Fetch prompt name for the assistant
         const { data: prompt } = await supabase
-          .from('cyg_prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('prompt_name')
           .eq('row_id', promptRowId)
           .single();
         
         const { data: newAssistant, error: createError } = await supabase
-          .from('cyg_assistants')
+          .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .insert({
             prompt_row_id: promptRowId,
             name: prompt?.prompt_name || 'New Assistant',
@@ -77,7 +77,7 @@ export const useAssistant = (promptRowId) => {
 
     try {
       const { data, error } = await supabase
-        .from('cyg_assistants')
+        .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .insert({
           prompt_row_id: promptRowId,
           name: initialData.name || 'New Assistant',
@@ -102,7 +102,7 @@ export const useAssistant = (promptRowId) => {
 
     try {
       const { error } = await supabase
-        .from('cyg_assistants')
+        .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .update(updates)
         .eq('row_id', assistant.row_id);
 

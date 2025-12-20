@@ -7,9 +7,9 @@ import OpenAISection from '../components/health/OpenAISection';
 import EnvironmentSection from '../components/health/EnvironmentSection';
 
 const REQUIRED_TABLES = [
-  import.meta.env.VITE_PROMPTS_TBL || 'cyg_prompts',
-  import.meta.env.VITE_SETTINGS_TBL || 'cyg_settings',
-  import.meta.env.VITE_MODELS_TBL || 'cyg_models',
+  import.meta.env.VITE_PROMPTS_TBL,
+  import.meta.env.VITE_SETTINGS_TBL,
+  import.meta.env.VITE_MODELS_TBL,
   'projects',
 ];
 

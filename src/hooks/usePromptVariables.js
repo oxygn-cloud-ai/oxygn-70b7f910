@@ -19,7 +19,7 @@ export const usePromptVariables = (promptRowId) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase
-        .from('cyg_prompt_variables')
+        .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL)
         .select('*')
         .eq('prompt_row_id', promptRowId)
         .order('created_at', { ascending: true });
@@ -59,7 +59,7 @@ export const usePromptVariables = (promptRowId) => {
 
     try {
       const { data, error } = await supabase
-        .from('cyg_prompt_variables')
+        .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL)
         .insert({
           prompt_row_id: promptRowId,
           variable_name: name,
@@ -100,7 +100,7 @@ export const usePromptVariables = (promptRowId) => {
       }
 
       const { error } = await supabase
-        .from('cyg_prompt_variables')
+        .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL)
         .update(updates)
         .eq('row_id', rowId);
 
@@ -123,7 +123,7 @@ export const usePromptVariables = (promptRowId) => {
   const deleteVariable = useCallback(async (rowId) => {
     try {
       const { error } = await supabase
-        .from('cyg_prompt_variables')
+        .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL)
         .delete()
         .eq('row_id', rowId);
 

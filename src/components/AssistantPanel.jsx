@@ -81,7 +81,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
     if (!supabase || !promptRowId) return;
     try {
       await supabase
-        .from('cyg_prompts')
+        .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ [field]: value })
         .eq('row_id', promptRowId);
     } catch (error) {

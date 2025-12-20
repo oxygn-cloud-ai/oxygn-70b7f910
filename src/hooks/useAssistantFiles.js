@@ -14,7 +14,7 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
 
     try {
       const { data, error } = await supabase
-        .from('cyg_assistant_files')
+        .from(import.meta.env.VITE_ASSISTANT_FILES_TBL)
         .select('*')
         .eq('assistant_row_id', assistantRowId)
         .order('created_at', { ascending: false });
@@ -89,7 +89,7 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
 
         // Create database record
         const { data, error: dbError } = await supabase
-          .from('cyg_assistant_files')
+          .from(import.meta.env.VITE_ASSISTANT_FILES_TBL)
           .insert({
             assistant_row_id: assistantRowId,
             storage_path: storagePath,
@@ -166,7 +166,7 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
 
       // Delete from database
       const { error: dbError } = await supabase
-        .from('cyg_assistant_files')
+        .from(import.meta.env.VITE_ASSISTANT_FILES_TBL)
         .delete()
         .eq('row_id', fileRowId);
 
