@@ -83,7 +83,7 @@ const createAndInstantiateAssistant = async (supabase, promptRowId, promptName) 
   }
 };
 
-export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
+export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null) => {
   // First, get the maximum position value for the current level
   let query = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -236,6 +236,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
       parent_row_id: parentId,
+      owner_id: userId,
       input_admin_prompt: defaultAdminPrompt || '',
       is_deleted: false,
       prompt_name: newPromptName,

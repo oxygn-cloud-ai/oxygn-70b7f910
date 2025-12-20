@@ -2,8 +2,11 @@ import { useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { addPrompt, duplicatePrompt } from '../services/promptMutations';
 import { deletePrompt } from '../services/promptDeletion';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useTreeOperations = (supabase, refreshTreeData) => {
+  const { user } = useAuth();
+  
   // skipRefresh: when true, don't refresh tree (useful for bulk operations)
   const handleAddItem = useCallback(async (parentId, { skipRefresh = false } = {}) => {
     if (!supabase) return null;
@@ -17,7 +20,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       
       const defaultAdminPrompt = settingsData?.setting_value || '';
       
-      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt);
+      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id);
       if (!skipRefresh) {
         await refreshTreeData();
       }
@@ -27,7 +30,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       toast.error('Failed to add new prompt');
       return null;
     }
-  }, [supabase, refreshTreeData]);
+  }, [supabase, refreshTreeData, user?.id]);
 
   const handleDeleteItem = useCallback(async (itemId) => {
     if (!supabase) return false;
