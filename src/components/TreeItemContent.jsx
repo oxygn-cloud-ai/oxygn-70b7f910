@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TreeItemActions } from './TreeItemActions';
-import OwnerChangePopover from './OwnerChangePopover';
+import { OwnerChangeContent } from './OwnerChangePopover';
 import { useAuth } from '../contexts/AuthContext';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -155,7 +156,40 @@ export const TreeItemContent = ({
 
         {/* Owner badge for all top-level items */}
         {item.showOwner && item.ownerDisplay && (
-          <div className="flex items-center gap-0.5">
+          canChangeOwner ? (
+            <Popover>
+              <TooltipProvider>
+                <Tooltip>
+                  <PopoverTrigger asChild>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        variant="outline" 
+                        className="ml-1 h-4 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-0.5 cursor-pointer hover:border-primary/50 hover:text-primary transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <User className="h-2.5 w-2.5" />
+                        {item.ownerDisplay}
+                      </Badge>
+                    </TooltipTrigger>
+                  </PopoverTrigger>
+                  <TooltipContent side="right" className="text-xs">
+                    Click to change owner
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <PopoverContent 
+                className="w-64 p-2 bg-popover" 
+                onClick={(e) => e.stopPropagation()}
+                align="start"
+              >
+                <OwnerChangeContent
+                  promptRowId={item.id}
+                  currentOwnerId={item.owner_id}
+                  onOwnerChanged={onRefreshTreeData}
+                />
+              </PopoverContent>
+            </Popover>
+          ) : (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -172,14 +206,7 @@ export const TreeItemContent = ({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            {canChangeOwner && (
-              <OwnerChangePopover
-                promptRowId={item.id}
-                currentOwnerId={item.owner_id}
-                onOwnerChanged={onRefreshTreeData}
-              />
-            )}
-          </div>
+          )
         )}
 
         {/* Child count badge */}
