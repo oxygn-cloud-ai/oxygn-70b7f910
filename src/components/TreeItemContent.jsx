@@ -176,13 +176,14 @@ export const TreeItemContent = ({
                 </button>
               </PopoverTrigger>
               <PopoverContent 
-                className="w-64 p-2 bg-popover" 
+                className="w-80 p-3 bg-popover" 
                 onClick={(e) => e.stopPropagation()}
                 align="start"
               >
                 <OwnerChangeContent
                   promptRowId={item.id}
                   currentOwnerId={item.owner_id}
+                  isPrivate={item.is_private}
                   onOwnerChanged={onRefreshTreeData}
                 />
               </PopoverContent>
