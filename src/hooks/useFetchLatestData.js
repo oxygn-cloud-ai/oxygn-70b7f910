@@ -12,7 +12,7 @@ export const useFetchLatestData = () => {
         .from('projects')
         .select('*')
         .eq('project_id', projectId)
-        .single();
+        .maybeSingle();
 
       console.log('Supabase API Call:', {
         url: query.url.toString(),
@@ -29,8 +29,9 @@ export const useFetchLatestData = () => {
         error: error,
       });
 
-      if (error) throw error;
-      return data;
+      // PGRST116 means no rows found - treat as normal (no project yet)
+      if (error && error.code !== 'PGRST116') throw error;
+      return data ?? null;
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error(`Failed to fetch project data: ${error.message}`);

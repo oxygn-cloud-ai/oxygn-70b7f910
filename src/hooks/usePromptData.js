@@ -30,10 +30,11 @@ export const usePromptData = (supabase) => {
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('*')
         .eq('row_id', rowId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      return data;
+      // PGRST116 means no rows found - treat as normal
+      if (error && error.code !== 'PGRST116') throw error;
+      return data ?? null;
     } catch (error) {
       console.error('Error fetching item data:', error);
       toast.error(`Failed to fetch prompt data: ${error.message}`);
