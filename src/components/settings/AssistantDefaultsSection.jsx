@@ -24,9 +24,9 @@ export function AssistantDefaultsSection({
   onRefresh,
 }) {
   const {
-    toolDefaults,
+    defaults: toolDefaults,
     isLoading,
-    updateToolDefault,
+    updateDefaults: updateToolDefault,
     refetch,
   } = useAssistantToolDefaults();
 
