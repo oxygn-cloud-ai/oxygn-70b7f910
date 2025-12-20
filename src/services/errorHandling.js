@@ -1,4 +1,4 @@
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 export const handleSupabaseError = (error, operation) => {
   console.error(`Error ${operation}:`, error);

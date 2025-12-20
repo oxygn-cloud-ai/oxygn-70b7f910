@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import SettingField from './settings/SettingField';
 import { useSupabase } from '../hooks/useSupabase';
 import { useSettings } from '../hooks/useSettings';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { ALL_SETTINGS, getModelCapabilities, isSettingSupported } from '../config/modelCapabilities';
 
 const SettingsPanel = ({ 

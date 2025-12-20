@@ -15,7 +15,7 @@ import { ChevronDown, ChevronUp, Bot, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 const ProjectPanels = ({ 
   selectedItemData, 

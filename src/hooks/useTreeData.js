@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchPrompts } from '../services/promptService';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
 const useTreeData = (supabase) => {

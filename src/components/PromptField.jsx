@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import {
   Tooltip,
   TooltipContent,

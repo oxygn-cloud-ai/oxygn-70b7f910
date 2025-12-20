@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 export const useAssistantToolDefaults = () => {
   const supabase = useSupabase();

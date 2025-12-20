@@ -3,7 +3,7 @@ import { useSettings } from '../hooks/useSettings';
 import { useModels } from '../hooks/useModels';
 import { useModelDefaults } from '../hooks/useModelDefaults';
 import { useSupabase } from '../hooks/useSupabase';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useSettingsSection } from '../App';
 import { QonsolSettingsSection } from '../components/settings/QonsolSettingsSection';
 import { PromptNamingSection } from '../components/settings/PromptNamingSection';

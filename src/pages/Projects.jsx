@@ -13,7 +13,7 @@ import TreeView from '../components/TreeView';
 import AssistantChatPanel from '../components/AssistantChatPanel';
 import EmptyState from '../components/EmptyState';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);

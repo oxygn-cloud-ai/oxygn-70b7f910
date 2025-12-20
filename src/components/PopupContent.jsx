@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 
 const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCascade }) => {
   const copyToClipboard = (text) => {
