@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
 
 const StatusIcon = ({ status }) => {
   switch (status) {
@@ -33,6 +35,18 @@ const StatusBadge = ({ status }) => {
 };
 
 const AuthSection = ({ results, isLoading, onRefresh }) => {
+  const { userProfile } = useAuth();
+
+  const getInitials = () => {
+    if (userProfile?.display_name) {
+      return userProfile.display_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    }
+    if (results.auth.user?.email) {
+      return results.auth.user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -65,9 +79,21 @@ const AuthSection = ({ results, isLoading, onRefresh }) => {
             <StatusBadge status={results.auth.status} />
           </div>
           {results.auth.user && (
-            <div className="mt-3 p-3 bg-muted rounded-lg text-sm">
+            <div className="mt-3 p-3 bg-muted rounded-lg text-sm space-y-2">
               <div><strong>User ID:</strong> {results.auth.user.id}</div>
-              <div><strong>Email:</strong> {results.auth.user.email}</div>
+              <div className="flex items-center gap-2">
+                <strong>User:</strong>
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.display_name || results.auth.user.email} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{userProfile?.display_name || results.auth.user.email}</span>
+              </div>
+              {userProfile?.display_name && (
+                <div><strong>Email:</strong> {results.auth.user.email}</div>
+              )}
             </div>
           )}
         </CardContent>
