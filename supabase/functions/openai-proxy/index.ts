@@ -212,6 +212,7 @@ serve(async (req) => {
     if (action === 'chat') {
       console.log('Processing chat request...');
       const { model, messages, web_search_enabled, ...settings } = body;
+      const startTime = Date.now();
 
       const requestedModel = model || 'gpt-4o-mini';
       const modelId = resolveModelId(requestedModel);
@@ -248,6 +249,7 @@ serve(async (req) => {
           body: JSON.stringify(requestBody),
         });
 
+        const latencyMs = Date.now() - startTime;
         const responseData = await response.json();
 
         if (!response.ok) {
@@ -286,9 +288,14 @@ serve(async (req) => {
           }
         }
         
-        // Format response like Chat Completions for compatibility
+        // Format response like Chat Completions for compatibility with enhanced metadata
         const formattedResponse = {
+          id: responseData.id,
+          object: 'chat.completion',
+          created: Math.floor(Date.now() / 1000),
+          model: modelId,
           choices: [{
+            index: 0,
             message: {
               role: 'assistant',
               content: outputText
@@ -296,7 +303,19 @@ serve(async (req) => {
             finish_reason: 'stop'
           }],
           citations,
-          usage: responseData.usage
+          usage: responseData.usage || {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+          },
+          // Enhanced metadata for cost tracking
+          _metadata: {
+            latency_ms: latencyMs,
+            requested_model: requestedModel,
+            resolved_model: modelId,
+            web_search_enabled: web_search_enabled || false,
+            timestamp: new Date().toISOString(),
+          }
         };
 
         console.log('Web search citations found:', citations.length);
@@ -353,6 +372,7 @@ serve(async (req) => {
         body: JSON.stringify(requestBody),
       });
 
+      const latencyMs = Date.now() - startTime;
       const responseData = await response.json();
 
       if (!response.ok) {
@@ -365,8 +385,20 @@ serve(async (req) => {
 
       console.log('OpenAI response received, tokens:', responseData.usage);
 
+      // Add enhanced metadata for cost tracking
+      const enhancedResponse = {
+        ...responseData,
+        _metadata: {
+          latency_ms: latencyMs,
+          requested_model: requestedModel,
+          resolved_model: modelId,
+          web_search_enabled: false,
+          timestamp: new Date().toISOString(),
+        }
+      };
+
       return new Response(
-        JSON.stringify(responseData),
+        JSON.stringify(enhancedResponse),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

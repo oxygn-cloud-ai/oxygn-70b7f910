@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      cyg_ai_costs: {
+        Row: {
+          cost_input_usd: number | null
+          cost_output_usd: number | null
+          cost_total_usd: number | null
+          created_at: string
+          finish_reason: string | null
+          latency_ms: number | null
+          model: string
+          prompt_name_snapshot: string | null
+          prompt_row_id: string
+          response_id: string | null
+          row_id: string
+          tokens_input: number
+          tokens_output: number
+          tokens_total: number
+          top_level_prompt_name_snapshot: string | null
+          top_level_prompt_row_id: string
+          user_id: string | null
+        }
+        Insert: {
+          cost_input_usd?: number | null
+          cost_output_usd?: number | null
+          cost_total_usd?: number | null
+          created_at?: string
+          finish_reason?: string | null
+          latency_ms?: number | null
+          model: string
+          prompt_name_snapshot?: string | null
+          prompt_row_id: string
+          response_id?: string | null
+          row_id?: string
+          tokens_input?: number
+          tokens_output?: number
+          tokens_total?: number
+          top_level_prompt_name_snapshot?: string | null
+          top_level_prompt_row_id: string
+          user_id?: string | null
+        }
+        Update: {
+          cost_input_usd?: number | null
+          cost_output_usd?: number | null
+          cost_total_usd?: number | null
+          created_at?: string
+          finish_reason?: string | null
+          latency_ms?: number | null
+          model?: string
+          prompt_name_snapshot?: string | null
+          prompt_row_id?: string
+          response_id?: string | null
+          row_id?: string
+          tokens_input?: number
+          tokens_output?: number
+          tokens_total?: number
+          top_level_prompt_name_snapshot?: string | null
+          top_level_prompt_row_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       cyg_assistant_files: {
         Row: {
           assistant_row_id: string | null
@@ -337,6 +397,36 @@ export type Database = {
         }
         Relationships: []
       }
+      cyg_model_pricing: {
+        Row: {
+          cost_per_1k_input_tokens: number
+          cost_per_1k_output_tokens: number
+          created_at: string
+          effective_date: string
+          model_id: string
+          row_id: string
+          updated_at: string
+        }
+        Insert: {
+          cost_per_1k_input_tokens?: number
+          cost_per_1k_output_tokens?: number
+          created_at?: string
+          effective_date?: string
+          model_id: string
+          row_id?: string
+          updated_at?: string
+        }
+        Update: {
+          cost_per_1k_input_tokens?: number
+          cost_per_1k_output_tokens?: number
+          created_at?: string
+          effective_date?: string
+          model_id?: string
+          row_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cyg_models: {
         Row: {
           created_at: string
@@ -367,6 +457,42 @@ export type Database = {
         }
         Relationships: []
       }
+      cyg_prompt_variables: {
+        Row: {
+          created_at: string
+          default_value: string | null
+          is_required: boolean | null
+          prompt_row_id: string
+          row_id: string
+          updated_at: string
+          variable_description: string | null
+          variable_name: string
+          variable_value: string | null
+        }
+        Insert: {
+          created_at?: string
+          default_value?: string | null
+          is_required?: boolean | null
+          prompt_row_id: string
+          row_id?: string
+          updated_at?: string
+          variable_description?: string | null
+          variable_name: string
+          variable_value?: string | null
+        }
+        Update: {
+          created_at?: string
+          default_value?: string | null
+          is_required?: boolean | null
+          prompt_row_id?: string
+          row_id?: string
+          updated_at?: string
+          variable_description?: string | null
+          variable_name?: string
+          variable_value?: string | null
+        }
+        Relationships: []
+      }
       cyg_prompts: {
         Row: {
           admin_prompt_result: string | null
@@ -388,6 +514,7 @@ export type Database = {
           is_deleted: boolean | null
           is_legacy: boolean | null
           is_private: boolean | null
+          last_ai_call_metadata: Json | null
           logit_bias: string | null
           logit_bias_on: boolean | null
           logprobs: string | null
@@ -418,8 +545,10 @@ export type Database = {
           stream_on: boolean | null
           suffix: string | null
           suffix_on: boolean | null
+          system_variables: Json | null
           temperature: string | null
           temperature_on: boolean | null
+          template_row_id: string | null
           thread_mode: string | null
           top_p: string | null
           top_p_on: boolean | null
@@ -447,6 +576,7 @@ export type Database = {
           is_deleted?: boolean | null
           is_legacy?: boolean | null
           is_private?: boolean | null
+          last_ai_call_metadata?: Json | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
           logprobs?: string | null
@@ -477,8 +607,10 @@ export type Database = {
           stream_on?: boolean | null
           suffix?: string | null
           suffix_on?: boolean | null
+          system_variables?: Json | null
           temperature?: string | null
           temperature_on?: boolean | null
+          template_row_id?: string | null
           thread_mode?: string | null
           top_p?: string | null
           top_p_on?: boolean | null
@@ -506,6 +638,7 @@ export type Database = {
           is_deleted?: boolean | null
           is_legacy?: boolean | null
           is_private?: boolean | null
+          last_ai_call_metadata?: Json | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
           logprobs?: string | null
@@ -536,8 +669,10 @@ export type Database = {
           stream_on?: boolean | null
           suffix?: string | null
           suffix_on?: boolean | null
+          system_variables?: Json | null
           temperature?: string | null
           temperature_on?: boolean | null
+          template_row_id?: string | null
           thread_mode?: string | null
           top_p?: string | null
           top_p_on?: boolean | null
@@ -579,6 +714,48 @@ export type Database = {
           setting_key?: string
           setting_value?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      cyg_templates: {
+        Row: {
+          category: string | null
+          created_at: string
+          is_deleted: boolean | null
+          is_private: boolean | null
+          owner_id: string | null
+          row_id: string
+          structure: Json
+          template_description: string | null
+          template_name: string
+          updated_at: string
+          version: number | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          is_deleted?: boolean | null
+          is_private?: boolean | null
+          owner_id?: string | null
+          row_id?: string
+          structure?: Json
+          template_description?: string | null
+          template_name?: string
+          updated_at?: string
+          version?: number | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          is_deleted?: boolean | null
+          is_private?: boolean | null
+          owner_id?: string | null
+          row_id?: string
+          structure?: Json
+          template_description?: string | null
+          template_name?: string
+          updated_at?: string
+          version?: number | null
         }
         Relationships: []
       }
