@@ -37,6 +37,7 @@ const settingsSubItems = [
   { id: 'assistants', title: 'Assistant Defaults', icon: Bot },
   { id: 'openai-assistants', title: 'OpenAI Assistants', icon: Cpu },
   { id: 'confluence', title: 'Confluence', icon: FileStack },
+  { id: 'cost-analytics', title: 'Cost Analytics', icon: Database },
   { id: 'database', title: 'Database & Env', icon: Database },
 ];
 

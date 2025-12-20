@@ -12,6 +12,7 @@ import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvir
 import { AssistantDefaultsSection } from '../components/settings/AssistantDefaultsSection';
 import { OpenAIAssistantsSection } from '../components/settings/OpenAIAssistantsSection';
 import ConfluenceSettingsSection from '../components/settings/ConfluenceSettingsSection';
+import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -178,6 +179,8 @@ const Settings = () => {
             isSaving={isSaving}
           />
         );
+      case 'cost-analytics':
+        return <CostAnalyticsSection />;
       default:
         return null;
     }
