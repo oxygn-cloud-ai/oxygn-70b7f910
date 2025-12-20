@@ -141,6 +141,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const isActive = assistant.status === 'active';
   const isDestroyed = assistant.status === 'destroyed';
   const isError = assistant.status === 'error';
+  const isNotInstantiated = assistant.status === 'not_instantiated' || !assistant.status;
 
   // Settings that OpenAI Assistants API supports at assistant level
   const assistantLevelSettings = ['temperature', 'top_p', 'response_format'];
@@ -227,15 +228,15 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {isDestroyed && (
+          {(isDestroyed || isNotInstantiated) && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleReInstantiate} disabled={isInstantiating}>
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
                     {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Re-enable Assistant</TooltipContent>
+                <TooltipContent>{isDestroyed ? 'Re-enable Assistant' : 'Instantiate Assistant'}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           )}

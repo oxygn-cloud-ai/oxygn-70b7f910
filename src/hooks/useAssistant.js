@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from 'sonner';
 
@@ -7,9 +7,13 @@ export const useAssistant = (promptRowId) => {
   const [assistant, setAssistant] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInstantiating, setIsInstantiating] = useState(false);
+  const creatingRef = useRef(false); // Prevent duplicate creation
 
   const fetchAssistant = useCallback(async () => {
-    if (!supabase || !promptRowId) return;
+    if (!supabase || !promptRowId) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -19,7 +23,42 @@ export const useAssistant = (promptRowId) => {
         .maybeSingle();
 
       if (error) throw error;
-      setAssistant(data);
+      
+      // If no assistant record exists, we need to create one
+      if (!data && !creatingRef.current) {
+        creatingRef.current = true;
+        console.log('No assistant record found, creating one for prompt:', promptRowId);
+        
+        // Fetch prompt name for the assistant
+        const { data: prompt } = await supabase
+          .from('cyg_prompts')
+          .select('prompt_name')
+          .eq('row_id', promptRowId)
+          .single();
+        
+        const { data: newAssistant, error: createError } = await supabase
+          .from('cyg_assistants')
+          .insert({
+            prompt_row_id: promptRowId,
+            name: prompt?.prompt_name || 'New Assistant',
+            instructions: '',
+            use_global_tool_defaults: true,
+            status: 'not_instantiated',
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating assistant record:', createError);
+          creatingRef.current = false;
+        } else {
+          console.log('Created assistant record:', newAssistant.row_id);
+          setAssistant(newAssistant);
+          creatingRef.current = false;
+        }
+      } else {
+        setAssistant(data);
+      }
     } catch (error) {
       console.error('Error fetching assistant:', error);
     } finally {
@@ -28,6 +67,8 @@ export const useAssistant = (promptRowId) => {
   }, [supabase, promptRowId]);
 
   useEffect(() => {
+    creatingRef.current = false; // Reset on promptRowId change
+    setIsLoading(true);
     fetchAssistant();
   }, [fetchAssistant]);
 
