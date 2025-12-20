@@ -76,19 +76,6 @@ const PromptEditorTabs = ({
 
       {/* Tabs content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent px-4 h-10">
-          {tabs.map(tab => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-t-md rounded-b-none border-b-2 border-transparent data-[state=active]:border-primary"
-            >
-              <tab.icon className="h-4 w-4 mr-1.5" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
         <div className="flex-1 overflow-auto">
           <TabsContent value="prompt" className="h-full m-0 p-0">
             <PromptFieldsTab
