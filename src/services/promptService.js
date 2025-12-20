@@ -14,10 +14,10 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
 
     if (error) throw error;
 
-    // Collect unique owner IDs for top-level prompts that aren't the current user
+    // Collect unique owner IDs for all top-level prompts
     const ownerIds = [...new Set(
       (data || [])
-        .filter(p => !p.parent_row_id && p.owner_id && p.owner_id !== currentUserId)
+        .filter(p => !p.parent_row_id && p.owner_id)
         .map(p => p.owner_id)
     )];
 
@@ -37,9 +37,9 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
       }
     }
 
-    // Add owner display info to prompts
+    // Add owner display info to all top-level prompts
     const promptsWithOwnerInfo = (data || []).map(prompt => {
-      if (!prompt.parent_row_id && prompt.owner_id && prompt.owner_id !== currentUserId) {
+      if (!prompt.parent_row_id && prompt.owner_id) {
         return {
           ...prompt,
           showOwner: true,

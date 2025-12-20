@@ -153,7 +153,7 @@ export const TreeItemContent = ({
           </span>
         )}
 
-        {/* Owner badge for top-level items owned by others */}
+        {/* Owner badge for all top-level items */}
         {item.showOwner && item.ownerDisplay && (
           <div className="flex items-center gap-0.5">
             <TooltipProvider>
@@ -180,15 +180,6 @@ export const TreeItemContent = ({
               />
             )}
           </div>
-        )}
-
-        {/* Change owner button for items you own (top-level only, not showing owner badge) */}
-        {!item.showOwner && level === 1 && isOwner && (
-          <OwnerChangePopover
-            promptRowId={item.id}
-            currentOwnerId={item.owner_id}
-            onOwnerChanged={onRefreshTreeData}
-          />
         )}
 
         {/* Child count badge */}
