@@ -21,29 +21,33 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
         .map(p => p.owner_id)
     )];
 
-    // Fetch owner emails using RPC
-    const ownerEmails = new Map();
-    for (const ownerId of ownerIds) {
-      try {
-        const { data: email } = await supabase.rpc('get_user_email', { _user_id: ownerId });
-        if (email) {
-          // Extract just the username part before @
-          const username = email.split('@')[0];
-          ownerEmails.set(ownerId, username);
-        }
-      } catch {
-        // Fallback to short ID if email fetch fails
-        ownerEmails.set(ownerId, ownerId.substring(0, 8));
+    // Fetch owner profiles from the profiles table
+    const ownerProfiles = new Map();
+    if (ownerIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, avatar_url')
+        .in('id', ownerIds);
+      
+      if (profiles) {
+        profiles.forEach(profile => {
+          ownerProfiles.set(profile.id, {
+            display: profile.display_name || profile.email?.split('@')[0] || profile.id.substring(0, 8),
+            avatar: profile.avatar_url
+          });
+        });
       }
     }
 
     // Add owner display info to all top-level prompts
     const promptsWithOwnerInfo = (data || []).map(prompt => {
       if (!prompt.parent_row_id && prompt.owner_id) {
+        const ownerInfo = ownerProfiles.get(prompt.owner_id) || { display: prompt.owner_id.substring(0, 8), avatar: null };
         return {
           ...prompt,
           showOwner: true,
-          ownerDisplay: ownerEmails.get(prompt.owner_id) || prompt.owner_id.substring(0, 8)
+          ownerDisplay: ownerInfo.display,
+          ownerAvatar: ownerInfo.avatar
         };
       }
       return prompt;

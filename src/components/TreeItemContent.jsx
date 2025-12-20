@@ -1,8 +1,9 @@
 import React from 'react';
-import { FileText, ChevronRight, ChevronDown, Bot, User } from 'lucide-react';
+import { FileText, ChevronRight, ChevronDown, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TreeItemActions } from './TreeItemActions';
 import { OwnerChangeContent } from './OwnerChangePopover';
 import { useAuth } from '../contexts/AuthContext';
@@ -154,18 +155,23 @@ export const TreeItemContent = ({
           </span>
         )}
 
-        {/* Owner badge for all top-level items */}
+        {/* Owner badge with avatar for all top-level items */}
         {item.showOwner && item.ownerDisplay && (
           canChangeOwner ? (
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="ml-1 inline-flex items-center gap-0.5 h-4 px-1.5 text-[10px] font-medium rounded-sm border border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-primary transition-colors bg-transparent"
+                  className="ml-1 inline-flex items-center gap-1 h-5 px-1.5 text-[10px] font-medium rounded-sm border border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-primary transition-colors bg-transparent"
                   onClick={(e) => e.stopPropagation()}
                   title="Click to change owner"
                 >
-                  <User className="h-2.5 w-2.5" />
+                  <Avatar className="h-3.5 w-3.5">
+                    <AvatarImage src={item.ownerAvatar} alt={item.ownerDisplay} />
+                    <AvatarFallback className="text-[8px]">
+                      {item.ownerDisplay?.[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   {item.ownerDisplay}
                 </button>
               </PopoverTrigger>
@@ -187,9 +193,14 @@ export const TreeItemContent = ({
                 <TooltipTrigger asChild>
                   <Badge 
                     variant="outline" 
-                    className="ml-1 h-4 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-0.5"
+                    className="ml-1 h-5 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-1"
                   >
-                    <User className="h-2.5 w-2.5" />
+                    <Avatar className="h-3.5 w-3.5">
+                      <AvatarImage src={item.ownerAvatar} alt={item.ownerDisplay} />
+                      <AvatarFallback className="text-[8px]">
+                        {item.ownerDisplay?.[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
                     {item.ownerDisplay}
                   </Badge>
                 </TooltipTrigger>

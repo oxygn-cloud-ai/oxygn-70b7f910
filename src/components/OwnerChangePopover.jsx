@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSupabase } from '../hooks/useSupabase';
 import { toast } from 'sonner';
 
@@ -10,85 +11,41 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
   const supabase = useSupabase();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [domainUsers, setDomainUsers] = useState([]);
+  const [profiles, setProfiles] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
 
-  // Fetch domain users on mount
+  // Fetch all profiles on mount
   useEffect(() => {
     if (supabase) {
-      fetchDomainUsers();
+      fetchProfiles();
     }
   }, [supabase]);
 
-  const fetchDomainUsers = async () => {
+  const fetchProfiles = async () => {
     try {
-      // Get all unique owner IDs from prompts
-      const { data: prompts, error: promptsError } = await supabase
-        .from('cyg_prompts')
-        .select('owner_id')
-        .not('owner_id', 'is', null);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, display_name, avatar_url');
 
-      if (promptsError) throw promptsError;
-
-      const ownerIds = [...new Set(prompts.map(p => p.owner_id).filter(Boolean))];
-      
-      // Also get the current user to include them
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser && !ownerIds.includes(currentUser.id)) {
-        ownerIds.push(currentUser.id);
-      }
-
-      // Get all assistants to find more user IDs
-      const { data: assistants } = await supabase
-        .from('cyg_assistants')
-        .select('owner_id')
-        .not('owner_id', 'is', null);
-
-      if (assistants) {
-        assistants.forEach(a => {
-          if (a.owner_id && !ownerIds.includes(a.owner_id)) {
-            ownerIds.push(a.owner_id);
-          }
-        });
-      }
-
-      // Get all threads to find more user IDs
-      const { data: threads } = await supabase
-        .from('cyg_threads')
-        .select('owner_id')
-        .not('owner_id', 'is', null);
-
-      if (threads) {
-        threads.forEach(t => {
-          if (t.owner_id && !ownerIds.includes(t.owner_id)) {
-            ownerIds.push(t.owner_id);
-          }
-        });
-      }
-
-      // Fetch emails for all found user IDs
-      const emailPromises = ownerIds.map(async (userId) => {
-        const { data: email } = await supabase.rpc('get_user_email', { _user_id: userId });
-        return { userId, email };
-      });
-
-      const users = await Promise.all(emailPromises);
-      setDomainUsers(users.filter(u => u.email));
+      if (error) throw error;
+      setProfiles(data || []);
     } catch (error) {
-      console.error('Error fetching domain users:', error);
+      console.error('Error fetching profiles:', error);
     }
   };
 
   useEffect(() => {
-    if (!email.trim()) {
-      setFilteredUsers(domainUsers.filter(u => u.userId !== currentOwnerId));
-    } else {
-      const filtered = domainUsers.filter(
-        u => u.email?.toLowerCase().includes(email.toLowerCase()) && u.userId !== currentOwnerId
+    const filtered = profiles.filter(p => {
+      if (p.id === currentOwnerId) return false;
+      if (!email.trim()) return true;
+      const searchLower = email.toLowerCase();
+      return (
+        p.email?.toLowerCase().includes(searchLower) ||
+        p.display_name?.toLowerCase().includes(searchLower)
       );
-      setFilteredUsers(filtered);
-    }
-  }, [email, domainUsers, currentOwnerId]);
+    });
+    setFilteredUsers(filtered);
+  }, [email, profiles, currentOwnerId]);
 
   const handleChangeOwner = useCallback(async (newOwnerId) => {
     if (!supabase || !promptRowId) return;
@@ -120,11 +77,11 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       <Input
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="Search by email..."
+        placeholder="Search by name or email..."
         className="h-8 text-sm"
         autoFocus
       />
-      <div className="max-h-32 overflow-auto space-y-1">
+      <div className="max-h-40 overflow-auto space-y-1">
         {filteredUsers.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2 text-center">
             {email ? 'No matching users' : 'No other users available'}
@@ -132,19 +89,31 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
         ) : (
           filteredUsers.map((user) => (
             <Button
-              key={user.userId}
+              key={user.id}
               variant="ghost"
               size="sm"
-              className="w-full justify-start h-7 text-xs"
-              onClick={() => handleChangeOwner(user.userId)}
+              className="w-full justify-start h-8 text-xs gap-2"
+              onClick={() => handleChangeOwner(user.id)}
               disabled={isLoading}
             >
               {isLoading ? (
-                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Check className="h-3 w-3 mr-2 opacity-0" />
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={user.avatar_url} alt={user.display_name || user.email} />
+                  <AvatarFallback className="text-[10px]">
+                    {(user.display_name || user.email)?.[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               )}
-              {user.email}
+              <span className="truncate">
+                {user.display_name || user.email?.split('@')[0]}
+              </span>
+              {user.display_name && (
+                <span className="text-muted-foreground truncate">
+                  ({user.email})
+                </span>
+              )}
             </Button>
           ))
         )}
