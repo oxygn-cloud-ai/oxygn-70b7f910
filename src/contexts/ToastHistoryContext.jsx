@@ -2,8 +2,6 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const ToastHistoryContext = createContext(null);
 
-const MAX_HISTORY = 50;
-
 export function ToastHistoryProvider({ children }) {
   const [history, setHistory] = useState([]);
 
@@ -12,7 +10,7 @@ export function ToastHistoryProvider({ children }) {
       ...toast,
       timestamp: new Date(),
     };
-    setHistory(prev => [entry, ...prev].slice(0, MAX_HISTORY));
+    setHistory(prev => [entry, ...prev]);
   }, []);
 
   const clearHistory = useCallback(() => {
