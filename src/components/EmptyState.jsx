@@ -16,6 +16,8 @@ export function EmptyState({
   title = 'No items',
   description = 'Get started by creating your first item.',
   actionLabel,
+  actionIcon,
+  actionAriaLabel,
   onAction,
   tip,
   className = '',
@@ -30,23 +32,27 @@ export function EmptyState({
       </div>
 
       {/* Title */}
-      <h3 className="text-base font-semibold text-foreground mb-1">
-        {title}
-      </h3>
+      <h3 className="text-base font-semibold text-foreground mb-1">{title}</h3>
 
       {/* Description */}
-      <p className="text-sm text-muted-foreground max-w-[240px] mb-4">
-        {description}
-      </p>
+      <p className="text-sm text-muted-foreground max-w-[240px] mb-4">{description}</p>
 
-      {/* Action Button */}
-      {actionLabel && onAction && (
-        <Button
-          onClick={onAction}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
-        >
-          {actionLabel}
-        </Button>
+      {/* Action */}
+      {onAction && (actionIcon || actionLabel) && (
+        actionIcon ? (
+          <button
+            type="button"
+            onClick={onAction}
+            aria-label={actionAriaLabel || actionLabel || 'Action'}
+            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {actionIcon}
+          </button>
+        ) : (
+          <Button variant="secondary" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        )
       )}
 
       {/* Tip */}

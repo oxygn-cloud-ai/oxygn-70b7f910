@@ -150,7 +150,8 @@ const TreeView = ({
             icon="file"
             title="No prompts yet"
             description="Create your first prompt to get started with prompt management."
-            actionLabel="Create First Prompt"
+            actionIcon={<Plus className="h-5 w-5" />}
+            actionAriaLabel="Create first prompt"
             onAction={handleCreateFirst}
             tip="Use assistants for conversational AI workflows"
           />
