@@ -7,9 +7,11 @@ export const deletePrompt = async (supabase, id) => {
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('row_id, parent_row_id')
       .eq('row_id', id)
-      .single();
+      .maybeSingle();
 
-    if (fetchError) throw fetchError;
+    // PGRST116 means no rows found
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    if (!prompt) return; // Nothing to delete
 
     // If top-level, destroy the assistant in OpenAI first
     if (!prompt.parent_row_id) {
@@ -18,7 +20,7 @@ export const deletePrompt = async (supabase, id) => {
         .from('cyg_assistants')
         .select('row_id, openai_assistant_id')
         .eq('prompt_row_id', id)
-        .single();
+        .maybeSingle();
 
       if (assistant?.openai_assistant_id) {
         // Destroy in OpenAI

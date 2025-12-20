@@ -24,9 +24,11 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null, onUpda
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('*')
           .eq('row_id', rowId)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        // PGRST116 means no rows found - treat as normal
+        if (error && error.code !== 'PGRST116') throw error;
+        if (!data) return;
         
         setSelectedItemData(data);
         if (onUpdateParentData) {

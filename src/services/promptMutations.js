@@ -47,7 +47,7 @@ const createAndInstantiateAssistant = async (supabase, promptRowId, promptName) 
         use_global_tool_defaults: true,
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     if (createError) {
       console.error('Failed to create assistant record:', createError);
@@ -277,9 +277,10 @@ export const duplicatePrompt = async (supabase, itemId) => {
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .insert([newPromptData])
       .select()
-      .single();
+      .maybeSingle();
 
     if (insertError) throw insertError;
+    if (!newData) throw new Error('Failed to create duplicate prompt');
     return newData.row_id;
   };
 
@@ -290,9 +291,10 @@ export const duplicatePrompt = async (supabase, itemId) => {
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('*')
       .eq('row_id', promptId)
-      .single();
+      .maybeSingle();
 
-    if (fetchError) throw fetchError;
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    if (!sourceData) throw new Error('Source prompt not found');
 
     // Duplicate the current prompt
     const newPromptId = await duplicateSinglePrompt(sourceData, newParentId);

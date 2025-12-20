@@ -99,6 +99,7 @@ export type Database = {
           model_override: string | null
           name: string
           openai_assistant_id: string | null
+          owner_id: string | null
           prompt_row_id: string | null
           row_id: string
           shared_vector_store_row_id: string | null
@@ -123,6 +124,7 @@ export type Database = {
           model_override?: string | null
           name?: string
           openai_assistant_id?: string | null
+          owner_id?: string | null
           prompt_row_id?: string | null
           row_id?: string
           shared_vector_store_row_id?: string | null
@@ -147,6 +149,7 @@ export type Database = {
           model_override?: string | null
           name?: string
           openai_assistant_id?: string | null
+          owner_id?: string | null
           prompt_row_id?: string | null
           row_id?: string
           shared_vector_store_row_id?: string | null
@@ -383,6 +386,8 @@ export type Database = {
           input_user_prompt: string | null
           is_assistant: boolean | null
           is_deleted: boolean | null
+          is_legacy: boolean | null
+          is_private: boolean | null
           logit_bias: string | null
           logit_bias_on: boolean | null
           logprobs: string | null
@@ -397,6 +402,7 @@ export type Database = {
           o_user: string | null
           o_user_on: boolean | null
           output_response: string | null
+          owner_id: string | null
           parent_row_id: string | null
           position: number | null
           presence_penalty: string | null
@@ -439,6 +445,8 @@ export type Database = {
           input_user_prompt?: string | null
           is_assistant?: boolean | null
           is_deleted?: boolean | null
+          is_legacy?: boolean | null
+          is_private?: boolean | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
           logprobs?: string | null
@@ -453,6 +461,7 @@ export type Database = {
           o_user?: string | null
           o_user_on?: boolean | null
           output_response?: string | null
+          owner_id?: string | null
           parent_row_id?: string | null
           position?: number | null
           presence_penalty?: string | null
@@ -495,6 +504,8 @@ export type Database = {
           input_user_prompt?: string | null
           is_assistant?: boolean | null
           is_deleted?: boolean | null
+          is_legacy?: boolean | null
+          is_private?: boolean | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
           logprobs?: string | null
@@ -509,6 +520,7 @@ export type Database = {
           o_user?: string | null
           o_user_on?: boolean | null
           output_response?: string | null
+          owner_id?: string | null
           parent_row_id?: string | null
           position?: number | null
           presence_penalty?: string | null
@@ -580,6 +592,7 @@ export type Database = {
           message_count: number | null
           name: string | null
           openai_thread_id: string
+          owner_id: string | null
           row_id: string
         }
         Insert: {
@@ -591,6 +604,7 @@ export type Database = {
           message_count?: number | null
           name?: string | null
           openai_thread_id: string
+          owner_id?: string | null
           row_id?: string
         }
         Update: {
@@ -602,6 +616,7 @@ export type Database = {
           message_count?: number | null
           name?: string | null
           openai_thread_id?: string
+          owner_id?: string | null
           row_id?: string
         }
         Relationships: [
@@ -654,6 +669,8 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          is_private: boolean | null
+          owner_id: string | null
           project_description: string | null
           project_id: string | null
           project_name: string
@@ -662,6 +679,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          is_private?: boolean | null
+          owner_id?: string | null
           project_description?: string | null
           project_id?: string | null
           project_name?: string
@@ -670,6 +689,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          is_private?: boolean | null
+          owner_id?: string | null
           project_description?: string | null
           project_id?: string | null
           project_name?: string
@@ -678,16 +699,80 @@ export type Database = {
         }
         Relationships: []
       }
+      resource_shares: {
+        Row: {
+          created_at: string
+          id: string
+          permission: string
+          resource_id: string
+          resource_type: string
+          shared_by_user_id: string | null
+          shared_with_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission?: string
+          resource_id: string
+          resource_type: string
+          shared_by_user_id?: string | null
+          shared_with_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: string
+          resource_id?: string
+          resource_type?: string
+          shared_by_user_id?: string | null
+          shared_with_user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      can_edit_resource: {
+        Args: { _resource_id: string; _resource_type: string }
+        Returns: boolean
+      }
+      can_read_resource: {
+        Args: { _resource_id: string; _resource_type: string }
+        Returns: boolean
+      }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
+      is_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_allowed_domain: { Args: { email: string }; Returns: boolean }
+      owns_prompt: {
+        Args: { _prompt_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -814,6 +899,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
