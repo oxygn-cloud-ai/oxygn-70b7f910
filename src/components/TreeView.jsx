@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { Plus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import TreeItem from './TreeItem';
 import SearchFilter from './SearchFilter';
 import EmptyState from './EmptyState';
@@ -104,14 +105,20 @@ const TreeView = ({
             placeholder="Search prompts..."
           />
         </div>
-        <Button
-          onClick={handleCreateFirst}
-          size="sm"
-          className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">New</span>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={handleCreateFirst}
+              size="icon"
+              className="h-8 w-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Create new prompt</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Stats bar */}
