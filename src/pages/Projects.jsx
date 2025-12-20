@@ -52,8 +52,9 @@ const Projects = () => {
   useEffect(() => {
     setCreatePromptHandler(() => () => handleAddItem(null));
     return () => setCreatePromptHandler(null);
-  const toggleItem = useCallback((itemId) => {
+  }, [handleAddItem, setCreatePromptHandler]);
 
+  const toggleItem = useCallback((itemId) => {
     setExpandedItems(prev => 
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
     );
