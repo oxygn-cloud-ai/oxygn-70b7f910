@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useTemplates } from '../../hooks/useTemplates';
 import { toast } from '@/components/ui/sonner';
 
-const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel }) => {
+const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId }) => {
   const { 
     templates, 
     isLoading, 
@@ -42,9 +42,14 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel }) => {
       return;
     }
 
+    if (!promptRowId) {
+      toast.error('No prompt selected');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const result = await createFromPrompt(projectRowId, templateName);
+      const result = await createFromPrompt(promptRowId, templateName);
       if (result) {
         setShowSaveDialog(false);
         setTemplateName('');

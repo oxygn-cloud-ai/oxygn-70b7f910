@@ -124,6 +124,7 @@ const PromptEditorTabs = ({
               selectedItemData={selectedItemData}
               projectRowId={projectRowId}
               isTopLevel={isTopLevel}
+              promptRowId={selectedItemData?.row_id}
             />
           </TabsContent>
         </div>
