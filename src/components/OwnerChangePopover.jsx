@@ -22,16 +22,52 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
 
   const fetchDomainUsers = async () => {
     try {
-      const { data: prompts, error } = await supabase
+      // Get all unique owner IDs from prompts
+      const { data: prompts, error: promptsError } = await supabase
         .from('cyg_prompts')
         .select('owner_id')
         .not('owner_id', 'is', null);
 
-      if (error) throw error;
+      if (promptsError) throw promptsError;
 
-      const uniqueOwnerIds = [...new Set(prompts.map(p => p.owner_id).filter(Boolean))];
+      const ownerIds = [...new Set(prompts.map(p => p.owner_id).filter(Boolean))];
       
-      const emailPromises = uniqueOwnerIds.map(async (userId) => {
+      // Also get the current user to include them
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser && !ownerIds.includes(currentUser.id)) {
+        ownerIds.push(currentUser.id);
+      }
+
+      // Get all assistants to find more user IDs
+      const { data: assistants } = await supabase
+        .from('cyg_assistants')
+        .select('owner_id')
+        .not('owner_id', 'is', null);
+
+      if (assistants) {
+        assistants.forEach(a => {
+          if (a.owner_id && !ownerIds.includes(a.owner_id)) {
+            ownerIds.push(a.owner_id);
+          }
+        });
+      }
+
+      // Get all threads to find more user IDs
+      const { data: threads } = await supabase
+        .from('cyg_threads')
+        .select('owner_id')
+        .not('owner_id', 'is', null);
+
+      if (threads) {
+        threads.forEach(t => {
+          if (t.owner_id && !ownerIds.includes(t.owner_id)) {
+            ownerIds.push(t.owner_id);
+          }
+        });
+      }
+
+      // Fetch emails for all found user IDs
+      const emailPromises = ownerIds.map(async (userId) => {
         const { data: email } = await supabase.rpc('get_user_email', { _user_id: userId });
         return { userId, email };
       });
