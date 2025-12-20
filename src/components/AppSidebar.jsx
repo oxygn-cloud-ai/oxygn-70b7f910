@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import GuardedLink from '@/components/GuardedLink';
 import {
@@ -28,6 +28,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 const mainNavItems = [
   { id: 'home', title: 'Home', icon: Home, to: '/' },
   { id: 'prompts', title: 'Prompts', icon: Folder, to: '/projects', badge: null },
+  { id: 'templates', title: 'Templates', icon: LayoutTemplate, to: '/templates', badge: null },
 ];
 
 const settingsSubItems = [
