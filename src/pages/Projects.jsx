@@ -14,6 +14,7 @@ import AssistantChatPanel from '../components/AssistantChatPanel';
 import EmptyState from '../components/EmptyState';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from '@/components/ui/sonner';
+import { useCreatePrompt } from '@/contexts/CreatePromptContext';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -28,6 +29,7 @@ const Projects = () => {
   const [isAddingPrompt, setIsAddingPrompt] = useState(false);
   const { handleAddItem: addItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
+  const { setCreatePromptHandler } = useCreatePrompt();
 
   // Wrap handleAddItem to auto-expand parent when adding a child and prevent multi-click
   const handleAddItem = useCallback(async (parentId) => {
@@ -46,7 +48,12 @@ const Projects = () => {
     }
   }, [addItem, isAddingPrompt]);
 
+  // Register create prompt handler for sidebar
+  useEffect(() => {
+    setCreatePromptHandler(() => () => handleAddItem(null));
+    return () => setCreatePromptHandler(null);
   const toggleItem = useCallback((itemId) => {
+
     setExpandedItems(prev => 
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
     );

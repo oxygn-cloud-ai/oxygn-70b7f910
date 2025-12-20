@@ -13,6 +13,7 @@ import { ApiCallProvider } from "@/contexts/ApiCallContext";
 import NavigationGuard from "@/components/NavigationGuard";
 import BackgroundCallsIndicator from "@/components/BackgroundCallsIndicator";
 import { ToastHistoryProvider, useToastHistory } from "@/contexts/ToastHistoryContext";
+import { CreatePromptProvider, useCreatePrompt } from "@/contexts/CreatePromptContext";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ export const useHealthSection = () => useContext(HealthSectionContext);
 const AppLayout = () => {
   const [activeSettingsSection, setActiveSettingsSection] = useState("qonsol");
   const [activeHealthSection, setActiveHealthSection] = useState("database");
+  const { triggerCreatePrompt } = useCreatePrompt();
 
   return (
     <SettingsSectionContext.Provider
@@ -56,6 +58,7 @@ const AppLayout = () => {
               onSettingsSectionChange={setActiveSettingsSection}
               activeHealthSection={activeHealthSection}
               onHealthSectionChange={setActiveHealthSection}
+              onCreatePrompt={triggerCreatePrompt}
             />
             <main className="flex-1 flex flex-col">
               <div className="md:hidden p-2 border-b border-border">
@@ -91,31 +94,36 @@ const ToastHistoryConnector = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ToastHistoryProvider>
-      <TooltipProvider>
-        <Toaster />
-        <ToastHistoryConnector />
-        <BrowserRouter>
-          <ApiCallProvider>
-            <AuthProvider>
-              <NavigationGuard />
-              <BackgroundCallsIndicator />
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route
-                  path="/*"
-                  element={
-                    <ProtectedRoute>
-                      <AppLayout />
-                    </ProtectedRoute>
-                  }
-                />
-              </Routes>
-            </AuthProvider>
-          </ApiCallProvider>
-        </BrowserRouter>
-      </TooltipProvider>
+      <CreatePromptProvider>
+        <TooltipProvider>
+          <Toaster />
+          <ToastHistoryConnector />
+          <BrowserRouter>
+            <ApiCallProvider>
+              <AuthProvider>
+                <NavigationGuard />
+                <BackgroundCallsIndicator />
+                <Routes>
+                  <Route path="/auth" element={<Auth />} />
+                  <Route
+                    path="/*"
+                    element={
+                      <ProtectedRoute>
+                        <AppLayout />
+                      </ProtectedRoute>
+                    }
+                  />
+                </Routes>
+              </AuthProvider>
+            </ApiCallProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CreatePromptProvider>
     </ToastHistoryProvider>
   </QueryClientProvider>
+);
+
+export default App;
 );
 
 export default App;

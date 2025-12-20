@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import GuardedLink from '@/components/GuardedLink';
 import {
@@ -48,7 +48,7 @@ const healthSubItems = [
   { id: 'environment', title: 'Environment', icon: Settings2 },
 ];
 
-export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, activeHealthSection, onHealthSectionChange }) {
+export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, activeHealthSection, onHealthSectionChange, onCreatePrompt }) {
   const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { user, signOut, userProfile } = useAuth();
@@ -119,6 +119,27 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                           {item.badge}
                         </Badge>
+                      )}
+                      {item.id === 'prompts' && !isCollapsed && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onCreatePrompt?.();
+                              }}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>Create new prompt</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                     </GuardedLink>
                   </SidebarMenuButton>
