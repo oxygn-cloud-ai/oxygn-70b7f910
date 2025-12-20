@@ -10,7 +10,16 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: "8080",
+    port: 8080,
+    strictPort: true,
+    // Lovable preview runs Vite behind a secure proxy; ensure the HMR socket
+    // connects back to the current origin instead of localhost.
+    hmr: {
+      protocol: "wss",
+      clientPort: 443,
+      // Empty string is falsy in the Vite client, so it falls back to import.meta.url.hostname.
+      host: "",
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   optimizeDeps: {
