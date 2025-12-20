@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { History, User, Bot, Loader2 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -37,12 +38,18 @@ const ThreadHistory = ({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <History className="h-4 w-4" />
-          View History
-        </Button>
-      </DialogTrigger>
+      <TooltipProvider>
+        <Tooltip>
+          <DialogTrigger asChild>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <History className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+          </DialogTrigger>
+          <TooltipContent>View History</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

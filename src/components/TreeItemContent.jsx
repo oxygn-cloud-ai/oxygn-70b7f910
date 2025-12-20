@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { TreeItemActions } from './TreeItemActions';
+import OwnerChangePopover from './OwnerChangePopover';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +34,9 @@ export const TreeItemContent = ({
   onRefreshTreeData,
   searchQuery
 }) => {
+  const { user, isAdmin } = useAuth();
+  const isOwner = user?.id === item.owner_id;
+  const canChangeOwner = isAdmin || isOwner;
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       finishRenaming();
@@ -150,22 +155,40 @@ export const TreeItemContent = ({
 
         {/* Owner badge for top-level items owned by others */}
         {item.showOwner && item.ownerDisplay && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
-                  className="ml-1 h-4 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-0.5"
-                >
-                  <User className="h-2.5 w-2.5" />
-                  {item.ownerDisplay}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">
-                Owned by {item.ownerDisplay}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-0.5">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className="ml-1 h-4 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-0.5"
+                  >
+                    <User className="h-2.5 w-2.5" />
+                    {item.ownerDisplay}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">
+                  Owned by {item.ownerDisplay}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {canChangeOwner && (
+              <OwnerChangePopover
+                promptRowId={item.id}
+                currentOwnerId={item.owner_id}
+                onOwnerChanged={onRefreshTreeData}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Change owner button for items you own (top-level only, not showing owner badge) */}
+        {!item.showOwner && level === 1 && isOwner && (
+          <OwnerChangePopover
+            promptRowId={item.id}
+            currentOwnerId={item.owner_id}
+            onOwnerChanged={onRefreshTreeData}
+          />
         )}
 
         {/* Child count badge */}
