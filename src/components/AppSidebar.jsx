@@ -123,10 +123,10 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                       {item.id === 'prompts' && !isCollapsed && (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10 hover:text-primary"
+                            <button
+                              type="button"
+                              className="h-6 w-6 inline-flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-label="Create new prompt"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -134,7 +134,7 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                               }}
                             >
                               <Plus className="h-3.5 w-3.5" />
-                            </Button>
+                            </button>
                           </TooltipTrigger>
                           <TooltipContent side="right">
                             <p>Create new prompt</p>
