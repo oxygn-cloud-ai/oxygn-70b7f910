@@ -231,9 +231,8 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={handleReInstantiate} disabled={isInstantiating} className="gap-1.5">
+                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleReInstantiate} disabled={isInstantiating}>
                     {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
-                    Re-enable
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Re-enable Assistant</TooltipContent>
@@ -560,12 +559,11 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button className="w-full" variant="outline" onClick={instantiate} disabled={isInstantiating}>
-                {isInstantiating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                Retry Instantiation
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={instantiate} disabled={isInstantiating}>
+                {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Try to instantiate the assistant again</TooltipContent>
+            <TooltipContent>Retry Instantiation</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       )}

@@ -18,6 +18,23 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const checkAdminStatus = async (userId) => {
+    if (!userId) {
+      setIsAdmin(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.rpc('is_admin', { _user_id: userId });
+      if (!error) {
+        setIsAdmin(!!data);
+      }
+    } catch (err) {
+      console.error('Error checking admin status:', err);
+      setIsAdmin(false);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -35,8 +52,15 @@ export const AuthProvider = ({ children }) => {
           }, 0);
           setUser(null);
           setSession(null);
+          setIsAdmin(false);
         } else {
           setUser(currentUser);
+          // Defer admin check to avoid Supabase client deadlock
+          if (currentUser) {
+            setTimeout(() => checkAdminStatus(currentUser.id), 0);
+          } else {
+            setIsAdmin(false);
+          }
         }
         setLoading(false);
       }
@@ -51,8 +75,12 @@ export const AuthProvider = ({ children }) => {
         supabase.auth.signOut();
         setUser(null);
         setSession(null);
+        setIsAdmin(false);
       } else {
         setUser(currentUser);
+        if (currentUser) {
+          checkAdminStatus(currentUser.id);
+        }
       }
       setLoading(false);
     });
@@ -95,6 +123,7 @@ export const AuthProvider = ({ children }) => {
     user,
     session,
     loading,
+    isAdmin,
     signInWithGoogle,
     signOut,
     isAuthenticated: !!user

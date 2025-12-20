@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, ChevronUp, Bot, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from 'sonner';
 
 const ProjectPanels = ({ 
@@ -182,14 +183,20 @@ const ProjectPanels = ({
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <Button 
-              size="sm" 
-              onClick={handleEnableAssistant}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              <Bot className="h-4 w-4 mr-2" />
-              Enable Assistant Mode
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="icon"
+                    onClick={handleEnableAssistant}
+                    className="h-8 w-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  >
+                    <Bot className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Enable Assistant Mode</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}
