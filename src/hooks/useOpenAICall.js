@@ -160,10 +160,10 @@ export const useOpenAICall = () => {
           throw new Error('Empty response from OpenAI');
         }
 
-        // Run success callback (for background DB updates)
+        // Run success callback with content and full response data (for cost tracking)
         if (typeof options?.onSuccess === 'function') {
           try {
-            await options.onSuccess(content);
+            await options.onSuccess(content, data);
           } catch (e) {
             console.error('onSuccess callback error:', e);
           }

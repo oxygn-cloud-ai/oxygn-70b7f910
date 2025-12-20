@@ -1,14 +1,16 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, LayoutTemplate, FileText } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
 import { toast } from '@/components/ui/sonner';
 import DebugInfoPopup from './DebugInfoPopup';
+import TemplatePickerDialog from './TemplatePickerDialog';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export const TreeItemActions = ({ 
   item, 
@@ -22,6 +24,7 @@ export const TreeItemActions = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showBulkAdd, setShowBulkAdd] = useState(false);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [bulkCount, setBulkCount] = useState('2');
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, isAdding: false });
   const longPressTimer = useRef(null);
@@ -230,20 +233,38 @@ export const TreeItemActions = ({
         </div>
       ) : (
         <>
-          <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
-            <PopoverTrigger asChild>
+          {/* Add button with dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-6 w-6 p-0 hover:bg-primary/10 hover:text-primary"
-                onClick={handleAddClick}
-                onMouseDown={startLongPress}
-                onMouseLeave={cancelLongPress}
-                onTouchStart={startLongPress}
                 disabled={isProcessing}
               >
                 <PlusIcon className="h-3.5 w-3.5" />
               </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onClick={() => addItem(item.id)}>
+                <FileText className="h-4 w-4 mr-2" />
+                Plain Prompt
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowTemplatePicker(true)}>
+                <LayoutTemplate className="h-4 w-4 mr-2" />
+                From Template
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowBulkAdd(true)}>
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add Multiple...
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Bulk add popover */}
+          <Popover open={showBulkAdd} onOpenChange={setShowBulkAdd}>
+            <PopoverTrigger asChild>
+              <span className="hidden" />
             </PopoverTrigger>
             <PopoverContent className="w-auto p-2 bg-popover" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center gap-1.5">
@@ -268,6 +289,18 @@ export const TreeItemActions = ({
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Template picker dialog */}
+          <TemplatePickerDialog
+            isOpen={showTemplatePicker}
+            onClose={() => setShowTemplatePicker(false)}
+            parentId={item.id}
+            onPromptCreated={async () => {
+              if (typeof onRefreshTreeData === 'function') {
+                await onRefreshTreeData();
+              }
+            }}
+          />
 
           <ActionButton 
             icon={<ArrowUp className="h-3.5 w-3.5" />} 
