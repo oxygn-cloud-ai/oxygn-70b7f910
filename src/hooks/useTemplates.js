@@ -78,11 +78,18 @@ export const useTemplates = () => {
    */
   const updateTemplate = useCallback(async (rowId, updates) => {
     try {
+      // First get current version
+      const { data: current } = await supabase
+        .from('cyg_templates')
+        .select('version')
+        .eq('row_id', rowId)
+        .single();
+
       const { error } = await supabase
         .from('cyg_templates')
         .update({
           ...updates,
-          version: supabase.sql`version + 1`,
+          version: (current?.version || 0) + 1,
         })
         .eq('row_id', rowId);
 
