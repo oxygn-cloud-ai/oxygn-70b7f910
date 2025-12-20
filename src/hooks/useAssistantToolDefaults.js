@@ -12,7 +12,7 @@ export const useAssistantToolDefaults = () => {
 
     try {
       const { data, error } = await supabase
-        .from('cyg_assistant_tool_defaults')
+        .from(import.meta.env.VITE_ASSISTANT_TOOL_DEFAULTS_TBL)
         .select('*')
         .limit(1)
         .maybeSingle();
@@ -35,7 +35,7 @@ export const useAssistantToolDefaults = () => {
 
     try {
       const { error } = await supabase
-        .from('cyg_assistant_tool_defaults')
+        .from(import.meta.env.VITE_ASSISTANT_TOOL_DEFAULTS_TBL)
         .update(updates)
         .eq('row_id', defaults.row_id);
 

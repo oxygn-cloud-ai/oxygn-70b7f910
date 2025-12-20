@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * Hook for tracking AI call costs
- * Records costs to cyg_ai_costs table and updates prompt metadata
+ * Records costs to q_ai_costs table and updates prompt metadata
  */
 export const useCostTracking = () => {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ export const useCostTracking = () => {
     try {
       // Try exact match first
       let { data, error } = await supabase
-        .from('cyg_model_pricing')
+        .from(import.meta.env.VITE_MODEL_PRICING_TBL)
         .select('cost_per_1k_input_tokens, cost_per_1k_output_tokens')
         .eq('model_id', modelId)
         .maybeSingle();
@@ -27,7 +27,7 @@ export const useCostTracking = () => {
         // Try partial match (e.g., "gpt-4o" matches "gpt-4o-2024-05-13")
         const baseModel = modelId.split('-').slice(0, 2).join('-');
         const { data: partialMatch } = await supabase
-          .from('cyg_model_pricing')
+          .from(import.meta.env.VITE_MODEL_PRICING_TBL)
           .select('cost_per_1k_input_tokens, cost_per_1k_output_tokens')
           .ilike('model_id', `${baseModel}%`)
           .limit(1)
@@ -121,7 +121,7 @@ export const useCostTracking = () => {
 
       // Insert cost record
       const { error: insertError } = await supabase
-        .from('cyg_ai_costs')
+        .from(import.meta.env.VITE_AI_COSTS_TBL)
         .insert({
           prompt_row_id: promptRowId,
           top_level_prompt_row_id: topLevel?.row_id || promptRowId,
@@ -187,7 +187,7 @@ export const useCostTracking = () => {
   const getLifetimeCosts = useCallback(async (topLevelPromptRowId) => {
     try {
       const { data, error } = await supabase
-        .from('cyg_ai_costs')
+        .from(import.meta.env.VITE_AI_COSTS_TBL)
         .select('tokens_input, tokens_output, tokens_total, cost_total_usd, model, created_at')
         .eq('top_level_prompt_row_id', topLevelPromptRowId);
 
@@ -254,7 +254,7 @@ export const useCostTracking = () => {
 
     try {
       let query = supabase
-        .from('cyg_ai_costs')
+        .from(import.meta.env.VITE_AI_COSTS_TBL)
         .select('*');
 
       if (startDate) {

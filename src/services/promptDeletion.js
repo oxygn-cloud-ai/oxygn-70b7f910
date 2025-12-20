@@ -17,7 +17,7 @@ export const deletePrompt = async (supabase, id) => {
     if (!prompt.parent_row_id) {
       // Find the assistant linked to this prompt
       const { data: assistant } = await supabase
-        .from('cyg_assistants')
+        .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .select('row_id, openai_assistant_id')
         .eq('prompt_row_id', id)
         .maybeSingle();
@@ -41,7 +41,7 @@ export const deletePrompt = async (supabase, id) => {
       // Delete the assistant record
       if (assistant?.row_id) {
         await supabase
-          .from('cyg_assistants')
+          .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .delete()
           .eq('row_id', assistant.row_id);
       }
