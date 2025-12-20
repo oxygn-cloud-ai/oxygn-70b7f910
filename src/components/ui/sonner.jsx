@@ -3,74 +3,65 @@ import { Toaster as Sonner, toast as sonnerToast } from "sonner"
 
 // Toast history for tracking all notifications
 let toastHistoryCallback = null;
+let sonnerPatched = false;
 
 export const setToastHistoryCallback = (callback) => {
   toastHistoryCallback = callback;
 };
 
-// Wrapped toast function that also records to history
-export const toast = Object.assign(
-  (message, options) => {
-    if (toastHistoryCallback) {
-      toastHistoryCallback({
-        id: Date.now().toString(),
-        title: typeof message === 'string' ? message : options?.title,
-        description: options?.description,
-        variant: options?.variant || 'default',
-      });
-    }
-    return sonnerToast(message, options);
-  },
-  {
-    success: (message, options) => {
-      if (toastHistoryCallback) {
-        toastHistoryCallback({
-          id: Date.now().toString(),
-          title: typeof message === 'string' ? message : options?.title,
-          description: options?.description,
-          variant: 'success',
-        });
-      }
-      return sonnerToast.success(message, options);
-    },
-    error: (message, options) => {
-      if (toastHistoryCallback) {
-        toastHistoryCallback({
-          id: Date.now().toString(),
-          title: typeof message === 'string' ? message : options?.title,
-          description: options?.description,
-          variant: 'destructive',
-        });
-      }
-      return sonnerToast.error(message, options);
-    },
-    info: (message, options) => {
-      if (toastHistoryCallback) {
-        toastHistoryCallback({
-          id: Date.now().toString(),
-          title: typeof message === 'string' ? message : options?.title,
-          description: options?.description,
-          variant: 'default',
-        });
-      }
-      return sonnerToast.info(message, options);
-    },
-    warning: (message, options) => {
-      if (toastHistoryCallback) {
-        toastHistoryCallback({
-          id: Date.now().toString(),
-          title: typeof message === 'string' ? message : options?.title,
-          description: options?.description,
-          variant: 'warning',
-        });
-      }
-      return sonnerToast.warning(message, options);
-    },
-    promise: sonnerToast.promise,
-    dismiss: sonnerToast.dismiss,
+const recordToHistory = (variant, message, options) => {
+  if (!toastHistoryCallback) return;
+
+  toastHistoryCallback({
+    id: Date.now().toString(),
+    title: typeof message === "string" ? message : options?.title,
+    description: options?.description,
+    variant,
+  });
+};
+
+// Patch Sonner's exported toast methods so even `import { toast } from 'sonner'`
+// gets recorded in our history.
+if (!sonnerPatched) {
+  sonnerPatched = true;
+
+  const original = {
+    success: sonnerToast.success,
+    error: sonnerToast.error,
+    info: sonnerToast.info,
+    warning: sonnerToast.warning,
     loading: sonnerToast.loading,
-  }
-);
+  };
+
+  sonnerToast.success = (message, options) => {
+    recordToHistory("success", message, options);
+    return original.success(message, options);
+  };
+
+  sonnerToast.error = (message, options) => {
+    recordToHistory("destructive", message, options);
+    return original.error(message, options);
+  };
+
+  sonnerToast.info = (message, options) => {
+    recordToHistory("default", message, options);
+    return original.info(message, options);
+  };
+
+  sonnerToast.warning = (message, options) => {
+    recordToHistory("warning", message, options);
+    return original.warning(message, options);
+  };
+
+  sonnerToast.loading = (message, options) => {
+    recordToHistory("default", message, options);
+    return original.loading(message, options);
+  };
+}
+
+// Re-export Sonner's toast (now patched) for internal imports.
+export const toast = sonnerToast;
+
 
 const Toaster = ({
   ...props
