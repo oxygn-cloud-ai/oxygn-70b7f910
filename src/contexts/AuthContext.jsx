@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
 
   const checkAdminStatus = async (userId) => {
     if (!userId) {
@@ -33,6 +34,27 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Error checking admin status:', err);
       setIsAdmin(false);
+    }
+  };
+
+  const fetchUserProfile = async (userId) => {
+    if (!userId) {
+      setUserProfile(null);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('display_name, avatar_url, email')
+        .eq('id', userId)
+        .single();
+      
+      if (!error && data) {
+        setUserProfile(data);
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      setUserProfile(null);
     }
   };
 
@@ -53,13 +75,18 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           setSession(null);
           setIsAdmin(false);
+          setUserProfile(null);
         } else {
           setUser(currentUser);
-          // Defer admin check to avoid Supabase client deadlock
+          // Defer admin check and profile fetch to avoid Supabase client deadlock
           if (currentUser) {
-            setTimeout(() => checkAdminStatus(currentUser.id), 0);
+            setTimeout(() => {
+              checkAdminStatus(currentUser.id);
+              fetchUserProfile(currentUser.id);
+            }, 0);
           } else {
             setIsAdmin(false);
+            setUserProfile(null);
           }
         }
         setLoading(false);
@@ -76,10 +103,12 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setSession(null);
         setIsAdmin(false);
+        setUserProfile(null);
       } else {
         setUser(currentUser);
         if (currentUser) {
           checkAdminStatus(currentUser.id);
+          fetchUserProfile(currentUser.id);
         }
       }
       setLoading(false);
@@ -124,6 +153,7 @@ export const AuthProvider = ({ children }) => {
     session,
     loading,
     isAdmin,
+    userProfile,
     signInWithGoogle,
     signOut,
     isAuthenticated: !!user

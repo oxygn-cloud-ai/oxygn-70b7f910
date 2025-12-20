@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const mainNavItems = [
   { id: 'home', title: 'Home', icon: Home, to: '/' },
@@ -49,10 +50,20 @@ const healthSubItems = [
 export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, activeHealthSection, onHealthSectionChange }) {
   const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user, signOut, userProfile } = useAuth();
   const isCollapsed = state === 'collapsed';
   const isOnSettings = location.pathname === '/settings';
   const isOnHealth = location.pathname === '/health';
+
+  const getInitials = () => {
+    if (userProfile?.display_name) {
+      return userProfile.display_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return 'U';
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
@@ -208,13 +219,42 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
       {/* Footer with User */}
       {user && (
         <SidebarFooter className="border-t border-sidebar-border p-3">
-          {!isCollapsed && (
-            <div className="px-1 py-1.5 mb-2">
-              <p className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-medium">Signed in as</p>
-              <p className="text-xs text-sidebar-foreground truncate mt-0.5">
-                {user.email}
-              </p>
+          {!isCollapsed ? (
+            <div className="flex items-center gap-3 px-1 py-1.5 mb-2">
+              <Avatar className="h-8 w-8 border border-sidebar-border">
+                <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.display_name || user.email} />
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                {userProfile?.display_name && (
+                  <p className="text-xs font-medium text-sidebar-foreground truncate">
+                    {userProfile.display_name}
+                  </p>
+                )}
+                <p className="text-[10px] text-sidebar-foreground/60 truncate">
+                  {user.email}
+                </p>
+              </div>
             </div>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex justify-center mb-2">
+                  <Avatar className="h-8 w-8 border border-sidebar-border cursor-pointer">
+                    <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.display_name || user.email} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p className="font-medium">{userProfile?.display_name || user.email}</p>
+                {userProfile?.display_name && <p className="text-xs text-muted-foreground">{user.email}</p>}
+              </TooltipContent>
+            </Tooltip>
           )}
           <div className="flex items-center justify-between gap-1">
             <ToastHistoryPopover />

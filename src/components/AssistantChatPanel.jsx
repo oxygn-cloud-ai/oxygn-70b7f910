@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from 'sonner';
-import { Bot, Plus, Trash2, MessageSquare, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
-import StudioChat from './StudioChat';
+import { Bot, Loader2 } from 'lucide-react';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import ChatPanel from './chat/ChatPanel';
+import ThreadSidebar from './chat/ThreadSidebar';
 
 const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) => {
   const supabase = useSupabase();
@@ -23,6 +18,26 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [selectedChildPromptName, setSelectedChildPromptName] = useState(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [childPromptsCount, setChildPromptsCount] = useState(0);
+
+  // Fetch child prompts count
+  useEffect(() => {
+    const fetchChildPromptsCount = async () => {
+      if (!supabase || !promptRowId) return;
+      try {
+        const { count } = await supabase
+          .from('cyg_prompts')
+          .select('*', { count: 'exact', head: true })
+          .eq('parent_row_id', promptRowId)
+          .eq('is_deleted', false);
+        setChildPromptsCount(count || 0);
+      } catch {
+        setChildPromptsCount(0);
+      }
+    };
+    fetchChildPromptsCount();
+  }, [supabase, promptRowId]);
 
   // Fetch child prompt name when viewing a child prompt
   useEffect(() => {
@@ -37,7 +52,6 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
           .select('prompt_name')
           .eq('row_id', selectedChildPromptId)
           .maybeSingle();
-
         if (error && error.code !== 'PGRST116') throw error;
         setSelectedChildPromptName(data?.prompt_name ?? null);
       } catch {
@@ -47,10 +61,8 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     fetchChildPromptName();
   }, [supabase, selectedChildPromptId]);
 
-  // Fetch assistant for this prompt
   const fetchAssistant = useCallback(async () => {
     if (!supabase || !promptRowId) return;
-
     setIsLoadingAssistant(true);
     try {
       const { data, error } = await supabase
@@ -58,9 +70,6 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
         .select('*')
         .eq('prompt_row_id', promptRowId)
         .maybeSingle();
-
-      // When no assistant exists for a prompt, PostgREST returns "0 rows".
-      // We treat that as a normal state (no assistant yet) to avoid noisy HTTP errors.
       if (error && error.code !== 'PGRST116') throw error;
       setAssistant(data ?? null);
     } catch (error) {
@@ -71,10 +80,8 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     }
   }, [supabase, promptRowId]);
 
-  // Fetch threads for this assistant (studio threads only - child_prompt_row_id is null)
   const fetchThreads = useCallback(async (assistantRowId) => {
     if (!supabase || !assistantRowId) return;
-
     setIsLoadingThreads(true);
     try {
       const { data, error } = await supabase
@@ -83,11 +90,8 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
         .eq('assistant_row_id', assistantRowId)
         .is('child_prompt_row_id', null)
         .order('last_message_at', { ascending: false, nullsFirst: false });
-
       if (error) throw error;
       setThreads(data || []);
-
-      // Auto-select first thread
       if (data && data.length > 0 && !activeThread) {
         setActiveThread(data[0]);
       }
@@ -98,23 +102,15 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     }
   }, [supabase, activeThread]);
 
-  // Fetch messages for active thread
   const fetchMessages = useCallback(async (threadRowId) => {
     if (!supabase || !threadRowId) return;
-
     setIsLoadingMessages(true);
     try {
       const { data, error } = await supabase.functions.invoke('thread-manager', {
-        body: {
-          action: 'get_messages',
-          thread_row_id: threadRowId,
-          limit: 100,
-        },
+        body: { action: 'get_messages', thread_row_id: threadRowId, limit: 100 },
       });
-
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-
       setMessages(data.messages || []);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
@@ -124,62 +120,64 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     }
   }, [supabase]);
 
-  // Create new thread
   const createThread = useCallback(async () => {
     if (!supabase || !assistant?.row_id) return;
-
     try {
       const { data, error } = await supabase.functions.invoke('thread-manager', {
-        body: {
-          action: 'create',
-          assistant_row_id: assistant.row_id,
-          child_prompt_row_id: null,
-          name: `Chat ${new Date().toLocaleDateString()}`,
-        },
+        body: { action: 'create', assistant_row_id: assistant.row_id, child_prompt_row_id: null, name: `Chat ${new Date().toLocaleDateString()}` },
       });
-
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-
       const newThread = data.thread;
       setThreads(prev => [newThread, ...prev]);
       setActiveThread(newThread);
       setMessages([]);
-      toast.success('New thread created');
+      toast.success('New conversation created');
     } catch (error) {
       console.error('Failed to create thread:', error);
-      toast.error('Failed to create thread');
+      toast.error('Failed to create conversation');
     }
   }, [supabase, assistant]);
 
-  // Delete thread
   const deleteThread = useCallback(async (threadRowId) => {
     if (!supabase) return;
-
     try {
       const { data, error } = await supabase.functions.invoke('thread-manager', {
-        body: {
-          action: 'delete',
-          thread_row_id: threadRowId,
-        },
+        body: { action: 'delete', thread_row_id: threadRowId },
       });
-
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-
       setThreads(prev => prev.filter(t => t.row_id !== threadRowId));
       if (activeThread?.row_id === threadRowId) {
         setActiveThread(null);
         setMessages([]);
       }
-      toast.success('Thread deleted');
+      toast.success('Conversation deleted');
     } catch (error) {
       console.error('Failed to delete thread:', error);
-      toast.error('Failed to delete thread');
+      toast.error('Failed to delete conversation');
     }
   }, [supabase, activeThread]);
 
-  // Switch thread
+  const renameThread = useCallback(async (threadRowId, newName) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('cyg_threads')
+        .update({ name: newName })
+        .eq('row_id', threadRowId);
+      if (error) throw error;
+      setThreads(prev => prev.map(t => t.row_id === threadRowId ? { ...t, name: newName } : t));
+      if (activeThread?.row_id === threadRowId) {
+        setActiveThread(prev => ({ ...prev, name: newName }));
+      }
+      toast.success('Conversation renamed');
+    } catch (error) {
+      console.error('Failed to rename thread:', error);
+      toast.error('Failed to rename conversation');
+    }
+  }, [supabase, activeThread]);
+
   const switchThread = useCallback((threadRowId) => {
     const thread = threads.find(t => t.row_id === threadRowId);
     if (thread) {
@@ -188,60 +186,28 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     }
   }, [threads, fetchMessages]);
 
-  // Send message
   const sendMessage = useCallback(async (userMessage) => {
     if (!supabase || !assistant?.row_id || !userMessage.trim()) return;
-
     const unregisterCall = registerCall();
     setIsSending(true);
-
-    // Optimistic update
-    const tempUserMessage = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      content: userMessage,
-      created_at: new Date().toISOString(),
-    };
+    const tempUserMessage = { id: `temp-${Date.now()}`, role: 'user', content: userMessage, created_at: new Date().toISOString() };
     setMessages(prev => [...prev, tempUserMessage]);
-
     try {
       const { data, error } = await supabase.functions.invoke('studio-chat', {
-        body: {
-          assistant_row_id: assistant.row_id,
-          user_message: userMessage,
-          thread_row_id: activeThread?.row_id || null,
-          include_child_context: true,
-        },
+        body: { assistant_row_id: assistant.row_id, user_message: userMessage, thread_row_id: activeThread?.row_id || null, include_child_context: true },
       });
-
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-
-      // If new thread was created
       if (!activeThread && data.thread_row_id) {
-        const newThread = {
-          row_id: data.thread_row_id,
-          openai_thread_id: data.thread_id,
-          name: `Chat ${new Date().toLocaleDateString()}`,
-          created_at: new Date().toISOString(),
-          last_message_at: new Date().toISOString(),
-        };
+        const newThread = { row_id: data.thread_row_id, openai_thread_id: data.thread_id, name: `Chat ${new Date().toLocaleDateString()}`, created_at: new Date().toISOString(), last_message_at: new Date().toISOString() };
         setThreads(prev => [newThread, ...prev]);
         setActiveThread(newThread);
       }
-
-      // Add assistant response
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: data.response,
-        created_at: new Date().toISOString(),
-      };
+      const assistantMessage = { id: `assistant-${Date.now()}`, role: 'assistant', content: data.response, created_at: new Date().toISOString() };
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error(error.message || 'Failed to send message');
-      // Remove optimistic message
       setMessages(prev => prev.filter(m => m.id !== tempUserMessage.id));
     } finally {
       unregisterCall();
@@ -249,28 +215,15 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     }
   }, [supabase, assistant, activeThread, registerCall]);
 
-  // Initial fetch
-  useEffect(() => {
-    fetchAssistant();
-  }, [fetchAssistant]);
-
-  // Fetch threads when assistant changes
+  useEffect(() => { fetchAssistant(); }, [fetchAssistant]);
   useEffect(() => {
     if (assistant?.row_id && assistant.status === 'active') {
       fetchThreads(assistant.row_id);
     } else {
-      setThreads([]);
-      setActiveThread(null);
-      setMessages([]);
+      setThreads([]); setActiveThread(null); setMessages([]);
     }
   }, [assistant?.row_id, assistant?.status, fetchThreads]);
-
-  // Fetch messages when active thread changes
-  useEffect(() => {
-    if (activeThread?.row_id) {
-      fetchMessages(activeThread.row_id);
-    }
-  }, [activeThread?.row_id, fetchMessages]);
+  useEffect(() => { if (activeThread?.row_id) fetchMessages(activeThread.row_id); }, [activeThread?.row_id, fetchMessages]);
 
   if (isLoadingAssistant) {
     return (
@@ -289,110 +242,40 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
           </div>
           <p className="font-medium text-foreground">Assistant Not Active</p>
           <p className="text-sm mt-1">
-            {assistant?.status === 'destroyed' 
-              ? 'Re-enable the assistant to start chatting'
-              : 'Wait for the assistant to be instantiated'}
+            {assistant?.status === 'destroyed' ? 'Re-enable the assistant to start chatting' : 'Wait for the assistant to be instantiated'}
           </p>
         </div>
       </div>
     );
   }
 
+  const contextItems = selectedChildPromptName ? [{ id: selectedChildPromptId, name: selectedChildPromptName }] : [];
+
   return (
     <div className="h-full flex overflow-hidden bg-background">
-      {/* Thread sidebar */}
-      <div className="w-48 border-r border-border bg-card/50 flex flex-col overflow-hidden">
-        <div className="p-3 border-b border-border flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Threads</span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 hover:bg-primary/10 hover:text-primary" 
-                  onClick={createThread}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New Thread</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {isLoadingThreads ? (
-              [1, 2].map(i => <Skeleton key={i} className="h-12 w-full rounded-md" />)
-            ) : threads.length === 0 ? (
-              <div className="text-center py-6 px-2">
-                <MessageSquare className="h-6 w-6 mx-auto mb-2 text-muted-foreground/50" />
-                <p className="text-xs text-muted-foreground">No threads yet</p>
-                <p className="text-[10px] text-muted-foreground/70 mt-1">Start a conversation below</p>
-              </div>
-            ) : (
-              threads.map(thread => (
-                <div
-                  key={thread.row_id}
-                  onClick={() => switchThread(thread.row_id)}
-                  className={cn(
-                    'group flex items-start gap-2 px-2 py-2 rounded-md cursor-pointer text-sm transition-colors',
-                    activeThread?.row_id === thread.row_id
-                      ? 'bg-primary/10 text-primary border border-primary/20'
-                      : 'hover:bg-muted/50 border border-transparent'
-                  )}
-                >
-                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium truncate">{thread.name || 'Untitled'}</div>
-                    {thread.last_message_at && (
-                      <div className="text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
-                      </div>
-                    )}
-                  </div>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                          onClick={(e) => { e.stopPropagation(); deleteThread(thread.row_id); }}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Delete Thread</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Chat area */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        {selectedChildPromptId && selectedChildPromptName && (
-          <div className="px-4 py-2 bg-accent/10 border-b border-border">
-            <span className="text-xs text-muted-foreground">
-              Context: <span className="font-medium text-accent">{selectedChildPromptName}</span>
-            </span>
-          </div>
-        )}
-        <div className="flex-1 overflow-hidden">
-          <StudioChat
-            messages={messages}
-            onSendMessage={sendMessage}
-            isLoadingMessages={isLoadingMessages}
-            isSending={isSending}
-            disabled={false}
-            placeholder={`Message ${promptName || 'Assistant'}...`}
-            assistantName={promptName || 'Assistant'}
-          />
-        </div>
+      <ThreadSidebar
+        threads={threads}
+        activeThread={activeThread}
+        isLoading={isLoadingThreads}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        onSelectThread={switchThread}
+        onCreateThread={createThread}
+        onDeleteThread={deleteThread}
+        onRenameThread={renameThread}
+      />
+      <div className="flex-1 overflow-hidden">
+        <ChatPanel
+          messages={messages}
+          onSendMessage={sendMessage}
+          isLoadingMessages={isLoadingMessages}
+          isSending={isSending}
+          disabled={false}
+          placeholder={`Message ${promptName || 'Assistant'}...`}
+          assistantName={promptName || 'Assistant'}
+          contextItems={contextItems}
+          childPromptsCount={childPromptsCount}
+        />
       </div>
     </div>
   );
