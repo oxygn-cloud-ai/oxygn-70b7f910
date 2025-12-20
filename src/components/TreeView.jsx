@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
 import { Plus } from 'lucide-react';
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import TreeItem from './TreeItem';
 import SearchFilter from './SearchFilter';
@@ -107,13 +106,14 @@ const TreeView = ({
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
+            <button
+              type="button"
               onClick={handleCreateFirst}
-              size="icon"
-              className="h-8 w-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Create new prompt"
             >
               <Plus className="h-4 w-4" />
-            </Button>
+            </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p>Create new prompt</p>
