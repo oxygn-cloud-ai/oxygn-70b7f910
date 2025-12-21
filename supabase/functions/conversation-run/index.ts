@@ -595,83 +595,24 @@ serve(async (req) => {
       );
     }
 
-    // Determine thread strategy
+    // Determine thread strategy (kept for UI context, but not used for OpenAI conversation selection)
     const childThreadStrategy = requestStrategy || childPrompt.child_thread_strategy || 'isolated';
     const threadMode = childPrompt.thread_mode || 'new';
     
     console.log('Thread strategy:', childThreadStrategy, 'Thread mode:', threadMode);
 
-    // Find or create OpenAI conversation
-    let conversationId: string;
-    let threadRowId: string | null = null;
-
-    if (childThreadStrategy === 'parent' || threadMode === 'reuse') {
-      // Look for existing thread with valid OpenAI conversation
-      const threadQuery = supabase
-        .from(TABLES.THREADS)
-        .select('row_id, openai_conversation_id')
-        .eq('assistant_row_id', assistantData.row_id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (childThreadStrategy === 'parent') {
-        threadQuery.is('child_prompt_row_id', null);
-      } else {
-        threadQuery.eq('child_prompt_row_id', child_prompt_row_id);
-      }
-
-      const { data: existingThread } = await threadQuery.maybeSingle();
-
-      if (existingThread && existingThread.openai_conversation_id && !existingThread.openai_conversation_id.startsWith('pending_')) {
-        // Use existing conversation
-        conversationId = existingThread.openai_conversation_id;
-        threadRowId = existingThread.row_id;
-        console.log('Using existing conversation:', conversationId);
-      } else if (existingThread && existingThread.openai_conversation_id?.startsWith('pending_')) {
-        // Thread exists but needs OpenAI conversation created
-        conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
-          assistant_row_id: assistantData.row_id,
-          child_prompt_row_id: child_prompt_row_id || '',
-        });
-        threadRowId = existingThread.row_id;
-        
-        // Update thread with real conversation ID
-        await supabase
-          .from(TABLES.THREADS)
-          .update({ openai_conversation_id: conversationId })
-          .eq('row_id', threadRowId);
-      } else {
-        // No existing thread, create new conversation
-        conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
-          assistant_row_id: assistantData.row_id,
-          child_prompt_row_id: child_prompt_row_id || '',
-        });
-        
-        // Create new thread
-        const { data: newThread } = await supabase
-          .from(TABLES.THREADS)
-          .insert({
-            assistant_row_id: assistantData.row_id,
-            child_prompt_row_id: childThreadStrategy === 'parent' ? null : child_prompt_row_id,
-            openai_conversation_id: conversationId,
-            name: childThreadStrategy === 'parent' ? 'Studio Thread' : `Thread ${new Date().toISOString().split('T')[0]}`,
-            is_active: true,
-          })
-          .select()
-          .single();
-
-        threadRowId = newThread?.row_id || null;
-        console.log('Created new thread with conversation:', conversationId);
-      }
-    } else {
-      // Isolated mode - always create new conversation
-      conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
-        assistant_row_id: assistantData.row_id,
-        child_prompt_row_id: child_prompt_row_id,
-      });
-      console.log('Created isolated conversation:', conversationId);
-    }
+    // ALWAYS create ephemeral conversation for prompt/cascade runs
+    // This ensures true concurrency with chat - no conversation locking conflicts
+    // The thread_strategy is preserved for UI context but doesn't affect OpenAI API calls
+    const conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
+      assistant_row_id: assistantData.row_id,
+      child_prompt_row_id: child_prompt_row_id,
+      run_type: 'prompt_run', // Mark as ephemeral prompt run
+    });
+    console.log('Created ephemeral conversation for prompt run:', conversationId);
+    
+    // No thread persistence needed for prompt runs - they're ephemeral
+    const threadRowId: string | null = null;
 
     // Call Responses API with conversation
     const toolConfig = {
