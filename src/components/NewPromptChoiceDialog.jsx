@@ -49,8 +49,13 @@ const NewPromptChoiceDialog = ({
     const variables = extractTemplateVariables(template.structure);
     
     if (variables.length > 0) {
+      // Initialize with default values from variable_definitions
       const initialValues = {};
-      variables.forEach(v => { initialValues[v] = ''; });
+      const variableDefs = template.variable_definitions || [];
+      variables.forEach(v => {
+        const def = variableDefs.find(d => d.name === v);
+        initialValues[v] = def?.default || '';
+      });
       setVariableValues(initialValues);
       setStep('variables');
     } else {
