@@ -28,8 +28,41 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefreshVariables = useCallback(() => {
+    // Re-detect variables from structure
+    const variables = new Set();
+    const variablePattern = /\{\{([^}]+)\}\}/g;
+
+    const extractFromObject = (obj) => {
+      if (!obj) return;
+      if (typeof obj === 'string') {
+        const matches = obj.matchAll(variablePattern);
+        for (const match of matches) {
+          const varName = match[1].trim();
+          if (!varName.startsWith('q.') && !varName.includes('.')) {
+            variables.add(varName);
+          }
+        }
+      } else if (Array.isArray(obj)) {
+        obj.forEach(extractFromObject);
+      } else if (typeof obj === 'object') {
+        Object.values(obj).forEach(extractFromObject);
+      }
+    };
+
+    extractFromObject(structure);
+    const currentlyUsed = Array.from(variables);
+
+    // Remove variables that are no longer used in prompts
+    const filteredDefinitions = variableDefinitions.filter(v => 
+      currentlyUsed.includes(v.name)
+    );
+
+    if (filteredDefinitions.length !== variableDefinitions.length) {
+      onChange(filteredDefinitions);
+    }
+
     setRefreshKey(k => k + 1);
-  }, []);
+  }, [structure, variableDefinitions, onChange]);
 
   // Extract all variables from structure (refreshKey forces re-calculation)
   const detectedVariables = useMemo(() => {
