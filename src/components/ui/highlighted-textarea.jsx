@@ -373,7 +373,7 @@ const HighlightedTextarea = React.forwardRef(({
         }
         .highlighted-textarea-container .editor-content {
           min-height: ${minHeight};
-          font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+          font-family: 'Poppins', sans-serif;
           font-size: 0.875rem;
           line-height: 1.625;
           white-space: pre-wrap;
