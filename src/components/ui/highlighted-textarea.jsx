@@ -263,18 +263,12 @@ const HighlightedTextarea = React.forwardRef(({
     >
       <style>{`
         .highlighted-textarea-container .var-system {
-          background-color: hsl(var(--primary) / 0.2);
-          color: transparent;
-          border-radius: 2px;
-          padding: 0 1px;
-          margin: 0 -1px;
+          color: hsl(var(--primary));
+          background: transparent;
         }
         .highlighted-textarea-container .var-user {
-          background-color: hsl(var(--secondary));
-          color: transparent;
-          border-radius: 2px;
-          padding: 0 1px;
-          margin: 0 -1px;
+          color: hsl(var(--primary));
+          background: transparent;
         }
         .highlighted-textarea-container .backdrop {
           position: absolute;
