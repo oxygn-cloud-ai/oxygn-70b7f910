@@ -70,14 +70,22 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                 Define custom variables using {"{{variableName}}"} syntax in your prompts
               </CardDescription>
             </div>
-            <Button 
-              size="sm" 
-              onClick={() => setIsAdding(true)}
-              disabled={isAdding}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Variable
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="sm" 
+                    onClick={() => setIsAdding(true)}
+                    disabled={isAdding}
+                    className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add variable</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -104,11 +112,11 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
               />
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}>
+              <div className="flex justify-end gap-1">
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => setIsAdding(false)}>
                   <X className="h-4 w-4" />
                 </Button>
-                <Button size="sm" onClick={handleAdd} disabled={!newName.trim()}>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-primary hover:!bg-sidebar-accent" onClick={handleAdd} disabled={!newName.trim()}>
                   <Check className="h-4 w-4" />
                 </Button>
               </div>
@@ -141,10 +149,10 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                         className="flex-1 h-7 text-sm"
                         autoFocus
                       />
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleSaveEdit(variable.row_id)}>
-                        <Check className="h-3.5 w-3.5 text-primary" />
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-primary hover:!bg-sidebar-accent" onClick={() => handleSaveEdit(variable.row_id)}>
+                        <Check className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleCancelEdit}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={handleCancelEdit}>
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </>
@@ -165,13 +173,13 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                           </Tooltip>
                         </TooltipProvider>
                       )}
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleStartEdit(variable)}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => handleStartEdit(variable)}>
                         <Edit2 className="h-3.5 w-3.5" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-7 w-7 p-0 hover:text-destructive" 
+                        className="h-7 w-7 p-0 !text-muted-foreground hover:!text-destructive hover:!bg-sidebar-accent" 
                         onClick={() => deleteVariable(variable.row_id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
