@@ -19,6 +19,7 @@ export const CascadeRunProvider = ({ children }) => {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [totalPrompts, setTotalPrompts] = useState(0);
   const [completedPrompts, setCompletedPrompts] = useState([]);
+  const [skippedPrompts, setSkippedPrompts] = useState([]);
   const [startTime, setStartTime] = useState(null);
   const [error, setError] = useState(null);
   const [errorPrompt, setErrorPrompt] = useState(null);
@@ -27,7 +28,7 @@ export const CascadeRunProvider = ({ children }) => {
   const pauseRef = useRef(false);
   const errorResolverRef = useRef(null);
 
-  const startCascade = useCallback((levels, promptCount) => {
+  const startCascade = useCallback((levels, promptCount, skippedCount = 0) => {
     setIsRunning(true);
     setIsPaused(false);
     setCurrentLevel(0);
@@ -36,11 +37,16 @@ export const CascadeRunProvider = ({ children }) => {
     setCurrentPromptIndex(0);
     setTotalPrompts(promptCount);
     setCompletedPrompts([]);
+    setSkippedPrompts([]);
     setStartTime(Date.now());
     setError(null);
     setErrorPrompt(null);
     cancelRef.current = false;
     pauseRef.current = false;
+  }, []);
+
+  const markPromptSkipped = useCallback((promptRowId, promptName) => {
+    setSkippedPrompts(prev => [...prev, { promptRowId, promptName }]);
   }, []);
 
   const updateProgress = useCallback((level, promptName, promptIndex) => {
@@ -113,6 +119,7 @@ export const CascadeRunProvider = ({ children }) => {
     currentPromptIndex,
     totalPrompts,
     completedPrompts,
+    skippedPrompts,
     startTime,
     error,
     errorPrompt,
@@ -121,6 +128,7 @@ export const CascadeRunProvider = ({ children }) => {
     startCascade,
     updateProgress,
     markPromptComplete,
+    markPromptSkipped,
     completeCascade,
     cancel,
     pause,
