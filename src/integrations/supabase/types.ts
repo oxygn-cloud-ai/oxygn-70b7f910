@@ -1048,6 +1048,7 @@ export type Database = {
       }
       q_assistants: {
         Row: {
+          api_version: string | null
           code_interpreter_enabled: boolean | null
           confluence_enabled: boolean | null
           created_at: string | null
@@ -1073,6 +1074,7 @@ export type Database = {
           vector_store_id: string | null
         }
         Insert: {
+          api_version?: string | null
           code_interpreter_enabled?: boolean | null
           confluence_enabled?: boolean | null
           created_at?: string | null
@@ -1098,6 +1100,7 @@ export type Database = {
           vector_store_id?: string | null
         }
         Update: {
+          api_version?: string | null
           code_interpreter_enabled?: boolean | null
           confluence_enabled?: boolean | null
           created_at?: string | null
@@ -1736,8 +1739,10 @@ export type Database = {
           created_at: string | null
           is_active: boolean | null
           last_message_at: string | null
+          last_response_id: string | null
           message_count: number | null
           name: string | null
+          openai_conversation_id: string | null
           openai_thread_id: string | null
           owner_id: string | null
           row_id: string
@@ -1748,8 +1753,10 @@ export type Database = {
           created_at?: string | null
           is_active?: boolean | null
           last_message_at?: string | null
+          last_response_id?: string | null
           message_count?: number | null
           name?: string | null
+          openai_conversation_id?: string | null
           openai_thread_id?: string | null
           owner_id?: string | null
           row_id?: string
@@ -1760,8 +1767,10 @@ export type Database = {
           created_at?: string | null
           is_active?: boolean | null
           last_message_at?: string | null
+          last_response_id?: string | null
           message_count?: number | null
           name?: string | null
+          openai_conversation_id?: string | null
           openai_thread_id?: string | null
           owner_id?: string | null
           row_id?: string
