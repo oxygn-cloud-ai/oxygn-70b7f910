@@ -183,8 +183,8 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
                   disabled={!newVarName.trim()}
                   className={`p-2 rounded-md transition-colors ${
                     newVarName.trim() 
-                      ? 'text-primary hover:bg-primary/10' 
-                      : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                      ? '!text-primary !bg-transparent hover:!bg-muted/50' 
+                      : '!text-muted-foreground opacity-50 cursor-not-allowed'
                   }`}
                 >
                   <Plus className="h-4 w-4" />

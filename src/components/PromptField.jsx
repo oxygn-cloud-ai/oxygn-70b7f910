@@ -106,7 +106,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     setCursorPosition(e.target.selectionStart);
   };
 
-  const ActionButton = ({ icon, onClick, tooltip, disabled, active, variant = 'default' }) => (
+  const ActionButton = ({ icon, onClick, tooltip, disabled, active, needsAttention = false }) => (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -115,12 +115,13 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             size="sm"
             onClick={onClick}
             disabled={disabled}
-            className={`
-              h-7 w-7 p-0 transition-all
-              ${active ? 'text-primary hover:text-primary/80' : 'text-muted-foreground hover:text-foreground'}
-              ${variant === 'generate' ? 'hover:bg-primary/10' : 'hover:bg-muted'}
-              ${disabled ? 'opacity-40' : ''}
-            `}
+            className={`h-7 w-7 p-0 transition-colors ${
+              needsAttention
+                ? 'animate-attention-flash rounded-md'
+                : active 
+                  ? '!text-primary !bg-transparent hover:!bg-muted/50' 
+                  : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
+            } ${disabled ? 'opacity-40' : ''}`}
           >
             {icon}
           </Button>
