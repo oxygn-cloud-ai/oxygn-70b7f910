@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { TABLES } from "../_shared/tables.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -80,7 +81,7 @@ async function handleConfluenceTool(
 ): Promise<string> {
   // Fetch Confluence config from settings
   const { data: settings } = await supabase
-    .from('cyg_settings')
+    .from(TABLES.SETTINGS)
     .select('setting_key, setting_value')
     .in('setting_key', ['confluence_base_url', 'confluence_email', 'confluence_api_token']);
 
@@ -143,7 +144,7 @@ async function handleConfluenceTool(
         id: data.id,
         title: data.title,
         space: data.space?.name,
-        content: contentText.substring(0, 15000), // Limit content size
+        content: contentText.substring(0, 15000),
         url: `${config.confluence_base_url}/wiki${data._links?.webui}`,
       });
     }
@@ -263,10 +264,8 @@ async function waitForRunCompletion(
       }
 
       console.log('Submitted tool outputs, continuing...');
-      // Continue polling after submitting tool outputs
     }
 
-    // Still in progress - wait and retry
     await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
 
@@ -309,7 +308,7 @@ serve(async (req) => {
 
     // Fetch child prompt with parent info
     const { data: childPrompt, error: promptError } = await supabase
-      .from('cyg_prompts')
+      .from(TABLES.PROMPTS)
       .select('*, parent:parent_row_id(row_id, is_assistant)')
       .eq('row_id', child_prompt_row_id)
       .single();
@@ -331,7 +330,7 @@ serve(async (req) => {
     }
 
     const { data: parentPrompt } = await supabase
-      .from('cyg_prompts')
+      .from(TABLES.PROMPTS)
       .select('is_assistant')
       .eq('row_id', parentRowId)
       .single();
@@ -345,8 +344,8 @@ serve(async (req) => {
 
     // Fetch assistant config with files
     const { data: assistant, error: assistantError } = await supabase
-      .from('cyg_assistants')
-      .select('*, cyg_assistant_files(*)')
+      .from(TABLES.ASSISTANTS)
+      .select(`*, ${TABLES.ASSISTANT_FILES}(*)`)
       .eq('prompt_row_id', parentRowId)
       .single();
 
@@ -366,7 +365,7 @@ serve(async (req) => {
 
     // Fetch attached Confluence pages for context injection
     const { data: confluencePages } = await supabase
-      .from('cyg_confluence_pages')
+      .from(TABLES.CONFLUENCE_PAGES)
       .select('page_title, content_text, openai_file_id')
       .or(`assistant_row_id.eq.${assistant.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
 
@@ -385,7 +384,6 @@ serve(async (req) => {
         confluenceContext = `[Attached Confluence Context]\n${confluenceContext}\n\n---\n\n`;
       }
 
-      // Add uploaded Confluence files as attachments
       for (const page of uploadedPages) {
         confluenceFileAttachments.push({
           file_id: page.openai_file_id,
@@ -421,7 +419,7 @@ serve(async (req) => {
       );
     }
 
-    // Determine thread strategy - use request value or fall back to stored value
+    // Determine thread strategy
     const childThreadStrategy = requestStrategy || childPrompt.child_thread_strategy || 'isolated';
     const threadMode = childPrompt.thread_mode || 'new';
     
@@ -432,9 +430,9 @@ serve(async (req) => {
     let threadRowId: string | null = null;
 
     if (childThreadStrategy === 'parent') {
-      // Use parent assistant's Studio thread (where child_prompt_row_id is null)
+      // Use parent assistant's Studio thread
       const { data: studioThread } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .select('row_id, openai_thread_id')
         .eq('assistant_row_id', assistant.row_id)
         .is('child_prompt_row_id', null)
@@ -470,9 +468,9 @@ serve(async (req) => {
         const thread = await threadResponse.json();
         threadId = thread.id;
 
-        // Save as Studio thread (no child_prompt_row_id)
+        // Save as Studio thread
         const { data: savedThread } = await supabase
-          .from('cyg_threads')
+          .from(TABLES.THREADS)
           .insert({
             assistant_row_id: assistant.row_id,
             child_prompt_row_id: null,
@@ -486,9 +484,9 @@ serve(async (req) => {
         console.log('Created new parent Studio thread:', threadId);
       }
     } else if (threadMode === 'reuse') {
-      // Isolated strategy with reuse mode - find or create child-specific thread
+      // Isolated strategy with reuse mode
       const { data: existingThread } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .select('row_id, openai_thread_id')
         .eq('child_prompt_row_id', child_prompt_row_id)
         .eq('is_active', true)
@@ -525,7 +523,7 @@ serve(async (req) => {
 
         // Save thread for this child
         const { data: savedThread } = await supabase
-          .from('cyg_threads')
+          .from(TABLES.THREADS)
           .insert({
             assistant_row_id: assistant.row_id,
             child_prompt_row_id,
@@ -564,7 +562,7 @@ serve(async (req) => {
     }
 
     // Build file attachments from uploaded files
-    const files = assistant.cyg_assistant_files || [];
+    const files = assistant[TABLES.ASSISTANT_FILES] || [];
     const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
     
     console.log('Assistant files:', {
@@ -577,11 +575,8 @@ serve(async (req) => {
       })),
     });
     
-    // Only attach files to message if they're not already in the assistant's vector store
-    // Files in the vector store are automatically searchable by the assistant
     const hasVectorStore = !!assistant.vector_store_id;
     const attachments = [
-      // Only attach files to message if no vector store (they'll be in a temp vector store)
       ...(hasVectorStore ? [] : uploadedFiles.map((f: any) => ({
         file_id: f.openai_file_id,
         tools: [{ type: 'file_search' }],
@@ -656,7 +651,7 @@ serve(async (req) => {
     const run = await runResponse.json();
     console.log('Created run:', run.id);
 
-    // Wait for run completion (now handles function calls)
+    // Wait for run completion
     const runResult = await waitForRunCompletion(threadId, run.id, OPENAI_API_KEY, supabase);
 
     if (runResult.status !== 'completed') {
@@ -701,14 +696,14 @@ serve(async (req) => {
 
     // Update child prompt with response
     await supabase
-      .from('cyg_prompts')
+      .from(TABLES.PROMPTS)
       .update({ output_response: responseText })
       .eq('row_id', child_prompt_row_id);
 
     // Update thread message count if applicable
     if (threadRowId) {
       await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .update({ 
           last_message_at: new Date().toISOString() 
         })

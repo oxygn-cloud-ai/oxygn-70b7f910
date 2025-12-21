@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { TABLES } from "../_shared/tables.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,7 +111,7 @@ serve(async (req) => {
 
       // Save to database
       const { data: savedThread, error: saveError } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .insert({
           assistant_row_id,
           child_prompt_row_id,
@@ -142,7 +143,7 @@ serve(async (req) => {
       console.log('Listing threads:', { assistant_row_id, child_prompt_row_id, include_parent_threads });
 
       let query = supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -187,7 +188,7 @@ serve(async (req) => {
 
       // Get thread info
       const { data: thread } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .select('openai_thread_id')
         .eq('row_id', thread_row_id)
         .single();
@@ -206,7 +207,7 @@ serve(async (req) => {
 
       // Delete from database
       await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .delete()
         .eq('row_id', thread_row_id);
 
@@ -222,7 +223,7 @@ serve(async (req) => {
 
       // Get thread info
       const { data: thread } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .select('openai_thread_id')
         .eq('row_id', thread_row_id)
         .single();
@@ -274,7 +275,7 @@ serve(async (req) => {
       const { thread_row_id, name } = body;
 
       await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .update({ name })
         .eq('row_id', thread_row_id);
 

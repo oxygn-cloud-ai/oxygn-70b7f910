@@ -43,7 +43,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
   const fetchPrivacyStatus = async () => {
     try {
       const { data, error } = await supabase
-        .from('cyg_prompts')
+        .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('is_private')
         .eq('row_id', promptRowId)
         .single();
@@ -105,7 +105,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     setIsLoading(true);
     try {
       const { error } = await supabase
-        .from('cyg_prompts')
+        .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ owner_id: newOwnerId })
         .eq('row_id', promptRowId);
 
@@ -129,7 +129,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     setIsPrivate(newValue);
     try {
       const { error } = await supabase
-        .from('cyg_prompts')
+        .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ is_private: newValue })
         .eq('row_id', promptRowId);
 

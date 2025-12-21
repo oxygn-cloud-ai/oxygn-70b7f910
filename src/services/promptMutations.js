@@ -37,9 +37,9 @@ const getPromptContext = async (supabase, parentId) => {
 // Helper to create and instantiate an assistant for a top-level prompt
 const createAndInstantiateAssistant = async (supabase, promptRowId, promptName) => {
   try {
-    // Create cyg_assistants record
+    // Create assistants record
     const { data: assistant, error: createError } = await supabase
-      .from('cyg_assistants')
+      .from(import.meta.env.VITE_ASSISTANTS_TBL)
       .insert([{
         prompt_row_id: promptRowId,
         name: promptName,
@@ -192,7 +192,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   let modelDefaults = {};
   if (defaultModelId) {
     const { data: defaultsData } = await supabase
-      .from('cyg_model_defaults')
+      .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
       .select('*')
       .eq('model_id', defaultModelId)
       .maybeSingle();
