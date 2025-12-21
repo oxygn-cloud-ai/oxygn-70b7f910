@@ -135,9 +135,15 @@ const NewPromptChoiceDialog = ({
         const newPosition = maxPosition + 1000000 + positionOffset;
         const isTopLevel = parentRowId === null;
 
+        // Build the prompt name, prefixing with policy.name if set and this is top-level
+        let promptName = replaceVariables(promptStructure.prompt_name, vars);
+        if (isTopLevel && vars['policy.name'] && vars['policy.name'].trim()) {
+          promptName = `${vars['policy.name'].trim()} - ${promptName}`;
+        }
+
         const insertData = {
           parent_row_id: parentRowId,
-          prompt_name: replaceVariables(promptStructure.prompt_name, vars),
+          prompt_name: promptName,
           input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, vars),
           input_user_prompt: replaceVariables(promptStructure.input_user_prompt, vars),
           note: replaceVariables(promptStructure.note, vars),
@@ -148,6 +154,7 @@ const NewPromptChoiceDialog = ({
         };
 
         // Copy all model and settings fields from template
+        // Use hasOwnProperty to properly detect fields that exist in the template
         const settingsFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',
@@ -164,7 +171,8 @@ const NewPromptChoiceDialog = ({
         ];
         
         settingsFields.forEach(field => {
-          if (promptStructure[field] !== undefined && promptStructure[field] !== null) {
+          // Check if field exists in template structure (including false/0/empty string values)
+          if (Object.prototype.hasOwnProperty.call(promptStructure, field) && promptStructure[field] !== null) {
             insertData[field] = promptStructure[field];
           }
         });
