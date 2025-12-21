@@ -59,6 +59,7 @@ const SettingsAccordion = ({
             value={localSettings[key] || ''}
             onChange={(e) => handleSettingChange(key, e.target.value)}
             className="w-full mt-1"
+            autoComplete={type === 'password' ? 'new-password' : 'off'}
           />
         )}
       </div>
