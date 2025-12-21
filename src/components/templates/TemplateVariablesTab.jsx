@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Plus, Trash2, AlertCircle, CheckCircle2, Edit2, X, Check } from 'lucide-react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { Plus, Trash2, AlertCircle, CheckCircle2, Edit2, X, Check, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,8 +24,13 @@ const VARIABLE_TYPES = [
 const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
   const [newVarName, setNewVarName] = useState('');
   const [editingVar, setEditingVar] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Extract all variables from structure
+  const handleRefreshVariables = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
+
+  // Extract all variables from structure (refreshKey forces re-calculation)
   const detectedVariables = useMemo(() => {
     const variables = new Set();
     const variablePattern = /\{\{([^}]+)\}\}/g;
@@ -50,7 +55,8 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
 
     extractFromObject(structure);
     return Array.from(variables);
-  }, [structure]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [structure, refreshKey]);
 
   // Find undefined and unused variables
   const definedNames = variableDefinitions.map(v => v.name);
@@ -90,6 +96,23 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      {/* Refresh Button */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">Template Variables</h3>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefreshVariables}
+              className="h-8 w-8"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh detected variables</TooltipContent>
+        </Tooltip>
+      </div>
       {/* Warnings */}
       {undefinedVars.length > 0 && (
         <Alert variant="warning" className="border-amber-500/50 bg-amber-500/10">
