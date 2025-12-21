@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FileText, RefreshCw, Search, X, ExternalLink, Upload, Loader2, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileText, RefreshCw, Search, X, ExternalLink, Loader2, ChevronRight, ChevronDown } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import ConfluenceSearchModal from './ConfluenceSearchModal';
 import { cn } from '@/lib/utils';
@@ -41,10 +41,7 @@ const PageTreeNode = ({
   level = 0, 
   syncingPageId, 
   onSync, 
-  onSyncToOpenAI, 
   onDetach, 
-  assistantId, 
-  isActive,
   isLast = false,
   parentLines = []
 }) => {
@@ -146,22 +143,6 @@ const PageTreeNode = ({
               <TooltipContent>Refresh Content</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {assistantId && isActive && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    className="p-1 hover:bg-muted rounded"
-                    onClick={() => onSyncToOpenAI(page.row_id)}
-                    disabled={syncingPageId === page.row_id}
-                  >
-                    <Upload className="h-3 w-3 text-muted-foreground" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Upload to OpenAI</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -187,10 +168,7 @@ const PageTreeNode = ({
               level={level + 1}
               syncingPageId={syncingPageId}
               onSync={onSync}
-              onSyncToOpenAI={onSyncToOpenAI}
               onDetach={onDetach}
-              assistantId={assistantId}
-              isActive={isActive}
               isLast={idx === page.children.length - 1}
               parentLines={[...parentLines, !isLast]}
             />
@@ -203,9 +181,7 @@ const PageTreeNode = ({
 
 const ConfluencePagesSection = ({ 
   assistantRowId = null, 
-  promptRowId = null,
-  assistantId = null,
-  isActive = true 
+  promptRowId = null
 }) => {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [syncingPageId, setSyncingPageId] = useState(null);
@@ -216,7 +192,6 @@ const ConfluencePagesSection = ({
     fetchAttachedPages,
     detachPage,
     syncPage,
-    syncToOpenAI
   } = useConfluencePages(assistantRowId, promptRowId);
 
   const pageTree = useMemo(() => buildPageTree(pages), [pages]);
@@ -225,16 +200,6 @@ const ConfluencePagesSection = ({
     setSyncingPageId(rowId);
     try {
       await syncPage(rowId);
-    } finally {
-      setSyncingPageId(null);
-    }
-  };
-
-  const handleSyncToOpenAI = async (rowId) => {
-    if (!assistantId) return;
-    setSyncingPageId(rowId);
-    try {
-      await syncToOpenAI(rowId, assistantId);
     } finally {
       setSyncingPageId(null);
     }
@@ -281,10 +246,7 @@ const ConfluencePagesSection = ({
                   page={page}
                   syncingPageId={syncingPageId}
                   onSync={handleSync}
-                  onSyncToOpenAI={handleSyncToOpenAI}
                   onDetach={detachPage}
-                  assistantId={assistantId}
-                  isActive={isActive}
                   isLast={idx === pageTree.length - 1}
                   parentLines={[]}
                 />

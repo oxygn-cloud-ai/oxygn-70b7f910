@@ -217,7 +217,7 @@ export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Assistant</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.name || 'this assistant'}" from OpenAI. 
+              This will permanently delete "{deleteTarget?.name || 'this assistant'}" configuration. 
               {deleteTarget?.prompt_name && (
                 <> The linked prompt "{deleteTarget.prompt_name}" will remain but you can re-enable the assistant later.</>
               )}

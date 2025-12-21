@@ -188,8 +188,6 @@ export const useCascadeExecutor = () => {
                   promptRowId: prompt.row_id,
                   promptName: prompt.prompt_name,
                   response: result.response,
-                  threadId: result.thread_id,
-                  runId: result.run_id,
                 });
 
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
