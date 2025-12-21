@@ -91,7 +91,7 @@ const ThreadHistory = ({
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">
-                        {message.role === 'user' ? 'You' : 'Assistant'}
+                        {message.role === 'user' ? 'You' : 'AI'}
                       </span>
                       {message.created_at && (
                         <span className="text-xs text-muted-foreground">
