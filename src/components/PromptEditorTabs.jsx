@@ -48,9 +48,9 @@ const PromptEditorTabs = ({
         return 'animate-attention-flash rounded-md';
       }
       if (isActive) {
-        return '!text-primary !bg-transparent hover:!bg-sidebar-accent';
+        return 'text-primary bg-primary/10 hover:bg-primary/20';
       }
-      return '!text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent';
+      return 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent';
     };
     
     return (
