@@ -142,7 +142,8 @@ const NewPromptChoiceDialog = ({
           is_deleted: false,
         };
 
-        const modelFields = [
+        // Copy all model and settings fields from template
+        const settingsFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',
           'max_tokens', 'max_tokens_on',
@@ -152,14 +153,18 @@ const NewPromptChoiceDialog = ({
           'stop', 'stop_on',
           'response_format', 'response_format_on',
           'n', 'n_on',
+          'logit_bias', 'logit_bias_on',
+          'o_user', 'o_user_on',
+          'stream', 'stream_on',
         ];
         
-        modelFields.forEach(field => {
+        settingsFields.forEach(field => {
           if (promptStructure[field] !== undefined && promptStructure[field] !== null) {
             insertData[field] = promptStructure[field];
           }
         });
 
+        // Assistant settings
         if (promptStructure.is_assistant !== undefined) {
           insertData.is_assistant = promptStructure.is_assistant;
         } else if (isTopLevel) {
@@ -175,8 +180,13 @@ const NewPromptChoiceDialog = ({
         if (promptStructure.default_child_thread_strategy) {
           insertData.default_child_thread_strategy = promptStructure.default_child_thread_strategy;
         }
+
+        // Tools
         if (promptStructure.web_search_on !== undefined) {
           insertData.web_search_on = promptStructure.web_search_on;
+        }
+        if (promptStructure.confluence_enabled !== undefined) {
+          insertData.confluence_enabled = promptStructure.confluence_enabled;
         }
 
         const { data, error } = await supabase

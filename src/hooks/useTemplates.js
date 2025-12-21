@@ -181,10 +181,12 @@ export const useTemplates = () => {
 
         // Include all relevant prompt fields in the template structure
         return {
+          _id: prompt.row_id, // Use original ID for reference
           prompt_name: prompt.prompt_name,
           input_admin_prompt: prompt.input_admin_prompt,
           input_user_prompt: prompt.input_user_prompt,
           note: prompt.note,
+          // Model settings
           model: prompt.model,
           model_on: prompt.model_on,
           temperature: prompt.temperature,
@@ -203,11 +205,21 @@ export const useTemplates = () => {
           response_format_on: prompt.response_format_on,
           n: prompt.n,
           n_on: prompt.n_on,
+          logit_bias: prompt.logit_bias,
+          logit_bias_on: prompt.logit_bias_on,
+          o_user: prompt.o_user,
+          o_user_on: prompt.o_user_on,
+          stream: prompt.stream,
+          stream_on: prompt.stream_on,
+          // Assistant settings
           is_assistant: prompt.is_assistant,
           thread_mode: prompt.thread_mode,
           child_thread_strategy: prompt.child_thread_strategy,
           default_child_thread_strategy: prompt.default_child_thread_strategy,
+          // Tools
           web_search_on: prompt.web_search_on,
+          confluence_enabled: prompt.confluence_enabled,
+          // Children
           children: childStructures,
         };
       };
