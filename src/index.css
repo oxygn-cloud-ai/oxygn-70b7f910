@@ -48,6 +48,9 @@
     --sidebar-accent-foreground: 14 28% 15%;
     --sidebar-border: 30 20% 90%;
     --sidebar-ring: 333 81% 51%;
+
+    /* Tree item active background (opaque equivalent of primary/10 on background) */
+    --tree-active-bg: 333 60% 95%;
   }
 
   .dark {
@@ -93,6 +96,9 @@
     --sidebar-accent-foreground: 30 15% 92%;
     --sidebar-border: 14 25% 18%;
     --sidebar-ring: 333 81% 51%;
+
+    /* Tree item active background (opaque equivalent of primary/10 on dark background) */
+    --tree-active-bg: 333 40% 15%;
   }
 }
 
