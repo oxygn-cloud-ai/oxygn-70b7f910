@@ -122,16 +122,16 @@ const PromptFieldsTab = ({
       if (onUpdateField) {
         onUpdateField('is_assistant', true);
       }
-      toast.success('Assistant mode enabled');
+      toast.success('Conversation mode enabled');
     } catch (error) {
-      console.error('Error enabling assistant mode:', error);
-      toast.error('Failed to enable assistant mode');
+      console.error('Error enabling conversation mode:', error);
+      toast.error('Failed to enable conversation mode');
     }
   }, [supabase, projectRowId, onUpdateField]);
 
   return (
     <div className="flex flex-col gap-4 h-full overflow-auto p-4">
-      {/* Assistant Mode Toggle - only show for top-level prompts */}
+      {/* Conversation Mode Toggle - only show for top-level prompts */}
       {isTopLevel && !isLinksPage && !selectedItemData?.is_assistant && (
         <Card className="border-dashed border-primary/30 bg-primary/5">
           <CardHeader className="pb-3">
@@ -139,10 +139,10 @@ const PromptFieldsTab = ({
               <div className="p-1.5 rounded bg-primary/10">
                 <Bot className="h-4 w-4 text-primary" />
               </div>
-              Assistant Mode
+              Conversation Mode
             </CardTitle>
             <CardDescription className="text-xs">
-              Convert this prompt into an OpenAI Assistant with persistent context and conversation threads.
+              Convert this prompt into a conversation with persistent context and threads.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">

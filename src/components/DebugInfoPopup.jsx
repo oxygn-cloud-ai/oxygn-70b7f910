@@ -96,7 +96,7 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Is Assistant</Label>
+                <Label className="text-xs text-muted-foreground">Conversation Mode</Label>
                 <Badge variant={item?.is_assistant ? "default" : "secondary"}>
                   {item?.is_assistant ? 'Yes' : 'No'}
                 </Badge>
