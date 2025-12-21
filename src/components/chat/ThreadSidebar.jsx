@@ -48,10 +48,10 @@ const ThreadSidebar = ({
 
   return (
     <div className="h-full flex flex-col bg-card/50 backdrop-blur-sm">
-      {/* Header */}
-      <div className="p-4 border-b border-border space-y-3">
+      {/* Header - with extra right padding to avoid overlap with Sheet close button */}
+      <div className="p-3 pr-10 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-foreground">
+          <span className="text-xs font-semibold text-foreground">
             Conversations
           </span>
           <TooltipProvider>
@@ -60,10 +60,10 @@ const ThreadSidebar = ({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                  className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
                   onClick={onCreateThread}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>New conversation</TooltipContent>
