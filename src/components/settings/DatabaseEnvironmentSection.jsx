@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { LargeValueField } from "./LargeValueField";
+import { getEnv } from '@/utils/safeEnv';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 const MAX_SETTING_DESC_LENGTH = 500;
@@ -49,31 +50,31 @@ const isSensitiveKey = (key) => {
 
 const isQonsolManagedKey = (key) => QONSOL_MANAGED_KEYS.includes(key);
 
-// All environment variables from .env
-const envVariables = {
-  'Debug Mode': { key: 'VITE_DEBUG', value: import.meta.env.VITE_DEBUG },
-  'Backend URL': { key: 'VITE_SUPABASE_URL', value: import.meta.env.VITE_SUPABASE_URL },
-  'Project ID': { key: 'VITE_SUPABASE_PROJECT_ID', value: import.meta.env.VITE_SUPABASE_PROJECT_ID },
-  'Project URL': { key: 'VITE_SUPABASE_PROJECT_URL', value: import.meta.env.VITE_SUPABASE_PROJECT_URL },
-  'Publishable Key': { key: 'VITE_SUPABASE_PUBLISHABLE_KEY', value: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-  'API Key': { key: 'VITE_SUPABASE_API_KEY', value: import.meta.env.VITE_SUPABASE_API_KEY },
-  'OpenAI URL': { key: 'VITE_OPENAI_URL', value: import.meta.env.VITE_OPENAI_URL },
-  'Prompts Table': { key: 'VITE_PROMPTS_TBL', value: import.meta.env.VITE_PROMPTS_TBL },
-  'Settings Table': { key: 'VITE_SETTINGS_TBL', value: import.meta.env.VITE_SETTINGS_TBL },
-  'Models Table': { key: 'VITE_MODELS_TBL', value: import.meta.env.VITE_MODELS_TBL },
-  'Assistants Table': { key: 'VITE_ASSISTANTS_TBL', value: import.meta.env.VITE_ASSISTANTS_TBL },
-  'Threads Table': { key: 'VITE_THREADS_TBL', value: import.meta.env.VITE_THREADS_TBL },
-  'Templates Table': { key: 'VITE_TEMPLATES_TBL', value: import.meta.env.VITE_TEMPLATES_TBL },
-  'Prompt Variables Table': { key: 'VITE_PROMPT_VARIABLES_TBL', value: import.meta.env.VITE_PROMPT_VARIABLES_TBL },
-  'AI Costs Table': { key: 'VITE_AI_COSTS_TBL', value: import.meta.env.VITE_AI_COSTS_TBL },
-  'Model Pricing Table': { key: 'VITE_MODEL_PRICING_TBL', value: import.meta.env.VITE_MODEL_PRICING_TBL },
-  'Model Defaults Table': { key: 'VITE_MODEL_DEFAULTS_TBL', value: import.meta.env.VITE_MODEL_DEFAULTS_TBL },
-  'Assistant Files Table': { key: 'VITE_ASSISTANT_FILES_TBL', value: import.meta.env.VITE_ASSISTANT_FILES_TBL },
-  'Assistant Tool Defaults Table': { key: 'VITE_ASSISTANT_TOOL_DEFAULTS_TBL', value: import.meta.env.VITE_ASSISTANT_TOOL_DEFAULTS_TBL },
-  'Vector Stores Table': { key: 'VITE_VECTOR_STORES_TBL', value: import.meta.env.VITE_VECTOR_STORES_TBL },
-  'Confluence Pages Table': { key: 'VITE_CONFLUENCE_PAGES_TBL', value: import.meta.env.VITE_CONFLUENCE_PAGES_TBL },
-  'Info Table': { key: 'VITE_INFO_TBL', value: import.meta.env.VITE_INFO_TBL },
-};
+// Environment variable keys - values are fetched safely inside component
+const ENV_VAR_KEYS = [
+  { label: 'Debug Mode', key: 'VITE_DEBUG' },
+  { label: 'Backend URL', key: 'VITE_SUPABASE_URL' },
+  { label: 'Project ID', key: 'VITE_SUPABASE_PROJECT_ID' },
+  { label: 'Project URL', key: 'VITE_SUPABASE_PROJECT_URL' },
+  { label: 'Publishable Key', key: 'VITE_SUPABASE_PUBLISHABLE_KEY' },
+  { label: 'API Key', key: 'VITE_SUPABASE_API_KEY' },
+  { label: 'OpenAI URL', key: 'VITE_OPENAI_URL' },
+  { label: 'Prompts Table', key: 'VITE_PROMPTS_TBL' },
+  { label: 'Settings Table', key: 'VITE_SETTINGS_TBL' },
+  { label: 'Models Table', key: 'VITE_MODELS_TBL' },
+  { label: 'Assistants Table', key: 'VITE_ASSISTANTS_TBL' },
+  { label: 'Threads Table', key: 'VITE_THREADS_TBL' },
+  { label: 'Templates Table', key: 'VITE_TEMPLATES_TBL' },
+  { label: 'Prompt Variables Table', key: 'VITE_PROMPT_VARIABLES_TBL' },
+  { label: 'AI Costs Table', key: 'VITE_AI_COSTS_TBL' },
+  { label: 'Model Pricing Table', key: 'VITE_MODEL_PRICING_TBL' },
+  { label: 'Model Defaults Table', key: 'VITE_MODEL_DEFAULTS_TBL' },
+  { label: 'Assistant Files Table', key: 'VITE_ASSISTANT_FILES_TBL' },
+  { label: 'Assistant Tool Defaults Table', key: 'VITE_ASSISTANT_TOOL_DEFAULTS_TBL' },
+  { label: 'Vector Stores Table', key: 'VITE_VECTOR_STORES_TBL' },
+  { label: 'Confluence Pages Table', key: 'VITE_CONFLUENCE_PAGES_TBL' },
+  { label: 'Info Table', key: 'VITE_INFO_TBL' },
+];
 
 // Known secrets (stored in Lovable Cloud, accessible only in edge functions)
 const KNOWN_SECRETS = [
@@ -107,8 +108,17 @@ export function DatabaseEnvironmentSection({
   const [newSecretName, setNewSecretName] = useState('');
   const [secretToUpdate, setSecretToUpdate] = useState(null);
 
+  // Safely get environment variables inside component (not at module load time)
+  const envVariables = useMemo(() => 
+    ENV_VAR_KEYS.map(({ label, key }) => ({
+      label,
+      key,
+      value: getEnv(key, 'Not set'),
+    })),
+  []);
+
   // Filter out keys that are managed in QonsolSettingsSection
-  const settingsArray = Object.entries(settings).filter(([key]) => !isQonsolManagedKey(key));
+  const settingsArray = Object.entries(settings || {}).filter(([key]) => !isQonsolManagedKey(key));
 
   const handleAddSetting = async () => {
     const key = newSettingKey.trim();
@@ -334,7 +344,7 @@ export function DatabaseEnvironmentSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.entries(envVariables).map(([label, { key, value }]) => (
+              {envVariables.map(({ label, key, value }) => (
                 <TableRow key={key}>
                   <TableCell className="font-medium">{label}</TableCell>
                   <TableCell>
