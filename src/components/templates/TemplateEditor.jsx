@@ -183,7 +183,8 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
           </TabsContent>
         </div>
       </Tabs>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 };
 
