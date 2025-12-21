@@ -347,26 +347,57 @@ serve(async (req) => {
 
     console.log('Calling Responses API for Studio chat:', { model: modelId, toolCount: tools.length, conversationId });
 
-    // Call Responses API
-    let response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Helper to retry on conversation_locked errors
+    const callWithRetry = async (body: any, maxRetries = 5): Promise<{ response: Response; data: any }> => {
+      let lastError: any = null;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const resp = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Responses API error:', error);
+        if (resp.ok) {
+          const data = await resp.json();
+          return { response: resp, data };
+        }
+
+        const error = await resp.json();
+        
+        // Check for conversation_locked error
+        if (error.error?.code === 'conversation_locked') {
+          console.log(`Conversation locked, retry ${attempt + 1}/${maxRetries} after delay...`);
+          lastError = error;
+          // Wait 1-3 seconds with exponential backoff
+          const delay = Math.min(1000 * Math.pow(1.5, attempt), 5000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // Other errors, don't retry
+        console.error('Responses API error:', error);
+        throw { status: resp.status, error };
+      }
+      
+      // All retries exhausted
+      console.error('Conversation locked - max retries exhausted:', lastError);
+      throw { status: 429, error: lastError };
+    };
+
+    // Call Responses API with retry logic
+    let responseData: any;
+    try {
+      const result = await callWithRetry(requestBody);
+      responseData = result.data;
+    } catch (err: any) {
       return new Response(
-        JSON.stringify({ error: error.error?.message || 'Responses API call failed' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: err.error?.error?.message || 'Responses API call failed' }),
+        { status: err.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    let responseData = await response.json();
 
     // Handle function calls
     let maxIterations = 10;
@@ -411,25 +442,16 @@ serve(async (req) => {
         store: true,
       };
 
-      response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(continueBody),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('Responses API continuation error:', error);
+      try {
+        const result = await callWithRetry(continueBody);
+        responseData = result.data;
+      } catch (err: any) {
+        console.error('Responses API continuation error:', err);
         return new Response(
-          JSON.stringify({ error: error.error?.message || 'Failed to continue after function call' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: err.error?.error?.message || 'Failed to continue after function call' }),
+          { status: err.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      responseData = await response.json();
     }
 
     // Extract response text
