@@ -1,75 +1,10 @@
-// Shared tool definitions for OpenAI APIs
-// Supports both Assistants API (legacy) and Responses API (new) formats
+// Shared tool definitions for OpenAI Responses API
 
 /**
- * Confluence tools in Assistants API format (legacy)
- * Format: { type: "function", function: { name, description, parameters } }
- */
-export function getConfluenceToolsAssistants() {
-  return [
-    {
-      type: "function",
-      function: {
-        name: "confluence_search",
-        description: "Search Confluence documentation for relevant pages. Use this when you need to find information in the team's knowledge base.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: {
-              type: "string",
-              description: "Search query to find relevant pages"
-            },
-            space_key: {
-              type: "string",
-              description: "Optional: Limit search to a specific Confluence space"
-            }
-          },
-          required: ["query"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "confluence_read",
-        description: "Read the full content of a specific Confluence page. Use this after searching to get detailed information.",
-        parameters: {
-          type: "object",
-          properties: {
-            page_id: {
-              type: "string",
-              description: "The Confluence page ID to read"
-            }
-          },
-          required: ["page_id"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "confluence_list_children",
-        description: "List child pages under a specific Confluence page. Use this to explore page hierarchy.",
-        parameters: {
-          type: "object",
-          properties: {
-            page_id: {
-              type: "string",
-              description: "The parent Confluence page ID"
-            }
-          },
-          required: ["page_id"]
-        }
-      }
-    }
-  ];
-}
-
-/**
- * Confluence tools in Responses API format (new)
+ * Confluence tools in Responses API format
  * Format: { type: "function", name, description, parameters, strict }
  */
-export function getConfluenceToolsResponses() {
+export function getConfluenceTools() {
   return [
     {
       type: "function",
@@ -130,28 +65,11 @@ export function getConfluenceToolsResponses() {
 }
 
 /**
- * Built-in tools for Assistants API (legacy)
- */
-export function getBuiltinToolsAssistants(config: {
-  codeInterpreterEnabled?: boolean;
-  fileSearchEnabled?: boolean;
-}) {
-  const tools: any[] = [];
-  if (config.codeInterpreterEnabled) {
-    tools.push({ type: 'code_interpreter' });
-  }
-  if (config.fileSearchEnabled) {
-    tools.push({ type: 'file_search' });
-  }
-  return tools;
-}
-
-/**
- * Built-in tools for Responses API (new)
+ * Built-in tools for Responses API
  * Note: file_search requires vector_store_ids, code_interpreter requires container
  * web_search is a native Responses API capability
  */
-export function getBuiltinToolsResponses(config: {
+export function getBuiltinTools(config: {
   codeInterpreterEnabled?: boolean;
   fileSearchEnabled?: boolean;
   webSearchEnabled?: boolean;
@@ -189,41 +107,29 @@ export function getBuiltinToolsResponses(config: {
 }
 
 /**
- * Get all tools based on API version
+ * Get all tools for Responses API
  */
-export function getAllTools(
-  apiVersion: 'assistants' | 'responses',
-  config: {
-    codeInterpreterEnabled?: boolean;
-    fileSearchEnabled?: boolean;
-    webSearchEnabled?: boolean;
-    confluenceEnabled?: boolean;
-    vectorStoreIds?: string[];
-    containerFileIds?: string[];
-  }
-) {
-  if (apiVersion === 'responses') {
-    const builtinTools = getBuiltinToolsResponses({
-      codeInterpreterEnabled: config.codeInterpreterEnabled,
-      fileSearchEnabled: config.fileSearchEnabled,
-      webSearchEnabled: config.webSearchEnabled,
-      vectorStoreIds: config.vectorStoreIds,
-      containerFileIds: config.containerFileIds,
-    });
-    const confluenceTools = config.confluenceEnabled ? getConfluenceToolsResponses() : [];
-    return [...builtinTools, ...confluenceTools];
-  } else {
-    const builtinTools = getBuiltinToolsAssistants({
-      codeInterpreterEnabled: config.codeInterpreterEnabled,
-      fileSearchEnabled: config.fileSearchEnabled,
-    });
-    const confluenceTools = config.confluenceEnabled ? getConfluenceToolsAssistants() : [];
-    return [...builtinTools, ...confluenceTools];
-  }
+export function getAllTools(config: {
+  codeInterpreterEnabled?: boolean;
+  fileSearchEnabled?: boolean;
+  webSearchEnabled?: boolean;
+  confluenceEnabled?: boolean;
+  vectorStoreIds?: string[];
+  containerFileIds?: string[];
+}) {
+  const builtinTools = getBuiltinTools({
+    codeInterpreterEnabled: config.codeInterpreterEnabled,
+    fileSearchEnabled: config.fileSearchEnabled,
+    webSearchEnabled: config.webSearchEnabled,
+    vectorStoreIds: config.vectorStoreIds,
+    containerFileIds: config.containerFileIds,
+  });
+  const confluenceTools = config.confluenceEnabled ? getConfluenceTools() : [];
+  return [...builtinTools, ...confluenceTools];
 }
 
 /**
- * Check if response output contains function calls (Responses API)
+ * Check if response output contains function calls
  */
 export function hasFunctionCalls(output: any[]): boolean {
   return output?.some(item => item.type === 'function_call') ?? false;
