@@ -49,7 +49,7 @@ export const ExportTemplateDialog = ({ template, trigger }) => {
     <Dialog>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm">
+          <Button variant="ghost" size="sm" className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -74,11 +74,11 @@ export const ExportTemplateDialog = ({ template, trigger }) => {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCopy}>
+          <Button variant="ghost" onClick={handleCopy} className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
             {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
             {copied ? 'Copied!' : 'Copy'}
           </Button>
-          <Button onClick={handleDownload}>
+          <Button variant="ghost" onClick={handleDownload} className="!text-primary hover:!bg-muted/50">
             <Download className="h-4 w-4 mr-2" />
             Download JSON
           </Button>
@@ -152,7 +152,7 @@ export const ImportTemplateDialog = ({ onImport, trigger }) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm">
+          <Button variant="ghost" size="sm" className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
             <Upload className="h-4 w-4 mr-2" />
             Import
           </Button>

@@ -185,11 +185,11 @@ export const TreeItemActions = ({
           <Button
             variant="ghost"
             size="sm"
-            className={`
-              h-6 w-6 p-0 
-              ${variant === 'destructive' ? 'hover:bg-destructive/10 hover:text-destructive' : 'hover:bg-muted'}
-              ${disabled ? 'opacity-30 cursor-not-allowed' : ''}
-            `}
+            className={`h-6 w-6 p-0 transition-colors ${
+              variant === 'destructive' 
+                ? '!text-destructive hover:!text-destructive hover:!bg-destructive/10' 
+                : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
+            } ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
             onClick={async (e) => {
               if (onClick && !disabled) {
                 e.stopPropagation();

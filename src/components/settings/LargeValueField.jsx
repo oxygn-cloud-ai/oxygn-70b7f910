@@ -88,7 +88,7 @@ export function LargeValueField({
         <p className="text-xs text-muted-foreground">
           Large value ({stringValue.length.toLocaleString()} chars). Open editor to view/edit full text.
         </p>
-        <Button type="button" variant="outline" size="sm" onClick={openEditor} disabled={disabled}>
+        <Button type="button" variant="ghost" size="sm" onClick={openEditor} disabled={disabled} className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
           <Pencil className="h-4 w-4 mr-2" />
           Edit
         </Button>

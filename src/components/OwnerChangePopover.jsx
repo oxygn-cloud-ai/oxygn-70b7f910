@@ -248,12 +248,12 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
 
   return (
     <Tabs defaultValue="sharing" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 h-8">
-        <TabsTrigger value="sharing" className="text-xs">
+      <TabsList className="grid w-full grid-cols-2 h-8 bg-transparent">
+        <TabsTrigger value="sharing" className="text-xs !text-muted-foreground hover:!text-foreground data-[state=active]:!text-primary data-[state=active]:!bg-transparent">
           <Users className="h-3 w-3 mr-1" />
           Sharing
         </TabsTrigger>
-        <TabsTrigger value="transfer" className="text-xs">
+        <TabsTrigger value="transfer" className="text-xs !text-muted-foreground hover:!text-foreground data-[state=active]:!text-primary data-[state=active]:!bg-transparent">
           <UserPlus className="h-3 w-3 mr-1" />
           Transfer
         </TabsTrigger>

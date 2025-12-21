@@ -237,7 +237,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-8 w-8" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
                     {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
@@ -565,7 +565,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={instantiate} disabled={isInstantiating}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50" onClick={instantiate} disabled={isInstantiating}>
                 {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
             </TooltipTrigger>
