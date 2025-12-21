@@ -286,7 +286,6 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
                             ? TOOLTIPS.templates.variables.used 
                             : TOOLTIPS.templates.variables.unused}
                         </TooltipContent>
-                        </TooltipContent>
                       </Tooltip>
                     </TableCell>
                     <TableCell>
