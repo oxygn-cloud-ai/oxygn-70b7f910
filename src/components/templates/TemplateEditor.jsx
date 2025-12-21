@@ -120,13 +120,13 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
                     <TooltipTrigger asChild>
                       <TabsTrigger
                         value={tab.id}
-                        className={`rounded-none border-b-2 py-3 px-3 transition-colors bg-transparent ${
-                          isActive
-                            ? 'text-primary border-primary'
-                            : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent'
-                        }`}
+                        className="group rounded-none border-b-2 border-transparent py-3 px-3 transition-colors bg-transparent hover:bg-sidebar-accent data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                       >
-                        <tab.icon className="h-4 w-4" />
+                        <tab.icon
+                          className={`h-4 w-4 transition-colors ${
+                            isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                          }`}
+                        />
                       </TabsTrigger>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
