@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { useModels } from '@/hooks/useModels';
+import VariablePicker from '@/components/VariablePicker';
 
 /**
  * Visual structure editor for template prompt hierarchy
@@ -444,20 +445,10 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label>System Prompt</Label>
-        {variableDefinitions.length > 0 && (
-          <Select onValueChange={(v) => insertVariable('input_admin_prompt', v)}>
-            <SelectTrigger className="w-auto h-7 text-xs">
-              <span className="text-muted-foreground">Insert variable...</span>
-            </SelectTrigger>
-            <SelectContent>
-              {variableDefinitions.map(v => (
-                <SelectItem key={v.name} value={v.name}>
-                  {`{{${v.name}}}`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <VariablePicker 
+          onInsert={(varName) => insertVariable('input_admin_prompt', varName)}
+          userVariables={variableDefinitions}
+        />
       </div>
       <Textarea
         ref={adminPromptRef}
@@ -478,20 +469,10 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label>User Prompt</Label>
-        {variableDefinitions.length > 0 && (
-          <Select onValueChange={(v) => insertVariable('input_user_prompt', v)}>
-            <SelectTrigger className="w-auto h-7 text-xs">
-              <span className="text-muted-foreground">Insert variable...</span>
-            </SelectTrigger>
-            <SelectContent>
-              {variableDefinitions.map(v => (
-                <SelectItem key={v.name} value={v.name}>
-                  {`{{${v.name}}}`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <VariablePicker 
+          onInsert={(varName) => insertVariable('input_user_prompt', varName)}
+          userVariables={variableDefinitions}
+        />
       </div>
       <Textarea
         ref={userPromptRef}
