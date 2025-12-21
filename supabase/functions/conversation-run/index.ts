@@ -185,7 +185,8 @@ async function runWithResponsesAPI(
   vectorStoreId: string | null,
   apiKey: string,
   attachedPages: Array<{ page_id: string; page_title: string; content_text: string | null; page_url: string | null }>,
-  adminPrompt?: string // Optional admin prompt to include as additional system context
+  adminPrompt?: string, // Optional admin prompt to include as additional system context
+  storeMessages: boolean = false // Whether to persist messages to conversation history
 ): Promise<ResponsesAPIResult> {
   const modelId = assistantData.model_override || 'gpt-4o';
   
@@ -233,7 +234,6 @@ async function runWithResponsesAPI(
     tools: tools.length > 0 ? tools : undefined,
     // Use conversation parameter for multi-turn conversations
     conversation: conversationId,
-    store: true, // Persist to conversation state
   };
 
   // Add model parameters if set
@@ -329,7 +329,7 @@ async function runWithResponsesAPI(
       conversation: conversationId,
       input: functionCallOutputs,
       tools: tools.length > 0 ? tools : undefined,
-      store: true,
+      store: storeMessages,
     };
 
     response = await fetch('https://api.openai.com/v1/responses', {
@@ -420,7 +420,11 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const { child_prompt_row_id, user_message, template_variables, child_thread_strategy: requestStrategy } = await req.json();
+    const { child_prompt_row_id, user_message, template_variables, child_thread_strategy: requestStrategy, store_messages: storeMessagesParam } = await req.json();
+    
+    // Default to NOT storing messages - cascade runs and individual runs should not pollute chat history
+    // Only explicit chat interactions (studio-chat) should store messages
+    const storeMessages = storeMessagesParam === true;
 
     console.log('Conversation run request:', { child_prompt_row_id, user: validation.user?.email, requestStrategy });
 
@@ -688,7 +692,8 @@ serve(async (req) => {
       assistantData.vector_store_id,
       OPENAI_API_KEY,
       attachedPages,
-      adminPrompt
+      adminPrompt,
+      storeMessages
     );
 
     if (!result.success) {
