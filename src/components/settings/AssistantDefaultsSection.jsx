@@ -37,7 +37,7 @@ export function AssistantDefaultsSection({
   }, [isRefreshing]);
 
   const handleToggle = async (key, value) => {
-    await updateToolDefault(key, value);
+    await updateToolDefault({ [key]: value });
   };
 
   if (isLoading) {
