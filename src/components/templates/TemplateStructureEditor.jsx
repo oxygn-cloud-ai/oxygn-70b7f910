@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
@@ -299,15 +299,23 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   const structureWithId = structure?._id ? structure : { ...structure, _id: 'root' };
 
   return (
+    <TooltipProvider>
     <div className="h-full flex">
       {/* Tree View */}
       <div className="w-72 border-r border-border flex flex-col">
         <div className="p-3 border-b border-border flex items-center justify-between">
           <h4 className="text-sm font-medium">Prompt Hierarchy</h4>
-          <Button size="sm" variant="ghost" onClick={() => addChild('root')}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => addChild('root')}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Add prompt</TooltipContent>
+          </Tooltip>
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2">
@@ -332,6 +340,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         )}
       </div>
     </div>
+    </TooltipProvider>
   );
 };
 
@@ -373,18 +382,23 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
     <div className="h-full flex flex-col">
       {/* Section Tabs */}
       <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/30">
-        {sections.map(section => (
-          <Button
-            key={section.id}
-            size="sm"
-            variant={activeSection === section.id ? 'secondary' : 'ghost'}
-            onClick={() => setActiveSection(section.id)}
-            className="h-8"
-          >
-            <section.icon className="h-4 w-4 mr-1.5" />
-            {section.label}
-          </Button>
-        ))}
+        <TooltipProvider>
+          {sections.map(section => (
+            <Tooltip key={section.id}>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={activeSection === section.id ? 'secondary' : 'ghost'}
+                  onClick={() => setActiveSection(section.id)}
+                  className="h-8 w-8 p-0"
+                >
+                  <section.icon className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{section.label}</TooltipContent>
+            </Tooltip>
+          ))}
+        </TooltipProvider>
       </div>
 
       <ScrollArea className="flex-1">
