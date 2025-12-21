@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageS
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import HighlightedTextarea from '@/components/ui/highlighted-textarea';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -450,7 +451,7 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
           userVariables={variableDefinitions}
         />
       </div>
-      <Textarea
+      <HighlightedTextarea
         ref={adminPromptRef}
         value={node.input_admin_prompt || ''}
         onChange={(e) => {
@@ -462,7 +463,6 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
         onKeyUp={onCursorChange('input_admin_prompt')}
         placeholder="System instructions for the AI..."
         rows={6}
-        className="font-mono text-sm"
       />
     </div>
 
@@ -474,7 +474,7 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
           userVariables={variableDefinitions}
         />
       </div>
-      <Textarea
+      <HighlightedTextarea
         ref={userPromptRef}
         value={node.input_user_prompt || ''}
         onChange={(e) => {
@@ -486,7 +486,6 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
         onKeyUp={onCursorChange('input_user_prompt')}
         placeholder="User message template..."
         rows={4}
-        className="font-mono text-sm"
       />
     </div>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
+import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
 import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -216,27 +217,48 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       {/* Content */}
       {!isCollapsed && (
         <div className="p-3">
-          <Textarea
-            id={label}
-            value={value}
-            onChange={(e) => {
-              if (!isReadOnly) {
-                onChange(e.target.value);
-              }
-              if (label === 'Admin Result' || label === 'User Result') {
-                e.target.style.height = 'auto';
-              }
-              handleCursorChange(e);
-            }}
-            onSelect={handleCursorChange}
-            onClick={handleCursorChange}
-            onKeyUp={handleCursorChange}
-            className="w-full min-h-[100px] resize-y border-border bg-background focus:ring-primary focus:border-primary"
-            rows={4}
-            ref={textareaRef}
-            readOnly={isReadOnly}
-            placeholder={`Enter ${label.toLowerCase()}...`}
-          />
+          {(label === 'Input Admin Prompt' || label === 'Input User Prompt') ? (
+            <HighlightedTextarea
+              id={label}
+              value={value}
+              onChange={(e) => {
+                if (!isReadOnly) {
+                  onChange(e.target.value);
+                }
+                handleCursorChange(e);
+              }}
+              onSelect={handleCursorChange}
+              onClick={handleCursorChange}
+              onKeyUp={handleCursorChange}
+              className="w-full min-h-[100px] bg-background"
+              rows={4}
+              ref={textareaRef}
+              readOnly={isReadOnly}
+              placeholder={`Enter ${label.toLowerCase()}...`}
+            />
+          ) : (
+            <Textarea
+              id={label}
+              value={value}
+              onChange={(e) => {
+                if (!isReadOnly) {
+                  onChange(e.target.value);
+                }
+                if (label === 'Admin Result' || label === 'User Result') {
+                  e.target.style.height = 'auto';
+                }
+                handleCursorChange(e);
+              }}
+              onSelect={handleCursorChange}
+              onClick={handleCursorChange}
+              onKeyUp={handleCursorChange}
+              className="w-full min-h-[100px] resize-y border-border bg-background focus:ring-primary focus:border-primary"
+              rows={4}
+              ref={textareaRef}
+              readOnly={isReadOnly}
+              placeholder={`Enter ${label.toLowerCase()}...`}
+            />
+          )}
         </div>
       )}
     </div>
