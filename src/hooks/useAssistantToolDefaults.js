@@ -1,59 +1,73 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 
+const TOOL_DEFAULTS_QUERY_KEY = ['assistantToolDefaults'];
+
 export const useAssistantToolDefaults = () => {
   const supabase = useSupabase();
-  const [defaults, setDefaults] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
 
   const fetchDefaults = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) return null;
 
-    try {
-      const { data, error } = await supabase
-        .from(import.meta.env.VITE_ASSISTANT_TOOL_DEFAULTS_TBL)
-        .select('*')
-        .limit(1)
-        .maybeSingle();
+    const { data, error } = await supabase
+      .from(import.meta.env.VITE_ASSISTANT_TOOL_DEFAULTS_TBL)
+      .select('*')
+      .limit(1)
+      .maybeSingle();
 
-      if (error) throw error;
-      setDefaults(data);
-    } catch (error) {
-      console.error('Error fetching tool defaults:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    if (error) throw error;
+    return data;
   }, [supabase]);
 
-  useEffect(() => {
-    fetchDefaults();
-  }, [fetchDefaults]);
+  const {
+    data: defaults,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: TOOL_DEFAULTS_QUERY_KEY,
+    queryFn: fetchDefaults,
+    enabled: !!supabase,
+  });
 
-  const updateDefaults = useCallback(async (updates) => {
-    if (!supabase || !defaults?.row_id) return false;
+  const mutation = useMutation({
+    mutationFn: async (updates) => {
+      if (!supabase) throw new Error('No backend client');
+      if (!defaults?.row_id) throw new Error('No defaults row found');
 
-    try {
       const { error } = await supabase
         .from(import.meta.env.VITE_ASSISTANT_TOOL_DEFAULTS_TBL)
         .update(updates)
         .eq('row_id', defaults.row_id);
 
       if (error) throw error;
-      setDefaults(prev => ({ ...prev, ...updates }));
-      toast.success('Tool defaults updated');
       return true;
-    } catch (error) {
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: TOOL_DEFAULTS_QUERY_KEY });
+      toast.success('Tool defaults updated');
+    },
+    onError: (error) => {
       console.error('Error updating tool defaults:', error);
       toast.error('Failed to update defaults');
+    },
+  });
+
+  const updateDefaults = useCallback(async (updates) => {
+    try {
+      const result = await mutation.mutateAsync(updates);
+      return !!result;
+    } catch {
       return false;
     }
-  }, [supabase, defaults?.row_id]);
+  }, [mutation]);
 
   return {
-    defaults,
+    defaults: defaults ?? null,
     isLoading,
     updateDefaults,
-    refetch: fetchDefaults,
+    refetch,
   };
 };
