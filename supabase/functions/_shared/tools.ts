@@ -83,11 +83,11 @@ export function getConfluenceToolsResponses() {
             description: "Search query to find relevant pages"
           },
           space_key: {
-            type: "string",
+            type: ["string", "null"],
             description: "Optional: Limit search to a specific Confluence space"
           }
         },
-        required: ["query"],
+        required: ["query", "space_key"],
         additionalProperties: false
       },
       strict: true
