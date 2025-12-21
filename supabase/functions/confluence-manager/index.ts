@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { TABLES } from "../_shared/tables.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,7 +54,7 @@ Deno.serve(async (req) => {
     // Get Confluence credentials from settings
     const getConfluenceConfig = async () => {
       const { data: settings, error } = await supabase
-        .from('cyg_settings')
+        .from(TABLES.SETTINGS)
         .select('setting_key, setting_value')
         .in('setting_key', ['confluence_base_url', 'confluence_email', 'confluence_api_token']);
       
@@ -208,7 +209,7 @@ Deno.serve(async (req) => {
         );
         console.log(`[confluence-manager] Fetched ${allPages.length} pages from space ${spaceKey}`);
 
-        // Fetch folders (Confluence Cloud feature) - they can be parents of pages
+        // Fetch folders (Confluence Cloud feature)
         let allFolders: any[] = [];
         try {
           allFolders = await fetchAllContent(
@@ -220,7 +221,7 @@ Deno.serve(async (req) => {
           console.log(`[confluence-manager] Could not fetch folders (may not be supported):`, e);
         }
 
-        // Fetch whiteboards - they can also be in the tree
+        // Fetch whiteboards
         let allWhiteboards: any[] = [];
         try {
           allWhiteboards = await fetchAllContent(
@@ -232,7 +233,7 @@ Deno.serve(async (req) => {
           console.log(`[confluence-manager] Could not fetch whiteboards (may not be supported):`, e);
         }
 
-        // Fetch databases - they can also be in the tree
+        // Fetch databases
         let allDatabases: any[] = [];
         try {
           allDatabases = await fetchAllContent(
@@ -469,7 +470,7 @@ Deno.serve(async (req) => {
         
         // Insert into database
         const { data: inserted, error } = await supabase
-          .from('cyg_confluence_pages')
+          .from(TABLES.CONFLUENCE_PAGES)
           .insert({
             assistant_row_id: assistantRowId || null,
             prompt_row_id: promptRowId || null,
@@ -492,7 +493,7 @@ Deno.serve(async (req) => {
         // Auto-enable confluence_enabled on the assistant for live browsing
         if (assistantRowId) {
           const { error: updateError } = await supabase
-            .from('cyg_assistants')
+            .from(TABLES.ASSISTANTS)
             .update({ confluence_enabled: true })
             .eq('row_id', assistantRowId);
           
@@ -511,7 +512,7 @@ Deno.serve(async (req) => {
         const { rowId } = params;
         
         const { error } = await supabase
-          .from('cyg_confluence_pages')
+          .from(TABLES.CONFLUENCE_PAGES)
           .delete()
           .eq('row_id', rowId);
         
@@ -527,7 +528,7 @@ Deno.serve(async (req) => {
         
         // Get the existing record
         const { data: existing, error: fetchError } = await supabase
-          .from('cyg_confluence_pages')
+          .from(TABLES.CONFLUENCE_PAGES)
           .select('page_id')
           .eq('row_id', rowId)
           .single();
@@ -542,7 +543,7 @@ Deno.serve(async (req) => {
         
         // Update the record
         const { data: updated, error: updateError } = await supabase
-          .from('cyg_confluence_pages')
+          .from(TABLES.CONFLUENCE_PAGES)
           .update({
             page_title: data.title,
             space_key: data.space?.key,
@@ -572,7 +573,7 @@ Deno.serve(async (req) => {
         
         // Get the page content
         const { data: page, error: fetchError } = await supabase
-          .from('cyg_confluence_pages')
+          .from(TABLES.CONFLUENCE_PAGES)
           .select('*')
           .eq('row_id', rowId)
           .single();
@@ -604,7 +605,7 @@ Deno.serve(async (req) => {
         
         // Update the database record with the OpenAI file ID
         const { error: updateError } = await supabase
-          .from('cyg_confluence_pages')
+          .from(TABLES.CONFLUENCE_PAGES)
           .update({ openai_file_id: uploadedFile.id })
           .eq('row_id', rowId);
         
@@ -617,7 +618,7 @@ Deno.serve(async (req) => {
       case 'list-attached': {
         const { assistantRowId, promptRowId } = params;
         
-        let query = supabase.from('cyg_confluence_pages').select('*');
+        let query = supabase.from(TABLES.CONFLUENCE_PAGES).select('*');
         
         if (assistantRowId) {
           query = query.eq('assistant_row_id', assistantRowId);

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { TABLES, FK } from "../_shared/tables.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -164,7 +165,7 @@ serve(async (req) => {
 
       // Fetch local assistant records with linked prompt names
       const { data: localAssistants, error: localError } = await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .select(`
           row_id,
           name,
@@ -172,7 +173,7 @@ serve(async (req) => {
           openai_assistant_id,
           prompt_row_id,
           confluence_enabled,
-          cyg_prompts!cyg_assistants_prompt_row_id_fkey(
+          ${FK.ASSISTANTS_PROMPT}(
             row_id,
             prompt_name
           )
@@ -193,6 +194,7 @@ serve(async (req) => {
       // Enrich OpenAI assistants with local data
       const enrichedAssistants = openaiAssistants.map((oa: any) => {
         const local = localMap.get(oa.id);
+        const promptData = local?.[FK.ASSISTANTS_PROMPT.split('!')[0]] || local?.q_prompts;
         return {
           openai_id: oa.id,
           name: oa.name,
@@ -201,7 +203,7 @@ serve(async (req) => {
           local_row_id: local?.row_id || null,
           local_status: local?.status || null,
           prompt_row_id: local?.prompt_row_id || null,
-          prompt_name: local?.cyg_prompts?.prompt_name || null,
+          prompt_name: promptData?.prompt_name || null,
           is_orphaned: !local,
           confluence_enabled: local?.confluence_enabled || false,
         };
@@ -219,8 +221,8 @@ serve(async (req) => {
     if (action === 'instantiate') {
       // Fetch assistant config
       const { data: assistant, error: fetchError } = await supabase
-        .from('cyg_assistants')
-        .select('*, cyg_assistant_files(*)')
+        .from(TABLES.ASSISTANTS)
+        .select('*')
         .eq('row_id', assistant_row_id)
         .single();
 
@@ -241,7 +243,7 @@ serve(async (req) => {
 
       if (assistant.use_global_tool_defaults) {
         const { data: defaults } = await supabase
-          .from('cyg_assistant_tool_defaults')
+          .from(TABLES.ASSISTANT_TOOL_DEFAULTS)
           .select('*')
           .limit(1)
           .single();
@@ -257,16 +259,22 @@ serve(async (req) => {
 
       // Fetch prompt for model settings if not overridden
       const { data: prompt } = await supabase
-        .from('cyg_prompts')
+        .from(TABLES.PROMPTS)
         .select('model, temperature, max_tokens, top_p')
         .eq('row_id', assistant.prompt_row_id)
         .single();
 
       const modelId = assistant.model_override || prompt?.model || 'gpt-4o';
 
+      // Fetch files separately
+      const { data: filesData } = await supabase
+        .from(TABLES.ASSISTANT_FILES)
+        .select('*')
+        .eq('assistant_row_id', assistant_row_id);
+
       // Upload files to OpenAI if any
       const uploadedFileIds: string[] = [];
-      const files = assistant.cyg_assistant_files || [];
+      const files = filesData || [];
 
       for (const file of files) {
         if (file.openai_file_id) {
@@ -308,7 +316,7 @@ serve(async (req) => {
 
           // Update file record with OpenAI file ID
           await supabase
-            .from('cyg_assistant_files')
+            .from(TABLES.ASSISTANT_FILES)
             .update({ openai_file_id: uploadResult.id, upload_status: 'uploaded' })
             .eq('row_id', file.row_id);
 
@@ -317,7 +325,7 @@ serve(async (req) => {
           const error = await uploadResponse.json();
           console.error('Failed to upload file to OpenAI:', error);
           await supabase
-            .from('cyg_assistant_files')
+            .from(TABLES.ASSISTANT_FILES)
             .update({ upload_status: 'error' })
             .eq('row_id', file.row_id);
         }
@@ -330,7 +338,7 @@ serve(async (req) => {
         // Check if using shared vector store
         if (assistant.use_shared_vector_store && assistant.shared_vector_store_row_id) {
           const { data: sharedStore } = await supabase
-            .from('cyg_vector_stores')
+            .from(TABLES.VECTOR_STORES)
             .select('openai_vector_store_id')
             .eq('row_id', assistant.shared_vector_store_row_id)
             .single();
@@ -391,9 +399,6 @@ serve(async (req) => {
           file_search: { vector_store_ids: [vectorStoreId] },
         };
       }
-      // Note: We don't add files to code_interpreter by default.
-      // Code interpreter is for running Python code, not for file retrieval.
-      // Files for RAG/search go to the vector store via file_search.
 
       console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, tools: tools.length, confluenceEnabled: assistant.confluence_enabled });
 
@@ -412,7 +417,7 @@ serve(async (req) => {
         console.error('Failed to create assistant:', error);
         
         await supabase
-          .from('cyg_assistants')
+          .from(TABLES.ASSISTANTS)
           .update({ 
             status: 'error', 
             last_error: error.error?.message || 'Failed to create assistant' 
@@ -430,7 +435,7 @@ serve(async (req) => {
 
       // Update database with OpenAI IDs
       await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .update({
           openai_assistant_id: createdAssistant.id,
           vector_store_id: vectorStoreId,
@@ -454,7 +459,7 @@ serve(async (req) => {
     if (action === 're-instantiate') {
       // First update status to not_instantiated, then call instantiate logic
       const { data: assistant, error: fetchError } = await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .select('*')
         .eq('row_id', assistant_row_id)
         .single();
@@ -469,7 +474,7 @@ serve(async (req) => {
 
       // Reset status and clear any old OpenAI ID
       await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .update({ 
           status: 'not_instantiated', 
           openai_assistant_id: null,
@@ -479,8 +484,8 @@ serve(async (req) => {
 
       // Re-fetch after status update
       const { data: refreshedAssistant } = await supabase
-        .from('cyg_assistants')
-        .select('*, cyg_assistant_files(*)')
+        .from(TABLES.ASSISTANTS)
+        .select('*')
         .eq('row_id', assistant_row_id)
         .single();
 
@@ -500,7 +505,7 @@ serve(async (req) => {
 
       if (refreshedAssistant.use_global_tool_defaults) {
         const { data: defaults } = await supabase
-          .from('cyg_assistant_tool_defaults')
+          .from(TABLES.ASSISTANT_TOOL_DEFAULTS)
           .select('*')
           .limit(1)
           .single();
@@ -516,7 +521,7 @@ serve(async (req) => {
 
       // Fetch prompt for model
       const { data: prompt } = await supabase
-        .from('cyg_prompts')
+        .from(TABLES.PROMPTS)
         .select('model')
         .eq('row_id', refreshedAssistant.prompt_row_id)
         .single();
@@ -556,7 +561,7 @@ serve(async (req) => {
         console.error('Failed to re-instantiate assistant:', error);
         
         await supabase
-          .from('cyg_assistants')
+          .from(TABLES.ASSISTANTS)
           .update({ 
             status: 'error', 
             last_error: error.error?.message || 'Failed to re-instantiate assistant' 
@@ -573,7 +578,7 @@ serve(async (req) => {
       console.log('Re-instantiated assistant:', createdAssistant.id);
 
       await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .update({
           openai_assistant_id: createdAssistant.id,
           status: 'active',
@@ -591,7 +596,7 @@ serve(async (req) => {
     // DESTROY - Delete Assistant from OpenAI (marks as 'destroyed' locally)
     if (action === 'destroy') {
       const { data: assistant } = await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .select('openai_assistant_id, vector_store_id')
         .eq('row_id', assistant_row_id)
         .single();
@@ -610,7 +615,7 @@ serve(async (req) => {
 
       // Update database - mark as destroyed
       await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .update({
           openai_assistant_id: null,
           status: 'destroyed',
@@ -664,7 +669,7 @@ serve(async (req) => {
     // UPDATE - Update Assistant in OpenAI
     if (action === 'update') {
       const { data: assistant } = await supabase
-        .from('cyg_assistants')
+        .from(TABLES.ASSISTANTS)
         .select('*')
         .eq('row_id', assistant_row_id)
         .single();
@@ -692,7 +697,7 @@ serve(async (req) => {
 
         if (assistant.use_global_tool_defaults) {
           const { data: defaults } = await supabase
-            .from('cyg_assistant_tool_defaults')
+            .from(TABLES.ASSISTANT_TOOL_DEFAULTS)
             .select('*')
             .limit(1)
             .single();
@@ -746,8 +751,8 @@ serve(async (req) => {
     // SYNC - Upload pending files to OpenAI and update assistant
     if (action === 'sync') {
       const { data: assistant } = await supabase
-        .from('cyg_assistants')
-        .select('*, cyg_assistant_files(*)')
+        .from(TABLES.ASSISTANTS)
+        .select('*')
         .eq('row_id', assistant_row_id)
         .single();
 
@@ -758,7 +763,13 @@ serve(async (req) => {
         );
       }
 
-      const files = assistant.cyg_assistant_files || [];
+      // Fetch files separately
+      const { data: filesData } = await supabase
+        .from(TABLES.ASSISTANT_FILES)
+        .select('*')
+        .eq('assistant_row_id', assistant_row_id);
+
+      const files = filesData || [];
       const pendingFiles = files.filter((f: any) => !f.openai_file_id || f.upload_status === 'pending');
       const existingFileIds: string[] = files.filter((f: any) => f.openai_file_id).map((f: any) => f.openai_file_id);
       const newlyUploadedFileIds: string[] = [];
@@ -775,7 +786,7 @@ serve(async (req) => {
         if (downloadError || !fileData) {
           console.error('Failed to download file:', file.storage_path, downloadError);
           await supabase
-            .from('cyg_assistant_files')
+            .from(TABLES.ASSISTANT_FILES)
             .update({ upload_status: 'error' })
             .eq('row_id', file.row_id);
           continue;
@@ -803,7 +814,7 @@ serve(async (req) => {
           newlyUploadedFileIds.push(uploadResult.id);
 
           await supabase
-            .from('cyg_assistant_files')
+            .from(TABLES.ASSISTANT_FILES)
             .update({ openai_file_id: uploadResult.id, upload_status: 'uploaded' })
             .eq('row_id', file.row_id);
 
@@ -812,7 +823,7 @@ serve(async (req) => {
           const error = await uploadResponse.json();
           console.error('Failed to upload file to OpenAI:', error);
           await supabase
-            .from('cyg_assistant_files')
+            .from(TABLES.ASSISTANT_FILES)
             .update({ upload_status: 'error' })
             .eq('row_id', file.row_id);
         }
@@ -825,13 +836,12 @@ serve(async (req) => {
       if (assistant.openai_assistant_id && allFileIds.length > 0) {
         // Fetch global defaults first
         const { data: globalDefaults } = await supabase
-          .from('cyg_assistant_tool_defaults')
+          .from(TABLES.ASSISTANT_TOOL_DEFAULTS)
           .select('*')
           .limit(1)
           .single();
 
-        // Determine tool config: use global if use_global_tool_defaults is true,
-        // OR if the assistant's own value is null (treat null as "inherit from global")
+        // Determine tool config
         const toolConfig = {
           code_interpreter_enabled: assistant.use_global_tool_defaults 
             ? globalDefaults?.code_interpreter_enabled 
@@ -886,19 +896,18 @@ serve(async (req) => {
               console.log('Created new vector store:', vectorStoreId);
 
               await supabase
-                .from('cyg_assistants')
+                .from(TABLES.ASSISTANTS)
                 .update({ vector_store_id: vectorStoreId })
                 .eq('row_id', assistant_row_id);
             }
           }
         }
 
-        // Update assistant with tool resources - files go to vector store for file_search
+        // Update assistant with tool resources
         const toolResources: any = {};
         if (toolConfig.file_search_enabled && vectorStoreId) {
           toolResources.file_search = { vector_store_ids: [vectorStoreId] };
         }
-        // Note: We don't add files to code_interpreter - it's for running Python, not retrieval
 
         if (Object.keys(toolResources).length > 0) {
           const updateResponse = await fetch(
@@ -947,7 +956,7 @@ serve(async (req) => {
 
       console.log('[delete-file] Start', { openai_file_id, assistant_row_id });
 
-      // Resolve assistant context (vector store + tool config) so we can remove references too.
+      // Resolve assistant context
       let openaiAssistantId: string | null = null;
       let vectorStoreId: string | null = null;
       let toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean } | null = null;
@@ -955,170 +964,99 @@ serve(async (req) => {
 
       if (assistant_row_id) {
         const { data: assistant, error: assistantError } = await supabase
-          .from('cyg_assistants')
+          .from(TABLES.ASSISTANTS)
           .select('openai_assistant_id, vector_store_id, use_shared_vector_store, shared_vector_store_row_id, use_global_tool_defaults, code_interpreter_enabled, file_search_enabled')
           .eq('row_id', assistant_row_id)
           .single();
 
         if (assistantError) {
-          console.error('[delete-file] Failed to load assistant:', assistantError);
-          return new Response(
-            JSON.stringify({ success: false, error: 'Failed to load assistant' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-          );
-        }
+          console.error('[delete-file] Could not fetch assistant:', assistantError);
+        } else if (assistant) {
+          openaiAssistantId = assistant.openai_assistant_id;
+          vectorStoreId = assistant.vector_store_id;
 
-        openaiAssistantId = assistant?.openai_assistant_id ?? null;
-        vectorStoreId = assistant?.vector_store_id ?? null;
-
-        // If assistant uses a shared vector store, resolve its OpenAI vector store id.
-        if (!vectorStoreId && assistant?.use_shared_vector_store && assistant?.shared_vector_store_row_id) {
-          const { data: sharedStore, error: sharedError } = await supabase
-            .from('cyg_vector_stores')
-            .select('openai_vector_store_id')
-            .eq('row_id', assistant.shared_vector_store_row_id)
-            .single();
-
-          if (sharedError) {
-            console.error('[delete-file] Failed to load shared vector store:', sharedError);
+          // Get tool config
+          if (assistant.use_global_tool_defaults) {
+            const { data: defaults } = await supabase
+              .from(TABLES.ASSISTANT_TOOL_DEFAULTS)
+              .select('code_interpreter_enabled, file_search_enabled')
+              .limit(1)
+              .single();
+            toolConfig = defaults ? { code_interpreter_enabled: !!defaults.code_interpreter_enabled, file_search_enabled: !!defaults.file_search_enabled } : null;
           } else {
-            vectorStoreId = sharedStore?.openai_vector_store_id ?? null;
+            toolConfig = { code_interpreter_enabled: !!assistant.code_interpreter_enabled, file_search_enabled: !!assistant.file_search_enabled };
           }
+
+          // Fetch remaining file IDs (after we delete this one)
+          const { data: remainingFiles } = await supabase
+            .from(TABLES.ASSISTANT_FILES)
+            .select('openai_file_id')
+            .eq('assistant_row_id', assistant_row_id)
+            .not('openai_file_id', 'is', null)
+            .neq('openai_file_id', openai_file_id);
+
+          remainingFileIds = (remainingFiles || []).map((f: any) => f.openai_file_id).filter(Boolean);
         }
-
-        // Fetch global defaults to determine effective tool config
-        const { data: globalDefaults } = await supabase
-          .from('cyg_assistant_tool_defaults')
-          .select('*')
-          .limit(1)
-          .single();
-
-        toolConfig = {
-          code_interpreter_enabled: assistant?.use_global_tool_defaults
-            ? (globalDefaults?.code_interpreter_enabled ?? false)
-            : (assistant?.code_interpreter_enabled ?? globalDefaults?.code_interpreter_enabled ?? false),
-          file_search_enabled: assistant?.use_global_tool_defaults
-            ? (globalDefaults?.file_search_enabled ?? true)
-            : (assistant?.file_search_enabled ?? globalDefaults?.file_search_enabled ?? true),
-        };
-
-        // Compute remaining file ids for code interpreter (exclude this file)
-        const { data: remainingFiles, error: remainingError } = await supabase
-          .from('cyg_assistant_files')
-          .select('openai_file_id')
-          .eq('assistant_row_id', assistant_row_id)
-          .not('openai_file_id', 'is', null)
-          .neq('openai_file_id', openai_file_id);
-
-        if (remainingError) {
-          console.error('[delete-file] Failed to load remaining file ids:', remainingError);
-        } else {
-          remainingFileIds = (remainingFiles ?? [])
-            .map((r: any) => r.openai_file_id)
-            .filter((id: any) => typeof id === 'string' && id.length > 0);
-        }
-
-        console.log('[delete-file] Resolved context', {
-          openaiAssistantId,
-          vectorStoreId,
-          toolConfig,
-          remainingFileIdsCount: remainingFileIds.length,
-        });
       }
 
-      // 1) Remove from vector store FIRST (so deletion from Files API doesn't break VS removal)
-      if (vectorStoreId) {
-        console.log('[delete-file] Removing from vector store', { vectorStoreId, openai_file_id });
-
-        const vsDeleteResponse = await fetch(
-          `https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${openai_file_id}`,
-          {
+      // 1) Remove from vector store if applicable
+      if (vectorStoreId && toolConfig?.file_search_enabled) {
+        try {
+          const removeVsRes = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${openai_file_id}`, {
             method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'OpenAI-Beta': 'assistants=v2',
-            },
-          },
-        );
-
-        if (!vsDeleteResponse.ok && vsDeleteResponse.status !== 404) {
-          const t = await vsDeleteResponse.text();
-          console.error('[delete-file] Vector store delete failed:', vsDeleteResponse.status, t);
-          return new Response(
-            JSON.stringify({ success: false, error: 'Failed to remove file from vector store' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-          );
-        }
-      }
-
-      // 2) Delete the file itself from OpenAI
-      console.log('[delete-file] Deleting file from OpenAI files API', { openai_file_id });
-
-      const fileDeleteResponse = await fetch(
-        `https://api.openai.com/v1/files/${openai_file_id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          },
-        },
-      );
-
-      if (!fileDeleteResponse.ok && fileDeleteResponse.status !== 404) {
-        const t = await fileDeleteResponse.text();
-        console.error('[delete-file] File delete failed:', fileDeleteResponse.status, t);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Failed to delete file from OpenAI' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
-      }
-
-      // 3) Remove any assistant tool references (especially code_interpreter file_ids)
-      if (openaiAssistantId && toolConfig) {
-        const toolResources: any = {};
-        if (toolConfig.file_search_enabled && vectorStoreId) {
-          toolResources.file_search = { vector_store_ids: [vectorStoreId] };
-        }
-        if (toolConfig.code_interpreter_enabled) {
-          toolResources.code_interpreter = { file_ids: remainingFileIds };
-        }
-
-        if (Object.keys(toolResources).length > 0) {
-          console.log('[delete-file] Updating assistant tool_resources', { openaiAssistantId });
-
-          const updateResponse = await fetch(
-            `https://api.openai.com/v1/assistants/${openaiAssistantId}`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                'Content-Type': 'application/json',
-                'OpenAI-Beta': 'assistants=v2',
-              },
-              body: JSON.stringify({ tool_resources: toolResources }),
-            },
-          );
-
-          if (!updateResponse.ok) {
-            const t = await updateResponse.text();
-            console.error('[delete-file] Assistant update failed:', updateResponse.status, t);
-            return new Response(
-              JSON.stringify({ success: false, error: 'Failed to update assistant tool resources' }),
-              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-            );
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'OpenAI-Beta': 'assistants=v2' },
+          });
+          if (!removeVsRes.ok) {
+            const errText = await removeVsRes.text();
+            console.log('[delete-file] Could not remove from vector store (may not exist):', errText);
+          } else {
+            console.log('[delete-file] Removed file from vector store');
           }
+        } catch (e) {
+          console.error('[delete-file] Error removing from vector store:', e);
         }
       }
 
-      console.log('[delete-file] Completed', { openai_file_id });
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
+      // 2) Delete file from OpenAI Files API
+      try {
+        const delRes = await fetch(`https://api.openai.com/v1/files/${openai_file_id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+        });
+        if (!delRes.ok) {
+          const errText = await delRes.text();
+          console.log('[delete-file] Could not delete from Files API (may not exist):', errText);
+        } else {
+          console.log('[delete-file] Deleted from Files API');
+        }
+      } catch (e) {
+        console.error('[delete-file] Error deleting from Files API:', e);
+      }
+
+      // 3) Update assistant tool_resources with remaining files
+      if (openaiAssistantId && toolConfig?.file_search_enabled && vectorStoreId) {
+        try {
+          const toolResources: any = { file_search: { vector_store_ids: [vectorStoreId] } };
+          const updateRes = await fetch(`https://api.openai.com/v1/assistants/${openaiAssistantId}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json', 'OpenAI-Beta': 'assistants=v2' },
+            body: JSON.stringify({ tool_resources: toolResources }),
+          });
+          if (!updateRes.ok) {
+            console.error('[delete-file] Could not update assistant tool_resources:', await updateRes.text());
+          } else {
+            console.log('[delete-file] Refreshed assistant tool_resources');
+          }
+        } catch (e) {
+          console.error('[delete-file] Error updating assistant:', e);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use: list, instantiate, re-instantiate, destroy, destroy_by_openai_id, update, sync, or delete-file' }),
+      JSON.stringify({ error: 'Invalid action' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

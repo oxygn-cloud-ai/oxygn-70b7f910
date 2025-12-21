@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TABLES, FK } from "../_shared/tables.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,8 +128,8 @@ serve(async (req) => {
 
     // Fetch assistant details with files
     const { data: assistant, error: assistantError } = await supabase
-      .from('cyg_assistants')
-      .select('*, cyg_prompts!cyg_assistants_prompt_row_id_fkey(*), cyg_assistant_files(*)')
+      .from(TABLES.ASSISTANTS)
+      .select(`*, ${FK.ASSISTANTS_PROMPT}(*), ${TABLES.ASSISTANT_FILES}(*)`)
       .eq('row_id', assistant_row_id)
       .single();
 
@@ -153,7 +154,7 @@ serve(async (req) => {
 
     if (include_child_context && assistant.prompt_row_id) {
       const { data: childPrompts, error: childError } = await supabase
-        .from('cyg_prompts')
+        .from(TABLES.PROMPTS)
         .select('prompt_name, input_admin_prompt, input_user_prompt, note')
         .eq('parent_row_id', assistant.prompt_row_id)
         .eq('is_deleted', false)
@@ -189,7 +190,7 @@ serve(async (req) => {
     if (thread_row_id) {
       // Fetch existing thread
       const { data: existingThread, error: threadError } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .select('*')
         .eq('row_id', thread_row_id)
         .single();
@@ -226,7 +227,7 @@ serve(async (req) => {
 
       // Save thread to database (Studio threads have child_prompt_row_id = NULL)
       const { data: newThread, error: insertError } = await supabase
-        .from('cyg_threads')
+        .from(TABLES.THREADS)
         .insert({
           openai_thread_id: openaiThreadId,
           assistant_row_id: assistant_row_id,
@@ -246,7 +247,7 @@ serve(async (req) => {
     }
 
     // Build file attachments from uploaded files
-    const files = assistant.cyg_assistant_files || [];
+    const files = assistant[TABLES.ASSISTANT_FILES] || [];
     const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
     
     const attachments = uploadedFiles.map((f: any) => ({
@@ -357,7 +358,7 @@ serve(async (req) => {
 
     // Update thread metadata
     await supabase
-      .from('cyg_threads')
+      .from(TABLES.THREADS)
       .update({
         last_message_at: new Date().toISOString(),
       })
