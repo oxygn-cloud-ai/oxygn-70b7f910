@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +77,10 @@ export function AIModelsSection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bot className="h-6 w-6 text-primary" />
-          <h2 className="text-xl font-semibold">AI Models</h2>
+          <div>
+            <h2 className="text-xl font-semibold">AI Models</h2>
+            <p className="text-sm text-muted-foreground">Configure available AI models for prompts</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <TooltipProvider>
@@ -157,105 +159,99 @@ export function AIModelsSection({
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Manage Models</CardTitle>
-          <CardDescription>Configure available AI models for prompts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {modelsLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading models...</div>
-          ) : models.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No models configured. Click the + button to add one.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {models.map((model) => {
-                const isExpanded = expandedModels[model.model_id];
-                const defaultsCount = Object.keys(ALL_SETTINGS).filter(
-                  key => modelDefaults[model.model_id]?.[`${key}_on`]
-                ).length;
-                
-                return (
-                  <Collapsible 
-                    key={model.row_id} 
-                    open={isExpanded}
-                    onOpenChange={() => toggleModelExpanded(model.model_id)}
-                  >
-                    <div className="border rounded-lg overflow-hidden">
-                      <div className="flex items-center justify-between p-3 bg-background">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{model.model_name}</div>
-                            <code className="text-xs text-muted-foreground">{model.model_id}</code>
-                          </div>
-                          <Badge variant="outline" className="capitalize">
-                            {model.provider || 'unknown'}
-                          </Badge>
+      <div>
+        {modelsLoading ? (
+          <div className="text-center py-8 text-muted-foreground">Loading models...</div>
+        ) : models.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No models configured. Click the + button to add one.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {models.map((model) => {
+              const isExpanded = expandedModels[model.model_id];
+              const defaultsCount = Object.keys(ALL_SETTINGS).filter(
+                key => modelDefaults[model.model_id]?.[`${key}_on`]
+              ).length;
+              
+              return (
+                <Collapsible 
+                  key={model.row_id} 
+                  open={isExpanded}
+                  onOpenChange={() => toggleModelExpanded(model.model_id)}
+                >
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between p-3 bg-background">
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="font-medium">{model.model_name}</div>
+                          <code className="text-xs text-muted-foreground">{model.model_id}</code>
                         </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={model.is_active}
-                              onCheckedChange={(checked) => toggleModelActive(model.row_id, checked)}
-                            />
-                            <span className={`text-sm ${model.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
-                              {model.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </div>
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleModelExpanded(model.model_id)}
-                            className="h-8 w-8"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4" />
-                            )}
-                          </Button>
-                          {defaultsCount > 0 && !isExpanded && (
-                            <span className="text-xs text-muted-foreground">
-                              ({defaultsCount})
-                            </span>
-                          )}
-                          
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => deleteModel(model.row_id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>Delete model</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
+                        <Badge variant="outline" className="capitalize">
+                          {model.provider || 'unknown'}
+                        </Badge>
                       </div>
                       
-                      <CollapsibleContent>
-                        <ModelSettingsPanel
-                          model={model}
-                          defaults={modelDefaults[model.model_id]}
-                          onUpdateDefault={updateModelDefault}
-                        />
-                      </CollapsibleContent>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={model.is_active}
+                            onCheckedChange={(checked) => toggleModelActive(model.row_id, checked)}
+                          />
+                          <span className={`text-sm ${model.is_active ? 'text-green-600' : 'text-muted-foreground'}`}>
+                            {model.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleModelExpanded(model.model_id)}
+                          className="h-8 w-8"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                        {defaultsCount > 0 && !isExpanded && (
+                          <span className="text-xs text-muted-foreground">
+                            ({defaultsCount})
+                          </span>
+                        )}
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => deleteModel(model.row_id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete model</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </div>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    
+                    <CollapsibleContent>
+                      <ModelSettingsPanel
+                        model={model}
+                        defaults={modelDefaults[model.model_id]}
+                        onUpdateDefault={updateModelDefault}
+                      />
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

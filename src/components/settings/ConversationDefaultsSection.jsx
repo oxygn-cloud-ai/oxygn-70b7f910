@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +49,6 @@ export function ConversationDefaultsSection({
   const [defAssistantInstructions, setDefAssistantInstructions] = useState('');
   const [isSaving, setIsSaving] = useState({});
   
-  // Initialize values from settings
   useEffect(() => {
     if (settings?.cascade_empty_prompt_fallback?.value) {
       setCascadeFallback(settings.cascade_empty_prompt_fallback.value);
@@ -123,7 +121,10 @@ export function ConversationDefaultsSection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bot className="h-6 w-6 text-primary" />
-          <h2 className="text-xl font-semibold">Conversation Defaults</h2>
+          <div>
+            <h2 className="text-xl font-semibold">Conversation Defaults</h2>
+            <p className="text-sm text-muted-foreground">Default settings for new prompts and conversations</p>
+          </div>
         </div>
         <TooltipProvider>
           <Tooltip>
@@ -143,135 +144,121 @@ export function ConversationDefaultsSection({
         </TooltipProvider>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Default Prompts</CardTitle>
-          <CardDescription>
-            Default content for new prompts and conversations
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Default Admin Prompt */}
-          <div className="space-y-2">
+      <div className="space-y-4">
+        {/* Default Context Prompt */}
+        <div className="space-y-2 p-4 border rounded-lg">
+          <div className="flex items-center justify-between">
+            <Label>Default Context Prompt</Label>
+            {hasChanges('def_admin_prompt', defAdminPrompt) && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="bg-transparent h-8 w-8"
+                onClick={() => handleSaveSetting('def_admin_prompt', defAdminPrompt)}
+                disabled={isSaving.def_admin_prompt}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <LargeValueField
+            id="def_admin_prompt"
+            value={defAdminPrompt}
+            onChange={setDefAdminPrompt}
+            placeholder="Default context/system prompt for new prompts"
+            kind="textarea"
+            rows={4}
+            title="Default Context Prompt"
+            description="This value is used as the default Context Prompt for new prompts."
+          />
+          <p className="text-xs text-muted-foreground">
+            Default context/system prompt for new prompts
+          </p>
+        </div>
+
+        {/* Default System Instructions */}
+        <div className="space-y-2 p-4 border rounded-lg">
+          <div className="flex items-center justify-between">
+            <Label>Default System Instructions</Label>
+            {hasChanges('def_assistant_instructions', defAssistantInstructions) && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="bg-transparent h-8 w-8"
+                onClick={() => handleSaveSetting('def_assistant_instructions', defAssistantInstructions)}
+                disabled={isSaving.def_assistant_instructions}
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <LargeValueField
+            id="def_assistant_instructions"
+            value={defAssistantInstructions}
+            onChange={setDefAssistantInstructions}
+            placeholder="Default instructions for new top-level conversations"
+            kind="textarea"
+            rows={4}
+            title="Default System Instructions"
+            description="This value is used as the default System Instructions for new top-level conversations."
+          />
+          <p className="text-xs text-muted-foreground">
+            Default instructions for new top-level conversations
+          </p>
+        </div>
+
+        {/* Default Tools */}
+        <div className="space-y-3 p-4 border rounded-lg">
+          <Label className="text-sm font-medium">Default Tools</Label>
+          <p className="text-xs text-muted-foreground -mt-1">
+            Default tools enabled for new conversations
+          </p>
+          
+          <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between">
-              <Label>Default Context Prompt</Label>
-              {hasChanges('def_admin_prompt', defAdminPrompt) && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="bg-transparent"
-                  onClick={() => handleSaveSetting('def_admin_prompt', defAdminPrompt)}
-                  disabled={isSaving.def_admin_prompt}
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-              )}
+              <div className="space-y-0.5">
+                <Label className="text-sm">Code Interpreter</Label>
+                <p className="text-xs text-muted-foreground">
+                  Allows the AI to write and run Python code
+                </p>
+              </div>
+              <Switch
+                checked={uiDefaults.code_interpreter_enabled}
+                onCheckedChange={(checked) => handleToggle('code_interpreter_enabled', checked)}
+              />
             </div>
-            <LargeValueField
-              id="def_admin_prompt"
-              value={defAdminPrompt}
-              onChange={setDefAdminPrompt}
-              placeholder="Default context/system prompt for new prompts"
-              kind="textarea"
-              rows={6}
-              title="Default Context Prompt"
-              description="This value is used as the default Context Prompt for new prompts."
-            />
-            <p className="text-xs text-muted-foreground">
-              Default context/system prompt for new prompts
-            </p>
-          </div>
 
-          {/* Default Conversation Instructions */}
-          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Default System Instructions</Label>
-              {hasChanges('def_assistant_instructions', defAssistantInstructions) && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="bg-transparent"
-                  onClick={() => handleSaveSetting('def_assistant_instructions', defAssistantInstructions)}
-                  disabled={isSaving.def_assistant_instructions}
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-              )}
+              <div className="space-y-0.5">
+                <Label className="text-sm">File Search</Label>
+                <p className="text-xs text-muted-foreground">
+                  Enables searching through uploaded files
+                </p>
+              </div>
+              <Switch
+                checked={uiDefaults.file_search_enabled}
+                onCheckedChange={(checked) => handleToggle('file_search_enabled', checked)}
+              />
             </div>
-            <LargeValueField
-              id="def_assistant_instructions"
-              value={defAssistantInstructions}
-              onChange={setDefAssistantInstructions}
-              placeholder="Default instructions for new top-level conversations"
-              kind="textarea"
-              rows={6}
-              title="Default System Instructions"
-              description="This value is used as the default System Instructions for new top-level conversations."
-            />
-            <p className="text-xs text-muted-foreground">
-              Default instructions for new top-level conversations
-            </p>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Default Tool Settings</CardTitle>
-          <CardDescription>
-            Default tools enabled for new conversations. Individual conversations can override these settings.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Code Interpreter</Label>
-              <p className="text-xs text-muted-foreground">
-                Allows the AI to write and run Python code
-              </p>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-sm">Function Calling</Label>
+                <p className="text-xs text-muted-foreground">
+                  Allows defining custom functions for the AI
+                </p>
+              </div>
+              <Switch
+                checked={uiDefaults.function_calling_enabled}
+                onCheckedChange={(checked) => handleToggle('function_calling_enabled', checked)}
+              />
             </div>
-            <Switch
-              checked={uiDefaults.code_interpreter_enabled}
-              onCheckedChange={(checked) => handleToggle('code_interpreter_enabled', checked)}
-            />
           </div>
+        </div>
 
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>File Search</Label>
-              <p className="text-xs text-muted-foreground">
-                Enables searching through uploaded files using vector stores
-              </p>
-            </div>
-            <Switch
-              checked={uiDefaults.file_search_enabled}
-              onCheckedChange={(checked) => handleToggle('file_search_enabled', checked)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Function Calling</Label>
-              <p className="text-xs text-muted-foreground">
-                Allows defining custom functions for the AI to call
-              </p>
-            </div>
-            <Switch
-              checked={uiDefaults.function_calling_enabled}
-              onCheckedChange={(checked) => handleToggle('function_calling_enabled', checked)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Default Thread Mode</CardTitle>
-          <CardDescription>
-            Default thread behavior for new child prompts
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        {/* Default Thread Mode */}
+        <div className="space-y-2 p-4 border rounded-lg">
+          <Label>Default Thread Mode</Label>
           <Select defaultValue="new">
             <SelectTrigger>
               <SelectValue />
@@ -285,24 +272,20 @@ export function ConversationDefaultsSection({
               </SelectItem>
             </SelectContent>
           </Select>
-        </CardContent>
-      </Card>
+          <p className="text-xs text-muted-foreground">
+            Default thread behavior for new child prompts
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Cascade Settings</CardTitle>
-          <CardDescription>
-            Configure how cascade runs handle prompts
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2">
+        {/* Cascade Empty Prompt Fallback */}
+        <div className="space-y-2 p-4 border rounded-lg">
           <div className="flex items-center justify-between">
             <Label>Empty Prompt Fallback Message</Label>
             {hasChanges('cascade_empty_prompt_fallback', cascadeFallback) && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="bg-transparent"
+                className="bg-transparent h-8 w-8"
                 onClick={() => handleSaveSetting('cascade_empty_prompt_fallback', cascadeFallback)}
                 disabled={isSaving.cascade_empty_prompt_fallback}
               >
@@ -318,8 +301,8 @@ export function ConversationDefaultsSection({
           <p className="text-xs text-muted-foreground">
             Message sent to AI when a prompt has no user or admin content
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
