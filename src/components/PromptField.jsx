@@ -10,10 +10,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import VariablePicker from './VariablePicker';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId }) => {
+const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId, variables = [] }) => {
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
   
   const storageKey = `promptField_collapsed_${promptId}_${label}`;
   
@@ -90,6 +92,19 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
     }
   };
 
+  const handleInsertVariable = (varName) => {
+    const varText = `{{${varName}}}`;
+    const currentValue = value || '';
+    const pos = cursorPosition || currentValue.length;
+    const newValue = currentValue.slice(0, pos) + varText + currentValue.slice(pos);
+    onChange(newValue);
+    setCursorPosition(pos + varText.length);
+  };
+
+  const handleCursorChange = (e) => {
+    setCursorPosition(e.target.selectionStart);
+  };
+
   const ActionButton = ({ icon, onClick, tooltip, disabled, active, variant = 'default' }) => (
     <TooltipProvider>
       <Tooltip>
@@ -158,6 +173,14 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
             </div>
           )}
 
+          {/* Variable Picker for input prompts */}
+          {(label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isReadOnly && (
+            <VariablePicker 
+              onInsert={handleInsertVariable}
+              userVariables={variables}
+            />
+          )}
+
           <ActionButton
             icon={<Link2 className="h-4 w-4" />}
             onClick={() => onCascade(label)}
@@ -203,7 +226,11 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               if (label === 'Admin Result' || label === 'User Result') {
                 e.target.style.height = 'auto';
               }
+              handleCursorChange(e);
             }}
+            onSelect={handleCursorChange}
+            onClick={handleCursorChange}
+            onKeyUp={handleCursorChange}
             className="w-full min-h-[100px] resize-y border-border bg-background focus:ring-primary focus:border-primary"
             rows={4}
             ref={textareaRef}
