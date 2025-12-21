@@ -296,10 +296,10 @@ export const useCascadeExecutor = () => {
 
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
 
-                // Update the prompt's output_response in database
+                // Update the prompt's user_prompt_result in database (matches UI field)
                 await supabase
                   .from(import.meta.env.VITE_PROMPTS_TBL)
-                  .update({ output_response: result.response })
+                  .update({ user_prompt_result: result.response })
                   .eq('row_id', prompt.row_id);
 
                 success = true;
