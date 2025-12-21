@@ -54,28 +54,13 @@ export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
   const handleDelete = async (assistant) => {
     setIsDeleting(assistant.openai_id);
     try {
+      // For Responses API, we just delete local records - no OpenAI call needed
       if (assistant.local_row_id) {
-        // Has local record - use destroy action
-        const { data, error } = await supabase.functions.invoke('assistant-manager', {
-          body: { 
-            action: 'destroy',
-            assistant_row_id: assistant.local_row_id,
-          },
-        });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
-      } else {
-        // Orphaned - use destroy_by_openai_id
-        const { data, error } = await supabase.functions.invoke('assistant-manager', {
-          body: { 
-            action: 'destroy_by_openai_id',
-            openai_assistant_id: assistant.openai_id,
-          },
-        });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
+        // Delete from local database
+        await supabase
+          .from(import.meta.env.VITE_ASSISTANTS_TBL)
+          .delete()
+          .eq('row_id', assistant.local_row_id);
       }
 
       toast.success('Assistant deleted');

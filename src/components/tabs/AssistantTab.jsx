@@ -24,7 +24,7 @@ import ConfluencePagesSection from '../ConfluencePagesSection';
 
 const AssistantTab = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
-  const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, reInstantiate } = useAssistant(promptRowId);
+  const { assistant, isLoading, updateAssistant } = useAssistant(promptRowId);
   const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id, assistant?.status);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
   const { models } = useOpenAIModels();
@@ -101,24 +101,6 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
 
   const handleSave = async (field, value) => {
     await updateAssistant({ [field]: value });
-    
-    // Sync name and instructions changes to OpenAI if assistant is active
-    if (assistant?.status === 'active' && assistant?.openai_assistant_id && (field === 'name' || field === 'instructions')) {
-      try {
-        const response = await supabase.functions.invoke('assistant-manager', {
-          body: {
-            action: 'update',
-            assistant_row_id: assistant.row_id,
-            [field]: value,
-          },
-        });
-        if (response.error) {
-          console.error('Failed to sync to OpenAI:', response.error);
-        }
-      } catch (error) {
-        console.error('Error syncing to OpenAI:', error);
-      }
-    }
   };
 
   const handleFileUpload = async (e) => {
@@ -127,10 +109,6 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
       await uploadFile(selectedFiles);
       e.target.value = '';
     }
-  };
-
-  const handleReInstantiate = async () => {
-    await reInstantiate();
   };
 
   if (isLoading) {
@@ -148,10 +126,8 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
     );
   }
 
-  const isActive = assistant.status === 'active';
-  const isDestroyed = assistant.status === 'destroyed';
-  const isError = assistant.status === 'error';
-  const isNotInstantiated = assistant.status === 'not_instantiated' || !assistant.status;
+  // Responses API assistants are always active
+  const isActive = true;
 
   const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
     const settingInfo = ALL_SETTINGS[field];
@@ -217,46 +193,18 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
       {/* Status Header */}
       <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${isActive ? 'bg-primary/10' : 'bg-muted'}`}>
-            <Bot className={`h-5 w-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Bot className="h-5 w-5 text-primary" />
           </div>
           <div>
             <span className="font-semibold text-foreground">Assistant Configuration</span>
             <div className="flex items-center gap-2 mt-0.5">
-              <Badge variant={isActive ? 'success' : isDestroyed ? 'destructive' : isError ? 'destructive' : 'muted'}>
-                {isActive ? '● Active' : isDestroyed ? '○ Destroyed' : isError ? '✕ Error' : '○ Not Instantiated'}
-              </Badge>
+              <Badge variant="success">● Ready</Badge>
               {currentModelData && (
                 <span className="text-xs text-muted-foreground">{currentModelData.model_name}</span>
               )}
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
-          {(isDestroyed || isNotInstantiated) && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
-                    {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{isDestroyed ? 'Re-enable Assistant' : 'Instantiate Assistant'}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {isActive && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="!text-destructive hover:!text-destructive hover:!bg-destructive/10" onClick={destroy}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Destroy Assistant</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
         </div>
       </div>
 

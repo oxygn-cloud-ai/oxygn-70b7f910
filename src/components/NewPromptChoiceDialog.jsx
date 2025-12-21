@@ -208,7 +208,8 @@ const NewPromptChoiceDialog = ({
           const insertData = {
             prompt_row_id: promptRowId,
             name: promptName,
-            status: 'not_instantiated',
+            status: 'active', // Responses API is always ready
+            api_version: 'responses',
             use_global_tool_defaults: true,
           };
           
@@ -228,26 +229,6 @@ const NewPromptChoiceDialog = ({
           }
 
           console.log('Created assistant record:', assistant.row_id);
-
-          // Instantiate in OpenAI (await result for better error handling)
-          const { data: instantiateResult, error: instantiateError } = await supabase.functions.invoke('assistant-manager', {
-            body: {
-              action: 'instantiate',
-              assistant_row_id: assistant.row_id,
-            },
-          });
-
-          if (instantiateError) {
-            console.error('Failed to instantiate assistant:', instantiateError);
-            return;
-          }
-
-          if (instantiateResult?.error) {
-            console.error('Assistant instantiation error:', instantiateResult.error);
-            return;
-          }
-
-          console.log('Instantiated assistant in OpenAI:', instantiateResult?.assistant_id);
         } catch (error) {
           console.error('Error creating assistant:', error);
         }
