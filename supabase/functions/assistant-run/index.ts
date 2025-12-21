@@ -183,100 +183,6 @@ async function handleConfluenceTool(
   }
 }
 
-// Poll for run completion with function call handling (Assistants API)
-async function waitForRunCompletion(
-  threadId: string, 
-  runId: string, 
-  apiKey: string,
-  supabase: any,
-  maxAttempts = 120,
-  intervalMs = 1000
-): Promise<{ status: string; error?: string }> {
-  for (let i = 0; i < maxAttempts; i++) {
-    const response = await fetch(
-      `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      return { status: 'error', error: 'Failed to check run status' };
-    }
-
-    const run = await response.json();
-    console.log('Run status:', run.status);
-
-    if (run.status === 'completed') {
-      return { status: 'completed' };
-    }
-    if (run.status === 'failed') {
-      return { status: 'failed', error: run.last_error?.message || 'Run failed' };
-    }
-    if (run.status === 'cancelled') {
-      return { status: 'cancelled', error: 'Run was cancelled' };
-    }
-    if (run.status === 'expired') {
-      return { status: 'expired', error: 'Run expired' };
-    }
-
-    // Handle function calls (requires_action)
-    if (run.status === 'requires_action' && run.required_action?.type === 'submit_tool_outputs') {
-      const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
-      console.log('Processing tool calls:', toolCalls.length);
-
-      const toolOutputs = [];
-      for (const toolCall of toolCalls) {
-        const functionName = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments);
-        
-        console.log('Executing tool:', functionName, args);
-
-        let output: string;
-        if (functionName.startsWith('confluence_')) {
-          output = await handleConfluenceTool(functionName, args, supabase);
-        } else {
-          output = JSON.stringify({ error: `Unknown function: ${functionName}` });
-        }
-
-        toolOutputs.push({
-          tool_call_id: toolCall.id,
-          output,
-        });
-      }
-
-      // Submit tool outputs
-      const submitResponse = await fetch(
-        `https://api.openai.com/v1/threads/${threadId}/runs/${runId}/submit_tool_outputs`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2',
-          },
-          body: JSON.stringify({ tool_outputs: toolOutputs }),
-        }
-      );
-
-      if (!submitResponse.ok) {
-        const error = await submitResponse.json();
-        console.error('Failed to submit tool outputs:', error);
-        return { status: 'error', error: 'Failed to submit tool outputs' };
-      }
-
-      console.log('Submitted tool outputs, continuing...');
-    }
-
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
-  }
-
-  return { status: 'timeout', error: 'Run timed out' };
-}
-
 // ============================================================================
 // RESPONSES API HANDLER
 // ============================================================================
@@ -285,7 +191,6 @@ interface ResponsesAPIResult {
   success: boolean;
   response?: string;
   response_id?: string;
-  conversation_id?: string | null;
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
   error?: string;
   error_code?: string;
@@ -294,7 +199,6 @@ interface ResponsesAPIResult {
 async function runWithResponsesAPI(
   assistantData: any,
   message: string,
-  conversationId: string | null,
   previousResponseId: string | null,
   toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean; confluence_enabled: boolean; web_search_enabled: boolean },
   vectorStoreId: string | null,
@@ -304,7 +208,7 @@ async function runWithResponsesAPI(
   const modelId = assistantData.model_override || 'gpt-4o';
   
   // Build tools array using shared module
-  const tools = getAllTools('responses', {
+  const tools = getAllTools({
     codeInterpreterEnabled: toolConfig.code_interpreter_enabled,
     fileSearchEnabled: toolConfig.file_search_enabled,
     webSearchEnabled: toolConfig.web_search_enabled,
@@ -312,7 +216,7 @@ async function runWithResponsesAPI(
     vectorStoreIds: vectorStoreId ? [vectorStoreId] : undefined,
   });
 
-  // Build input - for multi-turn, include previous_response_id
+  // Build input
   const input: any[] = [];
   
   // Add system instructions if present
@@ -354,8 +258,6 @@ async function runWithResponsesAPI(
     model: modelId, 
     toolCount: tools.length,
     hasPreviousResponse: !!previousResponseId,
-    temperature,
-    topP,
   });
 
   // Call Responses API
@@ -388,7 +290,6 @@ async function runWithResponsesAPI(
   // Handle function calls in a loop
   let maxIterations = 10;
   let iteration = 0;
-  let toolErrors: string[] = [];
 
   while (hasFunctionCalls(responseData.output) && iteration < maxIterations) {
     iteration++;
@@ -404,7 +305,6 @@ async function runWithResponsesAPI(
           args = typeof item.arguments === 'string' ? JSON.parse(item.arguments) : item.arguments;
         } catch (parseError) {
           console.error('Failed to parse function arguments:', parseError);
-          toolErrors.push(`Failed to parse arguments for ${functionName}`);
           functionCallOutputs.push({
             type: 'function_call_output',
             call_id: item.call_id,
@@ -418,14 +318,8 @@ async function runWithResponsesAPI(
         let output: string;
         if (functionName.startsWith('confluence_')) {
           output = await handleConfluenceTool(functionName, args, supabase);
-          // Track tool errors for better feedback
-          const parsed = JSON.parse(output);
-          if (parsed.error) {
-            toolErrors.push(`${functionName}: ${parsed.error}`);
-          }
         } else {
           output = JSON.stringify({ error: `Unknown function: ${functionName}` });
-          toolErrors.push(`Unknown function: ${functionName}`);
         }
 
         functionCallOutputs.push({
@@ -472,12 +366,12 @@ async function runWithResponsesAPI(
     });
   }
 
-  // Check if we hit max iterations (potential infinite loop)
+  // Check if we hit max iterations
   if (iteration >= maxIterations) {
     console.error('Max function call iterations reached');
     return {
       success: false,
-      error: 'Maximum function call iterations exceeded. The assistant may be stuck in a loop.',
+      error: 'Maximum function call iterations exceeded.',
       error_code: 'MAX_ITERATIONS_EXCEEDED',
     };
   }
@@ -496,7 +390,6 @@ async function runWithResponsesAPI(
     success: true,
     response: responseText,
     response_id: responseData.id,
-    conversation_id: conversationId, // Responses API manages conversation via previous_response_id
     usage,
   };
 }
@@ -590,23 +483,6 @@ serve(async (req) => {
     }
 
     const assistantData = assistant as any;
-    const apiVersion = assistantData.api_version || 'assistants';
-
-    console.log('Using API version:', apiVersion);
-
-    // For Assistants API, require openai_assistant_id
-    if (apiVersion === 'assistants' && (!assistantData.openai_assistant_id || assistantData.status !== 'active')) {
-      return new Response(
-        JSON.stringify({ error: 'Assistant is not active. Please instantiate first.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fetch assistant files separately
-    const { data: assistantFiles } = await supabase
-      .from(TABLES.ASSISTANT_FILES)
-      .select('*')
-      .eq('assistant_row_id', assistantData.row_id);
 
     // Fetch attached Confluence pages for context injection
     const { data: confluencePages } = await supabase
@@ -614,26 +490,17 @@ serve(async (req) => {
       .select('page_title, content_text, openai_file_id')
       .or(`assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
 
-    // Build Confluence context from attached pages (non-uploaded ones)
+    // Build Confluence context from attached pages
     let confluenceContext = '';
-    const confluenceFileAttachments: any[] = [];
 
     if (confluencePages && confluencePages.length > 0) {
-      const textPages = confluencePages.filter(p => p.content_text && !p.openai_file_id);
-      const uploadedPages = confluencePages.filter(p => p.openai_file_id);
+      const textPages = confluencePages.filter((p: any) => p.content_text && !p.openai_file_id);
 
       if (textPages.length > 0) {
         confluenceContext = textPages
-          .map(p => `## ${p.page_title}\n${p.content_text}`)
+          .map((p: any) => `## ${p.page_title}\n${p.content_text}`)
           .join('\n\n---\n\n');
         confluenceContext = `[Attached Confluence Context]\n${confluenceContext}\n\n---\n\n`;
-      }
-
-      for (const page of uploadedPages) {
-        confluenceFileAttachments.push({
-          file_id: page.openai_file_id,
-          tools: [{ type: 'file_search' }],
-        });
       }
     }
 
@@ -670,457 +537,94 @@ serve(async (req) => {
     
     console.log('Thread strategy:', childThreadStrategy, 'Thread mode:', threadMode);
 
-    // ========================================================================
-    // RESPONSES API PATH
-    // ========================================================================
-    if (apiVersion === 'responses') {
-      // For Responses API, we track conversation via previous_response_id
-      let previousResponseId: string | null = null;
-      let conversationId: string | null = null;
-      let threadRowId: string | null = null;
-
-      if (childThreadStrategy === 'parent' || threadMode === 'reuse') {
-        // Look for existing thread to get previous_response_id
-        const threadQuery = supabase
-          .from(TABLES.THREADS)
-          .select('row_id, last_response_id, openai_conversation_id')
-          .eq('assistant_row_id', assistantData.row_id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (childThreadStrategy === 'parent') {
-          threadQuery.is('child_prompt_row_id', null);
-        } else {
-          threadQuery.eq('child_prompt_row_id', child_prompt_row_id);
-        }
-
-        const { data: existingThread } = await threadQuery.maybeSingle();
-
-        if (existingThread) {
-          previousResponseId = existingThread.last_response_id;
-          conversationId = existingThread.openai_conversation_id;
-          threadRowId = existingThread.row_id;
-          console.log('Found existing thread for Responses API:', { previousResponseId, conversationId });
-        }
-      }
-
-      // Call Responses API
-      const toolConfig = {
-        code_interpreter_enabled: assistantData.code_interpreter_enabled || false,
-        file_search_enabled: assistantData.file_search_enabled || false,
-        confluence_enabled: assistantData.confluence_enabled || false,
-        web_search_enabled: childPrompt.web_search_on || false,
-      };
-
-      const result = await runWithResponsesAPI(
-        assistantData,
-        finalMessage,
-        conversationId,
-        previousResponseId,
-        toolConfig,
-        assistantData.vector_store_id,
-        OPENAI_API_KEY,
-        supabase
-      );
-
-      if (!result.success) {
-        return new Response(
-          JSON.stringify({ error: result.error }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Update child prompt with response
-      await supabase
-        .from(TABLES.PROMPTS)
-        .update({ output_response: result.response })
-        .eq('row_id', child_prompt_row_id);
-
-      // Create or update thread record
-      if (threadRowId) {
-        await supabase
-          .from(TABLES.THREADS)
-          .update({
-            last_response_id: result.response_id,
-            last_message_at: new Date().toISOString(),
-          })
-          .eq('row_id', threadRowId);
-      } else if (threadMode === 'reuse' || childThreadStrategy === 'parent') {
-        // Create new thread for tracking
-        const { data: newThread } = await supabase
-          .from(TABLES.THREADS)
-          .insert({
-            assistant_row_id: assistantData.row_id,
-            child_prompt_row_id: childThreadStrategy === 'parent' ? null : child_prompt_row_id,
-            openai_thread_id: `responses_${result.response_id}`, // Placeholder for compatibility
-            last_response_id: result.response_id,
-            name: childThreadStrategy === 'parent' ? 'Studio Thread' : `Thread ${new Date().toISOString().split('T')[0]}`,
-          })
-          .select()
-          .single();
-
-        threadRowId = newThread?.row_id || null;
-      }
-
-      // Store messages in thread_messages table for history
-      if (threadRowId) {
-        // Store user message
-        await supabase
-          .from('q_thread_messages')
-          .insert({
-            thread_row_id: threadRowId,
-            role: 'user',
-            content: finalMessage,
-            owner_id: validation.user?.id,
-          });
-
-        // Store assistant response
-        await supabase
-          .from('q_thread_messages')
-          .insert({
-            thread_row_id: threadRowId,
-            role: 'assistant',
-            content: result.response || '',
-            response_id: result.response_id,
-            owner_id: validation.user?.id,
-          });
-      }
-
-      const modelUsed = assistantData.model_override || 'gpt-4o';
-      console.log('Responses API run completed successfully');
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          response: result.response,
-          response_id: result.response_id,
-          conversation_id: result.conversation_id,
-          usage: result.usage,
-          api_version: 'responses',
-          model: modelUsed,
-          child_prompt_name: childPrompt.prompt_name,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // ========================================================================
-    // ASSISTANTS API PATH (Legacy)
-    // ========================================================================
-    
-    // Determine thread based on strategy
-    let threadId: string;
+    // Track conversation via previous_response_id
+    let previousResponseId: string | null = null;
     let threadRowId: string | null = null;
 
-    if (childThreadStrategy === 'parent') {
-      // Use parent assistant's Studio thread
-      const { data: studioThread } = await supabase
+    if (childThreadStrategy === 'parent' || threadMode === 'reuse') {
+      // Look for existing thread to get previous_response_id
+      const threadQuery = supabase
         .from(TABLES.THREADS)
-        .select('row_id, openai_thread_id')
+        .select('row_id, last_response_id')
         .eq('assistant_row_id', assistantData.row_id)
-        .is('child_prompt_row_id', null)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
-      if (studioThread) {
-        threadId = studioThread.openai_thread_id;
-        threadRowId = studioThread.row_id;
-        console.log('Using parent Studio thread:', threadId);
+      if (childThreadStrategy === 'parent') {
+        threadQuery.is('child_prompt_row_id', null);
       } else {
-        // Create new Studio thread for parent
-        const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2',
-          },
-          body: JSON.stringify({}),
-        });
-
-        if (!threadResponse.ok) {
-          const error = await threadResponse.json();
-          return new Response(
-            JSON.stringify({ error: error.error?.message || 'Failed to create thread' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const thread = await threadResponse.json();
-        threadId = thread.id;
-
-        // Save as Studio thread
-        const { data: savedThread } = await supabase
-          .from(TABLES.THREADS)
-          .insert({
-            assistant_row_id: assistantData.row_id,
-            child_prompt_row_id: null,
-            openai_thread_id: threadId,
-            name: `Studio Thread`,
-          })
-          .select()
-          .single();
-
-        threadRowId = savedThread?.row_id || null;
-        console.log('Created new parent Studio thread:', threadId);
+        threadQuery.eq('child_prompt_row_id', child_prompt_row_id);
       }
-    } else if (threadMode === 'reuse') {
-      // Isolated strategy with reuse mode
-      const { data: existingThread } = await supabase
-        .from(TABLES.THREADS)
-        .select('row_id, openai_thread_id')
-        .eq('child_prompt_row_id', child_prompt_row_id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+
+      const { data: existingThread } = await threadQuery.maybeSingle();
 
       if (existingThread) {
-        threadId = existingThread.openai_thread_id;
+        previousResponseId = existingThread.last_response_id;
         threadRowId = existingThread.row_id;
-        console.log('Reusing child thread:', threadId);
-      } else {
-        // Create new thread for this child
-        const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2',
-          },
-          body: JSON.stringify({}),
-        });
-
-        if (!threadResponse.ok) {
-          const error = await threadResponse.json();
-          return new Response(
-            JSON.stringify({ error: error.error?.message || 'Failed to create thread' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const thread = await threadResponse.json();
-        threadId = thread.id;
-
-        // Save thread for this child
-        const { data: savedThread } = await supabase
-          .from(TABLES.THREADS)
-          .insert({
-            assistant_row_id: assistantData.row_id,
-            child_prompt_row_id,
-            openai_thread_id: threadId,
-            name: `Thread ${new Date().toISOString().split('T')[0]}`,
-          })
-          .select()
-          .single();
-
-        threadRowId = savedThread?.row_id || null;
-        console.log('Created new child thread for reuse:', threadId);
+        console.log('Found existing thread:', { previousResponseId });
       }
-    } else {
-      // Isolated strategy with new mode - create ephemeral thread
-      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!threadResponse.ok) {
-        const error = await threadResponse.json();
-        return new Response(
-          JSON.stringify({ error: error.error?.message || 'Failed to create thread' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const thread = await threadResponse.json();
-      threadId = thread.id;
-      console.log('Created ephemeral thread:', threadId);
     }
 
-    // Build file attachments from uploaded files
-    const files = assistantFiles || [];
-    const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
-    
-    console.log('Assistant files:', {
-      total: files.length,
-      uploaded: uploadedFiles.length,
-      fileDetails: files.map((f: any) => ({
-        name: f.original_filename,
-        status: f.upload_status,
-        hasOpenAIId: !!f.openai_file_id,
-      })),
-    });
-    
-    const hasVectorStore = !!assistantData.vector_store_id;
-    const attachments = [
-      ...(hasVectorStore ? [] : uploadedFiles.map((f: any) => ({
-        file_id: f.openai_file_id,
-        tools: [{ type: 'file_search' }],
-      }))),
-      ...confluenceFileAttachments,
-    ];
-
-    console.log('File handling:', {
-      hasVectorStore,
-      vectorStoreId: assistantData.vector_store_id,
-      messageAttachments: attachments.length,
-      confluenceAttachments: confluenceFileAttachments.length,
-    });
-
-    // Add message to thread with file attachments
-    const messageBody: any = {
-      role: 'user',
-      content: finalMessage,
+    // Call Responses API
+    const toolConfig = {
+      code_interpreter_enabled: assistantData.code_interpreter_enabled || false,
+      file_search_enabled: assistantData.file_search_enabled || false,
+      confluence_enabled: assistantData.confluence_enabled || false,
+      web_search_enabled: childPrompt.web_search_on || false,
     };
-    
-    if (attachments.length > 0) {
-      messageBody.attachments = attachments;
-    }
 
-    const messageResponse = await fetch(
-      `https://api.openai.com/v1/threads/${threadId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify(messageBody),
-      }
+    const result = await runWithResponsesAPI(
+      assistantData,
+      finalMessage,
+      previousResponseId,
+      toolConfig,
+      assistantData.vector_store_id,
+      OPENAI_API_KEY,
+      supabase
     );
 
-    if (!messageResponse.ok) {
-      const error = await messageResponse.json();
+    if (!result.success) {
       return new Response(
-        JSON.stringify({ error: error.error?.message || 'Failed to add message' }),
+        JSON.stringify({ error: result.error, error_code: result.error_code }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Added message to thread');
-
-    // Create run
-    const runResponse = await fetch(
-      `https://api.openai.com/v1/threads/${threadId}/runs`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2',
-        },
-        body: JSON.stringify({
-          assistant_id: assistantData.openai_assistant_id,
-        }),
-      }
-    );
-
-    if (!runResponse.ok) {
-      const error = await runResponse.json();
-      return new Response(
-        JSON.stringify({ error: error.error?.message || 'Failed to create run' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const run = await runResponse.json();
-    console.log('Created run:', run.id);
-
-    // Wait for run completion
-    const runResult = await waitForRunCompletion(threadId, run.id, OPENAI_API_KEY, supabase);
-
-    if (runResult.status !== 'completed') {
-      return new Response(
-        JSON.stringify({ error: runResult.error || 'Run did not complete' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fetch run steps to get usage data
-    let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
-    try {
-      const stepsResponse = await fetch(
-        `https://api.openai.com/v1/threads/${threadId}/runs/${run.id}/steps`,
-        {
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'OpenAI-Beta': 'assistants=v2',
-          },
-        }
-      );
-
-      if (stepsResponse.ok) {
-        const stepsData = await stepsResponse.json();
-        for (const step of stepsData.data || []) {
-          if (step.usage) {
-            usage.prompt_tokens += step.usage.prompt_tokens || 0;
-            usage.completion_tokens += step.usage.completion_tokens || 0;
-          }
-        }
-        usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
-        console.log('Fetched usage from run steps:', usage);
-      }
-    } catch (usageError) {
-      console.error('Error fetching usage data:', usageError);
-    }
-
-    // Get messages (the assistant's response)
-    const messagesResponse = await fetch(
-      `https://api.openai.com/v1/threads/${threadId}/messages?limit=1&order=desc`,
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'OpenAI-Beta': 'assistants=v2',
-        },
-      }
-    );
-
-    if (!messagesResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch response' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const messagesData = await messagesResponse.json();
-    const assistantMessage = messagesData.data[0];
-
-    if (!assistantMessage || assistantMessage.role !== 'assistant') {
-      return new Response(
-        JSON.stringify({ error: 'No assistant response found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Extract response text
-    const responseText = assistantMessage.content
-      .map((c: any) => c.text?.value || '')
-      .join('\n');
 
     // Update child prompt with response
     await supabase
       .from(TABLES.PROMPTS)
-      .update({ output_response: responseText })
+      .update({ output_response: result.response })
       .eq('row_id', child_prompt_row_id);
 
-    // Update thread message count and store messages
+    // Create or update thread record
     if (threadRowId) {
       await supabase
         .from(TABLES.THREADS)
-        .update({ 
-          last_message_at: new Date().toISOString() 
+        .update({
+          last_response_id: result.response_id,
+          last_message_at: new Date().toISOString(),
         })
         .eq('row_id', threadRowId);
+    } else if (threadMode === 'reuse' || childThreadStrategy === 'parent') {
+      // Create new thread for tracking
+      const { data: newThread } = await supabase
+        .from(TABLES.THREADS)
+        .insert({
+          assistant_row_id: assistantData.row_id,
+          child_prompt_row_id: childThreadStrategy === 'parent' ? null : child_prompt_row_id,
+          openai_thread_id: `local_${Date.now()}`,
+          last_response_id: result.response_id,
+          name: childThreadStrategy === 'parent' ? 'Studio Thread' : `Thread ${new Date().toISOString().split('T')[0]}`,
+        })
+        .select()
+        .single();
 
+      threadRowId = newThread?.row_id || null;
+    }
+
+    // Store messages in thread_messages table for history
+    if (threadRowId) {
       // Store user message
       await supabase
         .from('q_thread_messages')
@@ -1137,7 +641,8 @@ serve(async (req) => {
         .insert({
           thread_row_id: threadRowId,
           role: 'assistant',
-          content: responseText,
+          content: result.response || '',
+          response_id: result.response_id,
           owner_id: validation.user?.id,
         });
     }
@@ -1148,11 +653,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        response: responseText,
-        thread_id: threadId,
-        run_id: run.id,
-        usage: usage,
-        api_version: 'assistants',
+        response: result.response,
+        response_id: result.response_id,
+        usage: result.usage,
         model: modelUsed,
         child_prompt_name: childPrompt.prompt_name,
       }),
