@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useThreads } from '../hooks/useThreads';
 import { useAssistantRun } from '../hooks/useAssistantRun';
 import { useProjectData } from '../hooks/useProjectData';
 import { useSupabase } from '../hooks/useSupabase';
 import { useCascadeExecutor } from '../hooks/useCascadeExecutor';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
+import { useCostTracking } from '../hooks/useCostTracking';
 import PromptField from './PromptField';
 import ThreadSelector from './ThreadSelector';
 import ThreadHistory from './ThreadHistory';
@@ -25,9 +26,11 @@ const ChildPromptPanel = ({
   onUpdateField,
 }) => {
   const supabase = useSupabase();
+  const { recordCost } = useCostTracking();
   const [isRunning, setIsRunning] = useState(false);
   const [confluenceOpen, setConfluenceOpen] = useState(false);
   const [hasChildPrompts, setHasChildPrompts] = useState(false);
+  const runStartTimeRef = useRef(null);
 
   const { executeCascade, hasChildren } = useCascadeExecutor();
   const { isRunning: isCascadeRunning } = useCascadeRun();
@@ -104,6 +107,8 @@ const ChildPromptPanel = ({
     }
 
     setIsRunning(true);
+    runStartTimeRef.current = Date.now();
+    
     try {
       const result = await runAssistant({
         assistantRowId: parentAssistantRowId,
@@ -114,6 +119,26 @@ const ChildPromptPanel = ({
         existingThreadRowId: threadMode === 'reuse' && childThreadStrategy === 'isolated' ? activeThread?.row_id : null,
         // This callback runs even if user navigates away
         onSuccess: async (data) => {
+          // Calculate latency
+          const latencyMs = runStartTimeRef.current ? Date.now() - runStartTimeRef.current : null;
+
+          // Record cost if we have usage data
+          if (data.usage && data.model) {
+            try {
+              await recordCost({
+                promptRowId: projectRowId,
+                model: data.model,
+                usage: data.usage,
+                responseId: data.response_id,
+                finishReason: 'stop',
+                latencyMs,
+                promptName: data.child_prompt_name || selectedItemData?.prompt_name,
+              });
+            } catch (costError) {
+              console.error('Error recording cost:', costError);
+            }
+          }
+
           if (data.response && supabase && projectRowId) {
             await supabase
               .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -134,8 +159,9 @@ const ChildPromptPanel = ({
       toast.error(`Error: ${error.message}`);
     } finally {
       setIsRunning(false);
+      runStartTimeRef.current = null;
     }
-  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase, refetchThreads]);
+  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase, refetchThreads, recordCost, selectedItemData]);
 
   const handleCascadeRun = useCallback(async () => {
     if (!parentAssistantRowId || !selectedItemData?.parent_row_id) {

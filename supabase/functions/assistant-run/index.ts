@@ -288,6 +288,7 @@ interface ResponsesAPIResult {
   conversation_id?: string | null;
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
   error?: string;
+  error_code?: string;
 }
 
 async function runWithResponsesAPI(
@@ -369,7 +370,11 @@ async function runWithResponsesAPI(
   if (!response.ok) {
     const error = await response.json();
     console.error('Responses API error:', error);
-    return { success: false, error: error.error?.message || 'Responses API call failed' };
+    return { 
+      success: false, 
+      error: error.error?.message || 'Responses API call failed',
+      error_code: 'API_CALL_FAILED',
+    };
   }
 
   let responseData = await response.json();
@@ -382,6 +387,7 @@ async function runWithResponsesAPI(
   // Handle function calls in a loop
   let maxIterations = 10;
   let iteration = 0;
+  let toolErrors: string[] = [];
 
   while (hasFunctionCalls(responseData.output) && iteration < maxIterations) {
     iteration++;
@@ -392,15 +398,33 @@ async function runWithResponsesAPI(
     for (const item of responseData.output || []) {
       if (item.type === 'function_call') {
         const functionName = item.name;
-        const args = typeof item.arguments === 'string' ? JSON.parse(item.arguments) : item.arguments;
+        let args: any;
+        try {
+          args = typeof item.arguments === 'string' ? JSON.parse(item.arguments) : item.arguments;
+        } catch (parseError) {
+          console.error('Failed to parse function arguments:', parseError);
+          toolErrors.push(`Failed to parse arguments for ${functionName}`);
+          functionCallOutputs.push({
+            type: 'function_call_output',
+            call_id: item.call_id,
+            output: JSON.stringify({ error: 'Invalid function arguments' }),
+          });
+          continue;
+        }
         
         console.log('Executing function:', functionName, args);
 
         let output: string;
         if (functionName.startsWith('confluence_')) {
           output = await handleConfluenceTool(functionName, args, supabase);
+          // Track tool errors for better feedback
+          const parsed = JSON.parse(output);
+          if (parsed.error) {
+            toolErrors.push(`${functionName}: ${parsed.error}`);
+          }
         } else {
           output = JSON.stringify({ error: `Unknown function: ${functionName}` });
+          toolErrors.push(`Unknown function: ${functionName}`);
         }
 
         functionCallOutputs.push({
@@ -433,7 +457,11 @@ async function runWithResponsesAPI(
     if (!response.ok) {
       const error = await response.json();
       console.error('Responses API continuation error:', error);
-      return { success: false, error: error.error?.message || 'Failed to continue after function call' };
+      return { 
+        success: false, 
+        error: error.error?.message || 'Failed to continue after function call',
+        error_code: 'TOOL_CONTINUATION_FAILED',
+      };
     }
 
     responseData = await response.json();
@@ -441,6 +469,16 @@ async function runWithResponsesAPI(
       id: responseData.id, 
       outputCount: responseData.output?.length,
     });
+  }
+
+  // Check if we hit max iterations (potential infinite loop)
+  if (iteration >= maxIterations) {
+    console.error('Max function call iterations reached');
+    return {
+      success: false,
+      error: 'Maximum function call iterations exceeded. The assistant may be stuck in a loop.',
+      error_code: 'MAX_ITERATIONS_EXCEEDED',
+    };
   }
 
   // Extract text from final response
@@ -723,6 +761,31 @@ serve(async (req) => {
         threadRowId = newThread?.row_id || null;
       }
 
+      // Store messages in thread_messages table for history
+      if (threadRowId) {
+        // Store user message
+        await supabase
+          .from('q_thread_messages')
+          .insert({
+            thread_row_id: threadRowId,
+            role: 'user',
+            content: finalMessage,
+            owner_id: validation.user?.id,
+          });
+
+        // Store assistant response
+        await supabase
+          .from('q_thread_messages')
+          .insert({
+            thread_row_id: threadRowId,
+            role: 'assistant',
+            content: result.response || '',
+            response_id: result.response_id,
+            owner_id: validation.user?.id,
+          });
+      }
+
+      const modelUsed = assistantData.model_override || 'gpt-4o';
       console.log('Responses API run completed successfully');
 
       return new Response(
@@ -733,6 +796,8 @@ serve(async (req) => {
           conversation_id: result.conversation_id,
           usage: result.usage,
           api_version: 'responses',
+          model: modelUsed,
+          child_prompt_name: childPrompt.prompt_name,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -1045,7 +1110,7 @@ serve(async (req) => {
       .update({ output_response: responseText })
       .eq('row_id', child_prompt_row_id);
 
-    // Update thread message count if applicable
+    // Update thread message count and store messages
     if (threadRowId) {
       await supabase
         .from(TABLES.THREADS)
@@ -1053,8 +1118,29 @@ serve(async (req) => {
           last_message_at: new Date().toISOString() 
         })
         .eq('row_id', threadRowId);
+
+      // Store user message
+      await supabase
+        .from('q_thread_messages')
+        .insert({
+          thread_row_id: threadRowId,
+          role: 'user',
+          content: finalMessage,
+          owner_id: validation.user?.id,
+        });
+
+      // Store assistant response
+      await supabase
+        .from('q_thread_messages')
+        .insert({
+          thread_row_id: threadRowId,
+          role: 'assistant',
+          content: responseText,
+          owner_id: validation.user?.id,
+        });
     }
 
+    const modelUsed = assistantData.model_override || 'gpt-4o';
     console.log('Run completed successfully');
 
     return new Response(
@@ -1065,6 +1151,8 @@ serve(async (req) => {
         run_id: run.id,
         usage: usage,
         api_version: 'assistants',
+        model: modelUsed,
+        child_prompt_name: childPrompt.prompt_name,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -1732,6 +1732,44 @@ export type Database = {
         }
         Relationships: []
       }
+      q_thread_messages: {
+        Row: {
+          content: string
+          created_at: string
+          owner_id: string | null
+          response_id: string | null
+          role: string
+          row_id: string
+          thread_row_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          owner_id?: string | null
+          response_id?: string | null
+          role: string
+          row_id?: string
+          thread_row_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          owner_id?: string | null
+          response_id?: string | null
+          role?: string
+          row_id?: string
+          thread_row_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_thread_messages_thread_row_id_fkey"
+            columns: ["thread_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_threads"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
       q_threads: {
         Row: {
           assistant_row_id: string | null
