@@ -108,10 +108,10 @@ const CostAnalyticsSection = () => {
               <SelectItem value="all">All time</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={fetchAnalytics} disabled={isLoading}>
+          <Button variant="ghost" size="icon" onClick={fetchAnalytics} disabled={isLoading} className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button variant="outline" size="sm" onClick={exportToCSV} disabled={!analytics?.byPrompt?.length}>
+          <Button variant="ghost" size="sm" onClick={exportToCSV} disabled={!analytics?.byPrompt?.length} className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
             <Download className="h-4 w-4 mr-1" />
             Export CSV
           </Button>

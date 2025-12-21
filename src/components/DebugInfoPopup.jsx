@@ -66,10 +66,10 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
         </DialogHeader>
         
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="info" className="flex-1">Info</TabsTrigger>
-            <TabsTrigger value="costs" className="flex-1">Costs</TabsTrigger>
-            <TabsTrigger value="lastCall" className="flex-1">Last AI Call</TabsTrigger>
+          <TabsList className="w-full bg-transparent">
+            <TabsTrigger value="info" className="flex-1 !text-muted-foreground hover:!text-foreground data-[state=active]:!text-primary data-[state=active]:!bg-transparent">Info</TabsTrigger>
+            <TabsTrigger value="costs" className="flex-1 !text-muted-foreground hover:!text-foreground data-[state=active]:!text-primary data-[state=active]:!bg-transparent">Costs</TabsTrigger>
+            <TabsTrigger value="lastCall" className="flex-1 !text-muted-foreground hover:!text-foreground data-[state=active]:!text-primary data-[state=active]:!bg-transparent">Last AI Call</TabsTrigger>
           </TabsList>
 
           {/* Basic Info Tab */}

@@ -55,9 +55,9 @@ export function SearchFilter({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
-              variant="outline" 
+              variant="ghost" 
               size="sm" 
-              className={`h-8 gap-1.5 text-xs ${filterType !== 'all' ? 'border-primary text-primary' : ''}`}
+              className={`h-8 gap-1.5 text-xs ${filterType !== 'all' ? '!text-primary !bg-transparent' : '!text-muted-foreground hover:!text-foreground'} hover:!bg-muted/50`}
             >
               <Filter className="h-3 w-3" />
               <span className="hidden sm:inline">{activeFilter?.label}</span>

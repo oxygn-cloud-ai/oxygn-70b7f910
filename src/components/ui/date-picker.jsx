@@ -15,9 +15,9 @@ export function DatePicker({ date, onDateChange, className }) {
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant="ghost"
           className={cn(
-            "w-[280px] justify-start text-left font-normal",
+            "w-[280px] justify-start text-left font-normal !text-muted-foreground hover:!text-foreground hover:!bg-muted/50",
             !date && "text-muted-foreground",
             className
           )}
