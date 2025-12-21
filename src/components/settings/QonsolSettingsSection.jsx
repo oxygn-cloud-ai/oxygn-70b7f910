@@ -2,7 +2,6 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Settings, RefreshCw, Save } from 'lucide-react';
 import {
@@ -18,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LargeValueField } from "./LargeValueField";
 
 const coreSettings = [
   { key: 'build', label: 'Build', type: 'text', description: 'Current build identifier' },
@@ -128,12 +128,15 @@ export function QonsolSettingsSection({
                   )}
                 </div>
                 {type === 'textarea' ? (
-                  <Textarea
+                  <LargeValueField
                     id={key}
                     value={currentValue}
-                    onChange={(e) => onValueChange(key, e.target.value)}
+                    onChange={(val) => onValueChange(key, val)}
                     placeholder={description}
+                    kind="textarea"
                     rows={20}
+                    title={`${label} (${key})`}
+                    description="This value can be very large. It opens in a separate editor to keep the page responsive."
                   />
                 ) : (
                   <Input
