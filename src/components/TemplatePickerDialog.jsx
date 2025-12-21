@@ -398,6 +398,7 @@ const TemplatePickerDialog = ({
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <Button 
+                variant="secondary"
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
                 disabled={isCreating || (isTopLevel && !variableValues['q.policy.name']?.trim())}
               >
