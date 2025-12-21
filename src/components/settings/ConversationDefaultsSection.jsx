@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Bot, RefreshCw, Save } from 'lucide-react';
 import {
   Tooltip,
@@ -19,24 +20,41 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useConversationToolDefaults } from '@/hooks/useConversationToolDefaults';
+import { useSettings } from '@/hooks/useSettings';
+import { useSupabase } from '@/hooks/useSupabase';
+import { toast } from '@/components/ui/sonner';
 
 export function ConversationDefaultsSection({
   isRefreshing,
   onRefresh,
 }) {
+  const supabase = useSupabase();
   const {
     defaults: toolDefaults,
     isLoading,
     updateDefaults: updateToolDefault,
     refetch,
   } = useConversationToolDefaults();
-
+  
+  const { settings, updateSetting } = useSettings(supabase);
 
   const [uiDefaults, setUiDefaults] = useState({
     code_interpreter_enabled: toolDefaults?.code_interpreter_enabled ?? false,
     file_search_enabled: toolDefaults?.file_search_enabled ?? true,
     function_calling_enabled: toolDefaults?.function_calling_enabled ?? false,
   });
+  
+  const [cascadeFallback, setCascadeFallback] = useState('');
+  const [isSavingFallback, setIsSavingFallback] = useState(false);
+  
+  // Initialize cascade fallback from settings
+  useEffect(() => {
+    if (settings?.cascade_empty_prompt_fallback?.value) {
+      setCascadeFallback(settings.cascade_empty_prompt_fallback.value);
+    } else {
+      setCascadeFallback('Execute this prompt');
+    }
+  }, [settings]);
 
   useEffect(() => {
     if (toolDefaults) {
@@ -59,6 +77,22 @@ export function ConversationDefaultsSection({
     const ok = await updateToolDefault({ [key]: value });
     if (!ok) {
       setUiDefaults(prev => ({ ...prev, [key]: toolDefaults?.[key] ?? prev[key] }));
+    }
+  };
+  
+  const handleSaveCascadeFallback = async () => {
+    if (!cascadeFallback.trim()) {
+      toast.error('Fallback message cannot be empty');
+      return;
+    }
+    setIsSavingFallback(true);
+    try {
+      await updateSetting('cascade_empty_prompt_fallback', cascadeFallback.trim());
+      toast.success('Cascade fallback saved');
+    } catch (err) {
+      toast.error('Failed to save cascade fallback');
+    } finally {
+      setIsSavingFallback(false);
     }
   };
 
@@ -165,6 +199,39 @@ export function ConversationDefaultsSection({
               </SelectItem>
             </SelectContent>
           </Select>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cascade Settings</CardTitle>
+          <CardDescription>
+            Configure how cascade runs handle prompts
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Empty Prompt Fallback Message</Label>
+            <p className="text-xs text-muted-foreground">
+              Message sent to AI when a prompt has no user or admin content
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={cascadeFallback}
+                onChange={(e) => setCascadeFallback(e.target.value)}
+                placeholder="Execute this prompt"
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSaveCascadeFallback}
+                disabled={isSavingFallback}
+                size="sm"
+              >
+                <Save className="h-4 w-4 mr-1" />
+                Save
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
