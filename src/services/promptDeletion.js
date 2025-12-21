@@ -13,37 +13,35 @@ export const deletePrompt = async (supabase, id) => {
     if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
     if (!prompt) return; // Nothing to delete
 
-    // If top-level, destroy the assistant in OpenAI first
+    // If top-level, delete the assistant record (no OpenAI call needed for Responses API)
     if (!prompt.parent_row_id) {
-      // Find the assistant linked to this prompt
+      // Find and delete the assistant linked to this prompt
       const { data: assistant } = await supabase
         .from(import.meta.env.VITE_ASSISTANTS_TBL)
-        .select('row_id, openai_assistant_id')
+        .select('row_id')
         .eq('prompt_row_id', id)
         .maybeSingle();
 
-      if (assistant?.openai_assistant_id) {
-        // Destroy in OpenAI
-        try {
-          await supabase.functions.invoke('assistant-manager', {
-            body: {
-              action: 'destroy',
-              assistant_row_id: assistant.row_id,
-            },
-          });
-          console.log('Destroyed assistant in OpenAI for prompt:', id);
-        } catch (destroyError) {
-          console.error('Failed to destroy assistant:', destroyError);
-          // Continue with deletion even if destroy fails
-        }
-      }
-
-      // Delete the assistant record
       if (assistant?.row_id) {
+        // Delete associated files first
+        await supabase
+          .from(import.meta.env.VITE_ASSISTANT_FILES_TBL || 'q_assistant_files')
+          .delete()
+          .eq('assistant_row_id', assistant.row_id);
+        
+        // Delete associated threads
+        await supabase
+          .from(import.meta.env.VITE_THREADS_TBL || 'q_threads')
+          .delete()
+          .eq('assistant_row_id', assistant.row_id);
+
+        // Delete the assistant record
         await supabase
           .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .delete()
           .eq('row_id', assistant.row_id);
+          
+        console.log('Deleted assistant record for prompt:', id);
       }
     }
 

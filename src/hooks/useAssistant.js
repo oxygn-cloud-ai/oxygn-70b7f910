@@ -6,7 +6,6 @@ export const useAssistant = (promptRowId) => {
   const supabase = useSupabase();
   const [assistant, setAssistant] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInstantiating, setIsInstantiating] = useState(false);
   const creatingRef = useRef(false); // Prevent duplicate creation
 
   const fetchAssistant = useCallback(async () => {
@@ -36,6 +35,7 @@ export const useAssistant = (promptRowId) => {
           .eq('row_id', promptRowId)
           .single();
         
+        // For Responses API, assistants are always "active" - no instantiation needed
         const { data: newAssistant, error: createError } = await supabase
           .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .insert({
@@ -43,8 +43,8 @@ export const useAssistant = (promptRowId) => {
             name: prompt?.prompt_name || 'New Assistant',
             instructions: '',
             use_global_tool_defaults: true,
-            status: 'not_instantiated',
-            api_version: 'assistants', // Default to legacy for backwards compatibility
+            status: 'active', // Responses API is always ready
+            api_version: 'responses',
           })
           .select()
           .single();
@@ -84,6 +84,8 @@ export const useAssistant = (promptRowId) => {
           name: initialData.name || 'New Assistant',
           instructions: initialData.instructions || '',
           use_global_tool_defaults: true,
+          status: 'active', // Responses API is always ready
+          api_version: 'responses',
         })
         .select()
         .single();
@@ -117,106 +119,11 @@ export const useAssistant = (promptRowId) => {
     }
   }, [supabase, assistant?.row_id]);
 
-  const instantiate = useCallback(async () => {
-    if (!assistant?.row_id) return false;
-
-    setIsInstantiating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('assistant-manager', {
-        body: { action: 'instantiate', assistant_row_id: assistant.row_id },
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      await fetchAssistant();
-      toast.success('Assistant instantiated successfully');
-      return true;
-    } catch (error) {
-      console.error('Error instantiating assistant:', error);
-      toast.error(`Failed to instantiate: ${error.message}`);
-      return false;
-    } finally {
-      setIsInstantiating(false);
-    }
-  }, [supabase, assistant?.row_id, fetchAssistant]);
-
-  const destroy = useCallback(async () => {
-    if (!assistant?.row_id) return false;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('assistant-manager', {
-        body: { action: 'destroy', assistant_row_id: assistant.row_id },
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      await fetchAssistant();
-      toast.success('Assistant destroyed');
-      return true;
-    } catch (error) {
-      console.error('Error destroying assistant:', error);
-      toast.error(`Failed to destroy: ${error.message}`);
-      return false;
-    }
-  }, [supabase, assistant?.row_id, fetchAssistant]);
-
-  const sync = useCallback(async () => {
-    if (!assistant?.row_id) return false;
-
-    try {
-      const { data, error } = await supabase.functions.invoke('assistant-manager', {
-        body: { action: 'sync', assistant_row_id: assistant.row_id },
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      await fetchAssistant();
-      toast.success(data.message || 'Files synced');
-      return true;
-    } catch (error) {
-      console.error('Error syncing assistant:', error);
-      toast.error(`Failed to sync: ${error.message}`);
-      return false;
-    }
-  }, [supabase, assistant?.row_id, fetchAssistant]);
-
-  const reInstantiate = useCallback(async () => {
-    if (!assistant?.row_id) return false;
-
-    setIsInstantiating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('assistant-manager', {
-        body: { action: 're-instantiate', assistant_row_id: assistant.row_id },
-      });
-
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-
-      await fetchAssistant();
-      toast.success('Assistant re-enabled successfully');
-      return true;
-    } catch (error) {
-      console.error('Error re-instantiating assistant:', error);
-      toast.error(`Failed to re-enable: ${error.message}`);
-      return false;
-    } finally {
-      setIsInstantiating(false);
-    }
-  }, [supabase, assistant?.row_id, fetchAssistant]);
-
   return {
     assistant,
     isLoading,
-    isInstantiating,
     createAssistant,
     updateAssistant,
-    instantiate,
-    destroy,
-    sync,
-    reInstantiate,
     refetch: fetchAssistant,
   };
 };

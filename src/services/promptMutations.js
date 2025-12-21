@@ -34,14 +34,14 @@ const getPromptContext = async (supabase, parentId) => {
   return { level, topLevelName };
 };
 
-// Helper to create and instantiate an assistant for a top-level prompt
-const createAndInstantiateAssistant = async (supabase, promptRowId, promptName, instructions = '') => {
+// Helper to create an assistant for a top-level prompt (Responses API - no instantiation needed)
+const createAssistant = async (supabase, promptRowId, promptName, instructions = '') => {
   try {
-    // Create assistants record with instructions if provided
     const insertData = {
       prompt_row_id: promptRowId,
       name: promptName,
-      status: 'not_instantiated',
+      status: 'active', // Responses API is always ready
+      api_version: 'responses',
       use_global_tool_defaults: true,
     };
     
@@ -61,30 +61,9 @@ const createAndInstantiateAssistant = async (supabase, promptRowId, promptName, 
     }
 
     console.log('Created assistant record:', assistant.row_id);
-
-    // Call edge function to instantiate in OpenAI
-    const { data: instantiateResult, error: instantiateError } = await supabase.functions.invoke('assistant-manager', {
-      body: {
-        action: 'instantiate',
-        assistant_row_id: assistant.row_id,
-      },
-    });
-
-    if (instantiateError) {
-      console.error('Failed to instantiate assistant:', instantiateError);
-      // Don't fail the prompt creation, just log the error
-      return assistant.row_id;
-    }
-
-    if (instantiateResult?.error) {
-      console.error('Assistant instantiation error:', instantiateResult.error);
-      return assistant.row_id;
-    }
-
-    console.log('Instantiated assistant in OpenAI:', instantiateResult?.assistant_id);
     return assistant.row_id;
   } catch (error) {
-    console.error('Error in createAndInstantiateAssistant:', error);
+    console.error('Error in createAssistant:', error);
     return null;
   }
 };
@@ -98,262 +77,210 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     .order('position', { ascending: false })
     .limit(1);
   
-  // Handle null parent_row_id correctly
-  if (parentId === null) {
-    query = query.is('parent_row_id', null);
-  } else {
+  if (parentId) {
     query = query.eq('parent_row_id', parentId);
-  }
-
-  const { data: maxPositionData, error: positionError } = await query;
-
-  if (positionError) throw positionError;
-
-  // Calculate the new position (either max + 1000000 or start at 1000000)
-  const newPosition = maxPositionData && maxPositionData.length > 0
-    ? (maxPositionData[0].position || 0) + 1000000
-    : 1000000;
-
-  // Get sibling count for sequence number
-  let siblingsQuery = supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('row_id', { count: 'exact', head: true })
-    .eq('is_deleted', false);
-  
-  if (parentId === null) {
-    siblingsQuery = siblingsQuery.is('parent_row_id', null);
   } else {
-    siblingsQuery = siblingsQuery.eq('parent_row_id', parentId);
+    query = query.is('parent_row_id', null);
   }
   
-  const { count: siblingCount, error: countError } = await siblingsQuery;
+  const { data: existingPrompts } = await query;
+  const maxPosition = existingPrompts?.[0]?.position || 0;
   
-  // Ensure siblingCount is a valid number
-  const sequenceNumber = typeof siblingCount === 'number' ? siblingCount : parseInt(siblingCount, 10) || 0;
-  console.log('Sibling count query result:', { siblingCount, countError, parentId, sequenceNumber });
-
-  // Get prompt context (level and top-level name)
+  // Get context for naming
   const { level, topLevelName } = await getPromptContext(supabase, parentId);
-
-  // Get naming settings
-  const { data: namingSettingsData } = await supabase
-    .from(import.meta.env.VITE_SETTINGS_TBL)
-    .select('setting_value')
-    .eq('setting_key', 'prompt_naming_defaults')
-    .maybeSingle();
-
-  let newPromptName;
   
-  console.log('Naming context:', { level, topLevelName, sequenceNumber, hasNamingSettings: !!namingSettingsData?.setting_value });
-  
-  if (namingSettingsData?.setting_value) {
-    try {
-      const namingConfig = JSON.parse(namingSettingsData.setting_value);
-      const levelConfig = getLevelNamingConfig(namingConfig, level, topLevelName);
-      console.log('Level config:', levelConfig);
-      newPromptName = generatePromptName(levelConfig, sequenceNumber);
-      console.log('Generated name:', newPromptName);
-    } catch (e) {
-      console.error('Failed to parse naming config:', e);
-    }
-  }
-
-  // Fallback to old naming logic if no naming config or parsing failed
-  if (!newPromptName) {
-    const { data: existingPrompts, error: nameError } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('prompt_name')
-      .eq('is_deleted', false);
-
-    if (nameError) throw nameError;
-
-    let maxNumber = 0;
-    const newPromptRegex = /^New Prompt(?: (\d+))?$/;
-    
-    if (existingPrompts) {
-      existingPrompts.forEach(prompt => {
-        const match = prompt.prompt_name?.match(newPromptRegex);
-        if (match) {
-          const num = match[1] ? parseInt(match[1], 10) : 1;
-          if (num > maxNumber) {
-            maxNumber = num;
-          }
-        }
-      });
-    }
-
-    newPromptName = `New Prompt ${maxNumber + 1}`;
-  }
-
-  // Get default model from settings
-  const { data: settingsData } = await supabase
+  // Fetch global naming settings
+  const { data: settings } = await supabase
     .from(import.meta.env.VITE_SETTINGS_TBL)
-    .select('setting_value')
-    .eq('setting_key', 'default_model')
-    .maybeSingle();
-
-  const defaultModelId = settingsData?.setting_value;
-
-  // Get model defaults if a default model is set
-  let modelDefaults = {};
-  if (defaultModelId) {
-    const { data: defaultsData } = await supabase
-      .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
-      .select('*')
-      .eq('model_id', defaultModelId)
-      .maybeSingle();
-
-    if (defaultsData) {
-      // Copy over all enabled settings from model defaults
-      const settingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
-        'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
-      
-      settingFields.forEach(field => {
-        if (defaultsData[`${field}_on`]) {
-          modelDefaults[field] = defaultsData[field];
-          modelDefaults[`${field}_on`] = true;
-        }
-      });
-      
-      // Set the model
-      modelDefaults.model = defaultModelId;
-      modelDefaults.model_on = true;
-    }
-  }
-
-  // For top-level prompts, set is_assistant to true
-  const isTopLevel = parentId === null;
-
-  // For child prompts, get parent's default_child_thread_strategy
-  let childThreadStrategy = 'isolated';
-  if (!isTopLevel) {
-    const { data: parentData } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('default_child_thread_strategy')
-      .eq('row_id', parentId)
-      .maybeSingle();
+    .select('setting_key, setting_value')
+    .in('setting_key', ['naming_top_level_template', 'naming_child_template', 'naming_grandchild_template', 'naming_default_template']);
+  
+  const settingsMap = {};
+  (settings || []).forEach(s => {
+    settingsMap[s.setting_key] = s.setting_value;
+  });
+  
+  // Get naming config for this level
+  const namingConfig = getLevelNamingConfig(level, settingsMap);
+  
+  // Get sibling count for ordering
+  let siblingQuery = supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('row_id', { count: 'exact' })
+    .eq('is_deleted', false);
     
-    if (parentData?.default_child_thread_strategy) {
-      childThreadStrategy = parentData.default_child_thread_strategy;
-    }
+  if (parentId) {
+    siblingQuery = siblingQuery.eq('parent_row_id', parentId);
+  } else {
+    siblingQuery = siblingQuery.is('parent_row_id', null);
   }
-
+  
+  const { count: siblingCount } = await siblingQuery;
+  
+  // Generate prompt name
+  const promptName = generatePromptName(namingConfig, {
+    level,
+    siblingOrder: (siblingCount || 0) + 1,
+    topLevelName,
+    parentName: topLevelName,
+  });
+  
+  // Prepare insert data
+  const insertData = {
+    parent_row_id: parentId,
+    prompt_name: promptName,
+    input_admin_prompt: defaultAdminPrompt || null,
+    is_assistant: parentId === null, // Top-level prompts are assistants
+    position: maxPosition + 1000000,
+    is_deleted: false,
+    owner_id: userId,
+  };
+  
+  // Insert the new prompt
   const { data, error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
-    .insert([{
-      parent_row_id: parentId,
-      owner_id: userId,
-      input_admin_prompt: defaultAdminPrompt || '',
-      is_deleted: false,
-      prompt_name: newPromptName,
-      position: newPosition,
-      is_assistant: isTopLevel, // Auto-set for top-level prompts
-      child_thread_strategy: isTopLevel ? 'isolated' : childThreadStrategy,
-      ...modelDefaults
-    }])
+    .insert([insertData])
     .select();
 
-  if (error) throw error;
-
-  const newPromptRowId = data[0].row_id;
-
-  // For top-level prompts, create and instantiate assistant (non-blocking for speed)
-  if (isTopLevel) {
-    // Fire-and-forget: don't await, let it complete in background
-    createAndInstantiateAssistant(supabase, newPromptRowId, newPromptName, defaultAssistantInstructions)
-      .catch(err => console.error('Background assistant creation failed:', err));
-  }
-
-  return newPromptRowId;
-};
-
-export const duplicatePrompt = async (supabase, itemId) => {
-  // Helper function to duplicate a single prompt and get its new ID
-  const duplicateSinglePrompt = async (sourceData, newParentId = null) => {
-    const newPromptData = {
-      parent_row_id: newParentId ?? sourceData.parent_row_id,
-      input_admin_prompt: sourceData.input_admin_prompt || '',
-      input_user_prompt: sourceData.input_user_prompt || '',
-      output_response: sourceData.output_response || '',
-      prompt_name: `${sourceData.prompt_name || 'New Prompt'} (copy)`,
-      is_deleted: false,
-      position: (sourceData.position || 0) + 1
-    };
-
-    const { data: newData, error: insertError } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .insert([newPromptData])
-      .select()
-      .maybeSingle();
-
-    if (insertError) throw insertError;
-    if (!newData) throw new Error('Failed to create duplicate prompt');
-    return newData.row_id;
-  };
-
-  // Recursive function to duplicate a prompt and all its descendants
-  const duplicatePromptTree = async (promptId, newParentId = null) => {
-    // Fetch the source prompt
-    const { data: sourceData, error: fetchError } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('*')
-      .eq('row_id', promptId)
-      .maybeSingle();
-
-    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
-    if (!sourceData) throw new Error('Source prompt not found');
-
-    // Duplicate the current prompt
-    const newPromptId = await duplicateSinglePrompt(sourceData, newParentId);
-
-    // Fetch all children of the source prompt
-    const { data: children, error: childrenError } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('*')
-      .eq('parent_row_id', promptId)
-      .eq('is_deleted', false);
-
-    if (childrenError) throw childrenError;
-
-    // Recursively duplicate all children
-    if (children && children.length > 0) {
-      for (const child of children) {
-        await duplicatePromptTree(child.row_id, newPromptId);
-      }
-    }
-
-    return newPromptId;
-  };
-
-  // Start the duplication process from the root prompt
-  return await duplicatePromptTree(itemId);
-};
-
-export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
-  if (!supabase || !itemId || !siblings || currentIndex === undefined || !direction) {
-    return false;
-  }
-
-  try {
-    let newPosition;
-    
-    if (direction === 'up' && currentIndex > 0) {
-      newPosition = (siblings[currentIndex - 1].position + (siblings[currentIndex - 2]?.position || 0)) / 2;
-    } else if (direction === 'down' && currentIndex < siblings.length - 1) {
-      newPosition = (siblings[currentIndex + 1].position + (siblings[currentIndex + 2]?.position || siblings[currentIndex + 1].position + 1000000)) / 2;
-    } else {
-      return false;
-    }
-
-    const { error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .update({ position: newPosition })
-      .eq('row_id', itemId);
-
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error('Error moving prompt position:', error);
+  if (error) {
+    console.error('Failed to add prompt:', error);
     throw error;
   }
+  
+  // If this is a top-level prompt, create an assistant record
+  if (parentId === null && data?.[0]?.row_id) {
+    await createAssistant(supabase, data[0].row_id, promptName, defaultAssistantInstructions);
+  }
+
+  return data;
 };
+
+export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) => {
+  // Fetch the source prompt
+  const { data: sourcePrompt, error: fetchError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('*')
+    .eq('row_id', sourcePromptId)
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!sourcePrompt) throw new Error('Source prompt not found');
+
+  // Get max position at same level
+  let query = supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('position')
+    .eq('is_deleted', false)
+    .order('position', { ascending: false })
+    .limit(1);
+
+  if (sourcePrompt.parent_row_id) {
+    query = query.eq('parent_row_id', sourcePrompt.parent_row_id);
+  } else {
+    query = query.is('parent_row_id', null);
+  }
+
+  const { data: posData } = await query;
+  const maxPosition = posData?.[0]?.position || 0;
+
+  // Create duplicate with "(copy)" suffix
+  const { row_id, created_at, updated_at, ...promptFields } = sourcePrompt;
+  
+  const { data: newPrompt, error: insertError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .insert([{
+      ...promptFields,
+      prompt_name: `${sourcePrompt.prompt_name} (copy)`,
+      position: maxPosition + 1000000,
+      owner_id: userId || sourcePrompt.owner_id,
+    }])
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
+
+  // If duplicating a top-level prompt, also create an assistant record
+  if (!sourcePrompt.parent_row_id && newPrompt?.row_id) {
+    // Fetch the source assistant for instructions
+    const { data: sourceAssistant } = await supabase
+      .from(import.meta.env.VITE_ASSISTANTS_TBL)
+      .select('instructions')
+      .eq('prompt_row_id', sourcePromptId)
+      .maybeSingle();
+
+    await createAssistant(
+      supabase, 
+      newPrompt.row_id, 
+      `${sourcePrompt.prompt_name} (copy)`,
+      sourceAssistant?.instructions || ''
+    );
+  }
+
+  // Recursively duplicate children
+  const { data: children } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('row_id')
+    .eq('parent_row_id', sourcePromptId)
+    .eq('is_deleted', false)
+    .order('position');
+
+  if (children && children.length > 0) {
+    for (const child of children) {
+      await duplicateChildPrompt(supabase, child.row_id, newPrompt.row_id, userId);
+    }
+  }
+
+  return newPrompt;
+};
+
+// Helper for duplicating child prompts (not top-level, so no assistant needed)
+const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userId) => {
+  const { data: sourcePrompt, error: fetchError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('*')
+    .eq('row_id', sourcePromptId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const { row_id, created_at, updated_at, parent_row_id, ...promptFields } = sourcePrompt;
+  
+  const { data: newPrompt, error: insertError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .insert([{
+      ...promptFields,
+      parent_row_id: newParentId,
+      owner_id: userId || sourcePrompt.owner_id,
+    }])
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
+
+  // Recursively duplicate children of this child
+  const { data: children } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('row_id')
+    .eq('parent_row_id', sourcePromptId)
+    .eq('is_deleted', false)
+    .order('position');
+
+  if (children && children.length > 0) {
+    for (const child of children) {
+      await duplicateChildPrompt(supabase, child.row_id, newPrompt.row_id, userId);
+    }
+  }
+
+  return newPrompt;
+};
+
+export const updatePromptField = async (supabase, promptId, field, value) => {
+  const { error } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .update({ [field]: value })
+    .eq('row_id', promptId);
+
+  if (error) throw error;
+};
+
+export { deletePrompt };

@@ -142,13 +142,14 @@ const TemplatePickerDialog = ({
         return data?.[0]?.position || 0;
       };
 
-      // Helper to create and instantiate assistant for top-level prompts
+      // Helper to create assistant for top-level prompts (Responses API - no instantiation needed)
       const createAssistant = async (promptRowId, promptName, instructions = '') => {
         try {
           const insertData = {
             prompt_row_id: promptRowId,
             name: promptName,
-            status: 'not_instantiated',
+            status: 'active', // Responses API is always ready
+            api_version: 'responses',
             use_global_tool_defaults: true,
           };
           
@@ -168,26 +169,6 @@ const TemplatePickerDialog = ({
           }
 
           console.log('Created assistant record:', assistant.row_id);
-
-          // Instantiate in OpenAI
-          const { data: instantiateResult, error: instantiateError } = await supabase.functions.invoke('assistant-manager', {
-            body: {
-              action: 'instantiate',
-              assistant_row_id: assistant.row_id,
-            },
-          });
-
-          if (instantiateError) {
-            console.error('Failed to instantiate assistant:', instantiateError);
-            return;
-          }
-
-          if (instantiateResult?.error) {
-            console.error('Assistant instantiation error:', instantiateResult.error);
-            return;
-          }
-
-          console.log('Instantiated assistant in OpenAI:', instantiateResult?.assistant_id);
         } catch (error) {
           console.error('Error creating assistant:', error);
         }
