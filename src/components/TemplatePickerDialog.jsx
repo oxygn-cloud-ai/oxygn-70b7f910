@@ -86,16 +86,22 @@ const TemplatePickerDialog = ({
       };
 
       // Helper to create and instantiate assistant for top-level prompts
-      const createAssistant = async (promptRowId, promptName) => {
+      const createAssistant = async (promptRowId, promptName, instructions = '') => {
         try {
+          const insertData = {
+            prompt_row_id: promptRowId,
+            name: promptName,
+            status: 'not_instantiated',
+            use_global_tool_defaults: true,
+          };
+          
+          if (instructions) {
+            insertData.instructions = instructions;
+          }
+          
           const { data: assistant, error: createError } = await supabase
             .from(import.meta.env.VITE_ASSISTANTS_TBL)
-            .insert([{
-              prompt_row_id: promptRowId,
-              name: promptName,
-              status: 'not_instantiated',
-              use_global_tool_defaults: true,
-            }])
+            .insert([insertData])
             .select()
             .maybeSingle();
 
@@ -185,7 +191,8 @@ const TemplatePickerDialog = ({
 
         // Create assistant for top-level prompts
         if (isTopLevel && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          createAssistant(data.row_id, insertData.prompt_name);
+          const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
+          createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
         }
 
         // Create children recursively with proper ordering

@@ -81,6 +81,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       presence_penalty: null,
       presence_penalty_on: false,
       is_assistant: false,
+      assistant_instructions: '',
       thread_mode: null,
       child_thread_strategy: null,
       default_child_thread_strategy: null,
@@ -643,6 +644,20 @@ const AssistantSection = ({ node, onUpdate, isRoot }) => (
 
     {node.is_assistant && (
       <>
+        <Separator />
+
+        <div className="space-y-2">
+          <Label>Assistant Instructions</Label>
+          <p className="text-xs text-muted-foreground">Instructions for the OpenAI Assistant</p>
+          <Textarea
+            value={node.assistant_instructions || ''}
+            onChange={(e) => onUpdate({ assistant_instructions: e.target.value })}
+            placeholder="You are a helpful assistant that..."
+            rows={6}
+            className="text-sm"
+          />
+        </div>
+
         <Separator />
 
         <div className="space-y-2">

@@ -35,17 +35,23 @@ const getPromptContext = async (supabase, parentId) => {
 };
 
 // Helper to create and instantiate an assistant for a top-level prompt
-const createAndInstantiateAssistant = async (supabase, promptRowId, promptName) => {
+const createAndInstantiateAssistant = async (supabase, promptRowId, promptName, instructions = '') => {
   try {
-    // Create assistants record
+    // Create assistants record with instructions if provided
+    const insertData = {
+      prompt_row_id: promptRowId,
+      name: promptName,
+      status: 'not_instantiated',
+      use_global_tool_defaults: true,
+    };
+    
+    if (instructions) {
+      insertData.instructions = instructions;
+    }
+    
     const { data: assistant, error: createError } = await supabase
       .from(import.meta.env.VITE_ASSISTANTS_TBL)
-      .insert([{
-        prompt_row_id: promptRowId,
-        name: promptName,
-        status: 'not_instantiated',
-        use_global_tool_defaults: true,
-      }])
+      .insert([insertData])
       .select()
       .maybeSingle();
 
@@ -83,7 +89,7 @@ const createAndInstantiateAssistant = async (supabase, promptRowId, promptName) 
   }
 };
 
-export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null) => {
+export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultAssistantInstructions = '') => {
   // First, get the maximum position value for the current level
   let query = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -254,7 +260,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   // For top-level prompts, create and instantiate assistant (non-blocking for speed)
   if (isTopLevel) {
     // Fire-and-forget: don't await, let it complete in background
-    createAndInstantiateAssistant(supabase, newPromptRowId, newPromptName)
+    createAndInstantiateAssistant(supabase, newPromptRowId, newPromptName, defaultAssistantInstructions)
       .catch(err => console.error('Background assistant creation failed:', err));
   }
 
