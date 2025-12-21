@@ -22,8 +22,6 @@ import { LargeValueField } from "./LargeValueField";
 const coreSettings = [
   { key: 'build', label: 'Build', type: 'text', description: 'Current build identifier' },
   { key: 'version', label: 'Version', type: 'text', description: 'Application version' },
-  { key: 'def_admin_prompt', label: 'Default Admin Prompt', type: 'textarea', description: 'Default system prompt for new prompts' },
-  { key: 'def_assistant_instructions', label: 'Default Conversation Instructions', type: 'textarea', description: 'Default instructions for new top-level conversation prompts' },
 ];
 
 export function QonsolSettingsSection({
