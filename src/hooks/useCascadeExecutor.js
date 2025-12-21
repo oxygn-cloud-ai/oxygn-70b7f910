@@ -129,23 +129,34 @@ export const useCascadeExecutor = () => {
       return;
     }
 
-    if (hierarchy.levels.length <= 1) {
-      toast.error('No child prompts found to cascade');
+    // Count non-excluded prompts for accurate progress
+    const nonExcludedPrompts = hierarchy.levels
+      .flatMap(l => l.prompts)
+      .filter(p => !p.exclude_from_cascade);
+    
+    if (nonExcludedPrompts.length === 0) {
+      toast.error('All prompts are excluded from cascade');
       return;
     }
 
     // Initialize cascade state
-    startCascade(hierarchy.totalLevels, hierarchy.totalPrompts);
+    startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
     
     const accumulatedResponses = [];
     let promptIndex = 0;
 
     try {
-      // Skip level 0 (parent assistant) - start from level 1 (first children)
-      for (let levelIdx = 1; levelIdx < hierarchy.levels.length; levelIdx++) {
+      // Process ALL levels starting from level 0 (top-level prompt)
+      for (let levelIdx = 0; levelIdx < hierarchy.levels.length; levelIdx++) {
         const level = hierarchy.levels[levelIdx];
         
         for (const prompt of level.prompts) {
+          // Skip if excluded from cascade
+          if (prompt.exclude_from_cascade) {
+            console.log(`Skipping excluded prompt: ${prompt.prompt_name}`);
+            continue;
+          }
+
           // Check if cancelled
           if (isCancelled()) {
             toast.info('Cascade run cancelled');
@@ -173,13 +184,22 @@ export const useCascadeExecutor = () => {
 
           while (!success && retryCount < maxRetries) {
             try {
+              // Build the user message - use input_user_prompt from the prompt
+              const userMessage = prompt.input_user_prompt || '';
+              
+              // Pass input_admin_prompt as a template variable for system context
+              const extendedTemplateVars = {
+                ...templateVars,
+                cascade_admin_prompt: prompt.input_admin_prompt || '',
+              };
+
               const result = await runConversation({
                 conversationRowId: parentAssistantRowId,
                 childPromptRowId: prompt.row_id,
-                userMessage: prompt.input_user_prompt || '',
+                userMessage: userMessage,
                 threadMode: 'new', // Force new thread for cascade isolation
                 childThreadStrategy: 'parent', // Use parent thread for context continuity
-                template_variables: templateVars,
+                template_variables: extendedTemplateVars,
               });
 
               if (result?.response) {
@@ -192,10 +212,10 @@ export const useCascadeExecutor = () => {
 
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
 
-                // Update the prompt's user_prompt_result in database
+                // Update the prompt's output_response in database
                 await supabase
                   .from(import.meta.env.VITE_PROMPTS_TBL)
-                  .update({ user_prompt_result: result.response })
+                  .update({ output_response: result.response })
                   .eq('row_id', prompt.row_id);
 
                 success = true;
