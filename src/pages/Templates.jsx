@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/sonner';
 import useTemplates from '@/hooks/useTemplates';
 import EmptyState from '@/components/EmptyState';
@@ -113,6 +113,7 @@ const Templates = () => {
   }
 
   return (
+    <TooltipProvider>
     <div className="flex h-[calc(100vh-4rem)] bg-background">
       {/* Templates List */}
       <div className="w-80 border-r border-border flex flex-col">
@@ -123,9 +124,16 @@ const Templates = () => {
               Templates
             </h2>
             <div className="flex items-center gap-1">
-              <ImportTemplateDialog onImport={handleImportTemplate} trigger={
-                <Button size="icon" variant="ghost"><Upload className="h-4 w-4" /></Button>
-              } />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <ImportTemplateDialog onImport={handleImportTemplate} trigger={
+                      <Button size="icon" variant="ghost"><Upload className="h-4 w-4" /></Button>
+                    } />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Import template</TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button size="icon" variant="ghost" onClick={() => setShowCreateDialog(true)}>
@@ -183,11 +191,18 @@ const Templates = () => {
                           <Copy className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger><TooltipContent>Duplicate</TooltipContent></Tooltip>
-                      <ExportTemplateDialog template={template} trigger={
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
-                          <Download className="h-3 w-3" />
-                        </Button>
-                      } />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>
+                            <ExportTemplateDialog template={template} trigger={
+                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            } />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Export template</TooltipContent>
+                      </Tooltip>
                       <Tooltip><TooltipTrigger asChild>
                         <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template); }}>
                           <Trash2 className="h-3 w-3" />
@@ -235,6 +250,7 @@ const Templates = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 };
 
