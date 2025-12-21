@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import {
@@ -108,7 +109,7 @@ const VariablePicker = ({
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
-            Insert variable
+            {TOOLTIPS.variables.insert}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>

@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { TOOLTIPS } from '@/config/labels';
 import { toast } from '@/components/ui/sonner';
 import useTemplates from '@/hooks/useTemplates';
 import EmptyState from '@/components/EmptyState';
@@ -132,7 +133,7 @@ const Templates = () => {
                     } />
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>Import template</TooltipContent>
+                <TooltipContent>{TOOLTIPS.templates.actions.import}</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -140,7 +141,7 @@ const Templates = () => {
                     <Plus className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Create template</TooltipContent>
+                <TooltipContent>{TOOLTIPS.templates.actions.create}</TooltipContent>
               </Tooltip>
             </div>
           </div>
@@ -190,7 +191,7 @@ const Templates = () => {
                         <Button size="icon" variant="ghost" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleDuplicateTemplate(template); }}>
                           <Copy className="h-3 w-3" />
                         </Button>
-                      </TooltipTrigger><TooltipContent>Duplicate</TooltipContent></Tooltip>
+                      </TooltipTrigger><TooltipContent>{TOOLTIPS.templates.actions.duplicate}</TooltipContent></Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span>
@@ -201,13 +202,13 @@ const Templates = () => {
                             } />
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent>Export template</TooltipContent>
+                        <TooltipContent>{TOOLTIPS.templates.actions.export}</TooltipContent>
                       </Tooltip>
                       <Tooltip><TooltipTrigger asChild>
                         <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template); }}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
-                      </TooltipTrigger><TooltipContent>Delete</TooltipContent></Tooltip>
+                      </TooltipTrigger><TooltipContent>{TOOLTIPS.templates.actions.delete}</TooltipContent></Tooltip>
                     </div>
                   </div>
                 );

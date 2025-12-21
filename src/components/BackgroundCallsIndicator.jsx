@@ -2,6 +2,7 @@ import React from 'react';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TOOLTIPS } from '@/config/labels';
 
 /**
  * A floating indicator that shows when API calls are in progress.
@@ -23,7 +24,7 @@ const BackgroundCallsIndicator = () => {
           </div>
         </TooltipTrigger>
         <TooltipContent side="left">
-          <p>API calls are running. They will complete even if you navigate away.</p>
+          <p>{TOOLTIPS.system.apiCallsInProgress}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TOOLTIPS } from '@/config/labels';
 
 const VARIABLE_TYPES = [
   { value: 'text', label: 'Text' },
@@ -137,7 +138,7 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
                   <RefreshCw className="h-3.5 w-3.5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Refresh detected variables</TooltipContent>
+              <TooltipContent>{TOOLTIPS.templates.actions.refreshVariables}</TooltipContent>
             </Tooltip>
           </div>
         </Alert>
@@ -190,7 +191,7 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p>Add variable</p>
+                <p>{TOOLTIPS.templates.actions.addVariable}</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -282,8 +283,9 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
                         </TooltipTrigger>
                         <TooltipContent>
                           {detectedVariables.includes(variable.name) 
-                            ? 'Used in prompts' 
-                            : 'Not used in any prompt'}
+                            ? TOOLTIPS.templates.variables.used 
+                            : TOOLTIPS.templates.variables.unused}
+                        </TooltipContent>
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>

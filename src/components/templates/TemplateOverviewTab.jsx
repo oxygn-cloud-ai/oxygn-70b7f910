@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Lock, Globe, Calendar, Hash, Braces, GitBranch } from 'lucide-react';
+import { TOOLTIPS } from '@/config/labels';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 const CATEGORIES = [
@@ -122,7 +123,7 @@ const TemplateOverviewTab = ({ template, onChange }) => {
               {nodeCount}
             </span>
           </TooltipTrigger>
-          <TooltipContent>Prompt nodes</TooltipContent>
+          <TooltipContent>{TOOLTIPS.templates.stats.promptNodes}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -131,7 +132,7 @@ const TemplateOverviewTab = ({ template, onChange }) => {
               {variableCount}
             </span>
           </TooltipTrigger>
-          <TooltipContent>Variables</TooltipContent>
+          <TooltipContent>{TOOLTIPS.templates.stats.variables}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -140,7 +141,7 @@ const TemplateOverviewTab = ({ template, onChange }) => {
               {template.created_at ? new Date(template.created_at).toLocaleDateString() : 'N/A'}
             </span>
           </TooltipTrigger>
-          <TooltipContent>Created</TooltipContent>
+          <TooltipContent>{TOOLTIPS.templates.stats.created}</TooltipContent>
         </Tooltip>
         <span className="text-muted-foreground/60">v{template.version || 1}</span>
       </div>
