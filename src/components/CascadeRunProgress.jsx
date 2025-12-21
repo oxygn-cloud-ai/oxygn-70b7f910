@@ -2,7 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { X, Pause, Play, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, Pause, Play, Loader2, CheckCircle2, SkipForward } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const CascadeRunProgress = () => {
   const {
@@ -14,6 +20,7 @@ const CascadeRunProgress = () => {
     currentPromptIndex,
     totalPrompts,
     completedPrompts,
+    skippedPrompts,
     startTime,
     cancel,
     pause,
@@ -47,6 +54,8 @@ const CascadeRunProgress = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const skippedCount = skippedPrompts?.length || 0;
+
   return (
     <div className="w-full bg-primary/10 border-b border-border px-4 py-2">
       <div className="flex items-center gap-4">
@@ -73,6 +82,31 @@ const CascadeRunProgress = () => {
             <CheckCircle2 className="h-3 w-3" />
             {completedPrompts.length}/{totalPrompts}
           </span>
+          
+          {/* Skipped prompts indicator */}
+          {skippedCount > 0 && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 text-muted-foreground/70">
+                    <SkipForward className="h-3 w-3" />
+                    {skippedCount} skipped
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium mb-1">Excluded from cascade:</p>
+                  <ul className="text-xs space-y-0.5">
+                    {skippedPrompts.map((p, i) => (
+                      <li key={p.promptRowId || i} className="truncate">
+                        • {p.promptName}
+                      </li>
+                    ))}
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
           <span>Level {currentLevel}/{totalLevels - 1}</span>
           <span className="max-w-[200px] truncate" title={currentPromptName}>
             {currentPromptName || 'Starting...'}

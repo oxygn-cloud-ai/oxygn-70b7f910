@@ -11,6 +11,7 @@ export const useCascadeExecutor = () => {
     startCascade,
     updateProgress,
     markPromptComplete,
+    markPromptSkipped,
     completeCascade,
     isCancelled,
     checkPaused,
@@ -134,6 +135,10 @@ export const useCascadeExecutor = () => {
       .flatMap(l => l.prompts)
       .filter(p => !p.exclude_from_cascade);
     
+    const excludedPrompts = hierarchy.levels
+      .flatMap(l => l.prompts)
+      .filter(p => p.exclude_from_cascade);
+    
     if (nonExcludedPrompts.length === 0) {
       toast.error('All prompts are excluded from cascade');
       return;
@@ -141,6 +146,11 @@ export const useCascadeExecutor = () => {
 
     // Initialize cascade state
     startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
+    
+    // Mark excluded prompts as skipped immediately
+    for (const excludedPrompt of excludedPrompts) {
+      markPromptSkipped(excludedPrompt.row_id, excludedPrompt.prompt_name);
+    }
     
     const accumulatedResponses = [];
     let promptIndex = 0;
@@ -271,6 +281,7 @@ export const useCascadeExecutor = () => {
     startCascade,
     updateProgress,
     markPromptComplete,
+    markPromptSkipped,
     completeCascade,
     isCancelled,
     waitWhilePaused,
