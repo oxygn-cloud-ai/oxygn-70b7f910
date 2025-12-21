@@ -218,12 +218,13 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
           </div>
           <div>
             <Label className="flex items-center gap-1">
-              Instructions
+              System Instructions
               <TooltipProvider><Tooltip><TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
-                <TooltipContent className="max-w-xs"><p>Use template variables like {'{{input_admin_prompt}}'} to inject prompt field values.</p></TooltipContent>
+                <TooltipContent className="max-w-xs"><p>Global personality and behavior for this conversation. Applied to ALL child prompts as the first system message.</p></TooltipContent>
               </Tooltip></TooltipProvider>
             </Label>
-            <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} onBlur={() => handleSave('instructions', instructions)} placeholder="You are a helpful assistant..." rows={4} />
+            <p className="text-xs text-muted-foreground mb-1.5">Use template variables like {'{{input_admin_prompt}}'} to inject prompt field values.</p>
+            <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} onBlur={() => handleSave('instructions', instructions)} placeholder={settings?.def_assistant_instructions || undefined} rows={4} />
           </div>
         </CardContent>
       </Card>
