@@ -95,12 +95,17 @@ module.exports = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
+        "attention-flash": {
+          "0%, 100%": { backgroundColor: "hsl(142 76% 36% / 0.3)" },
+          "50%": { backgroundColor: "hsl(142 76% 36% / 0.6)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "shimmer": "shimmer 2s linear infinite",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "attention-flash": "attention-flash 1s ease-in-out infinite",
       },
       boxShadow: {
         "warm": "0 4px 14px -3px hsl(14 56% 16% / 0.1)",
