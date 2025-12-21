@@ -13,6 +13,7 @@ import { ConversationDefaultsSection } from '../components/settings/Conversation
 import { ConversationsSection } from '../components/settings/ConversationsSection';
 import ConfluenceSettingsSection from '../components/settings/ConfluenceSettingsSection';
 import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
+import OpenAIBillingSection from '../components/settings/OpenAIBillingSection';
 import AppearanceSection from '../components/settings/AppearanceSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
@@ -196,6 +197,13 @@ const Settings = () => {
         );
       case 'cost-analytics':
         return <CostAnalyticsSection />;
+      case 'openai-billing':
+        return (
+          <OpenAIBillingSection
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
+          />
+        );
       case 'appearance':
         return <AppearanceSection />;
       default:

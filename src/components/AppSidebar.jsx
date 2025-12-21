@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTooltipSettings } from '@/contexts/TooltipContext';
 import GuardedLink from '@/components/GuardedLink';
@@ -40,6 +40,7 @@ const settingsSubItems = [
   { id: 'conversations', title: 'Conversations', icon: Cpu },
   { id: 'confluence', title: 'Confluence', icon: FileStack },
   { id: 'cost-analytics', title: 'Cost Analytics', icon: Database },
+  { id: 'openai-billing', title: 'OpenAI Billing', icon: CreditCard },
   { id: 'database', title: 'Database & Env', icon: Database },
   { id: 'appearance', title: 'Appearance', icon: Palette },
 ];
