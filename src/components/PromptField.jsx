@@ -166,8 +166,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
                 onClick={onGenerate}
                 tooltip={isGenerating ? `Generating... ${formattedTime}` : 'Generate response'}
                 disabled={isGenerating}
-                variant="generate"
-                active={true}
+                active={isGenerating}
               />
               {isGenerating && (
                 <span className="text-xs text-primary font-medium ml-1">{formattedTime}</span>
