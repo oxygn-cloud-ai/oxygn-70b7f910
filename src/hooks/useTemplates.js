@@ -163,12 +163,13 @@ export const useTemplates = () => {
 
         if (error) throw error;
 
-        // Fetch children
+        // Fetch children ordered by position
         const { data: children } = await supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('row_id')
           .eq('parent_row_id', rowId)
-          .eq('is_deleted', false);
+          .eq('is_deleted', false)
+          .order('position', { ascending: true });
 
         const childStructures = [];
         if (children) {
@@ -178,17 +179,35 @@ export const useTemplates = () => {
           }
         }
 
+        // Include all relevant prompt fields in the template structure
         return {
           prompt_name: prompt.prompt_name,
           input_admin_prompt: prompt.input_admin_prompt,
           input_user_prompt: prompt.input_user_prompt,
+          note: prompt.note,
           model: prompt.model,
+          model_on: prompt.model_on,
           temperature: prompt.temperature,
+          temperature_on: prompt.temperature_on,
           max_tokens: prompt.max_tokens,
+          max_tokens_on: prompt.max_tokens_on,
           top_p: prompt.top_p,
+          top_p_on: prompt.top_p_on,
           frequency_penalty: prompt.frequency_penalty,
+          frequency_penalty_on: prompt.frequency_penalty_on,
           presence_penalty: prompt.presence_penalty,
+          presence_penalty_on: prompt.presence_penalty_on,
+          stop: prompt.stop,
+          stop_on: prompt.stop_on,
+          response_format: prompt.response_format,
+          response_format_on: prompt.response_format_on,
+          n: prompt.n,
+          n_on: prompt.n_on,
           is_assistant: prompt.is_assistant,
+          thread_mode: prompt.thread_mode,
+          child_thread_strategy: prompt.child_thread_strategy,
+          default_child_thread_strategy: prompt.default_child_thread_strategy,
+          web_search_on: prompt.web_search_on,
           children: childStructures,
         };
       };
