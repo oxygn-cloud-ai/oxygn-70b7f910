@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAssistant } from '../hooks/useAssistant';
 import { useAssistantFiles } from '../hooks/useAssistantFiles';
 import { useAssistantToolDefaults } from '../hooks/useAssistantToolDefaults';
+import { toast } from '@/components/ui/sonner';
 import { useOpenAIModels } from '../hooks/useOpenAIModels';
 import { useSettings } from '../hooks/useSettings';
 import { useSupabase } from '../hooks/useSupabase';
@@ -43,6 +44,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [childDefaultsOpen, setChildDefaultsOpen] = useState(false);
   const [defaultChildThreadStrategy, setDefaultChildThreadStrategy] = useState('isolated');
+  const lastErrorShown = useRef(null);
 
   // Get default model from global settings
   const defaultModel = useMemo(() => {
@@ -68,6 +70,14 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setTopP(assistant.top_p_override || '');
     }
   }, [assistant, toolDefaults]);
+
+  // Show last_error as toast when it changes
+  useEffect(() => {
+    if (assistant?.last_error && assistant.last_error !== lastErrorShown.current) {
+      toast.error(assistant.last_error);
+      lastErrorShown.current = assistant.last_error;
+    }
+  }, [assistant?.last_error]);
 
   // Load parent prompt's default child thread strategy
   useEffect(() => {
@@ -569,9 +579,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
         </TooltipProvider>
       )}
 
-      {assistant.last_error && (
-        <p className="text-sm text-destructive">Error: {assistant.last_error}</p>
-      )}
     </div>
   );
 };
