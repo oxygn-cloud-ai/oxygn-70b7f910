@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -30,6 +30,8 @@ export const TreeItemActions = ({
   const longPressTimer = useRef(null);
   const cancelBulkAdd = useRef(false);
   const supabase = useSupabase();
+
+  const isExcluded = item.exclude_from_cascade === true;
 
   const handleMove = async (direction) => {
     const siblingsArray = Array.isArray(siblings) ? siblings : [];
@@ -105,6 +107,26 @@ export const TreeItemActions = ({
     } catch (error) {
       console.error('Error updating position:', error);
       throw error;
+    }
+  };
+
+  const handleToggleExclude = async () => {
+    try {
+      const newValue = !isExcluded;
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ exclude_from_cascade: newValue })
+        .eq('row_id', item.id);
+
+      if (error) throw error;
+
+      toast.success(newValue ? 'Excluded from cascade' : 'Included in cascade');
+      if (typeof onRefreshTreeData === 'function') {
+        await onRefreshTreeData();
+      }
+    } catch (error) {
+      console.error('Error toggling exclude:', error);
+      toast.error('Failed to update prompt');
     }
   };
 
@@ -319,6 +341,12 @@ export const TreeItemActions = ({
             icon={<Copy className="h-3.5 w-3.5" />} 
             onClick={() => duplicateItem(item.id)} 
             tooltip="Duplicate" 
+          />
+          <ActionButton 
+            icon={isExcluded ? <Play className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+            onClick={handleToggleExclude}
+            tooltip={isExcluded ? "Include in cascade" : "Exclude from cascade"}
+            variant={isExcluded ? "default" : "default"}
           />
           <ActionButton 
             icon={<Trash2Icon className="h-3.5 w-3.5" />} 
