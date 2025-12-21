@@ -27,19 +27,58 @@ const TreeView = ({
   const [showNewPromptChoice, setShowNewPromptChoice] = useState(false);
   const [deletingItems, setDeletingItems] = useState(new Set());
 
-  // Wrapper that marks item as deleting before actual delete
-  const handleDeleteWithState = async (itemId) => {
-    setDeletingItems(prev => new Set(prev).add(itemId));
+  // Helper to collect all descendant IDs from an item in the tree
+  const collectDescendantIds = useCallback((itemId, items) => {
+    const ids = [itemId];
+    
+    const findAndCollect = (searchId, nodes) => {
+      for (const node of nodes) {
+        if (node.id === searchId) {
+          // Found the item, collect all its descendants
+          const collectChildren = (item) => {
+            if (item.children && item.children.length > 0) {
+              for (const child of item.children) {
+                ids.push(child.id);
+                collectChildren(child);
+              }
+            }
+          };
+          collectChildren(node);
+          return true;
+        }
+        // Search in children
+        if (node.children && findAndCollect(searchId, node.children)) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    findAndCollect(itemId, items);
+    return ids;
+  }, []);
+
+  // Wrapper that marks item and all its children as deleting before actual delete
+  const handleDeleteWithState = useCallback(async (itemId) => {
+    // Collect all IDs that will be deleted (item + all descendants)
+    const idsToDelete = collectDescendantIds(itemId, treeData);
+    
+    setDeletingItems(prev => {
+      const next = new Set(prev);
+      idsToDelete.forEach(id => next.add(id));
+      return next;
+    });
+    
     try {
       await handleDeleteItem(itemId);
     } finally {
       setDeletingItems(prev => {
         const next = new Set(prev);
-        next.delete(itemId);
+        idsToDelete.forEach(id => next.delete(id));
         return next;
       });
     }
-  };
+  }, [collectDescendantIds, treeData, handleDeleteItem]);
 
   // Filter tree data based on search and filter
   const filteredData = useMemo(() => {
