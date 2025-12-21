@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { FileText, LayoutTemplate, Search, ArrowRight, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileText, LayoutTemplate, Search, ArrowRight, Loader2, Settings2, Lock } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTemplates } from '@/hooks/useTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
+import {
+  SYSTEM_VARIABLES,
+  SYSTEM_VARIABLE_TYPES,
+  isSystemVariable,
+  isStaticSystemVariable,
+  resolveStaticVariables,
+  categorizeVariables,
+  getSystemVariable,
+} from '@/config/systemVariables';
 
 const NewPromptChoiceDialog = ({ 
   isOpen, 
@@ -27,7 +49,7 @@ const NewPromptChoiceDialog = ({
   onPromptCreated 
 }) => {
   const { templates, isLoading, extractTemplateVariables } = useTemplates();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [step, setStep] = useState('select'); // 'select' | 'variables'
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [variableValues, setVariableValues] = useState({});
@@ -49,13 +71,34 @@ const NewPromptChoiceDialog = ({
     const variables = extractTemplateVariables(template.structure);
     
     if (variables.length > 0) {
-      // Initialize with default values from variable_definitions
+      // Initialize with default values from variable_definitions and system variables
       const initialValues = {};
       const variableDefs = template.variable_definitions || [];
-      variables.forEach(v => {
-        const def = variableDefs.find(d => d.name === v);
-        initialValues[v] = def?.default || '';
+      
+      // Add static system variables
+      const staticVars = resolveStaticVariables({
+        user: profile || { email: user?.email },
       });
+      Object.assign(initialValues, staticVars);
+      
+      // Initialize user-defined and input system variables
+      variables.forEach(v => {
+        if (isStaticSystemVariable(v)) {
+          // Already handled above
+          return;
+        }
+        
+        const sysVar = getSystemVariable(v);
+        if (sysVar) {
+          // System input variable - start empty
+          initialValues[v] = '';
+        } else {
+          // User-defined variable - check for default
+          const def = variableDefs.find(d => d.name === v);
+          initialValues[v] = def?.default || '';
+        }
+      });
+      
       setVariableValues(initialValues);
       setStep('variables');
     } else {
@@ -71,7 +114,9 @@ const NewPromptChoiceDialog = ({
     if (!text || typeof text !== 'string') return text;
     let result = text;
     Object.entries(values).forEach(([name, value]) => {
-      result = result.replace(new RegExp(`\\{\\{${name}\\}\\}`, 'g'), value);
+      // Escape special regex characters in variable name (for names with dots like q.policy.name)
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value);
     });
     return result;
   };
@@ -130,23 +175,40 @@ const NewPromptChoiceDialog = ({
         }
       };
 
-      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0) => {
+      // Track created prompts for context variables
+      let topLevelPromptName = '';
+      
+      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0, parentPromptName = '') => {
         const maxPosition = await getMaxPosition(parentRowId);
         const newPosition = maxPosition + 1000000 + positionOffset;
         const isTopLevel = parentRowId === null;
 
-        // Build the prompt name, prefixing with policy.name if set and this is top-level
+        // Build the prompt name
         let promptName = replaceVariables(promptStructure.prompt_name, vars);
-        if (isTopLevel && vars['policy.name'] && vars['policy.name'].trim()) {
-          promptName = `${vars['policy.name'].trim()} - ${promptName}`;
+        
+        // Prefix with q.policy.name if set and this is top-level
+        if (isTopLevel && vars['q.policy.name'] && vars['q.policy.name'].trim()) {
+          promptName = `${vars['q.policy.name'].trim()} - ${promptName}`;
         }
+        
+        // Store for context variables
+        if (isTopLevel) {
+          topLevelPromptName = promptName;
+        }
+        
+        // Update context variables for this prompt
+        const contextVars = {
+          ...vars,
+          'q.toplevel.prompt.name': topLevelPromptName,
+          'q.parent.prompt.name': parentPromptName,
+        };
 
         const insertData = {
           parent_row_id: parentRowId,
           prompt_name: promptName,
-          input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, vars),
-          input_user_prompt: replaceVariables(promptStructure.input_user_prompt, vars),
-          note: replaceVariables(promptStructure.note, vars),
+          input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, contextVars),
+          input_user_prompt: replaceVariables(promptStructure.input_user_prompt, contextVars),
+          note: replaceVariables(promptStructure.note, contextVars),
           owner_id: user?.id,
           template_row_id: templateRowId,
           position: newPosition,
@@ -154,7 +216,6 @@ const NewPromptChoiceDialog = ({
         };
 
         // Copy all model and settings fields from template
-        // Use hasOwnProperty to properly detect fields that exist in the template
         const settingsFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',
@@ -171,7 +232,6 @@ const NewPromptChoiceDialog = ({
         ];
         
         settingsFields.forEach(field => {
-          // Check if field exists in template structure (including false/0/empty string values)
           if (Object.prototype.hasOwnProperty.call(promptStructure, field) && promptStructure[field] !== null) {
             insertData[field] = promptStructure[field];
           }
@@ -216,7 +276,7 @@ const NewPromptChoiceDialog = ({
 
         if (promptStructure.children?.length > 0) {
           for (let i = 0; i < promptStructure.children.length; i++) {
-            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000);
+            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000, promptName);
           }
         }
 
@@ -245,24 +305,116 @@ const NewPromptChoiceDialog = ({
   };
 
   const templateVariables = selectedTemplate ? extractTemplateVariables(selectedTemplate.structure) : [];
+  
+  // Categorize variables
+  const { systemStatic, systemInput, userDefined } = useMemo(() => 
+    categorizeVariables(templateVariables), 
+    [templateVariables]
+  );
 
-  // Determine which variables are required (no default value)
-  const getVariableHasDefault = (varName) => {
-    if (!selectedTemplate?.variable_definitions) return false;
-    const def = selectedTemplate.variable_definitions.find(d => d.name === varName);
-    return def?.default && def.default.trim() !== '';
+  // Get variable info for display
+  const getVariableInfo = (varName) => {
+    const sysVar = getSystemVariable(varName);
+    if (sysVar) {
+      return {
+        label: sysVar.label,
+        description: sysVar.description,
+        type: sysVar.type,
+        options: sysVar.options,
+        placeholder: sysVar.placeholder,
+        required: sysVar.required,
+        isSystem: true,
+      };
+    }
+    
+    // User-defined variable
+    const def = selectedTemplate?.variable_definitions?.find(d => d.name === varName);
+    return {
+      label: varName,
+      description: def?.description || '',
+      type: 'input',
+      placeholder: `Enter value for ${varName}`,
+      required: !def?.default || def.default.trim() === '',
+      isSystem: false,
+      hasDefault: def?.default && def.default.trim() !== '',
+    };
   };
 
   // Check if all required variables have values
-  const hasValidationErrors = templateVariables.some(varName => {
-    const hasDefault = getVariableHasDefault(varName);
+  const hasValidationErrors = useMemo(() => {
+    // Check system input variables
+    const systemInputErrors = systemInput.some(varName => {
+      const info = getVariableInfo(varName);
+      const value = variableValues[varName] || '';
+      return info.required && value.trim() === '';
+    });
+    
+    // Check user-defined variables
+    const userDefinedErrors = userDefined.some(varName => {
+      const info = getVariableInfo(varName);
+      const value = variableValues[varName] || '';
+      return info.required && value.trim() === '';
+    });
+    
+    return systemInputErrors || userDefinedErrors;
+  }, [systemInput, userDefined, variableValues, selectedTemplate]);
+
+  // Render a variable input field
+  const renderVariableInput = (varName) => {
+    const info = getVariableInfo(varName);
     const value = variableValues[varName] || '';
-    return !hasDefault && value.trim() === '';
-  });
+    const showError = info.required && value.trim() === '';
+    
+    return (
+      <div key={varName} className="space-y-2">
+        <Label htmlFor={varName} className="flex items-center gap-2">
+          <Badge 
+            variant={info.isSystem ? "default" : "outline"} 
+            className="font-mono text-xs"
+          >
+            {`{{${varName}}}`}
+          </Badge>
+          {info.required && <span className="text-destructive text-xs">*</span>}
+          {info.hasDefault && <span className="text-muted-foreground text-xs">(has default)</span>}
+        </Label>
+        {info.description && (
+          <p className="text-xs text-muted-foreground">{info.description}</p>
+        )}
+        
+        {info.type === SYSTEM_VARIABLE_TYPES.SELECT && info.options ? (
+          <Select
+            value={value}
+            onValueChange={(v) => handleVariableChange(varName, v)}
+          >
+            <SelectTrigger className={showError ? 'border-destructive' : ''}>
+              <SelectValue placeholder={info.placeholder || 'Select an option'} />
+            </SelectTrigger>
+            <SelectContent>
+              {info.options.map(opt => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            id={varName}
+            value={value}
+            onChange={(e) => handleVariableChange(varName, e.target.value)}
+            placeholder={info.placeholder}
+            className={showError ? 'border-destructive' : ''}
+          />
+        )}
+        
+        {showError && (
+          <p className="text-destructive text-xs">This field is required</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step === 'select' ? 'Create New Prompt' : (
@@ -367,34 +519,68 @@ const NewPromptChoiceDialog = ({
 
         {step === 'variables' && (
           <>
-            <ScrollArea className="max-h-[300px] pr-4">
-              <div className="space-y-4">
-                {templateVariables.map(varName => {
-                  const hasDefault = getVariableHasDefault(varName);
-                  const isRequired = !hasDefault;
-                  const value = variableValues[varName] || '';
-                  const showError = isRequired && value.trim() === '';
-                  
-                  return (
-                    <div key={varName} className="space-y-2">
-                      <Label htmlFor={varName} className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-xs">{`{{${varName}}}`}</Badge>
-                        {isRequired && <span className="text-destructive text-xs">*</span>}
-                        {hasDefault && <span className="text-muted-foreground text-xs">(has default)</span>}
-                      </Label>
-                      <Input
-                        id={varName}
-                        value={value}
-                        onChange={(e) => handleVariableChange(varName, e.target.value)}
-                        placeholder={`Enter value for ${varName}`}
-                        className={showError ? 'border-destructive' : ''}
-                      />
-                      {showError && (
-                        <p className="text-destructive text-xs">This field is required</p>
-                      )}
+            <ScrollArea className="max-h-[400px] pr-4">
+              <div className="space-y-6">
+                {/* System Input Variables */}
+                {systemInput.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-medium">System Variables</h3>
                     </div>
-                  );
-                })}
+                    <div className="space-y-4 pl-6">
+                      {systemInput.map(renderVariableInput)}
+                    </div>
+                  </div>
+                )}
+                
+                {/* User-Defined Variables */}
+                {userDefined.length > 0 && (
+                  <div className="space-y-4">
+                    {systemInput.length > 0 && <Separator />}
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium">Template Variables</h3>
+                    </div>
+                    <div className="space-y-4 pl-6">
+                      {userDefined.map(renderVariableInput)}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Static System Variables (read-only info) */}
+                {systemStatic.length > 0 && (
+                  <div className="space-y-3">
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium text-muted-foreground">Auto-Populated Values</h3>
+                    </div>
+                    <div className="pl-6 space-y-2">
+                      <TooltipProvider>
+                        <div className="flex flex-wrap gap-2">
+                          {systemStatic.map(varName => {
+                            const sysVar = getSystemVariable(varName);
+                            const value = variableValues[varName] || '';
+                            return (
+                              <Tooltip key={varName}>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="secondary" className="font-mono text-xs cursor-help">
+                                    {varName}: {value.length > 20 ? value.substring(0, 20) + '...' : value}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-medium">{sysVar?.label || varName}</p>
+                                  <p className="text-xs text-muted-foreground">{sysVar?.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+                )}
               </div>
             </ScrollArea>
 
