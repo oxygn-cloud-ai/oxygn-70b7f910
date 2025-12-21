@@ -1,5 +1,4 @@
 import React from 'react';
-import AssistantPanel from './AssistantPanel';
 import ChildPromptPanel from './ChildPromptPanel';
 import PromptEditorTabs from './PromptEditorTabs';
 
@@ -23,16 +22,6 @@ const ProjectPanels = ({
     );
   }
 
-  // If this is a top-level prompt AND marked as an assistant, show AssistantPanel
-  if (isTopLevel && selectedItemData.is_assistant) {
-    return (
-      <AssistantPanel
-        promptRowId={projectRowId}
-        selectedItemData={selectedItemData}
-      />
-    );
-  }
-
   // If this is a child of an assistant, show ChildPromptPanel
   if (parentAssistantRowId) {
     return (
@@ -45,7 +34,7 @@ const ProjectPanels = ({
     );
   }
 
-  // Standard prompt view with tabs
+  // Standard prompt view with tabs (including top-level prompts with assistant config)
   return (
     <PromptEditorTabs
       selectedItemData={selectedItemData}

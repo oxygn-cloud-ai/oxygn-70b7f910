@@ -7,6 +7,7 @@ import PromptFieldsTab from './tabs/PromptFieldsTab';
 import SettingsTab from './tabs/SettingsTab';
 import VariablesTab from './tabs/VariablesTab';
 import TemplatesTab from './tabs/TemplatesTab';
+import AssistantTab from './tabs/AssistantTab';
 
 const PromptEditorTabs = ({
   selectedItemData,
@@ -22,12 +23,22 @@ const PromptEditorTabs = ({
 }) => {
   const [activeTab, setActiveTab] = useState('prompt');
 
-  const tabs = useMemo(() => [
-    { id: 'prompt', label: 'Prompt', icon: FileText, description: 'Edit prompts and responses' },
-    { id: 'settings', label: 'Settings', icon: Settings, description: 'AI model settings' },
-    { id: 'variables', label: 'Variables', icon: Variable, description: 'Manage variables' },
-    { id: 'templates', label: 'Templates', icon: LayoutTemplate, description: 'Save as or apply template' },
-  ], []);
+  // Build tabs dynamically based on whether this is a top-level assistant
+  const tabs = useMemo(() => {
+    const baseTabs = [
+      { id: 'prompt', label: 'Prompt', icon: FileText, description: 'Edit prompts and responses' },
+      { id: 'settings', label: 'Settings', icon: Settings, description: 'AI model settings' },
+      { id: 'variables', label: 'Variables', icon: Variable, description: 'Manage variables' },
+      { id: 'templates', label: 'Templates', icon: LayoutTemplate, description: 'Save as or apply template' },
+    ];
+    
+    // Add Assistant tab for top-level prompts that are assistants
+    if (isTopLevel && selectedItemData?.is_assistant) {
+      baseTabs.push({ id: 'assistant', label: 'Assistant', icon: Bot, description: 'OpenAI Assistant configuration' });
+    }
+    
+    return baseTabs;
+  }, [isTopLevel, selectedItemData?.is_assistant]);
 
   const QuickAccessIcon = ({ tab }) => (
     <TooltipProvider>
@@ -114,6 +125,16 @@ const PromptEditorTabs = ({
               promptRowId={selectedItemData?.row_id}
             />
           </TabsContent>
+
+          {/* Assistant tab - only rendered for top-level assistants */}
+          {isTopLevel && selectedItemData?.is_assistant && (
+            <TabsContent value="assistant" className="h-full m-0 p-0">
+              <AssistantTab
+                promptRowId={projectRowId}
+                selectedItemData={selectedItemData}
+              />
+            </TabsContent>
+          )}
         </div>
       </Tabs>
     </div>
