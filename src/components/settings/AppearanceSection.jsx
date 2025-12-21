@@ -39,40 +39,31 @@ const AppearanceSection = () => {
           <CardDescription>Select your preferred color scheme</CardDescription>
         </CardHeader>
         <CardContent>
-          <RadioGroup value={theme} onValueChange={handleThemeChange} className="grid grid-cols-3 gap-4">
-            <Label
-              htmlFor="system"
-              className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all hover:bg-accent ${
-                theme === 'system' ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
-              <RadioGroupItem value="system" id="system" className="sr-only" />
-              <Monitor className="h-6 w-6 mb-2 text-muted-foreground" />
-              <span className="text-sm font-medium">System</span>
-              <span className="text-xs text-muted-foreground">Follow OS setting</span>
-            </Label>
-            <Label
-              htmlFor="light"
-              className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all hover:bg-accent ${
-                theme === 'light' ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
-              <RadioGroupItem value="light" id="light" className="sr-only" />
-              <Sun className="h-6 w-6 mb-2 text-muted-foreground" />
-              <span className="text-sm font-medium">Light</span>
-              <span className="text-xs text-muted-foreground">Always light mode</span>
-            </Label>
-            <Label
-              htmlFor="dark"
-              className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all hover:bg-accent ${
-                theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border'
-              }`}
-            >
-              <RadioGroupItem value="dark" id="dark" className="sr-only" />
-              <Moon className="h-6 w-6 mb-2 text-muted-foreground" />
-              <span className="text-sm font-medium">Dark</span>
-              <span className="text-xs text-muted-foreground">Always dark mode</span>
-            </Label>
+          <RadioGroup value={theme} onValueChange={handleThemeChange} className="space-y-3">
+            <div className="flex items-center space-x-3">
+              <RadioGroupItem value="system" id="system" />
+              <Label htmlFor="system" className="flex items-center gap-2 cursor-pointer">
+                <Monitor className="h-4 w-4 text-muted-foreground" />
+                <span>System</span>
+                <span className="text-xs text-muted-foreground">— Follow OS setting</span>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <RadioGroupItem value="light" id="light" />
+              <Label htmlFor="light" className="flex items-center gap-2 cursor-pointer">
+                <Sun className="h-4 w-4 text-muted-foreground" />
+                <span>Light</span>
+                <span className="text-xs text-muted-foreground">— Always light mode</span>
+              </Label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <RadioGroupItem value="dark" id="dark" />
+              <Label htmlFor="dark" className="flex items-center gap-2 cursor-pointer">
+                <Moon className="h-4 w-4 text-muted-foreground" />
+                <span>Dark</span>
+                <span className="text-xs text-muted-foreground">— Always dark mode</span>
+              </Label>
+            </div>
           </RadioGroup>
         </CardContent>
       </Card>
