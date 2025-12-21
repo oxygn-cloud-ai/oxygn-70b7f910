@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutTemplate, FileText, Search, ArrowRight } from 'lucide-react';
+import { LayoutTemplate, FileText, Search, ArrowRight, ArrowLeft, Plus, Loader2 } from 'lucide-react';
 import { useTemplates } from '@/hooks/useTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -321,12 +321,21 @@ const TemplatePickerDialog = ({
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep('select')}>Back</Button>
+              <Button variant="ghost" size="icon" onClick={() => setStep('select')} title="Back">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
               <Button 
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
                 disabled={isCreating}
               >
-                {isCreating ? 'Creating...' : 'Create Prompt'}
+                {isCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </>
