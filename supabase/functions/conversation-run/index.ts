@@ -525,8 +525,19 @@ serve(async (req) => {
     }
 
     if (!finalMessage.trim()) {
+      console.error('No message to send for prompt:', {
+        child_prompt_row_id,
+        prompt_name: childPrompt.prompt_name,
+        has_user_prompt: !!childPrompt.input_user_prompt,
+        has_admin_prompt: !!childPrompt.input_admin_prompt,
+        has_user_message: !!user_message,
+      });
       return new Response(
-        JSON.stringify({ error: 'No message to send' }),
+        JSON.stringify({ 
+          error: `No message to send for prompt "${childPrompt.prompt_name}". Add content to the user prompt or admin prompt field.`,
+          error_code: 'NO_MESSAGE_CONTENT',
+          prompt_name: childPrompt.prompt_name,
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -636,6 +647,13 @@ serve(async (req) => {
     if (!result.success) {
       const errorText = result.error || 'Responses API call failed';
 
+      console.error('Responses API failed:', {
+        child_prompt_row_id,
+        prompt_name: childPrompt.prompt_name,
+        error: errorText,
+        error_code: result.error_code,
+      });
+
       let status = 400;
       let retryAfterS: number | null = null;
 
@@ -652,6 +670,7 @@ serve(async (req) => {
       const body: Record<string, unknown> = {
         error: errorText,
         error_code: result.error_code,
+        prompt_name: childPrompt.prompt_name,
         ...(retryAfterS ? { retry_after_s: retryAfterS } : {}),
       };
 

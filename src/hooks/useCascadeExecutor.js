@@ -4,6 +4,39 @@ import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { toast } from '@/components/ui/sonner';
 
+// Helper to get a usable message from a prompt
+const getPromptMessage = (prompt) => {
+  const userPrompt = prompt.input_user_prompt?.trim();
+  const adminPrompt = prompt.input_admin_prompt?.trim();
+  
+  if (userPrompt) return userPrompt;
+  if (adminPrompt) return adminPrompt;
+  
+  // Default fallback - should rarely happen but prevents 400 errors
+  return 'Execute this prompt';
+};
+
+// Pre-flight validation for prompts
+const validatePromptContent = (prompts) => {
+  const issues = [];
+  
+  for (const prompt of prompts) {
+    const userPrompt = prompt.input_user_prompt?.trim();
+    const adminPrompt = prompt.input_admin_prompt?.trim();
+    
+    if (!userPrompt && !adminPrompt) {
+      issues.push({
+        promptRowId: prompt.row_id,
+        promptName: prompt.prompt_name,
+        issue: 'no_content',
+        message: 'No user or admin prompt content',
+      });
+    }
+  }
+  
+  return issues;
+};
+
 export const useCascadeExecutor = () => {
   const supabase = useSupabase();
   const { runConversation } = useConversationRun();
@@ -165,6 +198,16 @@ export const useCascadeExecutor = () => {
       return;
     }
 
+    // Pre-flight validation: check for prompts without content
+    const validationIssues = validatePromptContent(nonExcludedPrompts);
+    if (validationIssues.length > 0) {
+      console.warn('Cascade pre-flight validation issues:', validationIssues);
+      toast.warning(
+        `${validationIssues.length} prompt(s) have no content - using fallback messages`,
+        { description: validationIssues.map(i => i.promptName).join(', ') }
+      );
+    }
+
     // Initialize cascade state with correct count
     startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
 
@@ -225,8 +268,8 @@ export const useCascadeExecutor = () => {
 
           while (!success && retryCount < maxRetries) {
             try {
-              // Build the user message - use input_user_prompt from the prompt
-              const userMessage = prompt.input_user_prompt || '';
+              // Build the user message - fallback to admin prompt or default if empty
+              const userMessage = getPromptMessage(prompt);
 
               // Pass input_admin_prompt as a template variable for system context
               const extendedTemplateVars = {

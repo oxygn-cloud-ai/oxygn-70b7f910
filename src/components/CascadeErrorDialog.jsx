@@ -9,12 +9,47 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, SkipForward, RefreshCw, StopCircle } from 'lucide-react';
+import { AlertTriangle, SkipForward, RefreshCw, StopCircle, FileQuestion, AlertCircle } from 'lucide-react';
+
+// Helper to parse error and provide actionable suggestions
+const getErrorDetails = (error) => {
+  if (!error) return { type: 'unknown', suggestion: null };
+  
+  const errorLower = error.toLowerCase();
+  
+  if (errorLower.includes('no message to send') || errorLower.includes('no_message_content')) {
+    return {
+      type: 'no_content',
+      icon: FileQuestion,
+      suggestion: 'Add content to the user prompt or admin prompt field for this prompt.',
+    };
+  }
+  
+  if (errorLower.includes('rate limit') || errorLower.includes('429')) {
+    return {
+      type: 'rate_limit',
+      icon: AlertCircle,
+      suggestion: 'Rate limited by OpenAI. Click Retry to wait and try again.',
+    };
+  }
+  
+  if (errorLower.includes('timeout') || errorLower.includes('timed out')) {
+    return {
+      type: 'timeout',
+      icon: AlertCircle,
+      suggestion: 'The request timed out. Try again or reduce prompt complexity.',
+    };
+  }
+  
+  return { type: 'unknown', icon: AlertTriangle, suggestion: null };
+};
 
 const CascadeErrorDialog = () => {
   const { error, errorPrompt, resolveError, isRunning } = useCascadeRun();
 
   const isOpen = isRunning && !!error && !!errorPrompt;
+  const errorDetails = getErrorDetails(error);
+  const ErrorIcon = errorDetails.icon || AlertTriangle;
 
   if (!isOpen) return null;
 
@@ -23,7 +58,7 @@ const CascadeErrorDialog = () => {
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
+            <ErrorIcon className="h-5 w-5" />
             Cascade Run Error
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -37,6 +72,13 @@ const CascadeErrorDialog = () => {
                   {error}
                 </p>
               </div>
+              {errorDetails.suggestion && (
+                <div className="p-2 bg-muted/50 rounded-md border">
+                  <p className="text-sm text-muted-foreground">
+                    <strong>Suggestion:</strong> {errorDetails.suggestion}
+                  </p>
+                </div>
+              )}
               <p className="text-sm">
                 How would you like to proceed?
               </p>
