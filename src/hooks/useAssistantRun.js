@@ -73,6 +73,7 @@ export const useAssistantRun = () => {
       threadMode,
       childThreadStrategy,
       existingThreadRowId,
+      template_variables,
       onSuccess,
     }) => {
       if (!supabase || !childPromptRowId) return { response: null };
@@ -88,6 +89,7 @@ export const useAssistantRun = () => {
             thread_mode: threadMode,
             child_thread_strategy: childThreadStrategy,
             existing_thread_row_id: existingThreadRowId,
+            template_variables: template_variables,
           },
         });
 
