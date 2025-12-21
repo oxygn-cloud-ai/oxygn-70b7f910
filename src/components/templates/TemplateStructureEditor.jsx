@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -339,10 +339,25 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
 const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
   const [activeSection, setActiveSection] = useState('prompts');
   const { models } = useModels();
+  
+  // Refs for textarea cursor position tracking
+  const adminPromptRef = useRef(null);
+  const userPromptRef = useRef(null);
+  const cursorPositions = useRef({ input_admin_prompt: 0, input_user_prompt: 0 });
 
   const insertVariable = (field, varName) => {
     const currentValue = node[field] || '';
-    onUpdate({ [field]: currentValue + `{{${varName}}}` });
+    const varText = `{{${varName}}}`;
+    const pos = cursorPositions.current[field] || currentValue.length;
+    const newValue = currentValue.slice(0, pos) + varText + currentValue.slice(pos);
+    onUpdate({ [field]: newValue });
+    
+    // Update cursor position to after inserted variable
+    cursorPositions.current[field] = pos + varText.length;
+  };
+  
+  const handleCursorChange = (field) => (e) => {
+    cursorPositions.current[field] = e.target.selectionStart;
   };
 
   const sections = [
@@ -378,6 +393,9 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
               onUpdate={onUpdate} 
               variableDefinitions={variableDefinitions}
               insertVariable={insertVariable}
+              adminPromptRef={adminPromptRef}
+              userPromptRef={userPromptRef}
+              onCursorChange={handleCursorChange}
             />
           )}
 
@@ -412,7 +430,7 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
 /**
  * Prompts section - name, admin prompt, user prompt, note
  */
-const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable }) => (
+const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, adminPromptRef, userPromptRef, onCursorChange }) => (
   <div className="space-y-4">
     <div className="space-y-2">
       <Label>Prompt Name</Label>
@@ -442,8 +460,15 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable })
         )}
       </div>
       <Textarea
+        ref={adminPromptRef}
         value={node.input_admin_prompt || ''}
-        onChange={(e) => onUpdate({ input_admin_prompt: e.target.value })}
+        onChange={(e) => {
+          onUpdate({ input_admin_prompt: e.target.value });
+          onCursorChange('input_admin_prompt')(e);
+        }}
+        onSelect={onCursorChange('input_admin_prompt')}
+        onClick={onCursorChange('input_admin_prompt')}
+        onKeyUp={onCursorChange('input_admin_prompt')}
         placeholder="System instructions for the AI..."
         rows={6}
         className="font-mono text-sm"
@@ -469,8 +494,15 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable })
         )}
       </div>
       <Textarea
+        ref={userPromptRef}
         value={node.input_user_prompt || ''}
-        onChange={(e) => onUpdate({ input_user_prompt: e.target.value })}
+        onChange={(e) => {
+          onUpdate({ input_user_prompt: e.target.value });
+          onCursorChange('input_user_prompt')(e);
+        }}
+        onSelect={onCursorChange('input_user_prompt')}
+        onClick={onCursorChange('input_user_prompt')}
+        onKeyUp={onCursorChange('input_user_prompt')}
         placeholder="User message template..."
         rows={4}
         className="font-mono text-sm"
