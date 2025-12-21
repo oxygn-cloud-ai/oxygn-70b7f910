@@ -165,12 +165,14 @@ const TemplatePickerDialog = ({
 
           if (createError) {
             console.error('Failed to create conversation record:', createError);
-            return;
+            return null;
           }
 
           console.log('Created conversation record:', conversation.row_id);
+          return conversation.row_id;
         } catch (error) {
           console.error('Error creating conversation:', error);
+          return null;
         }
       };
 
@@ -263,10 +265,28 @@ const TemplatePickerDialog = ({
           throw new Error('Insert succeeded but no data returned');
         }
 
-        // Create conversation for top-level prompts
+        // Create conversation for top-level prompts and copy template attachments
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
           const conversationInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
-          await createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
+          const conversationRowId = await createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
+          
+          // Copy template attachments (Confluence pages) to the new conversation
+          const templateAttachments = structure.attachments?.confluencePages || [];
+          if (conversationRowId && templateAttachments.length > 0) {
+            for (const page of templateAttachments) {
+              try {
+                await supabase.functions.invoke('confluence-manager', {
+                  body: { 
+                    action: 'attach-page', 
+                    pageId: page.page_id,
+                    assistantRowId: conversationRowId,
+                  }
+                });
+              } catch (e) {
+                console.warn('Failed to attach template page:', page.page_title, e);
+              }
+            }
+          }
         }
 
         // Create children recursively with proper ordering

@@ -67,101 +67,51 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-// Handle Confluence tool calls
+// Handle Confluence tool calls - only for attached pages
 async function handleConfluenceTool(
   toolName: string,
   args: any,
-  supabase: any
+  attachedPages: Array<{ page_id: string; page_title: string; content_text: string | null; page_url: string | null }>
 ): Promise<string> {
-  // Fetch Confluence config from settings
-  const { data: settings } = await supabase
-    .from(TABLES.SETTINGS)
-    .select('setting_key, setting_value')
-    .in('setting_key', ['confluence_base_url', 'confluence_email', 'confluence_api_token']);
-
-  const config: Record<string, string> = {};
-  for (const s of settings || []) {
-    config[s.setting_key] = s.setting_value;
-  }
-
-  if (!config.confluence_base_url || !config.confluence_email || !config.confluence_api_token) {
-    return JSON.stringify({ error: 'Confluence not configured. Please set up Confluence credentials in Settings.' });
-  }
-
-  const authHeader = 'Basic ' + btoa(`${config.confluence_email}:${config.confluence_api_token}`);
-
   try {
-    if (toolName === 'confluence_search') {
-      const { query, space_key } = args;
-      let cql = `text ~ "${query}"`;
-      if (space_key) {
-        cql += ` AND space = "${space_key}"`;
-      }
-      
-      const url = `${config.confluence_base_url}/wiki/rest/api/content/search?cql=${encodeURIComponent(cql)}&limit=10`;
-      const response = await fetch(url, {
-        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
-      });
-
-      if (!response.ok) {
-        return JSON.stringify({ error: `Confluence API error: ${response.status}` });
+    if (toolName === 'confluence_list_attached') {
+      if (!attachedPages || attachedPages.length === 0) {
+        return JSON.stringify({ 
+          message: 'No Confluence pages are attached to this conversation. Ask the user to attach pages via the Conversation tab.',
+          pages: []
+        });
       }
 
-      const data = await response.json();
-      const results = (data.results || []).map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        type: r.type,
-        space: r._expandable?.space?.split('/').pop(),
-        url: `${config.confluence_base_url}/wiki${r._links?.webui}`,
+      const pages = attachedPages.map(p => ({
+        id: p.page_id,
+        title: p.page_title,
+        url: p.page_url,
       }));
 
-      return JSON.stringify({ results, total: data.totalSize || results.length });
+      return JSON.stringify({ 
+        message: `${pages.length} Confluence page(s) attached to this conversation.`,
+        pages 
+      });
     }
 
-    if (toolName === 'confluence_read') {
+    if (toolName === 'confluence_read_attached') {
       const { page_id } = args;
-      const url = `${config.confluence_base_url}/wiki/rest/api/content/${page_id}?expand=body.storage,space`;
-      const response = await fetch(url, {
-        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
-      });
-
-      if (!response.ok) {
-        return JSON.stringify({ error: `Confluence API error: ${response.status}` });
+      
+      const page = attachedPages.find(p => p.page_id === page_id);
+      
+      if (!page) {
+        const availableIds = attachedPages.map(p => p.page_id).join(', ');
+        return JSON.stringify({ 
+          error: `Page ${page_id} is not attached to this conversation. Available page IDs: ${availableIds || 'none'}`,
+        });
       }
-
-      const data = await response.json();
-      const contentHtml = data.body?.storage?.value || '';
-      const contentText = htmlToText(contentHtml);
 
       return JSON.stringify({
-        id: data.id,
-        title: data.title,
-        space: data.space?.name,
-        content: contentText.substring(0, 15000),
-        url: `${config.confluence_base_url}/wiki${data._links?.webui}`,
+        id: page.page_id,
+        title: page.page_title,
+        content: page.content_text || '(No content available - page may need to be synced)',
+        url: page.page_url,
       });
-    }
-
-    if (toolName === 'confluence_list_children') {
-      const { page_id } = args;
-      const url = `${config.confluence_base_url}/wiki/rest/api/content/${page_id}/child/page?limit=25`;
-      const response = await fetch(url, {
-        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
-      });
-
-      if (!response.ok) {
-        return JSON.stringify({ error: `Confluence API error: ${response.status}` });
-      }
-
-      const data = await response.json();
-      const children = (data.results || []).map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        url: `${config.confluence_base_url}/wiki${r._links?.webui}`,
-      }));
-
-      return JSON.stringify({ children, total: data.size || children.length });
     }
 
     return JSON.stringify({ error: `Unknown tool: ${toolName}` });
@@ -289,6 +239,19 @@ serve(async (req) => {
 
     console.log('Context included from child prompts:', contextIncluded);
 
+    // Fetch attached Confluence pages for tool access
+    const { data: confluencePages } = await supabase
+      .from(TABLES.CONFLUENCE_PAGES)
+      .select('page_id, page_title, content_text, page_url')
+      .eq('assistant_row_id', assistant_row_id);
+    
+    const attachedPages = (confluencePages || []).map((p: any) => ({
+      page_id: p.page_id,
+      page_title: p.page_title,
+      content_text: p.content_text,
+      page_url: p.page_url,
+    }));
+
     // Find or create OpenAI conversation via thread
     let conversationId: string;
     let threadRowId: string | null = null;
@@ -349,12 +312,14 @@ serve(async (req) => {
 
     const modelId = assistantData.model_override || 'gpt-4o';
 
-    // Build tools array
+    // Build tools array with attached page IDs
+    const attachedConfluencePageIds = attachedPages.map(p => p.page_id);
     const tools = getAllTools({
       codeInterpreterEnabled: assistantData.code_interpreter_enabled || false,
       fileSearchEnabled: assistantData.file_search_enabled || false,
       confluenceEnabled: assistantData.confluence_enabled || false,
       vectorStoreIds: assistantData.vector_store_id ? [assistantData.vector_store_id] : undefined,
+      attachedConfluencePageIds,
     });
 
     // Build input
@@ -422,7 +387,7 @@ serve(async (req) => {
 
           let output: string;
           if (functionName.startsWith('confluence_')) {
-            output = await handleConfluenceTool(functionName, args, supabase);
+            output = await handleConfluenceTool(functionName, args, attachedPages);
           } else {
             output = JSON.stringify({ error: `Unknown function: ${functionName}` });
           }
