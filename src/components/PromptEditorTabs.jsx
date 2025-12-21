@@ -1,8 +1,12 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Bot } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Bot, Play } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { toast } from '@/components/ui/sonner';
+import { useCascadeExecutor } from '@/hooks/useCascadeExecutor';
+import { useCascadeRun } from '@/contexts/CascadeRunContext';
+import { supabase } from '@/integrations/supabase/client';
 import PromptFieldsTab from './tabs/PromptFieldsTab';
 import SettingsTab from './tabs/SettingsTab';
 import VariablesTab from './tabs/VariablesTab';
@@ -22,6 +26,53 @@ const PromptEditorTabs = ({
   parentAssistantRowId = null,
 }) => {
   const [activeTab, setActiveTab] = useState('prompt');
+  const [assistantRowId, setAssistantRowId] = useState(null);
+  const { executeCascade } = useCascadeExecutor();
+  const { isRunning: isCascadeRunning } = useCascadeRun();
+
+  // Fetch assistant row_id for top-level prompts
+  useEffect(() => {
+    const fetchAssistantRowId = async () => {
+      if (!isTopLevel || !selectedItemData?.is_assistant || !selectedItemData?.row_id) {
+        setAssistantRowId(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from(import.meta.env.VITE_ASSISTANTS_TBL)
+          .select('row_id')
+          .eq('prompt_row_id', selectedItemData.row_id)
+          .maybeSingle();
+
+        if (error) throw error;
+        setAssistantRowId(data?.row_id || null);
+      } catch (error) {
+        console.error('Error fetching assistant:', error);
+        setAssistantRowId(null);
+      }
+    };
+
+    fetchAssistantRowId();
+  }, [isTopLevel, selectedItemData?.is_assistant, selectedItemData?.row_id]);
+
+  // Handle cascade run from top-level
+  const handleCascadeRun = useCallback(async () => {
+    if (!selectedItemData?.row_id) {
+      toast.error('No prompt selected');
+      return;
+    }
+    
+    // Use fetched assistantRowId for top-level, or parentAssistantRowId for children
+    const targetAssistantRowId = assistantRowId || parentAssistantRowId;
+    
+    if (!targetAssistantRowId) {
+      toast.error('Conversation not found. Enable Conversation Mode first.');
+      return;
+    }
+    
+    await executeCascade(selectedItemData.row_id, targetAssistantRowId);
+  }, [selectedItemData?.row_id, assistantRowId, parentAssistantRowId, executeCascade]);
 
   // Build tabs dynamically based on whether this is a top-level assistant
   const tabs = useMemo(() => {
@@ -91,12 +142,36 @@ const PromptEditorTabs = ({
             <QuickAccessIcon key={tab.id} tab={tab} />
           ))}
         </div>
-        {selectedItemData?.is_assistant && (
-          <div className="flex items-center gap-1 text-xs text-primary">
-            <Bot className="h-3.5 w-3.5" />
-            <span>Conversation Mode</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Cascade Run button - only for top-level assistants */}
+          {isTopLevel && selectedItemData?.is_assistant && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2.5"
+                    onClick={handleCascadeRun}
+                    disabled={isCascadeRunning}
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    <span className="text-xs">Cascade</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Run all child prompts level by level</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {selectedItemData?.is_assistant && (
+            <div className="flex items-center gap-1 text-xs text-primary">
+              <Bot className="h-3.5 w-3.5" />
+              <span>Conversation Mode</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabs content */}
