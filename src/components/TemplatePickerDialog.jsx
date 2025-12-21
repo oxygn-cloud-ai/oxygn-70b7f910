@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutTemplate, FileText, Search, ArrowRight, ArrowLeft, Plus, Loader2 } from 'lucide-react';
+import { LayoutTemplate, FileText, Search, ArrowRight, ArrowLeft, Plus, Loader2, X } from 'lucide-react';
 import { useTemplates } from '@/hooks/useTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -335,7 +335,15 @@ const TemplatePickerDialog = ({
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClose}
+                title="Cancel"
+                aria-label="Cancel"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </DialogFooter>
           </>
         )}
