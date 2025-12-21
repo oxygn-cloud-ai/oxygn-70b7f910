@@ -238,6 +238,20 @@ const NewPromptChoiceDialog = ({
 
   const templateVariables = selectedTemplate ? extractTemplateVariables(selectedTemplate.structure) : [];
 
+  // Determine which variables are required (no default value)
+  const getVariableHasDefault = (varName) => {
+    if (!selectedTemplate?.variable_definitions) return false;
+    const def = selectedTemplate.variable_definitions.find(d => d.name === varName);
+    return def?.default && def.default.trim() !== '';
+  };
+
+  // Check if all required variables have values
+  const hasValidationErrors = templateVariables.some(varName => {
+    const hasDefault = getVariableHasDefault(varName);
+    const value = variableValues[varName] || '';
+    return !hasDefault && value.trim() === '';
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-[500px]">
@@ -347,19 +361,32 @@ const NewPromptChoiceDialog = ({
           <>
             <ScrollArea className="max-h-[300px] pr-4">
               <div className="space-y-4">
-                {templateVariables.map(varName => (
-                  <div key={varName} className="space-y-2">
-                    <Label htmlFor={varName} className="flex items-center gap-2">
-                      <Badge variant="outline" className="font-mono text-xs">{`{{${varName}}}`}</Badge>
-                    </Label>
-                    <Input
-                      id={varName}
-                      value={variableValues[varName] || ''}
-                      onChange={(e) => handleVariableChange(varName, e.target.value)}
-                      placeholder={`Enter value for ${varName}`}
-                    />
-                  </div>
-                ))}
+                {templateVariables.map(varName => {
+                  const hasDefault = getVariableHasDefault(varName);
+                  const isRequired = !hasDefault;
+                  const value = variableValues[varName] || '';
+                  const showError = isRequired && value.trim() === '';
+                  
+                  return (
+                    <div key={varName} className="space-y-2">
+                      <Label htmlFor={varName} className="flex items-center gap-2">
+                        <Badge variant="outline" className="font-mono text-xs">{`{{${varName}}}`}</Badge>
+                        {isRequired && <span className="text-destructive text-xs">*</span>}
+                        {hasDefault && <span className="text-muted-foreground text-xs">(has default)</span>}
+                      </Label>
+                      <Input
+                        id={varName}
+                        value={value}
+                        onChange={(e) => handleVariableChange(varName, e.target.value)}
+                        placeholder={`Enter value for ${varName}`}
+                        className={showError ? 'border-destructive' : ''}
+                      />
+                      {showError && (
+                        <p className="text-destructive text-xs">This field is required</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
 
@@ -367,7 +394,7 @@ const NewPromptChoiceDialog = ({
               <Button variant="outline" onClick={() => setStep('select')}>Back</Button>
               <Button 
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
-                disabled={isCreating}
+                disabled={isCreating || hasValidationErrors}
               >
                 {isCreating ? (
                   <>
