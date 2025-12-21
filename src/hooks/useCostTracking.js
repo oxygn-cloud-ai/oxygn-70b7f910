@@ -88,8 +88,8 @@ export const useCostTracking = () => {
    * @param {Object} params
    * @param {string} params.promptRowId - The prompt that made the call
    * @param {string} params.model - Model used
-   * @param {Object} params.usage - Token usage from OpenAI response
-   * @param {string} params.responseId - OpenAI response ID
+   * @param {Object} params.usage - Token usage from AI response
+   * @param {string} params.responseId - AI response ID
    * @param {string} params.finishReason - Finish reason
    * @param {number} params.latencyMs - Request latency
    * @param {string} params.promptName - Current prompt name

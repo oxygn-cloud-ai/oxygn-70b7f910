@@ -169,7 +169,7 @@ const SettingField = ({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                   >
-                    OpenAI Documentation
+                    API Documentation
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}

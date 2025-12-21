@@ -54,7 +54,7 @@ export const useAssistantRun = () => {
         toast.success('Run completed');
         return data;
       } catch (error) {
-        console.error('Error running assistant:', error);
+        console.error('Error running conversation:', error);
         toast.error(`Run failed: ${error.message}`);
         return null;
       } finally {

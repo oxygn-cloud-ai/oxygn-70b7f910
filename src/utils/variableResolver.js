@@ -19,7 +19,7 @@
  * - q.cost_total - Total cost (USD)
  * - q.finish_reason - AI finish reason
  * - q.latency_ms - Response latency
- * - q.response_id - OpenAI response ID
+ * - q.response_id - AI response ID
  * - q.timestamp - When the call was made
  * - q.parent.fieldName - Parent prompt fields
  * - q.child[index].fieldName - Child prompt fields

@@ -72,7 +72,7 @@ const ENV_VAR_KEYS = [
   { label: 'Project URL', key: 'VITE_SUPABASE_PROJECT_URL' },
   { label: 'Publishable Key', key: 'VITE_SUPABASE_PUBLISHABLE_KEY' },
   { label: 'API Key', key: 'VITE_SUPABASE_API_KEY' },
-  { label: 'OpenAI URL', key: 'VITE_OPENAI_URL' },
+  { label: 'AI API URL', key: 'VITE_OPENAI_URL' },
   { label: 'Prompts Table', key: 'VITE_PROMPTS_TBL' },
   { label: 'Settings Table', key: 'VITE_SETTINGS_TBL' },
   { label: 'Models Table', key: 'VITE_MODELS_TBL' },
@@ -92,7 +92,7 @@ const ENV_VAR_KEYS = [
 
 // Known secrets (stored in Lovable Cloud, accessible only in edge functions)
 const KNOWN_SECRETS = [
-  { name: 'OPENAI_API_KEY', description: 'OpenAI API key for AI completions' },
+  { name: 'OPENAI_API_KEY', description: 'AI API key for completions' },
   { name: 'SUPABASE_SERVICE_ROLE_KEY', description: 'Supabase service role key (system managed)' },
   { name: 'SUPABASE_DB_URL', description: 'Supabase database URL (system managed)' },
   { name: 'SUPABASE_URL', description: 'Supabase project URL (system managed)' },

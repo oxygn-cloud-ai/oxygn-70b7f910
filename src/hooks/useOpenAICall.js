@@ -142,14 +142,14 @@ export const useOpenAICall = () => {
           requestBody.presence_penalty = parseFloat(projectSettings.presence_penalty) || 0;
         }
 
-        console.log('OpenAI request:', { model: requestBody.model, webSearch: requestBody.web_search_enabled });
+        console.log('AI request:', { model: requestBody.model, webSearch: requestBody.web_search_enabled });
 
         const { data, error } = await supabase.functions.invoke('openai-proxy', {
           body: requestBody,
         });
 
         if (error) {
-          const e = new Error(error.message || 'OpenAI proxy error');
+          const e = new Error(error.message || 'AI proxy error');
           e.status = error.status || error.context?.status || 500;
           e.body = error.context?.body;
           throw e;
@@ -157,7 +157,7 @@ export const useOpenAICall = () => {
 
         const content = data?.choices?.[0]?.message?.content;
         if (!content) {
-          throw new Error('Empty response from OpenAI');
+          throw new Error('Empty response from AI');
         }
 
         // Run success callback with content and full response data (for cost tracking)

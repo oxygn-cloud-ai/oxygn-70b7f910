@@ -278,9 +278,9 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                           <div className="text-xs space-y-1">
                             <div><strong>Local:</strong> {file.original_filename}</div>
                             {file.openai_file_id ? (
-                              <div><strong>OpenAI ID:</strong> {file.openai_file_id}</div>
+                              <div><strong>File ID:</strong> {file.openai_file_id}</div>
                             ) : (
-                              <div className="text-muted-foreground">Not yet uploaded to OpenAI</div>
+                              <div className="text-muted-foreground">Not yet uploaded to vector store</div>
                             )}
                           </div>
                         </TooltipContent>
