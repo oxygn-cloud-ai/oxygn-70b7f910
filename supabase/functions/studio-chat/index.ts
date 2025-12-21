@@ -126,10 +126,10 @@ serve(async (req) => {
 
     console.log('Studio chat request:', { assistant_row_id, user: validation.user?.email });
 
-    // Fetch assistant details with files
+    // Fetch assistant details
     const { data: assistant, error: assistantError } = await supabase
       .from(TABLES.ASSISTANTS)
-      .select(`*, ${FK.ASSISTANTS_PROMPT}(*), ${TABLES.ASSISTANT_FILES}(*)`)
+      .select('*')
       .eq('row_id', assistant_row_id)
       .single();
 
@@ -141,22 +141,30 @@ serve(async (req) => {
       );
     }
 
-    if (!assistant.openai_assistant_id || assistant.status !== 'active') {
+    const assistantData = assistant as any;
+
+    if (!assistantData.openai_assistant_id || assistantData.status !== 'active') {
       return new Response(
         JSON.stringify({ error: 'Assistant is not instantiated. Please instantiate it first.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Fetch assistant files separately
+    const { data: assistantFiles } = await supabase
+      .from(TABLES.ASSISTANT_FILES)
+      .select('*')
+      .eq('assistant_row_id', assistantData.row_id);
+
     // Build child prompt context if enabled
     let additionalInstructions = '';
     const contextIncluded: string[] = [];
 
-    if (include_child_context && assistant.prompt_row_id) {
+    if (include_child_context && assistantData.prompt_row_id) {
       const { data: childPrompts, error: childError } = await supabase
         .from(TABLES.PROMPTS)
         .select('prompt_name, input_admin_prompt, input_user_prompt, note')
-        .eq('parent_row_id', assistant.prompt_row_id)
+        .eq('parent_row_id', assistantData.prompt_row_id)
         .eq('is_deleted', false)
         .order('position', { ascending: true });
 
@@ -247,7 +255,7 @@ serve(async (req) => {
     }
 
     // Build file attachments from uploaded files
-    const files = assistant[TABLES.ASSISTANT_FILES] || [];
+    const files = assistantFiles || [];
     const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
     
     const attachments = uploadedFiles.map((f: any) => ({
@@ -288,7 +296,7 @@ serve(async (req) => {
 
     // Create run with additional instructions from child prompts
     const runBody: Record<string, unknown> = {
-      assistant_id: assistant.openai_assistant_id,
+      assistant_id: assistantData.openai_assistant_id,
     };
 
     if (additionalInstructions) {

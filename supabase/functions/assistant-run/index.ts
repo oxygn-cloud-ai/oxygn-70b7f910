@@ -342,10 +342,10 @@ serve(async (req) => {
       );
     }
 
-    // Fetch assistant config with files
+    // Fetch assistant config
     const { data: assistant, error: assistantError } = await supabase
       .from(TABLES.ASSISTANTS)
-      .select(`*, ${TABLES.ASSISTANT_FILES}(*)`)
+      .select('*')
       .eq('prompt_row_id', parentRowId)
       .single();
 
@@ -356,18 +356,26 @@ serve(async (req) => {
       );
     }
 
-    if (!assistant.openai_assistant_id || assistant.status !== 'active') {
+    const assistantData = assistant as any;
+
+    if (!assistantData.openai_assistant_id || assistantData.status !== 'active') {
       return new Response(
         JSON.stringify({ error: 'Assistant is not active. Please instantiate first.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Fetch assistant files separately
+    const { data: assistantFiles } = await supabase
+      .from(TABLES.ASSISTANT_FILES)
+      .select('*')
+      .eq('assistant_row_id', assistantData.row_id);
+
     // Fetch attached Confluence pages for context injection
     const { data: confluencePages } = await supabase
       .from(TABLES.CONFLUENCE_PAGES)
       .select('page_title, content_text, openai_file_id')
-      .or(`assistant_row_id.eq.${assistant.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
+      .or(`assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
 
     // Build Confluence context from attached pages (non-uploaded ones)
     let confluenceContext = '';
@@ -434,7 +442,7 @@ serve(async (req) => {
       const { data: studioThread } = await supabase
         .from(TABLES.THREADS)
         .select('row_id, openai_thread_id')
-        .eq('assistant_row_id', assistant.row_id)
+        .eq('assistant_row_id', assistantData.row_id)
         .is('child_prompt_row_id', null)
         .eq('is_active', true)
         .order('created_at', { ascending: false })
@@ -472,7 +480,7 @@ serve(async (req) => {
         const { data: savedThread } = await supabase
           .from(TABLES.THREADS)
           .insert({
-            assistant_row_id: assistant.row_id,
+            assistant_row_id: assistantData.row_id,
             child_prompt_row_id: null,
             openai_thread_id: threadId,
             name: `Studio Thread`,
@@ -525,7 +533,7 @@ serve(async (req) => {
         const { data: savedThread } = await supabase
           .from(TABLES.THREADS)
           .insert({
-            assistant_row_id: assistant.row_id,
+            assistant_row_id: assistantData.row_id,
             child_prompt_row_id,
             openai_thread_id: threadId,
             name: `Thread ${new Date().toISOString().split('T')[0]}`,
@@ -562,7 +570,7 @@ serve(async (req) => {
     }
 
     // Build file attachments from uploaded files
-    const files = assistant[TABLES.ASSISTANT_FILES] || [];
+    const files = assistantFiles || [];
     const uploadedFiles = files.filter((f: any) => f.openai_file_id && f.upload_status === 'uploaded');
     
     console.log('Assistant files:', {
@@ -575,7 +583,7 @@ serve(async (req) => {
       })),
     });
     
-    const hasVectorStore = !!assistant.vector_store_id;
+    const hasVectorStore = !!assistantData.vector_store_id;
     const attachments = [
       ...(hasVectorStore ? [] : uploadedFiles.map((f: any) => ({
         file_id: f.openai_file_id,
@@ -586,7 +594,7 @@ serve(async (req) => {
 
     console.log('File handling:', {
       hasVectorStore,
-      vectorStoreId: assistant.vector_store_id,
+      vectorStoreId: assistantData.vector_store_id,
       messageAttachments: attachments.length,
       confluenceAttachments: confluenceFileAttachments.length,
     });
@@ -635,7 +643,7 @@ serve(async (req) => {
           'OpenAI-Beta': 'assistants=v2',
         },
         body: JSON.stringify({
-          assistant_id: assistant.openai_assistant_id,
+          assistant_id: assistantData.openai_assistant_id,
         }),
       }
     );
