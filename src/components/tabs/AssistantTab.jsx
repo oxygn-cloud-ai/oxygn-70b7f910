@@ -167,7 +167,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
             {(settingInfo.details || settingInfo.docUrl) && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                  <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
                     <Info className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
@@ -237,7 +237,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
                     {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
@@ -249,7 +249,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={destroy}>
+                  <Button variant="ghost" size="icon" className="!text-destructive hover:!text-destructive hover:!bg-destructive/10" onClick={destroy}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -289,7 +289,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={syncFiles} disabled={!isActive || isSyncing}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={syncFiles} disabled={!isActive || isSyncing}>
                       <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
@@ -301,7 +301,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild disabled={isUploading}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" asChild disabled={isUploading}>
                         <span><Upload className="h-3 w-3" /></span>
                       </Button>
                     </TooltipTrigger>
@@ -345,7 +345,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => deleteFile(file.row_id)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => deleteFile(file.row_id)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
@@ -430,7 +430,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                   <Label className="text-xs">Default Thread Strategy</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                      <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
                         <Info className="h-3 w-3" />
                       </Button>
                     </PopoverTrigger>
@@ -509,7 +509,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                     <Label>Confluence Live Browsing</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
+                        <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
                           <Info className="h-3 w-3" />
                         </Button>
                       </PopoverTrigger>
@@ -565,7 +565,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50" onClick={instantiate} disabled={isInstantiating}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={instantiate} disabled={isInstantiating}>
                 {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               </Button>
             </TooltipTrigger>
