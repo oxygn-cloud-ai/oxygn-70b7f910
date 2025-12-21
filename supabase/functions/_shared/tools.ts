@@ -2,58 +2,51 @@
 
 /**
  * Confluence tools in Responses API format
+ * These tools only access pages that have been explicitly attached to the conversation.
  * Format: { type: "function", name, description, parameters, strict }
  */
-export function getConfluenceTools() {
+export function getConfluenceTools(attachedPageIds?: string[]) {
+  // If no pages are attached, provide a tool that explains the limitation
+  if (!attachedPageIds || attachedPageIds.length === 0) {
+    return [
+      {
+        type: "function",
+        name: "confluence_list_attached",
+        description: "List all Confluence pages that have been attached to this conversation. No pages are currently attached.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        },
+        strict: true
+      }
+    ];
+  }
+
   return [
     {
       type: "function",
-      name: "confluence_search",
-      description: "Search Confluence documentation for relevant pages. Use this when you need to find information in the team's knowledge base.",
+      name: "confluence_list_attached",
+      description: "List all Confluence pages that have been attached to this conversation. Use this first to see what documentation is available.",
       parameters: {
         type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "Search query to find relevant pages"
-          },
-          space_key: {
-            type: ["string", "null"],
-            description: "Optional: Limit search to a specific Confluence space"
-          }
-        },
-        required: ["query", "space_key"],
+        properties: {},
+        required: [],
         additionalProperties: false
       },
       strict: true
     },
     {
       type: "function",
-      name: "confluence_read",
-      description: "Read the full content of a specific Confluence page. Use this after searching to get detailed information.",
+      name: "confluence_read_attached",
+      description: "Read the full content of an attached Confluence page. You can only read pages that have been attached to this conversation.",
       parameters: {
         type: "object",
         properties: {
           page_id: {
             type: "string",
-            description: "The Confluence page ID to read"
-          }
-        },
-        required: ["page_id"],
-        additionalProperties: false
-      },
-      strict: true
-    },
-    {
-      type: "function",
-      name: "confluence_list_children",
-      description: "List child pages under a specific Confluence page. Use this to explore page hierarchy.",
-      parameters: {
-        type: "object",
-        properties: {
-          page_id: {
-            type: "string",
-            description: "The parent Confluence page ID"
+            description: "The Confluence page ID from the attached pages list"
           }
         },
         required: ["page_id"],
@@ -116,6 +109,7 @@ export function getAllTools(config: {
   confluenceEnabled?: boolean;
   vectorStoreIds?: string[];
   containerFileIds?: string[];
+  attachedConfluencePageIds?: string[];
 }) {
   const builtinTools = getBuiltinTools({
     codeInterpreterEnabled: config.codeInterpreterEnabled,
@@ -124,7 +118,9 @@ export function getAllTools(config: {
     vectorStoreIds: config.vectorStoreIds,
     containerFileIds: config.containerFileIds,
   });
-  const confluenceTools = config.confluenceEnabled ? getConfluenceTools() : [];
+  const confluenceTools = config.confluenceEnabled 
+    ? getConfluenceTools(config.attachedConfluencePageIds) 
+    : [];
   return [...builtinTools, ...confluenceTools];
 }
 

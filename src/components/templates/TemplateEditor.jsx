@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, GitBranch, Variable, Eye, Save, Loader2 } from 'lucide-react';
+import { FileText, GitBranch, Variable, Eye, Save, Loader2, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -9,6 +9,7 @@ import TemplateOverviewTab from './TemplateOverviewTab';
 import TemplateStructureEditor from './TemplateStructureEditor';
 import TemplateVariablesTab from './TemplateVariablesTab';
 import TemplatePreviewTab from './TemplatePreviewTab';
+import TemplateAttachmentsTab from './TemplateAttachmentsTab';
 
 /**
  * Main template editor with tabbed interface
@@ -93,6 +94,7 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
     { id: 'overview', label: 'Overview', icon: FileText },
     { id: 'structure', label: 'Structure', icon: GitBranch },
     { id: 'variables', label: 'Variables', icon: Variable },
+    { id: 'attachments', label: 'Attachments', icon: Paperclip },
     { id: 'preview', label: 'Preview', icon: Eye },
   ];
 
@@ -187,6 +189,13 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
           <TabsContent value="preview" className="h-full m-0 p-4 overflow-auto">
             <TemplatePreviewTab
               template={editedTemplate}
+            />
+          </TabsContent>
+
+          <TabsContent value="attachments" className="h-full m-0 p-4 overflow-auto">
+            <TemplateAttachmentsTab
+              template={editedTemplate}
+              onChange={handleStructureChange}
             />
           </TabsContent>
         </div>
