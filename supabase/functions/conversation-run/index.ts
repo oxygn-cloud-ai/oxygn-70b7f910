@@ -490,17 +490,59 @@ serve(async (req) => {
       page_url: p.page_url,
     }));
 
-    // Build Confluence context from attached pages
-    let confluenceContext = '';
+    // Fetch attached files for direct context injection
+    const { data: assistantFiles } = await supabase
+      .from(TABLES.ASSISTANT_FILES)
+      .select('original_filename, storage_path, mime_type')
+      .eq('assistant_row_id', assistantData.row_id);
 
+    // Build file context from attached files (read text-based files directly)
+    let fileContext = '';
+    if (assistantFiles && assistantFiles.length > 0) {
+      const textMimeTypes = [
+        'text/plain', 'text/markdown', 'text/csv', 'text/html', 'text/xml',
+        'application/json', 'application/xml', 'text/x-markdown'
+      ];
+      
+      for (const file of assistantFiles) {
+        // Only inject text-based files directly
+        const isTextFile = textMimeTypes.some(t => file.mime_type?.startsWith(t)) ||
+          file.original_filename?.match(/\.(txt|md|csv|json|xml|html|yml|yaml|log)$/i);
+        
+        if (isTextFile && file.storage_path) {
+          try {
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from('assistant-files')
+              .download(file.storage_path);
+            
+            if (!downloadError && fileData) {
+              const content = await fileData.text();
+              if (content && content.trim()) {
+                fileContext += `## File: ${file.original_filename}\n${content}\n\n---\n\n`;
+              }
+            }
+          } catch (err) {
+            console.warn('Could not read file:', file.original_filename, err);
+          }
+        }
+      }
+      
+      if (fileContext) {
+        fileContext = `[Attached Files Content]\n${fileContext}`;
+      }
+    }
+
+    // Build Confluence context from ALL attached pages (inject directly for reliability)
+    let confluenceContext = '';
     if (confluencePages && confluencePages.length > 0) {
-      const textPages = confluencePages.filter((p: any) => p.content_text && !p.openai_file_id);
+      // Include ALL pages with content, not just those without openai_file_id
+      const textPages = confluencePages.filter((p: any) => p.content_text);
 
       if (textPages.length > 0) {
         confluenceContext = textPages
           .map((p: any) => `## ${p.page_title}\n${p.content_text}`)
           .join('\n\n---\n\n');
-        confluenceContext = `[Attached Confluence Context]\n${confluenceContext}\n\n---\n\n`;
+        confluenceContext = `[Attached Confluence Pages]\n${confluenceContext}\n\n---\n\n`;
       }
     }
 
@@ -518,6 +560,11 @@ serve(async (req) => {
     let finalMessage = user_message 
       ? applyTemplate(user_message, variables)
       : childPrompt.input_user_prompt || '';
+
+    // Prepend file context if available
+    if (fileContext) {
+      finalMessage = fileContext + finalMessage;
+    }
 
     // Prepend Confluence context if available
     if (confluenceContext) {
