@@ -509,6 +509,7 @@ export type Database = {
           default_child_thread_strategy: string | null
           echo: boolean | null
           echo_on: boolean | null
+          exclude_from_cascade: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
@@ -571,6 +572,7 @@ export type Database = {
           default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
+          exclude_from_cascade?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -633,6 +635,7 @@ export type Database = {
           default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
+          exclude_from_cascade?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -1469,6 +1472,7 @@ export type Database = {
           default_child_thread_strategy: string | null
           echo: boolean | null
           echo_on: boolean | null
+          exclude_from_cascade: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
@@ -1531,6 +1535,7 @@ export type Database = {
           default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
+          exclude_from_cascade?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -1593,6 +1598,7 @@ export type Database = {
           default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
+          exclude_from_cascade?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null

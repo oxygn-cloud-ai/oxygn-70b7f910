@@ -184,7 +184,8 @@ async function runWithResponsesAPI(
   toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean; confluence_enabled: boolean; web_search_enabled: boolean },
   vectorStoreId: string | null,
   apiKey: string,
-  attachedPages: Array<{ page_id: string; page_title: string; content_text: string | null; page_url: string | null }>
+  attachedPages: Array<{ page_id: string; page_title: string; content_text: string | null; page_url: string | null }>,
+  adminPrompt?: string // Optional admin prompt to include as additional system context
 ): Promise<ResponsesAPIResult> {
   const modelId = assistantData.model_override || 'gpt-4o';
   
@@ -204,11 +205,19 @@ async function runWithResponsesAPI(
   // Build input
   const input: any[] = [];
   
-  // Add system instructions if present
+  // Add system instructions if present (from assistant configuration)
   if (assistantData.instructions) {
     input.push({
       role: 'system',
       content: assistantData.instructions,
+    });
+  }
+  
+  // Add admin prompt as additional system context if present
+  if (adminPrompt && adminPrompt.trim()) {
+    input.push({
+      role: 'system',
+      content: adminPrompt.trim(),
     });
   }
   
@@ -608,6 +617,11 @@ serve(async (req) => {
       web_search_enabled: childPrompt.web_search_on || false,
     };
 
+    // Get admin prompt from child prompt (applies template variables)
+    const adminPrompt = childPrompt.input_admin_prompt 
+      ? applyTemplate(childPrompt.input_admin_prompt, variables)
+      : undefined;
+
     const result = await runWithResponsesAPI(
       assistantData,
       finalMessage,
@@ -615,7 +629,8 @@ serve(async (req) => {
       toolConfig,
       assistantData.vector_store_id,
       OPENAI_API_KEY,
-      attachedPages
+      attachedPages,
+      adminPrompt
     );
 
     if (!result.success) {
