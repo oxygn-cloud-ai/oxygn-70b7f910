@@ -1,17 +1,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Accordion } from "@/components/ui/accordion";
-import { Plus, X, FileText, LayoutTemplate } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import TreeItem from './TreeItem';
 import SearchFilter from './SearchFilter';
 import EmptyState from './EmptyState';
-import TemplatePickerDialog from './TemplatePickerDialog';
+import NewPromptChoiceDialog from './NewPromptChoiceDialog';
 
 const TreeView = ({ 
   treeData, 
@@ -28,9 +22,9 @@ const TreeView = ({
   handleDuplicateItem, 
   handleMoveItem 
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showNewPromptChoice, setShowNewPromptChoice] = useState(false);
 
   // Filter tree data based on search and filter
   const filteredData = useMemo(() => {
@@ -92,13 +86,16 @@ const TreeView = ({
     ))
   ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem, refreshTreeData, searchQuery]);
 
+const handleOpenNewPromptDialog = () => {
+    setShowNewPromptChoice(true);
+  };
+
   const handleCreatePlain = () => {
     handleAddItem(null);
   };
 
-  const handleTemplateCreated = async () => {
+  const handlePromptCreated = async () => {
     await refreshTreeData();
-    setShowTemplatePicker(false);
   };
 
   const totalCount = treeData.length;
@@ -117,34 +114,21 @@ const TreeView = ({
             placeholder="Search prompts..."
           />
         </div>
-        <DropdownMenu>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label="Create new prompt"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <p>Create new prompt</p>
-            </TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleCreatePlain}>
-              <FileText className="h-4 w-4 mr-2" />
-              Plain Prompt
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowTemplatePicker(true)}>
-              <LayoutTemplate className="h-4 w-4 mr-2" />
-              From Template
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleOpenNewPromptDialog}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Create new prompt"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Create new prompt</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Stats bar */}
@@ -178,7 +162,7 @@ const TreeView = ({
             description="Create your first prompt to get started with prompt management."
             actionIcon={<Plus className="h-5 w-5" />}
             actionAriaLabel="Create first prompt"
-            onAction={handleCreatePlain}
+            onAction={handleOpenNewPromptDialog}
             tip="Use assistants for conversational AI workflows"
           />
         ) : (
@@ -193,12 +177,13 @@ const TreeView = ({
         )}
       </div>
 
-      {/* Template Picker Dialog */}
-      <TemplatePickerDialog
-        isOpen={showTemplatePicker}
-        onClose={() => setShowTemplatePicker(false)}
+      {/* New Prompt Choice Dialog */}
+      <NewPromptChoiceDialog
+        isOpen={showNewPromptChoice}
+        onClose={() => setShowNewPromptChoice(false)}
         parentId={null}
-        onPromptCreated={handleTemplateCreated}
+        onCreatePlain={handleCreatePlain}
+        onPromptCreated={handlePromptCreated}
       />
     </div>
   );
