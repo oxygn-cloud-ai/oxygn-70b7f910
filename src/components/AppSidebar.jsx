@@ -37,7 +37,7 @@ const settingsSubItems = [
   { id: 'naming', title: 'Prompt Naming', icon: FileText },
   { id: 'models', title: 'AI Models', icon: Bot },
   { id: 'assistants', title: 'Conversation Defaults', icon: Bot },
-  { id: 'openai-assistants', title: 'Conversations', icon: Cpu },
+  { id: 'conversations', title: 'Conversations', icon: Cpu },
   { id: 'confluence', title: 'Confluence', icon: FileStack },
   { id: 'cost-analytics', title: 'Cost Analytics', icon: Database },
   { id: 'database', title: 'Database & Env', icon: Database },
