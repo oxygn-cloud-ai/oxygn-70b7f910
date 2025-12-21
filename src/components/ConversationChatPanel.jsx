@@ -243,8 +243,8 @@ const ConversationChatPanel = ({ promptRowId, promptName, selectedChildPromptId 
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <Bot className="h-8 w-8 opacity-50" />
           </div>
-          <p className="font-medium text-foreground">No Assistant Found</p>
-          <p className="text-sm mt-1">Create an assistant to start chatting</p>
+          <p className="font-medium text-foreground">No Conversation Found</p>
+          <p className="text-sm mt-1">Create a conversation to start chatting</p>
         </div>
       </div>
     );
@@ -289,7 +289,7 @@ const ConversationChatPanel = ({ promptRowId, promptName, selectedChildPromptId 
         isSending={isSending}
         disabled={false}
         placeholder={`Message ${promptName || 'AI'}...`}
-        assistantName={promptName || 'AI'}
+        conversationName={promptName || 'AI'}
         contextItems={contextItems}
         childPromptsCount={childPromptsCount}
         onToggleThreads={() => setIsThreadsOpen(true)}

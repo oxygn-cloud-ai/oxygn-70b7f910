@@ -11,7 +11,7 @@ const suggestedPrompts = [
   "Give me some examples",
 ];
 
-const EmptyChat = ({ assistantName, onSendSuggestion, childPromptsCount = 0 }) => {
+const EmptyChat = ({ conversationName, onSendSuggestion, childPromptsCount = 0 }) => {
   return (
     <div className="h-full flex items-center justify-center p-8">
       <div className="text-center max-w-md">
@@ -47,7 +47,7 @@ const EmptyChat = ({ assistantName, onSendSuggestion, childPromptsCount = 0 }) =
 
         {/* Title */}
         <h2 className="text-xl font-semibold text-foreground mb-2">
-          Chat with {assistantName}
+          Chat with {conversationName}
         </h2>
         
         <p className="text-sm text-muted-foreground mb-6">

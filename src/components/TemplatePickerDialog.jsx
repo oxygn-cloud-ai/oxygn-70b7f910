@@ -142,8 +142,8 @@ const TemplatePickerDialog = ({
         return data?.[0]?.position || 0;
       };
 
-      // Helper to create assistant for top-level prompts (Responses API - no instantiation needed)
-      const createAssistant = async (promptRowId, promptName, instructions = '') => {
+      // Helper to create conversation for top-level prompts (Responses API - no instantiation needed)
+      const createConversation = async (promptRowId, promptName, instructions = '') => {
         try {
           const insertData = {
             prompt_row_id: promptRowId,
@@ -157,20 +157,20 @@ const TemplatePickerDialog = ({
             insertData.instructions = instructions;
           }
           
-          const { data: assistant, error: createError } = await supabase
+          const { data: conversation, error: createError } = await supabase
             .from(import.meta.env.VITE_ASSISTANTS_TBL)
             .insert([insertData])
             .select()
             .maybeSingle();
 
           if (createError) {
-            console.error('Failed to create assistant record:', createError);
+            console.error('Failed to create conversation record:', createError);
             return;
           }
 
-          console.log('Created assistant record:', assistant.row_id);
+          console.log('Created conversation record:', conversation.row_id);
         } catch (error) {
-          console.error('Error creating assistant:', error);
+          console.error('Error creating conversation:', error);
         }
       };
 
@@ -263,10 +263,10 @@ const TemplatePickerDialog = ({
           throw new Error('Insert succeeded but no data returned');
         }
 
-        // Create assistant for top-level prompts
+        // Create conversation for top-level prompts
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
-          await createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
+          const conversationInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
+          await createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
         }
 
         // Create children recursively with proper ordering

@@ -18,7 +18,7 @@ const ChatPanel = ({
   isSending,
   disabled,
   placeholder,
-  assistantName = 'Assistant',
+  conversationName = 'AI',
   contextItems = [],
   onRemoveContext,
   childPromptsCount = 0,
@@ -50,7 +50,7 @@ const ChatPanel = ({
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
             <Bot className="h-6 w-6 opacity-50" />
           </div>
-          <p className="font-medium">Select an assistant to start chatting</p>
+          <p className="font-medium">Select a conversation to start chatting</p>
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ const ChatPanel = ({
             />
           </div>
           <div>
-            <h3 className="text-xs font-semibold text-foreground">{assistantName}</h3>
+            <h3 className="text-xs font-semibold text-foreground">{conversationName}</h3>
             <p className="text-[9px] text-muted-foreground">Online</p>
           </div>
         </div>
@@ -113,7 +113,7 @@ const ChatPanel = ({
           </div>
         ) : messages.length === 0 ? (
           <EmptyChat 
-            assistantName={assistantName} 
+            conversationName={conversationName} 
             onSendSuggestion={handleSendSuggestion}
             childPromptsCount={childPromptsCount}
           />
@@ -124,10 +124,10 @@ const ChatPanel = ({
                 key={message.id} 
                 message={message} 
                 userProfile={userProfile}
-                assistantName={assistantName}
+                conversationName={conversationName}
               />
             ))}
-            {isSending && <ThinkingIndicator assistantName={assistantName} />}
+            {isSending && <ThinkingIndicator conversationName={conversationName} />}
           </div>
         )}
       </ScrollArea>

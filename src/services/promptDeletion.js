@@ -13,35 +13,35 @@ export const deletePrompt = async (supabase, id) => {
     if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
     if (!prompt) return; // Nothing to delete
 
-    // If top-level, delete the assistant record (no OpenAI call needed for Responses API)
+    // If top-level, delete the conversation record (no OpenAI call needed for Responses API)
     if (!prompt.parent_row_id) {
-      // Find and delete the assistant linked to this prompt
-      const { data: assistant } = await supabase
+      // Find and delete the conversation linked to this prompt
+      const { data: conversation } = await supabase
         .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .select('row_id')
         .eq('prompt_row_id', id)
         .maybeSingle();
 
-      if (assistant?.row_id) {
+      if (conversation?.row_id) {
         // Delete associated files first
         await supabase
           .from(import.meta.env.VITE_ASSISTANT_FILES_TBL || 'q_assistant_files')
           .delete()
-          .eq('assistant_row_id', assistant.row_id);
+          .eq('assistant_row_id', conversation.row_id);
         
         // Delete associated threads
         await supabase
           .from(import.meta.env.VITE_THREADS_TBL || 'q_threads')
           .delete()
-          .eq('assistant_row_id', assistant.row_id);
+          .eq('assistant_row_id', conversation.row_id);
 
-        // Delete the assistant record
+        // Delete the conversation record
         await supabase
           .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .delete()
-          .eq('row_id', assistant.row_id);
+          .eq('row_id', conversation.row_id);
           
-        console.log('Deleted assistant record for prompt:', id);
+        console.log('Deleted conversation record for prompt:', id);
       }
     }
 

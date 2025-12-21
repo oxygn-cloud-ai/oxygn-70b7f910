@@ -34,7 +34,7 @@ const PromptEditorTabs = ({
     
     // Add Conversation tab for top-level prompts that are conversations
     if (isTopLevel && selectedItemData?.is_assistant) {
-      baseTabs.push({ id: 'assistant', label: 'Conversation', icon: Bot, description: 'Conversation configuration' });
+      baseTabs.push({ id: 'conversation', label: 'Conversation', icon: Bot, description: 'Conversation configuration' });
     }
     
     return baseTabs;

@@ -513,7 +513,7 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
   const sections = [
     { id: 'prompts', label: 'Prompts', icon: MessageSquare },
     { id: 'model', label: 'Model Settings', icon: Settings2 },
-    { id: 'assistant', label: 'Conversation', icon: Bot },
+    { id: 'conversation', label: 'Conversation', icon: Bot },
     { id: 'tools', label: 'Tools', icon: Wrench },
   ];
 

@@ -86,7 +86,7 @@ const TreeView = ({
 
     const filterItem = (item) => {
       // Check filter type
-      if (filterType === 'assistant' && !item.is_assistant) return false;
+      if (filterType === 'conversation' && !item.is_assistant) return false;
       if (filterType === 'standard' && item.is_assistant) return false;
 
       // Check search query

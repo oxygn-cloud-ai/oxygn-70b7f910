@@ -4,7 +4,7 @@ import { ChevronRight, Home, Folder, Settings, HeartPulse, Link } from 'lucide-r
 
 const routeConfig = {
   '/': { title: 'Home', icon: Home, description: 'Welcome to Qonsol Policy Builder' },
-  '/projects': { title: 'Prompts', icon: Folder, description: 'Manage your prompts and assistants' },
+  '/projects': { title: 'Prompts', icon: Folder, description: 'Manage your prompts and conversations' },
   '/settings': { title: 'Settings', icon: Settings, description: 'Configure application settings' },
   '/health': { title: 'Health Check', icon: HeartPulse, description: 'System health and diagnostics' },
   '/links': { title: 'Links', icon: Link, description: 'Manage links' },

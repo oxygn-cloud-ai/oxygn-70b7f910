@@ -13,7 +13,7 @@ import { toast } from '@/components/ui/sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 
-const MessageBubble = ({ message, userProfile, assistantName, onRegenerate }) => {
+const MessageBubble = ({ message, userProfile, conversationName, onRegenerate }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const [feedback, setFeedback] = useState(null);
@@ -76,7 +76,7 @@ const MessageBubble = ({ message, userProfile, assistantName, onRegenerate }) =>
         {/* Header */}
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold text-foreground">
-            {isUser ? (userProfile?.display_name || 'You') : (assistantName || 'AI')}
+            {isUser ? (userProfile?.display_name || 'You') : (conversationName || 'AI')}
           </span>
           {timestamp && (
             <span className="text-[10px] text-muted-foreground">
