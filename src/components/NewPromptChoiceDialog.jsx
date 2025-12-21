@@ -152,6 +152,39 @@ const NewPromptChoiceDialog = ({
       const vars = values || variableValues;
       const templateRowId = template?.row_id || selectedTemplate?.row_id;
 
+      // Fetch model defaults from settings (same as addPrompt does)
+      const { data: settingsData } = await supabase
+        .from(import.meta.env.VITE_SETTINGS_TBL)
+        .select('setting_value')
+        .eq('setting_key', 'default_model')
+        .maybeSingle();
+
+      const defaultModelId = settingsData?.setting_value;
+
+      let modelDefaults = {};
+      if (defaultModelId) {
+        const { data: defaultsData } = await supabase
+          .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
+          .select('*')
+          .eq('model_id', defaultModelId)
+          .maybeSingle();
+
+        if (defaultsData) {
+          const defaultSettingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+            'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
+          
+          defaultSettingFields.forEach(field => {
+            if (defaultsData[`${field}_on`]) {
+              modelDefaults[field] = defaultsData[field];
+              modelDefaults[`${field}_on`] = true;
+            }
+          });
+          
+          modelDefaults.model = defaultModelId;
+          modelDefaults.model_on = true;
+        }
+      }
+
       const getMaxPosition = async (parentRowId) => {
         let query = supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -194,12 +227,27 @@ const NewPromptChoiceDialog = ({
             return;
           }
 
-          supabase.functions.invoke('assistant-manager', {
+          console.log('Created assistant record:', assistant.row_id);
+
+          // Instantiate in OpenAI (await result for better error handling)
+          const { data: instantiateResult, error: instantiateError } = await supabase.functions.invoke('assistant-manager', {
             body: {
               action: 'instantiate',
               assistant_row_id: assistant.row_id,
             },
-          }).catch(err => console.error('Assistant instantiation error:', err));
+          });
+
+          if (instantiateError) {
+            console.error('Failed to instantiate assistant:', instantiateError);
+            return;
+          }
+
+          if (instantiateResult?.error) {
+            console.error('Assistant instantiation error:', instantiateResult.error);
+            return;
+          }
+
+          console.log('Instantiated assistant in OpenAI:', instantiateResult?.assistant_id);
         } catch (error) {
           console.error('Error creating assistant:', error);
         }
@@ -240,6 +288,7 @@ const NewPromptChoiceDialog = ({
           'q.parent.prompt.name': parentPromptName,
         };
 
+        // Start with model defaults, then overlay template-specific settings
         const insertData = {
           parent_row_id: parentRowId,
           prompt_name: promptName,
@@ -250,9 +299,10 @@ const NewPromptChoiceDialog = ({
           template_row_id: templateRowId,
           position: newPosition,
           is_deleted: false,
+          ...modelDefaults, // Apply system model defaults first
         };
 
-        // Copy all model and settings fields from template
+        // Override with template-specific model/settings fields if present
         const settingsFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',

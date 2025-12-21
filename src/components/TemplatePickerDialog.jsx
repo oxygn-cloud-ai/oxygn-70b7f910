@@ -90,6 +90,39 @@ const TemplatePickerDialog = ({
       const vars = values || variableValues;
       const templateRowId = template?.row_id || selectedTemplate?.row_id;
 
+      // Fetch model defaults from settings (same as addPrompt does)
+      const { data: settingsData } = await supabase
+        .from(import.meta.env.VITE_SETTINGS_TBL)
+        .select('setting_value')
+        .eq('setting_key', 'default_model')
+        .maybeSingle();
+
+      const defaultModelId = settingsData?.setting_value;
+
+      let modelDefaults = {};
+      if (defaultModelId) {
+        const { data: defaultsData } = await supabase
+          .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
+          .select('*')
+          .eq('model_id', defaultModelId)
+          .maybeSingle();
+
+        if (defaultsData) {
+          const defaultSettingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+            'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
+          
+          defaultSettingFields.forEach(field => {
+            if (defaultsData[`${field}_on`]) {
+              modelDefaults[field] = defaultsData[field];
+              modelDefaults[`${field}_on`] = true;
+            }
+          });
+          
+          modelDefaults.model = defaultModelId;
+          modelDefaults.model_on = true;
+        }
+      }
+
       // Helper to get max position at a level
       const getMaxPosition = async (parentRowId) => {
         let query = supabase
@@ -134,13 +167,27 @@ const TemplatePickerDialog = ({
             return;
           }
 
-          // Instantiate in OpenAI (fire-and-forget)
-          supabase.functions.invoke('assistant-manager', {
+          console.log('Created assistant record:', assistant.row_id);
+
+          // Instantiate in OpenAI
+          const { data: instantiateResult, error: instantiateError } = await supabase.functions.invoke('assistant-manager', {
             body: {
               action: 'instantiate',
               assistant_row_id: assistant.row_id,
             },
-          }).catch(err => console.error('Assistant instantiation error:', err));
+          });
+
+          if (instantiateError) {
+            console.error('Failed to instantiate assistant:', instantiateError);
+            return;
+          }
+
+          if (instantiateResult?.error) {
+            console.error('Assistant instantiation error:', instantiateResult.error);
+            return;
+          }
+
+          console.log('Instantiated assistant in OpenAI:', instantiateResult?.assistant_id);
         } catch (error) {
           console.error('Error creating assistant:', error);
         }
@@ -160,7 +207,7 @@ const TemplatePickerDialog = ({
           promptName = replaceVariables(promptStructure.prompt_name, vars);
         }
 
-        // Build the insert object with all template fields
+        // Start with model defaults, then overlay template-specific settings
         const insertData = {
           parent_row_id: parentRowId,
           prompt_name: promptName,
@@ -171,9 +218,10 @@ const TemplatePickerDialog = ({
           template_row_id: templateRowId,
           position: newPosition,
           is_deleted: false,
+          ...modelDefaults, // Apply system model defaults first
         };
 
-        // Copy model settings if present
+        // Override with template-specific model/settings fields if present
         const modelFields = [
           'model', 'model_on',
           'temperature', 'temperature_on',
@@ -184,6 +232,9 @@ const TemplatePickerDialog = ({
           'stop', 'stop_on',
           'response_format', 'response_format_on',
           'n', 'n_on',
+          'logit_bias', 'logit_bias_on',
+          'o_user', 'o_user_on',
+          'stream', 'stream_on',
         ];
         
         modelFields.forEach(field => {
@@ -212,19 +263,29 @@ const TemplatePickerDialog = ({
         if (promptStructure.web_search_on !== undefined) {
           insertData.web_search_on = promptStructure.web_search_on;
         }
+        if (promptStructure.confluence_enabled !== undefined) {
+          insertData.confluence_enabled = promptStructure.confluence_enabled;
+        }
 
         const { data, error } = await supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .insert(insertData)
           .select()
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Prompt insert error:', error);
+          throw new Error(`Insert failed: ${error.message} (code: ${error.code})`);
+        }
+        
+        if (!data) {
+          throw new Error('Insert succeeded but no data returned');
+        }
 
         // Create assistant for top-level prompts
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
           const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
-          createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
+          await createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
         }
 
         // Create children recursively with proper ordering
@@ -245,7 +306,8 @@ const TemplatePickerDialog = ({
       handleClose();
     } catch (error) {
       console.error('Error creating from template:', error);
-      toast.error('Failed to create prompt from template');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to create prompt: ${errorMessage}`);
     } finally {
       setIsCreating(false);
     }
