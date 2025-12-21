@@ -64,35 +64,134 @@ const TemplatePickerDialog = ({
     try {
       const structure = template?.structure || selectedTemplate?.structure;
       const vars = values || variableValues;
+      const templateRowId = template?.row_id || selectedTemplate?.row_id;
+
+      // Helper to get max position at a level
+      const getMaxPosition = async (parentRowId) => {
+        let query = supabase
+          .from(import.meta.env.VITE_PROMPTS_TBL)
+          .select('position')
+          .eq('is_deleted', false)
+          .order('position', { ascending: false })
+          .limit(1);
+        
+        if (parentRowId === null) {
+          query = query.is('parent_row_id', null);
+        } else {
+          query = query.eq('parent_row_id', parentRowId);
+        }
+        
+        const { data } = await query;
+        return data?.[0]?.position || 0;
+      };
+
+      // Helper to create and instantiate assistant for top-level prompts
+      const createAssistant = async (promptRowId, promptName) => {
+        try {
+          const { data: assistant, error: createError } = await supabase
+            .from(import.meta.env.VITE_ASSISTANTS_TBL)
+            .insert([{
+              prompt_row_id: promptRowId,
+              name: promptName,
+              status: 'not_instantiated',
+              use_global_tool_defaults: true,
+            }])
+            .select()
+            .maybeSingle();
+
+          if (createError) {
+            console.error('Failed to create assistant record:', createError);
+            return;
+          }
+
+          // Instantiate in OpenAI (fire-and-forget)
+          supabase.functions.invoke('assistant-manager', {
+            body: {
+              action: 'instantiate',
+              assistant_row_id: assistant.row_id,
+            },
+          }).catch(err => console.error('Assistant instantiation error:', err));
+        } catch (error) {
+          console.error('Error creating assistant:', error);
+        }
+      };
 
       // Recursive function to create prompts from structure
-      const createPromptFromStructure = async (promptStructure, parentRowId) => {
+      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0) => {
+        const maxPosition = await getMaxPosition(parentRowId);
+        const newPosition = maxPosition + 1000000 + positionOffset;
+        const isTopLevel = parentRowId === null;
+
+        // Build the insert object with all template fields
+        const insertData = {
+          parent_row_id: parentRowId,
+          prompt_name: replaceVariables(promptStructure.prompt_name, vars),
+          input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, vars),
+          input_user_prompt: replaceVariables(promptStructure.input_user_prompt, vars),
+          note: replaceVariables(promptStructure.note, vars),
+          owner_id: user?.id,
+          template_row_id: templateRowId,
+          position: newPosition,
+          is_deleted: false,
+        };
+
+        // Copy model settings if present
+        const modelFields = [
+          'model', 'model_on',
+          'temperature', 'temperature_on',
+          'max_tokens', 'max_tokens_on',
+          'top_p', 'top_p_on',
+          'frequency_penalty', 'frequency_penalty_on',
+          'presence_penalty', 'presence_penalty_on',
+          'stop', 'stop_on',
+          'response_format', 'response_format_on',
+          'n', 'n_on',
+        ];
+        
+        modelFields.forEach(field => {
+          if (promptStructure[field] !== undefined && promptStructure[field] !== null) {
+            insertData[field] = promptStructure[field];
+          }
+        });
+
+        // Copy assistant/thread settings
+        if (promptStructure.is_assistant !== undefined) {
+          insertData.is_assistant = promptStructure.is_assistant;
+        } else if (isTopLevel) {
+          // Default top-level prompts to assistant mode
+          insertData.is_assistant = true;
+        }
+
+        if (promptStructure.thread_mode) {
+          insertData.thread_mode = promptStructure.thread_mode;
+        }
+        if (promptStructure.child_thread_strategy) {
+          insertData.child_thread_strategy = promptStructure.child_thread_strategy;
+        }
+        if (promptStructure.default_child_thread_strategy) {
+          insertData.default_child_thread_strategy = promptStructure.default_child_thread_strategy;
+        }
+        if (promptStructure.web_search_on !== undefined) {
+          insertData.web_search_on = promptStructure.web_search_on;
+        }
+
         const { data, error } = await supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
-          .insert({
-            parent_row_id: parentRowId,
-            prompt_name: replaceVariables(promptStructure.prompt_name, vars),
-            input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, vars),
-            input_user_prompt: replaceVariables(promptStructure.input_user_prompt, vars),
-            model: promptStructure.model,
-            temperature: promptStructure.temperature,
-            max_tokens: promptStructure.max_tokens,
-            top_p: promptStructure.top_p,
-            frequency_penalty: promptStructure.frequency_penalty,
-            presence_penalty: promptStructure.presence_penalty,
-            is_assistant: promptStructure.is_assistant || false,
-            owner_id: user?.id,
-            template_row_id: template?.row_id || selectedTemplate?.row_id,
-          })
+          .insert(insertData)
           .select()
           .single();
 
         if (error) throw error;
 
-        // Create children recursively
+        // Create assistant for top-level prompts
+        if (isTopLevel && (insertData.is_assistant || insertData.is_assistant === undefined)) {
+          createAssistant(data.row_id, insertData.prompt_name);
+        }
+
+        // Create children recursively with proper ordering
         if (promptStructure.children?.length > 0) {
-          for (const child of promptStructure.children) {
-            await createPromptFromStructure(child, data.row_id);
+          for (let i = 0; i < promptStructure.children.length; i++) {
+            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000);
           }
         }
 
