@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Toaster as Sonner, toast as sonnerToast } from "sonner"
+import { AlertCircle, CheckCircle2, Info, AlertTriangle, Loader2 } from "lucide-react"
 
 // Toast history callback - set by ToastHistoryConnector
 let toastHistoryCallback = null;
@@ -126,15 +127,25 @@ const Toaster = ({ ...props }) => {
       theme={theme}
       position="bottom-left"
       className="toaster group"
+      closeButton={false}
+      icons={{
+        success: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+        error: <AlertCircle className="h-4 w-4 text-destructive" />,
+        warning: <AlertTriangle className="h-4 w-4 text-amber-500" />,
+        info: <Info className="h-4 w-4 text-primary" />,
+        loading: <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />,
+      }}
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
-          actionButton:
-            "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-          cancelButton:
-            "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
+            "group toast group-[.toaster]:bg-card group-[.toaster]:text-foreground group-[.toaster]:border group-[.toaster]:border-border group-[.toaster]:shadow-warm-lg group-[.toaster]:rounded-lg group-[.toaster]:py-3 group-[.toaster]:px-4",
+          title: "group-[.toast]:text-sm group-[.toast]:font-medium",
+          description: "group-[.toast]:text-xs group-[.toast]:text-muted-foreground group-[.toast]:mt-0.5",
+          icon: "group-[.toast]:mr-2.5",
+          error: "group-[.toaster]:border-destructive/30 group-[.toaster]:bg-destructive/5",
+          success: "group-[.toaster]:border-emerald-500/30 group-[.toaster]:bg-emerald-500/5",
+          warning: "group-[.toaster]:border-amber-500/30 group-[.toaster]:bg-amber-500/5",
+          info: "group-[.toaster]:border-primary/30 group-[.toaster]:bg-primary/5",
         },
       }}
       {...props}
