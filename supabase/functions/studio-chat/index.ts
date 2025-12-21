@@ -46,12 +46,134 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
-// Helper function to wait for run completion
+// Helper to strip HTML tags
+function htmlToText(html: string): string {
+  return html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Handle Confluence tool calls
+async function handleConfluenceTool(
+  toolName: string,
+  args: any,
+  supabase: any
+): Promise<string> {
+  // Fetch Confluence config from settings
+  const { data: settings } = await supabase
+    .from(TABLES.SETTINGS)
+    .select('setting_key, setting_value')
+    .in('setting_key', ['confluence_base_url', 'confluence_email', 'confluence_api_token']);
+
+  const config: Record<string, string> = {};
+  for (const s of settings || []) {
+    config[s.setting_key] = s.setting_value;
+  }
+
+  if (!config.confluence_base_url || !config.confluence_email || !config.confluence_api_token) {
+    return JSON.stringify({ error: 'Confluence not configured. Please set up Confluence credentials in Settings.' });
+  }
+
+  const authHeader = 'Basic ' + btoa(`${config.confluence_email}:${config.confluence_api_token}`);
+
+  try {
+    if (toolName === 'confluence_search') {
+      const { query, space_key } = args;
+      let cql = `text ~ "${query}"`;
+      if (space_key) {
+        cql += ` AND space = "${space_key}"`;
+      }
+      
+      const url = `${config.confluence_base_url}/wiki/rest/api/content/search?cql=${encodeURIComponent(cql)}&limit=10`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) {
+        return JSON.stringify({ error: `Confluence API error: ${response.status}` });
+      }
+
+      const data = await response.json();
+      const results = (data.results || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        type: r.type,
+        space: r._expandable?.space?.split('/').pop(),
+        url: `${config.confluence_base_url}/wiki${r._links?.webui}`,
+      }));
+
+      return JSON.stringify({ results, total: data.totalSize || results.length });
+    }
+
+    if (toolName === 'confluence_read') {
+      const { page_id } = args;
+      const url = `${config.confluence_base_url}/wiki/rest/api/content/${page_id}?expand=body.storage,space`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) {
+        return JSON.stringify({ error: `Confluence API error: ${response.status}` });
+      }
+
+      const data = await response.json();
+      const contentHtml = data.body?.storage?.value || '';
+      const contentText = htmlToText(contentHtml);
+
+      return JSON.stringify({
+        id: data.id,
+        title: data.title,
+        space: data.space?.name,
+        content: contentText.substring(0, 15000),
+        url: `${config.confluence_base_url}/wiki${data._links?.webui}`,
+      });
+    }
+
+    if (toolName === 'confluence_list_children') {
+      const { page_id } = args;
+      const url = `${config.confluence_base_url}/wiki/rest/api/content/${page_id}/child/page?limit=25`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': authHeader, 'Accept': 'application/json' },
+      });
+
+      if (!response.ok) {
+        return JSON.stringify({ error: `Confluence API error: ${response.status}` });
+      }
+
+      const data = await response.json();
+      const children = (data.results || []).map((r: any) => ({
+        id: r.id,
+        title: r.title,
+        url: `${config.confluence_base_url}/wiki${r._links?.webui}`,
+      }));
+
+      return JSON.stringify({ children, total: data.size || children.length });
+    }
+
+    return JSON.stringify({ error: `Unknown tool: ${toolName}` });
+  } catch (error) {
+    console.error('Confluence tool error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return JSON.stringify({ error: `Confluence request failed: ${message}` });
+  }
+}
+
+// Poll for run completion with function call handling
 async function waitForRunCompletion(
   threadId: string,
   runId: string,
   apiKey: string,
-  maxAttempts = 60,
+  supabase: any,
+  maxAttempts = 120,
   intervalMs = 1000
 ): Promise<{ status: string; error?: string }> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -74,11 +196,65 @@ async function waitForRunCompletion(
     const run = await response.json();
     console.log(`Run status (attempt ${attempt + 1}):`, run.status);
 
-    if (['completed', 'failed', 'cancelled', 'expired'].includes(run.status)) {
-      return {
-        status: run.status,
-        error: run.last_error?.message,
-      };
+    if (run.status === 'completed') {
+      return { status: 'completed' };
+    }
+    if (run.status === 'failed') {
+      return { status: 'failed', error: run.last_error?.message || 'Run failed' };
+    }
+    if (run.status === 'cancelled') {
+      return { status: 'cancelled', error: 'Run was cancelled' };
+    }
+    if (run.status === 'expired') {
+      return { status: 'expired', error: 'Run expired' };
+    }
+
+    // Handle function calls (requires_action)
+    if (run.status === 'requires_action' && run.required_action?.type === 'submit_tool_outputs') {
+      const toolCalls = run.required_action.submit_tool_outputs.tool_calls;
+      console.log('Processing tool calls:', toolCalls.length);
+
+      const toolOutputs = [];
+      for (const toolCall of toolCalls) {
+        const functionName = toolCall.function.name;
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        console.log('Executing tool:', functionName, args);
+
+        let output: string;
+        if (functionName.startsWith('confluence_')) {
+          output = await handleConfluenceTool(functionName, args, supabase);
+        } else {
+          output = JSON.stringify({ error: `Unknown function: ${functionName}` });
+        }
+
+        toolOutputs.push({
+          tool_call_id: toolCall.id,
+          output,
+        });
+      }
+
+      // Submit tool outputs
+      const submitResponse = await fetch(
+        `https://api.openai.com/v1/threads/${threadId}/runs/${runId}/submit_tool_outputs`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2',
+          },
+          body: JSON.stringify({ tool_outputs: toolOutputs }),
+        }
+      );
+
+      if (!submitResponse.ok) {
+        const error = await submitResponse.json();
+        console.error('Failed to submit tool outputs:', error);
+        return { status: 'error', error: 'Failed to submit tool outputs' };
+      }
+
+      console.log('Submitted tool outputs, continuing...');
     }
 
     await new Promise(resolve => setTimeout(resolve, intervalMs));
@@ -325,8 +501,8 @@ serve(async (req) => {
     const run = await runResponse.json();
     console.log('Run created:', run.id);
 
-    // Wait for completion
-    const completion = await waitForRunCompletion(openaiThreadId, run.id, openAIApiKey);
+    // Wait for completion with tool handling
+    const completion = await waitForRunCompletion(openaiThreadId, run.id, openAIApiKey, supabase);
 
     if (completion.status !== 'completed') {
       return new Response(
