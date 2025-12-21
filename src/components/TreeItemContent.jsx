@@ -72,10 +72,16 @@ export const TreeItemContent = ({
     );
   };
 
+  // Determine background color class for gradient matching
+  const getBgColorClass = () => {
+    if (isActive && !isDeleting) return 'from-transparent to-primary/10';
+    return 'from-transparent to-background';
+  };
+
   return (
     <div
       className={`
-        group flex items-center
+        group relative flex items-center
         py-1.5 px-2 rounded-md
         transition-all duration-150
         ${isDeleting ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
@@ -89,7 +95,8 @@ export const TreeItemContent = ({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => !isDeleting && setActiveItem(item.id)}
     >
-      <div className="flex items-center gap-1.5 min-w-0">
+      {/* Main content - truncates when needed */}
+      <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
         {/* Expand/Collapse Button */}
         {hasChildren ? (
           <Button
@@ -148,7 +155,7 @@ export const TreeItemContent = ({
         ) : (
           <span 
             className={`
-              truncate text-sm font-medium
+              truncate text-sm font-medium flex-1 min-w-0
               ${isDeleting 
                 ? 'text-muted-foreground/50' 
                 : isActive 
@@ -170,7 +177,7 @@ export const TreeItemContent = ({
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="ml-1 inline-flex items-center gap-1 h-5 px-1.5 text-[10px] font-medium rounded-sm border border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-primary transition-colors bg-transparent"
+                  className="ml-1 inline-flex items-center gap-1 h-5 px-1.5 text-[10px] font-medium rounded-sm border border-muted-foreground/30 text-muted-foreground cursor-pointer hover:border-primary/50 hover:text-primary transition-colors bg-transparent flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
                   title="Click to change owner"
                 >
@@ -202,7 +209,7 @@ export const TreeItemContent = ({
                 <TooltipTrigger asChild>
                   <Badge 
                     variant="outline" 
-                    className="ml-1 h-5 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-1"
+                    className="ml-1 h-5 px-1.5 text-[10px] font-medium border-muted-foreground/30 text-muted-foreground gap-1 flex-shrink-0"
                   >
                     <Avatar className="h-3.5 w-3.5">
                       <AvatarImage src={item.ownerAvatar} alt={item.ownerDisplay} />
@@ -225,28 +232,40 @@ export const TreeItemContent = ({
         {hasChildren && !isExpanded && (
           <Badge 
             variant="secondary" 
-            className="ml-1 h-4 px-1.5 text-[10px] font-medium bg-muted text-muted-foreground"
+            className="ml-1 h-4 px-1.5 text-[10px] font-medium bg-muted text-muted-foreground flex-shrink-0"
           >
             {childCount}
           </Badge>
         )}
       </div>
 
-      {/* Actions - only show on hover and not when deleting */}
+      {/* Actions - fixed to right edge with gradient fade */}
       {!isDeleting && (
-        <div className={`
-          flex-shrink-0 ml-2 transition-opacity duration-150
-          ${isHovered ? 'opacity-100' : 'opacity-0'}
-        `}>
-          <TreeItemActions
-            item={item}
-            addItem={addItem}
-            deleteItem={deleteItem}
-            duplicateItem={duplicateItem}
-            startRenaming={startRenaming}
-            siblings={siblings}
-            onRefreshTreeData={onRefreshTreeData}
-          />
+        <div 
+          className={`
+            absolute right-0 top-0 bottom-0 
+            flex items-center
+            transition-opacity duration-150
+            ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+          `}
+        >
+          {/* Gradient fade overlay */}
+          <div className={`w-8 h-full bg-gradient-to-r ${getBgColorClass()}`} />
+          {/* Solid background for icons */}
+          <div className={`
+            flex items-center gap-0.5 px-1.5 h-full
+            ${isActive && !isDeleting ? 'bg-primary/10' : 'bg-background'}
+          `}>
+            <TreeItemActions
+              item={item}
+              addItem={addItem}
+              deleteItem={deleteItem}
+              duplicateItem={duplicateItem}
+              startRenaming={startRenaming}
+              siblings={siblings}
+              onRefreshTreeData={onRefreshTreeData}
+            />
+          </div>
         </div>
       )}
     </div>

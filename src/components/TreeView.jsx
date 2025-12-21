@@ -210,7 +210,7 @@ const handleOpenNewPromptDialog = () => {
             type="multiple"
             value={expandedItems}
             onValueChange={toggleItem}
-            className="w-full min-w-max"
+            className="w-full"
           >
             {renderTreeItems(filteredData)}
           </Accordion>
