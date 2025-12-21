@@ -309,7 +309,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
 
       {/* Confluence Pages */}
       <ConfluencePagesSection 
-        assistantRowId={assistant?.row_id}
+        assistantRowId={conversation?.row_id}
       />
 
       {/* Model Settings - Collapsible */}

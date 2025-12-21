@@ -142,7 +142,7 @@ const PromptEditorTabs = ({
 
           {/* Conversation tab - only rendered for top-level conversations */}
           {isTopLevel && selectedItemData?.is_assistant && (
-            <TabsContent value="assistant" className="h-full m-0 p-0">
+            <TabsContent value="conversation" className="h-full m-0 p-0">
               <ConversationTab
                 promptRowId={projectRowId}
                 selectedItemData={selectedItemData}
