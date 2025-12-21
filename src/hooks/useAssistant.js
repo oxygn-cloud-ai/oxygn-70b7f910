@@ -44,6 +44,7 @@ export const useAssistant = (promptRowId) => {
             instructions: '',
             use_global_tool_defaults: true,
             status: 'not_instantiated',
+            api_version: 'assistants', // Default to legacy for backwards compatibility
           })
           .select()
           .single();
