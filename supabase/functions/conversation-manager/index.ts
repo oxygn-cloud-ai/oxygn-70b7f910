@@ -370,31 +370,48 @@ serve(async (req) => {
       );
     }
 
-    // DELETE_FILE - Delete a file
-    if (action === 'delete_file') {
-      const { file_row_id } = body;
+    // DELETE_FILE - Delete a file (supports both delete_file and delete-file)
+    if (action === 'delete_file' || action === 'delete-file') {
+      const { file_row_id, openai_file_id } = body;
 
-      // Get file info
-      const { data: file } = await supabase
-        .from(TABLES.ASSISTANT_FILES)
-        .select('openai_file_id')
-        .eq('row_id', file_row_id)
-        .single();
-
-      if (file?.openai_file_id) {
-        // Delete from OpenAI
-        await fetch(`https://api.openai.com/v1/files/${file.openai_file_id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-        });
-        console.log('Deleted file from OpenAI:', file.openai_file_id);
+      // If openai_file_id is provided directly, delete from OpenAI
+      if (openai_file_id) {
+        try {
+          await fetch(`https://api.openai.com/v1/files/${openai_file_id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          });
+          console.log('Deleted file from OpenAI:', openai_file_id);
+        } catch (e) {
+          console.warn('Failed to delete from OpenAI:', e);
+        }
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
-      // Delete from database
-      await supabase
-        .from(TABLES.ASSISTANT_FILES)
-        .delete()
-        .eq('row_id', file_row_id);
+      // Otherwise, use file_row_id to look up and delete
+      if (file_row_id) {
+        const { data: file } = await supabase
+          .from(TABLES.ASSISTANT_FILES)
+          .select('openai_file_id')
+          .eq('row_id', file_row_id)
+          .single();
+
+        if (file?.openai_file_id) {
+          await fetch(`https://api.openai.com/v1/files/${file.openai_file_id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          });
+          console.log('Deleted file from OpenAI:', file.openai_file_id);
+        }
+
+        await supabase
+          .from(TABLES.ASSISTANT_FILES)
+          .delete()
+          .eq('row_id', file_row_id);
+      }
 
       return new Response(
         JSON.stringify({ success: true }),
@@ -402,8 +419,174 @@ serve(async (req) => {
       );
     }
 
+    // SYNC - Sync pending files to OpenAI vector store
+    if (action === 'sync') {
+      if (!assistant_row_id) {
+        return new Response(
+          JSON.stringify({ error: 'assistant_row_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get assistant to find vector_store_id
+      const { data: assistant, error: assistantError } = await supabase
+        .from(TABLES.ASSISTANTS)
+        .select('vector_store_id')
+        .eq('row_id', assistant_row_id)
+        .single();
+
+      if (assistantError) {
+        console.error('Failed to fetch assistant:', assistantError);
+        return new Response(
+          JSON.stringify({ error: 'Assistant not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get pending files
+      const { data: pendingFiles, error: filesError } = await supabase
+        .from(TABLES.ASSISTANT_FILES)
+        .select('*')
+        .eq('assistant_row_id', assistant_row_id)
+        .eq('upload_status', 'pending');
+
+      if (filesError) {
+        console.error('Failed to fetch pending files:', filesError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch files' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!pendingFiles || pendingFiles.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, uploaded_count: 0, message: 'No pending files to sync' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Syncing ${pendingFiles.length} files for assistant ${assistant_row_id}`);
+
+      // Ensure vector store exists
+      let vectorStoreId = assistant?.vector_store_id;
+      if (!vectorStoreId) {
+        // Create new vector store
+        const vsResponse = await fetch('https://api.openai.com/v1/vector_stores', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: `assistant-${assistant_row_id}` }),
+        });
+
+        if (!vsResponse.ok) {
+          const error = await vsResponse.json();
+          console.error('Failed to create vector store:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to create vector store' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const vsResult = await vsResponse.json();
+        vectorStoreId = vsResult.id;
+        console.log('Created vector store:', vectorStoreId);
+
+        // Update assistant with vector store ID
+        await supabase
+          .from(TABLES.ASSISTANTS)
+          .update({ vector_store_id: vectorStoreId })
+          .eq('row_id', assistant_row_id);
+      }
+
+      let uploadedCount = 0;
+
+      // Upload each pending file
+      for (const file of pendingFiles) {
+        try {
+          // Download file from storage
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('assistant-files')
+            .download(file.storage_path);
+
+          if (downloadError || !fileData) {
+            console.error(`Failed to download file ${file.storage_path}:`, downloadError);
+            await supabase
+              .from(TABLES.ASSISTANT_FILES)
+              .update({ upload_status: 'error' })
+              .eq('row_id', file.row_id);
+            continue;
+          }
+
+          // Upload to OpenAI Files API
+          const formData = new FormData();
+          formData.append('file', new Blob([fileData], { type: file.mime_type || 'application/octet-stream' }), file.original_filename);
+          formData.append('purpose', 'assistants');
+
+          const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            const error = await uploadResponse.json();
+            console.error(`Failed to upload file ${file.original_filename}:`, error);
+            await supabase
+              .from(TABLES.ASSISTANT_FILES)
+              .update({ upload_status: 'error' })
+              .eq('row_id', file.row_id);
+            continue;
+          }
+
+          const uploadResult = await uploadResponse.json();
+          console.log(`Uploaded file to OpenAI: ${uploadResult.id}`);
+
+          // Add file to vector store
+          const addResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ file_id: uploadResult.id }),
+          });
+
+          if (!addResponse.ok) {
+            const error = await addResponse.json();
+            console.error(`Failed to add file to vector store:`, error);
+          }
+
+          // Update file record
+          await supabase
+            .from(TABLES.ASSISTANT_FILES)
+            .update({
+              openai_file_id: uploadResult.id,
+              upload_status: 'uploaded',
+            })
+            .eq('row_id', file.row_id);
+
+          uploadedCount++;
+        } catch (e) {
+          console.error(`Error processing file ${file.original_filename}:`, e);
+          await supabase
+            .from(TABLES.ASSISTANT_FILES)
+            .update({ upload_status: 'error' })
+            .eq('row_id', file.row_id);
+        }
+      }
+
+      console.log(`Synced ${uploadedCount}/${pendingFiles.length} files`);
+
+      return new Response(
+        JSON.stringify({ success: true, uploaded_count: uploadedCount }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use: list, get, update, upload_file, create_vector_store, add_file_to_vector_store, list_files, or delete_file' }),
+      JSON.stringify({ error: 'Invalid action. Use: list, get, update, upload_file, create_vector_store, add_file_to_vector_store, list_files, delete_file, or sync' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
