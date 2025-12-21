@@ -72,10 +72,19 @@ export const TreeItemContent = ({
     );
   };
 
-  // Determine background color class for gradient matching
-  const getBgColorClass = () => {
-    if (isActive && !isDeleting) return 'from-transparent to-primary/10';
-    return 'from-transparent to-background';
+  // For active state, use opaque background to prevent text bleed-through
+  const getActiveGradientClass = () => {
+    if (isActive && !isDeleting) {
+      return 'bg-gradient-to-r from-transparent to-[hsl(var(--tree-active-bg))]';
+    }
+    return 'bg-gradient-to-r from-transparent to-background';
+  };
+
+  const getActiveBgClass = () => {
+    if (isActive && !isDeleting) {
+      return 'bg-[hsl(var(--tree-active-bg))]';
+    }
+    return 'bg-background';
   };
 
   return (
@@ -249,13 +258,10 @@ export const TreeItemContent = ({
             ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}
           `}
         >
-          {/* Gradient fade overlay */}
-          <div className={`w-8 h-full bg-gradient-to-r ${getBgColorClass()}`} />
-          {/* Solid background for icons */}
-          <div className={`
-            flex items-center gap-0.5 px-1.5 h-full
-            ${isActive && !isDeleting ? 'bg-primary/10' : 'bg-background'}
-          `}>
+          {/* Gradient fade overlay - uses opaque color for active state */}
+          <div className={`w-8 h-full ${getActiveGradientClass()}`} />
+          {/* Solid background for icons - opaque for active state */}
+          <div className={`flex items-center gap-0.5 px-1.5 h-full ${getActiveBgClass()}`}>
             <TreeItemActions
               item={item}
               addItem={addItem}
