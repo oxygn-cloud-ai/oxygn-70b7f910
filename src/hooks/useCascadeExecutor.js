@@ -169,9 +169,21 @@ export const useCascadeExecutor = () => {
   // Execute the cascade run
   const executeCascade = useCallback(async (topLevelRowId, parentAssistantRowId) => {
     if (!supabase) {
-      toast.error('Supabase not available');
+      toast.error('Database not available', {
+        source: 'useCascadeExecutor.executeCascade',
+        errorCode: 'SUPABASE_UNAVAILABLE',
+      });
       return;
     }
+
+    const cascadeStartTime = Date.now();
+
+    // Notify cascade start
+    toast.info('Starting cascade run...', {
+      description: 'Fetching prompt hierarchy',
+      source: 'useCascadeExecutor',
+      details: JSON.stringify({ topLevelRowId, parentAssistantRowId }, null, 2),
+    });
 
     // Fetch cascade fallback setting
     let cascadeFallbackMessage = 'Execute this prompt';
@@ -193,7 +205,11 @@ export const useCascadeExecutor = () => {
     // Fetch hierarchy
     const hierarchy = await fetchCascadeHierarchy(topLevelRowId);
     if (!hierarchy) {
-      toast.error('Failed to fetch prompt hierarchy');
+      toast.error('Failed to fetch prompt hierarchy', {
+        source: 'useCascadeExecutor.fetchCascadeHierarchy',
+        errorCode: 'HIERARCHY_FETCH_FAILED',
+        details: JSON.stringify({ topLevelRowId }, null, 2),
+      });
       return;
     }
 
@@ -211,9 +227,29 @@ export const useCascadeExecutor = () => {
     const assistantPrompts = hierarchy.levels[0]?.prompts.filter(p => p.is_assistant) || [];
 
     if (nonExcludedPrompts.length === 0) {
-      toast.error('No child prompts to run in cascade');
+      toast.error('No child prompts to run in cascade', {
+        source: 'useCascadeExecutor',
+        errorCode: 'NO_PROMPTS',
+        details: JSON.stringify({
+          totalLevels: hierarchy.totalLevels,
+          excludedCount: excludedPrompts.length,
+        }, null, 2),
+      });
       return;
     }
+
+    // Notify hierarchy loaded
+    toast.success('Cascade hierarchy loaded', {
+      description: `${nonExcludedPrompts.length} prompts across ${hierarchy.totalLevels} levels`,
+      source: 'useCascadeExecutor',
+      details: JSON.stringify({
+        totalPrompts: hierarchy.totalPrompts,
+        runnablePrompts: nonExcludedPrompts.length,
+        excludedPrompts: excludedPrompts.length,
+        levels: hierarchy.totalLevels,
+        promptNames: nonExcludedPrompts.map(p => p.prompt_name),
+      }, null, 2),
+    });
 
     // Pre-flight validation: check for prompts without content
     const validationIssues = validatePromptContent(nonExcludedPrompts);
@@ -221,7 +257,12 @@ export const useCascadeExecutor = () => {
       console.warn('Cascade pre-flight validation issues:', validationIssues);
       toast.warning(
         `${validationIssues.length} prompt(s) have no content - using fallback messages`,
-        { description: validationIssues.map(i => i.promptName).join(', ') }
+        { 
+          description: validationIssues.map(i => i.promptName).join(', '),
+          source: 'useCascadeExecutor.validatePromptContent',
+          errorCode: 'CONTENT_VALIDATION_WARNING',
+          details: JSON.stringify(validationIssues, null, 2),
+        }
       );
     }
 
@@ -231,6 +272,14 @@ export const useCascadeExecutor = () => {
     // Mark excluded prompts as skipped immediately
     for (const excludedPrompt of excludedPrompts) {
       markPromptSkipped(excludedPrompt.row_id, excludedPrompt.prompt_name);
+      toast.info(`Skipped: ${excludedPrompt.prompt_name}`, {
+        description: 'Excluded from cascade',
+        source: 'useCascadeExecutor',
+        details: JSON.stringify({
+          promptRowId: excludedPrompt.row_id,
+          reason: 'exclude_from_cascade flag is true',
+        }, null, 2),
+      });
     }
 
     const accumulatedResponses = [];
@@ -257,7 +306,15 @@ export const useCascadeExecutor = () => {
 
           // Check if cancelled
           if (isCancelled()) {
-            toast.info('Cascade run cancelled');
+            toast.info('Cascade run cancelled', {
+              description: `Stopped at prompt ${promptIndex} of ${nonExcludedPrompts.length}`,
+              source: 'useCascadeExecutor',
+              details: JSON.stringify({
+                completedPrompts: promptIndex - 1,
+                totalPrompts: nonExcludedPrompts.length,
+                elapsedMs: Date.now() - cascadeStartTime,
+              }, null, 2),
+            });
             completeCascade();
             return;
           }
@@ -265,13 +322,36 @@ export const useCascadeExecutor = () => {
           // Wait if paused
           const shouldContinue = await waitWhilePaused();
           if (!shouldContinue) {
-            toast.info('Cascade run cancelled');
+            toast.info('Cascade run cancelled', {
+              description: 'Cancelled while paused',
+              source: 'useCascadeExecutor',
+              details: JSON.stringify({
+                completedPrompts: promptIndex,
+                totalPrompts: nonExcludedPrompts.length,
+              }, null, 2),
+            });
             completeCascade();
             return;
           }
 
           promptIndex++;
           updateProgress(levelIdx, prompt.prompt_name, promptIndex);
+
+          const promptStartTime = Date.now();
+
+          // Notify prompt starting
+          toast.info(`Running: ${prompt.prompt_name}`, {
+            description: `Prompt ${promptIndex} of ${nonExcludedPrompts.length} (Level ${levelIdx})`,
+            source: 'useCascadeExecutor',
+            details: JSON.stringify({
+              promptRowId: prompt.row_id,
+              promptName: prompt.prompt_name,
+              level: levelIdx,
+              index: promptIndex,
+              total: nonExcludedPrompts.length,
+              model: prompt.model || 'default',
+            }, null, 2),
+          });
 
           // Build template variables from accumulated context
           const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx);
@@ -304,6 +384,8 @@ export const useCascadeExecutor = () => {
               });
 
               if (result?.response) {
+                const promptElapsedMs = Date.now() - promptStartTime;
+                
                 accumulatedResponses.push({
                   level: levelIdx,
                   promptRowId: prompt.row_id,
@@ -319,6 +401,24 @@ export const useCascadeExecutor = () => {
                   .update({ user_prompt_result: result.response })
                   .eq('row_id', prompt.row_id);
 
+                // Notify prompt completed
+                toast.success(`Completed: ${prompt.prompt_name}`, {
+                  description: `${promptElapsedMs}ms • ${result.response.length} chars`,
+                  source: 'useCascadeExecutor',
+                  details: JSON.stringify({
+                    promptRowId: prompt.row_id,
+                    promptName: prompt.prompt_name,
+                    level: levelIdx,
+                    index: promptIndex,
+                    elapsedMs: promptElapsedMs,
+                    responseLength: result.response.length,
+                    responsePreview: result.response.substring(0, 200) + (result.response.length > 200 ? '...' : ''),
+                    tokensInput: result.usage?.input_tokens || null,
+                    tokensOutput: result.usage?.output_tokens || null,
+                    model: result.model || prompt.model || 'unknown',
+                  }, null, 2),
+                });
+
                 success = true;
               } else {
                 throw new Error('No response received');
@@ -330,8 +430,32 @@ export const useCascadeExecutor = () => {
               if (delayMs > 0) {
                 rateLimitWaits++;
                 if (rateLimitWaits > maxRateLimitWaits) {
+                  toast.error(`Rate limit exceeded for: ${prompt.prompt_name}`, {
+                    description: `Max retries (${maxRateLimitWaits}) exceeded`,
+                    source: 'useCascadeExecutor',
+                    errorCode: 'RATE_LIMIT_MAX_RETRIES',
+                    details: JSON.stringify({
+                      promptRowId: prompt.row_id,
+                      promptName: prompt.prompt_name,
+                      rateLimitWaits,
+                      maxRateLimitWaits,
+                      error: error.message,
+                    }, null, 2),
+                  });
                   throw error;
                 }
+                toast.warning(`Rate limited: ${prompt.prompt_name}`, {
+                  description: `Waiting ${Math.round(delayMs / 1000)}s before retry (${rateLimitWaits}/${maxRateLimitWaits})`,
+                  source: 'useCascadeExecutor',
+                  errorCode: 'RATE_LIMITED',
+                  details: JSON.stringify({
+                    promptRowId: prompt.row_id,
+                    promptName: prompt.prompt_name,
+                    delayMs,
+                    rateLimitWaits,
+                    maxRateLimitWaits,
+                  }, null, 2),
+                });
                 console.log(`Rate limited; waiting ${delayMs}ms before retrying...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
                 continue;
@@ -339,7 +463,39 @@ export const useCascadeExecutor = () => {
 
               retryCount++;
 
+              // Notify retry attempt
+              if (retryCount < maxRetries) {
+                toast.warning(`Retrying: ${prompt.prompt_name}`, {
+                  description: `Attempt ${retryCount + 1} of ${maxRetries}`,
+                  source: 'useCascadeExecutor',
+                  errorCode: 'RETRY_ATTEMPT',
+                  details: JSON.stringify({
+                    promptRowId: prompt.row_id,
+                    promptName: prompt.prompt_name,
+                    retryCount,
+                    maxRetries,
+                    error: error.message,
+                    errorStack: error.stack,
+                  }, null, 2),
+                });
+              }
+
               if (retryCount >= maxRetries) {
+                // Notify max retries reached
+                toast.error(`Failed: ${prompt.prompt_name}`, {
+                  description: error.message || 'Unknown error',
+                  source: 'useCascadeExecutor',
+                  errorCode: 'MAX_RETRIES_REACHED',
+                  details: JSON.stringify({
+                    promptRowId: prompt.row_id,
+                    promptName: prompt.prompt_name,
+                    retryCount,
+                    maxRetries,
+                    error: error.message,
+                    errorStack: error.stack,
+                  }, null, 2),
+                });
+
                 // Show error dialog and wait for user decision
                 const action = await showError(
                   { name: prompt.prompt_name, rowId: prompt.row_id },
@@ -347,7 +503,17 @@ export const useCascadeExecutor = () => {
                 );
 
                 if (action === 'stop') {
-                  toast.error('Cascade run stopped by user');
+                  toast.error('Cascade run stopped by user', {
+                    description: `Stopped at ${prompt.prompt_name}`,
+                    source: 'useCascadeExecutor',
+                    errorCode: 'USER_STOPPED',
+                    details: JSON.stringify({
+                      stoppedAtPrompt: prompt.prompt_name,
+                      completedPrompts: promptIndex - 1,
+                      totalPrompts: nonExcludedPrompts.length,
+                      elapsedMs: Date.now() - cascadeStartTime,
+                    }, null, 2),
+                  });
                   completeCascade();
                   return;
                 } else if (action === 'skip') {
@@ -359,9 +525,27 @@ export const useCascadeExecutor = () => {
                     response: `[SKIPPED: ${error.message}]`,
                     skipped: true,
                   });
+                  toast.warning(`Skipped: ${prompt.prompt_name}`, {
+                    description: 'User chose to skip after error',
+                    source: 'useCascadeExecutor',
+                    errorCode: 'USER_SKIPPED',
+                    details: JSON.stringify({
+                      promptRowId: prompt.row_id,
+                      promptName: prompt.prompt_name,
+                      error: error.message,
+                    }, null, 2),
+                  });
                   success = true;
                 } else if (action === 'retry') {
                   retryCount = 0; // Reset retry count and try again
+                  toast.info(`Retrying: ${prompt.prompt_name}`, {
+                    description: 'User requested retry',
+                    source: 'useCascadeExecutor',
+                    details: JSON.stringify({
+                      promptRowId: prompt.row_id,
+                      promptName: prompt.prompt_name,
+                    }, null, 2),
+                  });
                 }
               }
             }
@@ -369,14 +553,39 @@ export const useCascadeExecutor = () => {
         }
       }
 
+      const totalElapsedMs = Date.now() - cascadeStartTime;
+
       // Complete cascade
       completeCascade();
-      toast.success(`Cascade run completed! ${accumulatedResponses.length} prompts executed.`);
+      toast.success(`Cascade run completed!`, {
+        description: `${accumulatedResponses.length} prompts in ${Math.round(totalElapsedMs / 1000)}s`,
+        source: 'useCascadeExecutor',
+        details: JSON.stringify({
+          completedPrompts: accumulatedResponses.length,
+          skippedPrompts: accumulatedResponses.filter(r => r.skipped).length,
+          totalElapsedMs,
+          promptSummary: accumulatedResponses.map(r => ({
+            name: r.promptName,
+            level: r.level,
+            skipped: r.skipped || false,
+            responseLength: r.response?.length || 0,
+          })),
+        }, null, 2),
+      });
 
     } catch (error) {
       console.error('Cascade execution error:', error);
       completeCascade();
-      toast.error(`Cascade failed: ${error.message}`);
+      toast.error(`Cascade failed: ${error.message}`, {
+        source: 'useCascadeExecutor',
+        errorCode: 'CASCADE_FAILED',
+        details: JSON.stringify({
+          error: error.message,
+          errorStack: error.stack,
+          completedPrompts: accumulatedResponses.length,
+          elapsedMs: Date.now() - cascadeStartTime,
+        }, null, 2),
+      });
     }
   }, [
     supabase,
