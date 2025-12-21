@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 
-export const useAssistant = (promptRowId) => {
+export const useConversation = (promptRowId) => {
   const supabase = useSupabase();
   const [assistant, setAssistant] = useState(null);
   const [isLoading, setIsLoading] = useState(true);

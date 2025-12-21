@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useAssistant } from '../../hooks/useAssistant';
-import { useAssistantFiles } from '../../hooks/useAssistantFiles';
-import { useAssistantToolDefaults } from '../../hooks/useAssistantToolDefaults';
+import { useConversation } from '../hooks/useConversation';
+import { useConversationFiles } from '../hooks/useConversationFiles';
+import { useConversationToolDefaults } from '../hooks/useConversationToolDefaults';
 import { toast } from '@/components/ui/sonner';
-import { useOpenAIModels } from '../../hooks/useOpenAIModels';
-import { useSettings } from '../../hooks/useSettings';
-import { useSupabase } from '../../hooks/useSupabase';
+import { useOpenAIModels } from '../hooks/useOpenAIModels';
+import { useSettings } from '../hooks/useSettings';
+import { useSupabase } from '../hooks/useSupabase';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -18,15 +18,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Bot, Upload, RefreshCw, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-import { ALL_SETTINGS, isSettingSupported } from '../../config/modelCapabilities';
+import { ALL_SETTINGS, isSettingSupported } from '../config/modelCapabilities';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import ConfluencePagesSection from '../ConfluencePagesSection';
+import ConfluencePagesSection from './ConfluencePagesSection';
 
-const AssistantTab = ({ promptRowId, selectedItemData }) => {
+const ConversationPanel = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
-  const { assistant, isLoading, updateAssistant } = useAssistant(promptRowId);
-  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id);
-  const { defaults: toolDefaults } = useAssistantToolDefaults();
+  const { assistant, isLoading, updateAssistant } = useConversation(promptRowId);
+  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useConversationFiles(assistant?.row_id);
+  const { defaults: toolDefaults } = useConversationToolDefaults();
   const { models } = useOpenAIModels();
   const { settings } = useSettings(supabase);
 
@@ -111,6 +111,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
     }
   };
 
+
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
@@ -126,8 +127,13 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
     );
   }
 
-  // Responses API assistants are always active
+  // Responses API - assistants are always active
   const isActive = true;
+
+  // Settings that OpenAI Assistants API supports at assistant level
+  const assistantLevelSettings = ['temperature', 'top_p', 'response_format'];
+  // Settings passed at run time
+  const runTimeSettings = ['max_tokens', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'logit_bias', 'o_user'];
 
   const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
     const settingInfo = ALL_SETTINGS[field];
@@ -143,7 +149,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
             {(settingInfo.details || settingInfo.docUrl) && (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
+                  <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
                     <Info className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
@@ -237,7 +243,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={syncFiles} disabled={!isActive || isSyncing}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={syncFiles} disabled={!isActive || isSyncing}>
                       <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
@@ -249,7 +255,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" asChild disabled={isUploading}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" asChild disabled={isUploading}>
                         <span><Upload className="h-3 w-3" /></span>
                       </Button>
                     </TooltipTrigger>
@@ -278,9 +284,9 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                           <div className="text-xs space-y-1">
                             <div><strong>Local:</strong> {file.original_filename}</div>
                             {file.openai_file_id ? (
-                              <div><strong>File ID:</strong> {file.openai_file_id}</div>
+                              <div><strong>OpenAI ID:</strong> {file.openai_file_id}</div>
                             ) : (
-                              <div className="text-muted-foreground">Not yet uploaded to vector store</div>
+                              <div className="text-muted-foreground">Not yet uploaded to OpenAI</div>
                             )}
                           </div>
                         </TooltipContent>
@@ -293,7 +299,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => deleteFile(file.row_id)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={() => deleteFile(file.row_id)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
@@ -376,7 +382,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                   <Label className="text-xs">Default Thread Strategy</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
+                      <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
                         <Info className="h-3 w-3" />
                       </Button>
                     </PopoverTrigger>
@@ -455,7 +461,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                     <Label>Confluence Live Browsing</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
+                        <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
                           <Info className="h-3 w-3" />
                         </Button>
                       </PopoverTrigger>
@@ -492,8 +498,9 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
         </Card>
       </Collapsible>
 
+
     </div>
   );
 };
 
-export default AssistantTab;
+export default ConversationPanel;

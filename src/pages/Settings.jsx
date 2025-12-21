@@ -9,7 +9,7 @@ import { QonsolSettingsSection } from '../components/settings/QonsolSettingsSect
 import { PromptNamingSection } from '../components/settings/PromptNamingSection';
 import { AIModelsSection } from '../components/settings/AIModelsSection';
 import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
-import { AssistantDefaultsSection } from '../components/settings/AssistantDefaultsSection';
+import { ConversationDefaultsSection } from '../components/settings/ConversationDefaultsSection';
 import { OpenAIAssistantsSection } from '../components/settings/OpenAIAssistantsSection';
 import ConfluenceSettingsSection from '../components/settings/ConfluenceSettingsSection';
 import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
@@ -172,7 +172,7 @@ const Settings = () => {
         );
       case 'assistants':
         return (
-          <AssistantDefaultsSection
+          <ConversationDefaultsSection
             isRefreshing={isRefreshing}
             onRefresh={handleRefresh}
           />

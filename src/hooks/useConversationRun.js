@@ -3,7 +3,7 @@ import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 
-export const useAssistantRun = () => {
+export const useConversationRun = () => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
   const [isRunning, setIsRunning] = useState(false);

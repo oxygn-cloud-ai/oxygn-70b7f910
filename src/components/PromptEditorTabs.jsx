@@ -7,7 +7,7 @@ import PromptFieldsTab from './tabs/PromptFieldsTab';
 import SettingsTab from './tabs/SettingsTab';
 import VariablesTab from './tabs/VariablesTab';
 import TemplatesTab from './tabs/TemplatesTab';
-import AssistantTab from './tabs/AssistantTab';
+import ConversationTab from './tabs/ConversationTab';
 
 const PromptEditorTabs = ({
   selectedItemData,
@@ -140,10 +140,10 @@ const PromptEditorTabs = ({
             />
           </TabsContent>
 
-          {/* Assistant tab - only rendered for top-level assistants */}
+          {/* Conversation tab - only rendered for top-level conversations */}
           {isTopLevel && selectedItemData?.is_assistant && (
             <TabsContent value="assistant" className="h-full m-0 p-0">
-              <AssistantTab
+              <ConversationTab
                 promptRowId={projectRowId}
                 selectedItemData={selectedItemData}
               />
