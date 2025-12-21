@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
+import { 
+  getAllTools, 
+  hasFunctionCalls, 
+  extractTextFromResponseOutput 
+} from "../_shared/tools.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -178,7 +183,7 @@ async function handleConfluenceTool(
   }
 }
 
-// Poll for run completion with function call handling
+// Poll for run completion with function call handling (Assistants API)
 async function waitForRunCompletion(
   threadId: string, 
   runId: string, 
@@ -272,6 +277,195 @@ async function waitForRunCompletion(
   return { status: 'timeout', error: 'Run timed out' };
 }
 
+// ============================================================================
+// RESPONSES API HANDLER
+// ============================================================================
+
+interface ResponsesAPIResult {
+  success: boolean;
+  response?: string;
+  response_id?: string;
+  conversation_id?: string | null;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  error?: string;
+}
+
+async function runWithResponsesAPI(
+  assistantData: any,
+  message: string,
+  conversationId: string | null,
+  previousResponseId: string | null,
+  toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean; confluence_enabled: boolean },
+  vectorStoreId: string | null,
+  apiKey: string,
+  supabase: any
+): Promise<ResponsesAPIResult> {
+  const modelId = assistantData.model_override || 'gpt-4o';
+  
+  // Build tools array using shared module
+  const tools = getAllTools('responses', {
+    codeInterpreterEnabled: toolConfig.code_interpreter_enabled,
+    fileSearchEnabled: toolConfig.file_search_enabled,
+    confluenceEnabled: toolConfig.confluence_enabled,
+    vectorStoreIds: vectorStoreId ? [vectorStoreId] : undefined,
+  });
+
+  // Build input - for multi-turn, include previous_response_id
+  const input: any[] = [];
+  
+  // Add system instructions if present
+  if (assistantData.instructions) {
+    input.push({
+      role: 'system',
+      content: assistantData.instructions,
+    });
+  }
+  
+  // Add user message
+  input.push({
+    role: 'user',
+    content: message,
+  });
+
+  const requestBody: any = {
+    model: modelId,
+    input,
+    tools: tools.length > 0 ? tools : undefined,
+  };
+
+  // For multi-turn conversations, include previous_response_id
+  if (previousResponseId) {
+    requestBody.previous_response_id = previousResponseId;
+    console.log('Using previous_response_id for continuation:', previousResponseId);
+  }
+
+  // Add model parameters if set
+  const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
+  const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
+  const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
+
+  if (temperature !== undefined && !isNaN(temperature)) requestBody.temperature = temperature;
+  if (topP !== undefined && !isNaN(topP)) requestBody.top_p = topP;
+  if (maxTokens !== undefined && !isNaN(maxTokens)) requestBody.max_output_tokens = maxTokens;
+
+  console.log('Calling Responses API:', { 
+    model: modelId, 
+    toolCount: tools.length,
+    hasPreviousResponse: !!previousResponseId,
+    temperature,
+    topP,
+  });
+
+  // Call Responses API
+  let response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Responses API error:', error);
+    return { success: false, error: error.error?.message || 'Responses API call failed' };
+  }
+
+  let responseData = await response.json();
+  console.log('Responses API response:', { 
+    id: responseData.id, 
+    outputCount: responseData.output?.length,
+    status: responseData.status,
+  });
+
+  // Handle function calls in a loop
+  let maxIterations = 10;
+  let iteration = 0;
+
+  while (hasFunctionCalls(responseData.output) && iteration < maxIterations) {
+    iteration++;
+    console.log(`Processing function calls, iteration ${iteration}`);
+
+    const functionCallOutputs: any[] = [];
+
+    for (const item of responseData.output || []) {
+      if (item.type === 'function_call') {
+        const functionName = item.name;
+        const args = typeof item.arguments === 'string' ? JSON.parse(item.arguments) : item.arguments;
+        
+        console.log('Executing function:', functionName, args);
+
+        let output: string;
+        if (functionName.startsWith('confluence_')) {
+          output = await handleConfluenceTool(functionName, args, supabase);
+        } else {
+          output = JSON.stringify({ error: `Unknown function: ${functionName}` });
+        }
+
+        functionCallOutputs.push({
+          type: 'function_call_output',
+          call_id: item.call_id,
+          output,
+        });
+      }
+    }
+
+    if (functionCallOutputs.length === 0) break;
+
+    // Submit function outputs by calling Responses API again with the outputs
+    const continueBody: any = {
+      model: modelId,
+      previous_response_id: responseData.id,
+      input: functionCallOutputs,
+      tools: tools.length > 0 ? tools : undefined,
+    };
+
+    response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(continueBody),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Responses API continuation error:', error);
+      return { success: false, error: error.error?.message || 'Failed to continue after function call' };
+    }
+
+    responseData = await response.json();
+    console.log('Continued response:', { 
+      id: responseData.id, 
+      outputCount: responseData.output?.length,
+    });
+  }
+
+  // Extract text from final response
+  const responseText = extractTextFromResponseOutput(responseData.output);
+
+  // Extract usage
+  const usage = {
+    prompt_tokens: responseData.usage?.input_tokens || 0,
+    completion_tokens: responseData.usage?.output_tokens || 0,
+    total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
+  };
+
+  return {
+    success: true,
+    response: responseText,
+    response_id: responseData.id,
+    conversation_id: conversationId, // Responses API manages conversation via previous_response_id
+    usage,
+  };
+}
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -357,8 +551,12 @@ serve(async (req) => {
     }
 
     const assistantData = assistant as any;
+    const apiVersion = assistantData.api_version || 'assistants';
 
-    if (!assistantData.openai_assistant_id || assistantData.status !== 'active') {
+    console.log('Using API version:', apiVersion);
+
+    // For Assistants API, require openai_assistant_id
+    if (apiVersion === 'assistants' && (!assistantData.openai_assistant_id || assistantData.status !== 'active')) {
       return new Response(
         JSON.stringify({ error: 'Assistant is not active. Please instantiate first.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -433,6 +631,117 @@ serve(async (req) => {
     
     console.log('Thread strategy:', childThreadStrategy, 'Thread mode:', threadMode);
 
+    // ========================================================================
+    // RESPONSES API PATH
+    // ========================================================================
+    if (apiVersion === 'responses') {
+      // For Responses API, we track conversation via previous_response_id
+      let previousResponseId: string | null = null;
+      let conversationId: string | null = null;
+      let threadRowId: string | null = null;
+
+      if (childThreadStrategy === 'parent' || threadMode === 'reuse') {
+        // Look for existing thread to get previous_response_id
+        const threadQuery = supabase
+          .from(TABLES.THREADS)
+          .select('row_id, last_response_id, openai_conversation_id')
+          .eq('assistant_row_id', assistantData.row_id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (childThreadStrategy === 'parent') {
+          threadQuery.is('child_prompt_row_id', null);
+        } else {
+          threadQuery.eq('child_prompt_row_id', child_prompt_row_id);
+        }
+
+        const { data: existingThread } = await threadQuery.maybeSingle();
+
+        if (existingThread) {
+          previousResponseId = existingThread.last_response_id;
+          conversationId = existingThread.openai_conversation_id;
+          threadRowId = existingThread.row_id;
+          console.log('Found existing thread for Responses API:', { previousResponseId, conversationId });
+        }
+      }
+
+      // Call Responses API
+      const toolConfig = {
+        code_interpreter_enabled: assistantData.code_interpreter_enabled || false,
+        file_search_enabled: assistantData.file_search_enabled || false,
+        confluence_enabled: assistantData.confluence_enabled || false,
+      };
+
+      const result = await runWithResponsesAPI(
+        assistantData,
+        finalMessage,
+        conversationId,
+        previousResponseId,
+        toolConfig,
+        assistantData.vector_store_id,
+        OPENAI_API_KEY,
+        supabase
+      );
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ error: result.error }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update child prompt with response
+      await supabase
+        .from(TABLES.PROMPTS)
+        .update({ output_response: result.response })
+        .eq('row_id', child_prompt_row_id);
+
+      // Create or update thread record
+      if (threadRowId) {
+        await supabase
+          .from(TABLES.THREADS)
+          .update({
+            last_response_id: result.response_id,
+            last_message_at: new Date().toISOString(),
+          })
+          .eq('row_id', threadRowId);
+      } else if (threadMode === 'reuse' || childThreadStrategy === 'parent') {
+        // Create new thread for tracking
+        const { data: newThread } = await supabase
+          .from(TABLES.THREADS)
+          .insert({
+            assistant_row_id: assistantData.row_id,
+            child_prompt_row_id: childThreadStrategy === 'parent' ? null : child_prompt_row_id,
+            openai_thread_id: `responses_${result.response_id}`, // Placeholder for compatibility
+            last_response_id: result.response_id,
+            name: childThreadStrategy === 'parent' ? 'Studio Thread' : `Thread ${new Date().toISOString().split('T')[0]}`,
+          })
+          .select()
+          .single();
+
+        threadRowId = newThread?.row_id || null;
+      }
+
+      console.log('Responses API run completed successfully');
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          response: result.response,
+          response_id: result.response_id,
+          conversation_id: result.conversation_id,
+          usage: result.usage,
+          api_version: 'responses',
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ========================================================================
+    // ASSISTANTS API PATH (Legacy)
+    // ========================================================================
+    
     // Determine thread based on strategy
     let threadId: string;
     let threadRowId: string | null = null;
@@ -755,6 +1064,7 @@ serve(async (req) => {
         thread_id: threadId,
         run_id: run.id,
         usage: usage,
+        api_version: 'assistants',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
