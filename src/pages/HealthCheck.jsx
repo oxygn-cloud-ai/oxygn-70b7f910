@@ -10,7 +10,7 @@ const REQUIRED_TABLES = [
   import.meta.env.VITE_PROMPTS_TBL,
   import.meta.env.VITE_SETTINGS_TBL,
   import.meta.env.VITE_MODELS_TBL,
-  'projects',
+  import.meta.env.VITE_PROJECTS_TBL || 'projects',
 ];
 
 const HealthCheck = () => {
