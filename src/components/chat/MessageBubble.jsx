@@ -51,7 +51,7 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        'group flex gap-3 px-4 py-4 transition-all',
+        'group flex gap-2 px-3 py-2 transition-all',
         isUser 
           ? 'bg-gradient-to-r from-primary/5 to-primary/10' 
           : 'bg-background hover:bg-muted/30'
@@ -59,23 +59,23 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
     >
       {/* Avatar */}
       {isUser ? (
-        <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/20">
+        <Avatar className="h-6 w-6 shrink-0 ring-1 ring-primary/20">
           <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.display_name || 'User'} />
-          <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
+          <AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-medium">
             {getInitials()}
           </AvatarFallback>
         </Avatar>
       ) : (
-        <div className="shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center ring-2 ring-accent/20">
-          <Bot className="h-4 w-4 text-accent-foreground" />
+        <div className="shrink-0 h-6 w-6 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center ring-1 ring-accent/20">
+          <Bot className="h-3 w-3 text-accent-foreground" />
         </div>
       )}
 
       {/* Content */}
-      <div className="flex-1 min-w-0 space-y-1">
+      <div className="flex-1 min-w-0 space-y-0.5">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-foreground">
+          <span className="text-[11px] font-semibold text-foreground">
             {isUser ? (userProfile?.display_name || 'You') : 'Assistant'}
           </span>
           {timestamp && (
@@ -87,8 +87,8 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
 
         {/* Message content with markdown */}
         <div className={cn(
-          "prose prose-sm dark:prose-invert max-w-none",
-          "prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1",
+          "prose prose-xs dark:prose-invert max-w-none text-[13px] leading-relaxed",
+          "prose-p:my-0.5 prose-headings:my-1 prose-ul:my-0.5 prose-ol:my-0.5",
           "prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs",
           "prose-pre:bg-transparent prose-pre:p-0"
         )}>
