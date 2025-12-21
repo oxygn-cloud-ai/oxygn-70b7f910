@@ -41,11 +41,7 @@ const TemplateOverviewTab = ({ template, onChange }) => {
     <div className="space-y-6 max-w-2xl">
       {/* Basic Info */}
       <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Basic Information</CardTitle>
-          <CardDescription>Template name and description</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="pt-4 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="template-name">Name</Label>
             <Input
@@ -71,11 +67,7 @@ const TemplateOverviewTab = ({ template, onChange }) => {
 
       {/* Category & Privacy */}
       <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Settings</CardTitle>
-          <CardDescription>Category and visibility settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="pt-4 space-y-4">
           <div className="space-y-2">
             <Label>Category</Label>
             <Select 
@@ -121,10 +113,7 @@ const TemplateOverviewTab = ({ template, onChange }) => {
 
       {/* Stats */}
       <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base">Template Statistics</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="text-center p-3 rounded-lg bg-muted/50">
               <Hash className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
