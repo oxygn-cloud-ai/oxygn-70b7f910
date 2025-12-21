@@ -29,6 +29,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { LargeValueField } from "./LargeValueField";
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 const MAX_SETTING_DESC_LENGTH = 500;
@@ -230,10 +231,16 @@ export function DatabaseEnvironmentSection({
                             placeholder={data.value ? '••••••••••••••••' : 'Enter value'}
                           />
                         ) : (
-                          <Input
+                          <LargeValueField
+                            id={key}
+                            kind="text"
                             value={currentValue}
-                            onChange={(e) => onValueChange(key, e.target.value)}
-                            className="max-w-md"
+                            onChange={(val) => onValueChange(key, val)}
+                            placeholder=""
+                            title={`Edit ${key}`}
+                            description={data.description || undefined}
+                            thresholdChars={8000}
+                            previewChars={200}
                           />
                         )}
                       </TableCell>
