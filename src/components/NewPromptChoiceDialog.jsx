@@ -308,7 +308,7 @@ const NewPromptChoiceDialog = ({
         if (error) throw error;
 
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, combinedVars) || '';
+          const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, contextVars) || '';
           createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
         }
 
