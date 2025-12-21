@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { toast } from '@/components/ui/sonner';
 
 const ToastHistoryContext = createContext(null);
 
@@ -49,8 +50,13 @@ export function ToastHistoryProvider({ children }) {
   }, [history]);
 
   const copyToClipboard = useCallback(async (data) => {
-    const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-    await navigator.clipboard.writeText(text);
+    try {
+      const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
+    } catch (err) {
+      toast.error('Failed to copy');
+    }
   }, []);
 
   return (
