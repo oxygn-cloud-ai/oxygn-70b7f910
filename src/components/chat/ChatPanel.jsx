@@ -59,18 +59,18 @@ const ChatPanel = ({
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/50 backdrop-blur-sm">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card/50 backdrop-blur-sm">
         {/* Conversations button - icon only */}
         {onToggleThreads && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent"
+            className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent"
             onClick={onToggleThreads}
           >
-            <MessageSquare className="h-4 w-4" />
+            <MessageSquare className="h-3.5 w-3.5" />
             {threadCount > 0 && (
-              <span className="absolute -top-1 -right-1 text-[10px] bg-primary text-primary-foreground px-1 py-0.5 rounded-full min-w-[16px] text-center">
+              <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground px-1 py-0.5 rounded-full min-w-[14px] text-center">
                 {threadCount}
               </span>
             )}
@@ -79,20 +79,20 @@ const ChatPanel = ({
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="relative">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Bot className="h-4 w-4 text-primary-foreground" />
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Bot className="h-3 w-3 text-primary-foreground" />
             </div>
             <motion.div
-              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-card"
+              className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-card"
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">{assistantName}</h3>
-            <p className="text-[10px] text-muted-foreground">Online • Ready to help</p>
+            <h3 className="text-xs font-semibold text-foreground">{assistantName}</h3>
+            <p className="text-[9px] text-muted-foreground">Online</p>
           </div>
         </div>
       </div>
