@@ -96,44 +96,49 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* Refresh Button */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Template Variables</h3>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRefreshVariables}
-              className="h-8 w-8"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Refresh detected variables</TooltipContent>
-        </Tooltip>
-      </div>
-      {/* Warnings */}
+      {/* Header */}
+      <h3 className="text-lg font-medium">Template Variables</h3>
+      
+      {/* Undefined Variables Warning */}
       {undefinedVars.length > 0 && (
         <Alert variant="warning" className="border-amber-500/50 bg-amber-500/10">
-          <AlertCircle className="h-4 w-4 text-amber-500" />
-          <AlertTitle className="text-amber-600 dark:text-amber-400">Undefined Variables</AlertTitle>
-          <AlertDescription className="text-amber-600/80 dark:text-amber-400/80">
-            <p className="mb-2">The following variables are used in prompts but not defined:</p>
-            <div className="flex flex-wrap gap-2">
-              {undefinedVars.map(v => (
-                <Badge 
-                  key={v} 
-                  variant="outline" 
-                  className="cursor-pointer hover:bg-amber-500/20"
-                  onClick={() => handleAddVariable(v)}
-                >
-                  {`{{${v}}}`}
-                  <Plus className="h-3 w-3 ml-1" />
-                </Badge>
-              ))}
+          <div className="flex items-start justify-between w-full">
+            <div className="flex gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5" />
+              <div>
+                <AlertTitle className="text-amber-600 dark:text-amber-400">Undefined Variables</AlertTitle>
+                <AlertDescription className="text-amber-600/80 dark:text-amber-400/80">
+                  <p className="mb-2">The following variables are used in prompts but not defined:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {undefinedVars.map(v => (
+                      <Badge 
+                        key={v} 
+                        variant="outline" 
+                        className="cursor-pointer hover:bg-amber-500/20"
+                        onClick={() => handleAddVariable(v)}
+                      >
+                        {`{{${v}}}`}
+                        <Plus className="h-3 w-3 ml-1" />
+                      </Badge>
+                    ))}
+                  </div>
+                </AlertDescription>
+              </div>
             </div>
-          </AlertDescription>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleRefreshVariables}
+                  className="h-7 w-7 shrink-0"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Refresh detected variables</TooltipContent>
+            </Tooltip>
+          </div>
         </Alert>
       )}
 
