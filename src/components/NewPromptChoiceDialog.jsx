@@ -695,17 +695,16 @@ const NewPromptChoiceDialog = ({
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <Button 
-                variant="secondary"
+                variant="ghost"
+                size="icon"
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
                 disabled={isCreating || hasValidationErrors}
+                title="Create"
               >
                 {isCreating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Create
-                  </>
+                  <Plus className="h-4 w-4" />
                 )}
               </Button>
             </DialogFooter>
