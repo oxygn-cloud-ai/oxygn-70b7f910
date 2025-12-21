@@ -20,7 +20,7 @@ export function SearchFilter({
 }) {
   const filterOptions = [
     { value: 'all', label: 'All Types' },
-    { value: 'assistant', label: 'Assistants Only' },
+    { value: 'assistant', label: 'Conversations Only' },
     { value: 'standard', label: 'Standard Only' },
   ];
 

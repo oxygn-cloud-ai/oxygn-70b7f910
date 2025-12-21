@@ -288,8 +288,8 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
         isLoadingMessages={isLoadingMessages}
         isSending={isSending}
         disabled={false}
-        placeholder={`Message ${promptName || 'Assistant'}...`}
-        assistantName={promptName || 'Assistant'}
+        placeholder={`Message ${promptName || 'AI'}...`}
+        assistantName={promptName || 'AI'}
         contextItems={contextItems}
         childPromptsCount={childPromptsCount}
         onToggleThreads={() => setIsThreadsOpen(true)}

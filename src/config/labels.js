@@ -77,9 +77,9 @@ export const TOOLTIPS = {
   prompts: {
     addChild: 'Add child prompt',
     createNew: 'Create new prompt',
-    enableAssistant: 'Enable Assistant Mode',
+    enableAssistant: 'Enable Conversation Mode',
     assistant: {
-      active: 'Assistant • Ready',
+      active: 'Conversation • Ready',
     },
   },
 

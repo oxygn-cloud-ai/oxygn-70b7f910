@@ -40,7 +40,7 @@ export const useAssistant = (promptRowId) => {
           .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .insert({
             prompt_row_id: promptRowId,
-            name: prompt?.prompt_name || 'New Assistant',
+            name: prompt?.prompt_name || 'New Conversation',
             instructions: '',
             use_global_tool_defaults: true,
             status: 'active', // Responses API is always ready
@@ -81,7 +81,7 @@ export const useAssistant = (promptRowId) => {
         .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .insert({
           prompt_row_id: promptRowId,
-          name: initialData.name || 'New Assistant',
+          name: initialData.name || 'New Conversation',
           instructions: initialData.instructions || '',
           use_global_tool_defaults: true,
           status: 'active', // Responses API is always ready

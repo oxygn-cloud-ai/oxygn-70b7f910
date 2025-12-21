@@ -85,10 +85,10 @@ export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Bot className="h-6 w-6" />
-            OpenAI Assistants
+            Conversations
           </h2>
           <p className="text-muted-foreground mt-1">
-            Manage assistants in your OpenAI account
+            Manage conversation configurations
           </p>
         </div>
         <TooltipProvider>
@@ -110,9 +110,9 @@ export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Assistants in OpenAI</CardTitle>
+          <CardTitle className="text-sm font-medium">Conversation Configurations</CardTitle>
           <CardDescription>
-            These are all assistants from your OpenAI account. Orphaned assistants have no linked prompt.
+            These are all conversation configurations. Orphaned items have no linked prompt.
           </CardDescription>
         </CardHeader>
         <CardContent>

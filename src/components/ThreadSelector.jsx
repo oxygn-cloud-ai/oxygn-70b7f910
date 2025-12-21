@@ -80,13 +80,13 @@ const ThreadSelector = ({
                   </p>
                 </div>
                 <a
-                  href="https://platform.openai.com/docs/assistants/how-it-works/managing-threads-and-messages"
+                  href="https://platform.openai.com/docs/api-reference/responses"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-sm text-primary hover:underline"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  OpenAI Threads Documentation
+                  OpenAI Responses API Documentation
                 </a>
               </div>
             </PopoverContent>
