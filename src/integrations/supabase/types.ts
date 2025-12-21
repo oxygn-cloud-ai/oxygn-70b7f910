@@ -1137,6 +1137,51 @@ export type Database = {
           },
         ]
       }
+      q_backups: {
+        Row: {
+          backup_name: string
+          backup_type: string | null
+          created_at: string | null
+          created_by: string | null
+          file_size_bytes: number | null
+          include_storage: boolean | null
+          notes: string | null
+          row_id: string
+          status: string | null
+          storage_path: string | null
+          table_counts: Json | null
+          tables_included: string[] | null
+        }
+        Insert: {
+          backup_name: string
+          backup_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          file_size_bytes?: number | null
+          include_storage?: boolean | null
+          notes?: string | null
+          row_id?: string
+          status?: string | null
+          storage_path?: string | null
+          table_counts?: Json | null
+          tables_included?: string[] | null
+        }
+        Update: {
+          backup_name?: string
+          backup_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          file_size_bytes?: number | null
+          include_storage?: boolean | null
+          notes?: string | null
+          row_id?: string
+          status?: string | null
+          storage_path?: string | null
+          table_counts?: Json | null
+          tables_included?: string[] | null
+        }
+        Relationships: []
+      }
       q_confluence_pages: {
         Row: {
           assistant_row_id: string | null
