@@ -22,9 +22,24 @@ const TreeView = ({
   handleDuplicateItem, 
   handleMoveItem 
 }) => {
-const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [showNewPromptChoice, setShowNewPromptChoice] = useState(false);
+  const [deletingItems, setDeletingItems] = useState(new Set());
+
+  // Wrapper that marks item as deleting before actual delete
+  const handleDeleteWithState = async (itemId) => {
+    setDeletingItems(prev => new Set(prev).add(itemId));
+    try {
+      await handleDeleteItem(itemId);
+    } finally {
+      setDeletingItems(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  };
 
   // Filter tree data based on search and filter
   const filteredData = useMemo(() => {
@@ -76,15 +91,16 @@ const [searchQuery, setSearchQuery] = useState('');
         cancelRenaming={() => setEditingItem(null)}
         activeItem={activeItem}
         setActiveItem={setActiveItem}
-        deleteItem={handleDeleteItem}
+        deleteItem={handleDeleteWithState}
         duplicateItem={handleDuplicateItem}
         moveItem={handleMoveItem}
         siblings={items}
         onRefreshTreeData={refreshTreeData}
         searchQuery={searchQuery}
+        deletingItems={deletingItems}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem, refreshTreeData, searchQuery]);
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, handleDeleteWithState, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem, refreshTreeData, searchQuery, deletingItems]);
 
 const handleOpenNewPromptDialog = () => {
     setShowNewPromptChoice(true);

@@ -35,7 +35,8 @@ export const TreeItemContent = ({
   duplicateItem,
   siblings,
   onRefreshTreeData,
-  searchQuery
+  searchQuery,
+  isDeleting
 }) => {
   const { user, isAdmin } = useAuth();
   const isOwner = user?.id === item.owner_id;
@@ -76,16 +77,17 @@ export const TreeItemContent = ({
       className={`
         group flex items-center
         py-1.5 px-2 rounded-md
-        transition-all duration-150 cursor-pointer
-        ${isActive 
+        transition-all duration-150
+        ${isDeleting ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
+        ${isActive && !isDeleting
           ? 'bg-primary/10 border border-primary/30 shadow-sm' 
           : 'hover:bg-muted/60 border border-transparent'
         }
       `}
       style={{ paddingLeft: `${level * 14 + 4}px` }}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => !isDeleting && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => setActiveItem(item.id)}
+      onClick={() => !isDeleting && setActiveItem(item.id)}
     >
       <div className="flex items-center gap-1.5 min-w-0">
         {/* Expand/Collapse Button */}
@@ -147,12 +149,17 @@ export const TreeItemContent = ({
           <span 
             className={`
               truncate text-sm font-medium
-              ${isActive ? 'text-primary' : 'text-foreground'}
+              ${isDeleting 
+                ? 'text-muted-foreground/50' 
+                : isActive 
+                  ? 'text-primary' 
+                  : 'text-foreground'
+              }
             `}
-            onDoubleClick={() => startRenaming(item.id, item.prompt_name)}
-            title={displayName}
+            onDoubleClick={() => !isDeleting && startRenaming(item.id, item.prompt_name)}
+            title={isDeleting ? 'Deleting...' : displayName}
           >
-            {highlightMatch(displayName)}
+            {isDeleting ? 'Deleting...' : highlightMatch(displayName)}
           </span>
         )}
 
@@ -225,21 +232,23 @@ export const TreeItemContent = ({
         )}
       </div>
 
-      {/* Actions - only show on hover, immediately after content */}
-      <div className={`
-        flex-shrink-0 ml-2 transition-opacity duration-150
-        ${isHovered ? 'opacity-100' : 'opacity-0'}
-      `}>
-        <TreeItemActions
-          item={item}
-          addItem={addItem}
-          deleteItem={deleteItem}
-          duplicateItem={duplicateItem}
-          startRenaming={startRenaming}
-          siblings={siblings}
-          onRefreshTreeData={onRefreshTreeData}
-        />
-      </div>
+      {/* Actions - only show on hover and not when deleting */}
+      {!isDeleting && (
+        <div className={`
+          flex-shrink-0 ml-2 transition-opacity duration-150
+          ${isHovered ? 'opacity-100' : 'opacity-0'}
+        `}>
+          <TreeItemActions
+            item={item}
+            addItem={addItem}
+            deleteItem={deleteItem}
+            duplicateItem={duplicateItem}
+            startRenaming={startRenaming}
+            siblings={siblings}
+            onRefreshTreeData={onRefreshTreeData}
+          />
+        </div>
+      )}
     </div>
   );
 };
