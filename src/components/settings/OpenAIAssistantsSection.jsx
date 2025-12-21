@@ -166,9 +166,6 @@ export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                        {assistant.local_status === 'destroyed' && (
-                          <Badge variant="secondary" className="text-xs">Destroyed</Badge>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">

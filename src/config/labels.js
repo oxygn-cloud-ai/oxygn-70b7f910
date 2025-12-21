@@ -79,8 +79,7 @@ export const TOOLTIPS = {
     createNew: 'Create new prompt',
     enableAssistant: 'Enable Assistant Mode',
     assistant: {
-      active: 'Assistant • Active',
-      notInstantiated: 'Assistant • Not Instantiated',
+      active: 'Assistant • Ready',
     },
   },
 

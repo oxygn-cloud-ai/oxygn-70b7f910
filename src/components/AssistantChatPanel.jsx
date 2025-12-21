@@ -220,12 +220,12 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
 
   useEffect(() => { fetchAssistant(); }, [fetchAssistant]);
   useEffect(() => {
-    if (assistant?.row_id && assistant.status === 'active') {
+    if (assistant?.row_id) {
       fetchThreads(assistant.row_id);
     } else {
       setThreads([]); setActiveThread(null); setMessages([]);
     }
-  }, [assistant?.row_id, assistant?.status, fetchThreads]);
+  }, [assistant?.row_id, fetchThreads]);
   useEffect(() => { if (activeThread?.row_id) fetchMessages(activeThread.row_id); }, [activeThread?.row_id, fetchMessages]);
 
   if (isLoadingAssistant) {
@@ -236,17 +236,15 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     );
   }
 
-  if (!assistant || assistant.status !== 'active') {
+  if (!assistant) {
     return (
       <div className="h-full flex items-center justify-center bg-muted/20">
         <div className="text-center text-muted-foreground p-8 max-w-xs">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <Bot className="h-8 w-8 opacity-50" />
           </div>
-          <p className="font-medium text-foreground">Assistant Not Active</p>
-          <p className="text-sm mt-1">
-            {assistant?.status === 'destroyed' ? 'Re-enable the assistant to start chatting' : 'Wait for the assistant to be instantiated'}
-          </p>
+          <p className="font-medium text-foreground">No Assistant Found</p>
+          <p className="text-sm mt-1">Create an assistant to start chatting</p>
         </div>
       </div>
     );

@@ -17,15 +17,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Bot, Upload, RefreshCw, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { ALL_SETTINGS, isSettingSupported } from '../config/modelCapabilities';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ConfluencePagesSection from './ConfluencePagesSection';
 
 const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
-  const { assistant, isLoading, isInstantiating, updateAssistant, instantiate, destroy, reInstantiate } = useAssistant(promptRowId);
-  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id, assistant?.status);
+  const { assistant, isLoading, updateAssistant } = useAssistant(promptRowId);
+  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
   const { models } = useOpenAIModels();
   const { settings } = useSettings(supabase);
@@ -40,7 +40,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const [temperature, setTemperature] = useState('');
   const [maxTokens, setMaxTokens] = useState('');
   const [topP, setTopP] = useState('');
-  const [apiVersion, setApiVersion] = useState('assistants');
+  const [apiVersion, setApiVersion] = useState('responses');
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [childDefaultsOpen, setChildDefaultsOpen] = useState(false);
@@ -70,7 +70,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setTemperature(assistant.temperature_override || '');
       setMaxTokens(assistant.max_tokens_override || '');
       setTopP(assistant.top_p_override || '');
-      setApiVersion(assistant.api_version || 'assistants');
+      setApiVersion(assistant.api_version || 'responses');
     }
   }, [assistant, toolDefaults]);
 
@@ -104,24 +104,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
 
   const handleSave = async (field, value) => {
     await updateAssistant({ [field]: value });
-    
-    // Sync name and instructions changes to OpenAI if assistant is active
-    if (assistant?.status === 'active' && assistant?.openai_assistant_id && (field === 'name' || field === 'instructions')) {
-      try {
-        const response = await supabase.functions.invoke('assistant-manager', {
-          body: {
-            action: 'update',
-            assistant_row_id: assistant.row_id,
-            [field]: value,
-          },
-        });
-        if (response.error) {
-          console.error('Failed to sync to OpenAI:', response.error);
-        }
-      } catch (error) {
-        console.error('Error syncing to OpenAI:', error);
-      }
-    }
   };
 
   const handleFileUpload = async (e) => {
@@ -132,9 +114,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
     }
   };
 
-  const handleReInstantiate = async () => {
-    await reInstantiate();
-  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
@@ -151,10 +130,8 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
     );
   }
 
-  const isActive = assistant.status === 'active';
-  const isDestroyed = assistant.status === 'destroyed';
-  const isError = assistant.status === 'error';
-  const isNotInstantiated = assistant.status === 'not_instantiated' || !assistant.status;
+  // Responses API - assistants are always active
+  const isActive = true;
 
   // Settings that OpenAI Assistants API supports at assistant level
   const assistantLevelSettings = ['temperature', 'top_p', 'response_format'];
@@ -225,51 +202,18 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       {/* Status Header */}
       <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${apiVersion === 'responses' ? 'bg-primary/10' : isActive ? 'bg-primary/10' : 'bg-muted'}`}>
-            <Bot className={`h-5 w-5 ${apiVersion === 'responses' ? 'text-primary' : isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Bot className="h-5 w-5 text-primary" />
           </div>
           <div>
             <span className="font-semibold text-foreground">Assistant Configuration</span>
             <div className="flex items-center gap-2 mt-0.5">
-              {apiVersion === 'responses' ? (
-                <Badge variant="success">● Ready (Responses API)</Badge>
-              ) : (
-                <Badge variant={isActive ? 'success' : isDestroyed ? 'destructive' : isError ? 'destructive' : 'muted'}>
-                  {isActive ? '● Active' : isDestroyed ? '○ Destroyed' : isError ? '✕ Error' : '○ Not Instantiated'}
-                </Badge>
-              )}
+              <Badge variant="success">● Ready</Badge>
               {currentModelData && (
                 <span className="text-xs text-muted-foreground">{currentModelData.model_name}</span>
               )}
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1">
-          {/* Only show instantiate/destroy buttons for Assistants API */}
-          {apiVersion === 'assistants' && (isDestroyed || isNotInstantiated) && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50" onClick={isDestroyed ? handleReInstantiate : instantiate} disabled={isInstantiating}>
-                    {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{isDestroyed ? 'Re-enable Assistant' : 'Instantiate Assistant'}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          {apiVersion === 'assistants' && isActive && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={destroy}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Destroy Assistant</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
         </div>
       </div>
 
