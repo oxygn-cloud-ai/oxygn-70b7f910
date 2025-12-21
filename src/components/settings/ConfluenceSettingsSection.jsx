@@ -145,6 +145,7 @@ const ConfluenceSettingsSection = ({
                   value={apiToken}
                   onChange={(e) => onValueChange('confluence_api_token', e.target.value)}
                   className="flex-1"
+                  autoComplete="new-password"
                 />
                 <Tooltip>
                   <TooltipTrigger asChild>

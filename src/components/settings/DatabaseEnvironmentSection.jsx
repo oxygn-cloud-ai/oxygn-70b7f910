@@ -288,12 +288,13 @@ export function DatabaseEnvironmentSection({
                       </TableCell>
                       <TableCell>
                         {isSensitiveKey(key) ? (
-                          <Input
+                        <Input
                             type="password"
                             value={currentValue}
                             onChange={(e) => onValueChange(key, e.target.value)}
                             className="max-w-md"
                             placeholder={data.value ? '••••••••••••••••' : 'Enter value'}
+                            autoComplete="new-password"
                           />
                         ) : (
                           <LargeValueField

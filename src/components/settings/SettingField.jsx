@@ -215,6 +215,7 @@ const SettingField = ({
             isDisabled && "bg-muted cursor-not-allowed"
           )}
           placeholder={isDisabled ? "Not available for this model" : ""}
+          autoComplete="off"
         />
       )}
       
