@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 import {
   Select,
   SelectContent,
@@ -89,7 +90,7 @@ export function AssistantDefaultsSection({
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Refresh</TooltipContent>
+            <TooltipContent>{TOOLTIPS.actions.refresh}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>

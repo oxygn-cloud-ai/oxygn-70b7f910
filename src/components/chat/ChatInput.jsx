@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { TOOLTIPS } from '@/config/labels';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ChatInput = ({
@@ -102,7 +103,7 @@ const ChatInput = ({
                   <Paperclip className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Attachments coming soon</TooltipContent>
+              <TooltipContent>{TOOLTIPS.chat.attachments}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 

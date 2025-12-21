@@ -32,6 +32,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 
 export function AIModelsSection({
   models,
@@ -92,7 +93,7 @@ export function AIModelsSection({
                   <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Refresh</TooltipContent>
+              <TooltipContent>{TOOLTIPS.actions.refresh}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <Dialog open={isAddModelDialogOpen} onOpenChange={setIsAddModelDialogOpen}>
@@ -105,7 +106,7 @@ export function AIModelsSection({
                     </Button>
                   </DialogTrigger>
                 </TooltipTrigger>
-                <TooltipContent>Add Model</TooltipContent>
+                <TooltipContent>{TOOLTIPS.settings.addModel}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <DialogContent>

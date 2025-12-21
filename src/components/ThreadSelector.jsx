@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -158,7 +159,7 @@ const ThreadSelector = ({
                     <Plus className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Create new thread</TooltipContent>
+                <TooltipContent>{TOOLTIPS.threads.createNew}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
@@ -173,7 +174,7 @@ const ThreadSelector = ({
                         </Button>
                       </AlertDialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent>Delete thread</TooltipContent>
+                    <TooltipContent>{TOOLTIPS.threads.delete}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <AlertDialogContent>

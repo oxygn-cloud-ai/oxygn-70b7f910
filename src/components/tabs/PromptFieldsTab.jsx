@@ -11,6 +11,7 @@ import { Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 import { toast } from '@/components/ui/sonner';
 
 const PromptFieldsTab = ({ 
@@ -156,7 +157,7 @@ const PromptFieldsTab = ({
                     <Bot className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Enable Assistant Mode</TooltipContent>
+                <TooltipContent>{TOOLTIPS.prompts.enableAssistant}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </CardContent>

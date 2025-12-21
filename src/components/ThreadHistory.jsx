@@ -3,6 +3,7 @@ import { History, User, Bot, Loader2 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,7 @@ const ThreadHistory = ({
               </Button>
             </TooltipTrigger>
           </DialogTrigger>
-          <TooltipContent>View History</TooltipContent>
+          <TooltipContent>{TOOLTIPS.threads.viewHistory}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <DialogContent className="max-w-2xl max-h-[80vh]">

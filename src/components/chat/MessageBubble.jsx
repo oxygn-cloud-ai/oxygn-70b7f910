@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { TOOLTIPS } from '@/config/labels';
 import { toast } from '@/components/ui/sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -139,7 +140,7 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="bottom">Copy</TooltipContent>
+              <TooltipContent side="bottom">{TOOLTIPS.chat.copy}</TooltipContent>
             </Tooltip>
 
             {!isUser && (
@@ -155,7 +156,7 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
                       <ThumbsUp className={cn("h-3 w-3", feedback === 'up' ? "text-primary" : "text-muted-foreground")} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Helpful</TooltipContent>
+                  <TooltipContent side="bottom">{TOOLTIPS.chat.helpful}</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -169,7 +170,7 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
                       <ThumbsDown className={cn("h-3 w-3", feedback === 'down' ? "text-destructive" : "text-muted-foreground")} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">Not helpful</TooltipContent>
+                  <TooltipContent side="bottom">{TOOLTIPS.chat.notHelpful}</TooltipContent>
                 </Tooltip>
 
                 {onRegenerate && (
@@ -184,7 +185,7 @@ const MessageBubble = ({ message, userProfile, onRegenerate }) => {
                         <RefreshCw className="h-3 w-3 text-muted-foreground" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Regenerate</TooltipContent>
+                    <TooltipContent side="bottom">{TOOLTIPS.chat.regenerate}</TooltipContent>
                   </Tooltip>
                 )}
               </>

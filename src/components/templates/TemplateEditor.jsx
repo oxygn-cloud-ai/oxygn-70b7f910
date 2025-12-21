@@ -4,6 +4,7 @@ import { FileText, GitBranch, Variable, Eye, Save, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TOOLTIPS } from '@/config/labels';
 import TemplateOverviewTab from './TemplateOverviewTab';
 import TemplateStructureEditor from './TemplateStructureEditor';
 import TemplateVariablesTab from './TemplateVariablesTab';
@@ -147,7 +148,7 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p>{hasChanges ? 'Save changes' : 'No changes to save'}</p>
+                <p>{hasChanges ? TOOLTIPS.actions.save : TOOLTIPS.actions.noChanges}</p>
               </TooltipContent>
             </Tooltip>
           </div>

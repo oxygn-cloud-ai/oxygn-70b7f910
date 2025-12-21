@@ -9,6 +9,7 @@ import NewPromptChoiceDialog from './NewPromptChoiceDialog';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 import { Progress } from "@/components/ui/progress";
 
 export const TreeItemActions = ({ 
@@ -250,7 +251,7 @@ export const TreeItemActions = ({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs">
-                Add child prompt
+                {TOOLTIPS.prompts.addChild}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

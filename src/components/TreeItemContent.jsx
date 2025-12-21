@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TOOLTIPS } from '@/config/labels';
 
 export const TreeItemContent = ({
   item,
@@ -121,7 +122,7 @@ export const TreeItemContent = ({
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">
-                Assistant {item.assistantStatus === 'active' ? '• Active' : '• Not Instantiated'}
+                {item.assistantStatus === 'active' ? TOOLTIPS.prompts.assistant.active : TOOLTIPS.prompts.assistant.notInstantiated}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -206,7 +207,7 @@ export const TreeItemContent = ({
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="text-xs">
-                  Owned by {item.ownerDisplay}
+                  {TOOLTIPS.ownership.ownedBy(item.ownerDisplay)}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
