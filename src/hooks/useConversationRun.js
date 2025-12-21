@@ -21,6 +21,36 @@ export const useConversationRun = () => {
     if (isMountedRef.current) setter(value);
   }, []);
 
+  const buildEdgeFunctionError = useCallback(async (invokeError) => {
+    if (!invokeError) return new Error('Edge Function call failed');
+
+    let status = invokeError?.context?.response?.status;
+    let payload = null;
+
+    try {
+      const res = invokeError?.context?.response;
+      if (res) {
+        const text = await res.text();
+        if (text) {
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            payload = { error: text };
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const message = payload?.error || payload?.message || invokeError.message || 'Edge Function call failed';
+    const err = new Error(message);
+    if (status) err.status = status;
+    if (payload?.error_code) err.error_code = payload.error_code;
+    if (typeof payload?.retry_after_s === 'number') err.retry_after_s = payload.retry_after_s;
+    return err;
+  }, []);
+
   const runPrompt = useCallback(
     async (childPromptRowId, userMessage, templateVariables = {}, options = {}) => {
       if (!supabase || !childPromptRowId) return null;
@@ -38,8 +68,13 @@ export const useConversationRun = () => {
           },
         });
 
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
+        if (error) throw await buildEdgeFunctionError(error);
+        if (data?.error) {
+          const e = new Error(data.error);
+          if (data.error_code) e.error_code = data.error_code;
+          if (typeof data.retry_after_s === 'number') e.retry_after_s = data.retry_after_s;
+          throw e;
+        }
 
         safeSetState(setLastResponse, data);
 
@@ -62,7 +97,7 @@ export const useConversationRun = () => {
         safeSetState(setIsRunning, false);
       }
     },
-    [registerCall, safeSetState, supabase]
+    [buildEdgeFunctionError, registerCall, safeSetState, supabase]
   );
 
   const runConversation = useCallback(
@@ -93,8 +128,13 @@ export const useConversationRun = () => {
           },
         });
 
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
+        if (error) throw await buildEdgeFunctionError(error);
+        if (data?.error) {
+          const e = new Error(data.error);
+          if (data.error_code) e.error_code = data.error_code;
+          if (typeof data.retry_after_s === 'number') e.retry_after_s = data.retry_after_s;
+          throw e;
+        }
 
         safeSetState(setLastResponse, data);
 
@@ -115,7 +155,7 @@ export const useConversationRun = () => {
         safeSetState(setIsRunning, false);
       }
     },
-    [registerCall, safeSetState, supabase]
+    [buildEdgeFunctionError, registerCall, safeSetState, supabase]
   );
 
   return {
@@ -125,3 +165,4 @@ export const useConversationRun = () => {
     lastResponse,
   };
 };
+

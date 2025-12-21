@@ -116,6 +116,23 @@ export const useCascadeExecutor = () => {
     return true;
   }, [checkPaused, isCancelled]);
 
+  const getRetryDelayMs = useCallback((err) => {
+    const retryAfterS = err?.retry_after_s;
+    if (typeof retryAfterS === 'number' && retryAfterS > 0) {
+      return Math.ceil(retryAfterS * 1000) + 250;
+    }
+
+    const msg = err?.message || '';
+    const match = /try again in ([0-9.]+)s/i.exec(msg);
+    if (match) {
+      const s = Number.parseFloat(match[1]);
+      if (!Number.isNaN(s) && s > 0) return Math.ceil(s * 1000) + 250;
+    }
+
+    if (err?.status === 429) return 2500;
+    return 0;
+  }, []);
+
   // Execute the cascade run
   const executeCascade = useCallback(async (topLevelRowId, parentAssistantRowId) => {
     if (!supabase) {
@@ -135,14 +152,14 @@ export const useCascadeExecutor = () => {
     const nonExcludedPrompts = hierarchy.levels
       .flatMap((l, idx) => l.prompts.map(p => ({ ...p, levelIdx: idx })))
       .filter(p => !p.exclude_from_cascade && !(p.levelIdx === 0 && p.is_assistant));
-    
+
     const excludedPrompts = hierarchy.levels
       .flatMap(l => l.prompts)
       .filter(p => p.exclude_from_cascade);
-    
+
     // Also identify assistant prompts at level 0 (they're the context, not runnable)
     const assistantPrompts = hierarchy.levels[0]?.prompts.filter(p => p.is_assistant) || [];
-    
+
     if (nonExcludedPrompts.length === 0) {
       toast.error('No child prompts to run in cascade');
       return;
@@ -150,12 +167,12 @@ export const useCascadeExecutor = () => {
 
     // Initialize cascade state with correct count
     startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
-    
+
     // Mark excluded prompts as skipped immediately
     for (const excludedPrompt of excludedPrompts) {
       markPromptSkipped(excludedPrompt.row_id, excludedPrompt.prompt_name);
     }
-    
+
     const accumulatedResponses = [];
     let promptIndex = 0;
 
@@ -163,14 +180,14 @@ export const useCascadeExecutor = () => {
       // Process ALL levels starting from level 0 (top-level prompt)
       for (let levelIdx = 0; levelIdx < hierarchy.levels.length; levelIdx++) {
         const level = hierarchy.levels[levelIdx];
-        
+
         for (const prompt of level.prompts) {
           // Skip if excluded from cascade
           if (prompt.exclude_from_cascade) {
             console.log(`Skipping excluded prompt: ${prompt.prompt_name}`);
             continue;
           }
-          
+
           // Skip top-level prompt (level 0) if it's an assistant - it's the parent, not a child
           // The conversation-run function expects child prompts with a parent
           if (levelIdx === 0 && prompt.is_assistant) {
@@ -203,11 +220,14 @@ export const useCascadeExecutor = () => {
           let retryCount = 0;
           const maxRetries = 3;
 
+          let rateLimitWaits = 0;
+          const maxRateLimitWaits = 12;
+
           while (!success && retryCount < maxRetries) {
             try {
               // Build the user message - use input_user_prompt from the prompt
               const userMessage = prompt.input_user_prompt || '';
-              
+
               // Pass input_admin_prompt as a template variable for system context
               const extendedTemplateVars = {
                 ...templateVars,
@@ -245,6 +265,18 @@ export const useCascadeExecutor = () => {
               }
             } catch (error) {
               console.error('Cascade prompt error:', error);
+
+              const delayMs = getRetryDelayMs(error);
+              if (delayMs > 0) {
+                rateLimitWaits++;
+                if (rateLimitWaits > maxRateLimitWaits) {
+                  throw error;
+                }
+                console.log(`Rate limited; waiting ${delayMs}ms before retrying...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+                continue;
+              }
+
               retryCount++;
 
               if (retryCount >= maxRetries) {
@@ -299,6 +331,7 @@ export const useCascadeExecutor = () => {
     buildCascadeVariables,
     runConversation,
     showError,
+    getRetryDelayMs,
   ]);
 
   // Check if a prompt has children (for showing cascade button)

@@ -634,10 +634,34 @@ serve(async (req) => {
     );
 
     if (!result.success) {
-      return new Response(
-        JSON.stringify({ error: result.error, error_code: result.error_code }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const errorText = result.error || 'Responses API call failed';
+
+      let status = 400;
+      let retryAfterS: number | null = null;
+
+      // Map OpenAI rate limits to HTTP 429 so clients can backoff.
+      if (result.error_code === 'API_CALL_FAILED' && /rate limit/i.test(errorText)) {
+        status = 429;
+        const match = /try again in ([0-9.]+)s/i.exec(errorText);
+        if (match) {
+          const parsed = Number.parseFloat(match[1]);
+          if (!Number.isNaN(parsed) && parsed > 0) retryAfterS = parsed;
+        }
+      }
+
+      const body: Record<string, unknown> = {
+        error: errorText,
+        error_code: result.error_code,
+        ...(retryAfterS ? { retry_after_s: retryAfterS } : {}),
+      };
+
+      const headers: Record<string, string> = {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        ...(retryAfterS ? { 'Retry-After': String(Math.ceil(retryAfterS)) } : {}),
+      };
+
+      return new Response(JSON.stringify(body), { status, headers });
     }
 
     // Update child prompt with response
