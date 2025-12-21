@@ -401,6 +401,11 @@ export const useCascadeExecutor = () => {
                   .update({ user_prompt_result: result.response })
                   .eq('row_id', prompt.row_id);
 
+                // Dispatch event to refresh the UI if this prompt is currently selected
+                window.dispatchEvent(new CustomEvent('prompt-result-updated', {
+                  detail: { promptRowId: prompt.row_id }
+                }));
+
                 // Notify prompt completed
                 toast.success(`Completed: ${prompt.prompt_name}`, {
                   description: `${promptElapsedMs}ms • ${result.response.length} chars`,

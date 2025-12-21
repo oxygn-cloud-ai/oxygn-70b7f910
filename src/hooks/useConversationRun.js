@@ -86,6 +86,13 @@ export const useConversationRun = () => {
 
         safeSetState(setLastResponse, data);
 
+        // Dispatch event to refresh the UI for this prompt
+        if (childPromptRowId) {
+          window.dispatchEvent(new CustomEvent('prompt-result-updated', {
+            detail: { promptRowId: childPromptRowId }
+          }));
+        }
+
         if (typeof onSuccess === 'function') {
           try {
             await onSuccess(data);
@@ -145,6 +152,13 @@ export const useConversationRun = () => {
         }
 
         safeSetState(setLastResponse, data);
+
+        // Dispatch event to refresh the UI for this prompt
+        if (childPromptRowId) {
+          window.dispatchEvent(new CustomEvent('prompt-result-updated', {
+            detail: { promptRowId: childPromptRowId }
+          }));
+        }
 
         if (typeof onSuccess === 'function') {
           try {
