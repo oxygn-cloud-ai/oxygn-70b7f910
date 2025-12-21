@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import GuardedLink from '@/components/GuardedLink';
 import {
@@ -40,6 +40,7 @@ const settingsSubItems = [
   { id: 'confluence', title: 'Confluence', icon: FileStack },
   { id: 'cost-analytics', title: 'Cost Analytics', icon: Database },
   { id: 'database', title: 'Database & Env', icon: Database },
+  { id: 'appearance', title: 'Appearance', icon: Palette },
 ];
 
 const healthSubItems = [
