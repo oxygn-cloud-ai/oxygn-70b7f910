@@ -296,7 +296,7 @@ async function runWithResponsesAPI(
   message: string,
   conversationId: string | null,
   previousResponseId: string | null,
-  toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean; confluence_enabled: boolean },
+  toolConfig: { code_interpreter_enabled: boolean; file_search_enabled: boolean; confluence_enabled: boolean; web_search_enabled: boolean },
   vectorStoreId: string | null,
   apiKey: string,
   supabase: any
@@ -307,6 +307,7 @@ async function runWithResponsesAPI(
   const tools = getAllTools('responses', {
     codeInterpreterEnabled: toolConfig.code_interpreter_enabled,
     fileSearchEnabled: toolConfig.file_search_enabled,
+    webSearchEnabled: toolConfig.web_search_enabled,
     confluenceEnabled: toolConfig.confluence_enabled,
     vectorStoreIds: vectorStoreId ? [vectorStoreId] : undefined,
   });
@@ -709,6 +710,7 @@ serve(async (req) => {
         code_interpreter_enabled: assistantData.code_interpreter_enabled || false,
         file_search_enabled: assistantData.file_search_enabled || false,
         confluence_enabled: assistantData.confluence_enabled || false,
+        web_search_enabled: childPrompt.web_search_on || false,
       };
 
       const result = await runWithResponsesAPI(
