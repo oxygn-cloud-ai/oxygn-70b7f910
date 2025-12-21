@@ -3,6 +3,7 @@ import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { Bot, Loader2 } from 'lucide-react';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import ChatPanel from './chat/ChatPanel';
 import ThreadSidebar from './chat/ThreadSidebar';
 
@@ -18,7 +19,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [selectedChildPromptName, setSelectedChildPromptName] = useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isThreadsOpen, setIsThreadsOpen] = useState(false);
   const [childPromptsCount, setChildPromptsCount] = useState(0);
 
   // Fetch child prompts count
@@ -132,6 +133,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
       setThreads(prev => [newThread, ...prev]);
       setActiveThread(newThread);
       setMessages([]);
+      setIsThreadsOpen(false);
       toast.success('New conversation created');
     } catch (error) {
       console.error('Failed to create thread:', error);
@@ -183,6 +185,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
     if (thread) {
       setActiveThread(thread);
       fetchMessages(threadRowId);
+      setIsThreadsOpen(false);
     }
   }, [threads, fetchMessages]);
 
@@ -252,31 +255,37 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   const contextItems = selectedChildPromptName ? [{ id: selectedChildPromptId, name: selectedChildPromptName }] : [];
 
   return (
-    <div className="h-full flex overflow-hidden bg-background">
-      <ThreadSidebar
-        threads={threads}
-        activeThread={activeThread}
-        isLoading={isLoadingThreads}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        onSelectThread={switchThread}
-        onCreateThread={createThread}
-        onDeleteThread={deleteThread}
-        onRenameThread={renameThread}
+    <div className="h-full flex flex-col overflow-hidden bg-background">
+      {/* Thread Drawer */}
+      <Sheet open={isThreadsOpen} onOpenChange={setIsThreadsOpen}>
+        <SheetContent side="left" className="w-80 p-0">
+          <ThreadSidebar
+            threads={threads}
+            activeThread={activeThread}
+            isLoading={isLoadingThreads}
+            onSelectThread={switchThread}
+            onCreateThread={createThread}
+            onDeleteThread={deleteThread}
+            onRenameThread={renameThread}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Chat takes full width */}
+      <ChatPanel
+        messages={messages}
+        onSendMessage={sendMessage}
+        isLoadingMessages={isLoadingMessages}
+        isSending={isSending}
+        disabled={false}
+        placeholder={`Message ${promptName || 'Assistant'}...`}
+        assistantName={promptName || 'Assistant'}
+        contextItems={contextItems}
+        childPromptsCount={childPromptsCount}
+        onToggleThreads={() => setIsThreadsOpen(true)}
+        activeThreadName={activeThread?.name}
+        threadCount={threads.length}
       />
-      <div className="flex-1 overflow-hidden">
-        <ChatPanel
-          messages={messages}
-          onSendMessage={sendMessage}
-          isLoadingMessages={isLoadingMessages}
-          isSending={isSending}
-          disabled={false}
-          placeholder={`Message ${promptName || 'Assistant'}...`}
-          assistantName={promptName || 'Assistant'}
-          contextItems={contextItems}
-          childPromptsCount={childPromptsCount}
-        />
-      </div>
     </div>
   );
 };

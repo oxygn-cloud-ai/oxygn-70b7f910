@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, MessageSquare, Search, ChevronLeft, Pencil, Check, X } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, Search, Pencil, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,6 @@ const ThreadSidebar = ({
   threads,
   activeThread,
   isLoading,
-  isCollapsed,
-  onToggleCollapse,
   onSelectThread,
   onCreateThread,
   onDeleteThread,
@@ -48,106 +46,29 @@ const ThreadSidebar = ({
     setEditName('');
   };
 
-  if (isCollapsed) {
-    return (
-      <div className="w-12 border-r border-border bg-card/50 flex flex-col items-center py-3 gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={onToggleCollapse}
-              >
-                <ChevronLeft className="h-4 w-4 rotate-180" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Expand threads</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                onClick={onCreateThread}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">New thread</TooltipContent>
-          </Tooltip>
-
-          <div className="flex-1" />
-
-          {threads.slice(0, 5).map(thread => (
-            <Tooltip key={thread.row_id}>
+  return (
+    <div className="h-full flex flex-col bg-card/50 backdrop-blur-sm">
+      {/* Header */}
+      <div className="p-4 border-b border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-foreground">
+            Conversations
+          </span>
+          <TooltipProvider>
+            <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn(
-                    "h-8 w-8",
-                    activeThread?.row_id === thread.row_id && "bg-primary/10 text-primary"
-                  )}
-                  onClick={() => onSelectThread(thread.row_id)}
+                  className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                  onClick={onCreateThread}
                 >
-                  <MessageSquare className="h-4 w-4" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">{thread.name || 'Untitled'}</TooltipContent>
+              <TooltipContent>New conversation</TooltipContent>
             </Tooltip>
-          ))}
-        </TooltipProvider>
-      </div>
-    );
-  }
-
-  return (
-    <motion.div
-      initial={{ width: 0 }}
-      animate={{ width: 260 }}
-      exit={{ width: 0 }}
-      className="border-r border-border bg-card/50 backdrop-blur-sm flex flex-col overflow-hidden"
-    >
-      {/* Header */}
-      <div className="p-3 border-b border-border space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
-            Conversations
-          </span>
-          <div className="flex items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 hover:bg-primary/10 hover:text-primary"
-                    onClick={onCreateThread}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>New conversation</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={onToggleCollapse}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Collapse</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          </TooltipProvider>
         </div>
 
         {/* Search */}
@@ -157,7 +78,7 @@ const ThreadSidebar = ({
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs bg-background/50"
+            className="h-9 pl-8 text-sm bg-background/50"
           />
         </div>
       </div>
@@ -297,7 +218,7 @@ const ThreadSidebar = ({
           )}
         </div>
       </ScrollArea>
-    </motion.div>
+    </div>
   );
 };
 

@@ -1,8 +1,9 @@
 import React, { useRef, useEffect } from 'react';
-import { Bot } from 'lucide-react';
+import { Bot, MessageSquare, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
@@ -21,6 +22,9 @@ const ChatPanel = ({
   contextItems = [],
   onRemoveContext,
   childPromptsCount = 0,
+  onToggleThreads,
+  activeThreadName,
+  threadCount = 0,
 }) => {
   const { userProfile } = useAuth();
   const scrollAreaRef = useRef(null);
@@ -56,19 +60,44 @@ const ChatPanel = ({
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="relative">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <Bot className="h-4 w-4 text-primary-foreground" />
+        {/* Conversations button */}
+        {onToggleThreads && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+            onClick={onToggleThreads}
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="text-xs font-medium truncate max-w-[120px]">
+              {activeThreadName || 'Conversations'}
+            </span>
+            {threadCount > 0 && (
+              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+                {threadCount}
+              </span>
+            )}
+            <ChevronRight className="h-3 w-3 opacity-50" />
+          </Button>
+        )}
+
+        <div className="flex-1" />
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+              <Bot className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <motion.div
+              className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-card"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
           </div>
-          <motion.div
-            className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-card"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{assistantName}</h3>
-          <p className="text-[10px] text-muted-foreground">Online • Ready to help</p>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{assistantName}</h3>
+            <p className="text-[10px] text-muted-foreground">Online • Ready to help</p>
+          </div>
         </div>
       </div>
 
