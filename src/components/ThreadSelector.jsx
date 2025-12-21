@@ -86,7 +86,7 @@ const ThreadSelector = ({
                   className="flex items-center gap-1 text-sm text-primary hover:underline"
                 >
                   <ExternalLink className="h-3 w-3" />
-                  OpenAI Responses API Documentation
+                  Responses API Documentation
                 </a>
               </div>
             </PopoverContent>

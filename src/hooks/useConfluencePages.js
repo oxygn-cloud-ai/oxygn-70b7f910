@@ -182,7 +182,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
   const syncToVectorStore = async (rowId, assistantId) => {
     setIsSyncing(true);
     try {
-      const data = await invokeFunction('sync-to-openai', { rowId, assistantId });
+      const data = await invokeFunction('sync-to-vector-store', { rowId, assistantId });
       if (data.success) {
         setPages(prev => prev.map(p => 
           p.row_id === rowId ? { ...p, openai_file_id: data.openaiFileId } : p

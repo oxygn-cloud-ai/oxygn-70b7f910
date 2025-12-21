@@ -2,7 +2,7 @@
 // Defines which settings each model/provider supports
 
 export const MODEL_CAPABILITIES = {
-  // OpenAI models
+  // OpenAI-compatible models
   openai: {
     default: ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
     'gpt-4': ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'web_search'],
@@ -105,7 +105,7 @@ export const ALL_SETTINGS = {
   o_user: { 
     label: 'User ID', 
     description: 'End-user identifier',
-    details: 'A unique identifier representing your end-user, which helps OpenAI monitor and detect abuse. Should not contain PII.',
+    details: 'A unique identifier representing your end-user, which helps the AI provider monitor and detect abuse. Should not contain PII.',
     docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-user'
   },
   web_search: { 

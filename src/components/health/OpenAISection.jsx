@@ -36,7 +36,7 @@ const OpenAISection = ({ results, isLoading, onRefresh }) => {
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Bot className="h-5 w-5" />
-            OpenAI API
+            AI API
           </h2>
           <p className="text-sm text-muted-foreground">API configuration and connectivity</p>
         </div>

@@ -136,9 +136,9 @@ export const useAssistantFiles = (assistantRowId) => {
       const file = files.find(f => f.row_id === fileRowId);
       if (!file) return false;
 
-      // If file was uploaded to OpenAI, delete it there first
+      // If file was uploaded to vector store, delete it there first
       if (file.openai_file_id) {
-        console.log('Deleting file from OpenAI:', file.openai_file_id);
+        console.log('Deleting file from vector store:', file.openai_file_id);
         const { data: deleteData, error: openaiError } = await supabase.functions.invoke('assistant-manager', {
           body: {
             action: 'delete-file',
