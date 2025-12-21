@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Lock, Globe, Calendar, Hash } from 'lucide-react';
+import { Lock, Globe, Calendar, Hash, Braces, GitBranch } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
 const CATEGORIES = [
   { value: 'general', label: 'General', color: 'bg-muted text-muted-foreground' },
@@ -38,7 +39,8 @@ const TemplateOverviewTab = ({ template, onChange }) => {
   const variableCount = template.variable_definitions?.length || 0;
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <TooltipProvider>
+    <div className="space-y-4 max-w-2xl">
       {/* Basic Info */}
       <Card>
         <CardContent className="pt-4 space-y-4">
@@ -111,36 +113,39 @@ const TemplateOverviewTab = ({ template, onChange }) => {
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <Hash className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-              <p className="text-2xl font-bold">{nodeCount}</p>
-              <p className="text-xs text-muted-foreground">Prompt Nodes</p>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <span className="text-lg font-mono text-muted-foreground">{'{{'}</span>
-              <p className="text-2xl font-bold">{variableCount}</p>
-              <p className="text-xs text-muted-foreground">Variables</p>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <Calendar className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-              <p className="text-sm font-medium">
-                {template.created_at ? new Date(template.created_at).toLocaleDateString() : 'N/A'}
-              </p>
-              <p className="text-xs text-muted-foreground">Created</p>
-            </div>
-            <div className="text-center p-3 rounded-lg bg-muted/50">
-              <span className="text-lg font-mono text-muted-foreground">v</span>
-              <p className="text-2xl font-bold">{template.version || 1}</p>
-              <p className="text-xs text-muted-foreground">Version</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Stats - compact inline */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground px-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="flex items-center gap-1">
+              <GitBranch className="h-3.5 w-3.5" />
+              {nodeCount}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Prompt nodes</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="flex items-center gap-1">
+              <Braces className="h-3.5 w-3.5" />
+              {variableCount}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Variables</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              {template.created_at ? new Date(template.created_at).toLocaleDateString() : 'N/A'}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Created</TooltipContent>
+        </Tooltip>
+        <span className="text-muted-foreground/60">v{template.version || 1}</span>
+      </div>
     </div>
+    </TooltipProvider>
   );
 };
 
