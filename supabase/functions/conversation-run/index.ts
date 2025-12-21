@@ -683,10 +683,10 @@ serve(async (req) => {
       return new Response(JSON.stringify(body), { status, headers });
     }
 
-    // Update child prompt with response
+    // Update child prompt with response (user_prompt_result matches the UI field)
     await supabase
       .from(TABLES.PROMPTS)
-      .update({ output_response: result.response })
+      .update({ user_prompt_result: result.response })
       .eq('row_id', child_prompt_row_id);
 
     // Update thread timestamp if exists
