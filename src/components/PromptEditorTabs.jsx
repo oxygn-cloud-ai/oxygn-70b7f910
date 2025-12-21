@@ -40,25 +40,35 @@ const PromptEditorTabs = ({
     return baseTabs;
   }, [isTopLevel, selectedItemData?.is_assistant]);
 
-  const QuickAccessIcon = ({ tab }) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={activeTab === tab.id ? "secondary" : "ghost"}
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <tab.icon className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p className="text-xs">{tab.description}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  const QuickAccessIcon = ({ tab, needsAttention = false }) => {
+    const isActive = activeTab === tab.id;
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 w-7 p-0 transition-colors ${
+                needsAttention 
+                  ? 'animate-attention-flash rounded-md' 
+                  : isActive 
+                    ? 'text-primary bg-transparent hover:bg-muted/50' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              <tab.icon className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-xs">{tab.description}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   if (!selectedItemData) {
     return (
