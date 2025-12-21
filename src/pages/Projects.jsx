@@ -10,7 +10,7 @@ import { usePromptData } from '../hooks/usePromptData';
 import ProjectPanels from '../components/ProjectPanels';
 import ParentPromptPopup from '../components/ParentPromptPopup';
 import TreeView from '../components/TreeView';
-import AssistantChatPanel from '../components/AssistantChatPanel';
+import ConversationChatPanel from '../components/ConversationChatPanel';
 import EmptyState from '../components/EmptyState';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from '@/components/ui/sonner';
@@ -246,7 +246,7 @@ const Projects = () => {
               </PanelResizeHandle>
               <Panel defaultSize={38} minSize={25}>
                 <div className="h-full border-l border-border">
-                  <AssistantChatPanel
+                  <ConversationChatPanel
                     promptRowId={chatPanelPromptRowId}
                     promptName={chatPanelPromptName}
                     selectedChildPromptId={!isTopLevel ? activeItem : null}

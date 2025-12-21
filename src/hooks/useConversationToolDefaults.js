@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 
-const TOOL_DEFAULTS_QUERY_KEY = ['assistantToolDefaults'];
+const TOOL_DEFAULTS_QUERY_KEY = ['conversationToolDefaults'];
 
-export const useAssistantToolDefaults = () => {
+export const useConversationToolDefaults = () => {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
 

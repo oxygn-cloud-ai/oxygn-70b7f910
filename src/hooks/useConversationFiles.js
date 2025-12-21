@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 
-export const useAssistantFiles = (assistantRowId) => {
+export const useConversationFiles = (assistantRowId) => {
   const supabase = useSupabase();
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

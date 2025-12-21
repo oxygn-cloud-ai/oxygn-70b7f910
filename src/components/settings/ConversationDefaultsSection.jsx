@@ -18,9 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAssistantToolDefaults } from '@/hooks/useAssistantToolDefaults';
+import { useConversationToolDefaults } from '@/hooks/useConversationToolDefaults';
 
-export function AssistantDefaultsSection({
+export function ConversationDefaultsSection({
   isRefreshing,
   onRefresh,
 }) {

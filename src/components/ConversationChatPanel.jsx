@@ -7,7 +7,7 @@ import { useApiCallContext } from '@/contexts/ApiCallContext';
 import ChatPanel from './chat/ChatPanel';
 import ThreadSidebar from './chat/ThreadSidebar';
 
-const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) => {
+const ConversationChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
   const [assistant, setAssistant] = useState(null);
@@ -300,4 +300,4 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   );
 };
 
-export default AssistantChatPanel;
+export default ConversationChatPanel;

@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
 import { useSupabase } from './useSupabase';
-import { useAssistantRun } from './useAssistantRun';
+import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { toast } from '@/components/ui/sonner';
 
 export const useCascadeExecutor = () => {
   const supabase = useSupabase();
-  const { runAssistant } = useAssistantRun();
+  const { runAssistant } = useConversationRun();
   const {
     startCascade,
     updateProgress,

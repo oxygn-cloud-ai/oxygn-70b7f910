@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useThreads } from '../hooks/useThreads';
-import { useAssistantRun } from '../hooks/useAssistantRun';
+import { useConversationRun } from '../hooks/useConversationRun';
 import { useProjectData } from '../hooks/useProjectData';
 import { useSupabase } from '../hooks/useSupabase';
 import { useCascadeExecutor } from '../hooks/useCascadeExecutor';
@@ -56,7 +56,7 @@ const ChildPromptPanel = ({
     refetch: refetchThreads,
   } = useThreads(parentAssistantRowId, projectRowId);
 
-  const { runAssistant } = useAssistantRun();
+  const { runAssistant } = useConversationRun();
 
   // Check if this prompt's parent has children (siblings + self = hierarchy)
   useEffect(() => {
