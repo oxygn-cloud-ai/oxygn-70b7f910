@@ -13,6 +13,7 @@ import { AssistantDefaultsSection } from '../components/settings/AssistantDefaul
 import { OpenAIAssistantsSection } from '../components/settings/OpenAIAssistantsSection';
 import ConfluenceSettingsSection from '../components/settings/ConfluenceSettingsSection';
 import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
+import AppearanceSection from '../components/settings/AppearanceSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -195,6 +196,8 @@ const Settings = () => {
         );
       case 'cost-analytics':
         return <CostAnalyticsSection />;
+      case 'appearance':
+        return <AppearanceSection />;
       default:
         return null;
     }

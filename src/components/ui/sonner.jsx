@@ -1,4 +1,4 @@
-import { useTheme } from "next-themes"
+import { useState, useEffect } from "react"
 import { Toaster as Sonner, toast as sonnerToast } from "sonner"
 
 // Toast history callback - set by ToastHistoryConnector
@@ -56,8 +56,66 @@ const createWrappedToast = () => {
 
 export const toast = createWrappedToast();
 
+// Theme preference management
+const THEME_STORAGE_KEY = 'theme_preference';
+
+const getSystemTheme = () => {
+  if (typeof window === 'undefined') return 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
+
+const getStoredPreference = () => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(THEME_STORAGE_KEY);
+};
+
+export const setThemePreference = (preference) => {
+  if (preference === 'system') {
+    localStorage.removeItem(THEME_STORAGE_KEY);
+  } else {
+    localStorage.setItem(THEME_STORAGE_KEY, preference);
+  }
+  window.dispatchEvent(new CustomEvent('theme-preference-change'));
+};
+
+export const getThemePreference = () => {
+  const stored = getStoredPreference();
+  return stored || 'system';
+};
+
+const useThemePreference = () => {
+  const [theme, setTheme] = useState(() => {
+    const stored = getStoredPreference();
+    return stored || getSystemTheme();
+  });
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemChange = (e) => {
+      if (!getStoredPreference()) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+    
+    const handlePreferenceChange = () => {
+      const stored = getStoredPreference();
+      setTheme(stored || getSystemTheme());
+    };
+    
+    mediaQuery.addEventListener('change', handleSystemChange);
+    window.addEventListener('theme-preference-change', handlePreferenceChange);
+    
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemChange);
+      window.removeEventListener('theme-preference-change', handlePreferenceChange);
+    };
+  }, []);
+
+  return theme;
+};
+
 const Toaster = ({ ...props }) => {
-  const { theme = "system" } = useTheme();
+  const theme = useThemePreference();
 
   return (
     <Sonner
