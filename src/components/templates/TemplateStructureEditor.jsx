@@ -463,6 +463,7 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
         onKeyUp={onCursorChange('input_admin_prompt')}
         placeholder="System instructions for the AI..."
         rows={6}
+        userVariables={variableDefinitions}
       />
     </div>
 
@@ -486,6 +487,7 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
         onKeyUp={onCursorChange('input_user_prompt')}
         placeholder="User message template..."
         rows={4}
+        userVariables={variableDefinitions}
       />
     </div>
 
