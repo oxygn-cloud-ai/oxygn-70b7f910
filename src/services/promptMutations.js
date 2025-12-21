@@ -55,8 +55,8 @@ const getPromptContext = async (supabase, parentId) => {
   return { level, topLevelName };
 };
 
-// Helper to create an assistant for a top-level prompt (Responses API - no instantiation needed)
-const createAssistant = async (supabase, promptRowId, promptName, instructions = '') => {
+// Helper to create a conversation record for a top-level prompt (Responses API - no instantiation needed)
+const createConversation = async (supabase, promptRowId, promptName, instructions = '') => {
   try {
     const insertData = {
       prompt_row_id: promptRowId,
@@ -70,26 +70,26 @@ const createAssistant = async (supabase, promptRowId, promptName, instructions =
       insertData.instructions = instructions;
     }
     
-    const { data: assistant, error: createError } = await supabase
+    const { data: conversation, error: createError } = await supabase
       .from(import.meta.env.VITE_ASSISTANTS_TBL)
       .insert([insertData])
       .select()
       .maybeSingle();
 
     if (createError) {
-      console.error('Failed to create assistant record:', createError);
+      console.error('Failed to create conversation record:', createError);
       return null;
     }
 
-    console.log('Created assistant record:', assistant.row_id);
-    return assistant.row_id;
+    console.log('Created conversation record:', conversation.row_id);
+    return conversation.row_id;
   } catch (error) {
-    console.error('Error in createAssistant:', error);
+    console.error('Error in createConversation:', error);
     return null;
   }
 };
 
-export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultAssistantInstructions = '') => {
+export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultConversationInstructions = '') => {
   // First, get the maximum position value for the current level
   let query = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -151,7 +151,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     parent_row_id: parentId,
     prompt_name: promptName,
     input_admin_prompt: defaultAdminPrompt || null,
-    is_assistant: parentId === null, // Top-level prompts are assistants
+    is_assistant: parentId === null, // Top-level prompts are conversations
     position: maxPosition + 1000000,
     is_deleted: false,
     owner_id: userId,
@@ -168,9 +168,9 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     throw error;
   }
   
-  // If this is a top-level prompt, create an assistant record
+  // If this is a top-level prompt, create a conversation record
   if (parentId === null && data?.[0]?.row_id) {
-    await createAssistant(supabase, data[0].row_id, promptName, defaultAssistantInstructions);
+    await createConversation(supabase, data[0].row_id, promptName, defaultConversationInstructions);
   }
 
   return data;
@@ -220,20 +220,20 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
 
   if (insertError) throw insertError;
 
-  // If duplicating a top-level prompt, also create an assistant record
+  // If duplicating a top-level prompt, also create a conversation record
   if (!sourcePrompt.parent_row_id && newPrompt?.row_id) {
-    // Fetch the source assistant for instructions
-    const { data: sourceAssistant } = await supabase
+    // Fetch the source conversation for instructions
+    const { data: sourceConversation } = await supabase
       .from(import.meta.env.VITE_ASSISTANTS_TBL)
       .select('instructions')
       .eq('prompt_row_id', sourcePromptId)
       .maybeSingle();
 
-    await createAssistant(
+    await createConversation(
       supabase, 
       newPrompt.row_id, 
       `${sourcePrompt.prompt_name} (copy)`,
-      sourceAssistant?.instructions || ''
+      sourceConversation?.instructions || ''
     );
   }
 

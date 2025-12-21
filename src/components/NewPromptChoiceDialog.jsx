@@ -203,7 +203,7 @@ const NewPromptChoiceDialog = ({
         return data?.[0]?.position || 0;
       };
 
-      const createAssistant = async (promptRowId, promptName, instructions = '') => {
+      const createConversation = async (promptRowId, promptName, instructions = '') => {
         try {
           const insertData = {
             prompt_row_id: promptRowId,
@@ -217,20 +217,20 @@ const NewPromptChoiceDialog = ({
             insertData.instructions = instructions;
           }
           
-          const { data: assistant, error: createError } = await supabase
+          const { data: conversation, error: createError } = await supabase
             .from(import.meta.env.VITE_ASSISTANTS_TBL)
             .insert([insertData])
             .select()
             .maybeSingle();
 
           if (createError) {
-            console.error('Failed to create assistant record:', createError);
+            console.error('Failed to create conversation record:', createError);
             return;
           }
 
-          console.log('Created assistant record:', assistant.row_id);
+          console.log('Created conversation record:', conversation.row_id);
         } catch (error) {
-          console.error('Error creating assistant:', error);
+          console.error('Error creating conversation:', error);
         }
       };
 
@@ -346,8 +346,8 @@ const NewPromptChoiceDialog = ({
         }
 
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, contextVars) || '';
-          createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
+          const conversationInstructions = replaceVariables(promptStructure.assistant_instructions, contextVars) || '';
+          createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
         }
 
         if (promptStructure.children?.length > 0) {
