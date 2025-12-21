@@ -24,6 +24,7 @@ export const TABLES = {
   ASSISTANT_TOOL_DEFAULTS: requiredEnv('ASSISTANT_TOOL_DEFAULTS_TBL'),
   VECTOR_STORES: requiredEnv('VECTOR_STORES_TBL'),
   CONFLUENCE_PAGES: requiredEnv('CONFLUENCE_PAGES_TBL'),
+  BACKUPS: requiredEnv('BACKUPS_TBL'),
 } as const;
 
 // Helper to build FK relationship strings dynamically
