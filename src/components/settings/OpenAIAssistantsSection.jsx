@@ -31,7 +31,7 @@ export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('assistant-manager', {
+      const { data, error } = await supabase.functions.invoke('conversation-manager', {
         body: { action: 'list' },
       });
 

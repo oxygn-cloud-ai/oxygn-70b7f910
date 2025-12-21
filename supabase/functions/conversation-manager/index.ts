@@ -77,7 +77,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const { action, assistant_row_id, ...body } = await req.json();
 
-    console.log('Assistant manager request:', { action, assistant_row_id, user: validation.user?.email });
+    console.log('Conversation manager request:', { action, assistant_row_id, user: validation.user?.email });
 
     // LIST - Fetch all assistants from database
     if (action === 'list') {
@@ -408,7 +408,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Assistant manager error:', error);
+    console.error('Conversation manager error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
       JSON.stringify({ error: message }),

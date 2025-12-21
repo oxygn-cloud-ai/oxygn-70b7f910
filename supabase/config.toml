@@ -3,13 +3,13 @@ project_id = "edxkisyskfazjmqpburj"
 [functions.openai-proxy]
 verify_jwt = true
 
-[functions.assistant-manager]
+[functions.conversation-manager]
 verify_jwt = true
 
 [functions.thread-manager]
 verify_jwt = true
 
-[functions.assistant-run]
+[functions.conversation-run]
 verify_jwt = true
 
 [functions.studio-chat]
