@@ -113,21 +113,28 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center border-b border-border px-4">
             <TabsList className="justify-start rounded-none bg-transparent h-auto py-0 gap-1">
-              {tabs.map(tab => (
-                <Tooltip key={tab.id}>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger
-                      value={tab.id}
-                      className="rounded-none border-b-2 border-transparent py-3 px-3 transition-colors !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent data-[state=active]:!text-primary data-[state=active]:!bg-transparent data-[state=active]:border-primary"
-                    >
-                      <tab.icon className="h-4 w-4" />
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>{tab.label}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+              {tabs.map(tab => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <Tooltip key={tab.id}>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger
+                        value={tab.id}
+                        className={`rounded-none border-b-2 py-3 px-3 transition-colors bg-transparent ${
+                          isActive
+                            ? 'text-primary border-primary'
+                            : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-sidebar-accent'
+                        }`}
+                      >
+                        <tab.icon className="h-4 w-4" />
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{tab.label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
             </TabsList>
             <Tooltip>
               <TooltipTrigger asChild>
