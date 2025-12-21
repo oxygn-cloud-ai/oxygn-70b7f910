@@ -1,5 +1,26 @@
 import { deletePrompt } from './promptDeletion';
 import { getLevelNamingConfig, generatePromptName } from '@/utils/namingTemplates';
+import { calculateNewPositions } from '@/utils/positionUtils';
+
+export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
+  const result = calculateNewPositions(siblings, currentIndex, direction);
+  
+  if (!result) {
+    return false;
+  }
+
+  const { error } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .update({ position: result.newPosition })
+    .eq('row_id', itemId);
+
+  if (error) {
+    console.error('Failed to update position:', error);
+    return false;
+  }
+
+  return true;
+};
 
 // Helper to calculate the depth level and find top-level ancestor
 const getPromptContext = async (supabase, parentId) => {
