@@ -43,10 +43,18 @@ export const useConversationRun = () => {
       // ignore
     }
 
-    const message = payload?.error || payload?.message || invokeError.message || 'Edge Function call failed';
+    // Build a more descriptive error message
+    let message = payload?.error || payload?.message || invokeError.message || 'Edge Function call failed';
+    
+    // Include prompt name in error if available for better context
+    if (payload?.prompt_name && !message.includes(payload.prompt_name)) {
+      message = `[${payload.prompt_name}] ${message}`;
+    }
+    
     const err = new Error(message);
     if (status) err.status = status;
     if (payload?.error_code) err.error_code = payload.error_code;
+    if (payload?.prompt_name) err.prompt_name = payload.prompt_name;
     if (typeof payload?.retry_after_s === 'number') err.retry_after_s = payload.retry_after_s;
     return err;
   }, []);
