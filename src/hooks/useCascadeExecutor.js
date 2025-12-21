@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/sonner';
 
 export const useCascadeExecutor = () => {
   const supabase = useSupabase();
-  const { runAssistant } = useConversationRun();
+  const { runConversation } = useConversationRun();
   const {
     startCascade,
     updateProgress,
@@ -173,8 +173,8 @@ export const useCascadeExecutor = () => {
 
           while (!success && retryCount < maxRetries) {
             try {
-              const result = await runAssistant({
-                assistantRowId: parentAssistantRowId,
+              const result = await runConversation({
+                conversationRowId: parentAssistantRowId,
                 childPromptRowId: prompt.row_id,
                 userMessage: prompt.input_user_prompt || '',
                 threadMode: 'new', // Force new thread for cascade isolation
@@ -255,7 +255,7 @@ export const useCascadeExecutor = () => {
     isCancelled,
     waitWhilePaused,
     buildCascadeVariables,
-    runAssistant,
+    runConversation,
     showError,
   ]);
 

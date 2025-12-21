@@ -24,8 +24,8 @@ import ConfluencePagesSection from './ConfluencePagesSection';
 
 const ConversationPanel = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
-  const { assistant, isLoading, updateAssistant } = useConversation(promptRowId);
-  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useConversationFiles(assistant?.row_id);
+  const { conversation, isLoading, updateConversation } = useConversation(promptRowId);
+  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useConversationFiles(conversation?.row_id);
   const { defaults: toolDefaults } = useConversationToolDefaults();
   const { models } = useOpenAIModels();
   const { settings } = useSettings(supabase);
@@ -57,27 +57,27 @@ const ConversationPanel = ({ promptRowId, selectedItemData }) => {
   const currentProvider = currentModelData?.provider || 'openai';
 
   useEffect(() => {
-    if (assistant) {
-      setName(assistant.name || '');
-      setInstructions(assistant.instructions || '');
-      setUseGlobalDefaults(assistant.use_global_tool_defaults ?? true);
-      setCodeInterpreter(assistant.code_interpreter_enabled ?? toolDefaults?.code_interpreter_enabled ?? false);
-      setFileSearch(assistant.file_search_enabled ?? toolDefaults?.file_search_enabled ?? true);
-      setConfluenceEnabled(assistant.confluence_enabled ?? false);
-      setModelOverride(assistant.model_override || '');
-      setTemperature(assistant.temperature_override || '');
-      setMaxTokens(assistant.max_tokens_override || '');
-      setTopP(assistant.top_p_override || '');
+    if (conversation) {
+      setName(conversation.name || '');
+      setInstructions(conversation.instructions || '');
+      setUseGlobalDefaults(conversation.use_global_tool_defaults ?? true);
+      setCodeInterpreter(conversation.code_interpreter_enabled ?? toolDefaults?.code_interpreter_enabled ?? false);
+      setFileSearch(conversation.file_search_enabled ?? toolDefaults?.file_search_enabled ?? true);
+      setConfluenceEnabled(conversation.confluence_enabled ?? false);
+      setModelOverride(conversation.model_override || '');
+      setTemperature(conversation.temperature_override || '');
+      setMaxTokens(conversation.max_tokens_override || '');
+      setTopP(conversation.top_p_override || '');
     }
-  }, [assistant, toolDefaults]);
+  }, [conversation, toolDefaults]);
 
   // Show last_error as toast when it changes
   useEffect(() => {
-    if (assistant?.last_error && assistant.last_error !== lastErrorShown.current) {
-      toast.error(assistant.last_error);
-      lastErrorShown.current = assistant.last_error;
+    if (conversation?.last_error && conversation.last_error !== lastErrorShown.current) {
+      toast.error(conversation.last_error);
+      lastErrorShown.current = conversation.last_error;
     }
-  }, [assistant?.last_error]);
+  }, [conversation?.last_error]);
 
   // Load parent prompt's default child thread strategy
   useEffect(() => {
@@ -100,7 +100,7 @@ const ConversationPanel = ({ promptRowId, selectedItemData }) => {
   };
 
   const handleSave = async (field, value) => {
-    await updateAssistant({ [field]: value });
+    await updateConversation({ [field]: value });
   };
 
   const handleFileUpload = async (e) => {
@@ -116,7 +116,7 @@ const ConversationPanel = ({ promptRowId, selectedItemData }) => {
     return <div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
-  if (!assistant) {
+  if (!conversation) {
     return (
       <div className="flex items-center justify-center h-full p-8">
         <div className="text-center text-muted-foreground">

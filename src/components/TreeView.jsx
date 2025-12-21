@@ -158,7 +158,7 @@ const handleOpenNewPromptDialog = () => {
   };
 
   const totalCount = treeData.length;
-  const assistantCount = treeData.filter(item => item.is_assistant).length;
+  const conversationCount = treeData.filter(item => item.is_assistant).length;
 
   return (
     <div className="flex flex-col h-full">
@@ -194,8 +194,8 @@ const handleOpenNewPromptDialog = () => {
       {totalCount > 0 && (
         <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border bg-muted/20">
           <span>{totalCount} prompt{totalCount !== 1 ? 's' : ''}</span>
-          {assistantCount > 0 && (
-            <span className="text-primary">• {assistantCount} assistant{assistantCount !== 1 ? 's' : ''}</span>
+          {conversationCount > 0 && (
+            <span className="text-primary">• {conversationCount} conversation{conversationCount !== 1 ? 's' : ''}</span>
           )}
           {searchQuery && filteredData.length !== totalCount && (
             <span className="text-accent">• {filteredData.length} shown</span>
