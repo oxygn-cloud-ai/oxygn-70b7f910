@@ -389,9 +389,13 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
               <TooltipTrigger asChild>
                 <Button
                   size="sm"
-                  variant={activeSection === section.id ? 'secondary' : 'ghost'}
+                  variant="ghost"
                   onClick={() => setActiveSection(section.id)}
-                  className="h-8 w-8 p-0"
+                  className={`h-8 w-8 p-0 transition-colors ${
+                    activeSection === section.id 
+                      ? '!text-primary !bg-transparent hover:!bg-muted/50' 
+                      : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
+                  }`}
                 >
                   <section.icon className="h-4 w-4" />
                 </Button>
