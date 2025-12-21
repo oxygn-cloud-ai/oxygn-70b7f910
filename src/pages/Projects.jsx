@@ -91,6 +91,19 @@ const Projects = () => {
     }
   }, [selectedItemData]);
 
+  // Function to refresh the current item's data
+  const refreshSelectedItemData = useCallback(async () => {
+    if (activeItem) {
+      const data = await fetchItemData(activeItem);
+      if (data) {
+        setSelectedItemData(prev => ({
+          ...prev,
+          ...data
+        }));
+      }
+    }
+  }, [activeItem, fetchItemData]);
+
   useEffect(() => {
     const loadItemData = async () => {
       if (activeItem) {
@@ -108,6 +121,22 @@ const Projects = () => {
 
     loadItemData();
   }, [activeItem, fetchItemData]);
+
+  // Listen for prompt-result-updated events to refresh the selected item
+  useEffect(() => {
+    const handlePromptResultUpdated = (event) => {
+      const { promptRowId } = event.detail || {};
+      // If the updated prompt is the currently selected one, refresh it
+      if (promptRowId && promptRowId === activeItem) {
+        refreshSelectedItemData();
+      }
+    };
+
+    window.addEventListener('prompt-result-updated', handlePromptResultUpdated);
+    return () => {
+      window.removeEventListener('prompt-result-updated', handlePromptResultUpdated);
+    };
+  }, [activeItem, refreshSelectedItemData]);
 
   // Find the top-level ancestor for a prompt (recursive tree walk)
   const findTopLevelAncestor = useCallback((rowId, data = treeData) => {
