@@ -124,9 +124,10 @@ const ChatPanel = ({
                 key={message.id} 
                 message={message} 
                 userProfile={userProfile}
+                assistantName={assistantName}
               />
             ))}
-            {isSending && <ThinkingIndicator />}
+            {isSending && <ThinkingIndicator assistantName={assistantName} />}
           </div>
         )}
       </ScrollArea>

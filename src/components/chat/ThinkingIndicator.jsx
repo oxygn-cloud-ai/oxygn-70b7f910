@@ -11,7 +11,7 @@ const phases = [
   'Composing response...',
 ];
 
-const ThinkingIndicator = ({ onCancel }) => {
+const ThinkingIndicator = ({ onCancel, assistantName }) => {
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
 
@@ -64,7 +64,7 @@ const ThinkingIndicator = ({ onCancel }) => {
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-semibold text-foreground">Assistant</span>
+          <span className="text-xs font-semibold text-foreground">{assistantName || 'AI'}</span>
           <span className="text-[10px] text-muted-foreground">
             {formatTime(elapsed)}
           </span>
