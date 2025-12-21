@@ -104,39 +104,40 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
             <p className="text-sm text-muted-foreground truncate">{editedTemplate.template_description}</p>
           )}
         </div>
-        <div className="flex items-center gap-2 ml-4">
-          {hasChanges && (
-            <span className="text-xs text-amber-500 font-medium">Unsaved changes</span>
-          )}
-          <Button 
-            onClick={handleSave} 
-            disabled={!hasChanges || isSaving}
-            size="sm"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Save
-          </Button>
-        </div>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <TabsList className="w-full justify-start rounded-none border-b border-border bg-transparent px-4 h-auto py-0">
-          {tabs.map(tab => (
-            <TabsTrigger
-              key={tab.id}
-              value={tab.id}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
-            >
-              <tab.icon className="h-4 w-4 mr-2" />
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex items-center justify-between border-b border-border px-4">
+          <TabsList className="justify-start rounded-none bg-transparent h-auto py-0">
+            {tabs.map(tab => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
+              >
+                <tab.icon className="h-4 w-4 mr-2" />
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <button
+            onClick={handleSave}
+            disabled={!hasChanges || isSaving}
+            className={`p-2 rounded-md transition-colors ${
+              hasChanges 
+                ? 'text-primary hover:bg-primary/10' 
+                : 'text-muted-foreground opacity-50 cursor-not-allowed'
+            }`}
+            title={hasChanges ? 'Save changes' : 'No changes to save'}
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
         <div className="flex-1 overflow-hidden">
           <TabsContent value="overview" className="h-full m-0 p-4 overflow-auto">
