@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const VARIABLE_TYPES = [
   { value: 'text', label: 'Text' },
@@ -95,6 +95,7 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
   };
 
   return (
+    <TooltipProvider>
     <div className="space-y-6 max-w-3xl">
       {/* Header */}
       <h3 className="text-lg font-medium">Template Variables</h3>
@@ -174,10 +175,24 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
               className="flex-1 font-mono"
               onKeyDown={(e) => e.key === 'Enter' && handleAddVariable()}
             />
-            <Button onClick={() => handleAddVariable()} disabled={!newVarName.trim()}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => handleAddVariable()}
+                  disabled={!newVarName.trim()}
+                  className={`p-2 rounded-md transition-colors ${
+                    newVarName.trim() 
+                      ? 'text-primary hover:bg-primary/10' 
+                      : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Add variable</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             Use letters, numbers, and underscores only. Variables can be inserted as {`{{variable_name}}`}.
@@ -290,6 +305,7 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
         </CardContent>
       </Card>
     </div>
+    </TooltipProvider>
   );
 };
 
