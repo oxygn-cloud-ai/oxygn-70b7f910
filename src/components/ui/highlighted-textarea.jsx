@@ -279,16 +279,18 @@ const HighlightedTextarea = React.forwardRef(({
         .highlighted-textarea-container .backdrop {
           position: absolute;
           inset: 0;
-          overflow: auto;
+          overflow: hidden;
           pointer-events: none;
           white-space: pre-wrap;
           word-wrap: break-word;
+          overflow-wrap: break-word;
           color: transparent;
           border: 1px solid transparent;
           padding: 0.75rem;
           font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
           font-size: 0.875rem;
-          line-height: 1.5;
+          line-height: 1.625;
+          box-sizing: border-box;
         }
         .highlighted-textarea-container textarea {
           position: relative;
