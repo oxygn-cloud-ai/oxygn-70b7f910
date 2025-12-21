@@ -1,30 +1,26 @@
 // Shared table name configuration for edge functions
-// All table names MUST be set via environment variables - fallbacks removed for safety
+// Uses environment variables with fallback to q_ prefixed tables
 
-const requiredEnv = (key: string): string => {
-  const value = Deno.env.get(key);
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${key}`);
-  }
-  return value;
+const getEnv = (key: string, fallback: string): string => {
+  return Deno.env.get(key) || fallback;
 };
 
 export const TABLES = {
-  PROMPTS: requiredEnv('PROMPTS_TBL'),
-  SETTINGS: requiredEnv('SETTINGS_TBL'),
-  MODELS: requiredEnv('MODELS_TBL'),
-  ASSISTANTS: requiredEnv('ASSISTANTS_TBL'),
-  THREADS: requiredEnv('THREADS_TBL'),
-  TEMPLATES: requiredEnv('TEMPLATES_TBL'),
-  PROMPT_VARIABLES: requiredEnv('PROMPT_VARIABLES_TBL'),
-  AI_COSTS: requiredEnv('AI_COSTS_TBL'),
-  MODEL_PRICING: requiredEnv('MODEL_PRICING_TBL'),
-  MODEL_DEFAULTS: requiredEnv('MODEL_DEFAULTS_TBL'),
-  ASSISTANT_FILES: requiredEnv('ASSISTANT_FILES_TBL'),
-  ASSISTANT_TOOL_DEFAULTS: requiredEnv('ASSISTANT_TOOL_DEFAULTS_TBL'),
-  VECTOR_STORES: requiredEnv('VECTOR_STORES_TBL'),
-  CONFLUENCE_PAGES: requiredEnv('CONFLUENCE_PAGES_TBL'),
-  BACKUPS: requiredEnv('BACKUPS_TBL'),
+  PROMPTS: getEnv('PROMPTS_TBL', 'q_prompts'),
+  SETTINGS: getEnv('SETTINGS_TBL', 'q_settings'),
+  MODELS: getEnv('MODELS_TBL', 'q_models'),
+  ASSISTANTS: getEnv('ASSISTANTS_TBL', 'q_assistants'),
+  THREADS: getEnv('THREADS_TBL', 'q_threads'),
+  TEMPLATES: getEnv('TEMPLATES_TBL', 'q_templates'),
+  PROMPT_VARIABLES: getEnv('PROMPT_VARIABLES_TBL', 'q_prompt_variables'),
+  AI_COSTS: getEnv('AI_COSTS_TBL', 'q_ai_costs'),
+  MODEL_PRICING: getEnv('MODEL_PRICING_TBL', 'q_model_pricing'),
+  MODEL_DEFAULTS: getEnv('MODEL_DEFAULTS_TBL', 'q_model_defaults'),
+  ASSISTANT_FILES: getEnv('ASSISTANT_FILES_TBL', 'q_assistant_files'),
+  ASSISTANT_TOOL_DEFAULTS: getEnv('ASSISTANT_TOOL_DEFAULTS_TBL', 'q_assistant_tool_defaults'),
+  VECTOR_STORES: getEnv('VECTOR_STORES_TBL', 'q_vector_stores'),
+  CONFLUENCE_PAGES: getEnv('CONFLUENCE_PAGES_TBL', 'q_confluence_pages'),
+  BACKUPS: getEnv('BACKUPS_TBL', 'q_backups'),
 } as const;
 
 // Helper to build FK relationship strings dynamically
