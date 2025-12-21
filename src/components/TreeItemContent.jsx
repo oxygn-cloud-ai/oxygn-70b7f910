@@ -263,11 +263,11 @@ export const TreeItemContent = ({
         <div 
           className={`
             absolute right-0 top-0 bottom-0 
-            flex items-center justify-end overflow-hidden
+            flex items-center justify-end
             transition-opacity duration-150
             ${isHovered || isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}
           `}
-          style={{ left: `${level * 14 + 4 + 60}px` }}
+          style={{ maxWidth: `calc(100% - ${level * 14 + 4 + 56}px)` }}
         >
           {/* Gradient fade overlay - uses opaque color for active state */}
           <div className={`w-8 h-full flex-shrink-0 ${getActiveGradientClass()}`} />
