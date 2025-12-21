@@ -29,7 +29,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const OpenAISection = ({ results, isLoading, onRefresh }) => {
+const AISection = ({ results, isLoading, onRefresh }) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -112,4 +112,4 @@ const OpenAISection = ({ results, isLoading, onRefresh }) => {
   );
 };
 
-export default OpenAISection;
+export default AISection;

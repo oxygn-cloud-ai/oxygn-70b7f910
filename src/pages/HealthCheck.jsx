@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useHealthSection } from '../App';
 import DatabaseSection from '../components/health/DatabaseSection';
 import AuthSection from '../components/health/AuthSection';
-import OpenAISection from '../components/health/OpenAISection';
+import AISection from '../components/health/AISection';
 import EnvironmentSection from '../components/health/EnvironmentSection';
 
 const REQUIRED_TABLES = [
@@ -192,9 +192,9 @@ const HealthCheck = () => {
             onRefresh={runHealthCheck}
           />
         );
-      case 'openai':
+      case 'ai':
         return (
-          <OpenAISection
+          <AISection
             results={results}
             isLoading={isLoading}
             onRefresh={runHealthCheck}

@@ -47,7 +47,7 @@ const settingsSubItems = [
 const healthSubItems = [
   { id: 'database', title: 'Database', icon: Database },
   { id: 'auth', title: 'Authentication', icon: User },
-  { id: 'openai', title: 'AI API', icon: Bot },
+  { id: 'ai', title: 'AI API', icon: Bot },
   { id: 'environment', title: 'Environment', icon: Settings2 },
 ];
 
