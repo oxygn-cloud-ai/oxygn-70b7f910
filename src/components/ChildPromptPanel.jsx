@@ -57,7 +57,7 @@ const ChildPromptPanel = ({
     if (supabase && projectRowId) {
       try {
         await supabase
-          .from('cyg_prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ thread_mode: mode })
           .eq('row_id', projectRowId);
       } catch (error) {
@@ -71,7 +71,7 @@ const ChildPromptPanel = ({
     if (supabase && projectRowId) {
       try {
         await supabase
-          .from('cyg_prompts')
+          .from(import.meta.env.VITE_PROMPTS_TBL)
           .update({ child_thread_strategy: strategy })
           .eq('row_id', projectRowId);
       } catch (error) {
@@ -99,7 +99,7 @@ const ChildPromptPanel = ({
         onSuccess: async (data) => {
           if (data.response && supabase && projectRowId) {
             await supabase
-              .from('cyg_prompts')
+              .from(import.meta.env.VITE_PROMPTS_TBL)
               .update({ user_prompt_result: data.response })
               .eq('row_id', projectRowId);
           }
