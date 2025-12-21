@@ -17,6 +17,10 @@ const createWrappedToast = () => {
       title: typeof message === "string" ? message : options?.title,
       description: options?.description,
       variant,
+      // Pass through technical data for notification history
+      details: options?.details || null,
+      errorCode: options?.errorCode || null,
+      source: options?.source || null,
     });
   };
 
