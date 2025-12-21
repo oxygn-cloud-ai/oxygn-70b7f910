@@ -265,6 +265,17 @@ serve(async (req) => {
         .single();
 
       const modelId = assistant.model_override || prompt?.model || 'gpt-4o';
+      
+      // Resolve temperature, max_tokens, top_p (assistant overrides first, then prompt values)
+      const temperature = assistant.temperature_override 
+        ? parseFloat(assistant.temperature_override) 
+        : (prompt?.temperature ? parseFloat(prompt.temperature) : undefined);
+      const maxTokens = assistant.max_tokens_override 
+        ? parseInt(assistant.max_tokens_override, 10) 
+        : (prompt?.max_tokens ? parseInt(prompt.max_tokens, 10) : undefined);
+      const topP = assistant.top_p_override 
+        ? parseFloat(assistant.top_p_override) 
+        : (prompt?.top_p ? parseFloat(prompt.top_p) : undefined);
 
       // Fetch files separately
       const { data: filesData } = await supabase
@@ -392,6 +403,14 @@ serve(async (req) => {
         model: modelId,
         tools,
       };
+      
+      // Add model parameter overrides if set
+      if (temperature !== undefined && !isNaN(temperature)) {
+        assistantBody.temperature = temperature;
+      }
+      if (topP !== undefined && !isNaN(topP)) {
+        assistantBody.top_p = topP;
+      }
 
       // Add tool resources - files go to vector store for file_search, not code_interpreter
       if (vectorStoreId && toolConfig.file_search_enabled) {
@@ -400,7 +419,7 @@ serve(async (req) => {
         };
       }
 
-      console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, tools: tools.length, confluenceEnabled: assistant.confluence_enabled });
+      console.log('Creating OpenAI Assistant:', { name: assistant.name, model: modelId, temperature, topP, tools: tools.length, confluenceEnabled: assistant.confluence_enabled });
 
       const createResponse = await fetch('https://api.openai.com/v1/assistants', {
         method: 'POST',
