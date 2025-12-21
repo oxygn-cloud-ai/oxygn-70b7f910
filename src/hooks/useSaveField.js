@@ -8,7 +8,7 @@ export const useSaveField = (projectRowId) => {
     setIsSaving(true);
     try {
       const { error } = await supabase
-        .from('projects')
+        .from(import.meta.env.VITE_PROJECTS_TBL || 'projects')
         .update({ [fieldName]: value })
         .eq('project_row_id', projectRowId);
 

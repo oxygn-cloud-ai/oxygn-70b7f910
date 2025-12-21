@@ -58,7 +58,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
   const fetchProfiles = async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from(import.meta.env.VITE_PROFILES_TBL || 'profiles')
         .select('id, email, display_name, avatar_url');
 
       if (error) throw error;
@@ -72,7 +72,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     setSharesLoading(true);
     try {
       const { data, error } = await supabase
-        .from('resource_shares')
+        .from(import.meta.env.VITE_RESOURCE_SHARES_TBL || 'resource_shares')
         .select('id, shared_with_user_id, permission, created_at')
         .eq('resource_type', 'prompt')
         .eq('resource_id', promptRowId);
@@ -171,7 +171,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     setIsAddingShare(true);
     try {
       const { error } = await supabase
-        .from('resource_shares')
+        .from(import.meta.env.VITE_RESOURCE_SHARES_TBL || 'resource_shares')
         .insert({
           resource_type: 'prompt',
           resource_id: promptRowId,
@@ -198,7 +198,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
 
     try {
       const { error } = await supabase
-        .from('resource_shares')
+        .from(import.meta.env.VITE_RESOURCE_SHARES_TBL || 'resource_shares')
         .delete()
         .eq('id', shareId);
 
@@ -217,7 +217,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
 
     try {
       const { error } = await supabase
-        .from('resource_shares')
+        .from(import.meta.env.VITE_RESOURCE_SHARES_TBL || 'resource_shares')
         .update({ permission: newPermission })
         .eq('id', shareId);
 

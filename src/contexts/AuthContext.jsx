@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     }
     try {
       const { data, error } = await supabase
-        .from('profiles')
+        .from(import.meta.env.VITE_PROFILES_TBL || 'profiles')
         .select('display_name, avatar_url, email')
         .eq('id', userId)
         .single();
