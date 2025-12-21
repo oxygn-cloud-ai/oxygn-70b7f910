@@ -3,6 +3,7 @@ import { useSupabase } from './useSupabase';
 import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { toast } from '@/components/ui/sonner';
+import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
 
 // Helper to get a usable message from a prompt
 const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
@@ -486,25 +487,41 @@ export const useCascadeExecutor = () => {
               }
 
               if (retryCount >= maxRetries) {
-                // Notify max retries reached
-                toast.error(`Failed: ${prompt.prompt_name}`, {
-                  description: error.message || 'Unknown error',
+                // Parse error for user-friendly display
+                const parsed = parseApiError(error);
+                const formatted = formatErrorForDisplay(error, prompt.prompt_name);
+                
+                // For non-recoverable errors like quota exceeded, show immediately and stop
+                if (isQuotaError(error)) {
+                  toast.error(formatted.title, {
+                    description: formatted.description,
+                    duration: 10000,
+                    source: 'useCascadeExecutor',
+                    errorCode: parsed.code,
+                  });
+                  completeCascade();
+                  return;
+                }
+                
+                // Notify max retries reached with friendly message
+                toast.error(formatted.title, {
+                  description: formatted.description,
                   source: 'useCascadeExecutor',
-                  errorCode: 'MAX_RETRIES_REACHED',
+                  errorCode: parsed.code,
                   details: JSON.stringify({
                     promptRowId: prompt.row_id,
                     promptName: prompt.prompt_name,
                     retryCount,
                     maxRetries,
+                    errorCode: parsed.code,
                     error: error.message,
-                    errorStack: error.stack,
                   }, null, 2),
                 });
 
-                // Show error dialog and wait for user decision
+                // Show error dialog with user-friendly message
                 const action = await showError(
                   { name: prompt.prompt_name, rowId: prompt.row_id },
-                  error.message || 'Unknown error'
+                  formatted.description
                 );
 
                 if (action === 'stop') {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
 
 export const useConversationRun = () => {
   const supabase = useSupabase();
@@ -105,7 +106,11 @@ export const useConversationRun = () => {
         return data;
       } catch (error) {
         console.error('Error running conversation:', error);
-        toast.error(`Run failed: ${error.message}`);
+        const formatted = formatErrorForDisplay(error, error.prompt_name);
+        toast.error(formatted.title, {
+          description: formatted.description,
+          duration: isQuotaError(error) ? 10000 : 5000, // Show quota errors longer
+        });
         return null;
       } finally {
         unregisterCall();
