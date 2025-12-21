@@ -118,7 +118,7 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
                   <TooltipTrigger asChild>
                     <TabsTrigger
                       value={tab.id}
-                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-3"
+                      className="rounded-none border-b-2 border-transparent py-3 px-3 transition-colors !text-muted-foreground hover:!text-foreground hover:!bg-muted/50 data-[state=active]:!text-primary data-[state=active]:!bg-transparent data-[state=active]:border-primary"
                     >
                       <tab.icon className="h-4 w-4" />
                     </TabsTrigger>
@@ -136,7 +136,7 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
                   disabled={!hasChanges || isSaving}
                   className={`p-2 rounded-md transition-colors ml-1 ${
                     hasChanges 
-                      ? 'text-primary hover:bg-primary/10' 
+                      ? 'animate-attention-flash' 
                       : 'text-muted-foreground opacity-50 cursor-not-allowed'
                   }`}
                 >
