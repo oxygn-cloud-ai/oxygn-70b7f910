@@ -131,20 +131,24 @@ export const useCascadeExecutor = () => {
     }
 
     // Count non-excluded prompts for accurate progress
+    // Also exclude the top-level assistant (level 0) since it's the context, not a runnable prompt
     const nonExcludedPrompts = hierarchy.levels
-      .flatMap(l => l.prompts)
-      .filter(p => !p.exclude_from_cascade);
+      .flatMap((l, idx) => l.prompts.map(p => ({ ...p, levelIdx: idx })))
+      .filter(p => !p.exclude_from_cascade && !(p.levelIdx === 0 && p.is_assistant));
     
     const excludedPrompts = hierarchy.levels
       .flatMap(l => l.prompts)
       .filter(p => p.exclude_from_cascade);
     
+    // Also identify assistant prompts at level 0 (they're the context, not runnable)
+    const assistantPrompts = hierarchy.levels[0]?.prompts.filter(p => p.is_assistant) || [];
+    
     if (nonExcludedPrompts.length === 0) {
-      toast.error('All prompts are excluded from cascade');
+      toast.error('No child prompts to run in cascade');
       return;
     }
 
-    // Initialize cascade state
+    // Initialize cascade state with correct count
     startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
     
     // Mark excluded prompts as skipped immediately
@@ -164,6 +168,13 @@ export const useCascadeExecutor = () => {
           // Skip if excluded from cascade
           if (prompt.exclude_from_cascade) {
             console.log(`Skipping excluded prompt: ${prompt.prompt_name}`);
+            continue;
+          }
+          
+          // Skip top-level prompt (level 0) if it's an assistant - it's the parent, not a child
+          // The conversation-run function expects child prompts with a parent
+          if (levelIdx === 0 && prompt.is_assistant) {
+            console.log(`Skipping assistant prompt at level 0: ${prompt.prompt_name} (provides conversation context)`);
             continue;
           }
 
