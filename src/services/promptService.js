@@ -25,7 +25,7 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
     const ownerProfiles = new Map();
     if (ownerIds.length > 0) {
       const { data: profiles } = await supabase
-        .from('profiles')
+        .from(import.meta.env.VITE_PROFILES_TBL || 'profiles')
         .select('id, email, display_name, avatar_url')
         .in('id', ownerIds);
       

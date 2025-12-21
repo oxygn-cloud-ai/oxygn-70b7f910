@@ -9,7 +9,7 @@ export const useFetchLatestData = () => {
     setIsLoading(true);
     try {
       const query = supabase
-        .from('projects')
+        .from(import.meta.env.VITE_PROJECTS_TBL || 'projects')
         .select('*')
         .eq('project_id', projectId)
         .maybeSingle();
