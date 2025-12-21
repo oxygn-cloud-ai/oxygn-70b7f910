@@ -29,6 +29,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       if (!skipRefresh) {
         await refreshTreeData();
       }
+      toast.success('Prompt created');
       return newItemId;
     } catch (error) {
       console.error('Error adding new prompt:', error);
@@ -42,6 +43,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     try {
       await deletePrompt(supabase, itemId);
       await refreshTreeData();
+      toast.success('Prompt deleted');
       return true;
     } catch (error) {
       console.error('Error deleting prompt:', error);
