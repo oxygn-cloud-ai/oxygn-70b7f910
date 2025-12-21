@@ -10,7 +10,7 @@ import { PromptNamingSection } from '../components/settings/PromptNamingSection'
 import { AIModelsSection } from '../components/settings/AIModelsSection';
 import { DatabaseEnvironmentSection } from '../components/settings/DatabaseEnvironmentSection';
 import { ConversationDefaultsSection } from '../components/settings/ConversationDefaultsSection';
-import { OpenAIAssistantsSection } from '../components/settings/OpenAIAssistantsSection';
+import { ConversationsSection } from '../components/settings/ConversationsSection';
 import ConfluenceSettingsSection from '../components/settings/ConfluenceSettingsSection';
 import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
 import AppearanceSection from '../components/settings/AppearanceSection';
@@ -177,9 +177,9 @@ const Settings = () => {
             onRefresh={handleRefresh}
           />
         );
-      case 'openai-assistants':
+      case 'conversations':
         return (
-          <OpenAIAssistantsSection
+          <ConversationsSection
             isRefreshing={isRefreshing}
             onRefresh={handleRefresh}
           />

@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export const OpenAIAssistantsSection = ({ isRefreshing, onRefresh }) => {
+export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
   const supabase = useSupabase();
   const [assistants, setAssistants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
