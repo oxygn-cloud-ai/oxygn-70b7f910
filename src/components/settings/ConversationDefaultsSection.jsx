@@ -29,7 +29,7 @@ export function ConversationDefaultsSection({
     isLoading,
     updateDefaults: updateToolDefault,
     refetch,
-  } = useAssistantToolDefaults();
+  } = useConversationToolDefaults();
 
 
   const [uiDefaults, setUiDefaults] = useState({

@@ -21,12 +21,12 @@ import {
 
 export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
   const supabase = useSupabase();
-  const [assistants, setAssistants] = useState([]);
+  const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const fetchAssistants = useCallback(async () => {
+  const fetchConversations = useCallback(async () => {
     if (!supabase) return;
 
     setIsLoading(true);
@@ -38,36 +38,36 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setAssistants(data.assistants || []);
+      setConversations(data.assistants || []);
     } catch (error) {
-      console.error('Failed to fetch assistants:', error);
-      toast.error('Failed to fetch assistants from OpenAI');
+      console.error('Failed to fetch conversations:', error);
+      toast.error('Failed to fetch conversations');
     } finally {
       setIsLoading(false);
     }
   }, [supabase]);
 
   useEffect(() => {
-    fetchAssistants();
-  }, [fetchAssistants]);
+    fetchConversations();
+  }, [fetchConversations]);
 
-  const handleDelete = async (assistant) => {
-    setIsDeleting(assistant.openai_id);
+  const handleDelete = async (conversation) => {
+    setIsDeleting(conversation.openai_id);
     try {
       // For Responses API, we just delete local records - no OpenAI call needed
-      if (assistant.local_row_id) {
+      if (conversation.local_row_id) {
         // Delete from local database
         await supabase
           .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .delete()
-          .eq('row_id', assistant.local_row_id);
+          .eq('row_id', conversation.local_row_id);
       }
 
-      toast.success('Assistant deleted');
-      fetchAssistants();
+      toast.success('Conversation deleted');
+      fetchConversations();
     } catch (error) {
-      console.error('Failed to delete assistant:', error);
-      toast.error('Failed to delete assistant');
+      console.error('Failed to delete conversation:', error);
+      toast.error('Failed to delete conversation');
     } finally {
       setIsDeleting(null);
       setDeleteTarget(null);
@@ -97,7 +97,7 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => { fetchAssistants(); onRefresh?.(); }}
+                onClick={() => { fetchConversations(); onRefresh?.(); }}
                 disabled={isLoading || isRefreshing}
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
@@ -129,10 +129,10 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
                 </div>
               ))}
             </div>
-          ) : assistants.length === 0 ? (
+          ) : conversations.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No assistants found in OpenAI</p>
+              <p>No conversations found</p>
             </div>
           ) : (
             <Table>
@@ -146,12 +146,12 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assistants.map((assistant) => (
-                  <TableRow key={assistant.openai_id}>
+                {conversations.map((conversation) => (
+                  <TableRow key={conversation.openai_id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        {assistant.name || 'Unnamed'}
-                        {assistant.is_orphaned && (
+                        {conversation.name || 'Unnamed'}
+                        {conversation.is_orphaned && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger>
@@ -161,7 +161,7 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                This assistant has no linked prompt in the system
+                                This conversation has no linked prompt in the system
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -169,17 +169,17 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {assistant.model}
+                      {conversation.model}
                     </TableCell>
                     <TableCell>
-                      {assistant.prompt_name ? (
-                        <span className="text-sm">{assistant.prompt_name}</span>
+                      {conversation.prompt_name ? (
+                        <span className="text-sm">{conversation.prompt_name}</span>
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {formatDate(assistant.created_at)}
+                      {formatDate(conversation.created_at)}
                     </TableCell>
                     <TableCell>
                       <TooltipProvider>
@@ -189,17 +189,17 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteTarget(assistant)}
-                              disabled={isDeleting === assistant.openai_id}
+                              onClick={() => setDeleteTarget(conversation)}
+                              disabled={isDeleting === conversation.openai_id}
                             >
-                              {isDeleting === assistant.openai_id ? (
+                              {isDeleting === conversation.openai_id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
                                 <Trash2 className="h-4 w-4" />
                               )}
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Delete from OpenAI</TooltipContent>
+                          <TooltipContent>Delete conversation</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     </TableCell>

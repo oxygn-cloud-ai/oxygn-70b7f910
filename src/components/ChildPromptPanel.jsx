@@ -56,7 +56,7 @@ const ChildPromptPanel = ({
     refetch: refetchThreads,
   } = useThreads(parentAssistantRowId, projectRowId);
 
-  const { runAssistant } = useConversationRun();
+  const { runConversation } = useConversationRun();
 
   // Check if this prompt's parent has children (siblings + self = hierarchy)
   useEffect(() => {
@@ -102,7 +102,7 @@ const ChildPromptPanel = ({
 
   const handleRun = useCallback(async () => {
     if (!parentAssistantRowId) {
-      toast.error('Parent assistant not found');
+      toast.error('Parent conversation not found');
       return;
     }
 
@@ -110,8 +110,8 @@ const ChildPromptPanel = ({
     runStartTimeRef.current = Date.now();
     
     try {
-      const result = await runAssistant({
-        assistantRowId: parentAssistantRowId,
+      const result = await runConversation({
+        conversationRowId: parentAssistantRowId,
         childPromptRowId: projectRowId,
         userMessage: localData.input_user_prompt || '',
         threadMode: threadMode,

@@ -65,9 +65,9 @@ export const useConversationRun = () => {
     [registerCall, safeSetState, supabase]
   );
 
-  const runAssistant = useCallback(
+  const runConversation = useCallback(
     async ({
-      assistantRowId,
+      conversationRowId,
       childPromptRowId,
       userMessage,
       threadMode,
@@ -108,7 +108,7 @@ export const useConversationRun = () => {
 
         return data;
       } catch (error) {
-        console.error('Error running assistant:', error);
+        console.error('Error running conversation:', error);
         throw error;
       } finally {
         unregisterCall();
@@ -120,7 +120,7 @@ export const useConversationRun = () => {
 
   return {
     runPrompt,
-    runAssistant,
+    runConversation,
     isRunning,
     lastResponse,
   };

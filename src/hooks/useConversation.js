@@ -4,11 +4,11 @@ import { toast } from '@/components/ui/sonner';
 
 export const useConversation = (promptRowId) => {
   const supabase = useSupabase();
-  const [assistant, setAssistant] = useState(null);
+  const [conversation, setConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const creatingRef = useRef(false); // Prevent duplicate creation
 
-  const fetchAssistant = useCallback(async () => {
+  const fetchConversation = useCallback(async () => {
     if (!supabase || !promptRowId) {
       setIsLoading(false);
       return;
@@ -23,20 +23,20 @@ export const useConversation = (promptRowId) => {
 
       if (error) throw error;
       
-      // If no assistant record exists, we need to create one
+      // If no conversation record exists, we need to create one
       if (!data && !creatingRef.current) {
         creatingRef.current = true;
-        console.log('No assistant record found, creating one for prompt:', promptRowId);
+        console.log('No conversation record found, creating one for prompt:', promptRowId);
         
-        // Fetch prompt name for the assistant
+        // Fetch prompt name for the conversation
         const { data: prompt } = await supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('prompt_name')
           .eq('row_id', promptRowId)
           .single();
         
-        // For Responses API, assistants are always "active" - no instantiation needed
-        const { data: newAssistant, error: createError } = await supabase
+        // For Responses API, conversations are always "active" - no instantiation needed
+        const { data: newConversation, error: createError } = await supabase
           .from(import.meta.env.VITE_ASSISTANTS_TBL)
           .insert({
             prompt_row_id: promptRowId,
@@ -50,18 +50,18 @@ export const useConversation = (promptRowId) => {
           .single();
 
         if (createError) {
-          console.error('Error creating assistant record:', createError);
+          console.error('Error creating conversation record:', createError);
           creatingRef.current = false;
         } else {
-          console.log('Created assistant record:', newAssistant.row_id);
-          setAssistant(newAssistant);
+          console.log('Created conversation record:', newConversation.row_id);
+          setConversation(newConversation);
           creatingRef.current = false;
         }
       } else {
-        setAssistant(data);
+        setConversation(data);
       }
     } catch (error) {
-      console.error('Error fetching assistant:', error);
+      console.error('Error fetching conversation:', error);
     } finally {
       setIsLoading(false);
     }
@@ -70,10 +70,10 @@ export const useConversation = (promptRowId) => {
   useEffect(() => {
     creatingRef.current = false; // Reset on promptRowId change
     setIsLoading(true);
-    fetchAssistant();
-  }, [fetchAssistant]);
+    fetchConversation();
+  }, [fetchConversation]);
 
-  const createAssistant = useCallback(async (initialData = {}) => {
+  const createConversation = useCallback(async (initialData = {}) => {
     if (!supabase || !promptRowId) return null;
 
     try {
@@ -91,39 +91,39 @@ export const useConversation = (promptRowId) => {
         .single();
 
       if (error) throw error;
-      setAssistant(data);
+      setConversation(data);
       return data;
     } catch (error) {
-      console.error('Error creating assistant:', error);
-      toast.error('Failed to create assistant');
+      console.error('Error creating conversation:', error);
+      toast.error('Failed to create conversation');
       return null;
     }
   }, [supabase, promptRowId]);
 
-  const updateAssistant = useCallback(async (updates) => {
-    if (!supabase || !assistant?.row_id) return false;
+  const updateConversation = useCallback(async (updates) => {
+    if (!supabase || !conversation?.row_id) return false;
 
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .update(updates)
-        .eq('row_id', assistant.row_id);
+        .eq('row_id', conversation.row_id);
 
       if (error) throw error;
-      setAssistant(prev => ({ ...prev, ...updates }));
+      setConversation(prev => ({ ...prev, ...updates }));
       return true;
     } catch (error) {
-      console.error('Error updating assistant:', error);
-      toast.error('Failed to update assistant');
+      console.error('Error updating conversation:', error);
+      toast.error('Failed to update conversation');
       return false;
     }
-  }, [supabase, assistant?.row_id]);
+  }, [supabase, conversation?.row_id]);
 
   return {
-    assistant,
+    conversation,
     isLoading,
-    createAssistant,
-    updateAssistant,
-    refetch: fetchAssistant,
+    createConversation,
+    updateConversation,
+    refetch: fetchConversation,
   };
 };
