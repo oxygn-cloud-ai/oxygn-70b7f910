@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, FileText } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, FileText, ArrowUp, ArrowDown, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +24,8 @@ import VariablePicker from '@/components/VariablePicker';
 const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = [] }) => {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [expandedNodes, setExpandedNodes] = useState(new Set(['root']));
+  const [renamingNodeId, setRenamingNodeId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // Find node by ID in the tree
   const findNode = useCallback((node, id, path = []) => {
@@ -167,6 +169,81 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     onChange(newStructure);
   }, [structure, onChange]);
 
+  // Move node up or down within its siblings
+  const moveNode = useCallback((nodeId, direction) => {
+    if (nodeId === 'root') return;
+
+    const moveInTree = (node) => {
+      if (!node) return node;
+      if (node.children && node.children.length > 0) {
+        const idx = node.children.findIndex(c => c._id === nodeId);
+        if (idx !== -1) {
+          const newChildren = [...node.children];
+          const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+          if (targetIdx >= 0 && targetIdx < newChildren.length) {
+            // Swap
+            [newChildren[idx], newChildren[targetIdx]] = [newChildren[targetIdx], newChildren[idx]];
+            return { ...node, children: newChildren };
+          }
+        }
+        return {
+          ...node,
+          children: node.children.map(child => moveInTree(child))
+        };
+      }
+      return node;
+    };
+
+    const newStructure = moveInTree(structure);
+    onChange(newStructure);
+  }, [structure, onChange]);
+
+  // Get sibling info for a node (for move up/down buttons)
+  const getSiblingInfo = useCallback((nodeId) => {
+    if (nodeId === 'root') return { isFirst: true, isLast: true };
+    
+    const findInTree = (node) => {
+      if (!node) return null;
+      if (node.children && node.children.length > 0) {
+        const idx = node.children.findIndex(c => c._id === nodeId);
+        if (idx !== -1) {
+          return {
+            isFirst: idx === 0,
+            isLast: idx === node.children.length - 1,
+          };
+        }
+        for (const child of node.children) {
+          const result = findInTree(child);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+
+    return findInTree(structure) || { isFirst: true, isLast: true };
+  }, [structure]);
+
+  // Start renaming a node
+  const startRenaming = useCallback((nodeId, currentName) => {
+    setRenamingNodeId(nodeId);
+    setRenameValue(currentName || '');
+  }, []);
+
+  // Finish renaming
+  const finishRenaming = useCallback(() => {
+    if (renamingNodeId && renameValue.trim()) {
+      updateNode(renamingNodeId, { prompt_name: renameValue.trim() });
+    }
+    setRenamingNodeId(null);
+    setRenameValue('');
+  }, [renamingNodeId, renameValue, updateNode]);
+
+  // Cancel renaming
+  const cancelRenaming = useCallback(() => {
+    setRenamingNodeId(null);
+    setRenameValue('');
+  }, []);
+
   // Toggle node expansion
   const toggleExpanded = (nodeId) => {
     setExpandedNodes(prev => {
@@ -194,6 +271,8 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     const isExpanded = expandedNodes.has(nodeId);
     const isSelected = selectedNodeId === nodeId;
     const hasChildren = node.children && node.children.length > 0;
+    const isRenaming = renamingNodeId === nodeId;
+    const siblingInfo = getSiblingInfo(nodeId);
     
     // Find variables in this node
     const nodeVariables = [
@@ -209,7 +288,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
             isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent",
           )}
           style={{ paddingLeft: `${depth * 20 + 8}px` }}
-          onClick={() => setSelectedNodeId(nodeId)}
+          onClick={() => !isRenaming && setSelectedNodeId(nodeId)}
         >
           {hasChildren ? (
             <button
@@ -222,66 +301,125 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
             <span className="w-5" />
           )}
           
-          <span className="flex-1 text-sm truncate">{node.prompt_name || 'Untitled'}</span>
+          {isRenaming ? (
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') finishRenaming();
+                if (e.key === 'Escape') cancelRenaming();
+              }}
+              onBlur={finishRenaming}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 h-6 text-sm py-0 px-1"
+              autoFocus
+            />
+          ) : (
+            <span className="flex-1 text-sm truncate">{node.prompt_name || 'Untitled'}</span>
+          )}
           
-          {node.is_assistant && (
+          {!isRenaming && node.is_assistant && (
             <Badge variant="secondary" className="text-[10px] px-1">
               <Bot className="h-3 w-3" />
             </Badge>
           )}
           
-          {nodeVariables.length > 0 && (
+          {!isRenaming && nodeVariables.length > 0 && (
             <Badge variant="outline" className="text-[10px] px-1">
               {nodeVariables.length} var{nodeVariables.length > 1 ? 's' : ''}
             </Badge>
           )}
           
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={(e) => { e.stopPropagation(); addChild(nodeId); }}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Add child prompt</TooltipContent>
-            </Tooltip>
-            
-            {nodeId !== 'root' && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={(e) => { e.stopPropagation(); duplicateNode(nodeId); }}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Duplicate</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
-                      onClick={(e) => { e.stopPropagation(); deleteNode(nodeId); }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Delete</TooltipContent>
-                </Tooltip>
-              </>
-            )}
-          </div>
+          {!isRenaming && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
+                    onClick={(e) => { e.stopPropagation(); addChild(nodeId); }}
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Add child</TooltipContent>
+              </Tooltip>
+              
+              {nodeId !== 'root' && (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className={`h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50 ${siblingInfo.isFirst ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); if (!siblingInfo.isFirst) moveNode(nodeId, 'up'); }}
+                        disabled={siblingInfo.isFirst}
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Move up</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className={`h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50 ${siblingInfo.isLast ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        onClick={(e) => { e.stopPropagation(); if (!siblingInfo.isLast) moveNode(nodeId, 'down'); }}
+                        disabled={siblingInfo.isLast}
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Move down</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
+                        onClick={(e) => { e.stopPropagation(); startRenaming(nodeId, node.prompt_name); }}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Rename</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
+                        onClick={(e) => { e.stopPropagation(); duplicateNode(nodeId); }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Duplicate</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 !text-destructive hover:!text-destructive hover:!bg-destructive/10"
+                        onClick={(e) => { e.stopPropagation(); deleteNode(nodeId); }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
+                </>
+              )}
+            </div>
+          )}
         </div>
         
         {isExpanded && hasChildren && (
