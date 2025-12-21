@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -20,10 +19,7 @@ import {
 const TemplateCodesHelp = () => (
   <Popover>
     <PopoverTrigger asChild>
-      <Button variant="ghost" size="sm" className="h-6 px-2 text-muted-foreground">
-        <HelpCircle className="h-4 w-4 mr-1" />
-        Template Codes
-      </Button>
+      <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" />
     </PopoverTrigger>
     <PopoverContent className="w-96" align="start">
       <div className="space-y-3">
@@ -271,24 +267,23 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Button
-                    size="icon"
-                    variant="ghost"
+                  <Trash2 
+                    className="h-4 w-4 text-destructive hover:text-destructive/80 cursor-pointer transition-colors" 
                     onClick={() => onRemoveLevel(index)}
-                    className="h-8 w-8"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  />
                 </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
-      <Button variant="outline" size="sm" onClick={onAddLevel}>
-        <Plus className="h-4 w-4 mr-2" />
-        Add Level
-      </Button>
+      <div 
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors w-fit"
+        onClick={onAddLevel}
+      >
+        <Plus className="h-4 w-4" />
+        <span>Add Level</span>
+      </div>
     </div>
   );
 
@@ -340,17 +335,20 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
           </p>
           
           {/* Add new set */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Input
               value={newSetName}
               onChange={(e) => setNewSetName(e.target.value)}
               placeholder="Top-level prompt name to match..."
               className="max-w-xs"
             />
-            <Button variant="outline" size="sm" onClick={handleAddTopLevelSet}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Set
-            </Button>
+            <div 
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              onClick={handleAddTopLevelSet}
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Set</span>
+            </div>
           </div>
 
           {/* Existing sets */}
@@ -374,17 +372,13 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
                       ({setConfig.levels?.length || 0} levels)
                     </span>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
+                  <Trash2 
+                    className="h-4 w-4 text-destructive hover:text-destructive/80 cursor-pointer transition-colors"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveTopLevelSet(setName);
                     }}
-                    className="h-8 w-8"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  />
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent className="p-3 pt-0">
