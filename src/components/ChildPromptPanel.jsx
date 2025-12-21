@@ -1,8 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useThreads } from '../hooks/useThreads';
 import { useAssistantRun } from '../hooks/useAssistantRun';
 import { useProjectData } from '../hooks/useProjectData';
 import { useSupabase } from '../hooks/useSupabase';
+import { useCascadeExecutor } from '../hooks/useCascadeExecutor';
+import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import PromptField from './PromptField';
 import ThreadSelector from './ThreadSelector';
 import ThreadHistory from './ThreadHistory';
@@ -13,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Play, Loader2, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Loader2, Info, ChevronDown, ChevronUp, ListTree } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 const ChildPromptPanel = ({
@@ -25,6 +27,10 @@ const ChildPromptPanel = ({
   const supabase = useSupabase();
   const [isRunning, setIsRunning] = useState(false);
   const [confluenceOpen, setConfluenceOpen] = useState(false);
+  const [hasChildPrompts, setHasChildPrompts] = useState(false);
+
+  const { executeCascade, hasChildren } = useCascadeExecutor();
+  const { isRunning: isCascadeRunning } = useCascadeRun();
 
   const {
     localData,
@@ -48,6 +54,17 @@ const ChildPromptPanel = ({
   } = useThreads(parentAssistantRowId, projectRowId);
 
   const { runAssistant } = useAssistantRun();
+
+  // Check if this prompt's parent has children (siblings + self = hierarchy)
+  useEffect(() => {
+    const checkForChildren = async () => {
+      if (selectedItemData?.parent_row_id) {
+        const hasKids = await hasChildren(selectedItemData.parent_row_id);
+        setHasChildPrompts(hasKids);
+      }
+    };
+    checkForChildren();
+  }, [selectedItemData?.parent_row_id, hasChildren]);
 
   const threadMode = localData.thread_mode || 'new';
   const childThreadStrategy = localData.child_thread_strategy || 'isolated';
@@ -119,6 +136,15 @@ const ChildPromptPanel = ({
       setIsRunning(false);
     }
   }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase, refetchThreads]);
+
+  const handleCascadeRun = useCallback(async () => {
+    if (!parentAssistantRowId || !selectedItemData?.parent_row_id) {
+      toast.error('Parent assistant not found');
+      return;
+    }
+    // Execute cascade from the parent (top-level assistant)
+    await executeCascade(selectedItemData.parent_row_id, parentAssistantRowId);
+  }, [parentAssistantRowId, selectedItemData?.parent_row_id, executeCascade]);
 
   const fields = useMemo(() => [
     { name: 'input_user_prompt', label: 'User Message' },
@@ -235,11 +261,44 @@ const ChildPromptPanel = ({
         ))}
       </div>
 
-      {/* Run Button */}
-      <div className="flex justify-center pt-4">
+      {/* Run Buttons */}
+      <div className="flex justify-center gap-3 pt-4">
+        {/* Cascade Run Button - only show if parent has children */}
+        {hasChildPrompts && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={handleCascadeRun}
+                  disabled={isRunning || isCascadeRunning}
+                  className="gap-2"
+                  size="lg"
+                >
+                  {isCascadeRunning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cascade...
+                    </>
+                  ) : (
+                    <>
+                      <ListTree className="h-4 w-4" />
+                      Cascade
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Run all child prompts in sequence</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Regular Run Button */}
         <Button
           onClick={handleRun}
-          disabled={isRunning || !localData.input_user_prompt}
+          disabled={isRunning || isCascadeRunning || !localData.input_user_prompt}
           className="gap-2 px-8"
           size="lg"
         >
