@@ -170,12 +170,20 @@ const Projects = () => {
     );
   }
 
+  // Use a stable autoSaveId so user panel sizes persist across renders and sessions
+  // The key changes only when the chat panel visibility toggles (2-panel vs 3-panel layout)
+  const panelLayoutId = showChatPanel ? 'projects-layout-with-chat' : 'projects-layout-no-chat';
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="w-full h-[calc(100vh-4rem)] bg-background">
-        <PanelGroup direction="horizontal" className="h-full">
+        <PanelGroup 
+          direction="horizontal" 
+          className="h-full"
+          autoSaveId={panelLayoutId}
+        >
           {/* Tree Panel */}
-          <Panel defaultSize={showChatPanel ? 22 : 28} minSize={18}>
+          <Panel id="tree-panel" order={1} defaultSize={showChatPanel ? 22 : 28} minSize={18}>
             <div className="h-full border-r border-border bg-card/50">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
@@ -209,7 +217,7 @@ const Projects = () => {
           </PanelResizeHandle>
 
           {/* Details Panel */}
-          <Panel defaultSize={showChatPanel ? 40 : 72} minSize={30}>
+          <Panel id="details-panel" order={2} defaultSize={showChatPanel ? 40 : 72} minSize={30}>
             <div className="h-full overflow-y-auto bg-background">
               {activeItem ? (
                 selectedItemData ? (
@@ -244,7 +252,7 @@ const Projects = () => {
                   <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
                 </div>
               </PanelResizeHandle>
-              <Panel defaultSize={38} minSize={25}>
+              <Panel id="chat-panel" order={3} defaultSize={38} minSize={25}>
                 <div className="h-full border-l border-border">
                   <ConversationChatPanel
                     promptRowId={chatPanelPromptRowId}
