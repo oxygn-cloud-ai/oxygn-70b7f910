@@ -11,16 +11,21 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   const handleAddItem = useCallback(async (parentId, { skipRefresh = false } = {}) => {
     if (!supabase) return null;
     try {
-      // Fetch default admin prompt from settings
+      // Fetch default admin prompt and assistant instructions from settings
       const { data: settingsData } = await supabase
         .from(import.meta.env.VITE_SETTINGS_TBL)
-        .select('setting_value')
-        .eq('setting_key', 'def_admin_prompt')
-        .maybeSingle();
+        .select('setting_key, setting_value')
+        .in('setting_key', ['def_admin_prompt', 'def_assistant_instructions']);
       
-      const defaultAdminPrompt = settingsData?.setting_value || '';
+      const settingsMap = {};
+      settingsData?.forEach(row => {
+        settingsMap[row.setting_key] = row.setting_value || '';
+      });
       
-      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id);
+      const defaultAdminPrompt = settingsMap['def_admin_prompt'] || '';
+      const defaultAssistantInstructions = settingsMap['def_assistant_instructions'] || '';
+      
+      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id, defaultAssistantInstructions);
       if (!skipRefresh) {
         await refreshTreeData();
       }

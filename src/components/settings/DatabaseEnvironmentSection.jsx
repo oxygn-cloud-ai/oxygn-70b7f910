@@ -44,7 +44,7 @@ const SENSITIVE_KEYS = ['api_key', 'api_token', 'secret', 'password', 'credentia
 const SENSITIVE_ENV_PATTERNS = ['KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'CREDENTIAL'];
 
 // Keys managed in QonsolSettingsSection - hide from generic Database Settings list
-const QONSOL_MANAGED_KEYS = ['build', 'version', 'def_admin_prompt', 'default_model'];
+const QONSOL_MANAGED_KEYS = ['build', 'version', 'def_admin_prompt', 'def_assistant_instructions', 'default_model'];
 
 const isSensitiveKey = (key) => {
   const lowerKey = key.toLowerCase();
