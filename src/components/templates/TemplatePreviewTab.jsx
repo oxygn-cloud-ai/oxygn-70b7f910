@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 /**
@@ -160,14 +161,27 @@ const TemplatePreviewTab = ({ template }) => {
           <Separator />
           
           <div className="flex items-center gap-4">
-            <Button 
-              variant={showResolved ? "default" : "outline"}
-              onClick={() => setShowResolved(!showResolved)}
-              size="sm"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              {showResolved ? 'Showing Resolved' : 'Show Resolved'}
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    onClick={() => setShowResolved(!showResolved)}
+                    size="sm"
+                    className={`h-8 w-8 p-0 transition-colors ${
+                      showResolved 
+                        ? '!text-primary !bg-transparent hover:!bg-muted/50' 
+                        : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
+                    }`}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{showResolved ? 'Showing resolved values' : 'Show resolved values'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {showResolved && (
               <span className="text-xs text-muted-foreground">
                 Variables are replaced with values
