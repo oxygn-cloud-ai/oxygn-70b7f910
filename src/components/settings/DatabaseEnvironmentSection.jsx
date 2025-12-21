@@ -40,12 +40,26 @@ const SETTING_KEY_REGEX = /^[a-zA-Z0-9_:\-]{1,64}$/;
 // Keys that should always be masked (never displayed)
 const SENSITIVE_KEYS = ['api_key', 'api_token', 'secret', 'password', 'credential'];
 
+// Environment variable keys that should be masked
+const SENSITIVE_ENV_PATTERNS = ['KEY', 'SECRET', 'TOKEN', 'PASSWORD', 'CREDENTIAL'];
+
 // Keys managed in QonsolSettingsSection - hide from generic Database Settings list
 const QONSOL_MANAGED_KEYS = ['build', 'version', 'def_admin_prompt', 'default_model'];
 
 const isSensitiveKey = (key) => {
   const lowerKey = key.toLowerCase();
   return SENSITIVE_KEYS.some(sensitive => lowerKey.includes(sensitive));
+};
+
+const isSensitiveEnvKey = (key) => {
+  const upperKey = key.toUpperCase();
+  return SENSITIVE_ENV_PATTERNS.some(pattern => upperKey.includes(pattern));
+};
+
+const maskValue = (value) => {
+  if (!value || value === 'Not set') return value;
+  if (value.length <= 8) return '••••••••';
+  return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
 };
 
 const isQonsolManagedKey = (key) => QONSOL_MANAGED_KEYS.includes(key);
@@ -344,19 +358,24 @@ export function DatabaseEnvironmentSection({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {envVariables.map(({ label, key, value }) => (
-                <TableRow key={key}>
-                  <TableCell className="font-medium">{label}</TableCell>
-                  <TableCell>
-                    <code className="text-xs text-muted-foreground">{key}</code>
-                  </TableCell>
-                  <TableCell>
-                    <code className="px-2 py-1 bg-muted rounded text-sm break-all">
-                      {value || 'Not set'}
-                    </code>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {envVariables.map(({ label, key, value }) => {
+                const shouldMask = isSensitiveEnvKey(key);
+                const displayValue = shouldMask ? maskValue(value) : (value || 'Not set');
+                
+                return (
+                  <TableRow key={key}>
+                    <TableCell className="font-medium">{label}</TableCell>
+                    <TableCell>
+                      <code className="text-xs text-muted-foreground">{key}</code>
+                    </TableCell>
+                    <TableCell>
+                      <code className="px-2 py-1 bg-muted rounded text-sm break-all">
+                        {displayValue}
+                      </code>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
