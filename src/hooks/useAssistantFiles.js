@@ -32,7 +32,7 @@ export const useAssistantFiles = (assistantRowId) => {
     fetchFiles();
   }, [fetchFiles]);
 
-  // Sync files to OpenAI
+  // Sync files to vector store
   const syncFiles = useCallback(async () => {
     if (!supabase || !assistantRowId) return false;
 

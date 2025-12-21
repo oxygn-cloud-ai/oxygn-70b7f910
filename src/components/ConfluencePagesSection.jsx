@@ -105,7 +105,7 @@ const PageTreeNode = ({
         </Badge>
         
         {page.openai_file_id && (
-          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 mr-1">OpenAI</Badge>
+          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 mr-1">Indexed</Badge>
         )}
 
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
