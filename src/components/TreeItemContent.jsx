@@ -258,20 +258,21 @@ export const TreeItemContent = ({
         )}
       </div>
 
-      {/* Actions - fixed to right edge with gradient fade */}
+      {/* Actions - fixed to right edge with gradient fade, min distance from name */}
       {!isDeleting && (
         <div 
           className={`
             absolute right-0 top-0 bottom-0 
-            flex items-center
+            flex items-center justify-end
             transition-opacity duration-150
             ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}
           `}
+          style={{ left: `${level * 14 + 4 + 60}px` }}
         >
           {/* Gradient fade overlay - uses opaque color for active state */}
-          <div className={`w-8 h-full ${getActiveGradientClass()}`} />
+          <div className={`w-8 h-full flex-shrink-0 ${getActiveGradientClass()}`} />
           {/* Solid background for icons - opaque for active state */}
-          <div className={`flex items-center gap-0.5 px-1.5 h-full ${getActiveBgClass()}`}>
+          <div className={`flex items-center gap-0.5 px-1.5 h-full flex-shrink-0 ${getActiveBgClass()}`}>
             <TreeItemActions
               item={item}
               addItem={addItem}
