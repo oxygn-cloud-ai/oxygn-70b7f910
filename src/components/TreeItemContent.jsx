@@ -263,9 +263,9 @@ export const TreeItemContent = ({
         <div 
           className={`
             absolute right-0 top-0 bottom-0 
-            flex items-center justify-end
+            flex items-center justify-end overflow-hidden
             transition-opacity duration-150
-            ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+            ${isHovered || isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}
           `}
           style={{ left: `${level * 14 + 4 + 60}px` }}
         >
