@@ -563,7 +563,9 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case 'sync-to-vector-store': 
       case 'sync-to-openai': {
+        // Support both old and new action names for backwards compatibility
         const { rowId, assistantId } = params;
         const openaiKey = Deno.env.get('OPENAI_API_KEY');
         
@@ -580,7 +582,7 @@ Deno.serve(async (req) => {
         
         if (fetchError) throw fetchError;
         
-        // Upload content as a file to OpenAI
+        // Upload content as a file for vector store indexing
         const fileContent = `# ${page.page_title}\n\nSpace: ${page.space_name || page.space_key}\nSource: ${page.page_url}\n\n---\n\n${page.content_text}`;
         
         const formData = new FormData();
@@ -598,12 +600,12 @@ Deno.serve(async (req) => {
         
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
-          throw new Error(`OpenAI file upload failed: ${errorText}`);
+          throw new Error(`File upload failed: ${errorText}`);
         }
         
         const uploadedFile = await uploadResponse.json();
         
-        // Update the database record with the OpenAI file ID
+        // Update the database record with the file ID for vector store
         const { error: updateError } = await supabase
           .from(TABLES.CONFLUENCE_PAGES)
           .update({ openai_file_id: uploadedFile.id })

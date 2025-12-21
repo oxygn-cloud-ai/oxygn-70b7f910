@@ -75,7 +75,7 @@ export function AssistantDefaultsSection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bot className="h-6 w-6 text-primary" />
-          <h2 className="text-xl font-semibold">Assistant Defaults</h2>
+          <h2 className="text-xl font-semibold">Conversation Defaults</h2>
         </div>
         <TooltipProvider>
           <Tooltip>
@@ -99,7 +99,7 @@ export function AssistantDefaultsSection({
         <CardHeader>
           <CardTitle>Default Tool Settings</CardTitle>
           <CardDescription>
-            Default tools enabled for new Assistants. Individual Assistants can override these settings.
+            Default tools enabled for new conversations. Individual conversations can override these settings.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -107,7 +107,7 @@ export function AssistantDefaultsSection({
             <div className="space-y-0.5">
               <Label>Code Interpreter</Label>
               <p className="text-xs text-muted-foreground">
-                Allows the Assistant to write and run Python code
+                Allows the AI to write and run Python code
               </p>
             </div>
             <Switch
@@ -133,7 +133,7 @@ export function AssistantDefaultsSection({
             <div className="space-y-0.5">
               <Label>Function Calling</Label>
               <p className="text-xs text-muted-foreground">
-                Allows defining custom functions for the Assistant to call
+                Allows defining custom functions for the AI to call
               </p>
             </div>
             <Switch

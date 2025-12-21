@@ -226,7 +226,7 @@ serve(async (req) => {
       }
 
       const uploadResult = await uploadResponse.json();
-      console.log('Uploaded file to OpenAI:', uploadResult.id);
+      console.log('Uploaded file to vector store:', uploadResult.id);
 
       // Save file record
       const { data: savedFile, error: saveError } = await supabase

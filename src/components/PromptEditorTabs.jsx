@@ -32,9 +32,9 @@ const PromptEditorTabs = ({
       { id: 'templates', label: 'Templates', icon: LayoutTemplate, description: 'Save as or apply template' },
     ];
     
-    // Add Assistant tab for top-level prompts that are assistants
+    // Add Conversation tab for top-level prompts that are conversations
     if (isTopLevel && selectedItemData?.is_assistant) {
-      baseTabs.push({ id: 'assistant', label: 'Assistant', icon: Bot, description: 'OpenAI Assistant configuration' });
+      baseTabs.push({ id: 'assistant', label: 'Conversation', icon: Bot, description: 'Conversation configuration' });
     }
     
     return baseTabs;
@@ -94,7 +94,7 @@ const PromptEditorTabs = ({
         {selectedItemData?.is_assistant && (
           <div className="flex items-center gap-1 text-xs text-primary">
             <Bot className="h-3.5 w-3.5" />
-            <span>Assistant Mode</span>
+            <span>Conversation Mode</span>
           </div>
         )}
       </div>

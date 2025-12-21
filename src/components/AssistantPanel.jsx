@@ -203,7 +203,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <span className="font-semibold text-foreground">Assistant Configuration</span>
+            <span className="font-semibold text-foreground">Conversation Configuration</span>
             <div className="flex items-center gap-2 mt-0.5">
               <Badge variant="success">● Ready</Badge>
               {currentModelData && (

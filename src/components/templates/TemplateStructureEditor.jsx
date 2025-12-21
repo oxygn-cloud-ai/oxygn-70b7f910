@@ -513,7 +513,7 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
   const sections = [
     { id: 'prompts', label: 'Prompts', icon: MessageSquare },
     { id: 'model', label: 'Model Settings', icon: Settings2 },
-    { id: 'assistant', label: 'Assistant', icon: Bot },
+    { id: 'assistant', label: 'Conversation', icon: Bot },
     { id: 'tools', label: 'Tools', icon: Wrench },
   ];
 
@@ -775,8 +775,8 @@ const AssistantSection = ({ node, onUpdate, isRoot }) => (
   <div className="space-y-4">
     <div className="flex items-center justify-between py-2">
       <div>
-        <Label>Assistant Mode</Label>
-        <p className="text-xs text-muted-foreground">Enable OpenAI Assistant features</p>
+        <Label>Conversation Mode</Label>
+        <p className="text-xs text-muted-foreground">Enable conversation features with context memory</p>
       </div>
       <Switch
         checked={node.is_assistant || false}
