@@ -7,7 +7,7 @@ import { useTimer } from '../../hooks/useTimer';
 import { useProjectData } from '../../hooks/useProjectData';
 import { useCostTracking } from '../../hooks/useCostTracking';
 import PromptField from '../PromptField';
-import { Bot } from 'lucide-react';
+import { Bot, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -103,11 +103,11 @@ const PromptFieldsTab = ({
   }, [onCascade]);
 
   const fields = useMemo(() => [
-    { name: 'input_admin_prompt', label: 'Input Admin Prompt' },
-    { name: 'input_user_prompt', label: 'Input User Prompt' },
-    { name: 'admin_prompt_result', label: 'Admin Result' },
-    { name: 'user_prompt_result', label: 'User Result' },
-    { name: 'note', label: 'Notes' }
+    { name: 'input_admin_prompt', label: TOOLTIPS.promptFields.inputAdminPrompt.label, tooltip: TOOLTIPS.promptFields.inputAdminPrompt.tooltip },
+    { name: 'input_user_prompt', label: TOOLTIPS.promptFields.inputUserPrompt.label, tooltip: TOOLTIPS.promptFields.inputUserPrompt.tooltip },
+    { name: 'admin_prompt_result', label: TOOLTIPS.promptFields.adminResult.label },
+    { name: 'user_prompt_result', label: TOOLTIPS.promptFields.userResult.label, tooltip: TOOLTIPS.promptFields.userResult.tooltip },
+    { name: 'note', label: TOOLTIPS.promptFields.note.label }
   ], []);
 
   const handleEnableAssistant = useCallback(async () => {
@@ -164,6 +164,19 @@ const PromptFieldsTab = ({
         </Card>
       )}
       
+      {/* Message Flow Info Card */}
+      <Card className="border-muted bg-muted/30">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Message Flow:</span>{' '}
+              System Instructions (from parent conversation) → Context Prompt → User Message → AI Response
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Prompt Fields */}
       <div className="space-y-4">
         {fields
@@ -177,6 +190,7 @@ const PromptFieldsTab = ({
             <PromptField
               key={field.name}
               label={field.label}
+              tooltip={field.tooltip}
               value={localData[field.name] || ''}
               onChange={(value) => handleChange(field.name, value)}
               onReset={() => handleReset(field.name)}
@@ -192,6 +206,7 @@ const PromptFieldsTab = ({
               cascadeField={cascadeField}
               hasUnsavedChanges={hasUnsavedChanges(field.name)}
               promptId={projectRowId}
+              placeholder={settings?.[field.name === 'input_admin_prompt' ? 'def_admin_prompt' : null]}
             />
           ))}
       </div>

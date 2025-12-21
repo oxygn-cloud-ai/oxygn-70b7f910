@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
 import {
@@ -12,8 +12,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import VariablePicker from './VariablePicker';
+import { TOOLTIPS } from '@/config/labels';
 
-const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId, variables = [] }) => {
+const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId, variables = [], placeholder }) => {
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -175,6 +176,18 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           <Label htmlFor={label} className="text-sm font-medium text-foreground cursor-pointer">
             {label}
           </Label>
+          {tooltip && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  {tooltip}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           {hasUnsavedChanges && (
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           )}
@@ -182,7 +195,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
 
         {/* Actions */}
         <div className="flex items-center gap-0.5">
-          {(label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isLinksPage && (
+          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message') && !isLinksPage && (
             <div className="flex items-center mr-1">
               <ActionButton
                 icon={<Sparkles className={`h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />}
@@ -198,7 +211,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
           )}
 
           {/* Variable Picker for input prompts */}
-          {(label === 'Input Admin Prompt' || label === 'Input User Prompt') && !isReadOnly && (
+          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message') && !isReadOnly && (
             <VariablePicker 
               onInsert={handleInsertVariable}
               userVariables={variables}
@@ -240,7 +253,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
       {/* Content */}
       {!isCollapsed && (
         <div className="p-3">
-          {(label === 'Input Admin Prompt' || label === 'Input User Prompt') ? (
+          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message') ? (
             <HighlightedTextarea
               id={label}
               value={value}
@@ -258,7 +271,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               rows={4}
               ref={textareaRef}
               readOnly={isReadOnly}
-              placeholder={`Enter ${label.toLowerCase()}...`}
+              placeholder={placeholder || undefined}
               userVariables={variables}
             />
           ) : (
@@ -269,7 +282,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
                 if (!isReadOnly) {
                   onChange(e.target.value);
                 }
-                if (label === 'Admin Result' || label === 'User Result') {
+                if (label === TOOLTIPS?.promptFields?.adminResult?.label || label === TOOLTIPS?.promptFields?.userResult?.label || label === 'System Response' || label === 'AI Response') {
                   e.target.style.height = 'auto';
                 }
                 handleCursorChange(e);
@@ -282,7 +295,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               rows={4}
               ref={textareaRef}
               readOnly={isReadOnly}
-              placeholder={`Enter ${label.toLowerCase()}...`}
+              placeholder={placeholder || undefined}
             />
           )}
         </div>
