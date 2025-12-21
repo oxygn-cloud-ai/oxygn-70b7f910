@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, LayoutTemplate, Search, ArrowRight, Loader2, Settings2, Lock, ArrowLeft, Plus } from 'lucide-react';
+import { FileText, LayoutTemplate, Search, ArrowRight, Loader2, Settings2, Lock, ArrowLeft, Plus, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -557,7 +557,15 @@ const NewPromptChoiceDialog = ({
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClose}
+                title="Cancel"
+                aria-label="Cancel"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </DialogFooter>
           </>
         )}
