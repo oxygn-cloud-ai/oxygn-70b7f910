@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, ChevronRight, ChevronDown, Bot } from 'lucide-react';
+import { FileText, ChevronRight, ChevronDown, Bot, SkipForward } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -229,6 +229,22 @@ export const TreeItemContent = ({
               </Tooltip>
             </TooltipProvider>
           )
+        )}
+
+        {/* Excluded from cascade indicator */}
+        {item.exclude_from_cascade && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="ml-1 flex items-center justify-center w-4 h-4 rounded flex-shrink-0 bg-muted text-muted-foreground">
+                  <SkipForward className="h-3 w-3" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                Excluded from cascade
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
 
         {/* Child count badge */}
