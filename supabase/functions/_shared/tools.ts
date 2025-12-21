@@ -149,10 +149,12 @@ export function getBuiltinToolsAssistants(config: {
 /**
  * Built-in tools for Responses API (new)
  * Note: file_search requires vector_store_ids, code_interpreter requires container
+ * web_search is a native Responses API capability
  */
 export function getBuiltinToolsResponses(config: {
   codeInterpreterEnabled?: boolean;
   fileSearchEnabled?: boolean;
+  webSearchEnabled?: boolean;
   vectorStoreIds?: string[];
   containerFileIds?: string[];
 }) {
@@ -175,6 +177,13 @@ export function getBuiltinToolsResponses(config: {
       max_num_results: 10
     });
   }
+
+  // Web search is a native Responses API tool
+  if (config.webSearchEnabled) {
+    tools.push({
+      type: 'web_search_preview'
+    });
+  }
   
   return tools;
 }
@@ -187,6 +196,7 @@ export function getAllTools(
   config: {
     codeInterpreterEnabled?: boolean;
     fileSearchEnabled?: boolean;
+    webSearchEnabled?: boolean;
     confluenceEnabled?: boolean;
     vectorStoreIds?: string[];
     containerFileIds?: string[];
@@ -196,6 +206,7 @@ export function getAllTools(
     const builtinTools = getBuiltinToolsResponses({
       codeInterpreterEnabled: config.codeInterpreterEnabled,
       fileSearchEnabled: config.fileSearchEnabled,
+      webSearchEnabled: config.webSearchEnabled,
       vectorStoreIds: config.vectorStoreIds,
       containerFileIds: config.containerFileIds,
     });

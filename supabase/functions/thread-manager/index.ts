@@ -219,23 +219,58 @@ serve(async (req) => {
 
     // GET_MESSAGES - Get messages from a thread
     if (action === 'get_messages') {
-      const { thread_row_id, limit = 20 } = body;
+      const { thread_row_id, limit = 50 } = body;
 
-      // Get thread info
+      // Get thread info including last_response_id to determine if it's a Responses API thread
       const { data: thread } = await supabase
         .from(TABLES.THREADS)
-        .select('openai_thread_id')
+        .select('openai_thread_id, last_response_id')
         .eq('row_id', thread_row_id)
         .single();
 
-      if (!thread?.openai_thread_id) {
+      if (!thread) {
         return new Response(
           JSON.stringify({ error: 'Thread not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Fetch messages from OpenAI
+      // First try to fetch from q_thread_messages (works for both API versions)
+      const { data: dbMessages, error: dbError } = await supabase
+        .from('q_thread_messages')
+        .select('row_id, role, content, response_id, created_at')
+        .eq('thread_row_id', thread_row_id)
+        .order('created_at', { ascending: true })
+        .limit(limit);
+
+      if (!dbError && dbMessages && dbMessages.length > 0) {
+        // Use database messages (Responses API or any API with stored messages)
+        const messages = dbMessages.map((msg: any) => ({
+          id: msg.row_id,
+          role: msg.role,
+          content: msg.content,
+          created_at: msg.created_at,
+          response_id: msg.response_id,
+        }));
+
+        console.log('Returning messages from database:', messages.length);
+
+        return new Response(
+          JSON.stringify({ messages, source: 'database' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fallback to OpenAI API for legacy Assistants API threads without stored messages
+      if (!thread.openai_thread_id || thread.openai_thread_id.startsWith('responses_')) {
+        // Responses API thread with no stored messages yet
+        return new Response(
+          JSON.stringify({ messages: [], source: 'database' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch messages from OpenAI Assistants API
       const messagesResponse = await fetch(
         `https://api.openai.com/v1/threads/${thread.openai_thread_id}/messages?limit=${limit}&order=desc`,
         {
@@ -265,7 +300,7 @@ serve(async (req) => {
       })).reverse(); // Reverse to get chronological order
 
       return new Response(
-        JSON.stringify({ messages }),
+        JSON.stringify({ messages, source: 'openai' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

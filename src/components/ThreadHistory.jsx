@@ -95,7 +95,9 @@ const ThreadHistory = ({
                       </span>
                       {message.created_at && (
                         <span className="text-xs text-muted-foreground">
-                          {new Date(message.created_at * 1000).toLocaleString()}
+                          {typeof message.created_at === 'number' 
+                            ? new Date(message.created_at * 1000).toLocaleString()
+                            : new Date(message.created_at).toLocaleString()}
                         </span>
                       )}
                     </div>
