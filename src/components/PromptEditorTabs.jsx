@@ -49,6 +49,7 @@ const PromptEditorTabs = ({
         setAssistantRowId(data?.row_id || null);
       } catch (error) {
         console.error('Error fetching assistant:', error);
+        toast.error('Failed to load assistant data');
         setAssistantRowId(null);
       }
     };

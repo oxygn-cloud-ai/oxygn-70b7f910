@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DollarSign, TrendingUp, Cpu, Hash, Download, RefreshCw, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { useCostTracking } from '@/hooks/useCostTracking';
+import { toast } from '@/components/ui/sonner';
 
 const CostAnalyticsSection = () => {
   const [analytics, setAnalytics] = useState(null);
@@ -45,6 +46,7 @@ const CostAnalyticsSection = () => {
       setAnalytics(data);
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      toast.error('Failed to load analytics data');
     } finally {
       setIsLoading(false);
     }

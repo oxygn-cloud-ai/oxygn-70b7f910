@@ -96,6 +96,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
         .eq('row_id', promptRowId);
     } catch (error) {
       console.error('Error saving parent prompt field:', error);
+      toast.error('Failed to save setting');
     }
   };
 

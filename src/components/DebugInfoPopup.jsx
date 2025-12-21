@@ -23,7 +23,10 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
       setIsLoadingCosts(true);
       getLifetimeCosts(item.id)
         .then(costs => setLifetimeCosts(costs))
-        .catch(err => console.error('Error fetching costs:', err))
+        .catch(err => {
+          console.error('Error fetching costs:', err);
+          toast.error('Failed to load cost data');
+        })
         .finally(() => setIsLoadingCosts(false));
     }
   }, [isOpen, item?.id, getLifetimeCosts]);

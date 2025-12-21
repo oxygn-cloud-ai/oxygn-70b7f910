@@ -142,7 +142,9 @@ export const ImportTemplateDialog = ({ onImport, trigger }) => {
       toast.success('Template imported');
     } catch (err) {
       console.error('Import error:', err);
-      setError(err.message || 'Invalid JSON format');
+      const errorMsg = err.message || 'Invalid JSON format';
+      setError(errorMsg);
+      toast.error('Import failed', { description: errorMsg });
     } finally {
       setIsImporting(false);
     }
