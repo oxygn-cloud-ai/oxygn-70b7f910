@@ -3,7 +3,7 @@ import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { Bot, Loader2 } from 'lucide-react';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+
 import ChatPanel from './chat/ChatPanel';
 import ThreadSidebar from './chat/ThreadSidebar';
 
@@ -255,24 +255,33 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
   const contextItems = selectedChildPromptName ? [{ id: selectedChildPromptId, name: selectedChildPromptName }] : [];
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-background">
-      {/* Thread Drawer - slides from top, left-aligned, 30% width */}
-      <Sheet open={isThreadsOpen} onOpenChange={setIsThreadsOpen}>
-        <SheetContent 
-          side="top" 
-          className="h-auto max-h-[70vh] p-0 left-0 right-auto w-[30%] min-w-[280px] rounded-br-lg border-r border-b"
-        >
-          <ThreadSidebar
-            threads={threads}
-            activeThread={activeThread}
-            isLoading={isLoadingThreads}
-            onSelectThread={switchThread}
-            onCreateThread={createThread}
-            onDeleteThread={deleteThread}
-            onRenameThread={renameThread}
+    <div className="h-full flex flex-col overflow-hidden bg-background relative">
+      {/* Thread Drawer - positioned relative to chat container */}
+      {isThreadsOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50 z-40"
+            onClick={() => setIsThreadsOpen(false)}
           />
-        </SheetContent>
-      </Sheet>
+          {/* Drawer panel */}
+          <div className="absolute top-0 left-0 w-[60%] min-w-[280px] max-w-[320px] max-h-[70%] z-50 bg-background border-r border-b border-border rounded-br-lg shadow-lg animate-in slide-in-from-top duration-300">
+            <ThreadSidebar
+              threads={threads}
+              activeThread={activeThread}
+              isLoading={isLoadingThreads}
+              onSelectThread={(id) => {
+                switchThread(id);
+                setIsThreadsOpen(false);
+              }}
+              onCreateThread={createThread}
+              onDeleteThread={deleteThread}
+              onRenameThread={renameThread}
+              onClose={() => setIsThreadsOpen(false)}
+            />
+          </div>
+        </>
+      )}
 
       {/* Chat takes full width */}
       <ChatPanel

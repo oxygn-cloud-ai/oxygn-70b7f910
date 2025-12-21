@@ -17,6 +17,7 @@ const ThreadSidebar = ({
   onCreateThread,
   onDeleteThread,
   onRenameThread,
+  onClose,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingThreadId, setEditingThreadId] = useState(null);
@@ -48,27 +49,39 @@ const ThreadSidebar = ({
 
   return (
     <div className="h-full flex flex-col bg-card/50 backdrop-blur-sm">
-      {/* Header - with extra right padding to avoid overlap with Sheet close button */}
-      <div className="p-3 pr-10 border-b border-border space-y-2">
+      {/* Header */}
+      <div className="p-3 border-b border-border space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-foreground">
             Conversations
           </span>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
-                  onClick={onCreateThread}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>New conversation</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                    onClick={onCreateThread}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>New conversation</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {onClose && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 hover:bg-muted"
+                onClick={onClose}
+              >
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search */}
