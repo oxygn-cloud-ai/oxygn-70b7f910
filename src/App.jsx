@@ -16,6 +16,9 @@ import { ToastHistoryProvider, useToastHistory } from "@/contexts/ToastHistoryCo
 import { CreatePromptProvider, useCreatePrompt } from "@/contexts/CreatePromptContext";
 import { TooltipSettingsProvider } from "@/contexts/TooltipContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { CascadeRunProvider } from "@/contexts/CascadeRunContext";
+import CascadeRunProgress from "@/components/CascadeRunProgress";
+import CascadeErrorDialog from "@/components/CascadeErrorDialog";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +69,7 @@ const AppLayout = () => {
               <div className="md:hidden p-2 border-b border-border">
                 <SidebarTrigger />
               </div>
+              <CascadeRunProgress />
               <div className="flex-1 overflow-auto">
                 <Routes>
                   {navItems.map(({ to, page }) => (
@@ -74,6 +78,7 @@ const AppLayout = () => {
                 </Routes>
               </div>
             </main>
+            <CascadeErrorDialog />
           </div>
         </SidebarProvider>
       </HealthSectionContext.Provider>
@@ -100,29 +105,31 @@ const App = () => (
         <CreatePromptProvider>
           <TooltipSettingsProvider>
             <TooltipProvider>
-              <Toaster />
-              <ToastHistoryConnector />
-              <BrowserRouter>
-                <ApiCallProvider>
-                  <AuthProvider>
-                    <NavigationGuard />
-                    <BackgroundCallsIndicator />
-                    <ErrorBoundary message="This page encountered an error.">
-                      <Routes>
-                        <Route path="/auth" element={<Auth />} />
-                        <Route
-                          path="/*"
-                          element={
-                            <ProtectedRoute>
-                              <AppLayout />
-                            </ProtectedRoute>
-                          }
-                        />
-                      </Routes>
-                    </ErrorBoundary>
-                  </AuthProvider>
-                </ApiCallProvider>
-              </BrowserRouter>
+              <CascadeRunProvider>
+                <Toaster />
+                <ToastHistoryConnector />
+                <BrowserRouter>
+                  <ApiCallProvider>
+                    <AuthProvider>
+                      <NavigationGuard />
+                      <BackgroundCallsIndicator />
+                      <ErrorBoundary message="This page encountered an error.">
+                        <Routes>
+                          <Route path="/auth" element={<Auth />} />
+                          <Route
+                            path="/*"
+                            element={
+                              <ProtectedRoute>
+                                <AppLayout />
+                              </ProtectedRoute>
+                            }
+                          />
+                        </Routes>
+                      </ErrorBoundary>
+                    </AuthProvider>
+                  </ApiCallProvider>
+                </BrowserRouter>
+              </CascadeRunProvider>
             </TooltipProvider>
           </TooltipSettingsProvider>
         </CreatePromptProvider>

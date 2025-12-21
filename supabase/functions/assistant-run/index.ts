@@ -669,6 +669,34 @@ serve(async (req) => {
       );
     }
 
+    // Fetch run steps to get usage data
+    let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    try {
+      const stepsResponse = await fetch(
+        `https://api.openai.com/v1/threads/${threadId}/runs/${run.id}/steps`,
+        {
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'OpenAI-Beta': 'assistants=v2',
+          },
+        }
+      );
+
+      if (stepsResponse.ok) {
+        const stepsData = await stepsResponse.json();
+        for (const step of stepsData.data || []) {
+          if (step.usage) {
+            usage.prompt_tokens += step.usage.prompt_tokens || 0;
+            usage.completion_tokens += step.usage.completion_tokens || 0;
+          }
+        }
+        usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
+        console.log('Fetched usage from run steps:', usage);
+      }
+    } catch (usageError) {
+      console.error('Error fetching usage data:', usageError);
+    }
+
     // Get messages (the assistant's response)
     const messagesResponse = await fetch(
       `https://api.openai.com/v1/threads/${threadId}/messages?limit=1&order=desc`,
@@ -726,6 +754,7 @@ serve(async (req) => {
         response: responseText,
         thread_id: threadId,
         run_id: run.id,
+        usage: usage,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
