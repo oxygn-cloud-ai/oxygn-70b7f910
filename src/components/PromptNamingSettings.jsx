@@ -303,9 +303,10 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
           <CardDescription>Configure default names, prefixes, and suffixes for new prompts at each level</CardDescription>
         </div>
         {hasChanges && (
-          <Button size="icon" variant="secondary" onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4" />
-          </Button>
+          <Save 
+            className="h-5 w-5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" 
+            onClick={handleSave}
+          />
         )}
       </CardHeader>
       <CardContent className="space-y-6">
