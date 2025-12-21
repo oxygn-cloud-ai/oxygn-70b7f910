@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 
-export const useAssistantFiles = (assistantRowId, assistantStatus) => {
+export const useAssistantFiles = (assistantRowId) => {
   const supabase = useSupabase();
   const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,12 +113,9 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
 
       if (uploadedFiles.length > 0) {
         toast.success(`${uploadedFiles.length} file(s) uploaded`);
-
-        // Auto-sync if assistant is active
-        if (assistantStatus === 'active') {
-          toast.info('Syncing files to assistant...');
-          await syncFiles();
-        }
+        // Auto-sync files after upload
+        toast.info('Syncing files to assistant...');
+        await syncFiles();
       }
 
       return uploadedFiles;
@@ -129,7 +126,7 @@ export const useAssistantFiles = (assistantRowId, assistantStatus) => {
     } finally {
       setIsUploading(false);
     }
-  }, [supabase, assistantRowId, assistantStatus, syncFiles]);
+  }, [supabase, assistantRowId, syncFiles]);
 
   const deleteFile = useCallback(async (fileRowId) => {
     if (!supabase) return false;

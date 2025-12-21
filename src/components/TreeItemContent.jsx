@@ -129,18 +129,12 @@ export const TreeItemContent = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className={`
-                  flex items-center justify-center w-5 h-5 rounded flex-shrink-0
-                  ${item.assistantStatus === 'active' 
-                    ? 'bg-primary/15 text-primary' 
-                    : 'bg-muted text-muted-foreground'
-                  }
-                `}>
+                <div className="flex items-center justify-center w-5 h-5 rounded flex-shrink-0 bg-primary/15 text-primary">
                   <Bot className="h-3.5 w-3.5" />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">
-                {item.assistantStatus === 'active' ? TOOLTIPS.prompts.assistant.active : TOOLTIPS.prompts.assistant.notInstantiated}
+                {TOOLTIPS.prompts.assistant.active}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
