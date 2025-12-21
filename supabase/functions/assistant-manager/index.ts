@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES, FK } from "../_shared/tables.ts";
+import { getConfluenceToolsAssistants, getBuiltinToolsAssistants } from "../_shared/tools.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,65 +46,9 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
-// Build Confluence function tools for assistants
+// Legacy alias for backward compatibility - now uses shared module
 function getConfluenceTools() {
-  return [
-    {
-      type: "function",
-      function: {
-        name: "confluence_search",
-        description: "Search Confluence documentation for relevant pages. Use this when you need to find information in the team's knowledge base.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: {
-              type: "string",
-              description: "Search query to find relevant pages"
-            },
-            space_key: {
-              type: "string",
-              description: "Optional: Limit search to a specific Confluence space"
-            }
-          },
-          required: ["query"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "confluence_read",
-        description: "Read the full content of a specific Confluence page. Use this after searching to get detailed information.",
-        parameters: {
-          type: "object",
-          properties: {
-            page_id: {
-              type: "string",
-              description: "The Confluence page ID to read"
-            }
-          },
-          required: ["page_id"]
-        }
-      }
-    },
-    {
-      type: "function",
-      function: {
-        name: "confluence_list_children",
-        description: "List child pages under a specific Confluence page. Use this to explore page hierarchy.",
-        parameters: {
-          type: "object",
-          properties: {
-            page_id: {
-              type: "string",
-              description: "The parent Confluence page ID"
-            }
-          },
-          required: ["page_id"]
-        }
-      }
-    }
-  ];
+  return getConfluenceToolsAssistants();
 }
 
 serve(async (req) => {
