@@ -5,15 +5,15 @@ import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { toast } from '@/components/ui/sonner';
 
 // Helper to get a usable message from a prompt
-const getPromptMessage = (prompt) => {
+const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
   const userPrompt = prompt.input_user_prompt?.trim();
   const adminPrompt = prompt.input_admin_prompt?.trim();
   
   if (userPrompt) return userPrompt;
   if (adminPrompt) return adminPrompt;
   
-  // Default fallback - should rarely happen but prevents 400 errors
-  return 'Execute this prompt';
+  // Use configurable fallback - prevents 400 errors
+  return fallbackMessage;
 };
 
 // Pre-flight validation for prompts
@@ -173,6 +173,23 @@ export const useCascadeExecutor = () => {
       return;
     }
 
+    // Fetch cascade fallback setting
+    let cascadeFallbackMessage = 'Execute this prompt';
+    try {
+      const { data: settingsData } = await supabase
+        .from(import.meta.env.VITE_SETTINGS_TBL)
+        .select('setting_value')
+        .eq('setting_key', 'cascade_empty_prompt_fallback')
+        .single();
+      
+      if (settingsData?.setting_value) {
+        cascadeFallbackMessage = settingsData.setting_value;
+      }
+    } catch (err) {
+      // Use default if setting not found
+      console.log('Using default cascade fallback message');
+    }
+
     // Fetch hierarchy
     const hierarchy = await fetchCascadeHierarchy(topLevelRowId);
     if (!hierarchy) {
@@ -268,8 +285,8 @@ export const useCascadeExecutor = () => {
 
           while (!success && retryCount < maxRetries) {
             try {
-              // Build the user message - fallback to admin prompt or default if empty
-              const userMessage = getPromptMessage(prompt);
+              // Build the user message - fallback to admin prompt or configured default if empty
+              const userMessage = getPromptMessage(prompt, cascadeFallbackMessage);
 
               // Pass input_admin_prompt as a template variable for system context
               const extendedTemplateVars = {
