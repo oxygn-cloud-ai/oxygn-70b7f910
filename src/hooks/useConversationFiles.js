@@ -38,7 +38,7 @@ export const useConversationFiles = (assistantRowId) => {
 
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('assistant-manager', {
+      const { data, error } = await supabase.functions.invoke('conversation-manager', {
         body: { action: 'sync', assistant_row_id: assistantRowId },
       });
 
@@ -139,7 +139,7 @@ export const useConversationFiles = (assistantRowId) => {
       // If file was uploaded to vector store, delete it there first
       if (file.openai_file_id) {
         console.log('Deleting file from vector store:', file.openai_file_id);
-        const { data: deleteData, error: openaiError } = await supabase.functions.invoke('assistant-manager', {
+        const { data: deleteData, error: openaiError } = await supabase.functions.invoke('conversation-manager', {
           body: {
             action: 'delete-file',
             openai_file_id: file.openai_file_id,

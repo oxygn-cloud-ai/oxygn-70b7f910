@@ -430,7 +430,7 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const { child_prompt_row_id, user_message, template_variables, child_thread_strategy: requestStrategy } = await req.json();
 
-    console.log('Assistant run request:', { child_prompt_row_id, user: validation.user?.email, requestStrategy });
+    console.log('Conversation run request:', { child_prompt_row_id, user: validation.user?.email, requestStrategy });
 
     // Fetch child prompt with parent info
     const { data: childPrompt, error: promptError } = await supabase
@@ -663,7 +663,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Assistant run error:', error);
+    console.error('Conversation run error:', error);
     const message = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
       JSON.stringify({ error: message }),

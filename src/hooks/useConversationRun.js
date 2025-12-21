@@ -30,7 +30,7 @@ export const useConversationRun = () => {
 
       safeSetState(setIsRunning, true);
       try {
-        const { data, error } = await supabase.functions.invoke('assistant-run', {
+        const { data, error } = await supabase.functions.invoke('conversation-run', {
           body: {
             child_prompt_row_id: childPromptRowId,
             user_message: userMessage,
@@ -82,7 +82,7 @@ export const useConversationRun = () => {
 
       safeSetState(setIsRunning, true);
       try {
-        const { data, error } = await supabase.functions.invoke('assistant-run', {
+        const { data, error } = await supabase.functions.invoke('conversation-run', {
           body: {
             child_prompt_row_id: childPromptRowId,
             user_message: userMessage,
