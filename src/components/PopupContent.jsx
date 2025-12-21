@@ -46,8 +46,8 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
           />
         </div>
       </div>
-      <div className="bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
-        <pre className="text-sm font-sans whitespace-pre-wrap">{content}</pre>
+      <div className="bg-muted p-2 rounded-md overflow-auto max-h-40">
+        <pre className="text-sm whitespace-pre-wrap">{content}</pre>
       </div>
     </div>
   );

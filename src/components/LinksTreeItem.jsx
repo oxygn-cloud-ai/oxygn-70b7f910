@@ -46,7 +46,7 @@ const LinksTreeItem = ({
           )}
           <FileIcon className="h-4 w-4 flex-shrink-0" />
           <span 
-            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-blue-600 font-bold' : 'text-gray-600 font-normal'}`}
+            className={`ml-1 cursor-pointer text-sm ${isActive ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
           >
             {displayName}
           </span>

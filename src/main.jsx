@@ -18,7 +18,7 @@ const renderErrorFallback = (error) => {
         justify-content: center;
         min-height: 100vh;
         padding: 24px;
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: 'Poppins', sans-serif;
         background: #1a1a1a;
         color: #e0e0e0;
       ">
