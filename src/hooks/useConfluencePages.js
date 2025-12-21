@@ -179,7 +179,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     }
   };
 
-  const syncToOpenAI = async (rowId, assistantId) => {
+  const syncToVectorStore = async (rowId, assistantId) => {
     setIsSyncing(true);
     try {
       const data = await invokeFunction('sync-to-openai', { rowId, assistantId });
@@ -187,12 +187,12 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
         setPages(prev => prev.map(p => 
           p.row_id === rowId ? { ...p, openai_file_id: data.openaiFileId } : p
         ));
-        toast.success('Page uploaded to OpenAI');
+        toast.success('Page indexed to vector store');
       }
       return data;
     } catch (error) {
-      console.error('Error syncing to OpenAI:', error);
-      toast.error('Failed to upload to OpenAI');
+      console.error('Error syncing to vector store:', error);
+      toast.error('Failed to index page');
       throw error;
     } finally {
       setIsSyncing(false);
@@ -228,7 +228,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     attachPage,
     detachPage,
     syncPage,
-    syncToOpenAI,
+    syncToVectorStore,
     clearSearch,
     clearSpaceTree
   };

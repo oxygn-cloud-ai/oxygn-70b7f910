@@ -241,7 +241,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                       <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Sync Files to OpenAI</TooltipContent>
+                  <TooltipContent>Sync Files to Vector Store</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <label>
