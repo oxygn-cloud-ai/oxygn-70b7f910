@@ -235,6 +235,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               ref={textareaRef}
               readOnly={isReadOnly}
               placeholder={`Enter ${label.toLowerCase()}...`}
+              userVariables={variables}
             />
           ) : (
             <Textarea
