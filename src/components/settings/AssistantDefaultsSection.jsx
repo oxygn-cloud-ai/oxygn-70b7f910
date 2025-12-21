@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -30,14 +30,35 @@ export function AssistantDefaultsSection({
     refetch,
   } = useAssistantToolDefaults();
 
+
+  const [uiDefaults, setUiDefaults] = useState({
+    code_interpreter_enabled: toolDefaults?.code_interpreter_enabled ?? false,
+    file_search_enabled: toolDefaults?.file_search_enabled ?? true,
+    function_calling_enabled: toolDefaults?.function_calling_enabled ?? false,
+  });
+
   useEffect(() => {
-    if (onRefresh) {
+    if (toolDefaults) {
+      setUiDefaults({
+        code_interpreter_enabled: toolDefaults.code_interpreter_enabled ?? false,
+        file_search_enabled: toolDefaults.file_search_enabled ?? true,
+        function_calling_enabled: toolDefaults.function_calling_enabled ?? false,
+      });
+    }
+  }, [toolDefaults]);
+
+  useEffect(() => {
+    if (isRefreshing) {
       refetch();
     }
-  }, [isRefreshing]);
+  }, [isRefreshing, refetch]);
 
   const handleToggle = async (key, value) => {
-    await updateToolDefault({ [key]: value });
+    setUiDefaults(prev => ({ ...prev, [key]: value }));
+    const ok = await updateToolDefault({ [key]: value });
+    if (!ok) {
+      setUiDefaults(prev => ({ ...prev, [key]: toolDefaults?.[key] ?? prev[key] }));
+    }
   };
 
   if (isLoading) {
@@ -89,7 +110,7 @@ export function AssistantDefaultsSection({
               </p>
             </div>
             <Switch
-              checked={toolDefaults?.code_interpreter_enabled ?? false}
+              checked={uiDefaults.code_interpreter_enabled}
               onCheckedChange={(checked) => handleToggle('code_interpreter_enabled', checked)}
             />
           </div>
@@ -102,7 +123,7 @@ export function AssistantDefaultsSection({
               </p>
             </div>
             <Switch
-              checked={toolDefaults?.file_search_enabled ?? true}
+              checked={uiDefaults.file_search_enabled}
               onCheckedChange={(checked) => handleToggle('file_search_enabled', checked)}
             />
           </div>
@@ -115,7 +136,7 @@ export function AssistantDefaultsSection({
               </p>
             </div>
             <Switch
-              checked={toolDefaults?.function_calling_enabled ?? false}
+              checked={uiDefaults.function_calling_enabled}
               onCheckedChange={(checked) => handleToggle('function_calling_enabled', checked)}
             />
           </div>
