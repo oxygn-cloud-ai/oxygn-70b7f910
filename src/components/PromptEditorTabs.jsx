@@ -43,6 +43,16 @@ const PromptEditorTabs = ({
   const QuickAccessIcon = ({ tab, needsAttention = false }) => {
     const isActive = activeTab === tab.id;
     
+    const getIconClasses = () => {
+      if (needsAttention) {
+        return 'animate-attention-flash rounded-md';
+      }
+      if (isActive) {
+        return '!text-primary !bg-transparent hover:!bg-muted/50';
+      }
+      return '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50';
+    };
+    
     return (
       <TooltipProvider>
         <Tooltip>
@@ -50,13 +60,7 @@ const PromptEditorTabs = ({
             <Button
               variant="ghost"
               size="sm"
-              className={`h-7 w-7 p-0 transition-colors ${
-                needsAttention 
-                  ? 'animate-attention-flash rounded-md' 
-                  : isActive 
-                    ? 'text-primary bg-transparent hover:bg-muted/50' 
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-              }`}
+              className={`h-7 w-7 p-0 transition-colors ${getIconClasses()}`}
               onClick={() => setActiveTab(tab.id)}
             >
               <tab.icon className="h-4 w-4" />
