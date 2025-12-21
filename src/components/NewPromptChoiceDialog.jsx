@@ -303,9 +303,16 @@ const NewPromptChoiceDialog = ({
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .insert(insertData)
           .select()
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Prompt insert error:', error);
+          throw new Error(`Insert failed: ${error.message} (code: ${error.code})`);
+        }
+        
+        if (!data) {
+          throw new Error('Insert succeeded but no data returned');
+        }
 
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
           const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, contextVars) || '';
@@ -329,7 +336,8 @@ const NewPromptChoiceDialog = ({
       handleClose();
     } catch (error) {
       console.error('Error creating from template:', error);
-      toast.error('Failed to create prompt from template');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to create prompt: ${errorMessage}`);
     } finally {
       setIsCreating(false);
     }
