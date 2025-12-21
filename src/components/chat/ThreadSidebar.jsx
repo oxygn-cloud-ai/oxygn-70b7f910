@@ -50,22 +50,22 @@ const ThreadSidebar = ({
   return (
     <div className="h-full flex flex-col bg-card/50 backdrop-blur-sm">
       {/* Header */}
-      <div className="p-3 border-b border-border space-y-2">
+      <div className="px-2 py-1.5 border-b border-border space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-foreground">
+          <span className="text-[11px] font-semibold text-foreground">
             Conversations
           </span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 hover:bg-primary/10 hover:text-primary"
+                    className="h-5 w-5 hover:bg-primary/10 hover:text-primary"
                     onClick={onCreateThread}
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3 w-3" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>New conversation</TooltipContent>
@@ -75,10 +75,10 @@ const ThreadSidebar = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 hover:bg-muted"
+                className="h-5 w-5 hover:bg-muted"
                 onClick={onClose}
               >
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
+                <X className="h-3 w-3 text-muted-foreground" />
               </Button>
             )}
           </div>
@@ -86,33 +86,33 @@ const ThreadSidebar = ({
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <Input
-            placeholder="Search conversations..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 pl-8 text-sm bg-background/50"
+            className="h-7 pl-7 text-xs bg-background/50"
           />
         </div>
       </div>
 
       {/* Thread list */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className="p-1.5 space-y-0.5">
           {isLoading ? (
             [1, 2, 3].map(i => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+              <Skeleton key={i} className="h-10 w-full rounded-md" />
             ))
           ) : filteredThreads.length === 0 ? (
-            <div className="text-center py-8 px-4">
-              <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-3">
-                <MessageSquare className="h-5 w-5 text-muted-foreground/50" />
+            <div className="text-center py-4 px-2">
+              <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-2">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50" />
               </div>
-              <p className="text-sm font-medium text-muted-foreground">
-                {searchQuery ? 'No matching conversations' : 'No conversations yet'}
+              <p className="text-xs font-medium text-muted-foreground">
+                {searchQuery ? 'No matches' : 'No conversations'}
               </p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                {searchQuery ? 'Try a different search' : 'Start chatting to create one'}
+              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                {searchQuery ? 'Try different search' : 'Start chatting'}
               </p>
             </div>
           ) : (
@@ -125,24 +125,24 @@ const ThreadSidebar = ({
                   exit={{ opacity: 0, x: -10 }}
                   onClick={() => onSelectThread(thread.row_id)}
                   className={cn(
-                    'group relative p-3 rounded-lg cursor-pointer transition-all',
+                    'group relative px-2 py-1.5 rounded-md cursor-pointer transition-all',
                     activeThread?.row_id === thread.row_id
-                      ? 'bg-primary/10 border-l-2 border-l-primary shadow-sm'
+                      ? 'bg-primary/10 border-l-2 border-l-primary'
                       : 'hover:bg-muted/50 border-l-2 border-l-transparent'
                   )}
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-1.5">
                     <MessageSquare className={cn(
-                      "h-4 w-4 mt-0.5 shrink-0",
+                      "h-3 w-3 mt-0.5 shrink-0",
                       activeThread?.row_id === thread.row_id ? "text-primary" : "text-muted-foreground"
                     )} />
                     <div className="flex-1 min-w-0">
                       {editingThreadId === thread.row_id ? (
-                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
                           <Input
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="h-6 text-xs"
+                            className="h-5 text-[11px]"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSaveRename(thread.row_id);
@@ -152,32 +152,27 @@ const ThreadSidebar = ({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 shrink-0"
+                            className="h-4 w-4 shrink-0"
                             onClick={() => handleSaveRename(thread.row_id)}
                           >
-                            <Check className="h-3 w-3 text-primary" />
+                            <Check className="h-2.5 w-2.5 text-primary" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 shrink-0"
+                            className="h-4 w-4 shrink-0"
                             onClick={handleCancelRename}
                           >
-                            <X className="h-3 w-3 text-muted-foreground" />
+                            <X className="h-2.5 w-2.5 text-muted-foreground" />
                           </Button>
                         </div>
                       ) : (
                         <>
-                          <div className="text-sm font-medium truncate text-foreground">
+                          <div className="text-xs font-medium truncate text-foreground leading-tight">
                             {thread.name || 'Untitled'}
                           </div>
-                          {thread.preview && (
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">
-                              {thread.preview}
-                            </p>
-                          )}
                           {thread.last_message_at && (
-                            <p className="text-[10px] text-muted-foreground/70 mt-1">
+                            <p className="text-[10px] text-muted-foreground/70 leading-tight">
                               {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
                             </p>
                           )}
@@ -189,7 +184,7 @@ const ThreadSidebar = ({
                   {/* Actions */}
                   {editingThreadId !== thread.row_id && (
                     <div className={cn(
-                      "absolute right-2 top-2 flex items-center gap-0.5 transition-opacity",
+                      "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
                       "opacity-0 group-hover:opacity-100"
                     )}>
                       <TooltipProvider>
@@ -198,10 +193,10 @@ const ThreadSidebar = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 hover:bg-muted"
+                              className="h-5 w-5 hover:bg-muted"
                               onClick={(e) => handleStartRename(thread, e)}
                             >
-                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                              <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Rename</TooltipContent>
@@ -211,13 +206,13 @@ const ThreadSidebar = ({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
+                              className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteThread(thread.row_id);
                               }}
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-2.5 w-2.5" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Delete</TooltipContent>
