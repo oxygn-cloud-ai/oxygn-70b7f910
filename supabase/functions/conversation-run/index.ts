@@ -234,6 +234,8 @@ async function runWithResponsesAPI(
     tools: tools.length > 0 ? tools : undefined,
     // Use conversation parameter for multi-turn conversations
     conversation: conversationId,
+    // Prevent cascade/prompt runs from polluting chat history unless explicitly enabled
+    store: storeMessages,
   };
 
   // Add model parameters if set

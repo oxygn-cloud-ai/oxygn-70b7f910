@@ -126,6 +126,9 @@ async function fetchMessagesFromOpenAI(apiKey: string, conversationId: string, l
   
   for (const item of items) {
     if (item.type === 'message') {
+      // Never show system/developer prompts in the UI message stream
+      if (item.role === 'system' || item.role === 'developer') continue;
+
       // Extract text content from message
       let content = '';
       if (Array.isArray(item.content)) {
