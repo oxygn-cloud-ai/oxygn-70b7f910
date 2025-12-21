@@ -141,11 +141,21 @@ async function fetchMessagesFromOpenAI(apiKey: string, conversationId: string, l
       }
 
       if (content.trim()) {
+        // Safely parse created_at - it might be missing or invalid
+        let createdAt: string;
+        try {
+          createdAt = item.created_at 
+            ? new Date(item.created_at * 1000).toISOString() 
+            : new Date().toISOString();
+        } catch {
+          createdAt = new Date().toISOString();
+        }
+        
         messages.push({
           id: item.id,
           role: item.role,
           content: content.trim(),
-          created_at: new Date(item.created_at * 1000).toISOString(),
+          created_at: createdAt,
         });
       }
     }
