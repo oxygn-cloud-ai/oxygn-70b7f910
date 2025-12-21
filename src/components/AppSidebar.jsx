@@ -1,7 +1,8 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTooltipSettings } from '@/contexts/TooltipContext';
 import GuardedLink from '@/components/GuardedLink';
 import {
   Sidebar,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -54,6 +55,7 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
   const { state, toggleSidebar } = useSidebar();
   const location = useLocation();
   const { user, signOut, userProfile } = useAuth();
+  const { tooltipsEnabled, toggleTooltips } = useTooltipSettings();
   const isCollapsed = state === 'collapsed';
   const isOnSettings = location.pathname === '/settings';
   const isOnHealth = location.pathname === '/health';
@@ -282,21 +284,48 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
           )}
           <div className="flex items-center justify-between gap-1">
             <ToastHistoryPopover />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={signOut}
-                  className="h-8 w-8 text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Sign out</p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleTooltips}
+                    className={`h-8 w-8 transition-colors ${
+                      tooltipsEnabled 
+                        ? 'text-primary hover:text-primary hover:bg-primary/10' 
+                        : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                    }`}
+                  >
+                    {tooltipsEnabled ? (
+                      <MessageCircle className="h-4 w-4" />
+                    ) : (
+                      <MessageCircleOff className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {tooltipsEnabled ? 'Disable tooltips' : 'Enable tooltips'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={signOut}
+                    className="h-8 w-8 text-sidebar-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  Sign out
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </SidebarFooter>
       )}

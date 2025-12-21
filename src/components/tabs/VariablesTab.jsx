@@ -113,12 +113,26 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                 onChange={(e) => setNewDescription(e.target.value)}
               />
               <div className="flex justify-end gap-1">
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => setIsAdding(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-primary hover:!bg-sidebar-accent" onClick={handleAdd} disabled={!newName.trim()}>
-                  <Check className="h-4 w-4" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => setIsAdding(false)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Cancel</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-primary hover:!bg-sidebar-accent" onClick={handleAdd} disabled={!newName.trim()}>
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Add variable</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           )}
@@ -149,12 +163,26 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                         className="flex-1 h-7 text-sm"
                         autoFocus
                       />
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-primary hover:!bg-sidebar-accent" onClick={() => handleSaveEdit(variable.row_id)}>
-                        <Check className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={handleCancelEdit}>
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-primary hover:!bg-sidebar-accent" onClick={() => handleSaveEdit(variable.row_id)}>
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Save</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={handleCancelEdit}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Cancel</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </>
                   ) : (
                     <>
@@ -173,17 +201,31 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                           </Tooltip>
                         </TooltipProvider>
                       )}
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => handleStartEdit(variable)}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 w-7 p-0 !text-muted-foreground hover:!text-destructive hover:!bg-sidebar-accent" 
-                        onClick={() => deleteVariable(variable.row_id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => handleStartEdit(variable)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edit</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 w-7 p-0 !text-muted-foreground hover:!text-destructive hover:!bg-sidebar-accent" 
+                              onClick={() => deleteVariable(variable.row_id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Delete</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </>
                   )}
                 </div>

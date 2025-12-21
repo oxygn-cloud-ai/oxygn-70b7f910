@@ -14,6 +14,7 @@ import NavigationGuard from "@/components/NavigationGuard";
 import BackgroundCallsIndicator from "@/components/BackgroundCallsIndicator";
 import { ToastHistoryProvider, useToastHistory } from "@/contexts/ToastHistoryContext";
 import { CreatePromptProvider, useCreatePrompt } from "@/contexts/CreatePromptContext";
+import { TooltipSettingsProvider } from "@/contexts/TooltipContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -97,31 +98,33 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <ToastHistoryProvider>
         <CreatePromptProvider>
-          <TooltipProvider>
-            <Toaster />
-            <ToastHistoryConnector />
-            <BrowserRouter>
-              <ApiCallProvider>
-                <AuthProvider>
-                  <NavigationGuard />
-                  <BackgroundCallsIndicator />
-                  <ErrorBoundary message="This page encountered an error.">
-                    <Routes>
-                      <Route path="/auth" element={<Auth />} />
-                      <Route
-                        path="/*"
-                        element={
-                          <ProtectedRoute>
-                            <AppLayout />
-                          </ProtectedRoute>
-                        }
-                      />
-                    </Routes>
-                  </ErrorBoundary>
-                </AuthProvider>
-              </ApiCallProvider>
-            </BrowserRouter>
-          </TooltipProvider>
+          <TooltipSettingsProvider>
+            <TooltipProvider>
+              <Toaster />
+              <ToastHistoryConnector />
+              <BrowserRouter>
+                <ApiCallProvider>
+                  <AuthProvider>
+                    <NavigationGuard />
+                    <BackgroundCallsIndicator />
+                    <ErrorBoundary message="This page encountered an error.">
+                      <Routes>
+                        <Route path="/auth" element={<Auth />} />
+                        <Route
+                          path="/*"
+                          element={
+                            <ProtectedRoute>
+                              <AppLayout />
+                            </ProtectedRoute>
+                          }
+                        />
+                      </Routes>
+                    </ErrorBoundary>
+                  </AuthProvider>
+                </ApiCallProvider>
+              </BrowserRouter>
+            </TooltipProvider>
+          </TooltipSettingsProvider>
         </CreatePromptProvider>
       </ToastHistoryProvider>
     </QueryClientProvider>
