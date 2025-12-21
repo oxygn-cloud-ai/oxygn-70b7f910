@@ -194,7 +194,7 @@ serve(async (req) => {
       // Enrich OpenAI assistants with local data
       const enrichedAssistants = openaiAssistants.map((oa: any) => {
         const local = localMap.get(oa.id);
-        const promptData = local?.[FK.ASSISTANTS_PROMPT.split('!')[0]] || local?.q_prompts;
+        const promptData = local?.[FK.ASSISTANTS_PROMPT.split('!')[0]] || local?.[TABLES.PROMPTS];
         return {
           openai_id: oa.id,
           name: oa.name,
