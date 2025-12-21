@@ -253,8 +253,9 @@ export const useTemplates = () => {
         const matches = obj.matchAll(variablePattern);
         for (const match of matches) {
           const varName = match[1].trim();
-          // Only include user variables (not system or chained)
-          if (!varName.startsWith('q.') && !varName.includes('.')) {
+          // Exclude system variables (q.* pattern for chained prompt references)
+          // but allow user-defined namespaced variables like policy.name
+          if (!varName.startsWith('q.')) {
             variables.add(varName);
           }
         }
