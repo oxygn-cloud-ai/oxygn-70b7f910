@@ -202,7 +202,7 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
       if (error) throw error;
       if (data.error) throw new Error(data.error);
       if (!activeThread && data.thread_row_id) {
-        const newThread = { row_id: data.thread_row_id, openai_thread_id: data.thread_id, name: `Chat ${new Date().toLocaleDateString()}`, created_at: new Date().toISOString(), last_message_at: new Date().toISOString() };
+        const newThread = { row_id: data.thread_row_id, name: `Chat ${new Date().toLocaleDateString()}`, created_at: new Date().toISOString(), last_message_at: new Date().toISOString() };
         setThreads(prev => [newThread, ...prev]);
         setActiveThread(newThread);
       }

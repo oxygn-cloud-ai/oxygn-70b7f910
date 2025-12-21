@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Bot, Trash2, Upload, RefreshCw, Power, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { Bot, Upload, RefreshCw, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { ALL_SETTINGS, isSettingSupported } from '../../config/modelCapabilities';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ConfluencePagesSection from '../ConfluencePagesSection';
@@ -25,7 +25,7 @@ import ConfluencePagesSection from '../ConfluencePagesSection';
 const AssistantTab = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
   const { assistant, isLoading, updateAssistant } = useAssistant(promptRowId);
-  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id, assistant?.status);
+  const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useAssistantFiles(assistant?.row_id);
   const { defaults: toolDefaults } = useAssistantToolDefaults();
   const { models } = useOpenAIModels();
   const { settings } = useSettings(supabase);
@@ -310,8 +310,6 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
       {/* Confluence Pages */}
       <ConfluencePagesSection 
         assistantRowId={assistant?.row_id}
-        assistantId={assistant?.openai_assistant_id}
-        isActive={isActive}
       />
 
       {/* Model Settings - Collapsible */}
@@ -480,21 +478,7 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
                     onCheckedChange={async (v) => { 
                       setConfluenceEnabled(v); 
                       await handleSave('confluence_enabled', v);
-                      // Sync to OpenAI if active
-                      if (assistant?.status === 'active' && assistant?.openai_assistant_id) {
-                        try {
-                          await supabase.functions.invoke('assistant-manager', {
-                            body: {
-                              action: 'update',
-                              assistant_row_id: assistant.row_id,
-                              confluence_enabled: v,
-                            },
-                          });
-                        } catch (error) {
-                          console.error('Failed to sync confluence setting to OpenAI:', error);
-                        }
-                      }
-                    }} 
+                    }}
                   />
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
@@ -508,19 +492,6 @@ const AssistantTab = ({ promptRowId, selectedItemData }) => {
         </Card>
       </Collapsible>
 
-      {/* Re-instantiate for error state */}
-      {isError && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={instantiate} disabled={isInstantiating}>
-                {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Retry Instantiation</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
     </div>
   );
 };

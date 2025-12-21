@@ -40,11 +40,9 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
   const [temperature, setTemperature] = useState('');
   const [maxTokens, setMaxTokens] = useState('');
   const [topP, setTopP] = useState('');
-  const [apiVersion, setApiVersion] = useState('responses');
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [childDefaultsOpen, setChildDefaultsOpen] = useState(false);
-  const [apiSettingsOpen, setApiSettingsOpen] = useState(false);
   const [defaultChildThreadStrategy, setDefaultChildThreadStrategy] = useState('isolated');
   const lastErrorShown = useRef(null);
 
@@ -70,7 +68,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       setTemperature(assistant.temperature_override || '');
       setMaxTokens(assistant.max_tokens_override || '');
       setTopP(assistant.top_p_override || '');
-      setApiVersion(assistant.api_version || 'responses');
     }
   }, [assistant, toolDefaults]);
 
@@ -319,8 +316,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
       {/* Confluence Pages */}
       <ConfluencePagesSection 
         assistantRowId={assistant?.row_id}
-        assistantId={assistant?.openai_assistant_id}
-        isActive={isActive}
       />
 
       {/* Model Settings - Collapsible */}
@@ -431,91 +426,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
         </Card>
       </Collapsible>
 
-      {/* API Settings - Collapsible */}
-      <Collapsible open={apiSettingsOpen} onOpenChange={setApiSettingsOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm">API Settings</CardTitle>
-                  <Badge variant={apiVersion === 'responses' ? 'default' : 'secondary'} className="text-[10px]">
-                    {apiVersion === 'responses' ? 'Responses API' : 'Assistants API'}
-                  </Badge>
-                </div>
-                {apiSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent className="space-y-3 pt-0">
-              <div>
-                <div className="flex items-center gap-1 mb-1">
-                  <Label className="text-xs">OpenAI API Version</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
-                        <Info className="h-3 w-3" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 bg-popover" side="top">
-                      <div className="space-y-2">
-                        <h4 className="font-medium text-sm">API Version</h4>
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Assistants API (Legacy):</strong> Uses threads, runs, and polling. Requires instantiation to create an OpenAI assistant object.
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Responses API (New):</strong> Stateless API using previous_response_id for multi-turn. No instantiation required - more flexible and simpler.
-                        </p>
-                        <p className="text-xs text-muted-foreground italic">
-                          Changing this will affect how child prompts execute. The Responses API is recommended for new assistants.
-                        </p>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <Select 
-                  value={apiVersion} 
-                  onValueChange={(v) => { 
-                    setApiVersion(v); 
-                    handleSave('api_version', v); 
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    <SelectItem value="assistants">Assistants API (Legacy)</SelectItem>
-                    <SelectItem value="responses">Responses API (New)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {apiVersion === 'responses' 
-                    ? 'Uses stateless Responses API - no instantiation required' 
-                    : 'Uses Assistants API with threads and runs - requires instantiation'}
-                </p>
-              </div>
-
-              {apiVersion === 'responses' && (
-                <div className="p-2 rounded bg-primary/5 border border-primary/20">
-                  <p className="text-xs text-primary">
-                    ✓ Responses API mode: You can run child prompts without instantiating the assistant first.
-                  </p>
-                </div>
-              )}
-
-              {apiVersion === 'assistants' && !isActive && (
-                <div className="p-2 rounded bg-muted border border-border">
-                  <p className="text-xs text-muted-foreground">
-                    Assistants API requires instantiation. Click the power button above to instantiate.
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
       {/* Tools - Collapsible */}
       <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
         <Card>
@@ -574,21 +484,7 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
                     onCheckedChange={async (v) => { 
                       setConfluenceEnabled(v); 
                       await handleSave('confluence_enabled', v);
-                      // Sync to OpenAI if active
-                      if (assistant?.status === 'active' && assistant?.openai_assistant_id) {
-                        try {
-                          await supabase.functions.invoke('assistant-manager', {
-                            body: {
-                              action: 'update',
-                              assistant_row_id: assistant.row_id,
-                              confluence_enabled: v,
-                            },
-                          });
-                        } catch (error) {
-                          console.error('Failed to sync confluence setting to OpenAI:', error);
-                        }
-                      }
-                    }} 
+                    }}
                   />
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
@@ -602,19 +498,6 @@ const AssistantPanel = ({ promptRowId, selectedItemData }) => {
         </Card>
       </Collapsible>
 
-      {/* Re-instantiate for error state */}
-      {isError && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50" onClick={instantiate} disabled={isInstantiating}>
-                {isInstantiating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Retry Instantiation</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
 
     </div>
   );
