@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useLayoutEffect, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -9,6 +9,7 @@ import {
 
 /**
  * A textarea with syntax highlighting for {{variables}} and autocomplete
+ * Uses contenteditable for direct styling of variables
  */
 const HighlightedTextarea = React.forwardRef(({
   value = '',
@@ -25,8 +26,7 @@ const HighlightedTextarea = React.forwardRef(({
   ...props
 }, ref) => {
   const containerRef = useRef(null);
-  const backdropRef = useRef(null);
-  const textareaRef = useRef(null);
+  const editorRef = useRef(null);
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -35,8 +35,8 @@ const HighlightedTextarea = React.forwardRef(({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [triggerStart, setTriggerStart] = useState(-1);
 
-  // Forward ref to textarea
-  React.useImperativeHandle(ref, () => textareaRef.current);
+  // Forward ref to editor
+  React.useImperativeHandle(ref, () => editorRef.current);
 
   // Build list of all available variables
   const allVariables = React.useMemo(() => {
@@ -73,58 +73,157 @@ const HighlightedTextarea = React.forwardRef(({
     setSelectedIndex(0);
   }, [filteredVariables.length]);
 
-  // Sync scroll between textarea and backdrop
-  const syncScroll = useCallback(() => {
-    if (backdropRef.current && textareaRef.current) {
-      backdropRef.current.scrollTop = textareaRef.current.scrollTop;
-      backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
+  // Get plain text from contenteditable
+  const getPlainText = useCallback((element) => {
+    if (!element) return '';
+    
+    // Clone the element to avoid modifying the original
+    const clone = element.cloneNode(true);
+    
+    // Replace <br> with newlines
+    const brs = clone.querySelectorAll('br');
+    brs.forEach(br => br.replaceWith('\n'));
+    
+    // Replace <div> with newlines (Chrome adds divs for new lines)
+    const divs = clone.querySelectorAll('div');
+    divs.forEach(div => {
+      if (div.previousSibling) {
+        div.insertBefore(document.createTextNode('\n'), div.firstChild);
+      }
+    });
+    
+    return clone.textContent || '';
   }, []);
 
-  useLayoutEffect(() => {
-    syncScroll();
-  }, [value, syncScroll]);
+  // Get cursor position in plain text
+  const getCursorPosition = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return 0;
+    
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return 0;
+    
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(editor);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    
+    // Create a temporary div to get the text
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(preCaretRange.cloneContents());
+    
+    // Handle br tags
+    const brs = tempDiv.querySelectorAll('br');
+    brs.forEach(br => br.replaceWith('\n'));
+    
+    return tempDiv.textContent?.length || 0;
+  }, []);
+
+  // Set cursor position in contenteditable
+  const setCursorPosition = useCallback((position) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    const selection = window.getSelection();
+    const range = document.createRange();
+    
+    let charCount = 0;
+    let found = false;
+    
+    const traverseNodes = (node) => {
+      if (found) return;
+      
+      if (node.nodeType === Node.TEXT_NODE) {
+        const nodeLength = node.textContent?.length || 0;
+        if (charCount + nodeLength >= position) {
+          range.setStart(node, position - charCount);
+          range.collapse(true);
+          found = true;
+          return;
+        }
+        charCount += nodeLength;
+      } else if (node.nodeName === 'BR') {
+        charCount += 1;
+        if (charCount >= position) {
+          range.setStartAfter(node);
+          range.collapse(true);
+          found = true;
+          return;
+        }
+      } else {
+        for (const child of node.childNodes) {
+          traverseNodes(child);
+          if (found) return;
+        }
+      }
+    };
+    
+    traverseNodes(editor);
+    
+    if (!found) {
+      range.selectNodeContents(editor);
+      range.collapse(false);
+    }
+    
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }, []);
+
+  // Parse text and create highlighted HTML
+  const getHighlightedHtml = useCallback((text) => {
+    if (!text) return '';
+    
+    // Escape HTML entities
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Highlight variables with pink color
+    const highlighted = escaped.replace(
+      /(\{\{[^}]+\}\})/g,
+      (match) => {
+        return `<span class="var-highlight">${match}</span>`;
+      }
+    );
+
+    // Convert newlines to <br>
+    return highlighted.replace(/\n/g, '<br>');
+  }, []);
+
+  // Update editor content when value changes externally
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    const currentText = getPlainText(editor);
+    if (currentText !== value) {
+      const cursorPos = getCursorPosition();
+      editor.innerHTML = getHighlightedHtml(value) || '<br>';
+      
+      // Restore cursor position
+      if (document.activeElement === editor) {
+        setCursorPosition(Math.min(cursorPos, value.length));
+      }
+    }
+  }, [value, getPlainText, getHighlightedHtml, getCursorPosition, setCursorPosition]);
 
   // Get caret coordinates for positioning autocomplete
   const getCaretCoordinates = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return { top: 0, left: 0 };
-
-    const { selectionStart } = textarea;
-    const textBeforeCaret = value.substring(0, selectionStart);
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return { top: 0, left: 0 };
     
-    // Create a hidden div to measure text
-    const div = document.createElement('div');
-    const style = window.getComputedStyle(textarea);
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
     
-    div.style.position = 'absolute';
-    div.style.visibility = 'hidden';
-    div.style.whiteSpace = 'pre-wrap';
-    div.style.wordWrap = 'break-word';
-    div.style.width = style.width;
-    div.style.font = style.font;
-    div.style.padding = style.padding;
-    div.style.border = style.border;
-    div.style.lineHeight = style.lineHeight;
-    
-    div.textContent = textBeforeCaret;
-    
-    const span = document.createElement('span');
-    span.textContent = '|';
-    div.appendChild(span);
-    
-    document.body.appendChild(div);
-    
-    const spanRect = span.getBoundingClientRect();
-    const divRect = div.getBoundingClientRect();
-    
-    document.body.removeChild(div);
+    if (!containerRect) return { top: 0, left: 0 };
     
     return {
-      top: spanRect.top - divRect.top + parseInt(style.paddingTop) - textarea.scrollTop + 20,
-      left: spanRect.left - divRect.left + parseInt(style.paddingLeft) - textarea.scrollLeft,
+      top: rect.bottom - containerRect.top + 4,
+      left: rect.left - containerRect.left,
     };
-  }, [value]);
+  }, []);
 
   // Check for autocomplete trigger
   const checkForTrigger = useCallback((text, cursorPos) => {
@@ -152,20 +251,47 @@ const HighlightedTextarea = React.forwardRef(({
     setAutocompletePosition(getCaretCoordinates());
   }, [getCaretCoordinates]);
 
-  // Handle text change
-  const handleChange = (e) => {
-    const newValue = e.target.value;
-    onChange?.(e);
-    syncScroll();
+  // Handle input changes
+  const handleInput = useCallback((e) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    const plainText = getPlainText(editor);
+    const cursorPos = getCursorPosition();
+    
+    // Update the HTML with highlights while preserving cursor
+    const newHtml = getHighlightedHtml(plainText);
+    if (editor.innerHTML !== newHtml && editor.innerHTML !== newHtml + '<br>') {
+      editor.innerHTML = newHtml || '<br>';
+      setCursorPosition(cursorPos);
+    }
+    
+    // Create synthetic event for onChange
+    const syntheticEvent = {
+      target: {
+        value: plainText,
+        selectionStart: cursorPos,
+        selectionEnd: cursorPos,
+      },
+    };
+    
+    onChange?.(syntheticEvent);
     
     // Check for autocomplete trigger
     setTimeout(() => {
-      checkForTrigger(newValue, e.target.selectionStart);
+      checkForTrigger(plainText, getCursorPosition());
     }, 0);
-  };
+  }, [getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, checkForTrigger]);
+
+  // Handle paste - strip formatting
+  const handlePaste = useCallback((e) => {
+    e.preventDefault();
+    const text = e.clipboardData?.getData('text/plain') || '';
+    document.execCommand('insertText', false, text);
+  }, []);
 
   // Handle key events for autocomplete navigation
-  const handleKeyDown = (e) => {
+  const handleKeyDown = useCallback((e) => {
     if (!showAutocomplete) return;
     
     switch (e.key) {
@@ -189,72 +315,52 @@ const HighlightedTextarea = React.forwardRef(({
         setShowAutocomplete(false);
         break;
     }
-  };
+  }, [showAutocomplete, filteredVariables, selectedIndex]);
 
   // Insert selected variable
-  const insertVariable = (variable) => {
-    const textarea = textareaRef.current;
-    if (!textarea || triggerStart === -1) return;
+  const insertVariable = useCallback((variable) => {
+    const editor = editorRef.current;
+    if (!editor || triggerStart === -1) return;
     
-    const beforeTrigger = value.substring(0, triggerStart);
-    const afterCursor = value.substring(textarea.selectionStart);
+    const plainText = getPlainText(editor);
+    const cursorPos = getCursorPosition();
+    
+    const beforeTrigger = plainText.substring(0, triggerStart);
+    const afterCursor = plainText.substring(cursorPos);
     const varText = `{{${variable.name}}}`;
     const newValue = beforeTrigger + varText + afterCursor;
+    const newCursorPos = beforeTrigger.length + varText.length;
+    
+    // Update content
+    editor.innerHTML = getHighlightedHtml(newValue) || '<br>';
+    setCursorPosition(newCursorPos);
     
     // Create synthetic event
-    const event = {
+    const syntheticEvent = {
       target: {
         value: newValue,
-        selectionStart: beforeTrigger.length + varText.length,
-        selectionEnd: beforeTrigger.length + varText.length,
+        selectionStart: newCursorPos,
+        selectionEnd: newCursorPos,
       },
     };
     
-    onChange?.(event);
+    onChange?.(syntheticEvent);
     setShowAutocomplete(false);
-    
-    // Reset cursor position
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        beforeTrigger.length + varText.length,
-        beforeTrigger.length + varText.length
-      );
-    }, 0);
-  };
+  }, [triggerStart, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange]);
 
-  const handleScroll = () => {
-    syncScroll();
-    setShowAutocomplete(false);
-  };
-
-  const handleBlur = (e) => {
+  const handleBlur = useCallback(() => {
     // Delay hiding to allow click on autocomplete item
     setTimeout(() => {
       setShowAutocomplete(false);
     }, 150);
-  };
+  }, []);
 
-  // Parse text and create highlighted HTML
-  const getHighlightedHtml = (text) => {
-    if (!text) return '';
-    
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  const handleScroll = useCallback(() => {
+    setShowAutocomplete(false);
+  }, []);
 
-    const highlighted = escaped.replace(
-      /(\{\{[^}]+\}\})/g,
-      (match) => {
-        const isSystemVar = match.includes('q.');
-        const bgClass = isSystemVar ? 'var-system' : 'var-user';
-        return `<mark class="${bgClass}">${match}</mark>`;
-      }
-    );
-
-    return highlighted;
-  };
+  // Calculate min-height based on rows
+  const minHeight = `${rows * 1.625}rem`;
 
   return (
     <div 
@@ -262,76 +368,52 @@ const HighlightedTextarea = React.forwardRef(({
       className="relative highlighted-textarea-container"
     >
       <style>{`
-        .highlighted-textarea-container .var-system {
+        .highlighted-textarea-container .var-highlight {
           color: hsl(var(--primary));
         }
-        .highlighted-textarea-container .var-user {
-          color: hsl(var(--primary));
-        }
-        .highlighted-textarea-container .backdrop {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-          pointer-events: none;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-          color: hsl(var(--foreground));
-          border: 1px solid transparent;
-          padding: 0.75rem;
+        .highlighted-textarea-container .editor-content {
+          min-height: ${minHeight};
           font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
           font-size: 0.875rem;
           line-height: 1.625;
-          box-sizing: border-box;
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
-        .highlighted-textarea-container textarea {
-          position: relative;
-          background: transparent;
-          color: transparent;
-          caret-color: hsl(var(--foreground));
+        .highlighted-textarea-container .editor-content:empty::before {
+          content: attr(data-placeholder);
+          color: hsl(var(--muted-foreground));
+          pointer-events: none;
         }
-        .highlighted-textarea-container textarea::selection {
-          background: hsl(var(--primary) / 0.3);
-        }
-        .highlighted-textarea-container textarea {
-          position: relative;
-          background: transparent;
-          caret-color: hsl(var(--foreground));
+        .highlighted-textarea-container .editor-content:focus {
+          outline: none;
         }
       `}</style>
 
-      {/* Backdrop with highlights */}
+      {/* Contenteditable editor */}
       <div
-        ref={backdropRef}
-        className="backdrop"
-        aria-hidden="true"
-        dangerouslySetInnerHTML={{ __html: getHighlightedHtml(value) + '\n' }}
-      />
-
-      {/* Actual textarea */}
-      <textarea
-        ref={textareaRef}
+        ref={editorRef}
         id={id}
-        value={value}
-        onChange={handleChange}
-        onSelect={onSelect}
-        onClick={onClick}
-        onKeyUp={onKeyUp}
+        contentEditable={!readOnly}
+        data-placeholder={placeholder}
+        onInput={handleInput}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
-        onScroll={handleScroll}
+        onKeyUp={onKeyUp}
+        onClick={onClick}
         onBlur={handleBlur}
-        placeholder={placeholder}
-        rows={rows}
-        readOnly={readOnly}
+        onScroll={handleScroll}
         className={cn(
-          "w-full resize-y",
-          "font-mono text-sm leading-relaxed",
+          "editor-content w-full resize-y overflow-auto",
           "border border-border rounded-md p-3",
-          "focus:outline-none focus:ring-2 focus:ring-ring",
+          "focus:ring-2 focus:ring-ring",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          "text-foreground",
+          "text-foreground bg-background",
+          readOnly && "cursor-not-allowed opacity-50",
           className
         )}
+        style={{ minHeight }}
+        suppressContentEditableWarning
         {...props}
       />
 
