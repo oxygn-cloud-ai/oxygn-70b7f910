@@ -96,14 +96,37 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
   const handleInsertVariable = (varName) => {
     const varText = `{{${varName}}}`;
     const currentValue = value || '';
-    const pos = cursorPosition || currentValue.length;
+    
+    // Use stored cursor position (captured on blur or last interaction)
+    const pos = cursorPosition ?? currentValue.length;
     const newValue = currentValue.slice(0, pos) + varText + currentValue.slice(pos);
     onChange(newValue);
-    setCursorPosition(pos + varText.length);
+    
+    // Update cursor position to after inserted variable
+    const newCursorPos = pos + varText.length;
+    setCursorPosition(newCursorPos);
+    
+    // Restore focus and set cursor position in textarea
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }, 0);
   };
 
+  // Capture cursor position on any interaction
   const handleCursorChange = (e) => {
-    setCursorPosition(e.target.selectionStart);
+    if (e.target.selectionStart !== undefined) {
+      setCursorPosition(e.target.selectionStart);
+    }
+  };
+  
+  // Capture cursor position when textarea loses focus (before clicking variable picker)
+  const handleBlur = (e) => {
+    if (e.target.selectionStart !== undefined) {
+      setCursorPosition(e.target.selectionStart);
+    }
   };
 
   const ActionButton = ({ icon, onClick, tooltip, disabled, active, needsAttention = false }) => (
@@ -230,6 +253,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               onSelect={handleCursorChange}
               onClick={handleCursorChange}
               onKeyUp={handleCursorChange}
+              onBlur={handleBlur}
               className="w-full min-h-[100px] bg-background"
               rows={4}
               ref={textareaRef}
@@ -253,6 +277,7 @@ const PromptField = ({ label, value, onChange, onReset, onSave, onCascade, initi
               onSelect={handleCursorChange}
               onClick={handleCursorChange}
               onKeyUp={handleCursorChange}
+              onBlur={handleBlur}
               className="w-full min-h-[100px] resize-y border-border bg-background focus:ring-primary focus:border-primary"
               rows={4}
               ref={textareaRef}
