@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { toast } from '@/components/ui/sonner';
 
 const CascadeRunContext = createContext(null);
 
@@ -71,12 +72,18 @@ export const CascadeRunProvider = ({ children }) => {
     cancelRef.current = true;
     setIsRunning(false);
     setIsPaused(false);
+    
+    // Show cancellation toast
+    toast.info('Cascade run cancelled', {
+      description: `Stopped after ${completedPrompts.length} prompt${completedPrompts.length !== 1 ? 's' : ''}`,
+    });
+    
     // Resolve any pending error dialog with 'stop'
     if (errorResolverRef.current) {
       errorResolverRef.current('stop');
       errorResolverRef.current = null;
     }
-  }, []);
+  }, [completedPrompts.length]);
 
   const pause = useCallback(() => {
     pauseRef.current = true;

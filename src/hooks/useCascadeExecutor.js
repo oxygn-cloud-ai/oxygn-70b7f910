@@ -305,32 +305,15 @@ export const useCascadeExecutor = () => {
             continue;
           }
 
-          // Check if cancelled
+          // Check if cancelled (toast is shown by context's cancel function)
           if (isCancelled()) {
-            toast.info('Cascade run cancelled', {
-              description: `Stopped at prompt ${promptIndex} of ${nonExcludedPrompts.length}`,
-              source: 'useCascadeExecutor',
-              details: JSON.stringify({
-                completedPrompts: promptIndex - 1,
-                totalPrompts: nonExcludedPrompts.length,
-                elapsedMs: Date.now() - cascadeStartTime,
-              }, null, 2),
-            });
             completeCascade();
             return;
           }
 
-          // Wait if paused
+          // Wait if paused (toast is shown by context's cancel function if cancelled while paused)
           const shouldContinue = await waitWhilePaused();
           if (!shouldContinue) {
-            toast.info('Cascade run cancelled', {
-              description: 'Cancelled while paused',
-              source: 'useCascadeExecutor',
-              details: JSON.stringify({
-                completedPrompts: promptIndex,
-                totalPrompts: nonExcludedPrompts.length,
-              }, null, 2),
-            });
             completeCascade();
             return;
           }
