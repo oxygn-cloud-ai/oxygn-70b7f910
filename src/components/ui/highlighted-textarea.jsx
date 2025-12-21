@@ -264,11 +264,9 @@ const HighlightedTextarea = React.forwardRef(({
       <style>{`
         .highlighted-textarea-container .var-system {
           color: hsl(var(--primary));
-          background: transparent;
         }
         .highlighted-textarea-container .var-user {
           color: hsl(var(--primary));
-          background: transparent;
         }
         .highlighted-textarea-container .backdrop {
           position: absolute;
@@ -278,13 +276,22 @@ const HighlightedTextarea = React.forwardRef(({
           white-space: pre-wrap;
           word-wrap: break-word;
           overflow-wrap: break-word;
-          color: transparent;
+          color: hsl(var(--foreground));
           border: 1px solid transparent;
           padding: 0.75rem;
           font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
           font-size: 0.875rem;
           line-height: 1.625;
           box-sizing: border-box;
+        }
+        .highlighted-textarea-container textarea {
+          position: relative;
+          background: transparent;
+          color: transparent;
+          caret-color: hsl(var(--foreground));
+        }
+        .highlighted-textarea-container textarea::selection {
+          background: hsl(var(--primary) / 0.3);
         }
         .highlighted-textarea-container textarea {
           position: relative;
