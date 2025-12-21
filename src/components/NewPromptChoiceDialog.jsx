@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FileText, LayoutTemplate, Search, ArrowRight, Loader2, Settings2, Lock } from 'lucide-react';
+import { FileText, LayoutTemplate, Search, ArrowRight, Loader2, Settings2, Lock, ArrowLeft, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -585,17 +585,21 @@ const NewPromptChoiceDialog = ({
             </ScrollArea>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep('select')}>Back</Button>
+              <Button variant="ghost" size="icon" onClick={() => setStep('select')} title="Back">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
               <Button 
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
                 disabled={isCreating || hasValidationErrors}
               >
                 {isCreating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Creating...
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create
                   </>
-                ) : 'Create Prompt'}
+                )}
               </Button>
             </DialogFooter>
           </>
