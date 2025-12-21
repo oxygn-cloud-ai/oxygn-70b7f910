@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, GitBranch, Variable, Eye, Save, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import TemplateOverviewTab from './TemplateOverviewTab';
 import TemplateStructureEditor from './TemplateStructureEditor';
 import TemplateVariablesTab from './TemplateVariablesTab';
@@ -95,49 +96,61 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
   ];
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-lg font-semibold truncate">{editedTemplate.template_name}</h3>
-          {editedTemplate.template_description && (
-            <p className="text-sm text-muted-foreground truncate">{editedTemplate.template_description}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b border-border px-4">
-          <TabsList className="justify-start rounded-none bg-transparent h-auto py-0">
-            {tabs.map(tab => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-4"
-              >
-                <tab.icon className="h-4 w-4 mr-2" />
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <button
-            onClick={handleSave}
-            disabled={!hasChanges || isSaving}
-            className={`p-2 rounded-md transition-colors ${
-              hasChanges 
-                ? 'text-primary hover:bg-primary/10' 
-                : 'text-muted-foreground opacity-50 cursor-not-allowed'
-            }`}
-            title={hasChanges ? 'Save changes' : 'No changes to save'}
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
+    <TooltipProvider>
+      <div className="h-full flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold truncate">{editedTemplate.template_name}</h3>
+            {editedTemplate.template_description && (
+              <p className="text-sm text-muted-foreground truncate">{editedTemplate.template_description}</p>
             )}
-          </button>
+          </div>
         </div>
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center border-b border-border px-4">
+            <TabsList className="justify-start rounded-none bg-transparent h-auto py-0 gap-1">
+              {tabs.map(tab => (
+                <Tooltip key={tab.id}>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger
+                      value={tab.id}
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent py-3 px-3"
+                    >
+                      <tab.icon className="h-4 w-4" />
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>{tab.label}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TabsList>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleSave}
+                  disabled={!hasChanges || isSaving}
+                  className={`p-2 rounded-md transition-colors ml-1 ${
+                    hasChanges 
+                      ? 'text-primary hover:bg-primary/10' 
+                      : 'text-muted-foreground opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>{hasChanges ? 'Save changes' : 'No changes to save'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
 
         <div className="flex-1 overflow-hidden">
           <TabsContent value="overview" className="h-full m-0 p-4 overflow-auto">
