@@ -61,7 +61,7 @@ const ConfluenceSettingsSection = ({
           <CardHeader>
             <CardTitle className="text-lg">Connection Settings</CardTitle>
             <CardDescription>
-              Configure your Atlassian Confluence connection to attach pages to assistants and prompts.
+              Configure your Atlassian Confluence connection to attach pages to conversations and prompts.
               <a 
                 href="https://id.atlassian.com/manage-profile/security/api-tokens" 
                 target="_blank" 

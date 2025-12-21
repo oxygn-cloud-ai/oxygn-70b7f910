@@ -65,7 +65,7 @@ export function AssistantDefaultsSection({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
-        <div className="text-muted-foreground">Loading assistant defaults...</div>
+        <div className="text-muted-foreground">Loading conversation defaults...</div>
       </div>
     );
   }

@@ -103,8 +103,8 @@ export const TOOLTIPS = {
     cycleValues: (count) => `Cycle through previous values (${count} saved)`,
     notAvailable: 'This setting is not available for the selected model',
     notSupported: 'Not supported by selected model',
-    deleteFromOpenAI: 'Delete from OpenAI',
-    noLinkedPrompt: 'This assistant has no linked prompt in the system',
+    deleteFromOpenAI: 'Delete from vector store',
+    noLinkedPrompt: 'This conversation has no linked prompt in the system',
   },
 
   // ============================================
@@ -127,7 +127,7 @@ export const TOOLTIPS = {
   confluence: {
     openInConfluence: 'Open in Confluence',
     refreshContent: 'Refresh Content',
-    uploadToOpenAI: 'Upload to OpenAI',
+    uploadToOpenAI: 'Upload to vector store',
     detachPage: 'Detach Page',
     browse: 'Browse Confluence',
   },

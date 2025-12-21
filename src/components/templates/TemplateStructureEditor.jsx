@@ -769,7 +769,7 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
 };
 
 /**
- * Assistant configuration section
+ * Conversation configuration section
  */
 const AssistantSection = ({ node, onUpdate, isRoot }) => (
   <div className="space-y-4">
@@ -789,8 +789,8 @@ const AssistantSection = ({ node, onUpdate, isRoot }) => (
         <Separator />
 
         <div className="space-y-2">
-          <Label>Assistant Instructions</Label>
-          <p className="text-xs text-muted-foreground">Instructions for the OpenAI Assistant</p>
+          <Label>Conversation Instructions</Label>
+          <p className="text-xs text-muted-foreground">Instructions for the AI conversation</p>
           <Textarea
             value={node.assistant_instructions || ''}
             onChange={(e) => onUpdate({ assistant_instructions: e.target.value })}
