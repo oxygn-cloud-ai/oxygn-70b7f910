@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Bot, MessageSquare, ChevronRight } from 'lucide-react';
+import { Bot, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,24 +60,20 @@ const ChatPanel = ({
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/50 backdrop-blur-sm">
-        {/* Conversations button */}
+        {/* Conversations button - icon only */}
         {onToggleThreads && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent"
             onClick={onToggleThreads}
           >
             <MessageSquare className="h-4 w-4" />
-            <span className="text-xs font-medium truncate max-w-[120px]">
-              {activeThreadName || 'Conversations'}
-            </span>
             {threadCount > 0 && (
-              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+              <span className="absolute -top-1 -right-1 text-[10px] bg-primary text-primary-foreground px-1 py-0.5 rounded-full min-w-[16px] text-center">
                 {threadCount}
               </span>
             )}
-            <ChevronRight className="h-3 w-3 opacity-50" />
           </Button>
         )}
 
