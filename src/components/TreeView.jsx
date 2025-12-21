@@ -94,8 +94,12 @@ const handleOpenNewPromptDialog = () => {
     handleAddItem(null);
   };
 
-  const handlePromptCreated = async () => {
+  const handlePromptCreated = async (newPromptRowId) => {
     await refreshTreeData();
+    // Select the newly created prompt
+    if (newPromptRowId) {
+      setActiveItem(newPromptRowId);
+    }
   };
 
   const totalCount = treeData.length;
