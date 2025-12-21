@@ -256,9 +256,12 @@ const AssistantChatPanel = ({ promptRowId, promptName, selectedChildPromptId }) 
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-background">
-      {/* Thread Drawer - slides from top */}
+      {/* Thread Drawer - slides from top, left-aligned, 30% width */}
       <Sheet open={isThreadsOpen} onOpenChange={setIsThreadsOpen}>
-        <SheetContent side="top" className="h-auto max-h-[70vh] p-0">
+        <SheetContent 
+          side="top" 
+          className="h-auto max-h-[70vh] p-0 left-0 right-auto w-[30%] min-w-[280px] rounded-br-lg border-r border-b"
+        >
           <ThreadSidebar
             threads={threads}
             activeThread={activeThread}
