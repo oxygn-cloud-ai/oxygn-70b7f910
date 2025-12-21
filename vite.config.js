@@ -12,6 +12,12 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     strictPort: true,
+    // Prevent caching issues that cause HTTP 412 errors
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    },
     // Lovable preview runs Vite behind a secure proxy; ensure the HMR socket
     // connects back to the current origin instead of localhost.
     hmr: {
