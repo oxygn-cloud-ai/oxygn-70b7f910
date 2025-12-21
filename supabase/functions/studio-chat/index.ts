@@ -172,6 +172,32 @@ async function handleConfluenceTool(
   }
 }
 
+// Create OpenAI conversation
+async function createOpenAIConversation(apiKey: string, metadata?: Record<string, string>): Promise<string> {
+  console.log('Creating new OpenAI conversation...');
+  
+  const response = await fetch('https://api.openai.com/v1/conversations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      metadata: metadata || {},
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Failed to create OpenAI conversation:', error);
+    throw new Error(error.error?.message || 'Failed to create conversation');
+  }
+
+  const data = await response.json();
+  console.log('Created OpenAI conversation:', data.id);
+  return data.id;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -263,14 +289,14 @@ serve(async (req) => {
 
     console.log('Context included from child prompts:', contextIncluded);
 
-    // Track conversation via previous_response_id
-    let previousResponseId: string | null = null;
+    // Find or create OpenAI conversation via thread
+    let conversationId: string;
     let threadRowId: string | null = null;
 
     // Look for existing Studio thread
     const { data: existingThread } = await supabase
       .from(TABLES.THREADS)
-      .select('row_id, last_response_id')
+      .select('row_id, openai_conversation_id')
       .eq('assistant_row_id', assistant_row_id)
       .is('child_prompt_row_id', null)
       .eq('is_active', true)
@@ -282,18 +308,44 @@ serve(async (req) => {
       // Use specified thread
       const { data: specifiedThread } = await supabase
         .from(TABLES.THREADS)
-        .select('row_id, last_response_id')
+        .select('row_id, openai_conversation_id')
         .eq('row_id', thread_row_id)
         .single();
 
       if (specifiedThread) {
-        previousResponseId = specifiedThread.last_response_id;
+        if (specifiedThread.openai_conversation_id && !specifiedThread.openai_conversation_id.startsWith('pending_')) {
+          conversationId = specifiedThread.openai_conversation_id;
+        } else {
+          // Create new conversation for pending thread
+          conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
+          await supabase
+            .from(TABLES.THREADS)
+            .update({ openai_conversation_id: conversationId })
+            .eq('row_id', thread_row_id);
+        }
         threadRowId = specifiedThread.row_id;
+      } else {
+        // Specified thread not found, create new
+        conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
       }
     } else if (existingThread) {
-      previousResponseId = existingThread.last_response_id;
+      if (existingThread.openai_conversation_id && !existingThread.openai_conversation_id.startsWith('pending_')) {
+        conversationId = existingThread.openai_conversation_id;
+      } else {
+        // Create new conversation for pending thread
+        conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
+        await supabase
+          .from(TABLES.THREADS)
+          .update({ openai_conversation_id: conversationId })
+          .eq('row_id', existingThread.row_id);
+      }
       threadRowId = existingThread.row_id;
+    } else {
+      // No existing thread, create new conversation and thread
+      conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
     }
+
+    console.log('Using conversation:', conversationId);
 
     const modelId = assistantData.model_override || 'gpt-4o';
 
@@ -320,18 +372,15 @@ serve(async (req) => {
       model: modelId,
       input,
       tools: tools.length > 0 ? tools : undefined,
+      conversation: conversationId,
+      store: true,
     };
-
-    if (previousResponseId) {
-      requestBody.previous_response_id = previousResponseId;
-      console.log('Using previous_response_id for continuation:', previousResponseId);
-    }
 
     // Add model parameters
     const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
     if (temperature !== undefined && !isNaN(temperature)) requestBody.temperature = temperature;
 
-    console.log('Calling Responses API for Studio chat:', { model: modelId, toolCount: tools.length });
+    console.log('Calling Responses API for Studio chat:', { model: modelId, toolCount: tools.length, conversationId });
 
     // Call Responses API
     let response = await fetch('https://api.openai.com/v1/responses', {
@@ -388,12 +437,13 @@ serve(async (req) => {
 
       if (functionCallOutputs.length === 0) break;
 
-      // Continue with function outputs
+      // Continue with function outputs using conversation
       const continueBody: any = {
         model: modelId,
-        previous_response_id: responseData.id,
+        conversation: conversationId,
         input: functionCallOutputs,
         tools: tools.length > 0 ? tools : undefined,
+        store: true,
       };
 
       response = await fetch('https://api.openai.com/v1/responses', {
@@ -424,10 +474,7 @@ serve(async (req) => {
     if (threadRowId) {
       await supabase
         .from(TABLES.THREADS)
-        .update({
-          last_response_id: responseData.id,
-          last_message_at: new Date().toISOString(),
-        })
+        .update({ last_message_at: new Date().toISOString() })
         .eq('row_id', threadRowId);
     } else {
       const { data: newThread } = await supabase
@@ -435,8 +482,7 @@ serve(async (req) => {
         .insert({
           assistant_row_id: assistant_row_id,
           child_prompt_row_id: null,
-          openai_thread_id: `local_${Date.now()}`,
-          last_response_id: responseData.id,
+          openai_conversation_id: conversationId,
           name: `Studio Chat ${new Date().toLocaleDateString()}`,
           is_active: true,
         })
@@ -444,24 +490,6 @@ serve(async (req) => {
         .single();
 
       threadRowId = newThread?.row_id || null;
-    }
-
-    // Store messages
-    if (threadRowId) {
-      await supabase.from('q_thread_messages').insert({
-        thread_row_id: threadRowId,
-        role: 'user',
-        content: user_message,
-        owner_id: validation.user?.id,
-      });
-
-      await supabase.from('q_thread_messages').insert({
-        thread_row_id: threadRowId,
-        role: 'assistant',
-        content: responseText,
-        response_id: responseData.id,
-        owner_id: validation.user?.id,
-      });
     }
 
     console.log('Studio chat completed');
@@ -472,6 +500,7 @@ serve(async (req) => {
         response: responseText,
         response_id: responseData.id,
         thread_row_id: threadRowId,
+        conversation_id: conversationId,
         context_included: contextIncluded,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

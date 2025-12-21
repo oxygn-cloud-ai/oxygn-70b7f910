@@ -1732,44 +1732,6 @@ export type Database = {
         }
         Relationships: []
       }
-      q_thread_messages: {
-        Row: {
-          content: string
-          created_at: string
-          owner_id: string | null
-          response_id: string | null
-          role: string
-          row_id: string
-          thread_row_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          owner_id?: string | null
-          response_id?: string | null
-          role: string
-          row_id?: string
-          thread_row_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          owner_id?: string | null
-          response_id?: string | null
-          role?: string
-          row_id?: string
-          thread_row_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "q_thread_messages_thread_row_id_fkey"
-            columns: ["thread_row_id"]
-            isOneToOne: false
-            referencedRelation: "q_threads"
-            referencedColumns: ["row_id"]
-          },
-        ]
-      }
       q_threads: {
         Row: {
           assistant_row_id: string | null
@@ -1777,11 +1739,9 @@ export type Database = {
           created_at: string | null
           is_active: boolean | null
           last_message_at: string | null
-          last_response_id: string | null
           message_count: number | null
           name: string | null
-          openai_conversation_id: string | null
-          openai_thread_id: string | null
+          openai_conversation_id: string
           owner_id: string | null
           row_id: string
         }
@@ -1791,11 +1751,9 @@ export type Database = {
           created_at?: string | null
           is_active?: boolean | null
           last_message_at?: string | null
-          last_response_id?: string | null
           message_count?: number | null
           name?: string | null
-          openai_conversation_id?: string | null
-          openai_thread_id?: string | null
+          openai_conversation_id: string
           owner_id?: string | null
           row_id?: string
         }
@@ -1805,11 +1763,9 @@ export type Database = {
           created_at?: string | null
           is_active?: boolean | null
           last_message_at?: string | null
-          last_response_id?: string | null
           message_count?: number | null
           name?: string | null
-          openai_conversation_id?: string | null
-          openai_thread_id?: string | null
+          openai_conversation_id?: string
           owner_id?: string | null
           row_id?: string
         }

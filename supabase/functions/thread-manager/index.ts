@@ -45,6 +45,116 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
+// Create OpenAI conversation
+async function createOpenAIConversation(apiKey: string, metadata?: Record<string, string>): Promise<string> {
+  console.log('Creating new OpenAI conversation...');
+  
+  const response = await fetch('https://api.openai.com/v1/conversations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      metadata: metadata || {},
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Failed to create OpenAI conversation:', error);
+    throw new Error(error.error?.message || 'Failed to create conversation');
+  }
+
+  const data = await response.json();
+  console.log('Created OpenAI conversation:', data.id);
+  return data.id;
+}
+
+// Delete OpenAI conversation
+async function deleteOpenAIConversation(apiKey: string, conversationId: string): Promise<void> {
+  if (!conversationId || conversationId.startsWith('pending_')) {
+    console.log('Skipping deletion of pending/invalid conversation:', conversationId);
+    return;
+  }
+
+  console.log('Deleting OpenAI conversation:', conversationId);
+  
+  const response = await fetch(`https://api.openai.com/v1/conversations/${conversationId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Failed to delete OpenAI conversation:', error);
+    // Don't throw - we still want to delete the local record
+  } else {
+    console.log('Deleted OpenAI conversation:', conversationId);
+  }
+}
+
+// Fetch messages from OpenAI Conversations API
+async function fetchMessagesFromOpenAI(apiKey: string, conversationId: string, limit: number = 50): Promise<any[]> {
+  if (!conversationId || conversationId.startsWith('pending_')) {
+    console.log('No valid conversation ID, returning empty messages');
+    return [];
+  }
+
+  console.log('Fetching messages from OpenAI conversation:', conversationId);
+  
+  const response = await fetch(`https://api.openai.com/v1/conversations/${conversationId}/items?limit=${limit}&order=asc`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Failed to fetch messages from OpenAI:', error);
+    return [];
+  }
+
+  const data = await response.json();
+  const items = data.data || [];
+  
+  // Transform OpenAI items to our message format
+  const messages: any[] = [];
+  
+  for (const item of items) {
+    if (item.type === 'message') {
+      // Extract text content from message
+      let content = '';
+      if (Array.isArray(item.content)) {
+        for (const part of item.content) {
+          if (part.type === 'output_text' || part.type === 'input_text') {
+            content += part.text || '';
+          } else if (part.type === 'text') {
+            content += part.text || '';
+          }
+        }
+      } else if (typeof item.content === 'string') {
+        content = item.content;
+      }
+
+      if (content.trim()) {
+        messages.push({
+          id: item.id,
+          role: item.role,
+          content: content.trim(),
+          created_at: new Date(item.created_at * 1000).toISOString(),
+        });
+      }
+    }
+  }
+
+  console.log('Fetched messages from OpenAI:', messages.length);
+  return messages;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -65,26 +175,40 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
     const { action, ...body } = await req.json();
 
     console.log('Thread manager request:', { action, user: validation.user?.email });
 
-    // CREATE - Create a new thread (local only, no OpenAI thread needed for Responses API)
+    // CREATE - Create a new thread with OpenAI conversation
     if (action === 'create') {
       const { assistant_row_id, child_prompt_row_id, name } = body;
 
       // Generate a name if not provided
       const threadName = name || `Thread ${new Date().toISOString().split('T')[0]}`;
 
-      // Save to database (no OpenAI thread for Responses API)
+      // Create OpenAI conversation
+      const conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
+        assistant_row_id: assistant_row_id || '',
+        child_prompt_row_id: child_prompt_row_id || '',
+      });
+
+      // Save to database with real OpenAI conversation ID
       const { data: savedThread, error: saveError } = await supabase
         .from(TABLES.THREADS)
         .insert({
           assistant_row_id,
           child_prompt_row_id,
-          openai_thread_id: `local_${Date.now()}`, // Local placeholder for Responses API
+          openai_conversation_id: conversationId,
           name: threadName,
           is_active: true,
         })
@@ -93,13 +217,15 @@ serve(async (req) => {
 
       if (saveError) {
         console.error('Failed to save thread:', saveError);
+        // Try to clean up the OpenAI conversation
+        await deleteOpenAIConversation(OPENAI_API_KEY, conversationId);
         return new Response(
           JSON.stringify({ error: 'Failed to save thread' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('Created local thread:', savedThread.row_id);
+      console.log('Created thread with OpenAI conversation:', savedThread.row_id, conversationId);
 
       return new Response(
         JSON.stringify({ success: true, thread: savedThread }),
@@ -153,15 +279,21 @@ serve(async (req) => {
       );
     }
 
-    // DELETE - Delete a thread
+    // DELETE - Delete a thread and its OpenAI conversation
     if (action === 'delete') {
       const { thread_row_id } = body;
 
-      // Delete messages first
-      await supabase
-        .from('q_thread_messages')
-        .delete()
-        .eq('thread_row_id', thread_row_id);
+      // First, get the thread to get the conversation ID
+      const { data: thread } = await supabase
+        .from(TABLES.THREADS)
+        .select('openai_conversation_id')
+        .eq('row_id', thread_row_id)
+        .single();
+
+      // Delete from OpenAI
+      if (thread?.openai_conversation_id) {
+        await deleteOpenAIConversation(OPENAI_API_KEY, thread.openai_conversation_id);
+      }
 
       // Delete from database
       await supabase
@@ -177,38 +309,32 @@ serve(async (req) => {
       );
     }
 
-    // GET_MESSAGES - Get messages from a thread
+    // GET_MESSAGES - Get messages from OpenAI Conversations API
     if (action === 'get_messages') {
       const { thread_row_id, limit = 50 } = body;
 
-      // Fetch from q_thread_messages
-      const { data: dbMessages, error: dbError } = await supabase
-        .from('q_thread_messages')
-        .select('row_id, role, content, response_id, created_at')
-        .eq('thread_row_id', thread_row_id)
-        .order('created_at', { ascending: true })
-        .limit(limit);
+      // Get the thread to get the conversation ID
+      const { data: thread, error: threadError } = await supabase
+        .from(TABLES.THREADS)
+        .select('openai_conversation_id')
+        .eq('row_id', thread_row_id)
+        .single();
 
-      if (dbError) {
-        console.error('Failed to fetch messages:', dbError);
+      if (threadError || !thread) {
+        console.error('Thread not found:', threadError);
         return new Response(
-          JSON.stringify({ error: 'Failed to fetch messages' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Thread not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      const messages = (dbMessages || []).map((msg: any) => ({
-        id: msg.row_id,
-        role: msg.role,
-        content: msg.content,
-        created_at: msg.created_at,
-        response_id: msg.response_id,
-      }));
+      // Fetch messages from OpenAI
+      const messages = await fetchMessagesFromOpenAI(OPENAI_API_KEY, thread.openai_conversation_id, limit);
 
       console.log('Returning messages:', messages.length);
 
       return new Response(
-        JSON.stringify({ messages, source: 'database' }),
+        JSON.stringify({ messages, source: 'openai' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
