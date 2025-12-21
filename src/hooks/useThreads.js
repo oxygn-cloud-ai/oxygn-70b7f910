@@ -34,6 +34,7 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       }
     } catch (error) {
       console.error('Error fetching threads:', error);
+      toast.error('Failed to load threads');
     } finally {
       setIsLoading(false);
     }
@@ -118,6 +119,7 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       return data.messages || [];
     } catch (error) {
       console.error('Error fetching messages:', error);
+      toast.error('Failed to load messages');
       return [];
     } finally {
       setIsLoadingMessages(false);

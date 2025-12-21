@@ -62,6 +62,7 @@ export const useConversation = (promptRowId) => {
       }
     } catch (error) {
       console.error('Error fetching conversation:', error);
+      toast.error('Failed to load conversation');
     } finally {
       setIsLoading(false);
     }

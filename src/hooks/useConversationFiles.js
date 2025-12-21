@@ -23,6 +23,7 @@ export const useConversationFiles = (assistantRowId) => {
       setFiles(data || []);
     } catch (error) {
       console.error('Error fetching files:', error);
+      toast.error('Failed to load files');
     } finally {
       setIsLoading(false);
     }
