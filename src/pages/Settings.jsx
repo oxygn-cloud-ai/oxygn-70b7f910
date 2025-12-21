@@ -103,6 +103,18 @@ const Settings = () => {
     }
   };
 
+  const handleAddSecret = (secretName) => {
+    toast.info(`To add secret "${secretName}", use the Lovable Cloud secrets management in the project settings.`, {
+      duration: 5000,
+    });
+  };
+
+  const handleUpdateSecret = (secretName) => {
+    toast.info(`To update secret "${secretName}", use the Lovable Cloud secrets management in the project settings.`, {
+      duration: 5000,
+    });
+  };
+
   const renderActiveSection = () => {
     switch (activeSection) {
       case 'qonsol':
@@ -153,6 +165,8 @@ const Settings = () => {
             onAddSetting={addSetting}
             onDeleteSetting={handleDeleteSetting}
             onRefresh={handleRefresh}
+            onAddSecret={handleAddSecret}
+            onUpdateSecret={handleUpdateSecret}
           />
         );
       case 'assistants':
