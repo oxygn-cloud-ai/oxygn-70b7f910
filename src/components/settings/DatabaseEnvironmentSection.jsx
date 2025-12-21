@@ -38,10 +38,15 @@ const SETTING_KEY_REGEX = /^[a-zA-Z0-9_:\-]{1,64}$/;
 // Keys that should always be masked (never displayed)
 const SENSITIVE_KEYS = ['api_key', 'api_token', 'secret', 'password', 'credential'];
 
+// Keys managed in QonsolSettingsSection - hide from generic Database Settings list
+const QONSOL_MANAGED_KEYS = ['build', 'version', 'def_admin_prompt', 'default_model'];
+
 const isSensitiveKey = (key) => {
   const lowerKey = key.toLowerCase();
   return SENSITIVE_KEYS.some(sensitive => lowerKey.includes(sensitive));
 };
+
+const isQonsolManagedKey = (key) => QONSOL_MANAGED_KEYS.includes(key);
 
 const envVariables = {
   'Debug Mode': import.meta.env.VITE_DEBUG,
@@ -67,7 +72,8 @@ export function DatabaseEnvironmentSection({
   const [newSettingValue, setNewSettingValue] = useState('');
   const [newSettingDesc, setNewSettingDesc] = useState('');
 
-  const settingsArray = Object.entries(settings);
+  // Filter out keys that are managed in QonsolSettingsSection
+  const settingsArray = Object.entries(settings).filter(([key]) => !isQonsolManagedKey(key));
 
   const handleAddSetting = async () => {
     const key = newSettingKey.trim();
