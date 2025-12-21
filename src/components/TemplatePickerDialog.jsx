@@ -24,25 +24,49 @@ const TemplatePickerDialog = ({
   const [variableValues, setVariableValues] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [promptNameOverride, setPromptNameOverride] = useState('');
+  const isTopLevel = parentId === null;
 
   const filteredTemplates = templates.filter(t => 
     t.template_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Generate the computed prompt name based on q.policy.name
+  const computedPromptName = React.useMemo(() => {
+    const policyName = variableValues['q.policy.name']?.trim() || '';
+    if (!policyName) return '';
+    
+    if (isTopLevel) {
+      return `${policyName} (Master) (DRAFT)`;
+    }
+    return policyName;
+  }, [variableValues['q.policy.name'], isTopLevel]);
+
+  // Use override if set, otherwise use computed
+  const finalPromptName = promptNameOverride || computedPromptName;
+
   const handleSelectTemplate = (template) => {
     setSelectedTemplate(template);
     const variables = extractTemplateVariables(template.structure);
     
-    if (variables.length > 0) {
-      // Initialize variable values
-      const initialValues = {};
-      variables.forEach(v => { initialValues[v] = ''; });
-      setVariableValues(initialValues);
+    // Initialize variable values
+    const initialValues = {};
+    variables.forEach(v => { initialValues[v] = ''; });
+    
+    // For top-level prompts, always include q.policy.name
+    if (isTopLevel) {
+      initialValues['q.policy.name'] = '';
+    }
+    
+    setVariableValues(initialValues);
+    setPromptNameOverride('');
+    
+    // Always show variables step for top-level (need policy name) or if there are variables
+    if (isTopLevel || variables.length > 0) {
       setStep('variables');
     } else {
-      // No variables, create directly
-      handleCreateFromTemplate(template, {});
+      handleCreateFromTemplate(template, initialValues);
     }
   };
 
@@ -123,15 +147,23 @@ const TemplatePickerDialog = ({
       };
 
       // Recursive function to create prompts from structure
-      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0) => {
+      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0, overridePromptName = null) => {
         const maxPosition = await getMaxPosition(parentRowId);
         const newPosition = maxPosition + 1000000 + positionOffset;
-        const isTopLevel = parentRowId === null;
+        const isTopLevelPrompt = parentRowId === null;
+
+        // Build prompt name
+        let promptName;
+        if (isTopLevelPrompt && overridePromptName) {
+          promptName = overridePromptName;
+        } else {
+          promptName = replaceVariables(promptStructure.prompt_name, vars);
+        }
 
         // Build the insert object with all template fields
         const insertData = {
           parent_row_id: parentRowId,
-          prompt_name: replaceVariables(promptStructure.prompt_name, vars),
+          prompt_name: promptName,
           input_admin_prompt: replaceVariables(promptStructure.input_admin_prompt, vars),
           input_user_prompt: replaceVariables(promptStructure.input_user_prompt, vars),
           note: replaceVariables(promptStructure.note, vars),
@@ -163,7 +195,7 @@ const TemplatePickerDialog = ({
         // Copy assistant/thread settings
         if (promptStructure.is_assistant !== undefined) {
           insertData.is_assistant = promptStructure.is_assistant;
-        } else if (isTopLevel) {
+        } else if (isTopLevelPrompt) {
           // Default top-level prompts to assistant mode
           insertData.is_assistant = true;
         }
@@ -190,7 +222,7 @@ const TemplatePickerDialog = ({
         if (error) throw error;
 
         // Create assistant for top-level prompts
-        if (isTopLevel && (insertData.is_assistant || insertData.is_assistant === undefined)) {
+        if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
           const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
           createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
         }
@@ -198,14 +230,15 @@ const TemplatePickerDialog = ({
         // Create children recursively with proper ordering
         if (promptStructure.children?.length > 0) {
           for (let i = 0; i < promptStructure.children.length; i++) {
-            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000);
+            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000, null);
           }
         }
 
         return data;
       };
 
-      const createdPrompt = await createPromptFromStructure(structure, parentId);
+      // Use finalPromptName for top-level prompts
+      const createdPrompt = await createPromptFromStructure(structure, parentId, 0, finalPromptName);
       
       toast.success('Prompt created from template');
       onPromptCreated?.(createdPrompt.row_id);
@@ -311,7 +344,40 @@ const TemplatePickerDialog = ({
           <>
             <ScrollArea className="max-h-[300px] pr-4">
               <div className="space-y-4">
-                {templateVariables.map(varName => (
+                {/* Prompt Name Section - Only for top-level prompts */}
+                {isTopLevel && (
+                  <div className="space-y-3 pb-3 border-b border-border">
+                    <div className="space-y-2">
+                      <Label htmlFor="policy-name" className="flex items-center gap-2">
+                        <Badge variant="default" className="font-mono text-xs">Policy Name</Badge>
+                        <span className="text-destructive text-xs">*</span>
+                      </Label>
+                      <Input
+                        id="policy-name"
+                        value={variableValues['q.policy.name'] || ''}
+                        onChange={(e) => {
+                          handleVariableChange('q.policy.name', e.target.value);
+                          setPromptNameOverride('');
+                        }}
+                        placeholder="Enter policy name"
+                      />
+                    </div>
+                    {variableValues['q.policy.name']?.trim() && (
+                      <div className="space-y-2">
+                        <Label htmlFor="final-prompt-name">
+                          <Badge variant="secondary" className="font-mono text-xs">Final Prompt Name</Badge>
+                        </Label>
+                        <Input
+                          id="final-prompt-name"
+                          value={promptNameOverride || computedPromptName}
+                          onChange={(e) => setPromptNameOverride(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {templateVariables.filter(v => !(isTopLevel && v === 'q.policy.name')).map(varName => (
                   <div key={varName} className="space-y-2">
                     <Label htmlFor={varName} className="flex items-center gap-2">
                       <Badge variant="outline" className="font-mono text-xs">{`{{${varName}}}`}</Badge>
@@ -333,7 +399,7 @@ const TemplatePickerDialog = ({
               </Button>
               <Button 
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
-                disabled={isCreating}
+                disabled={isCreating || (isTopLevel && !variableValues['q.policy.name']?.trim())}
               >
                 {isCreating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

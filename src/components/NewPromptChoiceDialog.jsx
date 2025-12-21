@@ -55,6 +55,8 @@ const NewPromptChoiceDialog = ({
   const [variableValues, setVariableValues] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [promptNameOverride, setPromptNameOverride] = useState(''); // User can override final prompt name
+  const isTopLevel = parentId === null;
 
   const filteredTemplates = templates.filter(t => 
     t.template_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,41 +72,63 @@ const NewPromptChoiceDialog = ({
     setSelectedTemplate(template);
     const variables = extractTemplateVariables(template.structure);
     
-    if (variables.length > 0) {
-      // Initialize with default values from variable_definitions and system variables
-      const initialValues = {};
-      const variableDefs = template.variable_definitions || [];
+    // Initialize with default values from variable_definitions and system variables
+    const initialValues = {};
+    const variableDefs = template.variable_definitions || [];
+    
+    // Add static system variables
+    const staticVars = resolveStaticVariables({
+      user: profile || { email: user?.email },
+    });
+    Object.assign(initialValues, staticVars);
+    
+    // For top-level prompts, always include q.policy.name
+    if (isTopLevel) {
+      initialValues['q.policy.name'] = '';
+    }
+    
+    // Initialize user-defined and input system variables
+    variables.forEach(v => {
+      if (isStaticSystemVariable(v)) {
+        // Already handled above
+        return;
+      }
       
-      // Add static system variables
-      const staticVars = resolveStaticVariables({
-        user: profile || { email: user?.email },
-      });
-      Object.assign(initialValues, staticVars);
-      
-      // Initialize user-defined and input system variables
-      variables.forEach(v => {
-        if (isStaticSystemVariable(v)) {
-          // Already handled above
-          return;
-        }
-        
-        const sysVar = getSystemVariable(v);
-        if (sysVar) {
-          // System input variable - start empty
-          initialValues[v] = '';
-        } else {
-          // User-defined variable - check for default
-          const def = variableDefs.find(d => d.name === v);
-          initialValues[v] = def?.default || '';
-        }
-      });
-      
-      setVariableValues(initialValues);
+      const sysVar = getSystemVariable(v);
+      if (sysVar) {
+        // System input variable - start empty
+        initialValues[v] = '';
+      } else {
+        // User-defined variable - check for default
+        const def = variableDefs.find(d => d.name === v);
+        initialValues[v] = def?.default || '';
+      }
+    });
+    
+    setVariableValues(initialValues);
+    setPromptNameOverride(''); // Reset override when selecting new template
+    
+    // Always show variables step for top-level (need policy name) or if there are variables
+    if (isTopLevel || variables.length > 0) {
       setStep('variables');
     } else {
-      handleCreateFromTemplate(template, {});
+      handleCreateFromTemplate(template, initialValues);
     }
   };
+
+  // Generate the computed prompt name based on q.policy.name
+  const computedPromptName = useMemo(() => {
+    const policyName = variableValues['q.policy.name']?.trim() || '';
+    if (!policyName) return '';
+    
+    if (isTopLevel) {
+      return `${policyName} (Master) (DRAFT)`;
+    }
+    return policyName;
+  }, [variableValues['q.policy.name'], isTopLevel]);
+
+  // Use override if set, otherwise use computed
+  const finalPromptName = promptNameOverride || computedPromptName;
 
   const handleVariableChange = (name, value) => {
     setVariableValues(prev => ({ ...prev, [name]: value }));
@@ -184,21 +208,28 @@ const NewPromptChoiceDialog = ({
       // Track created prompts for context variables
       let topLevelPromptName = '';
       
-      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0, parentPromptName = '') => {
+      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0, parentPromptName = '', overridePromptName = null) => {
         const maxPosition = await getMaxPosition(parentRowId);
         const newPosition = maxPosition + 1000000 + positionOffset;
-        const isTopLevel = parentRowId === null;
+        const isTopLevelPrompt = parentRowId === null;
 
         // Build the prompt name
-        let promptName = replaceVariables(promptStructure.prompt_name, vars);
+        let promptName;
         
-        // Prefix with q.policy.name if set and this is top-level
-        if (isTopLevel && vars['q.policy.name'] && vars['q.policy.name'].trim()) {
-          promptName = `${vars['q.policy.name'].trim()} - ${promptName}`;
+        if (isTopLevelPrompt && overridePromptName) {
+          // Use the user-provided prompt name for top-level
+          promptName = overridePromptName;
+        } else {
+          promptName = replaceVariables(promptStructure.prompt_name, vars);
+          
+          // For child prompts, prefix with q.policy.name if set
+          if (!isTopLevelPrompt && vars['q.policy.name'] && vars['q.policy.name'].trim()) {
+            // Child prompts can still use the policy name in their template if needed
+          }
         }
         
         // Store for context variables
-        if (isTopLevel) {
+        if (isTopLevelPrompt) {
           topLevelPromptName = promptName;
         }
         
@@ -276,21 +307,22 @@ const NewPromptChoiceDialog = ({
 
         if (error) throw error;
 
-        if (isTopLevel && (insertData.is_assistant || insertData.is_assistant === undefined)) {
+        if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
           const assistantInstructions = replaceVariables(promptStructure.assistant_instructions, combinedVars) || '';
           createAssistant(data.row_id, insertData.prompt_name, assistantInstructions);
         }
 
         if (promptStructure.children?.length > 0) {
           for (let i = 0; i < promptStructure.children.length; i++) {
-            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000, promptName);
+            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000, promptName, null);
           }
         }
 
         return data;
       };
 
-      const createdPrompt = await createPromptFromStructure(structure, parentId);
+      // Use finalPromptName for top-level prompts
+      const createdPrompt = await createPromptFromStructure(structure, parentId, 0, '', finalPromptName);
       
       toast.success('Prompt created from template');
       onPromptCreated?.(createdPrompt.row_id);
@@ -349,8 +381,14 @@ const NewPromptChoiceDialog = ({
 
   // Check if all required variables have values
   const hasValidationErrors = useMemo(() => {
-    // Check system input variables
+    // For top-level prompts, require policy name
+    if (isTopLevel && (!variableValues['q.policy.name'] || !variableValues['q.policy.name'].trim())) {
+      return true;
+    }
+    
+    // Check system input variables (excluding q.policy.name for top-level since we handle it separately)
     const systemInputErrors = systemInput.some(varName => {
+      if (isTopLevel && varName === 'q.policy.name') return false; // Handled above
       const info = getVariableInfo(varName);
       const value = variableValues[varName] || '';
       return info.required && value.trim() === '';
@@ -364,7 +402,7 @@ const NewPromptChoiceDialog = ({
     });
     
     return systemInputErrors || userDefinedErrors;
-  }, [systemInput, userDefined, variableValues, selectedTemplate]);
+  }, [systemInput, userDefined, variableValues, selectedTemplate, isTopLevel]);
 
   // Render a variable input field
   const renderVariableInput = (varName) => {
@@ -528,23 +566,84 @@ const NewPromptChoiceDialog = ({
           <>
             <ScrollArea className="max-h-[400px] pr-4">
               <div className="space-y-6">
-                {/* System Input Variables */}
-                {systemInput.length > 0 && (
+                {/* Prompt Name Section - Only for top-level prompts */}
+                {isTopLevel && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
-                      <Settings2 className="h-4 w-4 text-primary" />
-                      <h3 className="text-sm font-medium">System Variables</h3>
+                      <FileText className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-medium">Prompt Name</h3>
                     </div>
                     <div className="space-y-4 pl-6">
-                      {systemInput.map(renderVariableInput)}
+                      {/* Policy Name input */}
+                      <div className="space-y-2">
+                        <Label htmlFor="policy-name" className="flex items-center gap-2">
+                          <Badge variant="default" className="font-mono text-xs">Policy Name</Badge>
+                          <span className="text-destructive text-xs">*</span>
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Enter the policy name. This will be used for {"{{q.policy.name}}"} and to generate the prompt name.
+                        </p>
+                        <Input
+                          id="policy-name"
+                          value={variableValues['q.policy.name'] || ''}
+                          onChange={(e) => {
+                            handleVariableChange('q.policy.name', e.target.value);
+                            // Reset override when policy name changes so computed name updates
+                            setPromptNameOverride('');
+                          }}
+                          placeholder="Enter policy name (e.g., Travel Insurance)"
+                          className={!variableValues['q.policy.name']?.trim() ? 'border-destructive' : ''}
+                        />
+                        {!variableValues['q.policy.name']?.trim() && (
+                          <p className="text-destructive text-xs">Policy name is required</p>
+                        )}
+                      </div>
+                      
+                      {/* Final Prompt Name (editable) */}
+                      {variableValues['q.policy.name']?.trim() && (
+                        <div className="space-y-2">
+                          <Label htmlFor="final-prompt-name" className="flex items-center gap-2">
+                            <Badge variant="secondary" className="font-mono text-xs">Final Prompt Name</Badge>
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Auto-generated with "(Master) (DRAFT)" suffix. You can edit this if needed.
+                          </p>
+                          <Input
+                            id="final-prompt-name"
+                            value={promptNameOverride || computedPromptName}
+                            onChange={(e) => setPromptNameOverride(e.target.value)}
+                            placeholder="Generated prompt name"
+                          />
+                        </div>
+                      )}
                     </div>
+                    <Separator />
                   </div>
                 )}
+
+                {/* System Input Variables - filter out q.policy.name for top-level since we handle it above */}
+                {(() => {
+                  const filteredSystemInput = isTopLevel 
+                    ? systemInput.filter(v => v !== 'q.policy.name')
+                    : systemInput;
+                  
+                  return filteredSystemInput.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Settings2 className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-medium">System Variables</h3>
+                      </div>
+                      <div className="space-y-4 pl-6">
+                        {filteredSystemInput.map(renderVariableInput)}
+                      </div>
+                    </div>
+                  );
+                })()}
                 
                 {/* User-Defined Variables */}
                 {userDefined.length > 0 && (
                   <div className="space-y-4">
-                    {systemInput.length > 0 && <Separator />}
+                    {(systemInput.length > 0 || isTopLevel) && <Separator />}
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <h3 className="text-sm font-medium">Template Variables</h3>
