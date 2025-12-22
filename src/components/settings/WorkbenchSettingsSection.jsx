@@ -365,9 +365,8 @@ export function WorkbenchSettingsSection({
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-          </div>
         </div>
-      </div>
+        </div>
     </div>
   );
 }
