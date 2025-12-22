@@ -21,6 +21,12 @@ export const TABLES = {
   VECTOR_STORES: getEnv('VECTOR_STORES_TBL', 'q_vector_stores'),
   CONFLUENCE_PAGES: getEnv('CONFLUENCE_PAGES_TBL', 'q_confluence_pages'),
   BACKUPS: getEnv('BACKUPS_TBL', 'q_backups'),
+  // Workbench tables
+  WORKBENCH_THREADS: getEnv('WORKBENCH_THREADS_TBL', 'q_workbench_threads'),
+  WORKBENCH_MESSAGES: getEnv('WORKBENCH_MESSAGES_TBL', 'q_workbench_messages'),
+  WORKBENCH_FILES: getEnv('WORKBENCH_FILES_TBL', 'q_workbench_files'),
+  WORKBENCH_CONFLUENCE: getEnv('WORKBENCH_CONFLUENCE_TBL', 'q_workbench_confluence_links'),
+  PROMPT_LIBRARY: getEnv('PROMPT_LIBRARY_TBL', 'q_prompt_library'),
 } as const;
 
 // Helper to build FK relationship strings dynamically
