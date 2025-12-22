@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Bot, Play } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -144,21 +144,24 @@ const PromptEditorTabs = ({
           ))}
         </div>
         <div className="flex items-center gap-2">
-          {/* Cascade Run button - only for top-level assistants */}
+          {/* Cascade Run icon - only for top-level assistants */}
           {isTopLevel && selectedItemData?.is_assistant && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-7 gap-1.5 px-2.5"
+                  <button
+                    type="button"
                     onClick={handleCascadeRun}
                     disabled={isCascadeRunning}
+                    aria-label="Run cascade"
+                    className="h-8 w-8 inline-flex items-center justify-center rounded-md text-primary hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Play className="h-3.5 w-3.5" />
-                    <span className="text-xs">Cascade</span>
-                  </Button>
+                    {isCascadeRunning ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ListTree className="h-4 w-4" />
+                    )}
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   <p className="text-xs">Run all child prompts level by level</p>
