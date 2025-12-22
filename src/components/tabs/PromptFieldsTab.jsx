@@ -1,11 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useOpenAIModels } from '../../hooks/useOpenAIModels';
-import { useSettings } from '../../hooks/useSettings';
 import { useSupabase } from '../../hooks/useSupabase';
-import { useOpenAICall } from '../../hooks/useOpenAICall';
 import { useTimer } from '../../hooks/useTimer';
 import { useProjectData } from '../../hooks/useProjectData';
-import { useCostTracking } from '../../hooks/useCostTracking';
+import { useConversationRun } from '../../hooks/useConversationRun';
 import PromptField from '../PromptField';
 import { Bot, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -27,11 +24,9 @@ const PromptFieldsTab = ({
   parentAssistantRowId = null,
 }) => {
   const supabase = useSupabase();
-  const { settings } = useSettings(supabase);
-  const { callOpenAI } = useOpenAICall();
-  const { recordCost } = useCostTracking();
+  const { runPrompt, isRunning } = useConversationRun();
   const [isGenerating, setIsGenerating] = useState(false);
-  const formattedTime = useTimer(isGenerating);
+  const formattedTime = useTimer(isGenerating || isRunning);
 
   const {
     localData,
@@ -42,59 +37,42 @@ const PromptFieldsTab = ({
   } = useProjectData(selectedItemData, projectRowId);
 
   const handleGenerate = useCallback(async () => {
-    if (!settings) {
-      toast.error('Settings are not configured. Please check your settings.');
+    // Check if parent is an assistant (required for conversation-run)
+    if (!parentAssistantRowId) {
+      toast.error('Cannot generate: Enable conversation mode on the parent prompt first.');
+      return;
+    }
+
+    if (!projectRowId) {
+      toast.error('No prompt selected');
       return;
     }
 
     setIsGenerating(true);
-    const startTime = Date.now();
-    
     try {
-      const result = await callOpenAI(
-        localData.input_admin_prompt,
-        localData.input_user_prompt,
-        localData,
-        {
-          onSuccess: async (content, response) => {
-            if (supabase && projectRowId) {
-              // Save result
-              const { error } = await supabase
-                .from(import.meta.env.VITE_PROMPTS_TBL)
-                .update({ user_prompt_result: content })
-                .eq('row_id', projectRowId);
-              
-              if (error) {
-                console.error('Failed to save result:', error);
-              }
-
-              // Record cost (response contains usage data)
-              if (response?.usage) {
-                await recordCost({
-                  promptRowId: projectRowId,
-                  model: response.model || localData.model || 'gpt-4o-mini',
-                  usage: response.usage,
-                  responseId: response.id,
-                  finishReason: response.choices?.[0]?.finish_reason,
-                  latencyMs: response._metadata?.latency_ms || (Date.now() - startTime),
-                  promptName: localData.prompt_name,
-                });
-              }
-            }
-          },
+      // Edge function automatically uses:
+      // - input_admin_prompt from DB as system context
+      // - input_user_prompt from DB as user message
+      // - Saves result to user_prompt_result
+      const result = await runPrompt(projectRowId, '', {}, {
+        onSuccess: (data) => {
+          if (data?.response) {
+            handleChange('user_prompt_result', data.response);
+          }
         }
-      );
+      });
       
-      if (result) {
-        handleChange('user_prompt_result', result);
+      // Also update local state from result
+      if (result?.response) {
+        handleChange('user_prompt_result', result.response);
       }
     } catch (error) {
-      console.error('Error calling OpenAI:', error);
-      toast.error(`Error generating response: ${error.message}`);
+      console.error('Error generating response:', error);
+      // Error toast already shown by runPrompt
     } finally {
       setIsGenerating(false);
     }
-  }, [settings, localData, callOpenAI, handleChange, supabase, projectRowId, recordCost]);
+  }, [parentAssistantRowId, projectRowId, runPrompt, handleChange]);
 
   const handleCascade = useCallback((fieldName) => {
     if (onCascade) {
