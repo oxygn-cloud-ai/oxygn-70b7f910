@@ -7,11 +7,53 @@ import AISection from '../components/health/AISection';
 import EnvironmentSection from '../components/health/EnvironmentSection';
 
 const REQUIRED_TABLES = [
+  // Core tables from env
   import.meta.env.VITE_PROMPTS_TBL,
   import.meta.env.VITE_SETTINGS_TBL,
   import.meta.env.VITE_MODELS_TBL,
   import.meta.env.VITE_PROJECTS_TBL || 'projects',
-];
+  // All cyg_ tables
+  'cyg_ai_costs',
+  'cyg_assistant_files',
+  'cyg_assistant_tool_defaults',
+  'cyg_assistants',
+  'cyg_confluence_pages',
+  'cyg_model_defaults',
+  'cyg_model_pricing',
+  'cyg_models',
+  'cyg_prompt_variables',
+  'cyg_prompts',
+  'cyg_settings',
+  'cyg_templates',
+  'cyg_threads',
+  'cyg_vector_stores',
+  // All q_ tables
+  'q_ai_costs',
+  'q_assistant_files',
+  'q_assistant_tool_defaults',
+  'q_assistants',
+  'q_backups',
+  'q_confluence_pages',
+  'q_model_defaults',
+  'q_model_pricing',
+  'q_models',
+  'q_prompt_library',
+  'q_prompt_variables',
+  'q_prompts',
+  'q_settings',
+  'q_templates',
+  'q_threads',
+  'q_vector_stores',
+  'q_workbench_confluence_links',
+  'q_workbench_files',
+  'q_workbench_messages',
+  'q_workbench_threads',
+  // Other tables
+  'profiles',
+  'projects',
+  'resource_shares',
+  'user_roles',
+].filter(Boolean);
 
 const HealthCheck = () => {
   const [isLoading, setIsLoading] = useState(false);
