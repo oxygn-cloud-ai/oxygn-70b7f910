@@ -22,9 +22,12 @@ export const useWorkbenchThreads = () => {
       
       // Set active thread if none selected or current is deleted
       if (data && data.length > 0) {
-        if (!activeThread || !data.find(t => t.row_id === activeThread.row_id)) {
-          setActiveThread(data[0]);
-        }
+        setActiveThread(prev => {
+          if (!prev || !data.find(t => t.row_id === prev.row_id)) {
+            return data[0];
+          }
+          return prev;
+        });
       } else {
         setActiveThread(null);
       }
@@ -34,11 +37,11 @@ export const useWorkbenchThreads = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeThread]);
+  }, []);
 
   useEffect(() => {
     fetchThreads();
-  }, []);
+  }, [fetchThreads]);
 
   const createThread = useCallback(async (title = 'New Thread') => {
     try {
@@ -81,16 +84,14 @@ export const useWorkbenchThreads = () => {
       if (error) throw error;
 
       setThreads(prev => prev.map(t => t.row_id === rowId ? data : t));
-      if (activeThread?.row_id === rowId) {
-        setActiveThread(data);
-      }
+      setActiveThread(prev => prev?.row_id === rowId ? data : prev);
       return data;
     } catch (error) {
       console.error('Error updating thread:', error);
       toast.error('Failed to update thread');
       return null;
     }
-  }, [activeThread]);
+  }, []);
 
   const deleteThread = useCallback(async (rowId) => {
     try {
@@ -102,12 +103,15 @@ export const useWorkbenchThreads = () => {
 
       if (error) throw error;
 
-      setThreads(prev => prev.filter(t => t.row_id !== rowId));
+      const remaining = threads.filter(t => t.row_id !== rowId);
+      setThreads(remaining);
       
-      if (activeThread?.row_id === rowId) {
-        const remaining = threads.filter(t => t.row_id !== rowId);
-        setActiveThread(remaining.length > 0 ? remaining[0] : null);
-      }
+      setActiveThread(prev => {
+        if (prev?.row_id === rowId) {
+          return remaining.length > 0 ? remaining[0] : null;
+        }
+        return prev;
+      });
       
       toast.success('Thread deleted');
       return true;
@@ -116,7 +120,7 @@ export const useWorkbenchThreads = () => {
       toast.error('Failed to delete thread');
       return false;
     }
-  }, [activeThread, threads]);
+  }, [threads]);
 
   return {
     threads,
