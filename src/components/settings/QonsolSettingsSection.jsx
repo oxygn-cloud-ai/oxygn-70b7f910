@@ -171,7 +171,6 @@ export function QonsolSettingsSection({
             </div>
           );
         })}
-      </div>
     </div>
   );
 }
