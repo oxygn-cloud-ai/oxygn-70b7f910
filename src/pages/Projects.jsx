@@ -122,6 +122,13 @@ const Projects = () => {
     loadItemData();
   }, [activeItem, fetchItemData]);
 
+  // Auto-select first prompt when landing on page with no selection
+  useEffect(() => {
+    if (!activeItem && treeData.length > 0 && !isLoading) {
+      setActiveItem(treeData[0].id);
+    }
+  }, [treeData, activeItem, isLoading]);
+
   // Listen for prompt-result-updated events to refresh the selected item
   useEffect(() => {
     const handlePromptResultUpdated = (event) => {
