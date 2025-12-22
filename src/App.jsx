@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Toaster, setToastHistoryCallback } from "@/components/ui/sonner";
+import React, { createContext, useContext, useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -12,7 +12,6 @@ import { AppSidebar } from "./components/AppSidebar";
 import { ApiCallProvider } from "@/contexts/ApiCallContext";
 import NavigationGuard from "@/components/NavigationGuard";
 import BackgroundCallsIndicator from "@/components/BackgroundCallsIndicator";
-import { ToastHistoryProvider, useToastHistory } from "@/contexts/ToastHistoryContext";
 import { CreatePromptProvider, useCreatePrompt } from "@/contexts/CreatePromptContext";
 import { TooltipSettingsProvider } from "@/contexts/TooltipContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -86,54 +85,40 @@ const AppLayout = () => {
   );
 };
 
-// Component to connect toast history
-const ToastHistoryConnector = () => {
-  const { addToHistory } = useToastHistory();
-  
-  useEffect(() => {
-    setToastHistoryCallback(addToHistory);
-    return () => setToastHistoryCallback(null);
-  }, [addToHistory]);
-  
-  return null;
-};
 
 const App = () => (
   <ErrorBoundary message="The application encountered an error. Please refresh the page.">
     <QueryClientProvider client={queryClient}>
-      <ToastHistoryProvider>
-        <CreatePromptProvider>
-          <TooltipSettingsProvider>
-            <TooltipProvider>
-              <CascadeRunProvider>
-                <Toaster />
-                <ToastHistoryConnector />
-                <BrowserRouter>
-                  <ApiCallProvider>
-                    <AuthProvider>
-                      <NavigationGuard />
-                      <BackgroundCallsIndicator />
-                      <ErrorBoundary message="This page encountered an error.">
-                        <Routes>
-                          <Route path="/auth" element={<Auth />} />
-                          <Route
-                            path="/*"
-                            element={
-                              <ProtectedRoute>
-                                <AppLayout />
-                              </ProtectedRoute>
-                            }
-                          />
-                        </Routes>
-                      </ErrorBoundary>
-                    </AuthProvider>
-                  </ApiCallProvider>
-                </BrowserRouter>
-              </CascadeRunProvider>
-            </TooltipProvider>
-          </TooltipSettingsProvider>
-        </CreatePromptProvider>
-      </ToastHistoryProvider>
+      <CreatePromptProvider>
+        <TooltipSettingsProvider>
+          <TooltipProvider>
+            <CascadeRunProvider>
+              <Toaster />
+              <BrowserRouter>
+                <ApiCallProvider>
+                  <AuthProvider>
+                    <NavigationGuard />
+                    <BackgroundCallsIndicator />
+                    <ErrorBoundary message="This page encountered an error.">
+                      <Routes>
+                        <Route path="/auth" element={<Auth />} />
+                        <Route
+                          path="/*"
+                          element={
+                            <ProtectedRoute>
+                              <AppLayout />
+                            </ProtectedRoute>
+                          }
+                        />
+                      </Routes>
+                    </ErrorBoundary>
+                  </AuthProvider>
+                </ApiCallProvider>
+              </BrowserRouter>
+            </CascadeRunProvider>
+          </TooltipProvider>
+        </TooltipSettingsProvider>
+      </CreatePromptProvider>
     </QueryClientProvider>
   </ErrorBoundary>
 );

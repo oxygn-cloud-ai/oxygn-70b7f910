@@ -21,7 +21,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -275,8 +274,7 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
               </TooltipContent>
             </Tooltip>
           )}
-          <div className="flex items-center justify-between gap-1">
-            <ToastHistoryPopover />
+          <div className="flex items-center justify-end gap-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

@@ -1,64 +1,8 @@
 import { useState, useEffect, useRef } from "react"
-import { Toaster as Sonner, toast as sonnerToast } from "sonner"
+import { Toaster as Sonner, toast } from "sonner"
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, Loader2, GripVertical } from "lucide-react"
 
-// Toast history callback - set by ToastHistoryConnector
-let toastHistoryCallback = null;
-
-export const setToastHistoryCallback = (callback) => {
-  toastHistoryCallback = callback;
-};
-
-// Wrapped toast functions that record to history
-const createWrappedToast = () => {
-  const recordToHistory = (variant, message, options) => {
-    if (!toastHistoryCallback) return;
-    toastHistoryCallback({
-      id: Date.now().toString(),
-      title: typeof message === "string" ? message : options?.title,
-      description: options?.description,
-      variant,
-      details: options?.details || null,
-      errorCode: options?.errorCode || null,
-      source: options?.source || null,
-    });
-  };
-
-  return Object.assign(
-    (message, options) => {
-      recordToHistory("default", message, options);
-      return sonnerToast(message, options);
-    },
-    {
-      success: (message, options) => {
-        recordToHistory("success", message, options);
-        return sonnerToast.success(message, options);
-      },
-      error: (message, options) => {
-        recordToHistory("destructive", message, options);
-        return sonnerToast.error(message, options);
-      },
-      info: (message, options) => {
-        recordToHistory("default", message, options);
-        return sonnerToast.info(message, options);
-      },
-      warning: (message, options) => {
-        recordToHistory("warning", message, options);
-        return sonnerToast.warning(message, options);
-      },
-      loading: (message, options) => {
-        recordToHistory("default", message, options);
-        return sonnerToast.loading(message, options);
-      },
-      promise: sonnerToast.promise,
-      dismiss: sonnerToast.dismiss,
-      custom: sonnerToast.custom,
-      message: sonnerToast.message,
-    }
-  );
-};
-
-export const toast = createWrappedToast();
+export { toast }
 
 // Theme preference management
 const THEME_STORAGE_KEY = 'theme_preference';
