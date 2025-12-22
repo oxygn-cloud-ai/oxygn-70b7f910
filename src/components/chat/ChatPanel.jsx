@@ -1,15 +1,15 @@
 import React, { useRef, useEffect } from 'react';
-import { Bot, MessageSquare } from 'lucide-react';
+import { Bot, MessageSquare, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ThinkingIndicator from './ThinkingIndicator';
 import EmptyChat from './EmptyChat';
-import { motion } from 'framer-motion';
 
 const ChatPanel = ({
   messages,
@@ -27,6 +27,7 @@ const ChatPanel = ({
   threadCount = 0,
 }) => {
   const { userProfile } = useAuth();
+  const { pendingCallsCount } = useApiCallContext();
   const scrollAreaRef = useRef(null);
 
   // Auto-scroll to bottom when messages change
@@ -57,15 +58,15 @@ const ChatPanel = ({
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card/50 backdrop-blur-sm">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
         {/* Conversations button - icon only */}
         {onToggleThreads && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent"
+            className="h-6 w-6 p-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent"
             onClick={onToggleThreads}
           >
             <MessageSquare className="h-3.5 w-3.5" />
@@ -77,24 +78,21 @@ const ChatPanel = ({
           </Button>
         )}
 
+        {/* Title next to drawer icon */}
+        <div className="flex items-center gap-1.5">
+          <Bot className="h-3.5 w-3.5 text-primary" />
+          <h3 className="text-xs font-semibold text-foreground">{conversationName}</h3>
+        </div>
+
         <div className="flex-1" />
 
-        <div className="flex items-center gap-1.5">
-          <div className="relative">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Bot className="h-3 w-3 text-primary-foreground" />
-            </div>
-            <motion.div
-              className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-500 border-2 border-card"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
+        {/* Call in progress indicator */}
+        {pendingCallsCount > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>{pendingCallsCount} call{pendingCallsCount > 1 ? 's' : ''}</span>
           </div>
-          <div>
-            <h3 className="text-xs font-semibold text-foreground">{conversationName}</h3>
-            <p className="text-[9px] text-muted-foreground">Online</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Messages area */}
