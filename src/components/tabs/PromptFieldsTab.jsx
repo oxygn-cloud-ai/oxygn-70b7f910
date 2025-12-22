@@ -121,38 +121,6 @@ const PromptFieldsTab = ({
 
   return (
     <div className="flex flex-col gap-4 h-full overflow-auto p-4">
-      {/* Conversation Mode Toggle - only show for top-level prompts */}
-      {isTopLevel && !isLinksPage && !selectedItemData?.is_assistant && (
-        <Card className="border-dashed border-primary/30 bg-primary/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-medium">
-              <div className="p-1.5 rounded bg-primary/10">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
-              Conversation Mode
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Convert this prompt into a conversation with persistent context and threads.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="icon"
-                    onClick={handleEnableAssistant}
-                    className="h-8 w-8 bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    <Bot className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{TOOLTIPS.prompts.enableAssistant}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </CardContent>
-        </Card>
-      )}
       
       {/* Message Flow Info Card */}
       <Card className="border-muted bg-muted/30">
