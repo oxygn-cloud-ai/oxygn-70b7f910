@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2 } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Play } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
 import { useCascadeExecutor } from '@/hooks/useCascadeExecutor';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
+import { useConversationRun } from '@/hooks/useConversationRun';
 import { supabase } from '@/integrations/supabase/client';
 import PromptFieldsTab from './tabs/PromptFieldsTab';
 import SettingsTab from './tabs/SettingsTab';
@@ -27,8 +28,10 @@ const PromptEditorTabs = ({
 }) => {
   const [activeTab, setActiveTab] = useState('prompt');
   const [assistantRowId, setAssistantRowId] = useState(null);
-  const { executeCascade } = useCascadeExecutor();
+  const { executeCascade, hasChildren } = useCascadeExecutor();
   const { isRunning: isCascadeRunning } = useCascadeRun();
+  const { runPrompt, isRunning: isPromptRunning } = useConversationRun();
+  const [hasChildPrompts, setHasChildPrompts] = useState(false);
 
   // Fetch assistant row_id for top-level prompts
   useEffect(() => {
@@ -57,6 +60,17 @@ const PromptEditorTabs = ({
     fetchAssistantRowId();
   }, [isTopLevel, selectedItemData?.is_assistant, selectedItemData?.row_id]);
 
+  // Check if this prompt has children
+  useEffect(() => {
+    const checkForChildren = async () => {
+      if (selectedItemData?.row_id) {
+        const hasKids = await hasChildren(selectedItemData.row_id);
+        setHasChildPrompts(hasKids);
+      }
+    };
+    checkForChildren();
+  }, [selectedItemData?.row_id, hasChildren]);
+
   // Handle cascade run from top-level
   const handleCascadeRun = useCallback(async () => {
     if (!selectedItemData?.row_id) {
@@ -74,6 +88,30 @@ const PromptEditorTabs = ({
     
     await executeCascade(selectedItemData.row_id, targetAssistantRowId);
   }, [selectedItemData?.row_id, assistantRowId, parentAssistantRowId, executeCascade]);
+
+  // Handle single prompt run
+  const handleSingleRun = useCallback(async () => {
+    if (!projectRowId) {
+      toast.error('No prompt selected');
+      return;
+    }
+
+    // Top-level non-assistants need conversation mode enabled first
+    if (isTopLevel && !selectedItemData?.is_assistant) {
+      toast.error('Cannot run: Enable conversation mode on this prompt first.');
+      return;
+    }
+
+    try {
+      await runPrompt(projectRowId, '', {}, {
+        onSuccess: () => {
+          toast.success('Prompt executed successfully');
+        }
+      });
+    } catch (error) {
+      console.error('Error running prompt:', error);
+    }
+  }, [projectRowId, isTopLevel, selectedItemData?.is_assistant, runPrompt]);
 
   // Build tabs dynamically based on whether this is a top-level assistant
   const tabs = useMemo(() => {
@@ -143,31 +181,60 @@ const PromptEditorTabs = ({
             <QuickAccessIcon key={tab.id} tab={tab} />
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          {/* Cascade Run icon - only for top-level assistants */}
-          {isTopLevel && selectedItemData?.is_assistant && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleCascadeRun}
-                    disabled={isCascadeRunning}
-                    aria-label="Run cascade"
-                    className="h-8 w-8 inline-flex items-center justify-center rounded-md text-primary hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isCascadeRunning ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ListTree className="h-4 w-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">Run all child prompts level by level</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+        <div className="flex items-center gap-1">
+          {/* Run icons - only for assistants */}
+          {selectedItemData?.is_assistant && (
+            <>
+              {/* Cascade Run icon - only show if has children */}
+              {hasChildPrompts && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={handleCascadeRun}
+                        disabled={isCascadeRunning || isPromptRunning}
+                        aria-label="Run cascade"
+                        className="h-7 w-7 p-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isCascadeRunning ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ListTree className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Run all child prompts in sequence
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+
+              {/* Single prompt Run icon */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleSingleRun}
+                      disabled={isCascadeRunning || isPromptRunning}
+                      aria-label="Run prompt"
+                      className="h-7 w-7 p-0 inline-flex items-center justify-center rounded-md text-primary hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isPromptRunning ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {isPromptRunning ? 'Running...' : 'Run this prompt'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </>
           )}
         </div>
       </div>
