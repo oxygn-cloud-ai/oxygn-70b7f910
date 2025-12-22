@@ -195,7 +195,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
         {/* Actions */}
         <div className="flex items-center gap-0.5">
-          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message') && !isLinksPage && (
+          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') && !isLinksPage && (
             <div className="flex items-center mr-1">
               <ActionButton
                 icon={<Sparkles className={`h-4 w-4 ${isGenerating ? 'animate-pulse' : ''}`} />}
@@ -211,7 +211,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
           )}
 
           {/* Variable Picker for input prompts */}
-          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message') && !isReadOnly && (
+          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') && !isReadOnly && (
             <VariablePicker 
               onInsert={handleInsertVariable}
               userVariables={variables}
@@ -253,7 +253,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
       {/* Content */}
       {!isCollapsed && (
         <div className="p-3">
-          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message') ? (
+          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') ? (
             <HighlightedTextarea
               id={label}
               value={value}
