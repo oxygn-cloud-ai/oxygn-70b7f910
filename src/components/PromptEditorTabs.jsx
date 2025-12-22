@@ -169,12 +169,6 @@ const PromptEditorTabs = ({
               </Tooltip>
             </TooltipProvider>
           )}
-          {selectedItemData?.is_assistant && (
-            <div className="flex items-center gap-1 text-xs text-primary">
-              <Bot className="h-3.5 w-3.5" />
-              <span>Conversation Mode</span>
-            </div>
-          )}
         </div>
       </div>
 
