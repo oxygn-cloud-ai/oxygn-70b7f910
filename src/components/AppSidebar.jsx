@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTooltipSettings } from '@/contexts/TooltipContext';
 import GuardedLink from '@/components/GuardedLink';
@@ -29,6 +29,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 const mainNavItems = [
   { id: 'home', title: 'Home', icon: Home, to: '/' },
   { id: 'prompts', title: 'Prompts', icon: Folder, to: '/projects', badge: null },
+  { id: 'workbench', title: 'Workbench', icon: MessagesSquare, to: '/workbench', badge: null },
   { id: 'templates', title: 'Templates', icon: LayoutTemplate, to: '/templates', badge: null },
 ];
 
