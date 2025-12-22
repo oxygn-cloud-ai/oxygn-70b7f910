@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Toaster as Sonner, toast as sonnerToast } from "sonner"
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, Loader2, GripVertical } from "lucide-react"
-import { supabase } from "@/integrations/supabase/client"
 
 // Toast history callback - set by ToastHistoryConnector
 let toastHistoryCallback = null;
@@ -143,25 +142,30 @@ const useToastPosition = () => {
   // Load position from database on mount
   useEffect(() => {
     const loadPosition = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      setUserId(user.id);
-      
-      const { data } = await supabase
-        .from('q_settings')
-        .select('setting_value')
-        .eq('setting_key', `toast_position_${user.id}`)
-        .single();
-      
-      if (data?.setting_value) {
-        try {
-          const pos = JSON.parse(data.setting_value);
-          setPosition(pos);
-          localStorage.setItem(TOAST_POSITION_KEY, data.setting_value);
-        } catch {
-          // Keep default
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        setUserId(user.id);
+        
+        const { data } = await supabase
+          .from('q_settings')
+          .select('setting_value')
+          .eq('setting_key', `toast_position_${user.id}`)
+          .single();
+        
+        if (data?.setting_value) {
+          try {
+            const pos = JSON.parse(data.setting_value);
+            setPosition(pos);
+            localStorage.setItem(TOAST_POSITION_KEY, data.setting_value);
+          } catch {
+            // Keep default
+          }
         }
+      } catch {
+        // Supabase not available, use localStorage only
       }
     };
     
@@ -186,13 +190,18 @@ const useToastPosition = () => {
     saveTimeoutRef.current = setTimeout(async () => {
       if (!userId) return;
       
-      await supabase
-        .from('q_settings')
-        .upsert({
-          setting_key: `toast_position_${userId}`,
-          setting_value: JSON.stringify(clampedPos),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'setting_key' });
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        await supabase
+          .from('q_settings')
+          .upsert({
+            setting_key: `toast_position_${userId}`,
+            setting_value: JSON.stringify(clampedPos),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'setting_key' });
+      } catch {
+        // Supabase not available, localStorage only
+      }
     }, 500);
   };
 
