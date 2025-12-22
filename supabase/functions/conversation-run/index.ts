@@ -80,16 +80,20 @@ function applyTemplate(template: string, variables: Record<string, string>): str
   return result;
 }
 
-// Generate a unique conversation ID (we use UUID since we're using Chat Completions API)
-function generateConversationId(): string {
-  return 'conv_' + crypto.randomUUID().replace(/-/g, '');
+// ============================================================================
+// OPENAI CONVERSATIONS & RESPONSES API
+// https://platform.openai.com/docs/api-reference/conversations/create
+// https://platform.openai.com/docs/api-reference/responses
+// ============================================================================
+
+interface ConversationResult {
+  success: boolean;
+  conversationId?: string;
+  error?: string;
+  error_code?: string;
 }
 
-// ============================================================================
-// CHAT COMPLETIONS API HANDLER
-// ============================================================================
-
-interface ChatCompletionsResult {
+interface ResponsesResult {
   success: boolean;
   response?: string;
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
@@ -98,58 +102,24 @@ interface ChatCompletionsResult {
   response_id?: string;
 }
 
-async function runChatCompletions(
-  assistantData: any,
-  userMessage: string,
-  systemPrompt: string,
+// Create a new conversation via OpenAI Conversations API
+async function createConversation(
   apiKey: string,
-): Promise<ChatCompletionsResult> {
-  const requestedModel = assistantData.model_override || 'gpt-4o-mini';
-  const modelId = resolveModelId(requestedModel);
+  initialItems?: { type: string; role: string; content: string }[],
+  metadata?: Record<string, string>,
+): Promise<ConversationResult> {
+  const requestBody: any = {};
   
-  // Check if model supports temperature
-  const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
-
-  // Build messages array
-  const messages: any[] = [];
-  
-  // Add system message if present
-  if (systemPrompt && systemPrompt.trim()) {
-    messages.push({ role: 'system', content: systemPrompt.trim() });
+  if (initialItems && initialItems.length > 0) {
+    requestBody.items = initialItems;
   }
-  
-  // Add user message
-  messages.push({ role: 'user', content: userMessage });
-
-  // Build request body for Chat Completions API
-  const requestBody: any = {
-    model: modelId,
-    messages,
-  };
-
-  // Add model parameters if set
-  const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
-  const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
-  const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
-
-  if (!isNoTempModel && temperature !== undefined && !isNaN(temperature)) {
-    requestBody.temperature = temperature;
-  }
-  if (!isNoTempModel && topP !== undefined && !isNaN(topP)) {
-    requestBody.top_p = topP;
-  }
-  if (maxTokens !== undefined && !isNaN(maxTokens)) {
-    requestBody.max_tokens = maxTokens;
+  if (metadata) {
+    requestBody.metadata = metadata;
   }
 
-  console.log('Calling Chat Completions API:', { 
-    model: modelId, 
-    messageCount: messages.length,
-    hasSystemPrompt: !!systemPrompt,
-  });
+  console.log('Creating OpenAI conversation:', { hasItems: !!initialItems?.length, metadata });
 
-  // Call Chat Completions API
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('https://api.openai.com/v1/conversations', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -160,10 +130,97 @@ async function runChatCompletions(
 
   if (!response.ok) {
     const error = await response.json();
-    console.error('Chat Completions API error:', error);
+    console.error('Conversations API error:', error);
+    return {
+      success: false,
+      error: error.error?.message || 'Failed to create conversation',
+      error_code: response.status === 429 ? 'RATE_LIMITED' : 'CONVERSATION_CREATE_FAILED',
+    };
+  }
+
+  const data = await response.json();
+  console.log('Conversation created:', data.id);
+  
+  return {
+    success: true,
+    conversationId: data.id,
+  };
+}
+
+// Call OpenAI Responses API with conversation context
+async function runResponsesAPI(
+  assistantData: any,
+  userMessage: string,
+  systemPrompt: string,
+  conversationId: string | null,
+  previousResponseId: string | null,
+  apiKey: string,
+): Promise<ResponsesResult> {
+  const requestedModel = assistantData.model_override || 'gpt-4o-mini';
+  const modelId = resolveModelId(requestedModel);
+  
+  // Build request body for Responses API
+  const requestBody: any = {
+    model: modelId,
+    input: userMessage,
+    store: true,
+  };
+
+  // Add conversation ID for stateful context
+  if (conversationId) {
+    requestBody.conversation = conversationId;
+  }
+
+  // Add previous_response_id for chaining if no conversation
+  if (!conversationId && previousResponseId) {
+    requestBody.previous_response_id = previousResponseId;
+  }
+
+  // Add instructions (system prompt)
+  if (systemPrompt && systemPrompt.trim()) {
+    requestBody.instructions = systemPrompt.trim();
+  }
+
+  // Add model parameters if set
+  const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
+  const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
+  const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
+
+  // Check if model supports temperature
+  const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
+
+  if (!isNoTempModel && temperature !== undefined && !isNaN(temperature)) {
+    requestBody.temperature = temperature;
+  }
+  if (!isNoTempModel && topP !== undefined && !isNaN(topP)) {
+    requestBody.top_p = topP;
+  }
+  if (maxTokens !== undefined && !isNaN(maxTokens)) {
+    requestBody.max_output_tokens = maxTokens;
+  }
+
+  console.log('Calling Responses API:', { 
+    model: modelId, 
+    hasConversation: !!conversationId,
+    hasPreviousResponse: !!previousResponseId,
+    hasInstructions: !!systemPrompt,
+  });
+
+  // Call Responses API
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Responses API error:', error);
     
-    // Check for rate limiting
-    const errorMessage = error.error?.message || 'Chat Completions API call failed';
+    const errorMessage = error.error?.message || 'Responses API call failed';
     const isRateLimit = response.status === 429;
     
     return { 
@@ -174,16 +231,27 @@ async function runChatCompletions(
   }
 
   const responseData = await response.json();
-  console.log('Chat Completions API response received:', responseData.id);
+  console.log('Responses API response received:', responseData.id);
 
-  // Extract response content
-  const responseText = responseData.choices?.[0]?.message?.content || '';
+  // Extract response content from output array
+  let responseText = '';
+  if (responseData.output && Array.isArray(responseData.output)) {
+    for (const item of responseData.output) {
+      if (item.type === 'message' && item.content) {
+        for (const contentItem of item.content) {
+          if (contentItem.type === 'output_text' && contentItem.text) {
+            responseText += contentItem.text;
+          }
+        }
+      }
+    }
+  }
 
   // Extract usage
   const usage = {
-    prompt_tokens: responseData.usage?.prompt_tokens || 0,
-    completion_tokens: responseData.usage?.completion_tokens || 0,
-    total_tokens: responseData.usage?.total_tokens || 0,
+    prompt_tokens: responseData.usage?.input_tokens || 0,
+    completion_tokens: responseData.usage?.output_tokens || 0,
+    total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
   };
 
   return {
@@ -315,9 +383,21 @@ serve(async (req) => {
       }
     }
 
-    // Create new conversation if needed
+    // Create new conversation if needed via OpenAI Conversations API
     if (!conversationId) {
-      conversationId = generateConversationId();
+      const convResult = await createConversation(OPENAI_API_KEY, undefined, {
+        prompt_id: child_prompt_row_id,
+        assistant_id: assistantData.row_id,
+      });
+      
+      if (!convResult.success || !convResult.conversationId) {
+        return new Response(
+          JSON.stringify({ error: convResult.error || 'Failed to create conversation', error_code: convResult.error_code }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      conversationId = convResult.conversationId;
 
       // Create thread record
       const { data: newThread } = await supabase
@@ -456,11 +536,24 @@ serve(async (req) => {
         : adminPrompt.trim();
     }
 
-    // Call Chat Completions API
-    const result = await runChatCompletions(
+    // Get previous response ID for chaining if thread exists
+    let previousResponseId: string | null = null;
+    if (activeThreadRowId) {
+      const { data: threadData } = await supabase
+        .from(TABLES.THREADS)
+        .select('last_response_id')
+        .eq('row_id', activeThreadRowId)
+        .single();
+      previousResponseId = threadData?.last_response_id || null;
+    }
+
+    // Call OpenAI Responses API
+    const result = await runResponsesAPI(
       assistantData,
       finalMessage,
       systemPrompt,
+      conversationId,
+      previousResponseId,
       OPENAI_API_KEY
     );
 
