@@ -66,21 +66,34 @@ const TOAST_POSITION_KEY = 'toast_position';
 
 const getSystemTheme = () => {
   if (typeof window === 'undefined') return 'dark';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch {
+    return 'dark';
+  }
 };
 
 const getStoredPreference = () => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(THEME_STORAGE_KEY);
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
 };
 
 export const setThemePreference = (preference) => {
-  if (preference === 'system') {
-    localStorage.removeItem(THEME_STORAGE_KEY);
-  } else {
-    localStorage.setItem(THEME_STORAGE_KEY, preference);
+  if (typeof window === 'undefined') return;
+  try {
+    if (preference === 'system') {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+    } else {
+      localStorage.setItem(THEME_STORAGE_KEY, preference);
+    }
+    window.dispatchEvent(new CustomEvent('theme-preference-change'));
+  } catch {
+    // Ignore localStorage errors
   }
-  window.dispatchEvent(new CustomEvent('theme-preference-change'));
 };
 
 export const getThemePreference = () => {
@@ -125,14 +138,14 @@ const getDefaultPosition = () => ({ x: 16, y: typeof window !== 'undefined' ? wi
 const useToastPosition = () => {
   const [position, setPosition] = useState(() => {
     if (typeof window === 'undefined') return { x: 16, y: 500 };
-    // Try to get from localStorage first for immediate display
-    const cached = localStorage.getItem(TOAST_POSITION_KEY);
-    if (cached) {
-      try {
+    try {
+      // Try to get from localStorage first for immediate display
+      const cached = localStorage.getItem(TOAST_POSITION_KEY);
+      if (cached) {
         return JSON.parse(cached);
-      } catch {
-        return getDefaultPosition();
       }
+    } catch {
+      // Ignore localStorage errors
     }
     return getDefaultPosition();
   });

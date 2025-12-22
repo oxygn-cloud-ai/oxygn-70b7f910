@@ -23,8 +23,13 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   
   // Default to expanded (false) for better UX
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    const stored = localStorage.getItem(storageKey);
-    return stored !== null ? JSON.parse(stored) : false;
+    if (typeof window === 'undefined') return false;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored !== null ? JSON.parse(stored) : false;
+    } catch {
+      return false;
+    }
   });
   
   const handleToggleCollapse = () => {
