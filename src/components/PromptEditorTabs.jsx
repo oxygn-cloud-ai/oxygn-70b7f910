@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Play } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Play, MessageCirclePlus } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -28,6 +28,8 @@ const PromptEditorTabs = ({
 }) => {
   const [activeTab, setActiveTab] = useState('prompt');
   const [assistantRowId, setAssistantRowId] = useState(null);
+  const [assistantMissing, setAssistantMissing] = useState(false);
+  const [isCreatingAssistant, setIsCreatingAssistant] = useState(false);
   const { executeCascade, hasChildren } = useCascadeExecutor();
   const { isRunning: isCascadeRunning } = useCascadeRun();
   const { runPrompt, isRunning: isPromptRunning } = useConversationRun();
@@ -38,6 +40,7 @@ const PromptEditorTabs = ({
     const fetchAssistantRowId = async () => {
       if (!isTopLevel || !selectedItemData?.is_assistant || !selectedItemData?.row_id) {
         setAssistantRowId(null);
+        setAssistantMissing(false);
         return;
       }
 
@@ -49,11 +52,19 @@ const PromptEditorTabs = ({
           .maybeSingle();
 
         if (error) throw error;
-        setAssistantRowId(data?.row_id || null);
+        
+        if (data?.row_id) {
+          setAssistantRowId(data.row_id);
+          setAssistantMissing(false);
+        } else {
+          setAssistantRowId(null);
+          setAssistantMissing(true);
+        }
       } catch (error) {
         console.error('Error fetching assistant:', error);
         toast.error('Failed to load assistant data');
         setAssistantRowId(null);
+        setAssistantMissing(false);
       }
     };
 
@@ -71,6 +82,38 @@ const PromptEditorTabs = ({
     checkForChildren();
   }, [selectedItemData?.row_id, hasChildren]);
 
+  // Handle creating missing assistant record
+  const handleCreateAssistant = useCallback(async () => {
+    if (!selectedItemData?.row_id || !selectedItemData?.prompt_name) {
+      toast.error('Cannot create conversation: missing prompt data');
+      return;
+    }
+
+    setIsCreatingAssistant(true);
+    try {
+      const { data, error } = await supabase
+        .from(import.meta.env.VITE_ASSISTANTS_TBL)
+        .insert({
+          prompt_row_id: selectedItemData.row_id,
+          name: selectedItemData.prompt_name,
+          status: 'active'
+        })
+        .select('row_id')
+        .single();
+
+      if (error) throw error;
+
+      setAssistantRowId(data.row_id);
+      setAssistantMissing(false);
+      toast.success('Conversation enabled');
+    } catch (error) {
+      console.error('Error creating assistant:', error);
+      toast.error('Failed to enable conversation');
+    } finally {
+      setIsCreatingAssistant(false);
+    }
+  }, [selectedItemData?.row_id, selectedItemData?.prompt_name]);
+
   // Handle cascade run from top-level
   const handleCascadeRun = useCallback(async () => {
     if (!selectedItemData?.row_id) {
@@ -82,7 +125,7 @@ const PromptEditorTabs = ({
     const targetAssistantRowId = assistantRowId || parentAssistantRowId;
     
     if (!targetAssistantRowId) {
-      toast.error('Conversation not found. Enable Conversation Mode first.');
+      toast.error('Conversation not found. Click the message icon to re-enable.');
       return;
     }
     
@@ -181,6 +224,32 @@ const PromptEditorTabs = ({
             <QuickAccessIcon key={tab.id} tab={tab} />
           ))}
           
+          {/* Re-enable conversation icon - only shows when assistant record is missing */}
+          {isTopLevel && selectedItemData?.is_assistant && assistantMissing && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 transition-colors text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 disabled:opacity-50"
+                    onClick={handleCreateAssistant}
+                    disabled={isCreatingAssistant}
+                  >
+                    {isCreatingAssistant ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <MessageCirclePlus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Re-enable conversation</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
           {/* Cascade Run icon - aligned with tab icons */}
           {selectedItemData?.is_assistant && hasChildPrompts && (
             <TooltipProvider>
@@ -191,7 +260,7 @@ const PromptEditorTabs = ({
                     size="sm"
                     className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-50"
                     onClick={handleCascadeRun}
-                    disabled={isCascadeRunning || isPromptRunning}
+                    disabled={isCascadeRunning || isPromptRunning || assistantMissing}
                   >
                     {isCascadeRunning ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -201,7 +270,7 @@ const PromptEditorTabs = ({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p className="text-xs">Run cascade</p>
+                  <p className="text-xs">{assistantMissing ? 'Re-enable conversation first' : 'Run cascade'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -217,7 +286,7 @@ const PromptEditorTabs = ({
                     size="sm"
                     className="h-7 w-7 p-0 transition-colors text-primary hover:bg-sidebar-accent disabled:opacity-50"
                     onClick={handleSingleRun}
-                    disabled={isCascadeRunning || isPromptRunning}
+                    disabled={isCascadeRunning || isPromptRunning || assistantMissing}
                   >
                     {isPromptRunning ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -227,7 +296,7 @@ const PromptEditorTabs = ({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p className="text-xs">{isPromptRunning ? 'Running...' : 'Run this prompt'}</p>
+                  <p className="text-xs">{assistantMissing ? 'Re-enable conversation first' : isPromptRunning ? 'Running...' : 'Run this prompt'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
