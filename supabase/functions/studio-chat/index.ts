@@ -2,11 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { TABLES } from "../_shared/tables.ts";
-import { 
-  getAllTools, 
-  hasFunctionCalls, 
-  extractTextFromResponseOutput 
-} from "../_shared/tools.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +9,29 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
+
+// Map friendly model IDs to actual OpenAI model names
+const MODEL_MAPPING: Record<string, string> = {
+  'gpt-4o': 'gpt-4o',
+  'gpt-4o-mini': 'gpt-4o-mini',
+  'gpt-4-turbo': 'gpt-4-turbo',
+  'o1': 'o1',
+  'o1-mini': 'o1-mini',
+  'o1-preview': 'o1-preview',
+  // Legacy mappings
+  'gpt-5': 'gpt-4o',
+  'gpt-5-mini': 'gpt-4o-mini',
+  'gpt-5-nano': 'gpt-4o-mini',
+  'gpt-4.1': 'gpt-4o',
+  'gpt-4.1-mini': 'gpt-4o-mini',
+};
+
+// Models that don't support temperature parameter
+const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview'];
+
+function resolveModelId(modelId: string): string {
+  return MODEL_MAPPING[modelId] || modelId;
+}
 
 function isAllowedDomain(email: string | undefined): boolean {
   if (!email) return false;
@@ -49,103 +67,6 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   }
 
   return { valid: true, user };
-}
-
-// Helper to strip HTML tags
-function htmlToText(html: string): string {
-  return html
-    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// Handle Confluence tool calls - only for attached pages
-async function handleConfluenceTool(
-  toolName: string,
-  args: any,
-  attachedPages: Array<{ page_id: string; page_title: string; content_text: string | null; page_url: string | null }>
-): Promise<string> {
-  try {
-    if (toolName === 'confluence_list_attached') {
-      if (!attachedPages || attachedPages.length === 0) {
-        return JSON.stringify({ 
-          message: 'No Confluence pages are attached to this conversation. Ask the user to attach pages via the Conversation tab.',
-          pages: []
-        });
-      }
-
-      const pages = attachedPages.map(p => ({
-        id: p.page_id,
-        title: p.page_title,
-        url: p.page_url,
-      }));
-
-      return JSON.stringify({ 
-        message: `${pages.length} Confluence page(s) attached to this conversation.`,
-        pages 
-      });
-    }
-
-    if (toolName === 'confluence_read_attached') {
-      const { page_id } = args;
-      
-      const page = attachedPages.find(p => p.page_id === page_id);
-      
-      if (!page) {
-        const availableIds = attachedPages.map(p => p.page_id).join(', ');
-        return JSON.stringify({ 
-          error: `Page ${page_id} is not attached to this conversation. Available page IDs: ${availableIds || 'none'}`,
-        });
-      }
-
-      return JSON.stringify({
-        id: page.page_id,
-        title: page.page_title,
-        content: page.content_text || '(No content available - page may need to be synced)',
-        url: page.page_url,
-      });
-    }
-
-    return JSON.stringify({ error: `Unknown tool: ${toolName}` });
-  } catch (error) {
-    console.error('Confluence tool error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return JSON.stringify({ error: `Confluence request failed: ${message}` });
-  }
-}
-
-// Create OpenAI conversation
-async function createOpenAIConversation(apiKey: string, metadata?: Record<string, string>): Promise<string> {
-  console.log('Creating new OpenAI conversation...');
-  
-  const response = await fetch('https://api.openai.com/v1/conversations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      metadata: metadata || {},
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Failed to create OpenAI conversation:', error);
-    throw new Error(error.error?.message || 'Failed to create conversation');
-  }
-
-  const data = await response.json();
-  console.log('Created OpenAI conversation:', data.id);
-  return data.id;
 }
 
 serve(async (req) => {
@@ -239,225 +160,98 @@ serve(async (req) => {
 
     console.log('Context included from child prompts:', contextIncluded);
 
-    // Fetch attached Confluence pages for tool access
+    // Fetch attached Confluence pages for context
     const { data: confluencePages } = await supabase
       .from(TABLES.CONFLUENCE_PAGES)
       .select('page_id, page_title, content_text, page_url')
       .eq('assistant_row_id', assistant_row_id);
-    
-    const attachedPages = (confluencePages || []).map((p: any) => ({
-      page_id: p.page_id,
-      page_title: p.page_title,
-      content_text: p.content_text,
-      page_url: p.page_url,
-    }));
 
-    // Find or create OpenAI conversation via thread
-    let conversationId: string;
-    let threadRowId: string | null = null;
-
-    // Look for existing Studio thread
-    const { data: existingThread } = await supabase
-      .from(TABLES.THREADS)
-      .select('row_id, openai_conversation_id')
-      .eq('assistant_row_id', assistant_row_id)
-      .is('child_prompt_row_id', null)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (thread_row_id) {
-      // Use specified thread
-      const { data: specifiedThread } = await supabase
-        .from(TABLES.THREADS)
-        .select('row_id, openai_conversation_id')
-        .eq('row_id', thread_row_id)
-        .single();
-
-      if (specifiedThread) {
-        if (specifiedThread.openai_conversation_id && !specifiedThread.openai_conversation_id.startsWith('pending_')) {
-          conversationId = specifiedThread.openai_conversation_id;
-        } else {
-          // Create new conversation for pending thread
-          conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
-          await supabase
-            .from(TABLES.THREADS)
-            .update({ openai_conversation_id: conversationId })
-            .eq('row_id', thread_row_id);
-        }
-        threadRowId = specifiedThread.row_id;
-      } else {
-        // Specified thread not found, create new
-        conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
+    // Build Confluence context
+    let confluenceContext = '';
+    if (confluencePages && confluencePages.length > 0) {
+      const textPages = confluencePages.filter((p: any) => p.content_text);
+      if (textPages.length > 0) {
+        confluenceContext = textPages
+          .map((p: any) => `## ${p.page_title}\n${p.content_text}`)
+          .join('\n\n---\n\n');
+        confluenceContext = `\n\n[Attached Confluence Pages]\n${confluenceContext}`;
       }
-    } else if (existingThread) {
-      if (existingThread.openai_conversation_id && !existingThread.openai_conversation_id.startsWith('pending_')) {
-        conversationId = existingThread.openai_conversation_id;
-      } else {
-        // Create new conversation for pending thread
-        conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
-        await supabase
-          .from(TABLES.THREADS)
-          .update({ openai_conversation_id: conversationId })
-          .eq('row_id', existingThread.row_id);
-      }
-      threadRowId = existingThread.row_id;
-    } else {
-      // No existing thread, create new conversation and thread
-      conversationId = await createOpenAIConversation(openAIApiKey, { assistant_row_id });
     }
 
-    console.log('Using conversation:', conversationId);
+    // Model configuration
+    const requestedModel = assistantData.model_override || 'gpt-4o-mini';
+    const modelId = resolveModelId(requestedModel);
+    const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
 
-    const modelId = assistantData.model_override || 'gpt-4o';
+    // Build messages array
+    const messages: Array<{ role: string; content: string }> = [];
 
-    // Build tools array with attached page IDs
-    const attachedConfluencePageIds = attachedPages.map(p => p.page_id);
-    const tools = getAllTools({
-      codeInterpreterEnabled: assistantData.code_interpreter_enabled || false,
-      fileSearchEnabled: assistantData.file_search_enabled || false,
-      confluenceEnabled: assistantData.confluence_enabled || false,
-      vectorStoreIds: assistantData.vector_store_id ? [assistantData.vector_store_id] : undefined,
-      attachedConfluencePageIds,
-    });
-
-    // Build input
-    const input: any[] = [];
-    
     // System instructions with additional context
     let systemContent = assistantData.instructions || 'You are a helpful assistant.';
     if (additionalInstructions) {
       systemContent += additionalInstructions;
     }
-    input.push({ role: 'system', content: systemContent });
-    input.push({ role: 'user', content: user_message });
+    if (confluenceContext) {
+      systemContent += confluenceContext;
+    }
+    
+    messages.push({ role: 'system', content: systemContent });
+    messages.push({ role: 'user', content: user_message });
 
     const requestBody: any = {
       model: modelId,
-      input,
-      tools: tools.length > 0 ? tools : undefined,
-      conversation: conversationId,
-      store: true,
+      messages,
     };
 
     // Add model parameters
     const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
-    if (temperature !== undefined && !isNaN(temperature)) requestBody.temperature = temperature;
+    const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
+    const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
 
-    console.log('Calling Responses API for Studio chat:', { model: modelId, toolCount: tools.length, conversationId });
+    if (!isNoTempModel && temperature !== undefined && !isNaN(temperature)) {
+      requestBody.temperature = temperature;
+    }
+    if (!isNoTempModel && topP !== undefined && !isNaN(topP)) {
+      requestBody.top_p = topP;
+    }
+    if (maxTokens !== undefined && !isNaN(maxTokens)) {
+      requestBody.max_tokens = maxTokens;
+    }
 
-    // Helper to retry on conversation_locked errors
-    const callWithRetry = async (body: any, maxRetries = 5): Promise<{ response: Response; data: any }> => {
-      let lastError: any = null;
-      for (let attempt = 0; attempt < maxRetries; attempt++) {
-        const resp = await fetch('https://api.openai.com/v1/responses', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
+    console.log('Calling Chat Completions API for Studio chat:', { model: modelId, messageCount: messages.length });
 
-        if (resp.ok) {
-          const data = await resp.json();
-          return { response: resp, data };
-        }
+    // Call Chat Completions API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-        const error = await resp.json();
-        
-        // Check for conversation_locked error
-        if (error.error?.code === 'conversation_locked') {
-          console.log(`Conversation locked, retry ${attempt + 1}/${maxRetries} after delay...`);
-          lastError = error;
-          // Wait 1-3 seconds with exponential backoff
-          const delay = Math.min(1000 * Math.pow(1.5, attempt), 5000);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-
-        // Other errors, don't retry
-        console.error('Responses API error:', error);
-        throw { status: resp.status, error };
-      }
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Chat Completions API error:', error);
       
-      // All retries exhausted
-      console.error('Conversation locked - max retries exhausted:', lastError);
-      throw { status: 429, error: lastError };
-    };
-
-    // Call Responses API with retry logic
-    let responseData: any;
-    try {
-      const result = await callWithRetry(requestBody);
-      responseData = result.data;
-    } catch (err: any) {
+      const errorMessage = error.error?.message || 'Chat Completions API call failed';
+      const isRateLimit = response.status === 429;
+      
       return new Response(
-        JSON.stringify({ error: err.error?.error?.message || 'Responses API call failed' }),
-        { status: err.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: errorMessage }),
+        { status: isRateLimit ? 429 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Handle function calls
-    let maxIterations = 10;
-    let iteration = 0;
+    const responseData = await response.json();
+    console.log('Chat Completions API response received');
 
-    while (hasFunctionCalls(responseData.output) && iteration < maxIterations) {
-      iteration++;
-      console.log(`Processing function calls, iteration ${iteration}`);
-
-      const functionCallOutputs: any[] = [];
-
-      for (const item of responseData.output || []) {
-        if (item.type === 'function_call') {
-          const functionName = item.name;
-          const args = typeof item.arguments === 'string' ? JSON.parse(item.arguments) : item.arguments;
-          
-          console.log('Executing function:', functionName, args);
-
-          let output: string;
-          if (functionName.startsWith('confluence_')) {
-            output = await handleConfluenceTool(functionName, args, attachedPages);
-          } else {
-            output = JSON.stringify({ error: `Unknown function: ${functionName}` });
-          }
-
-          functionCallOutputs.push({
-            type: 'function_call_output',
-            call_id: item.call_id,
-            output,
-          });
-        }
-      }
-
-      if (functionCallOutputs.length === 0) break;
-
-      // Continue with function outputs using conversation
-      const continueBody: any = {
-        model: modelId,
-        conversation: conversationId,
-        input: functionCallOutputs,
-        tools: tools.length > 0 ? tools : undefined,
-        store: true,
-      };
-
-      try {
-        const result = await callWithRetry(continueBody);
-        responseData = result.data;
-      } catch (err: any) {
-        console.error('Responses API continuation error:', err);
-        return new Response(
-          JSON.stringify({ error: err.error?.error?.message || 'Failed to continue after function call' }),
-          { status: err.status || 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // Extract response text
-    const responseText = extractTextFromResponseOutput(responseData.output);
+    // Extract response content
+    const responseText = responseData.choices?.[0]?.message?.content || '';
 
     // Create or update thread record
+    let threadRowId: string | null = thread_row_id || null;
+    
     if (threadRowId) {
       await supabase
         .from(TABLES.THREADS)
@@ -469,7 +263,7 @@ serve(async (req) => {
         .insert({
           assistant_row_id: assistant_row_id,
           child_prompt_row_id: null,
-          openai_conversation_id: conversationId,
+          openai_thread_id: `chat_${Date.now()}`, // Use timestamp-based ID for chat threads
           name: `Studio Chat ${new Date().toLocaleDateString()}`,
           is_active: true,
         })
@@ -485,19 +279,19 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         response: responseText,
-        response_id: responseData.id,
         thread_row_id: threadRowId,
-        conversation_id: conversationId,
         context_included: contextIncluded,
+        usage: responseData.usage,
+        model: modelId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
     console.error('Error in studio-chat:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const message = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

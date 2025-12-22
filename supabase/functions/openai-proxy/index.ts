@@ -10,45 +10,27 @@ const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
 // Map friendly model IDs to actual OpenAI model names
 const MODEL_MAPPING: Record<string, string> = {
-  // GPT-5 family
-  'gpt-5': 'gpt-5-2025-08-07',
-  'gpt-5-pro': 'gpt-5-2025-08-07',
-  'gpt-5.1': 'gpt-5-2025-08-07',
-  'gpt-5.2': 'gpt-5-2025-08-07',
-  'gpt-5.2-pro': 'gpt-5-2025-08-07',
-  'gpt-5-mini': 'gpt-5-mini-2025-08-07',
-  'gpt-5-nano': 'gpt-5-nano-2025-08-07',
-  'gpt-5-codex': 'gpt-5-2025-08-07',
-  'gpt-5.1-codex': 'gpt-5-2025-08-07',
-  'gpt-5.1-codex-max': 'gpt-5-2025-08-07',
-  'gpt-5.1-codex-mini': 'gpt-5-mini-2025-08-07',
-  // GPT-4.1 family
-  'gpt-4.1': 'gpt-4.1-2025-04-14',
-  'gpt-4.1-mini': 'gpt-4.1-mini-2025-04-14',
-  'gpt-4.1-nano': 'gpt-4.1-mini-2025-04-14',
-  // Reasoning models
-  'o3': 'o3-2025-04-16',
-  'o3-mini': 'o4-mini-2025-04-16',
-  'o3-pro': 'o3-2025-04-16',
-  'o4-mini': 'o4-mini-2025-04-16',
-  'o1': 'o1-2024-12-17',
-  'o1-pro': 'o1-2024-12-17',
-  // Legacy models (pass through)
+  // GPT-4o family (current production models)
   'gpt-4o': 'gpt-4o',
   'gpt-4o-mini': 'gpt-4o-mini',
   'gpt-4-turbo': 'gpt-4-turbo',
+  // Reasoning models
+  'o1': 'o1',
+  'o1-mini': 'o1-mini',
+  'o1-preview': 'o1-preview',
+  // Legacy mappings for backwards compatibility
+  'gpt-5': 'gpt-4o', // Map to gpt-4o as gpt-5 doesn't exist
+  'gpt-5-mini': 'gpt-4o-mini',
+  'gpt-5-nano': 'gpt-4o-mini',
+  'gpt-4.1': 'gpt-4o',
+  'gpt-4.1-mini': 'gpt-4o-mini',
 };
 
-// Models that require Responses API instead of Chat Completions
-const RESPONSES_API_MODELS = ['gpt-5-2025-08-07', 'gpt-5-mini-2025-08-07', 'gpt-5-nano-2025-08-07'];
+// Models that don't support temperature parameter
+const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview'];
 
 function resolveModelId(modelId: string): string {
   return MODEL_MAPPING[modelId] || modelId;
-}
-
-function requiresResponsesApi(modelId: string): boolean {
-  const resolved = resolveModelId(modelId);
-  return RESPONSES_API_MODELS.includes(resolved);
 }
 
 function isAllowedDomain(email: string | undefined): boolean {
@@ -131,7 +113,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: 'Hi' }],
           max_tokens: 1,
         }),
@@ -197,7 +179,7 @@ serve(async (req) => {
 
       const data = await response.json();
       const chatModels = data.data
-        .filter((m: any) => m.id.includes('gpt'))
+        .filter((m: any) => m.id.includes('gpt') || m.id.includes('o1'))
         .map((m: any) => m.id)
         .sort();
 
@@ -219,119 +201,8 @@ serve(async (req) => {
       
       console.log('Model resolution:', { requested: requestedModel, resolved: modelId });
       
-      // Use Responses API for web search OR for models that require it
-      if (web_search_enabled || requiresResponsesApi(requestedModel)) {
-        console.log('Using Responses API:', { webSearch: web_search_enabled, modelRequires: requiresResponsesApi(requestedModel) });
-        
-        // Convert messages to input format for Responses API
-        const systemMessage = messages.find((m: any) => m.role === 'system')?.content || '';
-        const userMessage = messages.find((m: any) => m.role === 'user')?.content || '';
-        
-        const requestBody: any = {
-          model: modelId,
-          input: userMessage,
-          instructions: systemMessage,
-        };
-        
-        // Only add web_search tool if explicitly enabled
-        if (web_search_enabled) {
-          requestBody.tools = [{ type: "web_search" }];
-        }
-
-        console.log('Responses API request:', { model: modelId, hasInput: !!userMessage });
-
-        const response = await fetch('https://api.openai.com/v1/responses', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        const latencyMs = Date.now() - startTime;
-        const responseData = await response.json();
-
-        if (!response.ok) {
-          console.error('OpenAI Responses API error:', responseData);
-          return new Response(
-            JSON.stringify({ error: responseData.error?.message || 'OpenAI API error' }),
-            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        console.log('Responses API response received');
-        
-        // Extract text and citations from Responses API format
-        let outputText = '';
-        let citations: any[] = [];
-        
-        if (responseData.output) {
-          for (const item of responseData.output) {
-            if (item.type === 'message' && item.content) {
-              for (const content of item.content) {
-                if (content.type === 'output_text') {
-                  outputText = content.text;
-                  if (content.annotations) {
-                    citations = content.annotations
-                      .filter((a: any) => a.type === 'url_citation')
-                      .map((a: any) => ({
-                        url: a.url,
-                        title: a.title,
-                        startIndex: a.start_index,
-                        endIndex: a.end_index
-                      }));
-                  }
-                }
-              }
-            }
-          }
-        }
-        
-        // Format response like Chat Completions for compatibility with enhanced metadata
-        const formattedResponse = {
-          id: responseData.id,
-          object: 'chat.completion',
-          created: Math.floor(Date.now() / 1000),
-          model: modelId,
-          choices: [{
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: outputText
-            },
-            finish_reason: 'stop'
-          }],
-          citations,
-          usage: responseData.usage || {
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0,
-          },
-          // Enhanced metadata for cost tracking
-          _metadata: {
-            latency_ms: latencyMs,
-            requested_model: requestedModel,
-            resolved_model: modelId,
-            web_search_enabled: web_search_enabled || false,
-            timestamp: new Date().toISOString(),
-          }
-        };
-
-        console.log('Web search citations found:', citations.length);
-        return new Response(
-          JSON.stringify(formattedResponse),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Standard Chat Completions API (no web search)
-      // Models that don't support temperature parameter
-      const noTemperatureModels = ['o1', 'o3', 'o4', 'gpt-5'];
-      const isNoTempModel = noTemperatureModels.some(m => modelId.toLowerCase().includes(m));
-      
-      // Models that use max_completion_tokens instead of max_tokens
-      const useMaxCompletionTokens = ['gpt-5', 'gpt-4.1', 'o3', 'o4'].some(m => modelId.toLowerCase().includes(m));
+      // Check if model supports temperature
+      const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
 
       const requestBody: any = {
         model: modelId,
@@ -344,11 +215,7 @@ serve(async (req) => {
       }
       
       if (settings.max_tokens !== undefined) {
-        if (useMaxCompletionTokens) {
-          requestBody.max_completion_tokens = settings.max_tokens;
-        } else {
-          requestBody.max_tokens = settings.max_tokens;
-        }
+        requestBody.max_tokens = settings.max_tokens;
       }
       
       if (!isNoTempModel && settings.top_p !== undefined) {
