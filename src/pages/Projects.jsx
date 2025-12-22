@@ -15,6 +15,7 @@ import EmptyState from '../components/EmptyState';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from '@/components/ui/sonner';
 import { useCreatePrompt } from '@/contexts/CreatePromptContext';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -189,6 +190,36 @@ const Projects = () => {
     return findAncestorInTree(treeData, activeItem);
   }, [activeItem, treeData, isTopLevel, selectedItemData]);
 
+  // Fetch assistant row_id for the top-level ancestor (needed for child prompt generation)
+  const [parentAssistantRowId, setParentAssistantRowId] = useState(null);
+  
+  useEffect(() => {
+    const fetchParentAssistant = async () => {
+      // For child prompts, fetch the assistant from the top-level ancestor
+      const ancestorPromptId = topLevelAncestor?.id;
+      if (!ancestorPromptId || !topLevelAncestor?.is_assistant) {
+        setParentAssistantRowId(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from(import.meta.env.VITE_ASSISTANTS_TBL)
+          .select('row_id')
+          .eq('prompt_row_id', ancestorPromptId)
+          .maybeSingle();
+
+        if (error) throw error;
+        setParentAssistantRowId(data?.row_id || null);
+      } catch (error) {
+        console.error('Error fetching parent assistant:', error);
+        setParentAssistantRowId(null);
+      }
+    };
+
+    fetchParentAssistant();
+  }, [topLevelAncestor?.id, topLevelAncestor?.is_assistant]);
+
   // Show chat panel if we have a top-level prompt with is_assistant=true
   const showChatPanel = isTopLevel 
     ? selectedItemData?.is_assistant 
@@ -263,6 +294,7 @@ const Projects = () => {
                     onUpdateField={handleUpdateField}
                     onCascade={handleCascade}
                     isTopLevel={isTopLevel}
+                    parentAssistantRowId={parentAssistantRowId}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">

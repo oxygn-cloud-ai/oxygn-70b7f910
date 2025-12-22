@@ -189,7 +189,7 @@ const PromptEditorTabs = ({
               parentData={parentData}
               cascadeField={cascadeField}
               isTopLevel={isTopLevel}
-              parentAssistantRowId={parentAssistantRowId}
+              parentAssistantRowId={assistantRowId || parentAssistantRowId}
             />
           </TabsContent>
 
