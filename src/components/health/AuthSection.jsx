@@ -49,18 +49,6 @@ const AuthSection = ({ results, isLoading, onRefresh }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Authentication
-          </h2>
-          <p className="text-sm text-muted-foreground">Current session status</p>
-        </div>
-        <Button variant="ghost" size="icon" onClick={onRefresh} disabled={isLoading}>
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
 
       <Card>
         <CardHeader className="pb-3">
