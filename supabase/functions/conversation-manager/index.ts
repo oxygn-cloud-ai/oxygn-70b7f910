@@ -585,8 +585,85 @@ serve(async (req) => {
       );
     }
 
+    // DELETE - Delete one or more assistants
+    if (action === 'delete') {
+      const { row_ids } = body;
+      const idsToDelete = row_ids || (assistant_row_id ? [assistant_row_id] : []);
+
+      if (!idsToDelete.length) {
+        return new Response(
+          JSON.stringify({ error: 'row_ids or assistant_row_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Deleting ${idsToDelete.length} assistants:`, idsToDelete);
+
+      // Delete associated files first
+      for (const rowId of idsToDelete) {
+        const { data: files } = await supabase
+          .from(TABLES.ASSISTANT_FILES)
+          .select('openai_file_id')
+          .eq('assistant_row_id', rowId);
+
+        if (files) {
+          for (const file of files) {
+            if (file.openai_file_id) {
+              try {
+                await fetch(`https://api.openai.com/v1/files/${file.openai_file_id}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+                });
+              } catch (e) {
+                console.warn('Failed to delete OpenAI file:', e);
+              }
+            }
+          }
+        }
+
+        // Delete file records
+        await supabase
+          .from(TABLES.ASSISTANT_FILES)
+          .delete()
+          .eq('assistant_row_id', rowId);
+
+        // Delete threads associated with this assistant
+        await supabase
+          .from(TABLES.THREADS)
+          .delete()
+          .eq('assistant_row_id', rowId);
+
+        // Delete confluence pages associated with this assistant
+        await supabase
+          .from(TABLES.CONFLUENCE_PAGES)
+          .delete()
+          .eq('assistant_row_id', rowId);
+      }
+
+      // Delete the assistants
+      const { error: deleteError } = await supabase
+        .from(TABLES.ASSISTANTS)
+        .delete()
+        .in('row_id', idsToDelete);
+
+      if (deleteError) {
+        console.error('Failed to delete assistants:', deleteError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to delete assistants' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Deleted ${idsToDelete.length} assistants`);
+
+      return new Response(
+        JSON.stringify({ success: true, deleted_count: idsToDelete.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ error: 'Invalid action. Use: list, get, update, upload_file, create_vector_store, add_file_to_vector_store, list_files, delete_file, or sync' }),
+      JSON.stringify({ error: 'Invalid action. Use: list, get, update, delete, upload_file, create_vector_store, add_file_to_vector_store, list_files, delete_file, or sync' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
