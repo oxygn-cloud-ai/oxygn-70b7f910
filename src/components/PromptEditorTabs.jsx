@@ -180,61 +180,57 @@ const PromptEditorTabs = ({
           {tabs.map(tab => (
             <QuickAccessIcon key={tab.id} tab={tab} />
           ))}
-        </div>
-        <div className="flex items-center gap-1">
-          {/* Run icons - only for assistants */}
+          
+          {/* Cascade Run icon - aligned with tab icons */}
+          {selectedItemData?.is_assistant && hasChildPrompts && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-50"
+                    onClick={handleCascadeRun}
+                    disabled={isCascadeRunning || isPromptRunning}
+                  >
+                    {isCascadeRunning ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ListTree className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Run cascade</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
+          {/* Single prompt Run icon */}
           {selectedItemData?.is_assistant && (
-            <>
-              {/* Cascade Run icon - only show if has children */}
-              {hasChildPrompts && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={handleCascadeRun}
-                        disabled={isCascadeRunning || isPromptRunning}
-                        aria-label="Run cascade"
-                        className="h-7 w-7 p-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {isCascadeRunning ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <ListTree className="h-4 w-4" />
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      Run all child prompts in sequence
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-
-              {/* Single prompt Run icon */}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={handleSingleRun}
-                      disabled={isCascadeRunning || isPromptRunning}
-                      aria-label="Run prompt"
-                      className="h-7 w-7 p-0 inline-flex items-center justify-center rounded-md text-primary hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isPromptRunning ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {isPromptRunning ? 'Running...' : 'Run this prompt'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 transition-colors text-primary hover:bg-sidebar-accent disabled:opacity-50"
+                    onClick={handleSingleRun}
+                    disabled={isCascadeRunning || isPromptRunning}
+                  >
+                    {isPromptRunning ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">{isPromptRunning ? 'Running...' : 'Run this prompt'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </div>
