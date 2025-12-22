@@ -73,73 +73,11 @@ export const useWorkbenchConfluence = () => {
     }
   }, []);
 
-  const attachPage = useCallback(async (threadRowId, pageData) => {
-    if (!threadRowId || !pageData) return null;
-
-    try {
-      // Check if already attached
-      const existing = pages.find(p => p.page_id === pageData.page_id);
-      if (existing) {
-        toast.info('Page already attached');
-        return existing;
-      }
-
-      const { data, error } = await supabase
-        .from('q_workbench_confluence_links')
-        .insert({
-          thread_row_id: threadRowId,
-          page_id: pageData.page_id,
-          page_title: pageData.page_title || pageData.title,
-          page_url: pageData.page_url || pageData.url,
-          space_key: pageData.space_key,
-          sync_status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setPages(prev => [data, ...prev]);
-      toast.success('Page attached');
-
-      // Auto-sync content
-      syncPage(data.row_id);
-
-      return data;
-    } catch (error) {
-      console.error('Error attaching page:', error);
-      toast.error('Failed to attach page');
-      return null;
-    }
-  }, [pages]);
-
-  const detachPage = useCallback(async (rowId) => {
-    try {
-      const { error } = await supabase
-        .from('q_workbench_confluence_links')
-        .delete()
-        .eq('row_id', rowId);
-
-      if (error) throw error;
-
-      setPages(prev => prev.filter(p => p.row_id !== rowId));
-      toast.success('Page detached');
-      return true;
-    } catch (error) {
-      console.error('Error detaching page:', error);
-      toast.error('Failed to detach page');
-      return false;
-    }
-  }, []);
-
-  const syncPage = useCallback(async (rowId) => {
-    const page = pages.find(p => p.row_id === rowId);
-    if (!page) return false;
-
+  const syncPageById = useCallback(async (rowId, pageId) => {
     setIsSyncing(true);
     try {
       // Fetch page content from Confluence
-      const result = await invokeConfluence('get_page_content', { page_id: page.page_id });
+      const result = await invokeConfluence('get_page_content', { page_id: pageId });
 
       // Update local record with content
       const { error } = await supabase
@@ -174,7 +112,72 @@ export const useWorkbenchConfluence = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [pages]);
+  }, []);
+
+  const attachPage = useCallback(async (threadRowId, pageData) => {
+    if (!threadRowId || !pageData) return null;
+
+    try {
+      // Check if already attached
+      const existing = pages.find(p => p.page_id === pageData.page_id);
+      if (existing) {
+        toast.info('Page already attached');
+        return existing;
+      }
+
+      const { data, error } = await supabase
+        .from('q_workbench_confluence_links')
+        .insert({
+          thread_row_id: threadRowId,
+          page_id: pageData.page_id,
+          page_title: pageData.page_title || pageData.title,
+          page_url: pageData.page_url || pageData.url,
+          space_key: pageData.space_key,
+          sync_status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPages(prev => [data, ...prev]);
+      toast.success('Page attached');
+
+      // Auto-sync content using the new page's data directly
+      syncPageById(data.row_id, pageData.page_id);
+
+      return data;
+    } catch (error) {
+      console.error('Error attaching page:', error);
+      toast.error('Failed to attach page');
+      return null;
+    }
+  }, [pages, syncPageById]);
+
+  const detachPage = useCallback(async (rowId) => {
+    try {
+      const { error } = await supabase
+        .from('q_workbench_confluence_links')
+        .delete()
+        .eq('row_id', rowId);
+
+      if (error) throw error;
+
+      setPages(prev => prev.filter(p => p.row_id !== rowId));
+      toast.success('Page detached');
+      return true;
+    } catch (error) {
+      console.error('Error detaching page:', error);
+      toast.error('Failed to detach page');
+      return false;
+    }
+  }, []);
+
+  const syncPage = useCallback(async (rowId) => {
+    const page = pages.find(p => p.row_id === rowId);
+    if (!page) return false;
+    return syncPageById(rowId, page.page_id);
+  }, [pages, syncPageById]);
 
   const clearSearch = useCallback(() => {
     setSearchResults([]);
