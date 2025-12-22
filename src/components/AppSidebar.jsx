@@ -102,11 +102,6 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
       <SidebarContent className="px-2 py-3">
         {/* Main Navigation */}
         <SidebarGroup>
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-medium mb-2">
-              Navigation
-            </SidebarGroupLabel>
-          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {mainNavItems.map((item) => (
@@ -158,11 +153,6 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
 
         {/* System Section */}
         <SidebarGroup className="mt-4">
-          {!isCollapsed && (
-            <SidebarGroupLabel className="text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-medium mb-2">
-              System
-            </SidebarGroupLabel>
-          )}
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {/* Health with sub-menu */}
