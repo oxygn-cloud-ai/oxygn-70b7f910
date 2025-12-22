@@ -69,6 +69,32 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
+// Create OpenAI conversation
+async function createOpenAIConversation(apiKey: string, metadata?: Record<string, string>): Promise<string> {
+  console.log('Creating new OpenAI conversation...');
+  
+  const response = await fetch('https://api.openai.com/v1/conversations', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      metadata: metadata || {},
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('Failed to create OpenAI conversation:', error);
+    throw new Error(error.error?.message || 'Failed to create conversation');
+  }
+
+  const data = await response.json();
+  console.log('Created OpenAI conversation:', data.id);
+  return data.id;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -124,6 +150,51 @@ serve(async (req) => {
     }
 
     const assistantData = assistant as any;
+
+    // Determine which thread/conversation to use
+    let conversationId: string | null = null;
+    let activeThreadRowId: string | null = thread_row_id || null;
+
+    // Try to get existing thread's conversation ID
+    if (activeThreadRowId) {
+      const { data: existingThread } = await supabase
+        .from(TABLES.THREADS)
+        .select('openai_conversation_id')
+        .eq('row_id', activeThreadRowId)
+        .single();
+      
+      if (existingThread?.openai_conversation_id) {
+        conversationId = existingThread.openai_conversation_id;
+        console.log('Using existing conversation:', conversationId);
+      }
+    }
+
+    // Create new conversation if needed
+    if (!conversationId) {
+      conversationId = await createOpenAIConversation(openAIApiKey, {
+        assistant_row_id: assistant_row_id,
+        type: 'studio_chat',
+      });
+
+      // Create thread record
+      const { data: newThread } = await supabase
+        .from(TABLES.THREADS)
+        .insert({
+          assistant_row_id: assistant_row_id,
+          child_prompt_row_id: null,
+          openai_conversation_id: conversationId,
+          name: `Studio Chat ${new Date().toLocaleDateString()}`,
+          is_active: true,
+          owner_id: validation.user?.id,
+        })
+        .select()
+        .single();
+
+      if (newThread) {
+        activeThreadRowId = newThread.row_id;
+        console.log('Created new thread:', activeThreadRowId);
+      }
+    }
 
     // Build child prompt context if enabled
     let additionalInstructions = '';
@@ -183,10 +254,7 @@ serve(async (req) => {
     const modelId = resolveModelId(requestedModel);
     const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
 
-    // Build messages array
-    const messages: Array<{ role: string; content: string }> = [];
-
-    // System instructions with additional context
+    // Build system instructions with additional context
     let systemContent = assistantData.instructions || 'You are a helpful assistant.';
     if (additionalInstructions) {
       systemContent += additionalInstructions;
@@ -194,14 +262,18 @@ serve(async (req) => {
     if (confluenceContext) {
       systemContent += confluenceContext;
     }
-    
-    messages.push({ role: 'system', content: systemContent });
-    messages.push({ role: 'user', content: user_message });
 
+    // Build request body for Responses API
     const requestBody: any = {
       model: modelId,
-      messages,
+      input: user_message,
+      conversation: conversationId,
     };
+
+    // Add instructions if present
+    if (systemContent && systemContent.trim()) {
+      requestBody.instructions = systemContent.trim();
+    }
 
     // Add model parameters
     const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
@@ -215,13 +287,17 @@ serve(async (req) => {
       requestBody.top_p = topP;
     }
     if (maxTokens !== undefined && !isNaN(maxTokens)) {
-      requestBody.max_tokens = maxTokens;
+      requestBody.max_output_tokens = maxTokens;
     }
 
-    console.log('Calling Chat Completions API for Studio chat:', { model: modelId, messageCount: messages.length });
+    console.log('Calling Responses API for Studio chat:', { 
+      model: modelId, 
+      conversation: conversationId,
+      hasInstructions: !!requestBody.instructions,
+    });
 
-    // Call Chat Completions API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call Responses API
+    const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openAIApiKey}`,
@@ -232,9 +308,9 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.json();
-      console.error('Chat Completions API error:', error);
+      console.error('Responses API error:', error);
       
-      const errorMessage = error.error?.message || 'Chat Completions API call failed';
+      const errorMessage = error.error?.message || 'Responses API call failed';
       const isRateLimit = response.status === 429;
       
       return new Response(
@@ -244,34 +320,39 @@ serve(async (req) => {
     }
 
     const responseData = await response.json();
-    console.log('Chat Completions API response received');
+    console.log('Responses API response received:', responseData.id);
 
-    // Extract response content
-    const responseText = responseData.choices?.[0]?.message?.content || '';
+    // Extract response content from Responses API format
+    let responseText = '';
+    if (responseData.output && Array.isArray(responseData.output)) {
+      for (const item of responseData.output) {
+        if (item.type === 'message' && item.content && Array.isArray(item.content)) {
+          for (const part of item.content) {
+            if (part.type === 'output_text' && part.text) {
+              responseText += part.text;
+            }
+          }
+        }
+      }
+    }
 
-    // Create or update thread record
-    let threadRowId: string | null = thread_row_id || null;
-    
-    if (threadRowId) {
+    // Update thread record
+    if (activeThreadRowId) {
       await supabase
         .from(TABLES.THREADS)
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('row_id', threadRowId);
-    } else {
-      const { data: newThread } = await supabase
-        .from(TABLES.THREADS)
-        .insert({
-          assistant_row_id: assistant_row_id,
-          child_prompt_row_id: null,
-          openai_thread_id: `chat_${Date.now()}`, // Use timestamp-based ID for chat threads
-          name: `Studio Chat ${new Date().toLocaleDateString()}`,
-          is_active: true,
+        .update({ 
+          last_message_at: new Date().toISOString(),
+          last_response_id: responseData.id,
         })
-        .select()
-        .single();
-
-      threadRowId = newThread?.row_id || null;
+        .eq('row_id', activeThreadRowId);
     }
+
+    // Extract usage
+    const usage = {
+      prompt_tokens: responseData.usage?.input_tokens || 0,
+      completion_tokens: responseData.usage?.output_tokens || 0,
+      total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
+    };
 
     console.log('Studio chat completed');
 
@@ -279,9 +360,10 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         response: responseText,
-        thread_row_id: threadRowId,
+        thread_row_id: activeThreadRowId,
+        conversation_id: conversationId,
         context_included: contextIncluded,
-        usage: responseData.usage,
+        usage,
         model: modelId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
