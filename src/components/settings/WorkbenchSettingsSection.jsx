@@ -3,14 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { MessagesSquare, RefreshCw, Save, Trash2 } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { TOOLTIPS } from '@/config/labels';
+import { Save, Trash2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -164,34 +157,7 @@ export function WorkbenchSettingsSection({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <MessagesSquare className="h-6 w-6 text-primary" />
-          <div>
-            <h2 className="text-xl font-semibold">Workbench Settings</h2>
-            <p className="text-sm text-muted-foreground">Configure defaults and behavior for the Workbench</p>
-          </div>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="bg-transparent"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{TOOLTIPS.actions.refresh}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      <div className="space-y-4">
+    <div className="space-y-4">
         {/* Default System Prompt */}
         <div className="space-y-2 p-4 border rounded-lg">
           <div className="flex items-center justify-between">

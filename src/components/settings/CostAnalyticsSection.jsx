@@ -90,15 +90,7 @@ const CostAnalyticsSection = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Cost Analytics</h3>
-          <p className="text-sm text-muted-foreground">
-            Track AI usage costs across all prompts and users
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-end gap-2">
           <Select value={dateRange} onValueChange={setDateRange}>
             <SelectTrigger className="w-32">
               <SelectValue />

@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, TestTube, CheckCircle2, XCircle, Loader2, ExternalLink, FileText } from 'lucide-react';
+import { Save, TestTube, CheckCircle2, XCircle, Loader2, ExternalLink } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 
 const ConfluenceSettingsSection = ({ 
@@ -50,26 +50,7 @@ const ConfluenceSettingsSection = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <FileText className="h-6 w-6 text-primary" />
-          <div>
-            <h2 className="text-xl font-semibold">Confluence</h2>
-            <p className="text-sm text-muted-foreground">
-              Configure your Atlassian Confluence connection
-              <a 
-                href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="ml-1 inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                Get API Token <ExternalLink className="h-3 w-3" />
-              </a>
-            </p>
-          </div>
-        </div>
-        
-        <div className="space-y-4">
+      <div className="space-y-4">
           {/* Base URL */}
           <div className="space-y-2 p-4 border rounded-lg">
             <Label htmlFor="confluence_base_url">Base URL</Label>

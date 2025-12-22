@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/sonner';
-import { Bot, Trash2, RefreshCw, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Bot, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -80,34 +80,7 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Bot className="h-6 w-6" />
-            Conversations
-          </h2>
-          <p className="text-muted-foreground mt-1">
-            Manage conversation configurations
-          </p>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => { fetchConversations(); onRefresh?.(); }}
-                disabled={isLoading || isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Refresh</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
+    <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium">Conversation Configurations</CardTitle>
