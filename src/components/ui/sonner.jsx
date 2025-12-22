@@ -120,21 +120,22 @@ const useThemePreference = () => {
   return theme;
 };
 
-// Default position
-const DEFAULT_POSITION = { x: 16, y: window.innerHeight - 100 };
+// Default position - computed lazily to avoid SSR issues
+const getDefaultPosition = () => ({ x: 16, y: typeof window !== 'undefined' ? window.innerHeight - 100 : 500 });
 
 const useToastPosition = () => {
   const [position, setPosition] = useState(() => {
+    if (typeof window === 'undefined') return { x: 16, y: 500 };
     // Try to get from localStorage first for immediate display
     const cached = localStorage.getItem(TOAST_POSITION_KEY);
     if (cached) {
       try {
         return JSON.parse(cached);
       } catch {
-        return DEFAULT_POSITION;
+        return getDefaultPosition();
       }
     }
-    return DEFAULT_POSITION;
+    return getDefaultPosition();
   });
   const [userId, setUserId] = useState(null);
   const saveTimeoutRef = useRef(null);
