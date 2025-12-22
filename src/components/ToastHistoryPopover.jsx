@@ -8,7 +8,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToastHistory } from '@/contexts/ToastHistoryContext';
 import { cn } from '@/lib/utils';
-import { toast } from '@/components/ui/sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const getVariantIcon = (variant) => {
@@ -89,6 +88,13 @@ const InlineCopyIcon = ({ onClick, tooltip }) => (
 
 // Detail view for a single notification
 const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
+  const [copyFeedback, setCopyFeedback] = useState(null);
+
+  const showFeedback = (message) => {
+    setCopyFeedback(message);
+    setTimeout(() => setCopyFeedback(null), 1500);
+  };
+
   const handleCopyAll = async () => {
     const data = {
       type: notification.variant || 'info',
@@ -100,13 +106,13 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
       source: notification.source || null,
       stackTrace: notification.stackTrace || null,
     };
-    await onCopy(JSON.stringify(data, null, 2));
-    toast.success('Copied to clipboard');
+    const success = await onCopy(JSON.stringify(data, null, 2));
+    showFeedback(success ? 'Copied!' : 'Failed');
   };
 
   const handleCopyField = async (label, value) => {
-    await onCopy(value);
-    toast.success(`${label} copied`);
+    const success = await onCopy(value);
+    showFeedback(success ? `${label} copied` : 'Failed');
   };
 
   return (
@@ -115,6 +121,9 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
       <div className="flex items-center gap-2 px-3 py-2 border-b">
         <IconAction icon={ArrowLeft} onClick={onBack} tooltip="Back" />
         <h4 className="text-sm font-medium flex-1">Details</h4>
+        {copyFeedback && (
+          <span className="text-xs text-green-500 animate-pulse">{copyFeedback}</span>
+        )}
         <IconAction icon={Copy} onClick={handleCopyAll} tooltip="Copy all for support" />
         <IconAction 
           icon={Trash2} 
@@ -228,6 +237,12 @@ export function ToastHistoryPopover() {
   const { history, clearHistory, removeFromHistory, exportHistory, copyToClipboard } = useToastHistory();
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState(null);
+
+  const showFeedback = (message) => {
+    setActionFeedback(message);
+    setTimeout(() => setActionFeedback(null), 1500);
+  };
 
   const handleExportAll = async () => {
     const data = exportHistory();
@@ -240,7 +255,7 @@ export function ToastHistoryPopover() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success('Notifications exported');
+    showFeedback('Exported!');
   };
 
   const handleRemoveSelected = () => {
@@ -254,6 +269,7 @@ export function ToastHistoryPopover() {
     setIsOpen(open);
     if (!open) {
       setSelectedIndex(null);
+      setActionFeedback(null);
     }
   };
 
@@ -293,6 +309,9 @@ export function ToastHistoryPopover() {
               <h4 className="text-sm font-medium">
                 Notifications {history.length > 0 && <span className="text-muted-foreground">({history.length})</span>}
               </h4>
+              {actionFeedback && (
+                <span className="text-xs text-green-500 animate-pulse">{actionFeedback}</span>
+              )}
               {history.length > 0 && (
                 <div className="flex gap-0.5">
                   <IconAction icon={Download} onClick={handleExportAll} tooltip="Export all" />

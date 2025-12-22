@@ -1,25 +1,40 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { toast } from '@/components/ui/sonner';
 
 const ToastHistoryContext = createContext(null);
+
+// Global notify function - set after provider mounts
+let globalNotify = null;
+
+export const notify = {
+  success: (title, options = {}) => globalNotify?.('success', title, options),
+  error: (title, options = {}) => globalNotify?.('destructive', title, options),
+  info: (title, options = {}) => globalNotify?.('default', title, options),
+  warning: (title, options = {}) => globalNotify?.('warning', title, options),
+};
 
 export function ToastHistoryProvider({ children }) {
   const [history, setHistory] = useState([]);
 
-  const addToHistory = useCallback((toast) => {
-    // Capture additional context when toast is created
+  const addToHistory = useCallback((variant, title, options = {}) => {
     const entry = {
-      ...toast,
+      id: Date.now().toString(),
+      title,
+      description: options.description || null,
+      variant,
       timestamp: new Date(),
-      // Capture stack trace for errors
-      stackTrace: toast.variant === 'destructive' ? new Error().stack : null,
-      // Store any additional details passed
-      details: toast.details || null,
-      errorCode: toast.errorCode || null,
-      source: toast.source || null,
+      stackTrace: variant === 'destructive' ? new Error().stack : null,
+      details: options.details || null,
+      errorCode: options.errorCode || null,
+      source: options.source || null,
     };
     setHistory(prev => [entry, ...prev]);
   }, []);
+
+  // Set up global notify function
+  React.useEffect(() => {
+    globalNotify = addToHistory;
+    return () => { globalNotify = null; };
+  }, [addToHistory]);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
@@ -53,9 +68,9 @@ export function ToastHistoryProvider({ children }) {
     try {
       const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
       await navigator.clipboard.writeText(text);
-      toast.success('Copied to clipboard');
+      return true;
     } catch (err) {
-      toast.error('Failed to copy');
+      return false;
     }
   }, []);
 
