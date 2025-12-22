@@ -184,7 +184,6 @@ const ConfluenceSettingsSection = ({
               )}
             </div>
           </div>
-        </div>
       </div>
     </TooltipProvider>
   );
