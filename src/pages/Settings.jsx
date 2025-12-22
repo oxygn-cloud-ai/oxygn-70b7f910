@@ -15,6 +15,7 @@ import ConfluenceSettingsSection from '../components/settings/ConfluenceSettings
 import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
 import OpenAIBillingSection from '../components/settings/OpenAIBillingSection';
 import AppearanceSection from '../components/settings/AppearanceSection';
+import { WorkbenchSettingsSection } from '../components/settings/WorkbenchSettingsSection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -206,6 +207,13 @@ const Settings = () => {
         );
       case 'appearance':
         return <AppearanceSection />;
+      case 'workbench':
+        return (
+          <WorkbenchSettingsSection
+            isRefreshing={isRefreshing}
+            onRefresh={handleRefresh}
+          />
+        );
       default:
         return null;
     }
