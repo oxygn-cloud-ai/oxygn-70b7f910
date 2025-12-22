@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Bot, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { ModelSettingsPanel } from '../InlineModelSettings';
 import { ALL_SETTINGS } from '../../config/modelCapabilities';
@@ -73,90 +73,81 @@ export function AIModelsSection({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Bot className="h-6 w-6 text-primary" />
-          <div>
-            <h2 className="text-xl font-semibold">AI Models</h2>
-            <p className="text-sm text-muted-foreground">Configure available AI models for prompts</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{TOOLTIPS.actions.refresh}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <Dialog open={isAddModelDialogOpen} onOpenChange={setIsAddModelDialogOpen}>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onRefresh}
-                  disabled={isRefreshing}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </Button>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
               </TooltipTrigger>
-              <TooltipContent>{TOOLTIPS.actions.refresh}</TooltipContent>
+              <TooltipContent>{TOOLTIPS.settings.addModel}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Dialog open={isAddModelDialogOpen} onOpenChange={setIsAddModelDialogOpen}>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent>{TOOLTIPS.settings.addModel}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Model</DialogTitle>
-                <DialogDescription>Add a new AI model to the available options</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="modelId">Model ID</Label>
-                  <Input
-                    id="modelId"
-                    placeholder="e.g., gpt-4o-mini"
-                    value={newModelId}
-                    onChange={(e) => setNewModelId(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="modelName">Display Name</Label>
-                  <Input
-                    id="modelName"
-                    placeholder="e.g., GPT-4o Mini"
-                    value={newModelName}
-                    onChange={(e) => setNewModelName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="provider">Provider</Label>
-                  <Select value={newModelProvider} onValueChange={setNewModelProvider}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select provider" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openai">OpenAI</SelectItem>
-                      <SelectItem value="anthropic">Anthropic</SelectItem>
-                      <SelectItem value="google">Google</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Model</DialogTitle>
+              <DialogDescription>Add a new AI model to the available options</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="modelId">Model ID</Label>
+                <Input
+                  id="modelId"
+                  placeholder="e.g., gpt-4o-mini"
+                  value={newModelId}
+                  onChange={(e) => setNewModelId(e.target.value)}
+                />
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddModelDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddModel}>Add Model</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="modelName">Display Name</Label>
+                <Input
+                  id="modelName"
+                  placeholder="e.g., GPT-4o Mini"
+                  value={newModelName}
+                  onChange={(e) => setNewModelName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="provider">Provider</Label>
+                <Select value={newModelProvider} onValueChange={setNewModelProvider}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai">OpenAI</SelectItem>
+                    <SelectItem value="anthropic">Anthropic</SelectItem>
+                    <SelectItem value="google">Google</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddModelDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddModel}>Add Model</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div>

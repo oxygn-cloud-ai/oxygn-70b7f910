@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Database, Key, Server, Plus, Trash2, Save, RefreshCw, ShieldCheck, Edit } from 'lucide-react';
+import { Key, Server, Plus, Trash2, Save, ShieldCheck, Edit } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -171,28 +171,6 @@ export function DatabaseEnvironmentSection({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Database className="h-6 w-6 text-primary" />
-          <h2 className="text-xl font-semibold">Database & Environment</h2>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Refresh</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
       {/* Database Settings */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
