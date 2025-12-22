@@ -10,6 +10,7 @@ import PromptField from './PromptField';
 import ThreadSelector from './ThreadSelector';
 import ThreadHistory from './ThreadHistory';
 import ConfluencePagesSection from './ConfluencePagesSection';
+import FilesPagesSection from './FilesPagesSection';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ const ChildPromptPanel = ({
   const { recordCost } = useCostTracking();
   const [isRunning, setIsRunning] = useState(false);
   const [confluenceOpen, setConfluenceOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
   const [hasChildPrompts, setHasChildPrompts] = useState(false);
   const runStartTimeRef = useRef(null);
 
@@ -305,6 +307,21 @@ const ChildPromptPanel = ({
           Messages will be sent to the parent assistant's Studio thread. View the full conversation in the chat panel.
         </div>
       )}
+
+      {/* Files - Collapsible */}
+      <Collapsible open={filesOpen} onOpenChange={setFilesOpen}>
+        <CollapsibleTrigger asChild>
+          <div className="flex items-center justify-between p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors">
+            <span className="text-xs font-medium">Files</span>
+            {filesOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2">
+          <FilesPagesSection 
+            assistantRowId={parentAssistantRowId}
+          />
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Confluence Pages - Collapsible */}
       <Collapsible open={confluenceOpen} onOpenChange={setConfluenceOpen}>
