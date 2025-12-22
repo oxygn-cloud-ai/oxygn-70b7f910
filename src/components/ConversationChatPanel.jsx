@@ -66,12 +66,45 @@ const ConversationChatPanel = ({ promptRowId, promptName, selectedChildPromptId 
     if (!supabase || !promptRowId) return;
     setIsLoadingAssistant(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from(import.meta.env.VITE_ASSISTANTS_TBL)
         .select('*')
         .eq('prompt_row_id', promptRowId)
         .maybeSingle();
       if (error && error.code !== 'PGRST116') throw error;
+      
+      // If no assistant exists, create one
+      if (!data) {
+        console.log('No assistant found for prompt, creating one:', promptRowId);
+        
+        // Fetch prompt name for the assistant
+        const { data: prompt } = await supabase
+          .from(import.meta.env.VITE_PROMPTS_TBL)
+          .select('prompt_name')
+          .eq('row_id', promptRowId)
+          .single();
+        
+        const { data: newAssistant, error: createError } = await supabase
+          .from(import.meta.env.VITE_ASSISTANTS_TBL)
+          .insert({
+            prompt_row_id: promptRowId,
+            name: prompt?.prompt_name || 'New Conversation',
+            instructions: '',
+            use_global_tool_defaults: true,
+            status: 'active',
+            api_version: 'responses',
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Failed to create assistant:', createError);
+        } else {
+          console.log('Created assistant:', newAssistant.row_id);
+          data = newAssistant;
+        }
+      }
+      
       setAssistant(data ?? null);
     } catch (error) {
       console.error('Failed to fetch assistant:', error);
@@ -226,6 +259,32 @@ const ConversationChatPanel = ({ promptRowId, promptName, selectedChildPromptId 
       setThreads([]); setActiveThread(null); setMessages([]);
     }
   }, [assistant?.row_id, fetchThreads]);
+  
+  // Auto-create first thread when assistant exists but has no threads
+  useEffect(() => {
+    const autoCreateFirstThread = async () => {
+      if (!supabase || !assistant?.row_id || isLoadingThreads) return;
+      if (threads.length === 0 && !activeThread) {
+        console.log('No threads found, auto-creating first thread for assistant:', assistant.row_id);
+        try {
+          const { data, error } = await supabase.functions.invoke('thread-manager', {
+            body: { action: 'create', assistant_row_id: assistant.row_id, child_prompt_row_id: null, name: `Chat ${new Date().toLocaleDateString()}` },
+          });
+          if (error) throw error;
+          if (data.error) throw new Error(data.error);
+          const newThread = data.thread;
+          console.log('Auto-created thread with OpenAI conversation:', newThread.openai_conversation_id);
+          setThreads([newThread]);
+          setActiveThread(newThread);
+          setMessages([]);
+        } catch (error) {
+          console.error('Failed to auto-create thread:', error);
+        }
+      }
+    };
+    autoCreateFirstThread();
+  }, [supabase, assistant?.row_id, threads.length, activeThread, isLoadingThreads]);
+  
   useEffect(() => { if (activeThread?.row_id) fetchMessages(activeThread.row_id); }, [activeThread?.row_id, fetchMessages]);
 
   if (isLoadingAssistant) {
