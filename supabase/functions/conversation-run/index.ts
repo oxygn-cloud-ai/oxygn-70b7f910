@@ -80,37 +80,16 @@ function applyTemplate(template: string, variables: Record<string, string>): str
   return result;
 }
 
-// Create OpenAI conversation
-async function createOpenAIConversation(apiKey: string, metadata?: Record<string, string>): Promise<string> {
-  console.log('Creating new OpenAI conversation...');
-  
-  const response = await fetch('https://api.openai.com/v1/conversations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      metadata: metadata || {},
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Failed to create OpenAI conversation:', error);
-    throw new Error(error.error?.message || 'Failed to create conversation');
-  }
-
-  const data = await response.json();
-  console.log('Created OpenAI conversation:', data.id);
-  return data.id;
+// Generate a unique conversation ID (we use UUID since we're using Chat Completions API)
+function generateConversationId(): string {
+  return 'conv_' + crypto.randomUUID().replace(/-/g, '');
 }
 
 // ============================================================================
-// RESPONSES API HANDLER
+// CHAT COMPLETIONS API HANDLER
 // ============================================================================
 
-interface ResponsesAPIResult {
+interface ChatCompletionsResult {
   success: boolean;
   response?: string;
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
@@ -119,30 +98,34 @@ interface ResponsesAPIResult {
   response_id?: string;
 }
 
-async function runResponsesAPI(
+async function runChatCompletions(
   assistantData: any,
   userMessage: string,
   systemPrompt: string,
-  conversationId: string,
   apiKey: string,
-): Promise<ResponsesAPIResult> {
+): Promise<ChatCompletionsResult> {
   const requestedModel = assistantData.model_override || 'gpt-4o-mini';
   const modelId = resolveModelId(requestedModel);
   
   // Check if model supports temperature
   const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
 
-  // Build request body for Responses API
+  // Build messages array
+  const messages: any[] = [];
+  
+  // Add system message if present
+  if (systemPrompt && systemPrompt.trim()) {
+    messages.push({ role: 'system', content: systemPrompt.trim() });
+  }
+  
+  // Add user message
+  messages.push({ role: 'user', content: userMessage });
+
+  // Build request body for Chat Completions API
   const requestBody: any = {
     model: modelId,
-    input: userMessage,
-    conversation: conversationId,
+    messages,
   };
-
-  // Add instructions (system prompt) if present
-  if (systemPrompt && systemPrompt.trim()) {
-    requestBody.instructions = systemPrompt.trim();
-  }
 
   // Add model parameters if set
   const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
@@ -156,17 +139,17 @@ async function runResponsesAPI(
     requestBody.top_p = topP;
   }
   if (maxTokens !== undefined && !isNaN(maxTokens)) {
-    requestBody.max_output_tokens = maxTokens;
+    requestBody.max_tokens = maxTokens;
   }
 
-  console.log('Calling Responses API:', { 
+  console.log('Calling Chat Completions API:', { 
     model: modelId, 
-    conversation: conversationId,
-    hasInstructions: !!requestBody.instructions,
+    messageCount: messages.length,
+    hasSystemPrompt: !!systemPrompt,
   });
 
-  // Call Responses API
-  const response = await fetch('https://api.openai.com/v1/responses', {
+  // Call Chat Completions API
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -177,10 +160,10 @@ async function runResponsesAPI(
 
   if (!response.ok) {
     const error = await response.json();
-    console.error('Responses API error:', error);
+    console.error('Chat Completions API error:', error);
     
     // Check for rate limiting
-    const errorMessage = error.error?.message || 'Responses API call failed';
+    const errorMessage = error.error?.message || 'Chat Completions API call failed';
     const isRateLimit = response.status === 429;
     
     return { 
@@ -191,28 +174,16 @@ async function runResponsesAPI(
   }
 
   const responseData = await response.json();
-  console.log('Responses API response received:', responseData.id);
+  console.log('Chat Completions API response received:', responseData.id);
 
-  // Extract response content from Responses API format
-  // Response format: { output: [{ type: "message", content: [{ type: "output_text", text: "..." }] }] }
-  let responseText = '';
-  if (responseData.output && Array.isArray(responseData.output)) {
-    for (const item of responseData.output) {
-      if (item.type === 'message' && item.content && Array.isArray(item.content)) {
-        for (const part of item.content) {
-          if (part.type === 'output_text' && part.text) {
-            responseText += part.text;
-          }
-        }
-      }
-    }
-  }
+  // Extract response content
+  const responseText = responseData.choices?.[0]?.message?.content || '';
 
   // Extract usage
   const usage = {
-    prompt_tokens: responseData.usage?.input_tokens || 0,
-    completion_tokens: responseData.usage?.output_tokens || 0,
-    total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
+    prompt_tokens: responseData.usage?.prompt_tokens || 0,
+    completion_tokens: responseData.usage?.completion_tokens || 0,
+    total_tokens: responseData.usage?.total_tokens || 0,
   };
 
   return {
@@ -346,10 +317,7 @@ serve(async (req) => {
 
     // Create new conversation if needed
     if (!conversationId) {
-      conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
-        assistant_row_id: assistantData.row_id,
-        child_prompt_row_id: child_prompt_row_id,
-      });
+      conversationId = generateConversationId();
 
       // Create thread record
       const { data: newThread } = await supabase
@@ -488,12 +456,11 @@ serve(async (req) => {
         : adminPrompt.trim();
     }
 
-    // Call Responses API with conversation
-    const result = await runResponsesAPI(
+    // Call Chat Completions API
+    const result = await runChatCompletions(
       assistantData,
       finalMessage,
       systemPrompt,
-      conversationId,
       OPENAI_API_KEY
     );
 
