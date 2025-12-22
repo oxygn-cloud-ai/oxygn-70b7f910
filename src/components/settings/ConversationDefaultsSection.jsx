@@ -268,7 +268,6 @@ export function ConversationDefaultsSection({
             Message sent to AI when a prompt has no user or admin content
           </p>
         </div>
-      </div>
     </div>
   );
 }
