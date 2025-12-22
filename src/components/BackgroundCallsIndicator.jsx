@@ -8,27 +8,8 @@ import { TOOLTIPS } from '@/config/labels';
  * A floating indicator that shows when API calls are in progress.
  */
 const BackgroundCallsIndicator = () => {
-  const { pendingCallsCount } = useApiCallContext();
-
-  if (pendingCallsCount === 0) return null;
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-full shadow-lg cursor-default">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm font-medium">
-              {pendingCallsCount} {pendingCallsCount === 1 ? 'call' : 'calls'} in progress
-            </span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>{TOOLTIPS.system.apiCallsInProgress}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  // Disabled - no longer showing floating indicator
+  return null;
 };
 
 export default BackgroundCallsIndicator;
