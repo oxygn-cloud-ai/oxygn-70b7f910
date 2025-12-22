@@ -37,8 +37,20 @@ const PromptFieldsTab = ({
   } = useProjectData(selectedItemData, projectRowId);
 
   const handleGenerate = useCallback(async () => {
-    // Check if parent is an assistant (required for conversation-run)
-    if (!parentAssistantRowId) {
+    // For top-level assistants, they ARE the conversation - use their own assistant ID
+    // For child prompts, they need parentAssistantRowId
+    const effectiveAssistantRowId = isTopLevel && selectedItemData?.is_assistant 
+      ? null // Will be fetched by runPrompt if needed
+      : parentAssistantRowId;
+    
+    // Top-level non-assistants need conversation mode enabled first
+    if (isTopLevel && !selectedItemData?.is_assistant) {
+      toast.error('Cannot generate: Enable conversation mode on this prompt first.');
+      return;
+    }
+    
+    // Child prompts need a parent assistant
+    if (!isTopLevel && !parentAssistantRowId) {
       toast.error('Cannot generate: Enable conversation mode on the parent prompt first.');
       return;
     }
@@ -72,7 +84,7 @@ const PromptFieldsTab = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [parentAssistantRowId, projectRowId, runPrompt, handleChange]);
+  }, [isTopLevel, selectedItemData?.is_assistant, parentAssistantRowId, projectRowId, runPrompt, handleChange]);
 
   const handleCascade = useCallback((fieldName) => {
     if (onCascade) {

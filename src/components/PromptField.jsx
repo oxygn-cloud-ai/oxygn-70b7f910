@@ -107,27 +107,55 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     const newCursorPos = pos + varText.length;
     setCursorPosition(newCursorPos);
     
-    // Restore focus and set cursor position in textarea
+    // Restore focus and set cursor position
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        // For regular textarea
+        if (typeof textareaRef.current.setSelectionRange === 'function') {
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
       }
     }, 0);
   };
 
+  // Get cursor position from contenteditable or textarea
+  const getCursorPositionFromElement = (element) => {
+    // For regular textarea/input
+    if (element.selectionStart !== undefined) {
+      return element.selectionStart;
+    }
+    
+    // For contenteditable (HighlightedTextarea)
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return 0;
+    
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(element);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    
+    // Create a temporary div to get the text length
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(preCaretRange.cloneContents());
+    
+    // Handle br tags as newlines
+    const brs = tempDiv.querySelectorAll('br');
+    brs.forEach(br => br.replaceWith('\n'));
+    
+    return tempDiv.textContent?.length || 0;
+  };
+
   // Capture cursor position on any interaction
   const handleCursorChange = (e) => {
-    if (e.target.selectionStart !== undefined) {
-      setCursorPosition(e.target.selectionStart);
-    }
+    const pos = getCursorPositionFromElement(e.target);
+    setCursorPosition(pos);
   };
   
   // Capture cursor position when textarea loses focus (before clicking variable picker)
   const handleBlur = (e) => {
-    if (e.target.selectionStart !== undefined) {
-      setCursorPosition(e.target.selectionStart);
-    }
+    const pos = getCursorPositionFromElement(e.target);
+    setCursorPosition(pos);
   };
 
   const ActionButton = ({ icon, onClick, tooltip, disabled, active, needsAttention = false }) => (
