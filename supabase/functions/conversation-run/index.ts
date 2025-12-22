@@ -81,17 +81,10 @@ function applyTemplate(template: string, variables: Record<string, string>): str
 }
 
 // ============================================================================
-// OPENAI CONVERSATIONS & RESPONSES API
-// https://platform.openai.com/docs/api-reference/conversations/create
+// OPENAI RESPONSES API
 // https://platform.openai.com/docs/api-reference/responses
+// Multi-turn conversations use previous_response_id for context chaining
 // ============================================================================
-
-interface ConversationResult {
-  success: boolean;
-  conversationId?: string;
-  error?: string;
-  error_code?: string;
-}
 
 interface ResponsesResult {
   success: boolean;
@@ -102,57 +95,11 @@ interface ResponsesResult {
   response_id?: string;
 }
 
-// Create a new conversation via OpenAI Conversations API
-async function createConversation(
-  apiKey: string,
-  initialItems?: { type: string; role: string; content: string }[],
-  metadata?: Record<string, string>,
-): Promise<ConversationResult> {
-  const requestBody: any = {};
-  
-  if (initialItems && initialItems.length > 0) {
-    requestBody.items = initialItems;
-  }
-  if (metadata) {
-    requestBody.metadata = metadata;
-  }
-
-  console.log('Creating OpenAI conversation:', { hasItems: !!initialItems?.length, metadata });
-
-  const response = await fetch('https://api.openai.com/v1/conversations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Conversations API error:', error);
-    return {
-      success: false,
-      error: error.error?.message || 'Failed to create conversation',
-      error_code: response.status === 429 ? 'RATE_LIMITED' : 'CONVERSATION_CREATE_FAILED',
-    };
-  }
-
-  const data = await response.json();
-  console.log('Conversation created:', data.id);
-  
-  return {
-    success: true,
-    conversationId: data.id,
-  };
-}
-
-// Call OpenAI Responses API with conversation context
+// Call OpenAI Responses API - uses previous_response_id for multi-turn context
 async function runResponsesAPI(
   assistantData: any,
   userMessage: string,
   systemPrompt: string,
-  conversationId: string | null,
   previousResponseId: string | null,
   apiKey: string,
 ): Promise<ResponsesResult> {
@@ -163,16 +110,11 @@ async function runResponsesAPI(
   const requestBody: any = {
     model: modelId,
     input: userMessage,
-    store: true,
+    store: true, // Store for multi-turn via previous_response_id
   };
 
-  // Add conversation ID for stateful context
-  if (conversationId) {
-    requestBody.conversation = conversationId;
-  }
-
-  // Add previous_response_id for chaining if no conversation
-  if (!conversationId && previousResponseId) {
+  // Add previous_response_id for multi-turn conversation context
+  if (previousResponseId) {
     requestBody.previous_response_id = previousResponseId;
   }
 
@@ -201,9 +143,9 @@ async function runResponsesAPI(
 
   console.log('Calling Responses API:', { 
     model: modelId, 
-    hasConversation: !!conversationId,
     hasPreviousResponse: !!previousResponseId,
     hasInstructions: !!systemPrompt,
+    requestBody: JSON.stringify(requestBody),
   });
 
   // Call Responses API
@@ -217,10 +159,17 @@ async function runResponsesAPI(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    console.error('Responses API error:', error);
+    const errorText = await response.text();
+    console.error('Responses API error:', response.status, errorText);
     
-    const errorMessage = error.error?.message || 'Responses API call failed';
+    let errorMessage = 'Responses API call failed';
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error?.message || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    
     const isRateLimit = response.status === 429;
     
     return { 
@@ -365,47 +314,32 @@ serve(async (req) => {
 
     const assistantData = assistant as any;
 
-    // Determine which thread/conversation to use
-    let conversationId: string | null = null;
+    // Determine which thread to use and get previous response ID for chaining
     let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
+    let previousResponseId: string | null = null;
 
-    // Try to get existing thread's conversation ID
+    // Try to get existing thread's last response ID for multi-turn context
     if (activeThreadRowId) {
       const { data: existingThread } = await supabase
         .from(TABLES.THREADS)
-        .select('openai_conversation_id')
+        .select('last_response_id')
         .eq('row_id', activeThreadRowId)
         .single();
       
-      if (existingThread?.openai_conversation_id) {
-        conversationId = existingThread.openai_conversation_id;
-        console.log('Using existing conversation:', conversationId);
+      if (existingThread?.last_response_id) {
+        previousResponseId = existingThread.last_response_id;
+        console.log('Using previous response for context:', previousResponseId);
       }
     }
 
-    // Create new conversation if needed via OpenAI Conversations API
-    if (!conversationId) {
-      const convResult = await createConversation(OPENAI_API_KEY, undefined, {
-        prompt_id: child_prompt_row_id,
-        assistant_id: assistantData.row_id,
-      });
-      
-      if (!convResult.success || !convResult.conversationId) {
-        return new Response(
-          JSON.stringify({ error: convResult.error || 'Failed to create conversation', error_code: convResult.error_code }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      conversationId = convResult.conversationId;
-
-      // Create thread record
+    // Create a new thread record if none exists
+    if (!activeThreadRowId) {
       const { data: newThread } = await supabase
         .from(TABLES.THREADS)
         .insert({
           assistant_row_id: assistantData.row_id,
           child_prompt_row_id: child_prompt_row_id,
-          openai_conversation_id: conversationId,
+          openai_conversation_id: `resp-thread-${Date.now()}`, // Placeholder - actual chaining via previous_response_id
           name: `${childPrompt.prompt_name} - ${new Date().toLocaleDateString()}`,
           is_active: true,
           owner_id: validation.user?.id,
@@ -536,23 +470,11 @@ serve(async (req) => {
         : adminPrompt.trim();
     }
 
-    // Get previous response ID for chaining if thread exists
-    let previousResponseId: string | null = null;
-    if (activeThreadRowId) {
-      const { data: threadData } = await supabase
-        .from(TABLES.THREADS)
-        .select('last_response_id')
-        .eq('row_id', activeThreadRowId)
-        .single();
-      previousResponseId = threadData?.last_response_id || null;
-    }
-
-    // Call OpenAI Responses API
+    // Call OpenAI Responses API with previous_response_id for multi-turn context
     const result = await runResponsesAPI(
       assistantData,
       finalMessage,
       systemPrompt,
-      conversationId,
       previousResponseId,
       OPENAI_API_KEY
     );
@@ -624,7 +546,7 @@ serve(async (req) => {
         model: modelUsed,
         child_prompt_name: childPrompt.prompt_name,
         thread_row_id: activeThreadRowId,
-        conversation_id: conversationId,
+        response_id: result.response_id,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
