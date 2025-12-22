@@ -17,3 +17,9 @@ verify_jwt = true
 
 [functions.confluence-manager]
 verify_jwt = true
+
+[functions.workbench-chat]
+verify_jwt = true
+
+[functions.workbench-manager]
+verify_jwt = true
