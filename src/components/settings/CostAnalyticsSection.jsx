@@ -107,10 +107,9 @@ const CostAnalyticsSection = () => {
           </Button>
           <Button variant="ghost" size="sm" onClick={exportToCSV} disabled={!analytics?.byPrompt?.length} className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
             <Download className="h-4 w-4 mr-1" />
-            Export CSV
+          Export CSV
           </Button>
         </div>
-      </div>
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading analytics...</div>
