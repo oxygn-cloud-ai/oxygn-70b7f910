@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { Bot, Trash2, Loader2, AlertCircle, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,8 +23,9 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
   const supabase = useSupabase();
   const [conversations, setConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const fetchConversations = useCallback(async () => {
     if (!supabase) return;
@@ -39,6 +40,7 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
       if (data.error) throw new Error(data.error);
 
       setConversations(data.assistants || []);
+      setSelectedIds([]);
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
       toast.error('Failed to fetch conversations');
@@ -51,27 +53,43 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
     fetchConversations();
   }, [fetchConversations]);
 
-  const handleDelete = async (conversation) => {
-    setIsDeleting(conversation.openai_id);
+  const handleDelete = async () => {
+    if (!selectedIds.length) return;
+    
+    setIsDeleting(true);
     try {
-      // For Responses API, we just delete local records - no OpenAI call needed
-      if (conversation.local_row_id) {
-        // Delete from local database
-        await supabase
-          .from(import.meta.env.VITE_ASSISTANTS_TBL)
-          .delete()
-          .eq('row_id', conversation.local_row_id);
-      }
+      const { data, error } = await supabase.functions.invoke('conversation-manager', {
+        body: { action: 'delete', row_ids: selectedIds },
+      });
 
-      toast.success('Conversation deleted');
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast.success(`Deleted ${selectedIds.length} conversation${selectedIds.length > 1 ? 's' : ''}`);
       fetchConversations();
     } catch (error) {
-      console.error('Failed to delete conversation:', error);
-      toast.error('Failed to delete conversation');
+      console.error('Failed to delete conversations:', error);
+      toast.error('Failed to delete conversations');
     } finally {
-      setIsDeleting(null);
-      setDeleteTarget(null);
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
     }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === conversations.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(conversations.map(c => c.row_id));
+    }
+  };
+
+  const toggleSelect = (rowId) => {
+    setSelectedIds(prev => 
+      prev.includes(rowId) 
+        ? prev.filter(id => id !== rowId)
+        : [...prev, rowId]
+    );
   };
 
   const formatDate = (timestamp) => {
@@ -83,10 +101,34 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium">Conversation Configurations</CardTitle>
-          <CardDescription>
-            These are all conversation configurations. Orphaned items have no linked prompt.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-medium">Conversation Configurations</CardTitle>
+              <CardDescription>
+                These are all conversation configurations. Orphaned items have no linked prompt.
+              </CardDescription>
+            </div>
+            {selectedIds.length > 0 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      className="p-2 rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete {selectedIds.length} selected</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -111,16 +153,30 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={selectedIds.length === conversations.length && conversations.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Linked Prompt</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {conversations.map((conversation) => (
-                  <TableRow key={conversation.openai_id}>
+                  <TableRow 
+                    key={conversation.row_id}
+                    className={selectedIds.includes(conversation.row_id) ? 'bg-muted/50' : ''}
+                  >
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(conversation.row_id)}
+                        onCheckedChange={() => toggleSelect(conversation.row_id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {conversation.name || 'Unnamed'}
@@ -154,28 +210,6 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
                     <TableCell className="text-muted-foreground text-sm">
                       {formatDate(conversation.created_at)}
                     </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteTarget(conversation)}
-                              disabled={isDeleting === conversation.openai_id}
-                            >
-                              {isDeleting === conversation.openai_id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete conversation</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -185,15 +219,13 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Assistant</AlertDialogTitle>
+            <AlertDialogTitle>Delete {selectedIds.length} Conversation{selectedIds.length > 1 ? 's' : ''}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.name || 'this assistant'}" configuration. 
-              {deleteTarget?.prompt_name && (
-                <> The linked prompt "{deleteTarget.prompt_name}" will remain but you can re-enable the assistant later.</>
-              )}
+              This will permanently delete the selected conversation configuration{selectedIds.length > 1 ? 's' : ''}. 
+              Linked prompts will remain but you can re-enable the assistant later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -202,7 +234,7 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
             </AlertDialogCancel>
             <AlertDialogAction
               className="h-9 w-9 p-0 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => handleDelete(deleteTarget)}
+              onClick={handleDelete}
             >
               <Trash2 className="h-4 w-4" />
             </AlertDialogAction>
