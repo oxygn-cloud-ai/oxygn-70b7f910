@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/hooks/useSupabase';
 import { toast } from '@/components/ui/sonner';
-import { Bot, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { Bot, Trash2, Loader2, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -197,12 +197,14 @@ export const ConversationsSection = ({ isRefreshing, onRefresh }) => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="h-9 w-9 p-0">
+              <X className="h-4 w-4" />
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="h-9 w-9 p-0 bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => handleDelete(deleteTarget)}
             >
-              Delete
+              <Trash2 className="h-4 w-4" />
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
