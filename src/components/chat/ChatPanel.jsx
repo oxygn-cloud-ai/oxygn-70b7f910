@@ -85,14 +85,6 @@ const ChatPanel = ({
         </div>
 
         <div className="flex-1" />
-
-        {/* Call in progress indicator */}
-        {pendingCallsCount > 0 && (
-          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>{pendingCallsCount} call{pendingCallsCount > 1 ? 's' : ''}</span>
-          </div>
-        )}
       </div>
 
       {/* Messages area */}
