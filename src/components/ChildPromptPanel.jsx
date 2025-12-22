@@ -173,6 +173,7 @@ const ChildPromptPanel = ({
   }, [parentAssistantRowId, selectedItemData?.parent_row_id, executeCascade]);
 
   const fields = useMemo(() => [
+    { name: 'input_admin_prompt', label: 'System Prompt' },
     { name: 'input_user_prompt', label: 'User Message' },
     { name: 'user_prompt_result', label: 'Response' },
     { name: 'note', label: 'Notes' },
