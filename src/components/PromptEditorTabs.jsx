@@ -284,7 +284,7 @@ const PromptEditorTabs = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 transition-colors text-primary hover:bg-sidebar-accent disabled:opacity-50"
+                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-50"
                     onClick={handleSingleRun}
                     disabled={isCascadeRunning || isPromptRunning || assistantMissing}
                   >
