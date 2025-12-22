@@ -161,7 +161,7 @@ const ChildPromptPanel = ({
       setIsRunning(false);
       runStartTimeRef.current = null;
     }
-  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runAssistant, handleChange, supabase, refetchThreads, recordCost, selectedItemData]);
+  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runConversation, handleChange, supabase, refetchThreads, recordCost, selectedItemData]);
 
   const handleCascadeRun = useCallback(async () => {
     if (!parentAssistantRowId || !selectedItemData?.parent_row_id) {
