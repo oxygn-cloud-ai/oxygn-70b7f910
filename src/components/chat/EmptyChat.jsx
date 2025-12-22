@@ -1,95 +1,55 @@
 import React from 'react';
-import { Bot, Sparkles, MessageSquarePlus, Lightbulb } from 'lucide-react';
+import { Bot, MessageSquarePlus, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
 
 const suggestedPrompts = [
-  "What can you help me with?",
-  "Summarize the main points",
-  "Explain this in simple terms",
-  "Give me some examples",
+  "Write a blog post about AI trends",
+  "Help me draft an email to a client",
+  "Create a summary from my files",
+  "Analyze this data and give insights",
 ];
 
-const EmptyChat = ({ conversationName, onSendSuggestion, childPromptsCount = 0 }) => {
+const EmptyChat = ({ conversationName, onSendSuggestion }) => {
   return (
-    <div className="h-full flex items-center justify-center p-8">
-      <div className="text-center max-w-md">
-        {/* Animated avatar */}
-        <motion.div
-          className="relative w-20 h-20 mx-auto mb-6"
-          animate={{ 
-            y: [0, -8, 0],
-          }}
-          transition={{ 
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        >
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 blur-xl" />
-          <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center ring-4 ring-primary/10">
-            <Bot className="h-10 w-10 text-primary-foreground" />
-          </div>
-          
-          {/* Sparkle decorations */}
-          <motion.div
-            className="absolute -top-1 -right-1"
-            animate={{ 
-              scale: [1, 1.2, 1],
-              opacity: [0.5, 1, 0.5]
-            }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <Sparkles className="h-5 w-5 text-primary" />
-          </motion.div>
-        </motion.div>
+    <div className="h-full flex items-center justify-center p-4">
+      <div className="text-center max-w-sm">
+        {/* Compact icon */}
+        <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
+          <Bot className="h-5 w-5 text-primary" />
+        </div>
 
         {/* Title */}
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-sm font-semibold text-foreground mb-1">
           Chat with {conversationName}
         </h2>
         
-        <p className="text-sm text-muted-foreground mb-6">
-          Start a conversation to get help with your tasks
+        <p className="text-xs text-muted-foreground mb-4">
+          Start a conversation to get help
         </p>
-
-        {/* Capabilities */}
-        {childPromptsCount > 0 && (
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent text-sm mb-6">
-            <Sparkles className="h-4 w-4" />
-            <span>Has access to {childPromptsCount} child prompt{childPromptsCount > 1 ? 's' : ''} for context</span>
-          </div>
-        )}
 
         {/* Suggestion chips */}
         <div className="space-y-2">
-          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-3">
-            <Lightbulb className="h-3.5 w-3.5" />
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground mb-2">
+            <Lightbulb className="h-3 w-3" />
             <span>Try asking:</span>
           </div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {suggestedPrompts.map((prompt, index) => (
-              <motion.div
+          <div className="flex flex-wrap justify-center gap-1.5">
+            {suggestedPrompts.map((prompt) => (
+              <Button
                 key={prompt}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "text-[10px] h-6 px-2",
+                  "bg-background/50 hover:bg-primary/5 hover:border-primary/30",
+                  "transition-all hover:shadow-sm"
+                )}
+                onClick={() => onSendSuggestion?.(prompt)}
               >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "text-xs h-8 px-3",
-                    "bg-background/50 hover:bg-primary/5 hover:border-primary/30",
-                    "transition-all hover:shadow-sm"
-                  )}
-                  onClick={() => onSendSuggestion?.(prompt)}
-                >
-                  <MessageSquarePlus className="h-3 w-3 mr-1.5 text-primary" />
-                  {prompt}
-                </Button>
-              </motion.div>
+                <MessageSquarePlus className="h-2.5 w-2.5 mr-1 text-primary" />
+                {prompt}
+              </Button>
             ))}
           </div>
         </div>

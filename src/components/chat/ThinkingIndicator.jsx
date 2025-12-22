@@ -42,30 +42,29 @@ const ThinkingIndicator = ({ onCancel, conversationName }) => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="flex gap-3 px-4 py-4 bg-background"
+      className="flex gap-2 px-3 py-2 bg-background"
     >
-      {/* Animated avatar */}
-      <div className="shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center ring-2 ring-accent/20">
+      {/* Compact avatar */}
+      <div className="shrink-0 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
         <motion.div
           animate={{ 
             scale: [1, 1.1, 1],
-            rotate: [0, 5, -5, 0]
           }}
           transition={{ 
-            duration: 2,
+            duration: 1.5,
             repeat: Infinity,
             ease: "easeInOut"
           }}
         >
-          <Bot className="h-4 w-4 text-accent-foreground" />
+          <Bot className="h-3 w-3 text-primary" />
         </motion.div>
       </div>
 
       <div className="flex-1 min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-semibold text-foreground">{conversationName || 'AI'}</span>
-          <span className="text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="text-[10px] font-semibold text-foreground">{conversationName || 'AI'}</span>
+          <span className="text-[9px] text-muted-foreground">
             {formatTime(elapsed)}
           </span>
         </div>
@@ -76,25 +75,25 @@ const ThinkingIndicator = ({ onCancel, conversationName }) => {
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 10 }}
-          className="flex items-center gap-2 text-sm text-muted-foreground mb-3"
+          className="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-2"
         >
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1">
             <motion.span
               animate={{ opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 1.5, repeat: Infinity }}
-              className="w-1.5 h-1.5 rounded-full bg-primary"
+              className="w-1 h-1 rounded-full bg-primary"
             />
             {phases[phaseIndex]}
           </span>
         </motion.div>
 
         {/* Skeleton shimmer lines */}
-        <div className="space-y-2">
-          {[100, 85, 70].map((width, i) => (
+        <div className="space-y-1">
+          {[100, 80].map((width, i) => (
             <motion.div
               key={i}
               className={cn(
-                "h-3 rounded-full overflow-hidden",
+                "h-2 rounded-full overflow-hidden",
                 "bg-gradient-to-r from-muted via-muted/50 to-muted"
               )}
               style={{ width: `${width}%` }}
