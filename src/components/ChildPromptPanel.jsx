@@ -288,32 +288,24 @@ const ChildPromptPanel = ({
         ))}
       </div>
 
-      {/* Run Buttons */}
-      <div className="flex justify-center gap-3 pt-4">
-        {/* Cascade Run Button - only show if parent has children */}
+      {/* Run Icons */}
+      <div className="flex justify-center items-center gap-4 pt-4">
+        {/* Cascade Run Icon - only show if parent has children */}
         {hasChildPrompts && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
+                <button
                   onClick={handleCascadeRun}
                   disabled={isRunning || isCascadeRunning}
-                  className="gap-2"
-                  size="lg"
+                  className="p-2 rounded-full hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isCascadeRunning ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Cascade...
-                    </>
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   ) : (
-                    <>
-                      <ListTree className="h-4 w-4" />
-                      Cascade
-                    </>
+                    <ListTree className="h-5 w-5 text-muted-foreground hover:text-foreground" />
                   )}
-                </Button>
+                </button>
               </TooltipTrigger>
               <TooltipContent>
                 <p>Run all child prompts in sequence</p>
@@ -322,25 +314,27 @@ const ChildPromptPanel = ({
           </TooltipProvider>
         )}
 
-        {/* Regular Run Button */}
-        <Button
-          onClick={handleRun}
-          disabled={isRunning || isCascadeRunning || !localData.input_user_prompt}
-          className="gap-2 px-8"
-          size="lg"
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="h-4 w-4" />
-              Run
-            </>
-          )}
-        </Button>
+        {/* Regular Run Icon */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleRun}
+                disabled={isRunning || isCascadeRunning || !localData.input_user_prompt}
+                className="p-2 rounded-full hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRunning ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                ) : (
+                  <Play className="h-6 w-6 text-primary hover:text-primary/80" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isRunning ? 'Running...' : 'Run this prompt'}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
