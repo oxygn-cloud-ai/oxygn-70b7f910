@@ -38,6 +38,7 @@ const settingsSubItems = [
   { id: 'naming', title: 'Prompt Naming', icon: FileText },
   { id: 'models', title: 'AI Models', icon: Bot },
   { id: 'assistants', title: 'Conversation Defaults', icon: Bot },
+  { id: 'workbench', title: 'Workbench', icon: MessagesSquare },
   { id: 'conversations', title: 'Conversations', icon: Cpu },
   { id: 'confluence', title: 'Confluence', icon: FileStack },
   { id: 'cost-analytics', title: 'Cost Analytics', icon: Database },
