@@ -184,7 +184,7 @@ const PromptFieldsTab = ({
               cascadeField={cascadeField}
               hasUnsavedChanges={hasUnsavedChanges(field.name)}
               promptId={projectRowId}
-              placeholder={settings?.[field.name === 'input_admin_prompt' ? 'def_admin_prompt' : null]}
+              placeholder={field.name === 'input_admin_prompt' ? 'Enter system/context instructions...' : undefined}
             />
           ))}
       </div>
