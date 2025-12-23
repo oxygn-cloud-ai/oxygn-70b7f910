@@ -403,6 +403,7 @@ Deno.serve(async (req) => {
             children: [],
             loaded: true,
             position: getPosition(blog),
+            isBlogpost: true, // Mark as attachable blog post
           }));
 
           // Keep Confluence ordering (position) if present; otherwise fallback to title
@@ -418,6 +419,7 @@ Deno.serve(async (req) => {
             title: 'Blog',
             type: 'container',
             isContainer: true,
+            isBlogContainer: true,
             hasChildren: true,
             children: blogNodes,
             loaded: true,
@@ -559,7 +561,7 @@ Deno.serve(async (req) => {
       }
 
       case 'attach-page': {
-        const { pageId, assistantRowId, promptRowId } = params;
+        const { pageId, assistantRowId, promptRowId, contentType } = params;
         const config = await getConfluenceConfig();
         
         // Fetch page content with ancestors for hierarchy
@@ -572,6 +574,9 @@ Deno.serve(async (req) => {
         const parentPageId = data.ancestors?.length > 0 
           ? data.ancestors[data.ancestors.length - 1]?.id 
           : null;
+        
+        // Determine content type from data or passed param
+        const resolvedContentType = contentType || data.type || 'page';
         
         // Insert into database
         const { data: inserted, error } = await supabase
@@ -587,6 +592,7 @@ Deno.serve(async (req) => {
             content_html: contentHtml,
             content_text: contentText,
             parent_page_id: parentPageId,
+            content_type: resolvedContentType,
             last_synced_at: new Date().toISOString(),
             sync_status: 'synced'
           })

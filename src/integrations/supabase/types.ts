@@ -358,6 +358,7 @@ export type Database = {
           assistant_row_id: string | null
           content_html: string | null
           content_text: string | null
+          content_type: string | null
           created_at: string | null
           last_synced_at: string | null
           openai_file_id: string | null
@@ -376,6 +377,7 @@ export type Database = {
           assistant_row_id?: string | null
           content_html?: string | null
           content_text?: string | null
+          content_type?: string | null
           created_at?: string | null
           last_synced_at?: string | null
           openai_file_id?: string | null
@@ -394,6 +396,7 @@ export type Database = {
           assistant_row_id?: string | null
           content_html?: string | null
           content_text?: string | null
+          content_type?: string | null
           created_at?: string | null
           last_synced_at?: string | null
           openai_file_id?: string | null
