@@ -230,7 +230,7 @@ export const TreeItemActions = ({
             size="sm"
             className={`h-6 w-6 p-0 transition-colors ${
               variant === 'destructive' 
-                ? '!text-destructive hover:!text-destructive hover:!bg-destructive/10' 
+                ? '!text-muted-foreground hover:!text-destructive active:!text-destructive hover:!bg-destructive/10' 
                 : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
             } ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
             onClick={async (e) => {
@@ -283,7 +283,7 @@ export const TreeItemActions = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 hover:bg-primary/10 text-primary hover:text-primary"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10 active:text-primary"
                   onClick={handleRunClick}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
