@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, Upload, HelpCircle, BookOpen } from 'lucide-react';
 import { SlackIcon } from '@/components/icons/SlackIcon';
@@ -110,9 +110,16 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
   const isOnHealth = location.pathname === '/health';
 
   // Export functionality
-  const { treeData } = useTreeData(supabase);
+  const { treeData, refreshTreeData } = useTreeData(supabase);
   const exportState = useExport();
   const confluenceExport = useConfluenceExport();
+
+  // Refresh tree data when export drawer opens
+  useEffect(() => {
+    if (exportState.isOpen) {
+      refreshTreeData();
+    }
+  }, [exportState.isOpen, refreshTreeData]);
 
   const getInitials = () => {
     if (userProfile?.display_name) {
