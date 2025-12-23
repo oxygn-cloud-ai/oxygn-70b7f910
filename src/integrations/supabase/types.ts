@@ -1242,6 +1242,16 @@ export type Database = {
           owner_id: string | null
           prompt_row_id: string | null
         }
+        Insert: {
+          owner_email?: never
+          owner_id?: string | null
+          prompt_row_id?: string | null
+        }
+        Update: {
+          owner_email?: never
+          owner_id?: string | null
+          prompt_row_id?: string | null
+        }
         Relationships: []
       }
     }
