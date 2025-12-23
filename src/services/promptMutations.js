@@ -115,7 +115,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   if (parentId) {
     const { data: parentPrompt } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('is_assistant, thread_mode, child_thread_strategy, model, model_on')
+      .select('is_assistant, thread_mode, child_thread_strategy, default_child_thread_strategy, model, model_on, web_search_on, confluence_enabled')
       .eq('row_id', parentId)
       .maybeSingle();
     
@@ -123,10 +123,50 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       inheritedProps = {
         is_assistant: parentPrompt.is_assistant || false,
         thread_mode: parentPrompt.thread_mode,
-        child_thread_strategy: parentPrompt.child_thread_strategy,
+        // Use parent's default_child_thread_strategy for the child's child_thread_strategy
+        child_thread_strategy: parentPrompt.default_child_thread_strategy || parentPrompt.child_thread_strategy,
+        default_child_thread_strategy: parentPrompt.default_child_thread_strategy,
         model: parentPrompt.model,
         model_on: parentPrompt.model_on,
+        web_search_on: parentPrompt.web_search_on,
+        confluence_enabled: parentPrompt.confluence_enabled,
       };
+    }
+  }
+  
+  // Fetch global model defaults (same as template-based creation)
+  let modelDefaults = {};
+  const { data: defaultModelSetting } = await supabase
+    .from(import.meta.env.VITE_SETTINGS_TBL)
+    .select('setting_value')
+    .eq('setting_key', 'default_model')
+    .maybeSingle();
+
+  const defaultModelId = defaultModelSetting?.setting_value;
+
+  if (defaultModelId) {
+    const { data: defaultsData } = await supabase
+      .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
+      .select('*')
+      .eq('model_id', defaultModelId)
+      .maybeSingle();
+
+    if (defaultsData) {
+      const defaultSettingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+        'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
+      
+      defaultSettingFields.forEach(field => {
+        if (defaultsData[`${field}_on`]) {
+          modelDefaults[field] = defaultsData[field];
+          modelDefaults[`${field}_on`] = true;
+        }
+      });
+      
+      // Only set default model if not inheriting from parent
+      if (!inheritedProps.model) {
+        modelDefaults.model = defaultModelId;
+        modelDefaults.model_on = true;
+      }
     }
   }
   
@@ -166,19 +206,29 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     parentName: topLevelName,
   });
   
-  // Prepare insert data - inherit properties from parent for child prompts
+  // Prepare insert data - apply model defaults first, then inherit/override from parent
   const insertData = {
     parent_row_id: parentId,
     prompt_name: promptName,
     input_admin_prompt: defaultAdminPrompt || null,
-    is_assistant: parentId === null ? true : (inheritedProps.is_assistant || false),
-    thread_mode: inheritedProps.thread_mode || null,
-    child_thread_strategy: inheritedProps.child_thread_strategy || null,
-    model: inheritedProps.model || null,
-    model_on: inheritedProps.model_on || false,
     position: maxPosition + 1000000,
     is_deleted: false,
     owner_id: userId,
+    // Apply global model defaults first
+    ...modelDefaults,
+    // Then apply inherited properties from parent (overrides defaults where set)
+    is_assistant: parentId === null ? true : (inheritedProps.is_assistant || false),
+    thread_mode: inheritedProps.thread_mode || null,
+    child_thread_strategy: inheritedProps.child_thread_strategy || null,
+    default_child_thread_strategy: inheritedProps.default_child_thread_strategy || null,
+    web_search_on: inheritedProps.web_search_on || false,
+    confluence_enabled: inheritedProps.confluence_enabled || false,
+  };
+  
+  // Override model from parent if set
+  if (inheritedProps.model) {
+    insertData.model = inheritedProps.model;
+    insertData.model_on = inheritedProps.model_on;
   };
   
   // Insert the new prompt
