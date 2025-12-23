@@ -278,43 +278,47 @@ serve(async (req) => {
       );
     }
 
-    // Get parent assistant
-    const parentRowId = childPrompt.parent_row_id;
-    if (!parentRowId) {
-      return new Response(
-        JSON.stringify({ error: 'No parent prompt found' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Walk up the parent chain to find the top-level prompt that has an assistant config
+    let currentPromptId = childPrompt.parent_row_id;
+    let assistantData: any = null;
+    let topLevelPromptId: string | null = null;
+    const maxDepth = 10; // Prevent infinite loops
+    let depth = 0;
+
+    while (currentPromptId && depth < maxDepth) {
+      depth++;
+      
+      // Check if this prompt has an assistant config
+      const { data: assistant } = await supabase
+        .from(TABLES.ASSISTANTS)
+        .select('*')
+        .eq('prompt_row_id', currentPromptId)
+        .single();
+      
+      if (assistant) {
+        assistantData = assistant;
+        topLevelPromptId = currentPromptId;
+        console.log('Found assistant at depth', depth, ':', currentPromptId);
+        break;
+      }
+      
+      // Move up to parent
+      const { data: parentPrompt } = await supabase
+        .from(TABLES.PROMPTS)
+        .select('parent_row_id')
+        .eq('row_id', currentPromptId)
+        .single();
+      
+      currentPromptId = parentPrompt?.parent_row_id || null;
     }
 
-    const { data: parentPrompt } = await supabase
-      .from(TABLES.PROMPTS)
-      .select('is_assistant')
-      .eq('row_id', parentRowId)
-      .single();
-
-    if (!parentPrompt?.is_assistant) {
+    if (!assistantData) {
+      console.error('No assistant found in parent chain for prompt:', child_prompt_row_id);
       return new Response(
-        JSON.stringify({ error: 'Parent is not an assistant' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fetch assistant config
-    const { data: assistant, error: assistantError } = await supabase
-      .from(TABLES.ASSISTANTS)
-      .select('*')
-      .eq('prompt_row_id', parentRowId)
-      .single();
-
-    if (assistantError || !assistant) {
-      return new Response(
-        JSON.stringify({ error: 'Assistant not found' }),
+        JSON.stringify({ error: 'No assistant configuration found in parent hierarchy' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const assistantData = assistant as any;
 
     // Determine which thread to use and get previous response ID for chaining
     let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
