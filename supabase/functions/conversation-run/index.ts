@@ -278,44 +278,58 @@ serve(async (req) => {
       );
     }
 
-    // Walk up the parent chain to find the top-level prompt that has an assistant config
-    let currentPromptId = childPrompt.parent_row_id;
+    // First check if the current prompt itself has an assistant config (for top-level prompts)
     let assistantData: any = null;
     let topLevelPromptId: string | null = null;
-    const maxDepth = 10; // Prevent infinite loops
-    let depth = 0;
+    
+    const { data: selfAssistant } = await supabase
+      .from(TABLES.ASSISTANTS)
+      .select('*')
+      .eq('prompt_row_id', child_prompt_row_id)
+      .single();
+    
+    if (selfAssistant) {
+      assistantData = selfAssistant;
+      topLevelPromptId = child_prompt_row_id;
+      console.log('Found assistant on current prompt:', child_prompt_row_id);
+    } else {
+      // Walk up the parent chain to find a prompt that has an assistant config
+      let currentPromptId = childPrompt.parent_row_id;
+      const maxDepth = 10; // Prevent infinite loops
+      let depth = 0;
 
-    while (currentPromptId && depth < maxDepth) {
-      depth++;
-      
-      // Check if this prompt has an assistant config
-      const { data: assistant } = await supabase
-        .from(TABLES.ASSISTANTS)
-        .select('*')
-        .eq('prompt_row_id', currentPromptId)
-        .single();
-      
-      if (assistant) {
-        assistantData = assistant;
-        topLevelPromptId = currentPromptId;
-        console.log('Found assistant at depth', depth, ':', currentPromptId);
-        break;
+      while (currentPromptId && depth < maxDepth) {
+        depth++;
+        
+        // Check if this prompt has an assistant config
+        const { data: assistant } = await supabase
+          .from(TABLES.ASSISTANTS)
+          .select('*')
+          .eq('prompt_row_id', currentPromptId)
+          .single();
+        
+        if (assistant) {
+          assistantData = assistant;
+          topLevelPromptId = currentPromptId;
+          console.log('Found assistant at depth', depth, ':', currentPromptId);
+          break;
+        }
+        
+        // Move up to parent
+        const { data: parentPrompt } = await supabase
+          .from(TABLES.PROMPTS)
+          .select('parent_row_id')
+          .eq('row_id', currentPromptId)
+          .single();
+        
+        currentPromptId = parentPrompt?.parent_row_id || null;
       }
-      
-      // Move up to parent
-      const { data: parentPrompt } = await supabase
-        .from(TABLES.PROMPTS)
-        .select('parent_row_id')
-        .eq('row_id', currentPromptId)
-        .single();
-      
-      currentPromptId = parentPrompt?.parent_row_id || null;
     }
 
     if (!assistantData) {
-      console.error('No assistant found in parent chain for prompt:', child_prompt_row_id);
+      console.error('No assistant found for prompt:', child_prompt_row_id);
       return new Response(
-        JSON.stringify({ error: 'No assistant configuration found in parent hierarchy' }),
+        JSON.stringify({ error: 'No assistant configuration found for this prompt or its parent hierarchy' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
