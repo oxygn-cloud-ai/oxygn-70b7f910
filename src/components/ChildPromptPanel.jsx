@@ -44,7 +44,7 @@ const ChildPromptPanel = ({
   const runStartTimeRef = useRef(null);
 
   const { executeCascade, hasChildren } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning } = useCascadeRun();
+  const { isRunning: isCascadeRunning, startSingleRun, endSingleRun } = useCascadeRun();
 
   const {
     localData,
@@ -118,6 +118,7 @@ const ChildPromptPanel = ({
     }
 
     setIsRunning(true);
+    startSingleRun(projectRowId);
     runStartTimeRef.current = Date.now();
     
     try {
@@ -225,9 +226,10 @@ const ChildPromptPanel = ({
       toast.error(`Error: ${error.message}`);
     } finally {
       setIsRunning(false);
+      endSingleRun();
       runStartTimeRef.current = null;
     }
-  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runConversation, handleChange, supabase, refetchThreads, recordCost, selectedItemData]);
+  }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runConversation, handleChange, supabase, refetchThreads, recordCost, selectedItemData, startSingleRun, endSingleRun]);
 
   const handleCascadeRun = useCallback(async () => {
     console.log('[ChildPromptPanel] handleCascadeRun called', {

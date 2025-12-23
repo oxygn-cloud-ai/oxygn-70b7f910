@@ -17,6 +17,7 @@ export const CascadeRunProvider = ({ children }) => {
   const [currentLevel, setCurrentLevel] = useState(0);
   const [totalLevels, setTotalLevels] = useState(0);
   const [currentPromptName, setCurrentPromptName] = useState('');
+  const [currentPromptRowId, setCurrentPromptRowId] = useState(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [totalPrompts, setTotalPrompts] = useState(0);
   const [completedPrompts, setCompletedPrompts] = useState([]);
@@ -24,6 +25,9 @@ export const CascadeRunProvider = ({ children }) => {
   const [startTime, setStartTime] = useState(null);
   const [error, setError] = useState(null);
   const [errorPrompt, setErrorPrompt] = useState(null);
+  
+  // Single run state (for non-cascade runs)
+  const [singleRunPromptId, setSingleRunPromptId] = useState(null);
   
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
@@ -35,6 +39,7 @@ export const CascadeRunProvider = ({ children }) => {
     setCurrentLevel(0);
     setTotalLevels(levels);
     setCurrentPromptName('');
+    setCurrentPromptRowId(null);
     setCurrentPromptIndex(0);
     setTotalPrompts(promptCount);
     setCompletedPrompts([]);
@@ -50,10 +55,11 @@ export const CascadeRunProvider = ({ children }) => {
     setSkippedPrompts(prev => [...prev, { promptRowId, promptName }]);
   }, []);
 
-  const updateProgress = useCallback((level, promptName, promptIndex) => {
+  const updateProgress = useCallback((level, promptName, promptIndex, promptRowId = null) => {
     setCurrentLevel(level);
     setCurrentPromptName(promptName);
     setCurrentPromptIndex(promptIndex);
+    if (promptRowId) setCurrentPromptRowId(promptRowId);
   }, []);
 
   const markPromptComplete = useCallback((promptRowId, promptName, response) => {
@@ -64,6 +70,7 @@ export const CascadeRunProvider = ({ children }) => {
     setIsRunning(false);
     setIsPaused(false);
     setCurrentPromptName('');
+    setCurrentPromptRowId(null);
     cancelRef.current = false;
     pauseRef.current = false;
   }, []);
@@ -116,6 +123,15 @@ export const CascadeRunProvider = ({ children }) => {
     }
   }, []);
 
+  // Single run functions (for non-cascade runs)
+  const startSingleRun = useCallback((promptRowId) => {
+    setSingleRunPromptId(promptRowId);
+  }, []);
+
+  const endSingleRun = useCallback(() => {
+    setSingleRunPromptId(null);
+  }, []);
+
   const value = {
     // State
     isRunning,
@@ -123,6 +139,7 @@ export const CascadeRunProvider = ({ children }) => {
     currentLevel,
     totalLevels,
     currentPromptName,
+    currentPromptRowId,
     currentPromptIndex,
     totalPrompts,
     completedPrompts,
@@ -130,6 +147,7 @@ export const CascadeRunProvider = ({ children }) => {
     startTime,
     error,
     errorPrompt,
+    singleRunPromptId,
     
     // Actions
     startCascade,
@@ -144,6 +162,8 @@ export const CascadeRunProvider = ({ children }) => {
     checkPaused,
     showError,
     resolveError,
+    startSingleRun,
+    endSingleRun,
   };
 
   return (
