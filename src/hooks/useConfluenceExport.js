@@ -144,11 +144,22 @@ export const useConfluenceExport = () => {
 
   // Create the page
   const exportToConfluence = useCallback(async (exportData, title) => {
+    console.log('[useConfluenceExport] exportToConfluence called:', {
+      exportDataLength: exportData?.length,
+      title,
+      selectedSpaceKey,
+      selectedParentId,
+      useBlankPage
+    });
+    
     if (!selectedSpaceKey || !title) {
-      throw new Error('Space and title are required');
+      const error = new Error('Space and title are required');
+      console.error('[useConfluenceExport] Validation error:', error.message);
+      throw error;
     }
 
     const body = buildPageBody(exportData);
+    console.log('[useConfluenceExport] Built page body, length:', body?.length);
     
     const result = await createPage({
       spaceKey: selectedSpaceKey,
@@ -158,7 +169,7 @@ export const useConfluenceExport = () => {
     });
 
     return result;
-  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage]);
+  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage]);
 
   // Reset state
   const reset = useCallback(() => {
