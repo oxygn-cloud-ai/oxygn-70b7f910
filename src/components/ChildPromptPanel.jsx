@@ -168,12 +168,25 @@ const ChildPromptPanel = ({
   }, [parentAssistantRowId, projectRowId, localData, threadMode, childThreadStrategy, activeThread, runConversation, handleChange, supabase, refetchThreads, recordCost, selectedItemData]);
 
   const handleCascadeRun = useCallback(async () => {
+    console.log('[ChildPromptPanel] handleCascadeRun called', {
+      parentAssistantRowId,
+      row_id: selectedItemData?.row_id,
+      prompt_name: selectedItemData?.prompt_name,
+      hasChildPrompts,
+    });
+    
     if (!parentAssistantRowId || !selectedItemData?.row_id) {
+      console.error('[ChildPromptPanel] Parent assistant not found', { parentAssistantRowId, row_id: selectedItemData?.row_id });
       toast.error('Parent assistant not found');
       return;
     }
-    await executeCascade(selectedItemData.row_id, parentAssistantRowId);
-  }, [parentAssistantRowId, selectedItemData?.row_id, executeCascade]);
+    
+    try {
+      await executeCascade(selectedItemData.row_id, parentAssistantRowId);
+    } catch (err) {
+      console.error('[ChildPromptPanel] Cascade execution error:', err);
+    }
+  }, [parentAssistantRowId, selectedItemData?.row_id, selectedItemData?.prompt_name, executeCascade, hasChildPrompts]);
 
   const fields = useMemo(() => [
     { name: 'input_admin_prompt', label: 'System Prompt' },

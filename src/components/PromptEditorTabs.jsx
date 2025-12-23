@@ -116,7 +116,16 @@ const PromptEditorTabs = ({
 
   // Handle cascade run from top-level
   const handleCascadeRun = useCallback(async () => {
+    console.log('[PromptEditorTabs] handleCascadeRun called', {
+      row_id: selectedItemData?.row_id,
+      assistantRowId,
+      parentAssistantRowId,
+      is_assistant: selectedItemData?.is_assistant,
+      hasChildPrompts,
+    });
+    
     if (!selectedItemData?.row_id) {
+      console.error('[PromptEditorTabs] No prompt selected');
       toast.error('No prompt selected');
       return;
     }
@@ -125,12 +134,22 @@ const PromptEditorTabs = ({
     const targetAssistantRowId = assistantRowId || parentAssistantRowId;
     
     if (!targetAssistantRowId) {
+      console.error('[PromptEditorTabs] No assistant found', { assistantRowId, parentAssistantRowId });
       toast.error('Conversation not found. Click the message icon to re-enable.');
       return;
     }
     
-    await executeCascade(selectedItemData.row_id, targetAssistantRowId);
-  }, [selectedItemData?.row_id, assistantRowId, parentAssistantRowId, executeCascade]);
+    console.log('[PromptEditorTabs] Executing cascade', { 
+      promptRowId: selectedItemData.row_id, 
+      targetAssistantRowId 
+    });
+    
+    try {
+      await executeCascade(selectedItemData.row_id, targetAssistantRowId);
+    } catch (err) {
+      console.error('[PromptEditorTabs] Cascade execution error:', err);
+    }
+  }, [selectedItemData?.row_id, selectedItemData?.is_assistant, assistantRowId, parentAssistantRowId, executeCascade, hasChildPrompts]);
 
   // Handle single prompt run
   const handleSingleRun = useCallback(async () => {
