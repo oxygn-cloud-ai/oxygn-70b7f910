@@ -34,10 +34,15 @@ export const useExport = () => {
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [isLoadingVariables, setIsLoadingVariables] = useState(false);
 
-  // Open the export drawer
-  const openExport = useCallback(() => {
+  // Open the export drawer, optionally with pre-selected prompts
+  const openExport = useCallback((preSelectedPromptIds = []) => {
     setIsOpen(true);
-    setCurrentStep(EXPORT_STEPS.SELECT_PROMPTS);
+    if (preSelectedPromptIds.length > 0) {
+      setSelectedPromptIds(preSelectedPromptIds);
+      setCurrentStep(EXPORT_STEPS.SELECT_FIELDS); // Skip to fields step
+    } else {
+      setCurrentStep(EXPORT_STEPS.SELECT_PROMPTS);
+    }
   }, []);
 
   // Close and reset

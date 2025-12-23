@@ -21,7 +21,8 @@ const TreeItem = ({
   siblings,
   onRefreshTreeData,
   searchQuery,
-  deletingItems
+  deletingItems,
+  onExportPrompt
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isTreeHovered, setIsTreeHovered] = useState(false);
@@ -97,6 +98,7 @@ const TreeItem = ({
         onRefreshTreeData={onRefreshTreeData}
         searchQuery={searchQuery}
         isDeleting={deletingItems?.has(item.id)}
+        onExportPrompt={onExportPrompt}
       />
       {isExpanded && hasChildren && (
         <div className="relative ml-2">
@@ -146,6 +148,7 @@ const TreeItem = ({
                 onRefreshTreeData={onRefreshTreeData}
                 searchQuery={searchQuery}
                 deletingItems={deletingItems}
+                onExportPrompt={onExportPrompt}
               />
             </div>
           ))}
