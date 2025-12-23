@@ -58,56 +58,59 @@ function getWorkbenchTools(config: {
   if (config.hasPrompts) {
     tools.push({
       type: "function",
-      name: "list_prompts",
-      description: "List all prompts in the project tree with their names and IDs. Use this to discover available prompts before executing them.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false
-      },
-      strict: true
+      function: {
+        name: "list_prompts",
+        description: "List all prompts in the project tree with their names and IDs. Use this to discover available prompts before executing them.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        }
+      }
     });
 
     tools.push({
       type: "function",
-      name: "get_prompt_details",
-      description: "Get detailed information about a specific prompt including its system prompt, user prompt template, and variables.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt_row_id: {
-            type: "string",
-            description: "The row_id of the prompt to retrieve"
-          }
-        },
-        required: ["prompt_row_id"],
-        additionalProperties: false
-      },
-      strict: true
-    });
-
-    tools.push({
-      type: "function",
-      name: "execute_prompt",
-      description: "Execute a prompt with optional variable substitutions and return the AI response.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt_row_id: {
-            type: "string",
-            description: "The row_id of the prompt to execute"
+      function: {
+        name: "get_prompt_details",
+        description: "Get detailed information about a specific prompt including its system prompt, user prompt template, and variables.",
+        parameters: {
+          type: "object",
+          properties: {
+            prompt_row_id: {
+              type: "string",
+              description: "The row_id of the prompt to retrieve"
+            }
           },
-          variables: {
-            type: "object",
-            description: "Key-value pairs to substitute in the prompt template",
-            additionalProperties: { type: "string" }
-          }
-        },
-        required: ["prompt_row_id"],
-        additionalProperties: false
-      },
-      strict: false // Variables are dynamic
+          required: ["prompt_row_id"],
+          additionalProperties: false
+        }
+      }
+    });
+
+    tools.push({
+      type: "function",
+      function: {
+        name: "execute_prompt",
+        description: "Execute a prompt with optional variable substitutions and return the AI response.",
+        parameters: {
+          type: "object",
+          properties: {
+            prompt_row_id: {
+              type: "string",
+              description: "The row_id of the prompt to execute"
+            },
+            variables: {
+              type: "object",
+              description: "Key-value pairs to substitute in the prompt template",
+              additionalProperties: { type: "string" }
+            }
+          },
+          required: ["prompt_row_id"],
+          additionalProperties: false
+        }
+      }
     });
   }
 
@@ -115,38 +118,40 @@ function getWorkbenchTools(config: {
   if (config.hasLibrary) {
     tools.push({
       type: "function",
-      name: "list_library",
-      description: "List all items in the user's prompt library including shared items.",
-      parameters: {
-        type: "object",
-        properties: {
-          category: {
-            type: "string",
-            description: "Optional category to filter by"
-          }
-        },
-        required: [],
-        additionalProperties: false
-      },
-      strict: false
+      function: {
+        name: "list_library",
+        description: "List all items in the user's prompt library including shared items.",
+        parameters: {
+          type: "object",
+          properties: {
+            category: {
+              type: "string",
+              description: "Optional category to filter by"
+            }
+          },
+          required: [],
+          additionalProperties: false
+        }
+      }
     });
 
     tools.push({
       type: "function",
-      name: "get_library_item",
-      description: "Get the full content of a library item by its ID.",
-      parameters: {
-        type: "object",
-        properties: {
-          row_id: {
-            type: "string",
-            description: "The row_id of the library item"
-          }
-        },
-        required: ["row_id"],
-        additionalProperties: false
-      },
-      strict: true
+      function: {
+        name: "get_library_item",
+        description: "Get the full content of a library item by its ID.",
+        parameters: {
+          type: "object",
+          properties: {
+            row_id: {
+              type: "string",
+              description: "The row_id of the library item"
+            }
+          },
+          required: ["row_id"],
+          additionalProperties: false
+        }
+      }
     });
   }
 
@@ -154,33 +159,35 @@ function getWorkbenchTools(config: {
   if (config.hasConfluence) {
     tools.push({
       type: "function",
-      name: "confluence_list_attached",
-      description: "List all Confluence pages attached to this workbench thread.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false
-      },
-      strict: true
+      function: {
+        name: "confluence_list_attached",
+        description: "List all Confluence pages attached to this workbench thread.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        }
+      }
     });
 
     tools.push({
       type: "function",
-      name: "confluence_read_attached",
-      description: "Read the content of an attached Confluence page.",
-      parameters: {
-        type: "object",
-        properties: {
-          page_id: {
-            type: "string",
-            description: "The Confluence page ID"
-          }
-        },
-        required: ["page_id"],
-        additionalProperties: false
-      },
-      strict: true
+      function: {
+        name: "confluence_read_attached",
+        description: "Read the content of an attached Confluence page.",
+        parameters: {
+          type: "object",
+          properties: {
+            page_id: {
+              type: "string",
+              description: "The Confluence page ID"
+            }
+          },
+          required: ["page_id"],
+          additionalProperties: false
+        }
+      }
     });
   }
 
@@ -188,15 +195,16 @@ function getWorkbenchTools(config: {
   if (config.hasFiles) {
     tools.push({
       type: "function",
-      name: "list_files",
-      description: "List all files attached to this workbench thread.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false
-      },
-      strict: true
+      function: {
+        name: "list_files",
+        description: "List all files attached to this workbench thread.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        }
+      }
     });
   }
 
