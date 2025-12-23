@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, Upload } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTooltipSettings } from '@/contexts/TooltipContext';
 import GuardedLink from '@/components/GuardedLink';
@@ -25,6 +25,11 @@ import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ExportDrawer } from '@/components/export';
+import { useExport } from '@/hooks/useExport';
+import { useConfluenceExport } from '@/hooks/useConfluenceExport';
+import useTreeData from '@/hooks/useTreeData';
+import { supabase } from '@/integrations/supabase/client';
 
 const mainNavItems = [
   { id: 'home', title: 'Home', icon: Home, to: '/' },

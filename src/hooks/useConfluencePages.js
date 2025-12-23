@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
@@ -17,12 +17,15 @@ const invokeFunction = async (action, params = {}) => {
 export const useConfluencePages = (assistantRowId = null, promptRowId = null) => {
   const [pages, setPages] = useState([]);
   const [spaces, setSpaces] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [spaceTree, setSpaceTree] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isCreatingPage, setIsCreatingPage] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
 
   const fetchAttachedPages = useCallback(async () => {
@@ -65,6 +68,26 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       console.error('Error listing spaces:', error);
       toast.error('Failed to list Confluence spaces');
       return [];
+    }
+  }, []);
+
+  const listTemplates = useCallback(async (spaceKey) => {
+    if (!spaceKey) {
+      setTemplates([]);
+      return [];
+    }
+    
+    setIsLoadingTemplates(true);
+    try {
+      const data = await invokeFunction('list-templates', { spaceKey });
+      setTemplates(data.templates || []);
+      return data.templates || [];
+    } catch (error) {
+      console.error('Error listing templates:', error);
+      toast.error('Failed to load Confluence templates');
+      return [];
+    } finally {
+      setIsLoadingTemplates(false);
     }
   }, []);
 
@@ -124,6 +147,23 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       return [];
     } finally {
       setIsSearching(false);
+    }
+  }, []);
+
+  const createPage = useCallback(async ({ spaceKey, parentId, title, body }) => {
+    setIsCreatingPage(true);
+    try {
+      const data = await invokeFunction('create-page', { spaceKey, parentId, title, body });
+      if (data.success) {
+        toast.success('Page created successfully');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error creating page:', error);
+      toast.error('Failed to create page');
+      throw error;
+    } finally {
+      setIsCreatingPage(false);
     }
   }, []);
 
@@ -207,9 +247,14 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     setSpaceTree([]);
   }, []);
 
+  const clearTemplates = useCallback(() => {
+    setTemplates([]);
+  }, []);
+
   return {
     pages,
     spaces,
+    templates,
     searchResults,
     spaceTree,
     setSpaceTree,
@@ -217,19 +262,24 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     isSyncing,
     isSearching,
     isLoadingTree,
+    isLoadingTemplates,
+    isCreatingPage,
     connectionStatus,
     fetchAttachedPages,
     testConnection,
     listSpaces,
+    listTemplates,
     getSpaceTree,
     getPageChildren,
     cancelTreeLoading,
     searchPages,
+    createPage,
     attachPage,
     detachPage,
     syncPage,
     syncToVectorStore,
     clearSearch,
-    clearSpaceTree
+    clearSpaceTree,
+    clearTemplates
   };
 };

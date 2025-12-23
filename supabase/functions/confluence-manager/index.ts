@@ -35,6 +35,20 @@ function htmlToText(html: string): string {
   return text;
 }
 
+// Parse template variables from Confluence template body
+function parseTemplateVariables(body: string): string[] {
+  const variables: string[] = [];
+  // Match <at:var at:name="variableName" /> pattern
+  const regex = /<at:var\s+at:name="([^"]+)"\s*\/?>/gi;
+  let match;
+  while ((match = regex.exec(body)) !== null) {
+    if (!variables.includes(match[1])) {
+      variables.push(match[1]);
+    }
+  }
+  return variables;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -72,8 +86,12 @@ Deno.serve(async (req) => {
       };
     };
 
-    // Make authenticated request to Confluence API
-    const confluenceRequest = async (endpoint: string, config: { baseUrl: string; email: string; apiToken: string }) => {
+    // Make authenticated request to Confluence API v1
+    const confluenceRequest = async (
+      endpoint: string, 
+      config: { baseUrl: string; email: string; apiToken: string },
+      options: { method?: string; body?: any } = {}
+    ) => {
       const { baseUrl, email, apiToken } = config;
       
       if (!baseUrl || !email || !apiToken) {
@@ -89,15 +107,22 @@ Deno.serve(async (req) => {
       const url = `${cleanBaseUrl}/rest/api${endpoint}`;
       const auth = btoa(`${email}:${apiToken}`);
       
-      console.log(`[confluence-manager] Requesting: ${url}`);
+      console.log(`[confluence-manager] Requesting: ${options.method || 'GET'} ${url}`);
       
-      const response = await fetch(url, {
+      const fetchOptions: RequestInit = {
+        method: options.method || 'GET',
         headers: {
           'Authorization': `Basic ${auth}`,
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         }
-      });
+      };
+      
+      if (options.body) {
+        fetchOptions.body = JSON.stringify(options.body);
+      }
+      
+      const response = await fetch(url, fetchOptions);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -124,12 +149,14 @@ Deno.serve(async (req) => {
 
       case 'list-spaces': {
         const config = await getConfluenceConfig();
-        const data = await confluenceRequest('/space?limit=100', config);
+        const data = await confluenceRequest('/space?limit=100&expand=description.plain', config);
         result = {
           spaces: data.results?.map((space: any) => ({
+            id: space.id, // Numeric ID for v2 API calls
             key: space.key,
             name: space.name,
-            type: space.type
+            type: space.type,
+            description: space.description?.plain?.value || ''
           })) || []
         };
         break;
@@ -448,6 +475,84 @@ Deno.serve(async (req) => {
             url: data._links?.webui ? `${config.baseUrl}/wiki${data._links.webui}` : null,
             contentHtml,
             contentText
+          }
+        };
+        break;
+      }
+
+      case 'list-templates': {
+        const { spaceKey } = params;
+        const config = await getConfluenceConfig();
+        
+        console.log(`[confluence-manager] Fetching templates for space: ${spaceKey}`);
+        
+        // Fetch content templates for the space
+        const data = await confluenceRequest(
+          `/template/page?spaceKey=${encodeURIComponent(spaceKey)}&expand=body`,
+          config
+        );
+        
+        const templates = (data.results || []).map((template: any) => {
+          const bodyValue = template.body?.storage?.value || template.body?.value || '';
+          const variables = parseTemplateVariables(bodyValue);
+          
+          return {
+            templateId: template.templateId,
+            name: template.name,
+            description: template.description || '',
+            templateType: template.templateType,
+            variables,
+            body: bodyValue
+          };
+        });
+        
+        console.log(`[confluence-manager] Found ${templates.length} templates`);
+        
+        result = { templates };
+        break;
+      }
+
+      case 'create-page': {
+        const { spaceKey, parentId, title, body, templateId } = params;
+        const config = await getConfluenceConfig();
+        
+        console.log(`[confluence-manager] Creating page in space: ${spaceKey}, parent: ${parentId || 'none'}`);
+        
+        const pageData: any = {
+          type: 'page',
+          title,
+          space: { key: spaceKey },
+          body: {
+            storage: {
+              value: body,
+              representation: 'storage'
+            }
+          }
+        };
+        
+        // Add parent page/folder if specified
+        if (parentId) {
+          pageData.ancestors = [{ id: parentId }];
+        }
+        
+        const createdPage = await confluenceRequest('/content', config, {
+          method: 'POST',
+          body: pageData
+        });
+        
+        const pageUrl = createdPage._links?.webui 
+          ? `${config.baseUrl}/wiki${createdPage._links.webui}` 
+          : null;
+        
+        console.log(`[confluence-manager] Created page: ${createdPage.id} - ${createdPage.title}`);
+        
+        result = {
+          success: true,
+          page: {
+            id: createdPage.id,
+            title: createdPage.title,
+            spaceKey: createdPage.space?.key,
+            url: pageUrl
           }
         };
         break;
