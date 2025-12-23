@@ -1,25 +1,25 @@
 import React, { useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Upload, Loader2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Upload, Loader2, FileStack, ListChecks, Send, Settings2, Check } from 'lucide-react';
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerFooter,
-} from '@/components/ui/drawer';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExportPromptSelector } from './ExportPromptSelector';
 import { ExportFieldSelector } from './ExportFieldSelector';
 import { ExportTypeSelector } from './ExportTypeSelector';
 import { ConfluenceConfig } from './types/confluence/ConfluenceConfig';
 
-const STEP_LABELS = {
-  1: 'Select Prompts',
-  2: 'Select Fields',
-  3: 'Export Type',
-  4: 'Configure'
-};
+const STEPS = [
+  { key: 1, label: 'Select Prompts', icon: FileStack },
+  { key: 2, label: 'Select Fields', icon: ListChecks },
+  { key: 3, label: 'Destination', icon: Send },
+  { key: 4, label: 'Configure', icon: Settings2 },
+];
 
 export const ExportDrawer = ({
   isOpen,
@@ -160,97 +160,106 @@ export const ExportDrawer = ({
   const isLastStep = currentStep === EXPORT_STEPS.CONFIGURE;
   const isExporting = confluenceExport?.isCreatingPage;
 
+  // Calculate summary text
+  const getSummaryText = () => {
+    const parts = [];
+    parts.push(`${selectedPromptIds.length} prompt${selectedPromptIds.length !== 1 ? 's' : ''}`);
+    if (currentStep >= 2) {
+      parts.push(`${selectedFields.length} field${selectedFields.length !== 1 ? 's' : ''}`);
+      const varCount = Object.values(selectedVariables).flat().length;
+      if (varCount > 0) {
+        parts.push(`${varCount} var${varCount !== 1 ? 's' : ''}`);
+      }
+    }
+    return parts.join(' · ');
+  };
+
   return (
-    <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DrawerContent className="h-[85vh] max-h-[85vh]">
-        <DrawerHeader className="border-b border-border px-6 py-4">
+    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent 
+        side="right" 
+        className="w-full sm:max-w-[540px] p-0 flex flex-col gap-0 border-l border-border/50 shadow-2xl"
+      >
+        {/* Header */}
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50 space-y-4">
           <div className="flex items-center justify-between">
-            <DrawerTitle className="text-lg font-semibold">Export Prompts</DrawerTitle>
+            <SheetTitle className="text-xl font-semibold font-poppins">Export Prompts</SheetTitle>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
           
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mt-4">
-            {Object.entries(STEP_LABELS).map(([step, label]) => {
-              const stepNum = parseInt(step);
-              const isActive = currentStep === stepNum;
-              const isCompleted = currentStep > stepNum;
+          {/* Step Navigation Tabs */}
+          <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
+            {STEPS.map((step, index) => {
+              const Icon = step.icon;
+              const isActive = currentStep === step.key;
+              const isCompleted = currentStep > step.key;
+              const isClickable = step.key < currentStep;
               
               return (
-                <React.Fragment key={step}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={cn(
-                        "h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium transition-colors",
-                        isActive && "bg-primary text-primary-foreground",
-                        isCompleted && "bg-primary/20 text-primary",
-                        !isActive && !isCompleted && "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {stepNum}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-medium hidden sm:inline",
-                        isActive && "text-foreground",
-                        !isActive && "text-muted-foreground"
-                      )}
-                    >
-                      {label}
-                    </span>
-                  </div>
-                  {stepNum < 4 && (
-                    <div className={cn(
-                      "h-px w-8 transition-colors",
-                      isCompleted ? "bg-primary" : "bg-border"
-                    )} />
+                <button
+                  key={step.key}
+                  onClick={() => isClickable && onGoBack()}
+                  disabled={!isClickable && !isActive}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-medium transition-all",
+                    isActive && "bg-background shadow-sm text-foreground",
+                    isCompleted && "text-primary hover:bg-background/50 cursor-pointer",
+                    !isActive && !isCompleted && "text-muted-foreground cursor-default"
                   )}
-                </React.Fragment>
+                >
+                  <div className={cn(
+                    "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold",
+                    isActive && "bg-primary text-primary-foreground",
+                    isCompleted && "bg-primary/20 text-primary",
+                    !isActive && !isCompleted && "bg-muted-foreground/20 text-muted-foreground"
+                  )}>
+                    {isCompleted ? <Check className="h-3 w-3" /> : step.key}
+                  </div>
+                  <span className="hidden sm:inline">{step.label}</span>
+                </button>
               );
             })}
           </div>
-        </DrawerHeader>
+        </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6 py-4">
+        {/* Content */}
+        <ScrollArea className="flex-1 px-6 py-6">
           {renderStepContent()}
         </ScrollArea>
 
-        <DrawerFooter className="border-t border-border px-6 py-4">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-border/50 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center justify-between">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onGoBack}
               disabled={currentStep === EXPORT_STEPS.SELECT_PROMPTS}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                currentStep === EXPORT_STEPS.SELECT_PROMPTS
-                  ? "text-muted-foreground cursor-not-allowed"
-                  : "text-foreground hover:bg-muted"
+                "gap-1.5",
+                currentStep === EXPORT_STEPS.SELECT_PROMPTS && "invisible"
               )}
             >
               <ChevronLeft className="h-4 w-4" />
               Back
-            </button>
+            </Button>
             
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-muted-foreground">
-                {selectedPromptIds.length} prompt{selectedPromptIds.length !== 1 ? 's' : ''} selected
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                {getSummaryText()}
               </span>
               
               {isLastStep ? (
-                <button
+                <Button
+                  size="sm"
                   onClick={handleExport}
                   disabled={!canProceed || isExporting || !confluenceExport.pageTitle || !confluenceExport.selectedSpaceKey}
-                  className={cn(
-                    "flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-                    canProceed && confluenceExport.pageTitle && confluenceExport.selectedSpaceKey && !isExporting
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
+                  className="gap-1.5 min-w-[100px]"
                 >
                   {isExporting ? (
                     <>
@@ -263,26 +272,22 @@ export const ExportDrawer = ({
                       Export
                     </>
                   )}
-                </button>
+                </Button>
               ) : (
-                <button
+                <Button
+                  size="sm"
                   onClick={onGoNext}
                   disabled={!canProceed}
-                  className={cn(
-                    "flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors",
-                    canProceed
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  )}
+                  className="gap-1.5 min-w-[100px]"
                 >
                   Next
                   <ChevronRight className="h-4 w-4" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
