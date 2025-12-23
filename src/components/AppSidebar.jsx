@@ -37,6 +37,7 @@ const mainNavItems = [
   { id: 'prompts', title: 'Prompts', icon: Folder, to: '/projects', badge: null },
   { id: 'workbench', title: 'Workbench', icon: MessagesSquare, to: '/workbench', badge: null },
   { id: 'templates', title: 'Templates', icon: LayoutTemplate, to: '/templates', badge: null },
+  { id: 'export', title: 'Export', icon: Upload, to: null, badge: null, isAction: true },
 ];
 
 const settingsSubItems = [
@@ -187,65 +188,58 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
             <SidebarMenu className="space-y-1">
               {mainNavItems.map((item) => (
                 <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.to}
-                    tooltip={item.title}
-                    className="group relative"
-                  >
-                    <GuardedLink to={item.to} className="flex items-center gap-3">
-                      <item.icon className={`h-4 w-4 transition-colors ${
-                        location.pathname === item.to ? 'text-primary' : 'text-sidebar-foreground/70 group-hover:text-sidebar-foreground'
-                      }`} />
-                      <span className="flex-1">{item.title}</span>
-                      {item.badge && !isCollapsed && (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {item.badge}
-                        </Badge>
-                      )}
-                      {item.id === 'prompts' && !isCollapsed && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              className="h-6 w-6 inline-flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              aria-label="Create new prompt"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onCreatePrompt?.();
-                              }}
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p>Create new prompt</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </GuardedLink>
-                  </SidebarMenuButton>
+                  {item.isAction ? (
+                    <SidebarMenuButton
+                      onClick={item.id === 'export' ? exportState.openExport : undefined}
+                      tooltip={item.title}
+                      className="group"
+                    >
+                      <item.icon className="h-4 w-4 transition-colors text-sidebar-foreground/70 group-hover:text-sidebar-foreground" />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.pathname === item.to}
+                      tooltip={item.title}
+                      className="group relative"
+                    >
+                      <GuardedLink to={item.to} className="flex items-center gap-3">
+                        <item.icon className={`h-4 w-4 transition-colors ${
+                          location.pathname === item.to ? 'text-primary' : 'text-sidebar-foreground/70 group-hover:text-sidebar-foreground'
+                        }`} />
+                        <span className="flex-1">{item.title}</span>
+                        {item.badge && !isCollapsed && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {item.badge}
+                          </Badge>
+                        )}
+                        {item.id === 'prompts' && !isCollapsed && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="h-6 w-6 inline-flex items-center justify-center rounded-md opacity-0 group-hover:opacity-100 transition-opacity text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label="Create new prompt"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onCreatePrompt?.();
+                                }}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                              <p>Create new prompt</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </GuardedLink>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Export - under Templates */}
-        <SidebarGroup className="mt-2">
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={exportState.openExport}
-                  tooltip="Export"
-                  className="group"
-                >
-                  <Upload className={`h-4 w-4 transition-colors text-sidebar-foreground/70 group-hover:text-sidebar-foreground`} />
-                  <span>Export</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
