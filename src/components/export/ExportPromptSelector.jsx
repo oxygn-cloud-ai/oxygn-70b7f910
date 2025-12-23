@@ -4,11 +4,27 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, onToggleExpand, searchQuery }) => {
+// Helper to collect all descendant IDs from a node
+const collectDescendantIds = (node) => {
+  const ids = [node.row_id];
+  if (node.children?.length) {
+    node.children.forEach(child => {
+      ids.push(...collectDescendantIds(child));
+    });
+  }
+  return ids;
+};
+
+const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDescendants, expandedIds, onToggleExpand, searchQuery }) => {
   const isSelected = selectedIds.includes(node.row_id);
   const isExpanded = expandedIds.includes(node.row_id);
   const hasChildren = node.children && node.children.length > 0;
   const isAssistant = node.is_assistant;
+
+  // Check if all descendants are selected
+  const allDescendantIds = useMemo(() => collectDescendantIds(node), [node]);
+  const allDescendantsSelected = allDescendantIds.every(id => selectedIds.includes(id));
+  const someDescendantsSelected = allDescendantIds.some(id => selectedIds.includes(id)) && !allDescendantsSelected;
 
   // Filter based on search query
   const matchesSearch = !searchQuery || 
@@ -29,7 +45,8 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
-    onToggle(node.row_id);
+    // When clicking on a node, toggle it and all its descendants
+    onToggleWithDescendants(node, allDescendantsSelected);
   };
 
   const handleExpandClick = (e) => {
@@ -70,12 +87,17 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
         <div
           className={cn(
             "h-4 w-4 rounded border-2 flex items-center justify-center transition-all flex-shrink-0",
-            isSelected
+            allDescendantsSelected
               ? "bg-primary border-primary"
-              : "border-muted-foreground/30 group-hover:border-primary/50"
+              : someDescendantsSelected
+                ? "bg-primary/50 border-primary"
+                : "border-muted-foreground/30 group-hover:border-primary/50"
           )}
         >
-          {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+          {allDescendantsSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+          {someDescendantsSelected && !allDescendantsSelected && (
+            <div className="h-1.5 w-1.5 bg-primary-foreground rounded-sm" />
+          )}
         </div>
 
         {/* Icon */}
@@ -118,6 +140,7 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
               level={level + 1}
               selectedIds={selectedIds}
               onToggle={onToggle}
+              onToggleWithDescendants={onToggleWithDescendants}
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
               searchQuery={searchQuery}
@@ -129,7 +152,7 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
   );
 };
 
-const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, expandedIds, onToggleExpand, searchQuery }) => {
+const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, onToggleWithDescendants, expandedIds, onToggleExpand, searchQuery }) => {
   const scrollRef = useRef(null);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
 
@@ -176,6 +199,7 @@ const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, expandedId
               node={node}
               selectedIds={selectedPromptIds}
               onToggle={onTogglePrompt}
+              onToggleWithDescendants={onToggleWithDescendants}
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
               searchQuery={searchQuery}
@@ -206,6 +230,7 @@ export const ExportPromptSelector = ({
   treeData,
   selectedPromptIds,
   onTogglePrompt,
+  onToggleWithDescendants,
   onSelectAll,
   onClearSelection
 }) => {
@@ -327,6 +352,7 @@ export const ExportPromptSelector = ({
         treeData={treeData}
         selectedPromptIds={selectedPromptIds}
         onTogglePrompt={onTogglePrompt}
+        onToggleWithDescendants={onToggleWithDescendants}
         expandedIds={expandedIds}
         onToggleExpand={handleToggleExpand}
         searchQuery={searchQuery}
