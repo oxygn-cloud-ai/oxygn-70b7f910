@@ -4,6 +4,8 @@ import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { toast } from '@/components/ui/sonner';
 import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
+import { buildSystemVariablesForRun } from '@/utils/resolveSystemVariables';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 
 // Helper to get a usable message from a prompt
 const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
@@ -112,14 +114,23 @@ export const useCascadeExecutor = () => {
   }, [supabase]);
 
   // Build cascade context variables from accumulated responses
-  const buildCascadeVariables = useCallback((accumulatedResponses, currentLevel) => {
-    const vars = {};
+  const buildCascadeVariables = useCallback((accumulatedResponses, currentLevel, prompt, parentData, user) => {
+    // Start with system variables (q.today, q.user.name, etc.)
+    const vars = buildSystemVariablesForRun({
+      promptData: prompt,
+      parentData: parentData,
+      user: user,
+      storedVariables: prompt?.system_variables || {},
+    });
 
     // Previous response (most recent)
     if (accumulatedResponses.length > 0) {
       const lastResponse = accumulatedResponses[accumulatedResponses.length - 1];
       vars['cascade_previous_response'] = lastResponse.response || '';
       vars['cascade_previous_name'] = lastResponse.promptName || '';
+      // Also set as q.previous.response for consistency
+      vars['q.previous.response'] = lastResponse.response || '';
+      vars['q.previous.name'] = lastResponse.promptName || '';
     }
 
     // All responses as JSON
@@ -213,6 +224,31 @@ export const useCascadeExecutor = () => {
       });
       return;
     }
+
+    // Get current user for variable resolution
+    let currentUser = null;
+    try {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        // Fetch profile for display name
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, email')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        currentUser = {
+          id: user.id,
+          email: user.email,
+          display_name: profile?.display_name || user.email?.split('@')[0] || 'Unknown',
+        };
+      }
+    } catch (err) {
+      console.warn('Could not fetch user for variable resolution:', err);
+    }
+
+    // Get top-level parent data for variable resolution
+    const topLevelPrompt = hierarchy.levels[0]?.prompts[0] || null;
 
     // Count non-excluded prompts for accurate progress
     // Also exclude the top-level assistant (level 0) since it's the context, not a runnable prompt
@@ -337,8 +373,8 @@ export const useCascadeExecutor = () => {
             }, null, 2),
           });
 
-          // Build template variables from accumulated context
-          const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx);
+          // Build template variables from accumulated context AND system variables
+          const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, topLevelPrompt, currentUser);
 
           let success = false;
           let retryCount = 0;

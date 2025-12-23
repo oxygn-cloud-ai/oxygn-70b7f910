@@ -11,6 +11,8 @@ import { useSupabase } from '../hooks/useSupabase';
 import { useCascadeExecutor } from '../hooks/useCascadeExecutor';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { useCostTracking } from '../hooks/useCostTracking';
+import { buildSystemVariablesForRun } from '@/utils/resolveSystemVariables';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import PromptField from './PromptField';
 import ThreadSelector from './ThreadSelector';
 import ThreadHistory from './ThreadHistory';
@@ -118,6 +120,52 @@ const ChildPromptPanel = ({
     runStartTimeRef.current = Date.now();
     
     try {
+      // Get current user for variable resolution
+      let currentUser = null;
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('display_name, email')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          currentUser = {
+            id: user.id,
+            email: user.email,
+            display_name: profile?.display_name || user.email?.split('@')[0] || 'Unknown',
+          };
+        }
+      } catch (err) {
+        console.warn('Could not fetch user for variable resolution:', err);
+      }
+
+      // Fetch parent prompt data for variable resolution
+      let parentData = null;
+      if (selectedItemData?.parent_row_id) {
+        try {
+          const { data } = await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .select('*')
+            .eq('row_id', selectedItemData.parent_row_id)
+            .single();
+          parentData = data;
+        } catch (err) {
+          console.warn('Could not fetch parent prompt:', err);
+        }
+      }
+
+      // Build system variables for this run
+      const systemVars = buildSystemVariablesForRun({
+        promptData: selectedItemData,
+        parentData: parentData,
+        user: currentUser,
+        storedVariables: selectedItemData?.system_variables || localData?.system_variables || {},
+      });
+
+      console.log('[ChildPromptPanel] Running with system variables:', Object.keys(systemVars));
+
       const result = await runConversation({
         conversationRowId: parentAssistantRowId,
         childPromptRowId: projectRowId,
@@ -125,6 +173,7 @@ const ChildPromptPanel = ({
         threadMode: threadMode,
         childThreadStrategy: childThreadStrategy,
         existingThreadRowId: threadMode === 'reuse' && childThreadStrategy === 'isolated' ? activeThread?.row_id : null,
+        template_variables: systemVars,
         onSuccess: async (data) => {
           const latencyMs = runStartTimeRef.current ? Date.now() - runStartTimeRef.current : null;
 

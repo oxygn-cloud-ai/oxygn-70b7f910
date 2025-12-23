@@ -68,14 +68,16 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
-// Template variable substitution
+// Template variable substitution - handles both regular {{var}} and system {{q.var}} patterns
 function applyTemplate(template: string, variables: Record<string, string>): string {
   if (!template) return '';
   
   let result = template;
   for (const [key, value] of Object.entries(variables)) {
-    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    result = result.replace(regex, value || '');
+    // Escape special regex characters in the key (important for q.* variables with dots)
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\{\\{${escapedKey}\\}\\}`, 'g');
+    result = result.replace(regex, value ?? '');
   }
   return result;
 }
@@ -423,10 +425,13 @@ serve(async (req) => {
       ...template_variables,
     };
 
-    // Apply template to user message
+    // Apply template to user message - ALWAYS apply substitution even for fallback
     let finalMessage = user_message 
       ? applyTemplate(user_message, variables)
-      : childPrompt.input_user_prompt || '';
+      : applyTemplate(childPrompt.input_user_prompt || '', variables);
+
+    // Log which variables were applied for debugging
+    console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
 
     // Prepend file context if available
     if (fileContext) {
@@ -457,7 +462,10 @@ serve(async (req) => {
     }
 
     // Build system prompt from assistant instructions + admin prompt
-    let systemPrompt = assistantData.instructions || '';
+    // Apply template variables to instructions as well
+    let systemPrompt = assistantData.instructions 
+      ? applyTemplate(assistantData.instructions, variables)
+      : '';
     
     // Add admin prompt as additional system context if present
     const adminPrompt = childPrompt.input_admin_prompt 
