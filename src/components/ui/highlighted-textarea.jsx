@@ -23,6 +23,7 @@ const HighlightedTextarea = React.forwardRef(({
   readOnly = false,
   id,
   userVariables = [],
+  style: propStyle,
   ...props
 }, ref) => {
   const containerRef = useRef(null);
@@ -412,7 +413,7 @@ const HighlightedTextarea = React.forwardRef(({
           readOnly && "cursor-not-allowed opacity-50",
           className
         )}
-        style={{ minHeight }}
+        style={{ minHeight, ...propStyle }}
         suppressContentEditableWarning
         {...props}
       />
