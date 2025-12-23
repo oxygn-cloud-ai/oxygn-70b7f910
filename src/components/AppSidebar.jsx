@@ -192,8 +192,26 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* System Section */}
-        <SidebarGroup className="mt-4">
+        {/* Export - under Templates */}
+        <SidebarGroup className="mt-2">
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={exportState.openExport}
+                  tooltip="Export"
+                  className="group"
+                >
+                  <Upload className={`h-4 w-4 transition-colors text-sidebar-foreground/70 group-hover:text-sidebar-foreground`} />
+                  <span>Export</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* System Section - Health & Settings at bottom */}
+        <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {/* Health with sub-menu */}
@@ -270,18 +288,6 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                     ))}
                   </SidebarMenuSub>
                 )}
-              </SidebarMenuItem>
-
-              {/* Export */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  onClick={exportState.openExport}
-                  tooltip="Export"
-                  className="group"
-                >
-                  <Upload className={`h-4 w-4 transition-colors text-sidebar-foreground/70 group-hover:text-sidebar-foreground`} />
-                  <span>Export</span>
-                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
