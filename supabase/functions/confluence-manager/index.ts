@@ -798,9 +798,15 @@ Deno.serve(async (req) => {
 
   } catch (error: unknown) {
     console.error('[confluence-manager] Error:', error);
+
+    // IMPORTANT: Always return 200 so the web client can read the JSON body.
+    // `supabase.functions.invoke` hides the response body on non-2xx.
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

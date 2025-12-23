@@ -7,7 +7,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
+
 import { cn } from '@/lib/utils';
 import { ExportPromptSelector } from './ExportPromptSelector';
 import { ExportFieldSelector } from './ExportFieldSelector';
@@ -196,19 +196,67 @@ export const ExportDrawer = ({
       >
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Upload className="h-5 w-5 text-primary" />
               </div>
               <SheetTitle className="text-xl font-semibold font-poppins">Export Prompts</SheetTitle>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                {getSummaryText()}
+              </span>
+
+              <button
+                onClick={onGoBack}
+                disabled={currentStep === EXPORT_STEPS.SELECT_PROMPTS}
+                className={cn(
+                  "p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                  currentStep === EXPORT_STEPS.SELECT_PROMPTS && "invisible"
+                )}
+                title="Back"
+                aria-label="Back"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+
+              {isLastStep ? (
+                <button
+                  onClick={handleExport}
+                  disabled={!canProceed || isExporting || !confluenceExport.pageTitle || !confluenceExport.selectedSpaceKey}
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export"
+                  aria-label="Export"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Upload className="h-5 w-5" />
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={onGoNext}
+                  disabled={!canProceed}
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next"
+                  aria-label="Next"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              )}
+
+              <button
+                onClick={onClose}
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title="Close"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           
           {/* Step Navigation Tabs */}
@@ -251,52 +299,6 @@ export const ExportDrawer = ({
           {renderStepContent()}
         </ScrollArea>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border/50 bg-background/80 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onGoBack}
-              disabled={currentStep === EXPORT_STEPS.SELECT_PROMPTS}
-              className={cn(
-                "p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                currentStep === EXPORT_STEPS.SELECT_PROMPTS && "invisible"
-              )}
-              title="Back"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                {getSummaryText()}
-              </span>
-              
-              {isLastStep ? (
-                <button
-                  onClick={handleExport}
-                  disabled={!canProceed || isExporting || !confluenceExport.pageTitle || !confluenceExport.selectedSpaceKey}
-                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Export"
-                >
-                  {isExporting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Upload className="h-5 w-5" />
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={onGoNext}
-                  disabled={!canProceed}
-                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Next"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
       </SheetContent>
     </Sheet>
   );
