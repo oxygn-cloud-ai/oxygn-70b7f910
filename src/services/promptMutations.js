@@ -110,6 +110,26 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   // Get context for naming
   const { level, topLevelName } = await getPromptContext(supabase, parentId);
   
+  // Fetch parent properties to inherit for child prompts
+  let inheritedProps = {};
+  if (parentId) {
+    const { data: parentPrompt } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('is_assistant, thread_mode, child_thread_strategy, model, model_on')
+      .eq('row_id', parentId)
+      .maybeSingle();
+    
+    if (parentPrompt) {
+      inheritedProps = {
+        is_assistant: parentPrompt.is_assistant || false,
+        thread_mode: parentPrompt.thread_mode,
+        child_thread_strategy: parentPrompt.child_thread_strategy,
+        model: parentPrompt.model,
+        model_on: parentPrompt.model_on,
+      };
+    }
+  }
+  
   // Fetch global naming settings
   const { data: settings } = await supabase
     .from(import.meta.env.VITE_SETTINGS_TBL)
@@ -146,12 +166,16 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     parentName: topLevelName,
   });
   
-  // Prepare insert data
+  // Prepare insert data - inherit properties from parent for child prompts
   const insertData = {
     parent_row_id: parentId,
     prompt_name: promptName,
     input_admin_prompt: defaultAdminPrompt || null,
-    is_assistant: parentId === null, // Top-level prompts are conversations
+    is_assistant: parentId === null ? true : (inheritedProps.is_assistant || false),
+    thread_mode: inheritedProps.thread_mode || null,
+    child_thread_strategy: inheritedProps.child_thread_strategy || null,
+    model: inheritedProps.model || null,
+    model_on: inheritedProps.model_on || false,
     position: maxPosition + 1000000,
     is_deleted: false,
     owner_id: userId,
