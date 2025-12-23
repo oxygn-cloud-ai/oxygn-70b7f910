@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info, GripHorizontal } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
 import {
@@ -16,9 +16,14 @@ import { TOOLTIPS } from '@/config/labels';
 
 const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId, variables = [], placeholder }) => {
   const textareaRef = useRef(null);
+  const containerRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [contentHeight, setContentHeight] = useState(100);
+  const [manualHeight, setManualHeight] = useState(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartY = useRef(0);
+  const resizeStartHeight = useRef(0);
   
   const storageKey = `promptField_expand_${promptId}_${label}`;
   
@@ -38,18 +43,52 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   
   const goToCollapsed = () => {
     setExpandState('collapsed');
+    setManualHeight(null);
     localStorage.setItem(storageKey, 'collapsed');
   };
   
   const goToMin = () => {
     setExpandState('min');
+    setManualHeight(null);
     localStorage.setItem(storageKey, 'min');
   };
   
   const goToFull = () => {
     setExpandState('full');
+    setManualHeight(null);
     localStorage.setItem(storageKey, 'full');
   };
+
+  // Mouse resize handlers
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartY.current = e.clientY;
+    const currentHeight = containerRef.current?.querySelector('.resizable-content')?.offsetHeight || 100;
+    resizeStartHeight.current = currentHeight;
+  }, []);
+
+  const handleResizeMove = useCallback((e) => {
+    if (!isResizing) return;
+    const deltaY = e.clientY - resizeStartY.current;
+    const newHeight = Math.max(60, resizeStartHeight.current + deltaY);
+    setManualHeight(newHeight);
+  }, [isResizing]);
+
+  const handleResizeEnd = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleResizeMove);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   // Calculate content height when in full mode
   useEffect(() => {
@@ -237,14 +276,20 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
   // Get textarea style based on expand state
   const getTextareaStyle = () => {
+    if (manualHeight) {
+      return 'overflow-auto';
+    }
     if (expandState === 'min') {
       return 'min-h-[100px] max-h-[100px] overflow-auto';
     }
     return 'min-h-[100px]';
   };
 
-  // Get dynamic height for full state
+  // Get dynamic height for full state or manual resize
   const getFullHeightStyle = () => {
+    if (manualHeight) {
+      return { height: `${manualHeight}px` };
+    }
     if (expandState === 'full') {
       return { minHeight: `${Math.max(100, contentHeight)}px` };
     }
@@ -252,10 +297,14 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   };
 
   return (
-    <div className={`
-      rounded-lg border transition-all duration-200
-      ${hasUnsavedChanges ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}
-    `}>
+    <div 
+      ref={containerRef}
+      className={`
+        rounded-lg border transition-all duration-200
+        ${hasUnsavedChanges ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}
+        ${isResizing ? 'select-none' : ''}
+      `}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
         <div className="flex items-center gap-1">
@@ -382,70 +431,106 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
       {/* Content */}
       {expandState !== 'collapsed' && (
-        <div className="p-3">
-          {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') ? (
-            <HighlightedTextarea
-              id={label}
-              value={value}
-              onChange={(e) => {
-                if (!isReadOnly) {
-                  onChange(e.target.value);
-                }
-                handleCursorChange(e);
-              }}
-              onSelect={handleCursorChange}
-              onClick={handleCursorChange}
-              onKeyUp={handleCursorChange}
-              onBlur={handleBlur}
-              className={`w-full bg-background ${getTextareaStyle()}`}
-              style={getFullHeightStyle()}
-              rows={4}
-              ref={textareaRef}
-              readOnly={isReadOnly}
-              placeholder={placeholder || undefined}
-              userVariables={variables}
-            />
-          ) : (
-            <Textarea
-              id={label}
-              value={value}
-              onChange={(e) => {
-                if (!isReadOnly) {
-                  onChange(e.target.value);
-                }
-                if (label === TOOLTIPS?.promptFields?.adminResult?.label || label === TOOLTIPS?.promptFields?.userResult?.label || label === 'System Response' || label === 'AI Response') {
-                  e.target.style.height = 'auto';
-                }
-                handleCursorChange(e);
-              }}
-              onSelect={handleCursorChange}
-              onClick={handleCursorChange}
-              onKeyUp={handleCursorChange}
-              onBlur={handleBlur}
-              className={`w-full resize-y border-border bg-background focus:ring-primary focus:border-primary ${getTextareaStyle()}`}
-              style={getFullHeightStyle()}
-              rows={4}
-              ref={textareaRef}
-              readOnly={isReadOnly}
-              placeholder={placeholder || undefined}
-            />
-          )}
+        <div className="p-3 pb-0">
+          <div className="resizable-content">
+            {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') ? (
+              <HighlightedTextarea
+                id={label}
+                value={value}
+                onChange={(e) => {
+                  if (!isReadOnly) {
+                    onChange(e.target.value);
+                  }
+                  handleCursorChange(e);
+                }}
+                onSelect={handleCursorChange}
+                onClick={handleCursorChange}
+                onKeyUp={handleCursorChange}
+                onBlur={handleBlur}
+                className={`w-full bg-background ${getTextareaStyle()}`}
+                style={getFullHeightStyle()}
+                rows={4}
+                ref={textareaRef}
+                readOnly={isReadOnly}
+                placeholder={placeholder || undefined}
+                userVariables={variables}
+              />
+            ) : (
+              <Textarea
+                id={label}
+                value={value}
+                onChange={(e) => {
+                  if (!isReadOnly) {
+                    onChange(e.target.value);
+                  }
+                  if (label === TOOLTIPS?.promptFields?.adminResult?.label || label === TOOLTIPS?.promptFields?.userResult?.label || label === 'System Response' || label === 'AI Response') {
+                    e.target.style.height = 'auto';
+                  }
+                  handleCursorChange(e);
+                }}
+                onSelect={handleCursorChange}
+                onClick={handleCursorChange}
+                onKeyUp={handleCursorChange}
+                onBlur={handleBlur}
+                className={`w-full border-border bg-background focus:ring-primary focus:border-primary ${getTextareaStyle()}`}
+                style={getFullHeightStyle()}
+                rows={4}
+                ref={textareaRef}
+                readOnly={isReadOnly}
+                placeholder={placeholder || undefined}
+              />
+            )}
+          </div>
           
-          {/* Bottom chevron controls - only when fully expanded */}
-          {expandState === 'full' && (
-            <div className="flex justify-start gap-1 pt-2 mt-2 border-t border-border/50">
-              <ChevronButton 
-                icon={ChevronUp} 
-                onClick={goToMin} 
-                tooltipText="Reduce to minimum height" 
-              />
-              <ChevronButton 
-                icon={ChevronsUp} 
-                onClick={goToCollapsed} 
-                tooltipText="Collapse" 
-              />
+          {/* Bottom controls - resize handle and chevrons */}
+          <div className="flex items-center justify-between pt-2 pb-2 mt-2 border-t border-border/50">
+            {/* Chevron controls */}
+            <div className="flex items-center gap-1">
+              {expandState === 'full' && (
+                <>
+                  <ChevronButton 
+                    icon={ChevronUp} 
+                    onClick={goToMin} 
+                    tooltipText="Reduce to minimum height" 
+                  />
+                  <ChevronButton 
+                    icon={ChevronsUp} 
+                    onClick={goToCollapsed} 
+                    tooltipText="Collapse" 
+                  />
+                </>
+              )}
+              {expandState === 'min' && (
+                <>
+                  <ChevronButton 
+                    icon={ChevronsDown} 
+                    onClick={goToFull} 
+                    tooltipText="Expand to full height" 
+                  />
+                </>
+              )}
+              {manualHeight && (
+                <span className="text-[10px] text-muted-foreground ml-1">Custom height</span>
+              )}
             </div>
-          )}
+            
+            {/* Resize handle */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div 
+                    onMouseDown={handleResizeStart}
+                    className="flex items-center justify-center px-2 py-1 cursor-ns-resize hover:bg-muted/50 rounded transition-colors group"
+                  >
+                    <GripHorizontal className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Drag to resize
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
       )}
     </div>
