@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, ChevronRight, ChevronDown, Bot, SkipForward } from 'lucide-react';
+import { FileText, ChevronRight, ChevronDown, Bot, SkipForward, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -100,11 +100,9 @@ export const TreeItemContent = ({
         py-1.5 px-2 rounded-md
         transition-all duration-150
         ${isDeleting ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
-        ${isCurrentlyRunning
-          ? 'bg-accent/20 border border-accent/40 shadow-sm ring-1 ring-accent/20'
-          : isActive && !isDeleting
-            ? 'bg-primary/10 border border-primary/30 shadow-sm' 
-            : 'hover:bg-muted/60 border border-transparent'
+        ${isActive && !isDeleting
+          ? 'bg-primary/10 border border-primary/30 shadow-sm' 
+          : 'hover:bg-muted/60 border border-transparent'
         }
       `}
       style={{ paddingLeft: `${level * 14 + 4}px` }}
@@ -132,8 +130,12 @@ export const TreeItemContent = ({
           <div className="w-5 h-5 flex-shrink-0" />
         )}
 
-        {/* Type Icon */}
-        {item.is_assistant ? (
+        {/* Type Icon - show spinning loader when running */}
+        {isCurrentlyRunning ? (
+          <div className="flex items-center justify-center w-5 h-5 rounded flex-shrink-0 text-accent">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          </div>
+        ) : item.is_assistant ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -170,7 +172,7 @@ export const TreeItemContent = ({
               ${isDeleting 
                 ? 'text-muted-foreground/50' 
                 : isCurrentlyRunning
-                  ? 'text-accent-foreground'
+                  ? 'text-accent'
                   : isActive 
                     ? 'text-primary' 
                     : 'text-foreground'
