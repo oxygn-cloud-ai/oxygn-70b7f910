@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, Info } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
 import {
@@ -18,25 +18,49 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   const textareaRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [contentHeight, setContentHeight] = useState(100);
   
-  const storageKey = `promptField_collapsed_${promptId}_${label}`;
+  const storageKey = `promptField_expand_${promptId}_${label}`;
   
-  // Default to expanded (false) for better UX
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
+  // Default to collapsed for all fields
+  const [expandState, setExpandState] = useState(() => {
+    if (typeof window === 'undefined') return 'collapsed';
     try {
       const stored = localStorage.getItem(storageKey);
-      return stored !== null ? JSON.parse(stored) : false;
+      if (stored && ['collapsed', 'min', 'full'].includes(stored)) {
+        return stored;
+      }
+      return 'collapsed';
     } catch {
-      return false;
+      return 'collapsed';
     }
   });
   
-  const handleToggleCollapse = () => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem(storageKey, JSON.stringify(newState));
+  const goToCollapsed = () => {
+    setExpandState('collapsed');
+    localStorage.setItem(storageKey, 'collapsed');
   };
+  
+  const goToMin = () => {
+    setExpandState('min');
+    localStorage.setItem(storageKey, 'min');
+  };
+  
+  const goToFull = () => {
+    setExpandState('full');
+    localStorage.setItem(storageKey, 'full');
+  };
+
+  // Calculate content height when in full mode
+  useEffect(() => {
+    if (expandState === 'full' && textareaRef.current) {
+      const element = textareaRef.current;
+      // For contenteditable divs
+      if (element.scrollHeight) {
+        setContentHeight(Math.max(100, element.scrollHeight));
+      }
+    }
+  }, [expandState, value]);
 
   useEffect(() => {
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
@@ -190,6 +214,43 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     </TooltipProvider>
   );
 
+  // Chevron button component for expand/collapse controls
+  const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClick}
+            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+          >
+            <Icon className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {tooltipText}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
+  // Get textarea style based on expand state
+  const getTextareaStyle = () => {
+    if (expandState === 'min') {
+      return 'min-h-[100px] max-h-[100px] overflow-auto';
+    }
+    return 'min-h-[100px]';
+  };
+
+  // Get dynamic height for full state
+  const getFullHeightStyle = () => {
+    if (expandState === 'full') {
+      return { minHeight: `${Math.max(100, contentHeight)}px` };
+    }
+    return {};
+  };
+
   return (
     <div className={`
       rounded-lg border transition-all duration-200
@@ -197,16 +258,52 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     `}>
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleToggleCollapse}
-            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-          >
-            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </Button>
-          <Label htmlFor={label} className="text-sm font-medium text-foreground cursor-pointer">
+        <div className="flex items-center gap-1">
+          {/* Dual chevron controls */}
+          {expandState === 'collapsed' && (
+            <>
+              <ChevronButton 
+                icon={ChevronDown} 
+                onClick={goToMin} 
+                tooltipText="Expand to minimum height" 
+              />
+              <ChevronButton 
+                icon={ChevronsDown} 
+                onClick={goToFull} 
+                tooltipText="Expand to full height" 
+              />
+            </>
+          )}
+          {expandState === 'min' && (
+            <>
+              <ChevronButton 
+                icon={ChevronUp} 
+                onClick={goToCollapsed} 
+                tooltipText="Collapse" 
+              />
+              <ChevronButton 
+                icon={ChevronsDown} 
+                onClick={goToFull} 
+                tooltipText="Expand to full height" 
+              />
+            </>
+          )}
+          {expandState === 'full' && (
+            <>
+              <ChevronButton 
+                icon={ChevronUp} 
+                onClick={goToMin} 
+                tooltipText="Reduce to minimum height" 
+              />
+              <ChevronButton 
+                icon={ChevronsUp} 
+                onClick={goToCollapsed} 
+                tooltipText="Collapse" 
+              />
+            </>
+          )}
+          
+          <Label htmlFor={label} className="text-sm font-medium text-foreground cursor-pointer ml-1">
             {label}
           </Label>
           {tooltip && (
@@ -284,7 +381,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
       </div>
 
       {/* Content */}
-      {!isCollapsed && (
+      {expandState !== 'collapsed' && (
         <div className="p-3">
           {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') ? (
             <HighlightedTextarea
@@ -300,7 +397,8 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
               onClick={handleCursorChange}
               onKeyUp={handleCursorChange}
               onBlur={handleBlur}
-              className="w-full min-h-[100px] bg-background"
+              className={`w-full bg-background ${getTextareaStyle()}`}
+              style={getFullHeightStyle()}
               rows={4}
               ref={textareaRef}
               readOnly={isReadOnly}
@@ -324,12 +422,29 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
               onClick={handleCursorChange}
               onKeyUp={handleCursorChange}
               onBlur={handleBlur}
-              className="w-full min-h-[100px] resize-y border-border bg-background focus:ring-primary focus:border-primary"
+              className={`w-full resize-y border-border bg-background focus:ring-primary focus:border-primary ${getTextareaStyle()}`}
+              style={getFullHeightStyle()}
               rows={4}
               ref={textareaRef}
               readOnly={isReadOnly}
               placeholder={placeholder || undefined}
             />
+          )}
+          
+          {/* Bottom chevron controls - only when fully expanded */}
+          {expandState === 'full' && (
+            <div className="flex justify-center gap-2 pt-2 mt-2 border-t border-border/50">
+              <ChevronButton 
+                icon={ChevronUp} 
+                onClick={goToMin} 
+                tooltipText="Reduce to minimum height" 
+              />
+              <ChevronButton 
+                icon={ChevronsUp} 
+                onClick={goToCollapsed} 
+                tooltipText="Collapse" 
+              />
+            </div>
           )}
         </div>
       )}
