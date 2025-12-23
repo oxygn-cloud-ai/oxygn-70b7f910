@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info, GripHorizontal } from 'lucide-react';
+import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
 import {
@@ -59,11 +59,23 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     localStorage.setItem(storageKey, 'full');
   };
 
-  // Mouse resize handlers
+  // Resize handlers (pointer events) — drag the bottom edge to resize
   const handleResizeStart = useCallback((e) => {
     e.preventDefault();
+    e.stopPropagation();
+
+    // Capture the pointer so the drag keeps working even if the cursor leaves the handle
+    if (typeof e.pointerId === 'number' && e.currentTarget?.setPointerCapture) {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // ignore
+      }
+    }
+
     setIsResizing(true);
     resizeStartY.current = e.clientY;
+
     // Measure from the actual textarea/editor element
     const currentHeight = textareaRef.current?.offsetHeight || textareaRef.current?.clientHeight || 100;
     resizeStartHeight.current = currentHeight;
@@ -81,14 +93,17 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   }, []);
 
   useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleResizeMove);
-      document.addEventListener('mouseup', handleResizeEnd);
-      return () => {
-        document.removeEventListener('mousemove', handleResizeMove);
-        document.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
+    if (!isResizing) return;
+
+    document.addEventListener('pointermove', handleResizeMove);
+    document.addEventListener('pointerup', handleResizeEnd);
+    document.addEventListener('pointercancel', handleResizeEnd);
+
+    return () => {
+      document.removeEventListener('pointermove', handleResizeMove);
+      document.removeEventListener('pointerup', handleResizeEnd);
+      document.removeEventListener('pointercancel', handleResizeEnd);
+    };
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   // Calculate content height when in full mode
@@ -484,53 +499,48 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
           </div>
           
           {/* Bottom controls - resize handle and chevrons */}
-          <div className="flex items-center justify-between pt-2 pb-2 mt-2 border-t border-border/50">
-            {/* Chevron controls */}
-            <div className="flex items-center gap-1">
-              {expandState === 'full' && (
-                <>
-                  <ChevronButton 
-                    icon={ChevronUp} 
-                    onClick={goToMin} 
-                    tooltipText="Reduce to minimum height" 
-                  />
-                  <ChevronButton 
-                    icon={ChevronsUp} 
-                    onClick={goToCollapsed} 
-                    tooltipText="Collapse" 
-                  />
-                </>
-              )}
-              {expandState === 'min' && (
-                <>
-                  <ChevronButton 
-                    icon={ChevronsDown} 
-                    onClick={goToFull} 
-                    tooltipText="Expand to full height" 
-                  />
-                </>
-              )}
-              {manualHeight && (
-                <span className="text-[10px] text-muted-foreground ml-1">Custom height</span>
-              )}
+          <div className="pt-2 pb-2 mt-2 border-t border-border/50">
+            <div className="flex items-center justify-between">
+              {/* Chevron controls */}
+              <div className="flex items-center gap-1">
+                {expandState === 'full' && (
+                  <>
+                    <ChevronButton 
+                      icon={ChevronUp} 
+                      onClick={goToMin} 
+                      tooltipText="Reduce to minimum height" 
+                    />
+                    <ChevronButton 
+                      icon={ChevronsUp} 
+                      onClick={goToCollapsed} 
+                      tooltipText="Collapse" 
+                    />
+                  </>
+                )}
+                {expandState === 'min' && (
+                  <>
+                    <ChevronButton 
+                      icon={ChevronsDown} 
+                      onClick={goToFull} 
+                      tooltipText="Expand to full height" 
+                    />
+                  </>
+                )}
+                {manualHeight && (
+                  <span className="text-[10px] text-muted-foreground ml-1">Custom height</span>
+                )}
+              </div>
             </div>
-            
-            {/* Resize handle */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div 
-                    onMouseDown={handleResizeStart}
-                    className="flex items-center justify-center px-2 py-1 cursor-ns-resize hover:bg-muted/50 rounded transition-colors group"
-                  >
-                    <GripHorizontal className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  Drag to resize
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+
+            {/* Resize strip (full-width, no icon) */}
+            <div
+              onPointerDown={handleResizeStart}
+              className="mt-2 h-3 w-full cursor-ns-resize rounded-md hover:bg-muted/40 transition-colors"
+              style={{ touchAction: 'none' }}
+              aria-label="Resize field"
+            >
+              <div className="mx-auto mt-1 h-1 w-16 rounded-full bg-muted-foreground/20" />
+            </div>
           </div>
         </div>
       )}
