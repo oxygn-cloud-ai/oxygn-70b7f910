@@ -37,7 +37,8 @@ export const TreeItemContent = ({
   siblings,
   onRefreshTreeData,
   searchQuery,
-  isDeleting
+  isDeleting,
+  onExportPrompt
 }) => {
   const { user, isAdmin } = useAuth();
   const { isRunning: isCascadeRunning, currentPromptRowId, singleRunPromptId } = useCascadeRun();

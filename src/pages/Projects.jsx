@@ -16,6 +16,9 @@ import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { toast } from '@/components/ui/sonner';
 import { useCreatePrompt } from '@/contexts/CreatePromptContext';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
+import { useExport } from '@/hooks/useExport';
+import { useConfluenceExport } from '@/hooks/useConfluenceExport';
+import { ExportDrawer } from '@/components/export';
 
 const Projects = () => {
   const [expandedItems, setExpandedItems] = useState([]);
@@ -31,6 +34,14 @@ const Projects = () => {
   const { handleAddItem: addItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
   const { setCreatePromptHandler } = useCreatePrompt();
+  
+  // Export functionality
+  const exportState = useExport();
+  const confluenceExport = useConfluenceExport();
+  
+  const handleExportPrompt = useCallback((promptId) => {
+    exportState.openExport([promptId]);
+  }, [exportState]);
 
   // Wrap handleAddItem to auto-expand parent when adding a child and prevent multi-click
   const handleAddItem = useCallback(async (parentId) => {
@@ -243,6 +254,36 @@ const Projects = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
+      <ExportDrawer
+        isOpen={exportState.isOpen}
+        onClose={exportState.closeExport}
+        currentStep={exportState.currentStep}
+        selectedPromptIds={exportState.selectedPromptIds}
+        selectedFields={exportState.selectedFields}
+        selectedVariables={exportState.selectedVariables}
+        exportType={exportState.exportType}
+        promptsData={exportState.promptsData}
+        variablesData={exportState.variablesData}
+        treeData={treeData}
+        isLoadingPrompts={exportState.isLoadingPrompts}
+        isLoadingVariables={exportState.isLoadingVariables}
+        canProceed={exportState.canProceed}
+        onGoBack={exportState.goBack}
+        onGoNext={exportState.goNext}
+        onTogglePrompt={exportState.togglePromptSelection}
+        onSelectAllPrompts={exportState.selectAllPrompts}
+        onClearPrompts={exportState.clearPromptSelection}
+        onToggleField={exportState.toggleFieldSelection}
+        onToggleVariable={exportState.toggleVariableSelection}
+        onSetExportType={exportState.setExportType}
+        onFetchPrompts={exportState.fetchPromptsData}
+        onFetchVariables={exportState.fetchVariablesData}
+        getExportData={exportState.getExportData}
+        EXPORT_STEPS={exportState.EXPORT_STEPS}
+        EXPORT_TYPES={exportState.EXPORT_TYPES}
+        STANDARD_FIELDS={exportState.STANDARD_FIELDS}
+        confluenceExport={confluenceExport}
+      />
       <div className="w-full h-[calc(100vh-4rem)] bg-background">
         <PanelGroup 
           direction="horizontal" 
@@ -271,6 +312,7 @@ const Projects = () => {
                   handleDeleteItem={handleDeleteItem}
                   handleDuplicateItem={handleDuplicateItem}
                   handleMoveItem={handleMoveItem}
+                  onExportPrompt={handleExportPrompt}
                 />
               )}
             </div>

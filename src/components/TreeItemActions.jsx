@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
@@ -20,7 +20,8 @@ export const TreeItemActions = ({
   duplicateItem, 
   startRenaming, 
   siblings,
-  onRefreshTreeData
+  onRefreshTreeData,
+  onExportPrompt
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
@@ -46,6 +47,13 @@ export const TreeItemActions = ({
     }
   }, [item.id, item.parent_row_id, isTopLevel, navigate]);
 
+  // Handle export click
+  const handleExportClick = useCallback((e) => {
+    e.stopPropagation();
+    if (onExportPrompt) {
+      onExportPrompt(item.id);
+    }
+  }, [item.id, onExportPrompt]);
   const handleMove = async (direction) => {
     const siblingsArray = Array.isArray(siblings) ? siblings : [];
     
@@ -286,6 +294,27 @@ export const TreeItemActions = ({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Export button */}
+          {onExportPrompt && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                    onClick={handleExportClick}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Export this prompt
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           {/* Add button - opens choice dialog */}
           <TooltipProvider>

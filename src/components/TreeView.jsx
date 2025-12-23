@@ -20,7 +20,8 @@ const TreeView = ({
   handleAddItem, 
   handleDeleteItem, 
   handleDuplicateItem, 
-  handleMoveItem 
+  handleMoveItem,
+  onExportPrompt
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -137,9 +138,10 @@ const TreeView = ({
         onRefreshTreeData={refreshTreeData}
         searchQuery={searchQuery}
         deletingItems={deletingItems}
+        onExportPrompt={onExportPrompt}
       />
     ))
-  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, handleDeleteWithState, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem, refreshTreeData, searchQuery, deletingItems]);
+  ), [expandedItems, toggleItem, handleAddItem, editingItem, activeItem, handleDeleteWithState, handleDuplicateItem, handleMoveItem, handleUpdateField, setEditingItem, setActiveItem, refreshTreeData, searchQuery, deletingItems, onExportPrompt]);
 
 const handleOpenNewPromptDialog = () => {
     setShowNewPromptChoice(true);
