@@ -38,6 +38,7 @@ export const ExportDrawer = ({
   onGoBack,
   onGoNext,
   onTogglePrompt,
+  onToggleWithDescendants,
   onSelectAllPrompts,
   onClearPrompts,
   onToggleField,
@@ -103,6 +104,7 @@ export const ExportDrawer = ({
             treeData={treeData}
             selectedPromptIds={selectedPromptIds}
             onTogglePrompt={onTogglePrompt}
+            onToggleWithDescendants={onToggleWithDescendants}
             onSelectAll={onSelectAllPrompts}
             onClearSelection={onClearPrompts}
           />

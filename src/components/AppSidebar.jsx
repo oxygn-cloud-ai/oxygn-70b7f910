@@ -149,6 +149,7 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
         onGoBack={exportState.goBack}
         onGoNext={exportState.goNext}
         onTogglePrompt={exportState.togglePromptSelection}
+        onToggleWithDescendants={exportState.toggleWithDescendants}
         onSelectAllPrompts={exportState.selectAllPrompts}
         onClearPrompts={exportState.clearPromptSelection}
         onToggleField={exportState.toggleFieldSelection}

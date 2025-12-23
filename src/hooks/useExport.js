@@ -84,6 +84,33 @@ export const useExport = () => {
     });
   }, []);
 
+  // Toggle prompt with all descendants (for hierarchical selection)
+  const toggleWithDescendants = useCallback((node, isCurrentlyAllSelected) => {
+    // Collect all descendant IDs including the node itself
+    const collectIds = (n) => {
+      const ids = [n.row_id];
+      if (n.children?.length) {
+        n.children.forEach(child => {
+          ids.push(...collectIds(child));
+        });
+      }
+      return ids;
+    };
+    
+    const allIds = collectIds(node);
+    
+    setSelectedPromptIds(prev => {
+      if (isCurrentlyAllSelected) {
+        // Remove all descendants
+        return prev.filter(id => !allIds.includes(id));
+      } else {
+        // Add all descendants
+        const newIds = new Set([...prev, ...allIds]);
+        return Array.from(newIds);
+      }
+    });
+  }, []);
+
   // Select all prompts
   const selectAllPrompts = useCallback((promptIds) => {
     setSelectedPromptIds(promptIds);
@@ -253,6 +280,7 @@ export const useExport = () => {
     goNext,
     goBack,
     togglePromptSelection,
+    toggleWithDescendants,
     selectAllPrompts,
     clearPromptSelection,
     toggleFieldSelection,
@@ -266,5 +294,7 @@ export const useExport = () => {
     EXPORT_STEPS,
     EXPORT_TYPES,
     STANDARD_FIELDS
+  };
+};
   };
 };
