@@ -1,10 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { Check, ChevronRight, ChevronDown, FileText, Bot, Folder, Search, CheckSquare, Square } from 'lucide-react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { Check, ChevronRight, ChevronDown, FileText, Bot, Folder, Search, CheckSquare, Square, ChevronsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-
 const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, onToggleExpand, searchQuery }) => {
   const isSelected = selectedIds.includes(node.row_id);
   const isExpanded = expandedIds.includes(node.row_id);
@@ -130,6 +129,79 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
   );
 };
 
+const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, expandedIds, onToggleExpand, searchQuery }) => {
+  const scrollRef = useRef(null);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+
+  useEffect(() => {
+    const checkScroll = () => {
+      if (scrollRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        const hasScrollableContent = scrollHeight > clientHeight;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 30;
+        setShowScrollIndicator(hasScrollableContent && !isNearBottom);
+      }
+    };
+    
+    checkScroll();
+    // Recheck when tree data or expanded state changes
+    const timer = setTimeout(checkScroll, 100);
+    return () => clearTimeout(timer);
+  }, [treeData, expandedIds, searchQuery]);
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 30;
+      setShowScrollIndicator(!isNearBottom);
+    }
+  };
+
+  return (
+    <div className="border border-border/50 rounded-xl overflow-hidden bg-card/50 relative">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="max-h-[55vh] overflow-y-auto p-3 space-y-0.5"
+      >
+        {treeData.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">
+            <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            No prompts available
+          </div>
+        ) : (
+          treeData.map(node => (
+            <PromptTreeNode
+              key={node.row_id}
+              node={node}
+              selectedIds={selectedPromptIds}
+              onToggle={onTogglePrompt}
+              expandedIds={expandedIds}
+              onToggleExpand={onToggleExpand}
+              searchQuery={searchQuery}
+            />
+          ))
+        )}
+      </div>
+      
+      {/* Scroll indicator */}
+      <div 
+        className={cn(
+          "absolute bottom-0 left-0 right-0 h-12 pointer-events-none transition-opacity duration-300",
+          "bg-gradient-to-t from-card via-card/80 to-transparent",
+          "flex items-end justify-center pb-1",
+          showScrollIndicator ? "opacity-100" : "opacity-0"
+        )}
+      >
+        <div className="flex items-center gap-1 text-muted-foreground text-xs animate-bounce">
+          <ChevronsDown className="h-4 w-4" />
+          <span>More below</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ExportPromptSelector = ({
   treeData,
   selectedPromptIds,
@@ -251,28 +323,14 @@ export const ExportPromptSelector = ({
       </div>
 
       {/* Tree container */}
-      <div className="border border-border/50 rounded-xl overflow-hidden bg-card/50">
-        <div className="max-h-[400px] overflow-y-auto p-3 space-y-0.5">
-          {treeData.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground text-sm">
-              <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              No prompts available
-            </div>
-          ) : (
-            treeData.map(node => (
-              <PromptTreeNode
-                key={node.row_id}
-                node={node}
-                selectedIds={selectedPromptIds}
-                onToggle={onTogglePrompt}
-                expandedIds={expandedIds}
-                onToggleExpand={handleToggleExpand}
-                searchQuery={searchQuery}
-              />
-            ))
-          )}
-        </div>
-      </div>
+      <TreeContainer
+        treeData={treeData}
+        selectedPromptIds={selectedPromptIds}
+        onTogglePrompt={onTogglePrompt}
+        expandedIds={expandedIds}
+        onToggleExpand={handleToggleExpand}
+        searchQuery={searchQuery}
+      />
     </div>
   );
 };

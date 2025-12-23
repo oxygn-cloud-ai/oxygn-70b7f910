@@ -179,7 +179,7 @@ export const ExportDrawer = ({
       <SheetContent 
         side="right"
         hideCloseButton
-        className="w-full sm:max-w-[540px] p-0 flex flex-col gap-0 border-l border-border/50 shadow-2xl"
+        className="w-full sm:max-w-[580px] p-0 flex flex-col gap-0 border-l border-border/50 shadow-2xl"
       >
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50 space-y-4">
