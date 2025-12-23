@@ -68,6 +68,11 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
   const isOnSettings = location.pathname === '/settings';
   const isOnHealth = location.pathname === '/health';
 
+  // Export functionality
+  const { treeData } = useTreeData(supabase);
+  const exportState = useExport();
+  const confluenceExport = useConfluenceExport();
+
   const getInitials = () => {
     if (userProfile?.display_name) {
       return userProfile.display_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -79,6 +84,37 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
   };
 
   return (
+    <>
+      <ExportDrawer
+        isOpen={exportState.isOpen}
+        onClose={exportState.closeExport}
+        currentStep={exportState.currentStep}
+        selectedPromptIds={exportState.selectedPromptIds}
+        selectedFields={exportState.selectedFields}
+        selectedVariables={exportState.selectedVariables}
+        exportType={exportState.exportType}
+        promptsData={exportState.promptsData}
+        variablesData={exportState.variablesData}
+        treeData={treeData}
+        isLoadingPrompts={exportState.isLoadingPrompts}
+        isLoadingVariables={exportState.isLoadingVariables}
+        canProceed={exportState.canProceed}
+        onGoBack={exportState.goBack}
+        onGoNext={exportState.goNext}
+        onTogglePrompt={exportState.togglePromptSelection}
+        onSelectAllPrompts={exportState.selectAllPrompts}
+        onClearPrompts={exportState.clearPromptSelection}
+        onToggleField={exportState.toggleFieldSelection}
+        onToggleVariable={exportState.toggleVariableSelection}
+        onSetExportType={exportState.setExportType}
+        onFetchPrompts={exportState.fetchPromptsData}
+        onFetchVariables={exportState.fetchVariablesData}
+        getExportData={exportState.getExportData}
+        EXPORT_STEPS={exportState.EXPORT_STEPS}
+        EXPORT_TYPES={exportState.EXPORT_TYPES}
+        STANDARD_FIELDS={exportState.STANDARD_FIELDS}
+        confluenceExport={confluenceExport}
+      />
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
       {/* Header with Logo */}
       <SidebarHeader className="flex flex-col items-start gap-3 px-3 py-4 border-b border-sidebar-border">
@@ -235,6 +271,18 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                   </SidebarMenuSub>
                 )}
               </SidebarMenuItem>
+
+              {/* Export */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={exportState.openExport}
+                  tooltip="Export"
+                  className="group"
+                >
+                  <Upload className={`h-4 w-4 transition-colors text-sidebar-foreground/70 group-hover:text-sidebar-foreground`} />
+                  <span>Export</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -328,5 +376,6 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
         </SidebarFooter>
       )}
     </Sidebar>
+    </>
   );
 }
