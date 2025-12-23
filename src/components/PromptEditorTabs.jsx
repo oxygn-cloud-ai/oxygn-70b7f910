@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Play, MessageCirclePlus } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Sparkles, MessageCirclePlus } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -310,7 +310,7 @@ const PromptEditorTabs = ({
                     {isPromptRunning ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Play className="h-4 w-4" />
+                      <Sparkles className="h-4 w-4" />
                     )}
                   </Button>
                 </TooltipTrigger>

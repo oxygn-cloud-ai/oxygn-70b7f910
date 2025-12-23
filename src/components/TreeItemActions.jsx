@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
 import { movePromptPosition } from '../services/promptMutations';
@@ -30,8 +31,20 @@ export const TreeItemActions = ({
   const longPressTimer = useRef(null);
   const cancelBulkAdd = useRef(false);
   const supabase = useSupabase();
+  const navigate = useNavigate();
 
   const isExcluded = item.exclude_from_cascade === true;
+  const isTopLevel = !item.parent_row_id;
+
+  // Navigate to the prompt page for running
+  const handleRunClick = useCallback((e) => {
+    e.stopPropagation();
+    if (isTopLevel) {
+      navigate(`/?project=${item.id}`);
+    } else {
+      navigate(`/?project=${item.parent_row_id}&child=${item.id}`);
+    }
+  }, [item.id, item.parent_row_id, isTopLevel, navigate]);
 
   const handleMove = async (direction) => {
     const siblingsArray = Array.isArray(siblings) ? siblings : [];
@@ -255,6 +268,25 @@ export const TreeItemActions = ({
         </div>
       ) : (
         <>
+          {/* Run button - navigates to prompt */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-primary/10 text-primary hover:text-primary"
+                  onClick={handleRunClick}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Run this prompt
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* Add button - opens choice dialog */}
           <TooltipProvider>
             <Tooltip>
