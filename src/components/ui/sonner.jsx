@@ -1,6 +1,32 @@
 import { useState, useEffect, useRef } from "react"
-import { Toaster as Sonner, toast } from "sonner"
+import { Toaster as Sonner, toast as sonnerToast } from "sonner"
 import { AlertCircle, CheckCircle2, Info, AlertTriangle, Loader2, GripVertical } from "lucide-react"
+import { notify } from '@/contexts/ToastHistoryContext'
+
+// Wrapped toast that adds to notification history without showing popups
+// The visual popup is disabled - only history is recorded
+const toast = {
+  success: (title, options = {}) => {
+    notify.success(title, options);
+  },
+  error: (title, options = {}) => {
+    notify.error(title, options);
+  },
+  info: (title, options = {}) => {
+    notify.info(title, options);
+  },
+  warning: (title, options = {}) => {
+    notify.warning(title, options);
+  },
+  // Keep loading for actual visual feedback when needed
+  loading: (title, options = {}) => {
+    return sonnerToast.loading(title, options);
+  },
+  // Keep promise for loading states
+  promise: sonnerToast.promise,
+  // Keep dismiss for cleanup
+  dismiss: sonnerToast.dismiss,
+};
 
 export { toast }
 
