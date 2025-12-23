@@ -254,19 +254,17 @@ export const ExportDrawer = ({
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border/50 bg-background/80 backdrop-blur-sm">
           <div className="flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={onGoBack}
               disabled={currentStep === EXPORT_STEPS.SELECT_PROMPTS}
               className={cn(
-                "gap-1.5",
+                "p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                 currentStep === EXPORT_STEPS.SELECT_PROMPTS && "invisible"
               )}
+              title="Back"
             >
-              <ChevronLeft className="h-4 w-4" />
-              Back
-            </Button>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
             
             <div className="flex items-center gap-4">
               <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -274,34 +272,27 @@ export const ExportDrawer = ({
               </span>
               
               {isLastStep ? (
-                <Button
-                  size="sm"
+                <button
                   onClick={handleExport}
                   disabled={!canProceed || isExporting || !confluenceExport.pageTitle || !confluenceExport.selectedSpaceKey}
-                  className="gap-1.5 min-w-[100px]"
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Export"
                 >
                   {isExporting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Exporting...
-                    </>
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
-                    <>
-                      <Upload className="h-4 w-4" />
-                      Export
-                    </>
+                    <Upload className="h-5 w-5" />
                   )}
-                </Button>
+                </button>
               ) : (
-                <Button
-                  size="sm"
+                <button
                   onClick={onGoNext}
                   disabled={!canProceed}
-                  className="gap-1.5 min-w-[100px]"
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Next"
                 >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               )}
             </div>
           </div>
