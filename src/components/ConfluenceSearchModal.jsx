@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, X, Folder, Layout, Database } from 'lucide-react';
+import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDown, X, Folder, Layout, Database, Newspaper, BookOpen } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
 
@@ -105,6 +105,10 @@ const TreeNode = ({
           <Layout className="h-4 w-4 text-purple-500 flex-shrink-0 mr-1.5" />
         ) : node.isDatabase ? (
           <Database className="h-4 w-4 text-blue-500 flex-shrink-0 mr-1.5" />
+        ) : node.isBlogpost || node.type === 'blogpost' ? (
+          <Newspaper className="h-4 w-4 text-emerald-500 flex-shrink-0 mr-1.5" />
+        ) : node.isBlogContainer ? (
+          <BookOpen className="h-4 w-4 text-emerald-600 flex-shrink-0 mr-1.5" />
         ) : (
           <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0 mr-1.5" />
         )}
@@ -128,7 +132,7 @@ const TreeNode = ({
           {canAttach && (
             <button
               className="p-1 hover:bg-muted rounded"
-              onClick={() => onAttach(node.id)}
+              onClick={() => onAttach(node.id, node.type || 'page')}
               disabled={attachingPageId === node.id}
             >
               {attachingPageId === node.id ? (
@@ -267,10 +271,10 @@ const ConfluenceSearchModal = ({
     }
   }, [open, clearSearch, clearSpaceTree]);
 
-  const handleAttach = async (pageId) => {
+  const handleAttach = async (pageId, contentType = 'page') => {
     setAttachingPageId(pageId);
     try {
-      await attachPage(pageId);
+      await attachPage(pageId, contentType);
       onPageAttached?.();
     } finally {
       setAttachingPageId(null);
@@ -437,7 +441,7 @@ const ConfluenceSearchModal = ({
                         )}
                         <button
                           className="p-1 hover:bg-muted rounded"
-                          onClick={() => handleAttach(page.id)}
+                          onClick={() => handleAttach(page.id, 'page')}
                           disabled={attachingPageId === page.id}
                         >
                           {attachingPageId === page.id ? (

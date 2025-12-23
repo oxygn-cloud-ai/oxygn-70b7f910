@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FileText, RefreshCw, Search, X, ExternalLink, Loader2, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileText, RefreshCw, Search, X, ExternalLink, Loader2, ChevronRight, ChevronDown, Folder, Layout, Database, Newspaper } from 'lucide-react';
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import ConfluenceSearchModal from './ConfluenceSearchModal';
 import { cn } from '@/lib/utils';
@@ -93,7 +93,18 @@ const PageTreeNode = ({
           )}
         </div>
 
-        <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mr-1" />
+        {/* Content type icon based on stored content_type */}
+        {page.content_type === 'folder' ? (
+          <Folder className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mr-1" />
+        ) : page.content_type === 'whiteboard' ? (
+          <Layout className="h-3.5 w-3.5 text-purple-500 flex-shrink-0 mr-1" />
+        ) : page.content_type === 'database' ? (
+          <Database className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mr-1" />
+        ) : page.content_type === 'blogpost' ? (
+          <Newspaper className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0 mr-1" />
+        ) : (
+          <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mr-1" />
+        )}
         
         <span className="text-sm truncate flex-1 py-1">{page.page_title}</span>
         

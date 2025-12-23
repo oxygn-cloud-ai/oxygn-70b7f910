@@ -167,12 +167,13 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     }
   }, []);
 
-  const attachPage = async (pageId) => {
+  const attachPage = async (pageId, contentType = 'page') => {
     try {
       const data = await invokeFunction('attach-page', { 
         pageId, 
         assistantRowId, 
-        promptRowId 
+        promptRowId,
+        contentType
       });
       
       if (data.success) {
