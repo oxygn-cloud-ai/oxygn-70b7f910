@@ -34,13 +34,16 @@ export const useExport = () => {
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [isLoadingVariables, setIsLoadingVariables] = useState(false);
 
+  // Expand prompt IDs with descendants in tree order (parent first, then children by position)
   const expandPromptIdsWithDescendants = useCallback(async (rootPromptIds = []) => {
     const initial = Array.from(new Set(rootPromptIds.filter(Boolean)));
     if (initial.length === 0) return [];
 
-    const visited = new Set(initial);
+    // Fetch all prompts that could be in the tree (starting from roots, get all descendants)
+    const allPromptIds = new Set(initial);
     let frontier = initial;
 
+    // First pass: collect all descendant IDs
     while (frontier.length > 0) {
       const { data, error } = await supabase
         .from('q_prompts')
@@ -53,8 +56,8 @@ export const useExport = () => {
       const next = [];
       (data || []).forEach((row) => {
         const id = row.row_id;
-        if (id && !visited.has(id)) {
-          visited.add(id);
+        if (id && !allPromptIds.has(id)) {
+          allPromptIds.add(id);
           next.push(id);
         }
       });
@@ -62,7 +65,51 @@ export const useExport = () => {
       frontier = next;
     }
 
-    return Array.from(visited);
+    // Now fetch all these prompts with their parent_row_id and position for ordering
+    const { data: allPrompts, error: fetchError } = await supabase
+      .from('q_prompts')
+      .select('row_id, parent_row_id, position')
+      .in('row_id', Array.from(allPromptIds))
+      .or('is_deleted.is.null,is_deleted.eq.false');
+
+    if (fetchError) throw fetchError;
+
+    // Build a map of parent -> children sorted by position
+    const childrenMap = new Map();
+    const promptMap = new Map();
+    
+    (allPrompts || []).forEach(p => {
+      promptMap.set(p.row_id, p);
+      const parentId = p.parent_row_id || null;
+      if (!childrenMap.has(parentId)) {
+        childrenMap.set(parentId, []);
+      }
+      childrenMap.get(parentId).push(p);
+    });
+
+    // Sort children by position
+    childrenMap.forEach((children) => {
+      children.sort((a, b) => (a.position || 0) - (b.position || 0));
+    });
+
+    // DFS traversal starting from roots to get ordered list
+    const orderedIds = [];
+    const rootSet = new Set(initial);
+
+    const traverse = (promptId) => {
+      orderedIds.push(promptId);
+      const children = childrenMap.get(promptId) || [];
+      children.forEach(child => traverse(child.row_id));
+    };
+
+    // Start from root prompts in their original order, then traverse each
+    initial.forEach(rootId => {
+      if (promptMap.has(rootId)) {
+        traverse(rootId);
+      }
+    });
+
+    return orderedIds;
   }, []);
 
   // Open the export drawer, optionally with pre-selected prompts
@@ -191,6 +238,7 @@ export const useExport = () => {
   }, []);
 
   // Fetch prompt data for selected prompts (excludes prompts with exclude_from_cascade)
+  // Maintains the order of promptIds (which should be in tree order)
   const fetchPromptsData = useCallback(async (promptIds) => {
     if (!promptIds.length) {
       setPromptsData([]);
@@ -207,14 +255,22 @@ export const useExport = () => {
 
       if (error) throw error;
       
-      // Normalize data - merge output_response and user_prompt_result into output_response
-      const normalizedData = (data || []).map(prompt => ({
-        ...prompt,
-        output_response: prompt.output_response || prompt.user_prompt_result || ''
-      }));
+      // Create a map for quick lookup
+      const promptMap = new Map();
+      (data || []).forEach(prompt => {
+        promptMap.set(prompt.row_id, {
+          ...prompt,
+          output_response: prompt.output_response || prompt.user_prompt_result || ''
+        });
+      });
+
+      // Order by the original promptIds order (tree order)
+      const orderedData = promptIds
+        .map(id => promptMap.get(id))
+        .filter(Boolean); // Filter out any that were excluded or not found
       
-      setPromptsData(normalizedData);
-      return normalizedData;
+      setPromptsData(orderedData);
+      return orderedData;
     } catch (error) {
       console.error('Error fetching prompts data:', error);
       return [];
