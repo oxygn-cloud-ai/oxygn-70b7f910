@@ -4,6 +4,7 @@ import { FileText, Settings, Variable, LayoutTemplate, Play, Loader2, ListTree }
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
+import { notify } from '@/contexts/ToastHistoryContext';
 import { useThreads } from '../hooks/useThreads';
 import { useConversationRun } from '../hooks/useConversationRun';
 import { useProjectData } from '../hooks/useProjectData';
@@ -165,6 +166,18 @@ const ChildPromptPanel = ({
       });
 
       console.log('[ChildPromptPanel] Running with system variables:', Object.keys(systemVars));
+
+      // Log variables to notifications
+      notify.info(`Variables for: ${selectedItemData?.prompt_name || 'Prompt'}`, {
+        description: `${Object.keys(systemVars).length} variables resolved`,
+        source: 'ChildPromptPanel.handleRun',
+        details: JSON.stringify({
+          promptRowId: projectRowId,
+          promptName: selectedItemData?.prompt_name,
+          variableCount: Object.keys(systemVars).length,
+          variables: systemVars,
+        }, null, 2),
+      });
 
       const result = await runConversation({
         conversationRowId: parentAssistantRowId,

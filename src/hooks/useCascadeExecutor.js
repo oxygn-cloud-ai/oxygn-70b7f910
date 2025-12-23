@@ -3,6 +3,7 @@ import { useSupabase } from './useSupabase';
 import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { toast } from '@/components/ui/sonner';
+import { notify } from '@/contexts/ToastHistoryContext';
 import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
 import { buildSystemVariablesForRun } from '@/utils/resolveSystemVariables';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
@@ -375,6 +376,19 @@ export const useCascadeExecutor = () => {
 
           // Build template variables from accumulated context AND system variables
           const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, topLevelPrompt, currentUser);
+
+          // Log variables to notifications
+          notify.info(`Variables for: ${prompt.prompt_name}`, {
+            description: `${Object.keys(templateVars).length} variables resolved`,
+            source: 'useCascadeExecutor.executeCascade',
+            details: JSON.stringify({
+              promptRowId: prompt.row_id,
+              promptName: prompt.prompt_name,
+              level: levelIdx,
+              variableCount: Object.keys(templateVars).length,
+              variables: templateVars,
+            }, null, 2),
+          });
 
           let success = false;
           let retryCount = 0;
