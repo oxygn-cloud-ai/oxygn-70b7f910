@@ -385,6 +385,16 @@ export const useCascadeExecutor = () => {
 
           while (!success && retryCount < maxRetries) {
             try {
+              // Refresh the auth session before each prompt to prevent token expiration
+              try {
+                const { error: refreshError } = await supabaseClient.auth.refreshSession();
+                if (refreshError) {
+                  console.warn('Session refresh warning:', refreshError.message);
+                }
+              } catch (refreshErr) {
+                console.warn('Session refresh failed, continuing with existing session:', refreshErr);
+              }
+
               // Build the user message - fallback to admin prompt or configured default if empty
               const userMessage = getPromptMessage(prompt, cascadeFallbackMessage);
 
