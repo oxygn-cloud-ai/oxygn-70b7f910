@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Home, Loader2, File } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Home, Loader2, File, Type, Globe, FolderTree, LayoutTemplate } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +20,6 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
   const isContainer = node.isContainer;
 
   if (isContainer) {
-    // Skip container nodes like "Blog"
     return null;
   }
 
@@ -48,8 +47,10 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
       <div
         onClick={handleClick}
         className={cn(
-          "flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer transition-colors text-sm",
-          isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
+          "flex items-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition-all text-sm",
+          isSelected 
+            ? "bg-primary/10 text-primary border border-primary/20" 
+            : "hover:bg-muted border border-transparent text-foreground"
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
       >
@@ -135,10 +136,18 @@ export const ConfluenceConfig = ({
   }, [selectedParentId, spaceTree]);
 
   return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div className="space-y-2">
-        <Label htmlFor="page-title">Page Title</Label>
+    <div className="space-y-4">
+      {/* Page Title Card */}
+      <div className="border border-border/50 rounded-xl p-4 bg-card/50 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Type className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <Label htmlFor="page-title" className="text-sm font-semibold">Page Title</Label>
+            <p className="text-xs text-muted-foreground">The title of your new Confluence page</p>
+          </div>
+        </div>
         <Input
           id="page-title"
           value={pageTitle}
@@ -148,9 +157,17 @@ export const ConfluenceConfig = ({
         />
       </div>
 
-      {/* Space Selection */}
-      <div className="space-y-2">
-        <Label>Confluence Space</Label>
+      {/* Space Selection Card */}
+      <div className="border border-border/50 rounded-xl p-4 bg-card/50 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+            <Globe className="h-4 w-4 text-blue-500" />
+          </div>
+          <div>
+            <Label className="text-sm font-semibold">Confluence Space</Label>
+            <p className="text-xs text-muted-foreground">Select the space for your page</p>
+          </div>
+        </div>
         <Select value={selectedSpaceKey || ''} onValueChange={onSelectSpace}>
           <SelectTrigger className="bg-background">
             <SelectValue placeholder="Select a space..." />
@@ -165,15 +182,23 @@ export const ConfluenceConfig = ({
         </Select>
       </div>
 
-      {/* Parent Page/Folder Selection */}
+      {/* Parent Page Selection Card */}
       {selectedSpaceKey && (
-        <div className="space-y-2">
+        <div className="border border-border/50 rounded-xl p-4 bg-card/50 space-y-3">
           <div className="flex items-center justify-between">
-            <Label>Parent Page (optional)</Label>
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <FolderTree className="h-4 w-4 text-amber-500" />
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">Parent Page</Label>
+                <p className="text-xs text-muted-foreground">Optional: nest under existing page</p>
+              </div>
+            </div>
             {selectedParentId && (
               <button
                 onClick={() => onSelectParent(null)}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Clear
               </button>
@@ -181,17 +206,17 @@ export const ConfluenceConfig = ({
           </div>
           
           {isLoadingTree ? (
-            <div className="flex items-center justify-center py-6 border border-border rounded-lg">
+            <div className="flex items-center justify-center py-8 border border-border/30 rounded-lg bg-muted/20">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="border border-border rounded-lg max-h-48 overflow-y-auto">
+            <div className="border border-border/30 rounded-lg max-h-48 overflow-y-auto bg-background/50">
               {spaceTree.length === 0 ? (
-                <div className="text-center py-4 text-sm text-muted-foreground">
+                <div className="text-center py-6 text-sm text-muted-foreground">
                   No pages found
                 </div>
               ) : (
-                <div className="p-1">
+                <div className="p-1.5">
                   {spaceTree.map(node => (
                     <PageTreeNode
                       key={node.id}
@@ -208,37 +233,45 @@ export const ConfluenceConfig = ({
           )}
           
           {selectedParentNode && (
-            <div className="text-xs text-muted-foreground">
-              New page will be created under: <span className="font-medium">{selectedParentNode.title}</span>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+              New page will be created under: <span className="font-medium text-foreground">{selectedParentNode.title}</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Template Selection */}
+      {/* Template Selection Card */}
       {selectedSpaceKey && (
-        <div className="space-y-3">
-          <Label>Page Template</Label>
+        <div className="border border-border/50 rounded-xl p-4 bg-card/50 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <LayoutTemplate className="h-4 w-4 text-purple-500" />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">Page Template</Label>
+              <p className="text-xs text-muted-foreground">Choose a template or start blank</p>
+            </div>
+          </div>
           
           <div className="flex gap-2">
             <button
               onClick={onChooseBlankPage}
               className={cn(
-                "flex-1 py-2 px-3 rounded-lg border text-sm font-medium transition-colors",
+                "flex-1 py-2.5 px-4 rounded-lg border-2 text-sm font-medium transition-all",
                 useBlankPage
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground"
+                  : "border-border/50 hover:border-primary/30 text-muted-foreground hover:text-foreground"
               )}
             >
               Blank Page
             </button>
             
             {isLoadingTemplates ? (
-              <div className="flex-1 flex items-center justify-center py-2 border border-border rounded-lg">
+              <div className="flex-1 flex items-center justify-center py-2.5 border-2 border-border/50 rounded-lg">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
             ) : templates.length === 0 ? (
-              <div className="flex-1 py-2 px-3 border border-dashed border-border rounded-lg text-sm text-muted-foreground text-center">
+              <div className="flex-1 py-2.5 px-4 border-2 border-dashed border-border/30 rounded-lg text-sm text-muted-foreground text-center">
                 No templates
               </div>
             ) : (
@@ -250,8 +283,8 @@ export const ConfluenceConfig = ({
                 }}
               >
                 <SelectTrigger className={cn(
-                  "flex-1 bg-background",
-                  !useBlankPage && selectedTemplate && "border-primary"
+                  "flex-1 bg-background border-2",
+                  !useBlankPage && selectedTemplate ? "border-primary" : "border-border/50"
                 )}>
                   <SelectValue placeholder="Choose template..." />
                 </SelectTrigger>

@@ -1,12 +1,32 @@
-import React, { useMemo } from 'react';
-import { Check, ChevronRight, ChevronDown, FileText, Bot, Folder } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Check, ChevronRight, ChevronDown, FileText, Bot, Folder, Search, CheckSquare, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
-const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, onToggleExpand }) => {
+const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, onToggleExpand, searchQuery }) => {
   const isSelected = selectedIds.includes(node.row_id);
   const isExpanded = expandedIds.includes(node.row_id);
   const hasChildren = node.children && node.children.length > 0;
   const isAssistant = node.is_assistant;
+
+  // Filter based on search query
+  const matchesSearch = !searchQuery || 
+    node.prompt_name?.toLowerCase().includes(searchQuery.toLowerCase());
+  
+  const hasMatchingDescendant = useMemo(() => {
+    if (!searchQuery) return true;
+    const checkDescendants = (n) => {
+      if (n.prompt_name?.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+      return n.children?.some(child => checkDescendants(child)) || false;
+    };
+    return checkDescendants(node);
+  }, [node, searchQuery]);
+
+  if (searchQuery && !matchesSearch && !hasMatchingDescendant) {
+    return null;
+  }
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
@@ -22,61 +42,76 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
     <div>
       <div
         className={cn(
-          "flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer transition-colors hover:bg-muted/50",
-          isSelected && "bg-primary/10"
+          "flex items-center gap-2.5 py-2 px-3 rounded-lg cursor-pointer transition-all group",
+          isSelected 
+            ? "bg-primary/10 border border-primary/20" 
+            : "hover:bg-muted/50 border border-transparent",
+          matchesSearch && searchQuery && "bg-primary/5"
         )}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
+        style={{ marginLeft: `${level * 16}px` }}
         onClick={handleCheckboxClick}
       >
         {/* Expand/collapse button */}
         {hasChildren ? (
           <button
             onClick={handleExpandClick}
-            className="p-0.5 hover:bg-muted rounded"
+            className="p-0.5 hover:bg-muted rounded transition-colors"
           >
             {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
             )}
           </button>
         ) : (
-          <div className="w-4.5" />
+          <div className="w-5" />
         )}
 
         {/* Checkbox */}
         <div
           className={cn(
-            "h-4 w-4 rounded border flex items-center justify-center transition-colors flex-shrink-0",
+            "h-4 w-4 rounded border-2 flex items-center justify-center transition-all flex-shrink-0",
             isSelected
               ? "bg-primary border-primary"
-              : "border-border hover:border-primary/50"
+              : "border-muted-foreground/30 group-hover:border-primary/50"
           )}
         >
           {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
         </div>
 
         {/* Icon */}
-        {isAssistant ? (
-          <Bot className="h-4 w-4 text-primary flex-shrink-0" />
-        ) : hasChildren ? (
-          <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        ) : (
-          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        )}
+        <div className={cn(
+          "h-7 w-7 rounded-md flex items-center justify-center flex-shrink-0",
+          isAssistant ? "bg-primary/10" : hasChildren ? "bg-amber-500/10" : "bg-muted"
+        )}>
+          {isAssistant ? (
+            <Bot className="h-4 w-4 text-primary" />
+          ) : hasChildren ? (
+            <Folder className="h-4 w-4 text-amber-500" />
+          ) : (
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
 
         {/* Name */}
         <span className={cn(
-          "text-sm truncate",
-          isSelected ? "text-foreground font-medium" : "text-muted-foreground"
+          "text-sm truncate flex-1",
+          isSelected ? "text-foreground font-medium" : "text-foreground/80"
         )}>
           {node.prompt_name}
         </span>
+
+        {/* Child count badge */}
+        {hasChildren && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+            {node.children.length}
+          </Badge>
+        )}
       </div>
 
       {/* Children */}
       {hasChildren && isExpanded && (
-        <div>
+        <div className="mt-0.5">
           {node.children.map(child => (
             <PromptTreeNode
               key={child.row_id}
@@ -86,6 +121,7 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, expandedIds, o
               onToggle={onToggle}
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
+              searchQuery={searchQuery}
             />
           ))}
         </div>
@@ -101,7 +137,8 @@ export const ExportPromptSelector = ({
   onSelectAll,
   onClearSelection
 }) => {
-  const [expandedIds, setExpandedIds] = React.useState([]);
+  const [expandedIds, setExpandedIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Get all prompt IDs for select all
   const allPromptIds = useMemo(() => {
@@ -129,7 +166,10 @@ export const ExportPromptSelector = ({
 
   const handleSelectAll = () => {
     onSelectAll(allPromptIds);
-    // Expand all
+    setExpandedIds(allPromptIds);
+  };
+
+  const handleExpandAll = () => {
     setExpandedIds(allPromptIds);
   };
 
@@ -139,40 +179,83 @@ export const ExportPromptSelector = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-foreground">Select prompts to export</h3>
+      {/* Header with search */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">Select prompts to export</h3>
+          <Badge variant="outline" className="font-normal">
+            {selectedCount} / {totalCount}
+          </Badge>
+        </div>
+        
+        {/* Search input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search prompts..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 bg-muted/50 border-muted-foreground/20"
+          />
+        </div>
+
+        {/* Bulk actions */}
         <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={handleSelectAll}
+                disabled={allSelected}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors",
+                  allSelected
+                    ? "text-muted-foreground cursor-not-allowed bg-muted/30"
+                    : "text-primary bg-primary/10 hover:bg-primary/20"
+                )}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                Select all
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Select all {totalCount} prompts</TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onClearSelection}
+                disabled={selectedCount === 0}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors",
+                  selectedCount === 0
+                    ? "text-muted-foreground cursor-not-allowed bg-muted/30"
+                    : "text-muted-foreground bg-muted/50 hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Square className="h-3.5 w-3.5" />
+                Clear
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Clear selection</TooltipContent>
+          </Tooltip>
+
+          <div className="flex-1" />
+
           <button
-            onClick={handleSelectAll}
-            disabled={allSelected}
-            className={cn(
-              "text-xs px-2 py-1 rounded transition-colors",
-              allSelected
-                ? "text-muted-foreground cursor-not-allowed"
-                : "text-primary hover:bg-primary/10"
-            )}
+            onClick={handleExpandAll}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            Select all ({totalCount})
-          </button>
-          <button
-            onClick={onClearSelection}
-            disabled={selectedCount === 0}
-            className={cn(
-              "text-xs px-2 py-1 rounded transition-colors",
-              selectedCount === 0
-                ? "text-muted-foreground cursor-not-allowed"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-          >
-            Clear
+            Expand all
           </button>
         </div>
       </div>
 
-      <div className="border border-border rounded-lg overflow-hidden">
-        <div className="max-h-[400px] overflow-y-auto p-2">
+      {/* Tree container */}
+      <div className="border border-border/50 rounded-xl overflow-hidden bg-card/50">
+        <div className="max-h-[400px] overflow-y-auto p-3 space-y-0.5">
           {treeData.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
               No prompts available
             </div>
           ) : (
@@ -184,14 +267,11 @@ export const ExportPromptSelector = ({
                 onToggle={onTogglePrompt}
                 expandedIds={expandedIds}
                 onToggleExpand={handleToggleExpand}
+                searchQuery={searchQuery}
               />
             ))
           )}
         </div>
-      </div>
-
-      <div className="text-xs text-muted-foreground">
-        {selectedCount} of {totalCount} prompts selected
       </div>
     </div>
   );
