@@ -70,6 +70,16 @@ export const ExportDrawer = ({
     if (exportType === EXPORT_TYPES.CONFLUENCE) {
       try {
         const exportData = getExportData;
+        console.log('[ExportDrawer] Export data:', exportData);
+        console.log('[ExportDrawer] Page title:', confluenceExport.pageTitle);
+        console.log('[ExportDrawer] Space key:', confluenceExport.selectedSpaceKey);
+        console.log('[ExportDrawer] Parent ID:', confluenceExport.selectedParentId);
+        
+        if (!exportData || exportData.length === 0) {
+          console.error('[ExportDrawer] No export data available');
+          return;
+        }
+        
         const result = await confluenceExport.exportToConfluence(
           exportData,
           confluenceExport.pageTitle || 'Exported Prompts'
@@ -79,7 +89,8 @@ export const ExportDrawer = ({
         }
         onClose();
       } catch (error) {
-        console.error('Export failed:', error);
+        console.error('[ExportDrawer] Export failed:', error);
+        console.error('[ExportDrawer] Error message:', error.message);
       }
     }
   };

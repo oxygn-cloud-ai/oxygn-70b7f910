@@ -4,13 +4,23 @@ import { toast } from '@/components/ui/sonner';
 
 // Move invokeFunction outside component to ensure stable reference
 const invokeFunction = async (action, params = {}) => {
+  console.log(`[invokeFunction] Calling confluence-manager with action: ${action}`, params);
+  
   const { data, error } = await supabase.functions.invoke('confluence-manager', {
     body: { action, ...params }
   });
   
-  if (error) throw error;
-  if (data?.error) throw new Error(data.error);
+  if (error) {
+    console.error(`[invokeFunction] Supabase function error:`, error);
+    throw new Error(error.message || 'Edge function error');
+  }
   
+  if (data?.error) {
+    console.error(`[invokeFunction] API returned error:`, data.error);
+    throw new Error(data.error);
+  }
+  
+  console.log(`[invokeFunction] Success for action: ${action}`);
   return data;
 };
 
@@ -151,6 +161,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
   }, []);
 
   const createPage = useCallback(async ({ spaceKey, parentId, title, body }) => {
+    console.log('[useConfluencePages] Creating page:', { spaceKey, parentId, title, bodyLength: body?.length });
     setIsCreatingPage(true);
     try {
       const data = await invokeFunction('create-page', { spaceKey, parentId, title, body });
@@ -159,8 +170,10 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
       }
       return data;
     } catch (error) {
-      console.error('Error creating page:', error);
-      toast.error('Failed to create page');
+      console.error('[useConfluencePages] Error creating page:', error);
+      // Extract error message from the error object
+      const errorMessage = error?.message || error?.error || 'Failed to create page';
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsCreatingPage(false);
