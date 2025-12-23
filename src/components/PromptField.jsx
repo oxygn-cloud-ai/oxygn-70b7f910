@@ -64,7 +64,8 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     e.preventDefault();
     setIsResizing(true);
     resizeStartY.current = e.clientY;
-    const currentHeight = containerRef.current?.querySelector('.resizable-content')?.offsetHeight || 100;
+    // Measure from the actual textarea/editor element
+    const currentHeight = textareaRef.current?.offsetHeight || textareaRef.current?.clientHeight || 100;
     resizeStartHeight.current = currentHeight;
   }, []);
 
