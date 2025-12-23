@@ -294,6 +294,7 @@ export const TreeItemContent = ({
               startRenaming={startRenaming}
               siblings={siblings}
               onRefreshTreeData={onRefreshTreeData}
+              onExportPrompt={onExportPrompt}
             />
           </div>
         </div>
