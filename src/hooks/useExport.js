@@ -28,7 +28,7 @@ export const useExport = () => {
   const [selectedPromptIds, setSelectedPromptIds] = useState([]);
   const [selectedFields, setSelectedFields] = useState(['output_response', 'prompt_name']);
   const [selectedVariables, setSelectedVariables] = useState({});
-  const [exportType, setExportType] = useState(null);
+  const [exportType, setExportType] = useState(EXPORT_TYPES.CONFLUENCE); // Default to Confluence
   const [promptsData, setPromptsData] = useState([]);
   const [variablesData, setVariablesData] = useState({});
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
@@ -148,7 +148,7 @@ export const useExport = () => {
     });
   }, []);
 
-  // Fetch prompt data for selected prompts
+  // Fetch prompt data for selected prompts (excludes prompts with exclude_from_cascade)
   const fetchPromptsData = useCallback(async (promptIds) => {
     if (!promptIds.length) {
       setPromptsData([]);
@@ -159,8 +159,9 @@ export const useExport = () => {
     try {
       const { data, error } = await supabase
         .from('q_prompts')
-        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note')
-        .in('row_id', promptIds);
+        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note, exclude_from_cascade')
+        .in('row_id', promptIds)
+        .or('exclude_from_cascade.is.null,exclude_from_cascade.eq.false'); // Filter out excluded prompts
 
       if (error) throw error;
       

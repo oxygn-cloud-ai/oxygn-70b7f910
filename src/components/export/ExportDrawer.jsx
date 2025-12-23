@@ -197,7 +197,12 @@ export const ExportDrawer = ({
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50 space-y-4">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-xl font-semibold font-poppins">Export Prompts</SheetTitle>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Upload className="h-5 w-5 text-primary" />
+              </div>
+              <SheetTitle className="text-xl font-semibold font-poppins">Export Prompts</SheetTitle>
+            </div>
             <button
               onClick={onClose}
               className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
