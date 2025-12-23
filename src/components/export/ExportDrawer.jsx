@@ -177,7 +177,8 @@ export const ExportDrawer = ({
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent 
-        side="right" 
+        side="right"
+        hideCloseButton
         className="w-full sm:max-w-[540px] p-0 flex flex-col gap-0 border-l border-border/50 shadow-2xl"
       >
         {/* Header */}
