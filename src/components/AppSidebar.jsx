@@ -62,7 +62,7 @@ const healthSubItems = [
 
 const helpSubItems = [
   { id: 'documentation', title: 'Documentation', icon: BookOpen, url: 'https://chocfin.atlassian.net/wiki/spaces/COM/pages/1582628910/' },
-  { id: 'support', title: 'Support', icon: SlackIcon, url: 'slack://channel?team=T02C3QE9R&id=C07M3Q5PRLT' },
+  { id: 'support', title: 'Support', icon: SlackIcon, url: 'https://slack.com/app_redirect?channel=C07M3Q5PRLT&team=T02C3QE9R' },
 ];
 
 // Help menu item with toggle functionality
