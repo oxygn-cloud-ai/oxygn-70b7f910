@@ -15,7 +15,7 @@ const EXPORT_TYPES = {
 };
 
 const STANDARD_FIELDS = [
-  { id: 'output_response', label: 'Output Response', description: 'AI-generated response' },
+  { id: 'output_response', label: 'Output Response', description: 'AI-generated response (includes both output_response and user_prompt_result)' },
   { id: 'input_user_prompt', label: 'User Prompt', description: 'User input prompt' },
   { id: 'input_admin_prompt', label: 'System Prompt', description: 'Admin/system prompt' },
   { id: 'note', label: 'Notes', description: 'Prompt notes' },
@@ -132,12 +132,19 @@ export const useExport = () => {
     try {
       const { data, error } = await supabase
         .from('q_prompts')
-        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, note')
+        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note')
         .in('row_id', promptIds);
 
       if (error) throw error;
-      setPromptsData(data || []);
-      return data || [];
+      
+      // Normalize data - merge output_response and user_prompt_result into output_response
+      const normalizedData = (data || []).map(prompt => ({
+        ...prompt,
+        output_response: prompt.output_response || prompt.user_prompt_result || ''
+      }));
+      
+      setPromptsData(normalizedData);
+      return normalizedData;
     } catch (error) {
       console.error('Error fetching prompts data:', error);
       return [];

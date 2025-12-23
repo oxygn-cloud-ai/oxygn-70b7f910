@@ -90,6 +90,7 @@ export const useConfluenceExport = () => {
       exportData.forEach(item => {
         body += `<h2>${item.prompt_name || 'Untitled Prompt'}</h2>`;
         
+        // Use output_response (already normalized to include user_prompt_result)
         if (item.output_response) {
           body += `<h3>Output</h3><p>${escapeHtml(item.output_response)}</p>`;
         }
