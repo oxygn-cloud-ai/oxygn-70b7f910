@@ -41,9 +41,9 @@ export const TreeItemActions = ({
   const handleRunClick = useCallback((e) => {
     e.stopPropagation();
     if (isTopLevel) {
-      navigate(`/?project=${item.id}`);
+      navigate(`/projects?project=${item.id}`);
     } else {
-      navigate(`/?project=${item.parent_row_id}&child=${item.id}`);
+      navigate(`/projects?project=${item.parent_row_id}&child=${item.id}`);
     }
   }, [item.id, item.parent_row_id, isTopLevel, navigate]);
 
