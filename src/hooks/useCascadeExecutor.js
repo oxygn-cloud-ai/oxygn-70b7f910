@@ -356,7 +356,7 @@ export const useCascadeExecutor = () => {
           }
 
           promptIndex++;
-          updateProgress(levelIdx, prompt.prompt_name, promptIndex);
+          updateProgress(levelIdx, prompt.prompt_name, promptIndex, prompt.row_id);
 
           const promptStartTime = Date.now();
 

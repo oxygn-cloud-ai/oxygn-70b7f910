@@ -3,6 +3,7 @@ import { useSupabase } from '../../hooks/useSupabase';
 import { useTimer } from '../../hooks/useTimer';
 import { useProjectData } from '../../hooks/useProjectData';
 import { useConversationRun } from '../../hooks/useConversationRun';
+import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import PromptField from '../PromptField';
 import { Bot, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const PromptFieldsTab = ({
 }) => {
   const supabase = useSupabase();
   const { runPrompt, isRunning } = useConversationRun();
+  const { startSingleRun, endSingleRun } = useCascadeRun();
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating || isRunning);
 
@@ -61,6 +63,7 @@ const PromptFieldsTab = ({
     }
 
     setIsGenerating(true);
+    startSingleRun(projectRowId);
     try {
       // Edge function automatically uses:
       // - input_admin_prompt from DB as system context
@@ -83,8 +86,9 @@ const PromptFieldsTab = ({
       // Error toast already shown by runPrompt
     } finally {
       setIsGenerating(false);
+      endSingleRun();
     }
-  }, [isTopLevel, selectedItemData?.is_assistant, parentAssistantRowId, projectRowId, runPrompt, handleChange]);
+  }, [isTopLevel, selectedItemData?.is_assistant, parentAssistantRowId, projectRowId, runPrompt, handleChange, startSingleRun, endSingleRun]);
 
   const handleCascade = useCallback((fieldName) => {
     if (onCascade) {

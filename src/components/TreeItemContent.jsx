@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TreeItemActions } from './TreeItemActions';
 import { OwnerChangeContent } from './OwnerChangePopover';
 import { useAuth } from '../contexts/AuthContext';
+import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
@@ -39,8 +40,13 @@ export const TreeItemContent = ({
   isDeleting
 }) => {
   const { user, isAdmin } = useAuth();
+  const { isRunning: isCascadeRunning, currentPromptRowId, singleRunPromptId } = useCascadeRun();
   const isOwner = user?.id === item.owner_id;
   const canChangeOwner = isAdmin || isOwner;
+  
+  // Check if this item is currently running (cascade or single run)
+  const isCurrentlyRunning = (isCascadeRunning && currentPromptRowId === item.id) || 
+                              (singleRunPromptId === item.id);
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       finishRenaming();
@@ -94,9 +100,11 @@ export const TreeItemContent = ({
         py-1.5 px-2 rounded-md
         transition-all duration-150
         ${isDeleting ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
-        ${isActive && !isDeleting
-          ? 'bg-primary/10 border border-primary/30 shadow-sm' 
-          : 'hover:bg-muted/60 border border-transparent'
+        ${isCurrentlyRunning
+          ? 'bg-accent/20 border border-accent/40 shadow-sm ring-1 ring-accent/20'
+          : isActive && !isDeleting
+            ? 'bg-primary/10 border border-primary/30 shadow-sm' 
+            : 'hover:bg-muted/60 border border-transparent'
         }
       `}
       style={{ paddingLeft: `${level * 14 + 4}px` }}
@@ -161,9 +169,11 @@ export const TreeItemContent = ({
               truncate text-sm font-medium flex-1 min-w-0
               ${isDeleting 
                 ? 'text-muted-foreground/50' 
-                : isActive 
-                  ? 'text-primary' 
-                  : 'text-foreground'
+                : isCurrentlyRunning
+                  ? 'text-accent-foreground'
+                  : isActive 
+                    ? 'text-primary' 
+                    : 'text-foreground'
               }
             `}
             onDoubleClick={() => !isDeleting && startRenaming(item.id, item.prompt_name)}
