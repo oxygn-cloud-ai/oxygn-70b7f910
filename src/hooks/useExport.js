@@ -34,16 +34,58 @@ export const useExport = () => {
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [isLoadingVariables, setIsLoadingVariables] = useState(false);
 
+  const expandPromptIdsWithDescendants = useCallback(async (rootPromptIds = []) => {
+    const initial = Array.from(new Set(rootPromptIds.filter(Boolean)));
+    if (initial.length === 0) return [];
+
+    const visited = new Set(initial);
+    let frontier = initial;
+
+    while (frontier.length > 0) {
+      const { data, error } = await supabase
+        .from('q_prompts')
+        .select('row_id')
+        .in('parent_row_id', frontier)
+        .or('is_deleted.is.null,is_deleted.eq.false');
+
+      if (error) throw error;
+
+      const next = [];
+      (data || []).forEach((row) => {
+        const id = row.row_id;
+        if (id && !visited.has(id)) {
+          visited.add(id);
+          next.push(id);
+        }
+      });
+
+      frontier = next;
+    }
+
+    return Array.from(visited);
+  }, []);
+
   // Open the export drawer, optionally with pre-selected prompts
-  const openExport = useCallback((preSelectedPromptIds = []) => {
+  const openExport = useCallback(async (preSelectedPromptIds = []) => {
     setIsOpen(true);
+
     if (preSelectedPromptIds.length > 0) {
+      // Show the selection immediately, then expand to include descendants
       setSelectedPromptIds(preSelectedPromptIds);
       setCurrentStep(EXPORT_STEPS.SELECT_FIELDS); // Skip to fields step
-    } else {
-      setCurrentStep(EXPORT_STEPS.SELECT_PROMPTS);
+
+      try {
+        const expandedIds = await expandPromptIdsWithDescendants(preSelectedPromptIds);
+        setSelectedPromptIds(expandedIds);
+      } catch (error) {
+        console.error('Error expanding selected prompts:', error);
+      }
+
+      return;
     }
-  }, []);
+
+    setCurrentStep(EXPORT_STEPS.SELECT_PROMPTS);
+  }, [expandPromptIdsWithDescendants]);
 
   // Close and reset
   const closeExport = useCallback(() => {
