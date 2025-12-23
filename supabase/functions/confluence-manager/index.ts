@@ -334,6 +334,32 @@ Deno.serve(async (req) => {
         
         console.log(`[confluence-manager] Content items with null parentId: ${nullParentCount}`);
 
+        // Fix orphans by finding their nearest existing ancestor
+        // This handles cases where a page's immediate parent wasn't fetched
+        let reparentedCount = 0;
+        for (const content of allContent) {
+          const node = pageMap.get(String(content.id));
+          if (!node || !node.parentId) continue;
+          
+          const parent = pageMap.get(node.parentId);
+          if (parent) continue; // Parent exists, no fix needed
+          
+          // Parent is missing - walk up ancestors array to find nearest existing ancestor
+          const ancestors = content.ancestors || [];
+          // Walk backwards from second-to-last (since last is the missing parent)
+          for (let i = ancestors.length - 2; i >= 0; i--) {
+            const ancestorId = String(ancestors[i].id);
+            if (pageMap.has(ancestorId)) {
+              node.parentId = ancestorId; // Re-parent to existing ancestor
+              reparentedCount++;
+              break;
+            }
+          }
+          // If no ancestor found in pageMap, node becomes a root item
+        }
+        
+        console.log(`[confluence-manager] Re-parented ${reparentedCount} orphaned items to existing ancestors`);
+
         // Attach children to parents
         for (const node of pageMap.values()) {
           if (node.parentId) {
