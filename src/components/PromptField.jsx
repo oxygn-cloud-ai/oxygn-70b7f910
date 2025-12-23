@@ -433,7 +433,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
           
           {/* Bottom chevron controls - only when fully expanded */}
           {expandState === 'full' && (
-            <div className="flex justify-center gap-2 pt-2 mt-2 border-t border-border/50">
+            <div className="flex justify-start gap-1 pt-2 mt-2 border-t border-border/50">
               <ChevronButton 
                 icon={ChevronUp} 
                 onClick={goToMin} 
