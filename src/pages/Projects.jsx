@@ -337,6 +337,7 @@ const Projects = () => {
                     onCascade={handleCascade}
                     isTopLevel={isTopLevel}
                     parentAssistantRowId={parentAssistantRowId}
+                    onExportPrompt={handleExportPrompt}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">

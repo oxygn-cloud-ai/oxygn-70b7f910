@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Sparkles, Loader2, ListTree } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Sparkles, Loader2, ListTree, Upload } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -33,6 +33,7 @@ const ChildPromptPanel = ({
   projectRowId,
   parentAssistantRowId,
   onUpdateField,
+  onExportPrompt,
 }) => {
   const supabase = useSupabase();
   const { recordCost } = useCostTracking();
@@ -359,6 +360,27 @@ const ChildPromptPanel = ({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Export icon */}
+          {onExportPrompt && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-primary active:text-primary hover:bg-sidebar-accent"
+                    onClick={() => onExportPrompt(selectedItemData?.row_id)}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Export this prompt</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
 
