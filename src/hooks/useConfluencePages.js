@@ -6,22 +6,35 @@ import { toast } from '@/components/ui/sonner';
 const invokeFunction = async (action, params = {}) => {
   console.log(`[invokeFunction] Calling confluence-manager with action: ${action}`, params);
   
-  const { data, error } = await supabase.functions.invoke('confluence-manager', {
-    body: { action, ...params }
-  });
-  
-  if (error) {
-    console.error(`[invokeFunction] Supabase function error:`, error);
-    throw new Error(error.message || 'Edge function error');
+  try {
+    const { data, error } = await supabase.functions.invoke('confluence-manager', {
+      body: { action, ...params }
+    });
+    
+    // Handle Supabase invoke error (network issues, etc.)
+    if (error) {
+      console.error(`[invokeFunction] Supabase function invoke error:`, error);
+      // Try to extract meaningful error message
+      const errorMessage = error.message || error.context?.message || 'Edge function error';
+      throw new Error(errorMessage);
+    }
+    
+    // Handle errors returned in the response body from the edge function
+    if (data?.error) {
+      console.error(`[invokeFunction] Edge function returned error:`, data.error);
+      throw new Error(data.error);
+    }
+    
+    console.log(`[invokeFunction] Success for action: ${action}`);
+    return data;
+  } catch (err) {
+    console.error(`[invokeFunction] Caught error for action ${action}:`, err);
+    // Re-throw with clear message
+    if (err instanceof Error) {
+      throw err;
+    }
+    throw new Error(typeof err === 'string' ? err : 'Unknown error occurred');
   }
-  
-  if (data?.error) {
-    console.error(`[invokeFunction] API returned error:`, data.error);
-    throw new Error(data.error);
-  }
-  
-  console.log(`[invokeFunction] Success for action: ${action}`);
-  return data;
 };
 
 export const useConfluencePages = (assistantRowId = null, promptRowId = null) => {
