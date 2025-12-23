@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, Upload } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, Upload, HelpCircle, BookOpen, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTooltipSettings } from '@/contexts/TooltipContext';
 import GuardedLink from '@/components/GuardedLink';
@@ -57,6 +57,11 @@ const healthSubItems = [
   { id: 'auth', title: 'Authentication', icon: User },
   { id: 'ai', title: 'AI API', icon: Bot },
   { id: 'environment', title: 'Environment', icon: Settings2 },
+];
+
+const helpSubItems = [
+  { id: 'documentation', title: 'Documentation', icon: BookOpen, url: 'https://chocfin.atlassian.net/wiki/spaces/COM/pages/1582628910/' },
+  { id: 'support', title: 'Support', icon: MessageSquare, url: 'slack://channel?team=T02C3QE9R&id=C07M3Q5PRLT' },
 ];
 
 export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, activeHealthSection, onHealthSectionChange, onCreatePrompt }) {
@@ -280,6 +285,33 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
                               ? 'text-primary font-medium bg-primary/10' 
                               : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
                           }`}
+                        >
+                          <item.icon className="h-3 w-3" />
+                          <span>{item.title}</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+
+              {/* Help with sub-menu */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Help"
+                  className="group"
+                >
+                  <HelpCircle className="h-4 w-4 transition-colors text-sidebar-foreground/70 group-hover:text-sidebar-foreground" />
+                  <span>Help</span>
+                </SidebarMenuButton>
+                
+                {!isCollapsed && (
+                  <SidebarMenuSub className="ml-4 mt-1 border-l border-sidebar-border pl-3 space-y-0.5">
+                    {helpSubItems.map((item) => (
+                      <SidebarMenuSubItem key={item.id}>
+                        <SidebarMenuSubButton
+                          onClick={() => window.open(item.url, '_blank')}
+                          className="text-xs text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent cursor-pointer"
                         >
                           <item.icon className="h-3 w-3" />
                           <span>{item.title}</span>
