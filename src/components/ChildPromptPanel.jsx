@@ -343,7 +343,7 @@ const ChildPromptPanel = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 transition-colors text-primary hover:bg-sidebar-accent disabled:opacity-50"
+                  className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-primary active:text-primary hover:bg-sidebar-accent disabled:opacity-50"
                   onClick={handleRun}
                   disabled={isRunning || isCascadeRunning || !localData.input_user_prompt}
                 >
