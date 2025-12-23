@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Play, Loader2, ListTree } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Sparkles, Loader2, ListTree } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -350,7 +350,7 @@ const ChildPromptPanel = ({
                   {isRunning ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Play className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4" />
                   )}
                 </Button>
               </TooltipTrigger>
