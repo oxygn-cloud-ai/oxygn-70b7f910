@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Sparkles, MessageCirclePlus } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Bot, ListTree, Loader2, Sparkles, MessageCirclePlus, Upload } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -25,6 +25,7 @@ const PromptEditorTabs = ({
   cascadeField,
   isTopLevel = false,
   parentAssistantRowId = null,
+  onExportPrompt,
 }) => {
   const [activeTab, setActiveTab] = useState('prompt');
   const [assistantRowId, setAssistantRowId] = useState(null);
@@ -303,7 +304,7 @@ const PromptEditorTabs = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-50"
+                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-primary active:text-primary hover:bg-sidebar-accent disabled:opacity-50"
                     onClick={handleSingleRun}
                     disabled={isCascadeRunning || isPromptRunning || assistantMissing}
                   >
@@ -316,6 +317,27 @@ const PromptEditorTabs = ({
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   <p className="text-xs">{assistantMissing ? 'Re-enable conversation first' : isPromptRunning ? 'Running...' : 'Run this prompt'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+
+          {/* Export icon */}
+          {onExportPrompt && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-primary active:text-primary hover:bg-sidebar-accent"
+                    onClick={() => onExportPrompt(selectedItemData?.row_id)}
+                  >
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Export this prompt</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

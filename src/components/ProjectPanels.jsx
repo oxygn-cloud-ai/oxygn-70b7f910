@@ -13,6 +13,7 @@ const ProjectPanels = ({
   cascadeField,
   isTopLevel = false,
   parentAssistantRowId = null,
+  onExportPrompt,
 }) => {
   if (!selectedItemData) {
     return (
@@ -30,6 +31,7 @@ const ProjectPanels = ({
         projectRowId={projectRowId}
         parentAssistantRowId={parentAssistantRowId}
         onUpdateField={onUpdateField}
+        onExportPrompt={onExportPrompt}
       />
     );
   }
@@ -47,6 +49,7 @@ const ProjectPanels = ({
       cascadeField={cascadeField}
       isTopLevel={isTopLevel}
       parentAssistantRowId={parentAssistantRowId}
+      onExportPrompt={onExportPrompt}
     />
   );
 };
