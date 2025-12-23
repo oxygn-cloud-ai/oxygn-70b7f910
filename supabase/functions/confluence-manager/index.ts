@@ -542,9 +542,23 @@ Deno.serve(async (req) => {
 
       case 'create-page': {
         const { spaceKey, parentId, title, body, templateId } = params;
-        const config = await getConfluenceConfig();
         
-        console.log(`[confluence-manager] Creating page in space: ${spaceKey}, parent: ${parentId || 'none'}`);
+        // Validate required fields
+        if (!spaceKey) {
+          throw new Error('Space key is required');
+        }
+        if (!title) {
+          throw new Error('Page title is required');
+        }
+        
+        console.log(`[confluence-manager] Creating page:`, {
+          spaceKey,
+          parentId: parentId || 'none',
+          title,
+          bodyLength: body?.length || 0
+        });
+        
+        const config = await getConfluenceConfig();
         
         const pageData: any = {
           type: 'page',
