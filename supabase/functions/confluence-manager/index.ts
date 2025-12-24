@@ -463,25 +463,48 @@ Deno.serve(async (req) => {
         const { pageId, spaceKey } = params;
         const config = await getConfluenceConfig();
 
-        // Fetch children of a specific page (Confluence returns them in the UI order)
-        const data = await confluenceRequest(
-          `/content/${pageId}/child/page?limit=200&expand=extensions.position`,
-          config
-        );
+        // Fetch children with pagination to get all children in UI order
+        const allChildren: any[] = [];
+        let start = 0;
+        const limit = 200;
 
-        const children = (data.results || []).map((page: any) => ({
-          id: page.id,
-          title: page.title,
-          type: 'page',
-          spaceKey,
-          url: page._links?.webui ? `${config.baseUrl}/wiki${page._links.webui}` : null,
-          // We don't know if it has children until expanded; keep lazy-loading behavior
-          hasChildren: true,
-          children: [],
-          loaded: false,
-        }));
+        while (true) {
+          const data = await confluenceRequest(
+            `/content/${pageId}/child/page?start=${start}&limit=${limit}&expand=extensions.position,childTypes.page`,
+            config
+          );
 
-        result = { children, hasMore: data.size >= 200 };
+          const batch = (data.results || []).map((page: any, idx: number) => ({
+            id: page.id,
+            title: page.title,
+            type: 'page',
+            spaceKey,
+            url: page._links?.webui ? `${config.baseUrl}/wiki${page._links.webui}` : null,
+            position: page.extensions?.position ?? (start + idx),
+            // Use childTypes.page for accurate hasChildren detection
+            hasChildren: page.childTypes?.page?.value || false,
+            children: [],
+            loaded: false,
+          }));
+
+          allChildren.push(...batch);
+
+          // Check if we've fetched all pages
+          if (data.size < limit || !data._links?.next) break;
+          start += limit;
+          // Safety cap to avoid runaway loops
+          if (start > 5000) break;
+        }
+
+        // Sort by position (ascending), then by title for items without position
+        allChildren.sort((a, b) => {
+          const ap = a.position ?? Number.MAX_SAFE_INTEGER;
+          const bp = b.position ?? Number.MAX_SAFE_INTEGER;
+          if (ap !== bp) return ap - bp;
+          return a.title.localeCompare(b.title);
+        });
+
+        result = { children: allChildren, hasMore: false };
         break;
       }
 
@@ -604,8 +627,8 @@ Deno.serve(async (req) => {
         const { pageId, assistantRowId, promptRowId, contentType } = params;
         const config = await getConfluenceConfig();
         
-        // Fetch page content with ancestors for hierarchy
-        const data = await confluenceRequest(`/content/${pageId}?expand=body.storage,space,ancestors`, config);
+        // Fetch page content with ancestors and position for hierarchy and ordering
+        const data = await confluenceRequest(`/content/${pageId}?expand=body.storage,space,ancestors,extensions.position`, config);
         
         const contentHtml = data.body?.storage?.value || '';
         const contentText = htmlToText(contentHtml);
@@ -617,6 +640,9 @@ Deno.serve(async (req) => {
         
         // Determine content type from data or passed param
         const resolvedContentType = contentType || data.type || 'page';
+        
+        // Extract position from extensions
+        const position = data.extensions?.position ?? null;
         
         // Insert into database
         const { data: inserted, error } = await supabase
@@ -633,6 +659,7 @@ Deno.serve(async (req) => {
             content_text: contentText,
             parent_page_id: parentPageId,
             content_type: resolvedContentType,
+            position: position,
             last_synced_at: new Date().toISOString(),
             sync_status: 'synced'
           })

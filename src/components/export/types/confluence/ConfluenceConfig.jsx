@@ -18,9 +18,53 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
   const hasChildren = node.children && node.children.length > 0;
   const isFolder = node.isFolder || node.type === 'folder';
   const isContainer = node.isContainer;
+  const isBlogContainer = node.isBlogContainer;
 
-  if (isContainer) {
+  // For containers: render children directly without the container wrapper
+  // But allow blog containers to show their children
+  if (isContainer && !isBlogContainer) {
     return null;
+  }
+
+  // For blog containers, render a non-selectable header and its children
+  if (isBlogContainer) {
+    return (
+      <div>
+        <div
+          className="flex items-center gap-1.5 py-1.5 px-2 rounded-lg text-sm text-muted-foreground"
+          style={{ paddingLeft: `${level * 12 + 8}px` }}
+        >
+          {hasChildren ? (
+            <button onClick={(e) => { e.stopPropagation(); onToggleExpand(node.id); }} className="p-0.5 hover:bg-muted rounded">
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+              )}
+            </button>
+          ) : (
+            <div className="w-4" />
+          )}
+          <Folder className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="truncate italic">{node.title}</span>
+        </div>
+        {hasChildren && isExpanded && (
+          <div>
+            {node.children.map(child => (
+              <PageTreeNode
+                key={child.id}
+                node={child}
+                level={level + 1}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                expandedIds={expandedIds}
+                onToggleExpand={onToggleExpand}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
 
   const handleClick = () => {

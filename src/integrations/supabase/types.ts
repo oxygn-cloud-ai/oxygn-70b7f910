@@ -366,6 +366,7 @@ export type Database = {
           page_title: string | null
           page_url: string | null
           parent_page_id: string | null
+          position: number | null
           prompt_row_id: string | null
           row_id: string
           space_key: string | null
@@ -385,6 +386,7 @@ export type Database = {
           page_title?: string | null
           page_url?: string | null
           parent_page_id?: string | null
+          position?: number | null
           prompt_row_id?: string | null
           row_id?: string
           space_key?: string | null
@@ -404,6 +406,7 @@ export type Database = {
           page_title?: string | null
           page_url?: string | null
           parent_page_id?: string | null
+          position?: number | null
           prompt_row_id?: string | null
           row_id?: string
           space_key?: string | null

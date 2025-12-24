@@ -27,7 +27,14 @@ const buildPageTree = (pages) => {
   });
   
   const sortNodes = (nodes) => {
-    nodes.sort((a, b) => a.page_title.localeCompare(b.page_title));
+    nodes.sort((a, b) => {
+      // Sort by position first (null positions go last)
+      const ap = a.position ?? Number.MAX_SAFE_INTEGER;
+      const bp = b.position ?? Number.MAX_SAFE_INTEGER;
+      if (ap !== bp) return ap - bp;
+      // Fallback to title for items without position
+      return (a.page_title || '').localeCompare(b.page_title || '');
+    });
     nodes.forEach(node => sortNodes(node.children));
   };
   sortNodes(rootPages);
