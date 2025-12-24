@@ -311,11 +311,14 @@ const ConfluenceSearchModal = ({
       
       const node = findNode(spaceTree);
       
+      // Load children if not loaded yet (for folders and pages that need lazy loading)
       if (node && !node.loaded && !node.isContainer && node.children?.length === 0) {
         setLoadingNodes(prev => new Set(prev).add(nodeId));
         
         try {
-          const children = await getPageChildren(nodeId, spaceKey);
+          // Pass node type so the API uses the correct endpoint (folder vs page)
+          const nodeType = node.type || (node.isFolder ? 'folder' : 'page');
+          const children = await getPageChildren(nodeId, spaceKey, nodeType);
           
           const updateNode = (nodes) => {
             return nodes.map(n => {
