@@ -251,219 +251,224 @@ Deno.serve(async (req) => {
         const { spaceKey } = params;
         const config = await getConfluenceConfig();
 
-        console.log(`[confluence-manager] Fetching space tree using v2 API for: ${spaceKey}`);
+        console.log(`[confluence-manager] Fetching space tree (v2) for: ${spaceKey}`);
 
-        // Step 1: Get numeric space ID from space key (v2 API requires numeric ID)
+        // Step 1: Get numeric space ID + homepage ID (v2 uses numeric IDs)
         let spaceId: string | null = null;
         let spaceName = spaceKey;
         let spaceHomepageId: string | null = null;
-        
+
         try {
           const spacesData = await confluenceRequestV2(`/spaces?keys=${encodeURIComponent(spaceKey)}`, config);
-          if (spacesData.results && spacesData.results.length > 0) {
-            spaceId = spacesData.results[0].id;
-            spaceName = spacesData.results[0].name || spaceKey;
-            spaceHomepageId = spacesData.results[0].homepageId || null;
-            console.log(`[confluence-manager] Space ID: ${spaceId}, Homepage ID: ${spaceHomepageId}`);
+          const space = spacesData?.results?.[0];
+          if (space) {
+            spaceId = String(space.id);
+            spaceName = space.name || spaceKey;
+            // Confluence v2 returns homepageId for some tenants
+            spaceHomepageId = space.homepageId ? String(space.homepageId) : null;
+            console.log(`[confluence-manager] v2 space: id=${spaceId} homepageId=${spaceHomepageId}`);
           }
         } catch (e) {
-          console.error(`[confluence-manager] Could not get space ID from v2:`, e);
+          console.log('[confluence-manager] v2 space lookup failed, will fallback to v1:', e);
         }
 
         if (!spaceId) {
-          // Fallback: try v1 API
-          try {
-            const spaceData = await confluenceRequest(`/space/${encodeURIComponent(spaceKey)}?expand=homepage`, config);
-            spaceId = spaceData.id;
-            spaceName = spaceData.name || spaceKey;
-            spaceHomepageId = spaceData.homepage?.id || null;
-          } catch (e) {
-            console.error(`[confluence-manager] Could not get space info:`, e);
-            throw new Error(`Could not find space: ${spaceKey}`);
-          }
+          // Fallback: v1 space endpoint
+          const spaceData = await confluenceRequest(`/space/${encodeURIComponent(spaceKey)}?expand=homepage`, config);
+          spaceId = String(spaceData.id);
+          spaceName = spaceData.name || spaceKey;
+          spaceHomepageId = spaceData.homepage?.id ? String(spaceData.homepage.id) : null;
+          console.log(`[confluence-manager] v1 space fallback: id=${spaceId} homepageId=${spaceHomepageId}`);
         }
 
-        // Step 2: Fetch all content using v2 API with pagination
-        const fetchAllV2Content = async (endpoint: string) => {
+        // Step 2: Fetch ALL hierarchical content using v2 children endpoint (includes folders, whiteboards, databases)
+        // Canonical docs: /spaces/{id}/children?depth=all
+        const fetchAllV2 = async (endpoint: string) => {
           const results: any[] = [];
           let cursor: string | null = null;
-          
+
           while (true) {
             const url = cursor ? `${endpoint}&cursor=${cursor}` : endpoint;
             const data = await confluenceRequestV2(url, config);
-            
-            if (data.results) {
-              results.push(...data.results);
-            }
-            
-            // v2 pagination uses cursor in _links.next
-            if (data._links?.next) {
-              const nextUrl = new URL(data._links.next, config.baseUrl);
-              cursor = nextUrl.searchParams.get('cursor');
-              if (!cursor) break;
+
+            const batch = data?.results || [];
+            results.push(...batch);
+
+            // v2 pagination: next link may be present in body
+            if (data?._links?.next) {
+              try {
+                const nextUrl = new URL(data._links.next, config.baseUrl);
+                cursor = nextUrl.searchParams.get('cursor');
+                if (!cursor) break;
+              } catch {
+                break;
+              }
             } else {
               break;
             }
-            
-            // Safety cap
-            if (results.length > 10000) break;
+
+            if (results.length > 20000) break;
           }
-          
+
           return results;
         };
 
-        // Fetch root-level pages for the space using v2
-        let allPages: any[] = [];
+        let allItems: any[] = [];
         try {
-          allPages = await fetchAllV2Content(`/spaces/${spaceId}/pages?limit=250&depth=all`);
-          console.log(`[confluence-manager] Fetched ${allPages.length} pages via v2`);
+          allItems = await fetchAllV2(`/spaces/${spaceId}/children?depth=all&limit=250`);
+          console.log(`[confluence-manager] v2 children fetched: ${allItems.length} items`);
         } catch (e) {
-          console.log(`[confluence-manager] v2 pages fetch failed, trying v1:`, e);
-          // Fallback to v1 for pages
-          const v1Pages = await confluenceRequest(
-            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,extensions.position&limit=200`,
-            config
+          console.log('[confluence-manager] v2 children fetch failed; falling back to v1 pages-only tree:', e);
+        }
+
+        // If v2 children isn't available, fall back to the previous v1 pages-only tree
+        if (!allItems || allItems.length === 0) {
+          // Confluence caps page size; fetch all pages with pagination
+          const fetchAllV1 = async (baseEndpoint: string, limit = 200) => {
+            const results: any[] = [];
+            let start = 0;
+
+            while (true) {
+              const sep = baseEndpoint.includes('?') ? '&' : '?';
+              const endpoint = `${baseEndpoint}${sep}start=${start}&limit=${limit}`;
+              const data = await confluenceRequest(endpoint, config);
+
+              const pageResults = data?.results || [];
+              results.push(...pageResults);
+
+              const isLastPage = pageResults.length < limit || !data?._links?.next;
+              if (isLastPage) break;
+
+              start += limit;
+              if (start > 20000) break;
+            }
+
+            return results;
+          };
+
+          const allPages = await fetchAllV1(
+            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=page&status=current&expand=ancestors,extensions.position`,
+            200
           );
-          allPages = v1Pages.results || [];
+
+          const getPosition = (content: any): number | null => {
+            const pos = content?.extensions?.position;
+            if (typeof pos === 'number' && Number.isFinite(pos)) return pos;
+            if (typeof pos === 'string') {
+              const n = Number(pos);
+              return Number.isFinite(n) ? n : null;
+            }
+            return null;
+          };
+
+          const pageMap = new Map<string, any>();
+          for (const content of allPages) {
+            const ancestors = content.ancestors || [];
+            const immediateParent = ancestors.length > 0 ? ancestors[ancestors.length - 1] : null;
+            const parentId = immediateParent?.id ? String(immediateParent.id) : null;
+
+            pageMap.set(String(content.id), {
+              id: String(content.id),
+              title: content.title,
+              type: 'page',
+              spaceKey,
+              spaceName,
+              url: content._links?.webui ? `${config.baseUrl}/wiki${content._links.webui}` : null,
+              parentId,
+              position: getPosition(content),
+              children: [],
+              loaded: true,
+              isHomepage: String(content.id) === String(spaceHomepageId),
+              isFolder: false,
+              isWhiteboard: false,
+              isDatabase: false,
+            });
+          }
+
+          for (const node of pageMap.values()) {
+            if (node.parentId) {
+              const parent = pageMap.get(node.parentId);
+              if (parent) parent.children.push(node);
+            }
+          }
+
+          const sortNodes = (nodes: any[]) => {
+            nodes.sort((a, b) => {
+              const ap = a.position ?? Number.MAX_SAFE_INTEGER;
+              const bp = b.position ?? Number.MAX_SAFE_INTEGER;
+              if (ap !== bp) return ap - bp;
+              return (a.title || '').localeCompare(b.title || '');
+            });
+            for (const n of nodes) {
+              if (n.children?.length) sortNodes(n.children);
+            }
+          };
+
+          const roots: any[] = [];
+          for (const node of pageMap.values()) {
+            const hasParentInSet = node.parentId && pageMap.has(node.parentId);
+            if (!hasParentInSet) roots.push(node);
+          }
+
+          sortNodes(roots);
+
+          if (spaceHomepageId) {
+            const idx = roots.findIndex((r) => r.id === String(spaceHomepageId));
+            if (idx > 0) {
+              const [home] = roots.splice(idx, 1);
+              roots.unshift(home);
+            }
+          }
+
+          const markHasChildren = (nodes: any[]) => {
+            for (const n of nodes) {
+              n.hasChildren = (n.children?.length || 0) > 0;
+              if (n.hasChildren) markHasChildren(n.children);
+            }
+          };
+          markHasChildren(roots);
+
+          result = { tree: roots, totalPages: allPages.length, totalBlogs: 0, spaceName };
+          break;
         }
 
-        // Fetch folders using v2 API (folders only exist in v2)
-        let allFolders: any[] = [];
-        try {
-          allFolders = await fetchAllV2Content(`/spaces/${spaceId}/folders?limit=250`);
-          console.log(`[confluence-manager] Fetched ${allFolders.length} folders via v2`);
-        } catch (e) {
-          console.log(`[confluence-manager] Could not fetch folders:`, e);
-        }
-
-        // Fetch whiteboards using v2 API
-        let allWhiteboards: any[] = [];
-        try {
-          allWhiteboards = await fetchAllV2Content(`/spaces/${spaceId}/whiteboards?limit=250`);
-          console.log(`[confluence-manager] Fetched ${allWhiteboards.length} whiteboards via v2`);
-        } catch (e) {
-          console.log(`[confluence-manager] Could not fetch whiteboards:`, e);
-        }
-
-        // Fetch databases using v2 API
-        let allDatabases: any[] = [];
-        try {
-          allDatabases = await fetchAllV2Content(`/spaces/${spaceId}/databases?limit=250`);
-          console.log(`[confluence-manager] Fetched ${allDatabases.length} databases via v2`);
-        } catch (e) {
-          console.log(`[confluence-manager] Could not fetch databases:`, e);
-        }
-
-        // Combine all content and build tree
+        // Step 3: Build full mixed-type tree from v2 items
         const pageMap = new Map<string, any>();
 
-        // Process pages
-        for (const page of allPages) {
-          const parentId = page.parentId ? String(page.parentId) : null;
-          pageMap.set(String(page.id), {
-            id: String(page.id),
-            title: page.title,
-            type: 'page',
+        const getTypeFlags = (type: string) => ({
+          isFolder: type === 'folder',
+          isWhiteboard: type === 'whiteboard',
+          isDatabase: type === 'database',
+        });
+
+        for (const item of allItems) {
+          const type = item.type || 'page';
+          const parentId = item.parentId ? String(item.parentId) : null;
+          const flags = getTypeFlags(type);
+
+          pageMap.set(String(item.id), {
+            id: String(item.id),
+            title: item.title,
+            type,
             spaceKey,
             spaceName,
-            url: page._links?.webui ? `${config.baseUrl}/wiki${page._links.webui}` : null,
+            url: item._links?.webui ? `${config.baseUrl}/wiki${item._links.webui}` : null,
             parentId,
-            position: page.position ?? page.childPosition ?? null,
+            position: item.childPosition ?? item.position ?? null,
             children: [],
-            loaded: true,
-            isHomepage: String(page.id) === String(spaceHomepageId),
-            isFolder: false,
-            isWhiteboard: false,
-            isDatabase: false,
+            loaded: true, // we fetched depth=all
+            isHomepage: spaceHomepageId ? String(item.id) === String(spaceHomepageId) : false,
+            ...flags,
           });
         }
 
-        // Process folders
-        for (const folder of allFolders) {
-          const parentId = folder.parentId ? String(folder.parentId) : null;
-          pageMap.set(String(folder.id), {
-            id: String(folder.id),
-            title: folder.title,
-            type: 'folder',
-            spaceKey,
-            spaceName,
-            url: folder._links?.webui ? `${config.baseUrl}/wiki${folder._links.webui}` : null,
-            parentId,
-            position: folder.position ?? folder.childPosition ?? null,
-            children: [],
-            loaded: false, // Folders need to load children on expand
-            isFolder: true,
-            isWhiteboard: false,
-            isDatabase: false,
-          });
-        }
-
-        // Process whiteboards
-        for (const wb of allWhiteboards) {
-          const parentId = wb.parentId ? String(wb.parentId) : null;
-          pageMap.set(String(wb.id), {
-            id: String(wb.id),
-            title: wb.title,
-            type: 'whiteboard',
-            spaceKey,
-            spaceName,
-            url: wb._links?.webui ? `${config.baseUrl}/wiki${wb._links.webui}` : null,
-            parentId,
-            position: wb.position ?? wb.childPosition ?? null,
-            children: [],
-            loaded: true,
-            isFolder: false,
-            isWhiteboard: true,
-            isDatabase: false,
-          });
-        }
-
-        // Process databases
-        for (const db of allDatabases) {
-          const parentId = db.parentId ? String(db.parentId) : null;
-          pageMap.set(String(db.id), {
-            id: String(db.id),
-            title: db.title,
-            type: 'database',
-            spaceKey,
-            spaceName,
-            url: db._links?.webui ? `${config.baseUrl}/wiki${db._links.webui}` : null,
-            parentId,
-            position: db.position ?? db.childPosition ?? null,
-            children: [],
-            loaded: true,
-            isFolder: false,
-            isWhiteboard: false,
-            isDatabase: true,
-          });
-        }
-
-        console.log(`[confluence-manager] Total content items: ${pageMap.size}`);
-
-        // Fetch blog posts (still use v1)
-        let blogPosts: any[] = [];
-        try {
-          const blogData = await confluenceRequest(
-            `/content?spaceKey=${encodeURIComponent(spaceKey)}&type=blogpost&status=current&limit=200`,
-            config
-          );
-          blogPosts = blogData.results || [];
-          console.log(`[confluence-manager] Fetched ${blogPosts.length} blog posts`);
-        } catch (e) {
-          console.log(`[confluence-manager] Could not fetch blogs:`, e);
-        }
-
-        // Build tree: attach children to parents
         for (const node of pageMap.values()) {
           if (node.parentId) {
             const parent = pageMap.get(node.parentId);
-            if (parent) {
-              parent.children.push(node);
-            }
+            if (parent) parent.children.push(node);
           }
         }
 
-        // Sort nodes by position, then title
         const sortNodes = (nodes: any[]) => {
           nodes.sort((a, b) => {
             const ap = a.position ?? Number.MAX_SAFE_INTEGER;
@@ -476,7 +481,6 @@ Deno.serve(async (req) => {
           }
         };
 
-        // Get root nodes (no parent or parent not in set)
         const roots: any[] = [];
         for (const node of pageMap.values()) {
           const hasParentInSet = node.parentId && pageMap.has(node.parentId);
@@ -485,7 +489,6 @@ Deno.serve(async (req) => {
 
         sortNodes(roots);
 
-        // Make homepage appear first
         if (spaceHomepageId) {
           const idx = roots.findIndex((r) => r.id === String(spaceHomepageId));
           if (idx > 0) {
@@ -494,56 +497,17 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Mark hasChildren from built tree
         const markHasChildren = (nodes: any[]) => {
           for (const n of nodes) {
-            n.hasChildren = (n.children?.length || 0) > 0 || n.isFolder; // Folders always can have children
-            if (n.children?.length) markHasChildren(n.children);
+            n.hasChildren = (n.children?.length || 0) > 0;
+            if (n.hasChildren) markHasChildren(n.children);
           }
         };
         markHasChildren(roots);
 
-        const tree: any[] = [...roots];
+        console.log(`[confluence-manager] Built v2 tree with ${roots.length} root nodes`);
 
-        // Blog section
-        if (blogPosts.length > 0) {
-          const blogNodes = blogPosts.map((blog: any) => ({
-            id: blog.id,
-            title: blog.title,
-            type: 'blogpost',
-            spaceKey,
-            spaceName,
-            url: blog._links?.webui ? `${config.baseUrl}/wiki${blog._links.webui}` : null,
-            hasChildren: false,
-            children: [],
-            loaded: true,
-            position: blog.extensions?.position ?? null,
-            isBlogpost: true,
-          }));
-
-          blogNodes.sort((a: any, b: any) => {
-            const ap = a.position ?? Number.MAX_SAFE_INTEGER;
-            const bp = b.position ?? Number.MAX_SAFE_INTEGER;
-            if (ap !== bp) return ap - bp;
-            return (a.title || '').localeCompare(b.title || '');
-          });
-
-          tree.push({
-            id: `__blog_container_${spaceKey}`,
-            title: 'Blog',
-            type: 'container',
-            isContainer: true,
-            isBlogContainer: true,
-            hasChildren: true,
-            children: blogNodes,
-            loaded: true,
-            spaceKey,
-          });
-        }
-
-        console.log(`[confluence-manager] Built tree with ${tree.length} top-level items`);
-
-        result = { tree, totalPages: allPages.length, totalBlogs: blogPosts.length, spaceName };
+        result = { tree: roots, totalPages: allItems.filter(i => i.type === 'page').length, totalBlogs: 0, spaceName };
         break;
       }
 
@@ -551,73 +515,32 @@ Deno.serve(async (req) => {
         const { pageId, spaceKey, nodeType } = params;
         const config = await getConfluenceConfig();
 
-        console.log(`[confluence-manager] Getting children for ${nodeType || 'page'} ${pageId}`);
+        const parentType = nodeType || 'page';
+        console.log(`[confluence-manager] Getting direct children for ${parentType} ${pageId}`);
 
-        // For folders, use the folder-specific v2 endpoint
-        if (nodeType === 'folder') {
-          const allChildren: any[] = [];
-          let cursor: string | null = null;
-
-          while (true) {
-            const url = cursor 
-              ? `/folders/${pageId}/children?limit=250&cursor=${cursor}` 
-              : `/folders/${pageId}/children?limit=250`;
-            
-            const data = await confluenceRequestV2(url, config);
-            
-            const batch = (data.results || []).map((item: any, idx: number) => ({
-              id: String(item.id),
-              title: item.title,
-              type: item.type || 'page',
-              spaceKey,
-              url: item._links?.webui ? `${config.baseUrl}/wiki${item._links.webui}` : null,
-              position: item.childPosition ?? item.position ?? idx,
-              hasChildren: item.type === 'folder' || item.type === 'page',
-              children: [],
-              loaded: false,
-              isFolder: item.type === 'folder',
-              isWhiteboard: item.type === 'whiteboard',
-              isDatabase: item.type === 'database',
-            }));
-
-            allChildren.push(...batch);
-
-            // v2 pagination
-            if (data._links?.next) {
-              const nextUrl = new URL(data._links.next, config.baseUrl);
-              cursor = nextUrl.searchParams.get('cursor');
-              if (!cursor) break;
-            } else {
-              break;
-            }
-            
-            if (allChildren.length > 5000) break;
+        // v2 canonical: */{id}/direct-children (mixed types)
+        const base = (() => {
+          switch (parentType) {
+            case 'folder':
+              return `/folders/${pageId}/direct-children`;
+            case 'whiteboard':
+              return `/whiteboards/${pageId}/direct-children`;
+            case 'database':
+              return `/databases/${pageId}/direct-children`;
+            default:
+              return `/pages/${pageId}/direct-children`;
           }
+        })();
 
-          allChildren.sort((a, b) => {
-            const ap = a.position ?? Number.MAX_SAFE_INTEGER;
-            const bp = b.position ?? Number.MAX_SAFE_INTEGER;
-            if (ap !== bp) return ap - bp;
-            return a.title.localeCompare(b.title);
-          });
-
-          result = { children: allChildren };
-          break;
-        }
-
-        // For pages, try v2 first to get mixed content (pages + folders + whiteboards + databases)
         try {
           const allChildren: any[] = [];
           let cursor: string | null = null;
 
           while (true) {
-            const url = cursor 
-              ? `/pages/${pageId}/children?limit=250&cursor=${cursor}` 
-              : `/pages/${pageId}/children?limit=250`;
-            
+            const url = cursor ? `${base}?limit=250&cursor=${cursor}` : `${base}?limit=250`;
             const data = await confluenceRequestV2(url, config);
-            
-            const batch = (data.results || []).map((item: any, idx: number) => ({
+
+            const batch = (data?.results || []).map((item: any, idx: number) => ({
               id: String(item.id),
               title: item.title,
               type: item.type || 'page',
@@ -634,14 +557,14 @@ Deno.serve(async (req) => {
 
             allChildren.push(...batch);
 
-            if (data._links?.next) {
+            if (data?._links?.next) {
               const nextUrl = new URL(data._links.next, config.baseUrl);
               cursor = nextUrl.searchParams.get('cursor');
               if (!cursor) break;
             } else {
               break;
             }
-            
+
             if (allChildren.length > 5000) break;
           }
 
@@ -652,11 +575,10 @@ Deno.serve(async (req) => {
             return a.title.localeCompare(b.title);
           });
 
-          console.log(`[confluence-manager] Found ${allChildren.length} children via v2`);
           result = { children: allChildren };
         } catch (e) {
-          console.log(`[confluence-manager] v2 children fetch failed, falling back to v1:`, e);
-          
+          console.log(`[confluence-manager] v2 direct-children failed for ${parentType}; falling back to v1 pages-only`, e);
+
           // Fallback to v1 (pages only)
           const allChildren: any[] = [];
           let start = 0;
@@ -696,6 +618,7 @@ Deno.serve(async (req) => {
 
           result = { children: allChildren };
         }
+
         break;
       }
 
@@ -703,19 +626,19 @@ Deno.serve(async (req) => {
         const { folderId, spaceKey } = params;
         const config = await getConfluenceConfig();
 
-        console.log(`[confluence-manager] Getting folder children for ${folderId}`);
+        console.log(`[confluence-manager] Getting folder direct-children for ${folderId}`);
 
         const allChildren: any[] = [];
         let cursor: string | null = null;
 
         while (true) {
-          const url = cursor 
-            ? `/folders/${folderId}/children?limit=250&cursor=${cursor}` 
-            : `/folders/${folderId}/children?limit=250`;
-          
+          const url = cursor
+            ? `/folders/${folderId}/direct-children?limit=250&cursor=${cursor}`
+            : `/folders/${folderId}/direct-children?limit=250`;
+
           const data = await confluenceRequestV2(url, config);
-          
-          const batch = (data.results || []).map((item: any, idx: number) => ({
+
+          const batch = (data?.results || []).map((item: any, idx: number) => ({
             id: String(item.id),
             title: item.title,
             type: item.type || 'page',
@@ -732,14 +655,14 @@ Deno.serve(async (req) => {
 
           allChildren.push(...batch);
 
-          if (data._links?.next) {
+          if (data?._links?.next) {
             const nextUrl = new URL(data._links.next, config.baseUrl);
             cursor = nextUrl.searchParams.get('cursor');
             if (!cursor) break;
           } else {
             break;
           }
-          
+
           if (allChildren.length > 5000) break;
         }
 
@@ -750,7 +673,6 @@ Deno.serve(async (req) => {
           return a.title.localeCompare(b.title);
         });
 
-        console.log(`[confluence-manager] Found ${allChildren.length} folder children`);
         result = { children: allChildren };
         break;
       }
