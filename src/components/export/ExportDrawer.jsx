@@ -53,12 +53,14 @@ export const ExportDrawer = ({
   confluenceExport
 }) => {
   // When moving to step 2, fetch prompt data and variables
+  // Only fetch if data hasn't been loaded yet (prevents duplicate fetching when openExport pre-fetches)
   useEffect(() => {
-    if (currentStep === EXPORT_STEPS.SELECT_FIELDS && selectedPromptIds.length > 0) {
+    if (currentStep === EXPORT_STEPS.SELECT_FIELDS && selectedPromptIds.length > 0 && promptsData.length === 0) {
+      console.log('[ExportDrawer] Fetching prompts (not pre-loaded), IDs:', selectedPromptIds.length);
       onFetchPrompts(selectedPromptIds);
       onFetchVariables(selectedPromptIds);
     }
-  }, [currentStep, selectedPromptIds, onFetchPrompts, onFetchVariables, EXPORT_STEPS.SELECT_FIELDS]);
+  }, [currentStep, selectedPromptIds, promptsData.length, onFetchPrompts, onFetchVariables, EXPORT_STEPS.SELECT_FIELDS]);
 
   // When moving to step 4 (Confluence config), initialize
   useEffect(() => {

@@ -117,22 +117,35 @@ export const useExport = () => {
     setIsOpen(true);
 
     if (preSelectedPromptIds.length > 0) {
-      // Show the selection immediately, then expand to include descendants
-      setSelectedPromptIds(preSelectedPromptIds);
-      setCurrentStep(EXPORT_STEPS.SELECT_FIELDS); // Skip to fields step
-
       try {
+        // IMPORTANT: First expand to get all descendant IDs BEFORE setting state
         const expandedIds = await expandPromptIdsWithDescendants(preSelectedPromptIds);
+        console.log('[useExport] Expanded prompt IDs:', expandedIds.length, 'from', preSelectedPromptIds.length, 'root(s)');
+        
+        // Set the complete list of IDs
         setSelectedPromptIds(expandedIds);
+        
+        // Fetch data with the complete expanded list BEFORE changing step
+        const [promptsResult] = await Promise.all([
+          fetchPromptsData(expandedIds),
+          fetchVariablesData(expandedIds)
+        ]);
+        console.log('[useExport] Fetched prompts data:', promptsResult?.length || 0, 'prompts');
+        
+        // Only now set the step to trigger UI update
+        setCurrentStep(EXPORT_STEPS.SELECT_FIELDS);
       } catch (error) {
-        console.error('Error expanding selected prompts:', error);
+        console.error('[useExport] Error expanding/fetching prompts:', error);
+        // Still set the step so user sees something
+        setSelectedPromptIds(preSelectedPromptIds);
+        setCurrentStep(EXPORT_STEPS.SELECT_FIELDS);
       }
 
       return;
     }
 
     setCurrentStep(EXPORT_STEPS.SELECT_PROMPTS);
-  }, [expandPromptIdsWithDescendants]);
+  }, [expandPromptIdsWithDescendants, fetchPromptsData, fetchVariablesData]);
 
   // Close and reset
   const closeExport = useCallback(() => {
