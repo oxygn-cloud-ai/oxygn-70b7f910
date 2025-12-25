@@ -90,14 +90,19 @@ const TemplatePickerDialog = ({
       const vars = values || variableValues;
       const templateRowId = template?.row_id || selectedTemplate?.row_id;
 
-      // Fetch model defaults from settings (same as addPrompt does)
+      // Fetch all needed settings at once
       const { data: settingsData } = await supabase
         .from(import.meta.env.VITE_SETTINGS_TBL)
-        .select('setting_value')
-        .eq('setting_key', 'default_model')
-        .maybeSingle();
+        .select('setting_key, setting_value')
+        .in('setting_key', ['default_model', 'def_assistant_instructions']);
 
-      const defaultModelId = settingsData?.setting_value;
+      const settingsMap = {};
+      settingsData?.forEach(row => {
+        settingsMap[row.setting_key] = row.setting_value;
+      });
+
+      const defaultModelId = settingsMap.default_model;
+      const defAssistantInstructions = settingsMap.def_assistant_instructions || '';
 
       let modelDefaults = {};
       if (defaultModelId) {
@@ -267,7 +272,9 @@ const TemplatePickerDialog = ({
 
         // Create conversation for top-level prompts and copy template attachments
         if (isTopLevelPrompt && (insertData.is_assistant || insertData.is_assistant === undefined)) {
-          const conversationInstructions = replaceVariables(promptStructure.assistant_instructions, vars) || '';
+          // Use template instructions, fallback to default assistant instructions
+          const templateInstructions = replaceVariables(promptStructure.assistant_instructions, vars);
+          const conversationInstructions = templateInstructions || defAssistantInstructions || '';
           const conversationRowId = await createConversation(data.row_id, insertData.prompt_name, conversationInstructions);
           
           // Copy template attachments (Confluence pages) to the new conversation
