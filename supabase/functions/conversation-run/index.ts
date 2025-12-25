@@ -278,10 +278,13 @@ serve(async (req) => {
       );
     }
 
-    // First check if the current prompt itself has an assistant config (for top-level prompts)
+    // Collect ALL assistant IDs from the hierarchy (for file inheritance)
+    // The first assistant found is used for settings, but files come from ALL assistants
     let assistantData: any = null;
     let topLevelPromptId: string | null = null;
+    const allAssistantRowIds: string[] = [];
     
+    // Check if current prompt has an assistant
     const { data: selfAssistant } = await supabase
       .from(TABLES.ASSISTANTS)
       .select('*')
@@ -291,40 +294,48 @@ serve(async (req) => {
     if (selfAssistant) {
       assistantData = selfAssistant;
       topLevelPromptId = child_prompt_row_id;
+      allAssistantRowIds.push(selfAssistant.row_id);
       console.log('Found assistant on current prompt:', child_prompt_row_id);
-    } else {
-      // Walk up the parent chain to find a prompt that has an assistant config
-      let currentPromptId = childPrompt.parent_row_id;
-      const maxDepth = 10; // Prevent infinite loops
-      let depth = 0;
+    }
+    
+    // Walk up the parent chain to collect ALL assistants in the hierarchy
+    let currentPromptId = childPrompt.parent_row_id;
+    const maxDepth = 10;
+    let depth = 0;
 
-      while (currentPromptId && depth < maxDepth) {
-        depth++;
-        
-        // Check if this prompt has an assistant config
-        const { data: assistant } = await supabase
-          .from(TABLES.ASSISTANTS)
-          .select('*')
-          .eq('prompt_row_id', currentPromptId)
-          .single();
-        
-        if (assistant) {
-          assistantData = assistant;
+    while (currentPromptId && depth < maxDepth) {
+      depth++;
+      
+      // Check if this parent has an assistant config
+      const { data: parentAssistant } = await supabase
+        .from(TABLES.ASSISTANTS)
+        .select('*')
+        .eq('prompt_row_id', currentPromptId)
+        .single();
+      
+      if (parentAssistant) {
+        allAssistantRowIds.push(parentAssistant.row_id);
+        // Use the first parent assistant for settings if we don't have one from self
+        if (!assistantData) {
+          assistantData = parentAssistant;
           topLevelPromptId = currentPromptId;
           console.log('Found assistant at depth', depth, ':', currentPromptId);
-          break;
+        } else {
+          console.log('Found parent assistant at depth', depth, ':', parentAssistant.row_id);
         }
-        
-        // Move up to parent
-        const { data: parentPrompt } = await supabase
-          .from(TABLES.PROMPTS)
-          .select('parent_row_id')
-          .eq('row_id', currentPromptId)
-          .single();
-        
-        currentPromptId = parentPrompt?.parent_row_id || null;
       }
+      
+      // Move up to parent
+      const { data: parentPrompt } = await supabase
+        .from(TABLES.PROMPTS)
+        .select('parent_row_id')
+        .eq('row_id', currentPromptId)
+        .single();
+      
+      currentPromptId = parentPrompt?.parent_row_id || null;
     }
+    
+    console.log('All assistant IDs in hierarchy:', allAssistantRowIds);
 
     if (!assistantData) {
       console.error('No assistant found for prompt:', child_prompt_row_id);
@@ -379,11 +390,16 @@ serve(async (req) => {
       .select('page_id, page_title, content_text, page_url')
       .or(`assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
 
-    // Fetch attached files for direct context injection
-    const { data: assistantFiles } = await supabase
-      .from(TABLES.ASSISTANT_FILES)
-      .select('original_filename, storage_path, mime_type')
-      .eq('assistant_row_id', assistantData.row_id);
+    // Fetch attached files from ALL assistants in the hierarchy
+    let assistantFiles: any[] = [];
+    if (allAssistantRowIds.length > 0) {
+      const { data: files } = await supabase
+        .from(TABLES.ASSISTANT_FILES)
+        .select('original_filename, storage_path, mime_type')
+        .in('assistant_row_id', allAssistantRowIds);
+      assistantFiles = files || [];
+      console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`);
+    }
 
     // Build file context from attached files (read text-based files directly)
     let fileContext = '';
