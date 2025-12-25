@@ -30,6 +30,8 @@
 const VARIABLE_PATTERN = /\{\{([^}]+)\}\}/g;
 const SYSTEM_VARIABLE_PREFIX = 'q.';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Named variable pattern: q.nodename.keypath (access by prompt name, not UUID)
+const NAMED_VARIABLE_PATTERN = /^q\.([^.]+)\.(.+)$/;
 
 /**
  * Extract all variables from a text string
@@ -116,6 +118,30 @@ export const parseSystemVariable = (variableName) => {
 };
 
 /**
+ * Get nested value from object using dot notation path
+ * e.g., getNestedValue({ data: { items: [1,2,3] } }, 'data.items') => [1,2,3]
+ */
+const getNestedValue = (obj, path) => {
+  if (!path || !obj) return undefined;
+  
+  const keys = path.split('.');
+  let value = obj;
+  
+  for (const key of keys) {
+    if (value === null || value === undefined) return undefined;
+    
+    // Handle array index access
+    if (Array.isArray(value) && /^\d+$/.test(key)) {
+      value = value[parseInt(key, 10)];
+    } else {
+      value = value[key];
+    }
+  }
+  
+  return value;
+};
+
+/**
  * Resolve a single variable value
  * @param {string} variableName - Variable name to resolve
  * @param {Object} context - Resolution context containing:
@@ -124,7 +150,9 @@ export const parseSystemVariable = (variableName) => {
  *   - promptData: Current prompt data
  *   - parentData: Parent prompt data
  *   - childrenData: Array of child prompts
+ *   - siblingsData: Array of sibling prompts (for named variable access)
  *   - fetchPromptById: Async function to fetch prompt by ID
+ *   - fetchPromptByName: Async function to fetch prompt by name
  * @returns {Promise<string>}
  */
 export const resolveVariable = async (variableName, context = {}) => {
@@ -134,7 +162,9 @@ export const resolveVariable = async (variableName, context = {}) => {
     promptData = {},
     parentData = null,
     childrenData = [],
+    siblingsData = [],
     fetchPromptById = null,
+    fetchPromptByName = null,
   } = context;
   
   // System variables (q.*)
@@ -144,6 +174,60 @@ export const resolveVariable = async (variableName, context = {}) => {
     
     const { category, path } = parsed;
     
+    // Check for named variable pattern first: q.nodename.keypath
+    // This allows accessing extracted_variables from sibling/parent nodes by name
+    const namedMatch = variableName.match(NAMED_VARIABLE_PATTERN);
+    if (namedMatch) {
+      const [, nodeName, keyPath] = namedMatch;
+      
+      // Skip reserved categories
+      const reservedCategories = ['parent', 'child', 'meta', 'response', 'model', 'tokens_input', 
+        'tokens_output', 'tokens_total', 'cost_input', 'cost_output', 'cost_total', 
+        'finish_reason', 'latency_ms', 'response_id', 'timestamp', 'previous', 'today', 'user'];
+      
+      if (!reservedCategories.includes(nodeName.toLowerCase())) {
+        // Search siblings for matching node name
+        const sibling = siblingsData.find(s => 
+          s.prompt_name?.toLowerCase() === nodeName.toLowerCase()
+        );
+        
+        if (sibling?.extracted_variables) {
+          const value = getNestedValue(sibling.extracted_variables, keyPath);
+          if (value !== undefined) {
+            return typeof value === 'object' ? JSON.stringify(value) : String(value);
+          }
+        }
+        
+        // Check parent
+        if (parentData?.prompt_name?.toLowerCase() === nodeName.toLowerCase()) {
+          if (parentData.extracted_variables) {
+            const value = getNestedValue(parentData.extracted_variables, keyPath);
+            if (value !== undefined) {
+              return typeof value === 'object' ? JSON.stringify(value) : String(value);
+            }
+          }
+        }
+        
+        // Try to fetch by name if function provided
+        if (fetchPromptByName) {
+          try {
+            const prompt = await fetchPromptByName(nodeName);
+            if (prompt?.extracted_variables) {
+              const value = getNestedValue(prompt.extracted_variables, keyPath);
+              if (value !== undefined) {
+                return typeof value === 'object' ? JSON.stringify(value) : String(value);
+              }
+            }
+          } catch (e) {
+            console.error('Error fetching prompt by name for variable:', e);
+          }
+        }
+        
+        // Return unresolved if not found
+        return `{{${variableName}}}`;
+      }
+    }
+    
     // Direct system variables (q.response, q.model, etc.)
     if (path.length === 0) {
       return systemVariables[category] ?? `{{${variableName}}}`;
@@ -152,6 +236,13 @@ export const resolveVariable = async (variableName, context = {}) => {
     // Parent references (q.parent.fieldName)
     if (category === 'parent' && parentData) {
       const fieldName = path.join('.');
+      // Check extracted_variables first for action node data
+      if (parentData.extracted_variables) {
+        const value = getNestedValue(parentData.extracted_variables, fieldName);
+        if (value !== undefined) {
+          return typeof value === 'object' ? JSON.stringify(value) : String(value);
+        }
+      }
       return parentData[fieldName] ?? `{{${variableName}}}`;
     }
     
@@ -162,6 +253,13 @@ export const resolveVariable = async (variableName, context = {}) => {
         const index = parseInt(indexMatch[1], 10);
         if (childrenData[index]) {
           const fieldName = path.join('.');
+          // Check extracted_variables first
+          if (childrenData[index].extracted_variables) {
+            const value = getNestedValue(childrenData[index].extracted_variables, fieldName);
+            if (value !== undefined) {
+              return typeof value === 'object' ? JSON.stringify(value) : String(value);
+            }
+          }
           return childrenData[index][fieldName] ?? `{{${variableName}}}`;
         }
       }

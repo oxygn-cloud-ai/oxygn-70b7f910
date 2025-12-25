@@ -7,6 +7,7 @@ import { notify } from '@/contexts/ToastHistoryContext';
 import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
 import { buildSystemVariablesForRun } from '@/utils/resolveSystemVariables';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
+import { executePostAction } from '@/services/actionExecutors';
 
 // Helper to get a usable message from a prompt
 const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
@@ -440,9 +441,47 @@ export const useCascadeExecutor = () => {
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
 
                 // Update the prompt's user_prompt_result in database (matches UI field)
+                const updateData = { user_prompt_result: result.response };
+
+                // Handle action nodes: parse JSON response and execute post-action
+                if (prompt.node_type === 'action' && result.response) {
+                  try {
+                    const jsonResponse = JSON.parse(result.response);
+                    updateData.extracted_variables = jsonResponse;
+
+                    // Execute post-action if configured
+                    if (prompt.post_action) {
+                      const actionResult = await executePostAction({
+                        supabase,
+                        prompt,
+                        jsonResponse,
+                        actionId: prompt.post_action,
+                        config: prompt.post_action_config,
+                        context: { userId: currentUser?.id },
+                      });
+
+                      if (actionResult.success) {
+                        toast.success(`Action completed: ${actionResult.message}`, {
+                          source: 'useCascadeExecutor.postAction',
+                        });
+                      } else {
+                        toast.warning(`Action failed: ${actionResult.error}`, {
+                          source: 'useCascadeExecutor.postAction',
+                        });
+                      }
+                    }
+                  } catch (jsonError) {
+                    console.warn('Action node response not valid JSON:', jsonError);
+                    toast.warning(`Action node response not valid JSON`, {
+                      description: prompt.prompt_name,
+                      source: 'useCascadeExecutor',
+                    });
+                  }
+                }
+
                 await supabase
                   .from(import.meta.env.VITE_PROMPTS_TBL)
-                  .update({ user_prompt_result: result.response })
+                  .update(updateData)
                   .eq('row_id', prompt.row_id);
 
                 // Dispatch event to refresh the UI if this prompt is currently selected
@@ -465,6 +504,7 @@ export const useCascadeExecutor = () => {
                     tokensInput: result.usage?.input_tokens || null,
                     tokensOutput: result.usage?.output_tokens || null,
                     model: result.model || prompt.model || 'unknown',
+                    isActionNode: prompt.node_type === 'action',
                   }, null, 2),
                 });
 
