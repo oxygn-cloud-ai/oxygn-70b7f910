@@ -304,7 +304,10 @@ export const ConfluenceConfig = ({
     if (pageTitleSource.sourceType === 'field') {
       value = prompt[pageTitleSource.sourceId] || '';
     } else if (pageTitleSource.sourceType === 'variable') {
-      value = prompt[`var_${pageTitleSource.sourceId}`] || '';
+      // Variables are in variablesData, not in promptsData directly
+      const promptVars = variablesData?.[pageTitleSource.promptId] || [];
+      const variable = promptVars.find(v => v.variable_name === pageTitleSource.sourceId);
+      value = variable?.variable_value || variable?.default_value || '';
     }
     return value ? `Preview: "${value.substring(0, 50)}${value.length > 50 ? '...' : ''}"` : null;
   };
