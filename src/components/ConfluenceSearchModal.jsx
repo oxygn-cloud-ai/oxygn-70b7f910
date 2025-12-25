@@ -222,21 +222,8 @@ const ConfluenceSearchModal = ({
     }
   }, [selectedSpace, getSpaceTree, clearSpaceTree]);
 
-  // Auto-expand top-level items when tree loads
-  useEffect(() => {
-    if (spaceTree.length > 0 && expandedNodes.size === 0) {
-      // Auto-expand first few top-level items
-      const toExpand = new Set();
-      spaceTree.slice(0, 5).forEach(node => {
-        if (node.hasChildren || node.children?.length > 0) {
-          toExpand.add(node.id);
-        }
-      });
-      if (toExpand.size > 0) {
-        setExpandedNodes(toExpand);
-      }
-    }
-  }, [spaceTree]);
+  // Note: Removed auto-expand - it was marking nodes as expanded without loading children
+  // Users can click to expand nodes which will properly load children via toggleExpand
 
   // Debounced search
   useEffect(() => {
