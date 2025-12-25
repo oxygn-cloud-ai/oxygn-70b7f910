@@ -12,9 +12,11 @@ export const useConfluenceExport = () => {
     listSpaces,
     listTemplates,
     getSpaceTree,
+    getPageChildren,
     createPage,
     clearSpaceTree,
-    clearTemplates
+    clearTemplates,
+    setSpaceTree
   } = useConfluencePages();
 
   const [selectedSpaceKey, setSelectedSpaceKey] = useState(null);
@@ -207,7 +209,9 @@ export const useConfluenceExport = () => {
     updateMapping,
     setPageTitle,
     exportToConfluence,
-    reset
+    reset,
+    getPageChildren,
+    setSpaceTree
   };
 };
 

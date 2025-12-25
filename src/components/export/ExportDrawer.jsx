@@ -161,6 +161,8 @@ export const ExportDrawer = ({
               onChooseBlankPage={confluenceExport.chooseBlankPage}
               onUpdateMapping={confluenceExport.updateMapping}
               onSetPageTitle={confluenceExport.setPageTitle}
+              onGetPageChildren={confluenceExport.getPageChildren}
+              onSetSpaceTree={confluenceExport.setSpaceTree}
               STANDARD_FIELDS={STANDARD_FIELDS}
             />
           );

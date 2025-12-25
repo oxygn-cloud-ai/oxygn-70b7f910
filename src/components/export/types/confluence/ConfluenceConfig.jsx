@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Home, Loader2, File, Type, Globe, FolderTree, LayoutTemplate } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -12,13 +12,23 @@ import {
 } from '@/components/ui/select';
 import { ConfluenceTemplateMapper } from './ConfluenceTemplateMapper';
 
-const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onToggleExpand }) => {
+const PageTreeNode = ({ 
+  node, 
+  level = 0, 
+  selectedId, 
+  onSelect, 
+  expandedIds, 
+  onToggleExpand,
+  loadingNodes,
+  spaceKey 
+}) => {
   const isSelected = selectedId === node.id;
   const isExpanded = expandedIds.includes(node.id);
   const hasChildren = node.children && node.children.length > 0;
   const isFolder = node.isFolder || node.type === 'folder';
   const isContainer = node.isContainer;
   const isBlogContainer = node.isBlogContainer;
+  const isLoading = loadingNodes?.has(node.id);
 
   // For containers: render children directly without the container wrapper
   // But allow blog containers to show their children
@@ -35,8 +45,10 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
           style={{ paddingLeft: `${level * 12 + 8}px` }}
         >
           {hasChildren ? (
-            <button onClick={(e) => { e.stopPropagation(); onToggleExpand(node.id); }} className="p-0.5 hover:bg-muted rounded">
-              {isExpanded ? (
+            <button onClick={(e) => { e.stopPropagation(); onToggleExpand(node.id, node.type); }} className="p-0.5 hover:bg-muted rounded">
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              ) : isExpanded ? (
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
               ) : (
                 <ChevronRight className="h-3 w-3 text-muted-foreground" />
@@ -59,6 +71,8 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
                 onSelect={onSelect}
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
+                loadingNodes={loadingNodes}
+                spaceKey={spaceKey}
               />
             ))}
           </div>
@@ -73,7 +87,7 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
 
   const handleExpandClick = (e) => {
     e.stopPropagation();
-    onToggleExpand(node.id);
+    onToggleExpand(node.id, node.type);
   };
 
   const getIcon = () => {
@@ -85,6 +99,9 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
     }
     return <File className="h-3.5 w-3.5 text-muted-foreground" />;
   };
+
+  // Check if this node can have children (folders and pages can)
+  const canHaveChildren = isFolder || node.type === 'page' || (!node.loaded && !hasChildren);
 
   return (
     <div>
@@ -98,9 +115,11 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
       >
-        {hasChildren ? (
+        {canHaveChildren ? (
           <button onClick={handleExpandClick} className="p-0.5 hover:bg-muted rounded">
-            {isExpanded ? (
+            {isLoading ? (
+              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            ) : isExpanded ? (
               <ChevronDown className="h-3 w-3 text-muted-foreground" />
             ) : (
               <ChevronRight className="h-3 w-3 text-muted-foreground" />
@@ -124,6 +143,8 @@ const PageTreeNode = ({ node, level = 0, selectedId, onSelect, expandedIds, onTo
               onSelect={onSelect}
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
+              loadingNodes={loadingNodes}
+              spaceKey={spaceKey}
             />
           ))}
         </div>
@@ -154,15 +175,89 @@ export const ConfluenceConfig = ({
   onChooseBlankPage,
   onUpdateMapping,
   onSetPageTitle,
+  onGetPageChildren,
+  onSetSpaceTree,
   STANDARD_FIELDS
 }) => {
   const [expandedIds, setExpandedIds] = useState([]);
+  const [loadingNodes, setLoadingNodes] = useState(new Set());
 
-  const handleToggleExpand = (id) => {
-    setExpandedIds(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
+  // Helper to update a node in the tree
+  const updateNodeInTree = useCallback((tree, nodeId, updates) => {
+    return tree.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, ...updates };
+      }
+      if (node.children?.length) {
+        return {
+          ...node,
+          children: updateNodeInTree(node.children, nodeId, updates)
+        };
+      }
+      return node;
+    });
+  }, []);
+
+  const handleToggleExpand = useCallback(async (id, nodeType) => {
+    const isCurrentlyExpanded = expandedIds.includes(id);
+    
+    if (isCurrentlyExpanded) {
+      // Collapse
+      setExpandedIds(prev => prev.filter(x => x !== id));
+      return;
+    }
+
+    // Find the node in the tree
+    const findNode = (nodes) => {
+      for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children?.length) {
+          const found = findNode(node.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const node = findNode(spaceTree);
+    
+    // If node already has children loaded, just expand
+    if (node?.children?.length > 0 || node?.loaded) {
+      setExpandedIds(prev => [...prev, id]);
+      return;
+    }
+
+    // Need to fetch children
+    if (onGetPageChildren && selectedSpaceKey) {
+      setLoadingNodes(prev => new Set([...prev, id]));
+      
+      try {
+        const children = await onGetPageChildren(id, selectedSpaceKey, nodeType || node?.type || 'page');
+        
+        if (children && onSetSpaceTree) {
+          // Update the tree with the new children
+          const updatedTree = updateNodeInTree(spaceTree, id, {
+            children: children,
+            loaded: true
+          });
+          onSetSpaceTree(updatedTree);
+        }
+        
+        setExpandedIds(prev => [...prev, id]);
+      } catch (error) {
+        console.error('[ConfluenceConfig] Failed to load children:', error);
+      } finally {
+        setLoadingNodes(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
+    } else {
+      // No fetch function, just expand
+      setExpandedIds(prev => [...prev, id]);
+    }
+  }, [expandedIds, spaceTree, selectedSpaceKey, onGetPageChildren, onSetSpaceTree, updateNodeInTree]);
 
   const selectedParentNode = React.useMemo(() => {
     if (!selectedParentId) return null;
@@ -269,6 +364,8 @@ export const ConfluenceConfig = ({
                       onSelect={onSelectParent}
                       expandedIds={expandedIds}
                       onToggleExpand={handleToggleExpand}
+                      loadingNodes={loadingNodes}
+                      spaceKey={selectedSpaceKey}
                     />
                   ))}
                 </div>
