@@ -311,9 +311,14 @@ export const useExport = () => {
   }, []);
 
   // Get export data based on selections
+  // IMPORTANT: Include row_id for resolveSourceValue to find prompts correctly
   const getExportData = useMemo(() => {
     return promptsData.map(prompt => {
-      const data = { promptId: prompt.row_id };
+      const data = { 
+        promptId: prompt.row_id,
+        row_id: prompt.row_id,  // Required for resolveSourceValue lookup
+        prompt_name: prompt.prompt_name  // Always include prompt_name for reference
+      };
       
       selectedFields.forEach(fieldId => {
         if (prompt[fieldId] !== undefined) {
