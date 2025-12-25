@@ -674,6 +674,7 @@ export type Database = {
           echo: boolean | null
           echo_on: boolean | null
           exclude_from_cascade: boolean | null
+          exclude_from_export: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
@@ -737,6 +738,7 @@ export type Database = {
           echo?: boolean | null
           echo_on?: boolean | null
           exclude_from_cascade?: boolean | null
+          exclude_from_export?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -800,6 +802,7 @@ export type Database = {
           echo?: boolean | null
           echo_on?: boolean | null
           exclude_from_cascade?: boolean | null
+          exclude_from_export?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null

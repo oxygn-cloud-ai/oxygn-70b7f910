@@ -104,7 +104,7 @@ export const useExport = () => {
     return orderedIds;
   }, []);
 
-  // Fetch prompt data for selected prompts (excludes prompts with exclude_from_cascade)
+  // Fetch prompt data for selected prompts (excludes prompts with exclude_from_export)
   // IMPORTANT: This must be defined BEFORE openExport which uses it
   const fetchPromptsData = useCallback(async (promptIds) => {
     if (!promptIds.length) {
@@ -116,9 +116,9 @@ export const useExport = () => {
     try {
       const { data, error } = await supabase
         .from('q_prompts')
-        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note, exclude_from_cascade')
+        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note, exclude_from_export')
         .in('row_id', promptIds)
-        .or('exclude_from_cascade.is.null,exclude_from_cascade.eq.false');
+        .or('exclude_from_export.is.null,exclude_from_export.eq.false');
 
       if (error) throw error;
       

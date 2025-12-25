@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles, Upload } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles, Upload, FileX, FileCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
@@ -35,6 +35,7 @@ export const TreeItemActions = ({
   const navigate = useNavigate();
 
   const isExcluded = item.exclude_from_cascade === true;
+  const isExcludedFromExport = item.exclude_from_export === true;
   const isTopLevel = !item.parent_row_id;
 
   // Navigate to the prompt page for running
@@ -147,6 +148,26 @@ export const TreeItemActions = ({
       }
     } catch (error) {
       console.error('Error toggling exclude:', error);
+      toast.error('Failed to update prompt');
+    }
+  };
+
+  const handleToggleExcludeExport = async () => {
+    try {
+      const newValue = !isExcludedFromExport;
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ exclude_from_export: newValue })
+        .eq('row_id', item.id);
+
+      if (error) throw error;
+
+      toast.success(newValue ? 'Excluded from export' : 'Included in export');
+      if (typeof onRefreshTreeData === 'function') {
+        await onRefreshTreeData();
+      }
+    } catch (error) {
+      console.error('Error toggling export exclude:', error);
       toast.error('Failed to update prompt');
     }
   };
@@ -408,6 +429,11 @@ export const TreeItemActions = ({
             onClick={handleToggleExclude}
             tooltip={isExcluded ? "Include in cascade" : "Exclude from cascade"}
             variant={isExcluded ? "default" : "default"}
+          />
+          <ActionButton 
+            icon={isExcludedFromExport ? <FileCheck className="h-3.5 w-3.5" /> : <FileX className="h-3.5 w-3.5" />}
+            onClick={handleToggleExcludeExport}
+            tooltip={isExcludedFromExport ? "Include in export" : "Exclude from export"}
           />
           <ActionButton 
             icon={<Trash2Icon className="h-3.5 w-3.5" />} 
