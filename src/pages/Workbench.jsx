@@ -25,6 +25,8 @@ const Workbench = () => {
     isLoading: isLoadingMessages,
     isStreaming,
     streamingMessage,
+    toolActivity,
+    isExecutingTools,
     fetchMessages,
     sendMessage,
     clearMessages
@@ -123,6 +125,8 @@ const Workbench = () => {
             isLoading={isLoadingMessages}
             isStreaming={isStreaming}
             streamingMessage={streamingMessage}
+            toolActivity={toolActivity}
+            isExecutingTools={isExecutingTools}
             onSendMessage={handleSendMessage}
             onClearMessages={handleClearMessages}
             filesCount={files.length}

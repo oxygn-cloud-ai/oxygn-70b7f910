@@ -7,6 +7,8 @@ export const useWorkbenchMessages = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [toolActivity, setToolActivity] = useState([]);
+  const [isExecutingTools, setIsExecutingTools] = useState(false);
 
   const fetchMessages = useCallback(async (threadRowId) => {
     if (!threadRowId) {
@@ -88,6 +90,8 @@ export const useWorkbenchMessages = () => {
 
     setIsStreaming(true);
     setStreamingMessage('');
+    setToolActivity([]);
+    setIsExecutingTools(false);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -149,6 +153,24 @@ export const useWorkbenchMessages = () => {
             try {
               const parsed = JSON.parse(data);
               
+              // Handle tool activity events
+              if (parsed.type === 'tool_start') {
+                setToolActivity(prev => [...prev, {
+                  name: parsed.tool,
+                  args: parsed.args,
+                  status: 'running'
+                }]);
+                setIsExecutingTools(true);
+              } else if (parsed.type === 'tool_end') {
+                setToolActivity(prev => prev.map(t => 
+                  t.name === parsed.tool && t.status === 'running'
+                    ? { ...t, status: 'complete' }
+                    : t
+                ));
+              } else if (parsed.type === 'tool_loop_complete') {
+                setIsExecutingTools(false);
+              }
+              
               // Handle OpenAI streaming format: choices[0].delta.content
               const deltaContent = parsed.choices?.[0]?.delta?.content;
               if (deltaContent) {
@@ -174,6 +196,8 @@ export const useWorkbenchMessages = () => {
       const assistantMsg = await addMessage(threadRowId, 'assistant', fullContent);
       setStreamingMessage('');
       setIsStreaming(false);
+      setToolActivity([]);
+      setIsExecutingTools(false);
 
       return assistantMsg;
     } catch (error) {
@@ -181,6 +205,8 @@ export const useWorkbenchMessages = () => {
       toast.error(error.message || 'Failed to get AI response');
       setStreamingMessage('');
       setIsStreaming(false);
+      setToolActivity([]);
+      setIsExecutingTools(false);
       return null;
     }
   }, [messages, addMessage]);
@@ -190,6 +216,8 @@ export const useWorkbenchMessages = () => {
     isLoading,
     isStreaming,
     streamingMessage,
+    toolActivity,
+    isExecutingTools,
     fetchMessages,
     addMessage,
     clearMessages,
