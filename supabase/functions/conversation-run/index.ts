@@ -444,9 +444,10 @@ serve(async (req) => {
     };
 
     // Apply template to user message - ALWAYS apply substitution even for fallback
+    // Use user_message first, then input_user_prompt, then input_admin_prompt as fallback
     let finalMessage = user_message 
       ? applyTemplate(user_message, variables)
-      : applyTemplate(childPrompt.input_user_prompt || '', variables);
+      : applyTemplate(childPrompt.input_user_prompt || childPrompt.input_admin_prompt || '', variables);
 
     // Log which variables were applied for debugging
     console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
