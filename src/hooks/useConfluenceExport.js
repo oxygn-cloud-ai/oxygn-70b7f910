@@ -25,6 +25,10 @@ export const useConfluenceExport = () => {
   const [templateMappings, setTemplateMappings] = useState({});
   const [pageTitle, setPageTitle] = useState('');
   const [useBlankPage, setUseBlankPage] = useState(true);
+  
+  // New: Page title can be dynamic from a variable source
+  // { promptId, sourceType: 'field' | 'variable', sourceId } or null for static
+  const [pageTitleSource, setPageTitleSource] = useState(null);
 
   // Initialize - load spaces
   const initialize = useCallback(async () => {
@@ -83,6 +87,32 @@ export const useConfluenceExport = () => {
     }));
   }, []);
 
+  // Resolve a value from export data based on source
+  const resolveSourceValue = useCallback((source, exportData) => {
+    if (!source || !exportData || exportData.length === 0) return '';
+    
+    // Find the prompt data
+    const promptData = exportData.find(p => p.row_id === source.promptId);
+    if (!promptData) {
+      // Fallback to first prompt if not found
+      const firstPrompt = exportData[0];
+      if (source.sourceType === 'field') {
+        return firstPrompt[source.sourceId] || '';
+      } else if (source.sourceType === 'variable') {
+        return firstPrompt[`var_${source.sourceId}`] || '';
+      }
+      return '';
+    }
+    
+    if (source.sourceType === 'field') {
+      return promptData[source.sourceId] || '';
+    } else if (source.sourceType === 'variable') {
+      return promptData[`var_${source.sourceId}`] || '';
+    }
+    
+    return '';
+  }, []);
+
   // Build the page body from template and mappings
   const buildPageBody = useCallback((exportData) => {
     if (useBlankPage || !selectedTemplate) {
@@ -126,15 +156,23 @@ export const useConfluenceExport = () => {
       
       if (mapping.type === 'static') {
         value = mapping.value || '';
+      } else if (mapping.type === 'source' && mapping.source) {
+        // New unified source format
+        value = resolveSourceValue(mapping.source, exportData);
       } else if (mapping.type === 'field' && exportData.length > 0) {
-        // Get value from first prompt's field
-        value = exportData[0][mapping.fieldId] || '';
+        // Legacy support: field from first prompt or specific prompt
+        const promptData = mapping.promptId 
+          ? exportData.find(p => p.row_id === mapping.promptId) || exportData[0]
+          : exportData[0];
+        value = promptData[mapping.fieldId] || '';
       } else if (mapping.type === 'variable' && exportData.length > 0) {
-        value = exportData[0][`var_${mapping.variableName}`] || '';
-      } else if (mapping.type === 'all') {
-        // Concatenate from all prompts
-        value = exportData.map(item => item[mapping.fieldId] || '').filter(Boolean).join('\n\n');
+        // Legacy support: variable from specific prompt
+        const promptData = mapping.promptId 
+          ? exportData.find(p => p.row_id === mapping.promptId) || exportData[0]
+          : exportData[0];
+        value = promptData[`var_${mapping.variableName}`] || '';
       }
+      // Note: 'all' type is removed - no longer supported
       
       // Replace the template variable
       const regex = new RegExp(`<at:var\\s+at:name="${varName}"\\s*\\/?>`, 'gi');
@@ -142,7 +180,7 @@ export const useConfluenceExport = () => {
     });
     
     return body;
-  }, [useBlankPage, selectedTemplate, templateMappings]);
+  }, [useBlankPage, selectedTemplate, templateMappings, resolveSourceValue]);
 
   // Create the page
   const exportToConfluence = useCallback(async (exportData, title) => {
@@ -151,11 +189,24 @@ export const useConfluenceExport = () => {
       title,
       selectedSpaceKey,
       selectedParentId,
-      useBlankPage
+      useBlankPage,
+      pageTitleSource
     });
     
-    if (!selectedSpaceKey || !title) {
-      const error = new Error('Space and title are required');
+    if (!selectedSpaceKey) {
+      const error = new Error('Space is required');
+      console.error('[useConfluenceExport] Validation error:', error.message);
+      throw error;
+    }
+
+    // Resolve the page title - either static or from a source
+    let resolvedTitle = title;
+    if (pageTitleSource) {
+      resolvedTitle = resolveSourceValue(pageTitleSource, exportData) || title;
+    }
+    
+    if (!resolvedTitle) {
+      const error = new Error('Page title is required');
       console.error('[useConfluenceExport] Validation error:', error.message);
       throw error;
     }
@@ -166,12 +217,12 @@ export const useConfluenceExport = () => {
     const result = await createPage({
       spaceKey: selectedSpaceKey,
       parentId: selectedParentId,
-      title,
+      title: resolvedTitle,
       body
     });
 
     return result;
-  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage]);
+  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage, pageTitleSource, resolveSourceValue]);
 
   // Reset state
   const reset = useCallback(() => {
@@ -181,6 +232,7 @@ export const useConfluenceExport = () => {
     setTemplateMappings({});
     setPageTitle('');
     setUseBlankPage(true);
+    setPageTitleSource(null);
     clearSpaceTree();
     clearTemplates();
   }, [clearSpaceTree, clearTemplates]);
@@ -196,6 +248,7 @@ export const useConfluenceExport = () => {
     templateMappings,
     pageTitle,
     useBlankPage,
+    pageTitleSource,
     isLoadingTree,
     isLoadingTemplates,
     isCreatingPage,
@@ -208,6 +261,7 @@ export const useConfluenceExport = () => {
     chooseBlankPage,
     updateMapping,
     setPageTitle,
+    setPageTitleSource,
     exportToConfluence,
     reset,
     getPageChildren,

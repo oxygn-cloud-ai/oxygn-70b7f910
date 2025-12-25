@@ -139,32 +139,34 @@ export const ExportDrawer = ({
       case EXPORT_STEPS.CONFIGURE:
         if (exportType === EXPORT_TYPES.CONFLUENCE) {
           return (
-            <ConfluenceConfig
-              spaces={confluenceExport.spaces}
-              templates={confluenceExport.templates}
-              spaceTree={confluenceExport.spaceTree}
-              selectedSpaceKey={confluenceExport.selectedSpaceKey}
-              selectedParentId={confluenceExport.selectedParentId}
-              selectedTemplate={confluenceExport.selectedTemplate}
-              templateMappings={confluenceExport.templateMappings}
-              pageTitle={confluenceExport.pageTitle}
-              useBlankPage={confluenceExport.useBlankPage}
-              isLoadingTree={confluenceExport.isLoadingTree}
-              isLoadingTemplates={confluenceExport.isLoadingTemplates}
-              promptsData={promptsData}
-              variablesData={variablesData}
-              selectedFields={selectedFields}
-              selectedVariables={selectedVariables}
-              onSelectSpace={confluenceExport.selectSpace}
-              onSelectParent={confluenceExport.selectParent}
-              onSelectTemplate={confluenceExport.selectTemplate}
-              onChooseBlankPage={confluenceExport.chooseBlankPage}
-              onUpdateMapping={confluenceExport.updateMapping}
-              onSetPageTitle={confluenceExport.setPageTitle}
-              onGetPageChildren={confluenceExport.getPageChildren}
-              onSetSpaceTree={confluenceExport.setSpaceTree}
-              STANDARD_FIELDS={STANDARD_FIELDS}
-            />
+          <ConfluenceConfig
+            spaces={confluenceExport.spaces}
+            templates={confluenceExport.templates}
+            spaceTree={confluenceExport.spaceTree}
+            selectedSpaceKey={confluenceExport.selectedSpaceKey}
+            selectedParentId={confluenceExport.selectedParentId}
+            selectedTemplate={confluenceExport.selectedTemplate}
+            templateMappings={confluenceExport.templateMappings}
+            pageTitle={confluenceExport.pageTitle}
+            useBlankPage={confluenceExport.useBlankPage}
+            pageTitleSource={confluenceExport.pageTitleSource}
+            isLoadingTree={confluenceExport.isLoadingTree}
+            isLoadingTemplates={confluenceExport.isLoadingTemplates}
+            promptsData={promptsData}
+            variablesData={variablesData}
+            selectedFields={selectedFields}
+            selectedVariables={selectedVariables}
+            onSelectSpace={confluenceExport.selectSpace}
+            onSelectParent={confluenceExport.selectParent}
+            onSelectTemplate={confluenceExport.selectTemplate}
+            onChooseBlankPage={confluenceExport.chooseBlankPage}
+            onUpdateMapping={confluenceExport.updateMapping}
+            onSetPageTitle={confluenceExport.setPageTitle}
+            onSetPageTitleSource={confluenceExport.setPageTitleSource}
+            onGetPageChildren={confluenceExport.getPageChildren}
+            onSetSpaceTree={confluenceExport.setSpaceTree}
+            STANDARD_FIELDS={STANDARD_FIELDS}
+          />
           );
         }
         return <div className="text-center text-muted-foreground py-8">Coming soon</div>;
@@ -229,7 +231,7 @@ export const ExportDrawer = ({
               {isLastStep ? (
                 <button
                   onClick={handleExport}
-                  disabled={!canProceed || isExporting || !confluenceExport.pageTitle || !confluenceExport.selectedSpaceKey}
+                  disabled={!canProceed || isExporting || (!confluenceExport.pageTitle && !confluenceExport.pageTitleSource) || !confluenceExport.selectedSpaceKey}
                   className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Export"
                   aria-label="Export"
