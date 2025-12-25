@@ -443,11 +443,27 @@ serve(async (req) => {
       ...template_variables,
     };
 
+    // Fetch empty prompt fallback setting
+    let emptyPromptFallback = 'Execute this prompt';
+    try {
+      const { data: fallbackSetting } = await supabase
+        .from(TABLES.SETTINGS)
+        .select('setting_value')
+        .eq('setting_key', 'cascade_empty_prompt_fallback')
+        .single();
+      
+      if (fallbackSetting?.setting_value) {
+        emptyPromptFallback = fallbackSetting.setting_value;
+      }
+    } catch (err) {
+      console.log('Using default empty prompt fallback');
+    }
+
     // Apply template to user message - ALWAYS apply substitution even for fallback
-    // Use user_message first, then input_user_prompt, then input_admin_prompt as fallback
+    // Use user_message first, then input_user_prompt, then input_admin_prompt, then fallback setting
     let finalMessage = user_message 
       ? applyTemplate(user_message, variables)
-      : applyTemplate(childPrompt.input_user_prompt || childPrompt.input_admin_prompt || '', variables);
+      : applyTemplate(childPrompt.input_user_prompt || childPrompt.input_admin_prompt || emptyPromptFallback, variables);
 
     // Log which variables were applied for debugging
     console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
