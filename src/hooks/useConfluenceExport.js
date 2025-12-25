@@ -53,8 +53,9 @@ export const useConfluenceExport = () => {
     }
   }, [getSpaceTree, listTemplates, clearSpaceTree, clearTemplates]);
 
-  // Select parent page/folder
+  // Select parent page/folder - stores the page ID for Confluence API
   const selectParent = useCallback((parentId) => {
+    console.log('[useConfluenceExport] selectParent called with:', parentId);
     setSelectedParentId(parentId);
   }, []);
 
@@ -186,11 +187,13 @@ export const useConfluenceExport = () => {
   const exportToConfluence = useCallback(async (exportData, title) => {
     console.log('[useConfluenceExport] exportToConfluence called:', {
       exportDataLength: exportData?.length,
+      exportDataSample: exportData?.[0] ? Object.keys(exportData[0]) : [],
       title,
       selectedSpaceKey,
       selectedParentId,
       useBlankPage,
-      pageTitleSource
+      pageTitleSource,
+      templateMappings: Object.keys(templateMappings)
     });
     
     if (!selectedSpaceKey) {
@@ -203,6 +206,7 @@ export const useConfluenceExport = () => {
     let resolvedTitle = title;
     if (pageTitleSource) {
       resolvedTitle = resolveSourceValue(pageTitleSource, exportData) || title;
+      console.log('[useConfluenceExport] Resolved dynamic title:', resolvedTitle);
     }
     
     if (!resolvedTitle) {
@@ -213,6 +217,7 @@ export const useConfluenceExport = () => {
 
     const body = buildPageBody(exportData);
     console.log('[useConfluenceExport] Built page body, length:', body?.length);
+    console.log('[useConfluenceExport] Creating page with parentId:', selectedParentId);
     
     const result = await createPage({
       spaceKey: selectedSpaceKey,
@@ -222,7 +227,7 @@ export const useConfluenceExport = () => {
     });
 
     return result;
-  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage, pageTitleSource, resolveSourceValue]);
+  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage, pageTitleSource, resolveSourceValue, templateMappings]);
 
   // Reset state
   const reset = useCallback(() => {
