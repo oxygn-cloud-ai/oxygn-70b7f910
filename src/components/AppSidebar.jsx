@@ -155,6 +155,8 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
         onToggleField={exportState.toggleFieldSelection}
         onToggleVariable={exportState.toggleVariableSelection}
         onSetExportType={exportState.setExportType}
+        onSetSelectedFields={exportState.setSelectedFields}
+        onSetSelectedVariables={exportState.setSelectedVariables}
         onFetchPrompts={exportState.fetchPromptsData}
         onFetchVariables={exportState.fetchVariablesData}
         getExportData={exportState.getExportData}

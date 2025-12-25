@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight, Upload, Loader2, FileStack, ListChecks, Send, Settings2, Check } from 'lucide-react';
 import {
   Sheet,
@@ -13,7 +13,7 @@ import { ExportPromptSelector } from './ExportPromptSelector';
 import { ExportFieldSelector } from './ExportFieldSelector';
 import { ExportTypeSelector } from './ExportTypeSelector';
 import { ConfluenceConfig } from './types/confluence/ConfluenceConfig';
-
+import { ExportTemplatePicker } from './ExportTemplatePicker';
 const STEPS = [
   { key: 1, label: 'Select Prompts', icon: FileStack },
   { key: 2, label: 'Select Fields', icon: ListChecks },
@@ -46,6 +46,8 @@ export const ExportDrawer = ({
   onSetExportType,
   onFetchPrompts,
   onFetchVariables,
+  onSetSelectedFields,
+  onSetSelectedVariables,
   getExportData,
   EXPORT_STEPS,
   EXPORT_TYPES,
@@ -68,6 +70,34 @@ export const ExportDrawer = ({
       confluenceExport.initialize();
     }
   }, [currentStep, exportType, confluenceExport, EXPORT_STEPS.CONFIGURE, EXPORT_TYPES.CONFLUENCE]);
+
+  // Handle loading an export template
+  const handleLoadTemplate = useCallback((templateData) => {
+    if (templateData.selectedFields && onSetSelectedFields) {
+      onSetSelectedFields(templateData.selectedFields);
+    }
+    if (templateData.selectedVariables && onSetSelectedVariables) {
+      onSetSelectedVariables(templateData.selectedVariables);
+    }
+    if (templateData.confluenceConfig && exportType === EXPORT_TYPES.CONFLUENCE) {
+      const config = templateData.confluenceConfig;
+      if (config.templateMappings) {
+        Object.entries(config.templateMappings).forEach(([varName, mapping]) => {
+          confluenceExport.updateMapping(varName, mapping);
+        });
+      }
+    }
+  }, [onSetSelectedFields, onSetSelectedVariables, exportType, confluenceExport, EXPORT_TYPES]);
+
+  // Get current config for saving
+  const getCurrentConfig = useCallback(() => ({
+    selectedFields,
+    selectedVariables,
+    confluenceConfig: exportType === EXPORT_TYPES.CONFLUENCE ? {
+      templateMappings: confluenceExport.templateMappings,
+      useBlankPage: confluenceExport.useBlankPage
+    } : {}
+  }), [selectedFields, selectedVariables, exportType, confluenceExport, EXPORT_TYPES]);
 
   const handleExport = async () => {
     if (exportType === EXPORT_TYPES.CONFLUENCE) {
@@ -211,6 +241,15 @@ export const ExportDrawer = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Template Save/Load - show on step 2+ */}
+              {currentStep >= EXPORT_STEPS.SELECT_FIELDS && (
+                <ExportTemplatePicker
+                  exportType={exportType || 'confluence'}
+                  currentConfig={getCurrentConfig()}
+                  onLoadTemplate={handleLoadTemplate}
+                />
+              )}
+
               <span className="text-xs text-muted-foreground hidden sm:inline">
                 {getSummaryText()}
               </span>
