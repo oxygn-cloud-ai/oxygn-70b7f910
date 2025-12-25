@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, ChevronRight, ChevronDown, Bot, SkipForward, Loader2, FileX } from 'lucide-react';
+import { FileText, ChevronRight, ChevronDown, Bot, SkipForward, Loader2, FileX, Zap } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TOOLTIPS } from '@/config/labels';
+import { getActionType } from '@/config/actionTypes';
 
 export const TreeItemContent = ({
   item,
@@ -265,12 +266,29 @@ export const TreeItemContent = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="ml-1 flex items-center justify-center w-4 h-4 rounded flex-shrink-0 bg-amber-500/20 text-amber-500">
+                <div className="ml-1 flex items-center justify-center w-4 h-4 rounded flex-shrink-0 bg-orange-500/20 text-orange-500">
                   <FileX className="h-3 w-3" />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs">
                 Excluded from export
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
+        {/* Action node indicator */}
+        {item.node_type === 'action' && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="ml-1 flex items-center justify-center w-4 h-4 rounded flex-shrink-0 bg-amber-500/20 text-amber-500">
+                  <Zap className="h-3 w-3" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">
+                Action Node
+                {item.post_action && ` • ${getActionType(item.post_action)?.name || item.post_action}`}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

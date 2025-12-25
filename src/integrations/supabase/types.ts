@@ -675,6 +675,7 @@ export type Database = {
           echo_on: boolean | null
           exclude_from_cascade: boolean | null
           exclude_from_export: boolean | null
+          extracted_variables: Json | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
@@ -684,6 +685,7 @@ export type Database = {
           is_legacy: boolean | null
           is_private: boolean | null
           last_ai_call_metadata: Json | null
+          library_prompt_id: string | null
           logit_bias: string | null
           logit_bias_on: boolean | null
           logprobs: string | null
@@ -694,6 +696,7 @@ export type Database = {
           model_on: boolean | null
           n: string | null
           n_on: boolean | null
+          node_type: string | null
           note: string | null
           o_user: string | null
           o_user_on: boolean | null
@@ -701,6 +704,8 @@ export type Database = {
           owner_id: string | null
           parent_row_id: string | null
           position: number | null
+          post_action: string | null
+          post_action_config: Json | null
           presence_penalty: string | null
           presence_penalty_on: boolean | null
           prompt_name: string | null
@@ -739,6 +744,7 @@ export type Database = {
           echo_on?: boolean | null
           exclude_from_cascade?: boolean | null
           exclude_from_export?: boolean | null
+          extracted_variables?: Json | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -748,6 +754,7 @@ export type Database = {
           is_legacy?: boolean | null
           is_private?: boolean | null
           last_ai_call_metadata?: Json | null
+          library_prompt_id?: string | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
           logprobs?: string | null
@@ -758,6 +765,7 @@ export type Database = {
           model_on?: boolean | null
           n?: string | null
           n_on?: boolean | null
+          node_type?: string | null
           note?: string | null
           o_user?: string | null
           o_user_on?: boolean | null
@@ -765,6 +773,8 @@ export type Database = {
           owner_id?: string | null
           parent_row_id?: string | null
           position?: number | null
+          post_action?: string | null
+          post_action_config?: Json | null
           presence_penalty?: string | null
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
@@ -803,6 +813,7 @@ export type Database = {
           echo_on?: boolean | null
           exclude_from_cascade?: boolean | null
           exclude_from_export?: boolean | null
+          extracted_variables?: Json | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -812,6 +823,7 @@ export type Database = {
           is_legacy?: boolean | null
           is_private?: boolean | null
           last_ai_call_metadata?: Json | null
+          library_prompt_id?: string | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
           logprobs?: string | null
@@ -822,6 +834,7 @@ export type Database = {
           model_on?: boolean | null
           n?: string | null
           n_on?: boolean | null
+          node_type?: string | null
           note?: string | null
           o_user?: string | null
           o_user_on?: boolean | null
@@ -829,6 +842,8 @@ export type Database = {
           owner_id?: string | null
           parent_row_id?: string | null
           position?: number | null
+          post_action?: string | null
+          post_action_config?: Json | null
           presence_penalty?: string | null
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
