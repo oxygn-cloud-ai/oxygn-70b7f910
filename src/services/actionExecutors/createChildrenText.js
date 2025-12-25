@@ -5,21 +5,66 @@
  */
 
 const PROMPTS_TABLE = 'q_prompts';
+const SETTINGS_TABLE = 'q_settings';
+const MODEL_DEFAULTS_TABLE = 'q_model_defaults';
 
 /**
  * Get default prompt settings from the database
  */
 const getDefaultSettings = async (supabase) => {
   const { data } = await supabase
-    .from('q_settings')
+    .from(SETTINGS_TABLE)
     .select('setting_key, setting_value')
-    .in('setting_key', ['default_prompt_instructions', 'default_user_prompt']);
+    .in('setting_key', ['def_admin_prompt', 'default_user_prompt', 'default_model']);
 
   const settings = {};
   data?.forEach(row => {
     settings[row.setting_key] = row.setting_value;
   });
   return settings;
+};
+
+/**
+ * Get model defaults for a specific model
+ */
+const getModelDefaults = async (supabase, modelId) => {
+  if (!modelId) return {};
+
+  const { data } = await supabase
+    .from(MODEL_DEFAULTS_TABLE)
+    .select('*')
+    .eq('model_id', modelId)
+    .maybeSingle();
+
+  if (!data) return { model: modelId, model_on: true };
+
+  const defaults = { model: modelId, model_on: true };
+  const fields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+    'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
+
+  fields.forEach(field => {
+    if (data[`${field}_on`]) {
+      defaults[field] = data[field];
+      defaults[`${field}_on`] = true;
+    }
+  });
+
+  return defaults;
+};
+
+/**
+ * Get inheritable settings from parent prompt
+ */
+const getParentSettings = async (supabase, parentRowId) => {
+  if (!parentRowId) return {};
+
+  const { data } = await supabase
+    .from(PROMPTS_TABLE)
+    .select('model, model_on, web_search_on, confluence_enabled, thread_mode, child_thread_strategy')
+    .eq('row_id', parentRowId)
+    .single();
+
+  return data || {};
 };
 
 /**
@@ -56,6 +101,12 @@ export const executeCreateChildrenText = async ({
   // Get default settings
   const defaults = await getDefaultSettings(supabase);
   
+  // Get model defaults if a default model is set
+  const modelDefaults = await getModelDefaults(supabase, defaults.default_model);
+  
+  // Get parent settings to inherit
+  const parentSettings = await getParentSettings(supabase, prompt.row_id);
+  
   // Get library prompt if specified
   const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id);
 
@@ -74,14 +125,22 @@ export const executeCreateChildrenText = async ({
   for (let i = 0; i < children_count; i++) {
     const childName = `${name_prefix} ${i + 1}`;
     
+    // Build child data with proper inheritance
     const childData = {
       parent_row_id: prompt.row_id,
       prompt_name: childName,
-      input_admin_prompt: libraryPrompt?.content || defaults.default_prompt_instructions || '',
+      input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
       input_user_prompt: defaults.default_user_prompt || '',
       position: nextPosition++,
       owner_id: context.userId || prompt.owner_id,
       node_type: 'standard',
+      // Apply model defaults
+      ...modelDefaults,
+      // Inherit settings from parent
+      web_search_on: parentSettings.web_search_on,
+      confluence_enabled: parentSettings.confluence_enabled,
+      thread_mode: parentSettings.thread_mode,
+      child_thread_strategy: parentSettings.child_thread_strategy,
     };
 
     if (copy_library_prompt_id) {
