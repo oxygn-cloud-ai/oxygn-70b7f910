@@ -138,14 +138,11 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     }
   }, []);
 
-  const getPageChildren = useCallback(async (pageId, spaceKey, nodeType = 'page') => {
+  const getPageChildren = useCallback(async (nodeId, spaceKey, nodeType = 'page') => {
     try {
-      // Use folder-specific endpoint for folders
-      const action = nodeType === 'folder' ? 'get-folder-children' : 'get-page-children';
-      const paramKey = nodeType === 'folder' ? 'folderId' : 'pageId';
-      
-      const data = await invokeFunction(action, { 
-        [paramKey]: pageId, 
+      // Always use get-page-children with nodeType - backend handles routing
+      const data = await invokeFunction('get-page-children', { 
+        pageId: nodeId, 
         spaceKey,
         nodeType 
       });
