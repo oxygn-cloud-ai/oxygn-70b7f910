@@ -18,6 +18,7 @@ import {
 import MessageBubble from '@/components/chat/MessageBubble';
 import ChatInput from '@/components/chat/ChatInput';
 import ThinkingIndicator from '@/components/chat/ThinkingIndicator';
+import ToolActivityIndicator from './ToolActivityIndicator';
 
 const WorkbenchChatPanel = ({
   activeThread,
@@ -25,6 +26,8 @@ const WorkbenchChatPanel = ({
   isLoading,
   isStreaming,
   streamingMessage,
+  toolActivity = [],
+  isExecutingTools = false,
   onSendMessage,
   onClearMessages,
   filesCount = 0,
@@ -40,7 +43,7 @@ const WorkbenchChatPanel = ({
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages, streamingMessage]);
+  }, [messages, streamingMessage, toolActivity]);
 
   if (!activeThread) {
     return (
@@ -112,7 +115,7 @@ const WorkbenchChatPanel = ({
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !isStreaming ? (
           <div className="flex items-center justify-center h-full p-8">
             <div className="text-center max-w-sm">
               <Bot className="h-10 w-10 mx-auto mb-3 text-primary/50" />
@@ -132,6 +135,14 @@ const WorkbenchChatPanel = ({
               />
             ))}
             
+            {/* Tool activity indicator */}
+            {isStreaming && toolActivity.length > 0 && (
+              <ToolActivityIndicator 
+                toolCalls={toolActivity} 
+                isExecuting={isExecutingTools}
+              />
+            )}
+            
             {/* Streaming message */}
             {isStreaming && streamingMessage && (
               <MessageBubble
@@ -140,8 +151,8 @@ const WorkbenchChatPanel = ({
               />
             )}
             
-            {/* Thinking indicator */}
-            {isStreaming && !streamingMessage && (
+            {/* Thinking indicator - only show when no tool activity and no streaming content */}
+            {isStreaming && !streamingMessage && toolActivity.length === 0 && (
               <div className="px-3 py-2">
                 <ThinkingIndicator />
               </div>

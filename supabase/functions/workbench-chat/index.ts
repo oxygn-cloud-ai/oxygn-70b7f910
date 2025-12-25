@@ -534,6 +534,7 @@ serve(async (req) => {
     const MAX_TOOL_ITERATIONS = 10;
     let currentMessages = [...apiMessages];
     let finalContent = '';
+    const toolEvents: Array<{ type: string; tool?: string; args?: any }> = [];
     
     const toolContext = {
       supabase,
@@ -619,11 +620,17 @@ serve(async (req) => {
             console.error('Failed to parse tool arguments:', toolCall.function.arguments);
           }
 
+          // Record tool start event
+          toolEvents.push({ type: 'tool_start', tool: toolName, args: toolArgs });
+          
           console.log(`Executing tool: ${toolName}`, toolArgs);
           
           const toolResult = await handleToolCall(toolName, toolArgs, toolContext);
           
           console.log(`Tool ${toolName} result length: ${toolResult.length}`);
+
+          // Record tool end event
+          toolEvents.push({ type: 'tool_end', tool: toolName });
 
           // Add tool result to messages
           currentMessages.push({
@@ -643,18 +650,29 @@ serve(async (req) => {
       break;
     }
 
-    // Stream the final response back as SSE format for client compatibility
+    // Record tool loop complete
+    if (toolEvents.length > 0) {
+      toolEvents.push({ type: 'tool_loop_complete' });
+    }
+
+    // Stream the response back as SSE format for client compatibility
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       start(controller) {
-        // Send the content as a single SSE event in OpenAI streaming format
-        const sseData = JSON.stringify({
+        // First send all tool events
+        for (const event of toolEvents) {
+          const sseData = JSON.stringify(event);
+          controller.enqueue(encoder.encode(`data: ${sseData}\n\n`));
+        }
+        
+        // Then send the final content as a single SSE event in OpenAI streaming format
+        const contentData = JSON.stringify({
           choices: [{
             delta: { content: finalContent },
             finish_reason: 'stop'
           }]
         });
-        controller.enqueue(encoder.encode(`data: ${sseData}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${contentData}\n\n`));
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       }
