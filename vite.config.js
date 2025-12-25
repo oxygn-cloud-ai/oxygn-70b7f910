@@ -12,34 +12,32 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 // We:
 // 1) Short-circuit the Vite ping with a 204.
 // 2) Strip conditional headers for all requests.
+const stripConditionalHeaders = (req, res, next) => {
+  // Strip conditional headers that cause 412 errors
+  delete req.headers["if-none-match"];
+  delete req.headers["if-match"];
+  delete req.headers["if-modified-since"];
+  delete req.headers["if-unmodified-since"];
+
+  const accept = req.headers?.accept || "";
+  if (accept.includes("text/x-vite-ping")) {
+    res.statusCode = 204;
+    res.setHeader("Cache-Control", "no-store");
+    res.end();
+    return;
+  }
+
+  next();
+};
+
 const lovablePreview412Fix = () => ({
   name: "lovable-preview-412-fix",
   apply: "serve",
   configureServer(server) {
-    server.middlewares.use((req, res, next) => {
-      const accept = req.headers?.accept || "";
-
-      // Vite uses a custom ping request to check server availability.
-      // Handle any accept header that includes the ping mime type.
-      if (accept.includes("text/x-vite-ping")) {
-        delete req.headers["if-none-match"];
-        delete req.headers["if-match"];
-        delete req.headers["if-modified-since"];
-        delete req.headers["if-unmodified-since"];
-
-        res.statusCode = 204;
-        res.setHeader("Cache-Control", "no-store");
-        res.end();
-        return;
-      }
-
-      // Prevent conditional request preconditions from breaking preview.
-      delete req.headers["if-none-match"];
-      delete req.headers["if-match"];
-      delete req.headers["if-modified-since"];
-      delete req.headers["if-unmodified-since"];
-      next();
-    });
+    server.middlewares.use(stripConditionalHeaders);
+  },
+  configurePreviewServer(server) {
+    server.middlewares.use(stripConditionalHeaders);
   },
 });
 
@@ -62,6 +60,10 @@ export default defineConfig(({ mode }) => ({
       clientPort: 443,
       // Empty string is falsy in the Vite client, so it falls back to import.meta.url.hostname.
       host: "",
+    },
+    // Ensure proper file change detection to prevent stale cached responses
+    watch: {
+      usePolling: true,
     },
   },
   plugins: [react(), mode === "development" && componentTagger(), lovablePreview412Fix()].filter(Boolean),
