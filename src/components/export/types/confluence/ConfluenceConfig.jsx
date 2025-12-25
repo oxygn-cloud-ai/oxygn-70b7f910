@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ConfluenceTemplateMapper } from './ConfluenceTemplateMapper';
+import { VariableSourcePicker } from './VariableSourcePicker';
 
 const PageTreeNode = ({ 
   node, 
@@ -163,6 +164,7 @@ export const ConfluenceConfig = ({
   templateMappings,
   pageTitle,
   useBlankPage,
+  pageTitleSource,
   isLoadingTree,
   isLoadingTemplates,
   promptsData,
@@ -175,12 +177,23 @@ export const ConfluenceConfig = ({
   onChooseBlankPage,
   onUpdateMapping,
   onSetPageTitle,
+  onSetPageTitleSource,
   onGetPageChildren,
   onSetSpaceTree,
   STANDARD_FIELDS
 }) => {
   const [expandedIds, setExpandedIds] = useState([]);
   const [loadingNodes, setLoadingNodes] = useState(new Set());
+  const [titleMode, setTitleMode] = useState(pageTitleSource ? 'variable' : 'static');
+
+  // Sync titleMode with pageTitleSource when it changes externally
+  React.useEffect(() => {
+    if (pageTitleSource && titleMode !== 'variable') {
+      setTitleMode('variable');
+    } else if (!pageTitleSource && titleMode !== 'static') {
+      setTitleMode('static');
+    }
+  }, [pageTitleSource]);
 
   // Helper to update a node in the tree
   const updateNodeInTree = useCallback((tree, nodeId, updates) => {
@@ -274,6 +287,28 @@ export const ConfluenceConfig = ({
     return findNode(spaceTree);
   }, [selectedParentId, spaceTree]);
 
+  const handleTitleModeChange = (mode) => {
+    setTitleMode(mode);
+    if (mode === 'static') {
+      onSetPageTitleSource?.(null);
+    }
+  };
+
+  // Get preview of dynamic title
+  const getDynamicTitlePreview = () => {
+    if (!pageTitleSource || !promptsData?.length) return null;
+    const prompt = promptsData.find(p => p.row_id === pageTitleSource.promptId);
+    if (!prompt) return null;
+    
+    let value = '';
+    if (pageTitleSource.sourceType === 'field') {
+      value = prompt[pageTitleSource.sourceId] || '';
+    } else if (pageTitleSource.sourceType === 'variable') {
+      value = prompt[`var_${pageTitleSource.sourceId}`] || '';
+    }
+    return value ? `Preview: "${value.substring(0, 50)}${value.length > 50 ? '...' : ''}"` : null;
+  };
+
   return (
     <div className="space-y-4">
       {/* Page Title Card */}
@@ -283,17 +318,65 @@ export const ConfluenceConfig = ({
             <Type className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <Label htmlFor="page-title" className="text-sm font-semibold">Page Title</Label>
-            <p className="text-xs text-muted-foreground">The title of your new Confluence page</p>
+            <Label className="text-sm font-semibold">Page Title</Label>
+            <p className="text-xs text-muted-foreground">Set a static title or use a variable value</p>
           </div>
         </div>
-        <Input
-          id="page-title"
-          value={pageTitle}
-          onChange={(e) => onSetPageTitle(e.target.value)}
-          placeholder="Enter page title..."
-          className="bg-background"
-        />
+        
+        {/* Title Mode Toggle */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleTitleModeChange('static')}
+            className={cn(
+              "flex-1 py-2 px-3 rounded-lg border-2 text-xs font-medium transition-all",
+              titleMode === 'static'
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border/50 hover:border-primary/30 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Static Title
+          </button>
+          <button
+            onClick={() => handleTitleModeChange('variable')}
+            className={cn(
+              "flex-1 py-2 px-3 rounded-lg border-2 text-xs font-medium transition-all",
+              titleMode === 'variable'
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border/50 hover:border-primary/30 text-muted-foreground hover:text-foreground"
+            )}
+          >
+            From Variable
+          </button>
+        </div>
+        
+        {titleMode === 'static' ? (
+          <Input
+            id="page-title"
+            value={pageTitle}
+            onChange={(e) => onSetPageTitle(e.target.value)}
+            placeholder="Enter page title..."
+            className="bg-background"
+          />
+        ) : (
+          <div className="space-y-2">
+            <VariableSourcePicker
+              value={pageTitleSource}
+              onChange={onSetPageTitleSource}
+              promptsData={promptsData}
+              variablesData={variablesData}
+              selectedFields={selectedFields}
+              selectedVariables={selectedVariables}
+              STANDARD_FIELDS={STANDARD_FIELDS}
+              placeholder="Select title source..."
+              className="w-full"
+            />
+            {getDynamicTitlePreview() && (
+              <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                {getDynamicTitlePreview()}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Space Selection Card */}
