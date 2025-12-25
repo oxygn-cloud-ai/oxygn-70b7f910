@@ -126,34 +126,44 @@ export const useWorkbenchMessages = () => {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
+      let buffer = '';
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          
+          // Keep the last potentially incomplete line in buffer
+          buffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6);
-              if (data === '[DONE]') continue;
+            const trimmedLine = line.trim();
+            if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue;
+            
+            const data = trimmedLine.slice(6);
+            if (data === '[DONE]') continue;
 
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.content) {
-                  fullContent += parsed.content;
-                  setStreamingMessage(fullContent);
-                }
-                if (parsed.error) {
-                  throw new Error(parsed.error);
-                }
-              } catch (e) {
-                // Ignore JSON parse errors for partial data
-                if (e.message !== 'Unexpected end of JSON input') {
-                  console.warn('SSE parse warning:', e);
-                }
+            try {
+              const parsed = JSON.parse(data);
+              
+              // Handle OpenAI streaming format: choices[0].delta.content
+              const deltaContent = parsed.choices?.[0]?.delta?.content;
+              if (deltaContent) {
+                fullContent += deltaContent;
+                setStreamingMessage(fullContent);
+              }
+              
+              // Handle error in response
+              if (parsed.error) {
+                throw new Error(parsed.error.message || parsed.error);
+              }
+            } catch (e) {
+              // Only warn for non-parse errors
+              if (e.message && !e.message.includes('JSON')) {
+                console.warn('SSE parse warning:', e);
               }
             }
           }
