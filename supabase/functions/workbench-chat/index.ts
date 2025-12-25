@@ -530,44 +530,137 @@ serve(async (req) => {
 
     console.log('Calling AI with model:', selectedModel, 'tools:', tools.length);
 
-    // Make streaming request
-    const response = await fetch(apiEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages: apiMessages,
-        tools: tools.length > 0 ? tools : undefined,
-        stream: true
-      })
-    });
+    // Tool handling loop - execute tools until we get a final content response
+    const MAX_TOOL_ITERATIONS = 10;
+    let currentMessages = [...apiMessages];
+    let finalContent = '';
+    
+    const toolContext = {
+      supabase,
+      userId: validation.user!.id,
+      threadRowId: thread_row_id || '',
+      openAIApiKey: openAIApiKey || ''
+    };
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+      console.log(`AI call iteration ${iteration + 1}, messages: ${currentMessages.length}`);
+      
+      // Make non-streaming request to check for tool calls
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: selectedModel,
+          messages: currentMessages,
+          tools: tools.length > 0 ? tools : undefined,
+          stream: false  // Non-streaming for tool detection
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        const errorText = await response.text();
+        console.error('AI API error:', response.status, errorText);
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'AI request failed' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+
+      const result = await response.json();
+      const choice = result.choices?.[0];
+      
+      if (!choice) {
+        console.error('No choice in AI response:', result);
         return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Invalid AI response' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: 'AI request failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+
+      const message = choice.message;
+      const finishReason = choice.finish_reason;
+
+      console.log('AI response - finish_reason:', finishReason, 'has_tool_calls:', !!message.tool_calls);
+
+      // Check if AI wants to call tools
+      if (finishReason === 'tool_calls' && message.tool_calls && message.tool_calls.length > 0) {
+        console.log(`Executing ${message.tool_calls.length} tool call(s)`);
+        
+        // Add assistant message with tool calls to conversation
+        currentMessages.push({
+          role: 'assistant',
+          content: message.content || null,
+          tool_calls: message.tool_calls
+        });
+
+        // Execute each tool and add results
+        for (const toolCall of message.tool_calls) {
+          const toolName = toolCall.function.name;
+          let toolArgs = {};
+          
+          try {
+            toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+          } catch (e) {
+            console.error('Failed to parse tool arguments:', toolCall.function.arguments);
+          }
+
+          console.log(`Executing tool: ${toolName}`, toolArgs);
+          
+          const toolResult = await handleToolCall(toolName, toolArgs, toolContext);
+          
+          console.log(`Tool ${toolName} result length: ${toolResult.length}`);
+
+          // Add tool result to messages
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: toolResult
+          });
+        }
+
+        // Continue loop - AI will process tool results
+        continue;
+      }
+
+      // AI returned final content (no more tool calls)
+      finalContent = message.content || '';
+      console.log('Final content received, length:', finalContent.length);
+      break;
     }
 
-    // Stream the response back
-    return new Response(response.body, {
+    // Stream the final response back as SSE format for client compatibility
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      start(controller) {
+        // Send the content as a single SSE event in OpenAI streaming format
+        const sseData = JSON.stringify({
+          choices: [{
+            delta: { content: finalContent },
+            finish_reason: 'stop'
+          }]
+        });
+        controller.enqueue(encoder.encode(`data: ${sseData}\n\n`));
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      }
+    });
+
+    return new Response(stream, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
