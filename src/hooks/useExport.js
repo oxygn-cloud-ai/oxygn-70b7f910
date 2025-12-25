@@ -383,6 +383,8 @@ export const useExport = () => {
     toggleFieldSelection,
     toggleVariableSelection,
     setExportType,
+    setSelectedFields,
+    setSelectedVariables,
     fetchPromptsData,
     fetchVariablesData,
     getExportData,

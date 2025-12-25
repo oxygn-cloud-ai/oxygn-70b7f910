@@ -438,6 +438,45 @@ export type Database = {
           },
         ]
       }
+      q_export_templates: {
+        Row: {
+          confluence_config: Json | null
+          created_at: string | null
+          export_type: string
+          is_private: boolean | null
+          owner_id: string | null
+          row_id: string
+          selected_fields: string[] | null
+          selected_variables: Json | null
+          template_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          confluence_config?: Json | null
+          created_at?: string | null
+          export_type?: string
+          is_private?: boolean | null
+          owner_id?: string | null
+          row_id?: string
+          selected_fields?: string[] | null
+          selected_variables?: Json | null
+          template_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          confluence_config?: Json | null
+          created_at?: string | null
+          export_type?: string
+          is_private?: boolean | null
+          owner_id?: string | null
+          row_id?: string
+          selected_fields?: string[] | null
+          selected_variables?: Json | null
+          template_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       q_model_defaults: {
         Row: {
           created_at: string | null
