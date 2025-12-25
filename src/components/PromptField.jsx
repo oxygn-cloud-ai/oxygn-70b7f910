@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
@@ -20,10 +20,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [contentHeight, setContentHeight] = useState(100);
-  const [manualHeight, setManualHeight] = useState(null);
-  const [isResizing, setIsResizing] = useState(false);
-  const resizeStartY = useRef(0);
-  const resizeStartHeight = useRef(0);
   
   const storageKey = `promptField_expand_${promptId}_${label}`;
   
@@ -59,52 +55,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     localStorage.setItem(storageKey, 'full');
   };
 
-  // Resize handlers (pointer events) — drag the bottom edge to resize
-  const handleResizeStart = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Capture the pointer so the drag keeps working even if the cursor leaves the handle
-    if (typeof e.pointerId === 'number' && e.currentTarget?.setPointerCapture) {
-      try {
-        e.currentTarget.setPointerCapture(e.pointerId);
-      } catch {
-        // ignore
-      }
-    }
-
-    setIsResizing(true);
-    resizeStartY.current = e.clientY;
-
-    // Measure from the actual textarea/editor element
-    const currentHeight = textareaRef.current?.offsetHeight || textareaRef.current?.clientHeight || 100;
-    resizeStartHeight.current = currentHeight;
-  }, []);
-
-  const handleResizeMove = useCallback((e) => {
-    if (!isResizing) return;
-    const deltaY = e.clientY - resizeStartY.current;
-    const newHeight = Math.max(60, resizeStartHeight.current + deltaY);
-    setManualHeight(newHeight);
-  }, [isResizing]);
-
-  const handleResizeEnd = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    document.addEventListener('pointermove', handleResizeMove);
-    document.addEventListener('pointerup', handleResizeEnd);
-    document.addEventListener('pointercancel', handleResizeEnd);
-
-    return () => {
-      document.removeEventListener('pointermove', handleResizeMove);
-      document.removeEventListener('pointerup', handleResizeEnd);
-      document.removeEventListener('pointercancel', handleResizeEnd);
-    };
-  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   // Calculate content height when in full mode
   useEffect(() => {
@@ -292,20 +242,14 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
   // Get textarea style based on expand state
   const getTextareaStyle = () => {
-    if (manualHeight) {
-      return 'overflow-auto';
-    }
     if (expandState === 'min') {
       return 'min-h-[100px] max-h-[100px] overflow-auto';
     }
     return 'min-h-[100px]';
   };
 
-  // Get dynamic height for full state or manual resize
+  // Get dynamic height for full state
   const getFullHeightStyle = () => {
-    if (manualHeight) {
-      return { height: `${manualHeight}px` };
-    }
     if (expandState === 'full') {
       return { minHeight: `${Math.max(100, contentHeight)}px` };
     }
@@ -318,7 +262,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
       className={`
         rounded-lg border transition-all duration-200
         ${hasUnsavedChanges ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}
-        ${isResizing ? 'select-none' : ''}
       `}
     >
       {/* Header */}
@@ -498,9 +441,9 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
             )}
           </div>
           
-          {/* Bottom controls - resize handle and chevrons */}
+          {/* Bottom controls - chevrons */}
           <div className="pt-2 pb-2 mt-2 border-t border-border/50">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
               {/* Chevron controls */}
               <div className="flex items-center gap-1">
                 {expandState === 'full' && (
@@ -526,20 +469,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
                     />
                   </>
                 )}
-                {manualHeight && (
-                  <span className="text-[10px] text-muted-foreground ml-1">Custom height</span>
-                )}
               </div>
-            </div>
-
-            {/* Resize strip (full-width, no icon) */}
-            <div
-              onPointerDown={handleResizeStart}
-              className="mt-2 h-3 w-full cursor-ns-resize rounded-md hover:bg-muted/40 transition-colors"
-              style={{ touchAction: 'none' }}
-              aria-label="Resize field"
-            >
-              <div className="mx-auto mt-1 h-1 w-16 rounded-full bg-muted-foreground/20" />
             </div>
           </div>
         </div>
