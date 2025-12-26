@@ -109,13 +109,13 @@ const MockupExportPanel = ({ onClose }) => {
         {/* Confluence-specific options */}
         {selectedType === "confluence" && (
           <div className="space-y-3 pt-2 border-t border-outline-variant">
-            <label className="text-label-md text-on-surface font-medium">Confluence Settings</label>
+            <label className="text-label-md text-on-surface font-medium">Confluence Target</label>
             <div className="space-y-2">
               <div className="h-10 px-3 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
-                <span className="text-body-sm text-on-surface-variant">Select parent page...</span>
+                <span className="text-body-sm text-on-surface-variant">Select space...</span>
               </div>
               <div className="h-10 px-3 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
-                <span className="text-body-sm text-on-surface-variant">Select space...</span>
+                <span className="text-body-sm text-on-surface-variant">Select parent page...</span>
               </div>
             </div>
           </div>
