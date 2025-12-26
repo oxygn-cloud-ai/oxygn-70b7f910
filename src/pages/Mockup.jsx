@@ -13,6 +13,7 @@ import MockupExportPanel from "@/components/mockup/MockupExportPanel";
 
 const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
   const [conversationPanelOpen, setConversationPanelOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("prompts");
@@ -102,7 +103,10 @@ const Mockup = () => {
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top Bar - 64dp */}
-            <MockupTopBar />
+            <MockupTopBar 
+              tooltipsEnabled={tooltipsEnabled} 
+              onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)} 
+            />
 
             {/* Main Content with Resizable Panels */}
             <div className="flex-1 flex overflow-hidden">
