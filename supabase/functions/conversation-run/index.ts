@@ -551,13 +551,27 @@ serve(async (req) => {
       return acc;
     }, {} as Record<string, string>);
 
-    // Build template variables from prompt fields + user variables
+    // Extract stored system variables from prompt's system_variables JSONB field
+    // These are user-input system variables like q.policy.name that were set on the prompt
+    const storedSystemVariables: Record<string, string> = {};
+    if (childPrompt.system_variables && typeof childPrompt.system_variables === 'object') {
+      Object.entries(childPrompt.system_variables).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          storedSystemVariables[key] = String(value);
+        }
+      });
+      console.log(`Found ${Object.keys(storedSystemVariables).length} stored system variables:`, Object.keys(storedSystemVariables));
+    }
+
+    // Build template variables from prompt fields + user variables + system variables
     const variables: Record<string, string> = {
       input_admin_prompt: childPrompt.input_admin_prompt || '',
       input_user_prompt: childPrompt.input_user_prompt || '',
       admin_prompt_result: childPrompt.admin_prompt_result || '',
       user_prompt_result: childPrompt.user_prompt_result || '',
       output_response: childPrompt.output_response || '',
+      // Stored system variables from prompt's system_variables field (q.policy.name, etc.)
+      ...storedSystemVariables,
       // User-defined variables from q_prompt_variables
       ...userVariablesMap,
       // Template variables passed from client (cascade context, system vars, etc.)
