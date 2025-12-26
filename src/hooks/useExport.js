@@ -116,7 +116,7 @@ export const useExport = () => {
     try {
       const { data, error } = await supabase
         .from('q_prompts')
-        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note, exclude_from_export')
+        .select('row_id, prompt_name, input_user_prompt, input_admin_prompt, output_response, user_prompt_result, note, exclude_from_export, system_variables')
         .in('row_id', promptIds)
         .or('exclude_from_export.is.null,exclude_from_export.eq.false');
 
@@ -312,12 +312,21 @@ export const useExport = () => {
 
   // Get export data based on selections
   // IMPORTANT: Include ALL variables (not just selected) for {{variable}} resolution
+  // Also include system_variables for q.ref[UUID] resolution
   const getExportData = useMemo(() => {
+    // Build a map of all prompts for q.ref[UUID] resolution
+    const promptRefMap = new Map();
+    promptsData.forEach(prompt => {
+      promptRefMap.set(prompt.row_id, prompt);
+    });
+
     return promptsData.map(prompt => {
       const data = { 
         promptId: prompt.row_id,
         row_id: prompt.row_id,  // Required for resolveSourceValue lookup
-        prompt_name: prompt.prompt_name  // Always include prompt_name for reference
+        prompt_name: prompt.prompt_name,  // Always include prompt_name for reference
+        system_variables: prompt.system_variables || {},  // Include system_variables for q.ref resolution
+        _promptRefMap: promptRefMap  // Pass reference map for q.ref resolution
       };
       
       // Include selected fields

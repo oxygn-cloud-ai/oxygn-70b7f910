@@ -115,8 +115,8 @@ export const useConfluenceExport = () => {
     return '';
   }, []);
 
-  // Helper to resolve {{variable}} placeholders in content
-  const resolveContentVariables = useCallback((content, exportItem) => {
+  // Helper to resolve {{variable}} placeholders in content, including q.ref[UUID] patterns
+  const resolveContentVariables = useCallback((content, exportItem, allExportData = []) => {
     if (!content) return '';
     
     // Build variables map from var_* prefixed keys
@@ -128,8 +128,30 @@ export const useConfluenceExport = () => {
       }
     });
     
-    // Apply substitution using the template resolver
-    return applyTemplateVariables(content, varMap);
+    // Resolve q.ref[UUID].field patterns
+    const refPattern = /\{\{q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)\}\}/gi;
+    let resolved = content.replace(refPattern, (match, uuid, field) => {
+      // Find the referenced prompt in export data
+      const refPrompt = allExportData.find(p => p.row_id === uuid.toLowerCase());
+      if (!refPrompt) return match; // Leave unresolved if not found
+      
+      // Get the field value
+      if (field === 'output_response') return refPrompt.output_response || '';
+      if (field === 'user_prompt_result') return refPrompt.user_prompt_result || refPrompt.output_response || '';
+      if (field === 'input_admin_prompt') return refPrompt.input_admin_prompt || '';
+      if (field === 'input_user_prompt') return refPrompt.input_user_prompt || '';
+      if (field === 'prompt_name') return refPrompt.prompt_name || '';
+      
+      // Check system_variables
+      if (refPrompt.system_variables && refPrompt.system_variables[field]) {
+        return String(refPrompt.system_variables[field]);
+      }
+      
+      return match; // Leave unresolved if field not found
+    });
+    
+    // Apply regular variable substitution
+    return applyTemplateVariables(resolved, varMap);
   }, []);
 
   // Build the page body from template and mappings
@@ -142,21 +164,21 @@ export const useConfluenceExport = () => {
         body += `<h2>${item.prompt_name || 'Untitled Prompt'}</h2>`;
         
         // Use output_response (already normalized to include user_prompt_result)
-        // Apply variable resolution BEFORE escaping HTML
+        // Apply variable resolution BEFORE escaping HTML, pass all export data for q.ref resolution
         if (item.output_response) {
-          const resolved = resolveContentVariables(item.output_response, item);
+          const resolved = resolveContentVariables(item.output_response, item, exportData);
           body += `<h3>Output</h3><p>${escapeHtml(resolved)}</p>`;
         }
         if (item.input_user_prompt) {
-          const resolved = resolveContentVariables(item.input_user_prompt, item);
+          const resolved = resolveContentVariables(item.input_user_prompt, item, exportData);
           body += `<h3>User Prompt</h3><p>${escapeHtml(resolved)}</p>`;
         }
         if (item.input_admin_prompt) {
-          const resolved = resolveContentVariables(item.input_admin_prompt, item);
+          const resolved = resolveContentVariables(item.input_admin_prompt, item, exportData);
           body += `<h3>System Prompt</h3><p>${escapeHtml(resolved)}</p>`;
         }
         if (item.note) {
-          const resolved = resolveContentVariables(item.note, item);
+          const resolved = resolveContentVariables(item.note, item, exportData);
           body += `<h3>Notes</h3><p>${escapeHtml(resolved)}</p>`;
         }
         
@@ -185,14 +207,14 @@ export const useConfluenceExport = () => {
         const rawValue = resolveSourceValue(mapping.source, exportData);
         // Find the prompt to get its variables for resolution
         const promptData = exportData.find(p => p.row_id === mapping.source.promptId) || exportData[0];
-        value = resolveContentVariables(rawValue, promptData);
+        value = resolveContentVariables(rawValue, promptData, exportData);
       } else if (mapping.type === 'field' && exportData.length > 0) {
         // Legacy support: field from first prompt or specific prompt
         const promptData = mapping.promptId 
           ? exportData.find(p => p.row_id === mapping.promptId) || exportData[0]
           : exportData[0];
         const rawValue = promptData[mapping.fieldId] || '';
-        value = resolveContentVariables(rawValue, promptData);
+        value = resolveContentVariables(rawValue, promptData, exportData);
       } else if (mapping.type === 'variable' && exportData.length > 0) {
         // Legacy support: variable from specific prompt
         const promptData = mapping.promptId 
