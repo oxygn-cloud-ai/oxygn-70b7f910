@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Home, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, HelpCircle, BookOpen } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, HelpCircle, BookOpen } from 'lucide-react';
 import { SlackIcon } from '@/components/icons/SlackIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTooltipSettings } from '@/contexts/TooltipContext';
@@ -33,7 +33,6 @@ import useTreeData from '@/hooks/useTreeData';
 import { supabase } from '@/integrations/supabase/client';
 
 const mainNavItems = [
-  { id: 'home', title: 'Home', icon: Home, to: '/' },
   { id: 'prompts', title: 'Prompts', icon: Folder, to: '/projects', badge: null },
   { id: 'workbench', title: 'Workbench', icon: MessagesSquare, to: '/workbench', badge: null },
   { id: 'templates', title: 'Templates', icon: LayoutTemplate, to: '/templates', badge: null },
