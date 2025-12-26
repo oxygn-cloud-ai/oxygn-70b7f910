@@ -1,6 +1,5 @@
-import React, { useState, lazy, Suspense } from 'react';
-import { FileText, ChevronRight, ChevronDown, Bot, SkipForward, Loader2, FileX, Zap } from 'lucide-react';
-import dynamicIconImports from 'lucide-react/dynamicIconImports';
+import React, { useState } from 'react';
+import { FileText, ChevronRight, ChevronDown, Bot, SkipForward, Loader2, FileX, Zap, icons } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,27 +21,6 @@ import { IconPicker } from './IconPicker';
 import { updatePromptIcon } from '@/services/promptMutations';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-// Cache for lazy-loaded icons
-const iconCache = new Map();
-
-const DynamicIcon = ({ name, className }) => {
-  if (!name || !dynamicIconImports[name]) {
-    return null;
-  }
-
-  if (!iconCache.has(name)) {
-    iconCache.set(name, lazy(dynamicIconImports[name]));
-  }
-
-  const IconComponent = iconCache.get(name);
-
-  return (
-    <Suspense fallback={<Loader2 className={`${className} animate-spin`} />}>
-      <IconComponent className={className} />
-    </Suspense>
-  );
-};
 
 export const TreeItemContent = ({
   item,
@@ -148,22 +126,32 @@ export const TreeItemContent = ({
   
   // Render the icon based on custom icon_name or default
   const renderIcon = () => {
-    // Custom icon takes priority
-    if (item.icon_name && dynamicIconImports[item.icon_name]) {
+    // Custom icon takes priority - icons are stored as PascalCase
+    if (item.icon_name && icons[item.icon_name]) {
+      const CustomIcon = icons[item.icon_name];
       return (
-        <div 
-          className={`
-            flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
-            bg-primary/15 text-primary cursor-pointer
-            transition-all duration-150
-            ${isIconHovered ? 'ring-2 ring-primary/40 scale-110' : ''}
-          `}
-          onMouseEnter={() => setIsIconHovered(true)}
-          onMouseLeave={() => setIsIconHovered(false)}
-          onContextMenu={handleIconContextMenu}
-        >
-          <DynamicIcon name={item.icon_name} className="h-3.5 w-3.5" />
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div 
+                className={`
+                  flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
+                  bg-primary/15 text-primary cursor-pointer
+                  transition-all duration-150
+                  ${isIconHovered ? 'ring-2 ring-primary/40 scale-110' : ''}
+                `}
+                onMouseEnter={() => setIsIconHovered(true)}
+                onMouseLeave={() => setIsIconHovered(false)}
+                onContextMenu={handleIconContextMenu}
+              >
+                <CustomIcon className="h-3.5 w-3.5" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              Right-click to change icon
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
     
