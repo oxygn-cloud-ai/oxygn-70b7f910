@@ -14,8 +14,10 @@ import MockupExportPanel from "@/components/mockup/MockupExportPanel";
 const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
+  const [conversationPanelOpen, setConversationPanelOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("prompts");
   const [hoveredNav, setHoveredNav] = useState(null);
+  const [isHoveringSubmenu, setIsHoveringSubmenu] = useState(false);
   const [activePromptId, setActivePromptId] = useState(2);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
@@ -33,7 +35,9 @@ const Mockup = () => {
   }, [isDark]);
 
   // Determine which panel content to show - hovered takes priority over active (except for templates)
-  const showSubmenu = hoveredNav && hoveredNav !== "prompts" && hoveredNav !== "templates" && hoveredNav !== activeNav;
+  // Keep submenu visible if hovering nav item OR hovering the submenu itself
+  const effectiveHoveredNav = (hoveredNav || isHoveringSubmenu) ? (hoveredNav || (isHoveringSubmenu ? activeNav : null)) : null;
+  const showSubmenu = effectiveHoveredNav && effectiveHoveredNav !== "prompts" && effectiveHoveredNav !== "templates" && effectiveHoveredNav !== activeNav;
 
   const handleSubmenuClick = (itemId) => {
     console.log("Submenu item clicked:", itemId);
@@ -50,6 +54,16 @@ const Mockup = () => {
       setSelectedTemplate(null);
     }
   }, [activeNav]);
+
+  // Handle submenu hover - keep track of the last hovered nav when entering submenu
+  const handleSubmenuMouseEnter = () => {
+    setIsHoveringSubmenu(true);
+  };
+
+  const handleSubmenuMouseLeave = () => {
+    setIsHoveringSubmenu(false);
+    setHoveredNav(null);
+  };
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -86,45 +100,56 @@ const Mockup = () => {
                 {folderPanelOpen && (
                   <>
                     <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                      {showSubmenu ? (
-                        <MockupSubmenuPanel 
-                          hoveredNav={hoveredNav} 
-                          onItemClick={handleSubmenuClick}
-                        />
-                      ) : activeNav === "prompts" ? (
-                        <MockupFolderPanel />
-                      ) : activeNav === "templates" ? (
-                        <MockupTemplatesFolderPanel 
-                          onSelectTemplate={handleSelectTemplate}
-                          selectedTemplateId={selectedTemplate?.id}
-                        />
-                      ) : (
-                        <MockupSubmenuPanel 
-                          hoveredNav={activeNav} 
-                          onItemClick={handleSubmenuClick}
-                        />
-                      )}
+                      <div 
+                        className="h-full"
+                        onMouseEnter={showSubmenu ? handleSubmenuMouseEnter : undefined}
+                        onMouseLeave={showSubmenu ? handleSubmenuMouseLeave : undefined}
+                      >
+                        {showSubmenu ? (
+                          <MockupSubmenuPanel 
+                            hoveredNav={effectiveHoveredNav} 
+                            onItemClick={handleSubmenuClick}
+                          />
+                        ) : activeNav === "prompts" ? (
+                          <MockupFolderPanel />
+                        ) : activeNav === "templates" ? (
+                          <MockupTemplatesFolderPanel 
+                            onSelectTemplate={handleSelectTemplate}
+                            selectedTemplateId={selectedTemplate?.id}
+                          />
+                        ) : (
+                          <MockupSubmenuPanel 
+                            hoveredNav={activeNav} 
+                            onItemClick={handleSubmenuClick}
+                          />
+                        )}
+                      </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
                   </>
                 )}
 
                 {/* Reading Pane - flexible */}
-                <ResizablePanel defaultSize={50} minSize={30}>
+                <ResizablePanel defaultSize={conversationPanelOpen ? 50 : 80} minSize={30}>
                   <MockupReadingPane 
                     hasSelection={activePromptId !== null} 
                     onExport={() => setExportPanelOpen(true)}
                     activeNav={activeNav}
                     selectedTemplate={selectedTemplate}
+                    onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
+                    conversationPanelOpen={conversationPanelOpen}
                   />
                 </ResizablePanel>
 
-                <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                {conversationPanelOpen && (
+                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
 
-                {/* Conversation Panel */}
-                <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-                  <MockupConversationPanel />
-                </ResizablePanel>
+                    {/* Conversation Panel */}
+                    <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                      <MockupConversationPanel onClose={() => setConversationPanelOpen(false)} />
+                    </ResizablePanel>
+                  </>
+                )}
 
                 {/* Export Panel - toggleable */}
                 {exportPanelOpen && (
