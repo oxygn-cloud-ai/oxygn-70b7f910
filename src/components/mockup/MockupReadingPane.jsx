@@ -20,7 +20,8 @@ import {
   ChevronDown,
   Search,
   Plus,
-  PanelRightOpen
+  PanelRightOpen,
+  Workflow
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -675,7 +676,7 @@ const HealthContent = ({ activeSubItem, onToggleConversation, conversationPanelO
   );
 };
 
-const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", activeSubItem = null, selectedTemplate = null, onToggleConversation, conversationPanelOpen = true }) => {
+const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", activeSubItem = null, selectedTemplate = null, onToggleConversation, conversationPanelOpen = true, selectedPromptHasChildren = true }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [templateTab, setTemplateTab] = useState("overview");
 
@@ -776,9 +777,14 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
         <IconButton icon={Share2} label="Share" />
         <IconButton icon={Trash2} label="Delete" />
         
-        {/* Run button - only for prompts */}
+        {/* Run buttons - only for prompts */}
         {!isTemplateMode && (
-          <IconButton icon={Play} label="Run prompt" variant="primary" />
+          <>
+            <IconButton icon={Play} label="Run prompt" variant="primary" />
+            {selectedPromptHasChildren && (
+              <IconButton icon={Workflow} label="Run cascade" variant="primary" />
+            )}
+          </>
         )}
         
         <IconButton icon={MoreVertical} label="More options" />

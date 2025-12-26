@@ -15,7 +15,8 @@ import {
   Sparkles,
   Link2,
   Upload,
-  GripVertical
+  GripVertical,
+  Workflow
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
@@ -63,6 +64,35 @@ const OwnerAvatar = ({ initials, color }) => (
   </div>
 );
 
+// Drop zone between items for inserting
+const DropZone = ({ onDrop, isFirst = false }) => {
+  const [{ isOver, canDrop }, drop] = useDrop({
+    accept: ITEM_TYPE,
+    drop: (item) => {
+      onDrop(item.id, 'between');
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  return (
+    <div
+      ref={drop}
+      className={`
+        h-1 mx-2 rounded-full transition-all duration-150
+        ${isOver && canDrop ? 'h-1 bg-primary' : 'bg-transparent'}
+        ${canDrop && !isOver ? 'hover:bg-primary/30' : ''}
+      `}
+      style={{ 
+        marginTop: isFirst ? 0 : '-2px',
+        marginBottom: '-2px'
+      }}
+    />
+  );
+};
+
 const TreeItem = ({ 
   id,
   icon: Icon, 
@@ -76,8 +106,10 @@ const TreeItem = ({
   excludedFromCascade = false,
   excludedFromExport = false,
   owner = null,
-  onMove,
-  index
+  onMoveInto,
+  onMoveBetween,
+  index,
+  isConversation = false
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
@@ -93,16 +125,17 @@ const TreeItem = ({
     }),
   });
 
+  // Drop on item to make it a child
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
     canDrop: (item) => item.id !== id,
-    drop: (item) => {
-      if (item.id !== id && onMove) {
-        onMove(item.id, id, index);
+    drop: (item, monitor) => {
+      if (!monitor.didDrop() && item.id !== id && onMoveInto) {
+        onMoveInto(item.id, id);
       }
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOver: monitor.isOver({ shallow: true }),
       canDrop: monitor.canDrop(),
     }),
   });
@@ -110,67 +143,77 @@ const TreeItem = ({
   drag(drop(ref));
   
   return (
-    <div
-      ref={ref}
-      onClick={onToggle}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className={`
-        w-full h-7 flex items-center gap-1.5 pr-2 rounded-m3-sm cursor-grab
-        transition-colors duration-150 ease-emphasized
-        ${isActive 
-          ? "bg-secondary-container text-secondary-container-foreground" 
-          : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-        }
-        ${isDragging ? "opacity-50" : ""}
-        ${isOver && canDrop ? "ring-2 ring-primary ring-inset" : ""}
-      `}
-      style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
-    >
-      {/* Drag handle */}
-      <GripVertical className="h-3 w-3 flex-shrink-0 text-on-surface-variant/40 cursor-grab" />
-      
-      {depthIndicator && (
-        <span className="text-[8px] text-on-surface-variant/50 w-3 flex-shrink-0">{depthIndicator}</span>
-      )}
-      {hasChildren && (
-        <span onClick={(e) => { e.stopPropagation(); onToggle?.(); }}>
-          {isExpanded 
-            ? <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
-            : <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
+    <>
+      <div
+        ref={ref}
+        onClick={onToggle}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`
+          w-full h-7 flex items-center gap-1.5 pr-2 rounded-m3-sm cursor-grab
+          transition-all duration-150 ease-emphasized
+          ${isActive 
+            ? "bg-secondary-container text-secondary-container-foreground" 
+            : "text-on-surface-variant hover:bg-on-surface/[0.08]"
           }
-        </span>
-      )}
-      {!hasChildren && <span className="w-3.5" />}
-      <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-      <span className="flex-1 text-left text-[11px] truncate">{label}</span>
+          ${isDragging ? "opacity-50 scale-95" : ""}
+          ${isOver && canDrop ? "ring-2 ring-primary bg-primary/10" : ""}
+        `}
+        style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
+      >
+        {/* Drag handle */}
+        <GripVertical className="h-3 w-3 flex-shrink-0 text-on-surface-variant/40 cursor-grab" />
+        
+        {depthIndicator && (
+          <span className="text-[8px] text-on-surface-variant/50 w-3 flex-shrink-0">{depthIndicator}</span>
+        )}
+        {hasChildren && (
+          <span onClick={(e) => { e.stopPropagation(); onToggle?.(); }}>
+            {isExpanded 
+              ? <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
+              : <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
+            }
+          </span>
+        )}
+        {!hasChildren && <span className="w-3.5" />}
+        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="flex-1 text-left text-[11px] truncate">{label}</span>
+        
+        {/* Hover actions or status icons */}
+        {isHovered ? (
+          <div className="flex items-center gap-0.5">
+            <IconButton icon={Star} label="Star" className={starred ? "text-primary" : ""} />
+            <IconButton icon={Sparkles} label="Run" />
+            {hasChildren && <IconButton icon={Workflow} label="Run Cascade" />}
+            <IconButton icon={Link2} label="Copy Variable Reference" />
+            <IconButton icon={Plus} label="Add Child" />
+            <IconButton icon={Copy} label="Duplicate" />
+            <IconButton icon={Upload} label="Export" />
+            <IconButton icon={Ban} label="Exclude from Cascade" className={excludedFromCascade ? "text-muted-foreground" : ""} />
+            <IconButton icon={FileX} label="Exclude from Export" className={excludedFromExport ? "text-warning" : ""} />
+            <IconButton icon={Trash2} label="Delete" />
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            {starred && <Star className="h-3 w-3 text-primary fill-primary" />}
+            {excludedFromCascade && <Ban className="h-3 w-3 text-muted-foreground" />}
+            {excludedFromExport && <FileX className="h-3 w-3 text-warning" />}
+            {owner && <OwnerAvatar initials={owner.initials} color={owner.color} />}
+          </div>
+        )}
+      </div>
       
-      {/* Hover actions or status icons */}
-      {isHovered ? (
-        <div className="flex items-center gap-0.5">
-          <IconButton icon={Star} label="Star" className={starred ? "text-primary" : ""} />
-          <IconButton icon={Sparkles} label="Run" />
-          <IconButton icon={Link2} label="Copy Variable Reference" />
-          <IconButton icon={Plus} label="Add Child" />
-          <IconButton icon={Copy} label="Duplicate" />
-          <IconButton icon={Upload} label="Export" />
-          <IconButton icon={Ban} label="Exclude from Cascade" className={excludedFromCascade ? "text-muted-foreground" : ""} />
-          <IconButton icon={FileX} label="Exclude from Export" className={excludedFromExport ? "text-warning" : ""} />
-          <IconButton icon={Trash2} label="Delete" />
-        </div>
-      ) : (
-        <div className="flex items-center gap-1">
-          {starred && <Star className="h-3 w-3 text-primary fill-primary" />}
-          {excludedFromCascade && <Ban className="h-3 w-3 text-muted-foreground" />}
-          {excludedFromExport && <FileX className="h-3 w-3 text-warning" />}
-          {owner && <OwnerAvatar initials={owner.initials} color={owner.color} />}
+      {/* Drop indicator when hovering - shows "drop to make child" hint */}
+      {isOver && canDrop && (
+        <div className="mx-2 py-0.5 text-[9px] text-primary text-center bg-primary/5 rounded">
+          Drop to make child of "{label}"
         </div>
       )}
-    </div>
+    </>
   );
 };
 
-const MockupFolderPanel = () => {
+const MockupFolderPanel = ({ selectedPrompt, onSelectPrompt }) => {
   const [expandedFolders, setExpandedFolders] = useState({ 
     "doc-processor": true,
     "support-bot": true
@@ -180,9 +223,14 @@ const MockupFolderPanel = () => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleMove = (draggedId, targetId, targetIndex) => {
-    // In a real app, this would update the tree structure
-    console.log(`Move ${draggedId} to position near ${targetId} (index: ${targetIndex})`);
+  const handleMoveInto = (draggedId, targetId) => {
+    // In a real app, this would make draggedId a child of targetId
+    console.log(`Make ${draggedId} a child of ${targetId}`);
+  };
+
+  const handleMoveBetween = (draggedId, position) => {
+    // In a real app, this would insert draggedId at the specified position
+    console.log(`Insert ${draggedId} at position`);
   };
 
   const owners = {
@@ -224,7 +272,10 @@ const MockupFolderPanel = () => {
             <TooltipContent className="text-[10px]">Create new prompt</TooltipContent>
           </Tooltip>
         </div>
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col">
+          {/* Drop zone at top */}
+          <DropZone onDrop={handleMoveBetween} isFirst />
+          
           {/* Top-level prompt with deep child hierarchy */}
           <TreeItem 
             id="doc-processor"
@@ -235,20 +286,32 @@ const MockupFolderPanel = () => {
             onToggle={() => toggleFolder("doc-processor")}
             starred
             owner={owners.jd}
-            onMove={handleMove}
+            onMoveInto={handleMoveInto}
+            onMoveBetween={handleMoveBetween}
             index={0}
           />
+          <DropZone onDrop={handleMoveBetween} />
+          
           {expandedFolders["doc-processor"] && (
             <>
-              <TreeItem id="parse-input" icon={FileText} label="1. Parse Input" level={1} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={1} />
-              <TreeItem id="extract-meta" icon={FileText} label="2. Extract Metadata" level={2} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={2} />
-              <TreeItem id="validate-schema" icon={FileText} label="3. Validate Schema" level={3} hasChildren isExpanded excludedFromCascade owner={owners.jd} onMove={handleMove} index={3} />
-              <TreeItem id="transform-data" icon={FileText} label="4. Transform Data" level={4} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={4} />
-              <TreeItem id="enrich-content" icon={FileText} label="5. Enrich Content" level={5} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={5} />
-              <TreeItem id="apply-rules" icon={FileText} label="6. Apply Rules" level={6} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={6} />
-              <TreeItem id="gen-output" icon={FileText} label="7. Generate Output" level={7} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={7} />
-              <TreeItem id="format-response" icon={FileText} label="8. Format Response" level={8} hasChildren isExpanded owner={owners.jd} onMove={handleMove} index={8} />
-              <TreeItem id="final-review" icon={FileText} label="9. Final Review" level={9} owner={owners.jd} onMove={handleMove} index={9} />
+              <TreeItem id="parse-input" icon={FileText} label="1. Parse Input" level={1} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={1} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="extract-meta" icon={FileText} label="2. Extract Metadata" level={2} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={2} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="validate-schema" icon={FileText} label="3. Validate Schema" level={3} hasChildren isExpanded excludedFromCascade owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={3} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="transform-data" icon={FileText} label="4. Transform Data" level={4} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={4} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="enrich-content" icon={FileText} label="5. Enrich Content" level={5} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={5} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="apply-rules" icon={FileText} label="6. Apply Rules" level={6} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={6} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="gen-output" icon={FileText} label="7. Generate Output" level={7} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={7} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="format-response" icon={FileText} label="8. Format Response" level={8} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={8} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="final-review" icon={FileText} label="9. Final Review" level={9} owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={9} />
+              <DropZone onDrop={handleMoveBetween} />
             </>
           )}
 
@@ -263,31 +326,47 @@ const MockupFolderPanel = () => {
             isActive
             starred
             owner={owners.am}
-            onMove={handleMove}
+            onMoveInto={handleMoveInto}
+            onMoveBetween={handleMoveBetween}
             index={10}
+            isConversation
           />
+          <DropZone onDrop={handleMoveBetween} />
+          
           {expandedFolders["support-bot"] && (
             <>
-              <TreeItem id="greeting" icon={FileText} label="Greeting Handler" level={1} owner={owners.am} onMove={handleMove} index={11} />
-              <TreeItem id="issue-classifier" icon={FileText} label="Issue Classifier" level={1} hasChildren isExpanded excludedFromExport owner={owners.am} onMove={handleMove} index={12} />
-              <TreeItem id="tech-issues" icon={FileText} label="Technical Issues" level={2} owner={owners.am} onMove={handleMove} index={13} />
-              <TreeItem id="billing-issues" icon={FileText} label="Billing Issues" level={2} owner={owners.am} onMove={handleMove} index={14} />
-              <TreeItem id="escalation" icon={FileText} label="Escalation Handler" level={1} owner={owners.am} onMove={handleMove} index={15} />
+              <TreeItem id="greeting" icon={FileText} label="Greeting Handler" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={11} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="issue-classifier" icon={FileText} label="Issue Classifier" level={1} hasChildren isExpanded excludedFromExport owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={12} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="tech-issues" icon={FileText} label="Technical Issues" level={2} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={13} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="billing-issues" icon={FileText} label="Billing Issues" level={2} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={14} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="escalation" icon={FileText} label="Escalation Handler" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={15} />
+              <DropZone onDrop={handleMoveBetween} />
             </>
           )}
 
           {/* Simple top-level prompts */}
-          <TreeItem id="api-docs" icon={FileText} label="API Documentation" owner={owners.kl} onMove={handleMove} index={16} />
-          <TreeItem id="summary-gen" icon={FileText} label="Summary Generator" starred owner={owners.jd} onMove={handleMove} index={17} />
-          <TreeItem id="email-templates" icon={FileText} label="Email Templates" hasChildren isExpanded={expandedFolders["email"]} onToggle={() => toggleFolder("email")} owner={owners.am} onMove={handleMove} index={18} />
+          <TreeItem id="api-docs" icon={FileText} label="API Documentation" owner={owners.kl} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={16} />
+          <DropZone onDrop={handleMoveBetween} />
+          <TreeItem id="summary-gen" icon={FileText} label="Summary Generator" starred owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={17} />
+          <DropZone onDrop={handleMoveBetween} />
+          <TreeItem id="email-templates" icon={FileText} label="Email Templates" hasChildren isExpanded={expandedFolders["email"]} onToggle={() => toggleFolder("email")} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={18} />
+          <DropZone onDrop={handleMoveBetween} />
           {expandedFolders["email"] && (
             <>
-              <TreeItem id="welcome-email" icon={FileText} label="Welcome Email" level={1} owner={owners.am} onMove={handleMove} index={19} />
-              <TreeItem id="followup-email" icon={FileText} label="Follow-up Email" level={1} owner={owners.am} onMove={handleMove} index={20} />
+              <TreeItem id="welcome-email" icon={FileText} label="Welcome Email" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={19} />
+              <DropZone onDrop={handleMoveBetween} />
+              <TreeItem id="followup-email" icon={FileText} label="Follow-up Email" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={20} />
+              <DropZone onDrop={handleMoveBetween} />
             </>
           )}
-          <TreeItem id="quick-notes" icon={FileText} label="Quick Notes" excludedFromCascade excludedFromExport owner={owners.kl} onMove={handleMove} index={21} />
-          <TreeItem id="code-review" icon={FileText} label="Code Review" owner={owners.jd} onMove={handleMove} index={22} />
+          <TreeItem id="quick-notes" icon={FileText} label="Quick Notes" excludedFromCascade excludedFromExport owner={owners.kl} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={21} />
+          <DropZone onDrop={handleMoveBetween} />
+          <TreeItem id="code-review" icon={FileText} label="Code Review" owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={22} />
+          <DropZone onDrop={handleMoveBetween} />
         </div>
       </div>
     </div>
