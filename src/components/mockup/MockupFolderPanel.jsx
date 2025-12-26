@@ -132,25 +132,25 @@ const MockupFolderPanel = ({ isOpen }) => {
             </>
           )}
 
-          {/* Deep Nesting Demo - Shows 9 levels */}
+          {/* Prompt with Deep Child Hierarchy - Shows 9 levels of nested prompts */}
           <TreeItem 
-            icon={Folder} 
-            label="Deep Nesting Demo" 
+            icon={FileText} 
+            label="Document Processor" 
             hasChildren 
             isExpanded={expandedFolders["deep-nest"]}
             onToggle={() => toggleFolder("deep-nest")}
           />
           {expandedFolders["deep-nest"] && (
             <>
-              <TreeItem icon={FileText} label="Level 1 - Root Prompt" level={1} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 2 - First Child" level={2} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 3 - Grandchild" level={3} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 4 - Great-Grand" level={4} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 5 - Ancestor V" level={5} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 6 - Ancestor VI" level={6} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 7 - Ancestor VII" level={7} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 8 - Ancestor VIII" level={8} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="Level 9 - Deepest Leaf" level={9} isActive />
+              <TreeItem icon={FileText} label="1. Parse Input" level={1} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="2. Extract Metadata" level={2} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="3. Validate Schema" level={3} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="4. Transform Data" level={4} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="5. Enrich Content" level={5} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="6. Apply Rules" level={6} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="7. Generate Output" level={7} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="8. Format Response" level={8} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="9. Final Review" level={9} isActive />
             </>
           )}
 
