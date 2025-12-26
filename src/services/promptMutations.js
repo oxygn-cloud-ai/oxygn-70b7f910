@@ -378,4 +378,13 @@ export const updatePromptField = async (supabase, promptId, field, value) => {
   if (error) throw error;
 };
 
+export const updatePromptIcon = async (supabase, promptId, iconName) => {
+  const { error } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .update({ icon_name: iconName })
+    .eq('row_id', promptId);
+
+  if (error) throw error;
+};
+
 export { deletePrompt };
