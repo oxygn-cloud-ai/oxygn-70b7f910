@@ -1,6 +1,5 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
-import dynamicIconImports from 'lucide-react/dynamicIconImports';
-import { Search, RotateCcw, Loader2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { icons, Search, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,29 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ICON_CATEGORIES, categorizeIcon, searchIcons } from '@/config/iconCategories';
 
-// Cache for lazy-loaded icons
-const iconCache = new Map();
-
-const LazyIcon = ({ name, ...props }) => {
-  if (!dynamicIconImports[name]) {
-    return <div className="w-5 h-5 bg-muted rounded" />;
-  }
-
-  if (!iconCache.has(name)) {
-    iconCache.set(name, lazy(dynamicIconImports[name]));
-  }
-
-  const IconComponent = iconCache.get(name);
-
-  return (
-    <Suspense fallback={<Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />}>
-      <IconComponent {...props} />
-    </Suspense>
-  );
-};
-
-// Get all icon names from dynamicIconImports
-const allIconNames = Object.keys(dynamicIconImports).sort();
+// Get all icon names from lucide-react icons object
+// Filter out non-icon exports (like createLucideIcon, etc.)
+const allIconNames = Object.keys(icons)
+  .filter(name => {
+    const icon = icons[name];
+    return typeof icon === 'object' && icon.$$typeof;
+  })
+  .sort();
 
 const MAX_VISIBLE_ICONS = 150;
 
@@ -39,36 +23,59 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
+  // Convert PascalCase to kebab-case for matching
+  const toKebabCase = (str) => {
+    return str
+      .replace(/([a-z])([A-Z])/g, '$1-$2')
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2')
+      .toLowerCase();
+  };
+
   // Filter icons based on search and category
   const filteredIcons = useMemo(() => {
-    let icons = allIconNames;
+    let iconNames = allIconNames;
 
     // Apply search filter
     if (searchQuery.trim()) {
-      icons = searchIcons(icons, searchQuery);
+      const query = searchQuery.toLowerCase();
+      iconNames = iconNames.filter(name => 
+        name.toLowerCase().includes(query) || 
+        toKebabCase(name).includes(query)
+      );
     }
 
     // Apply category filter
     if (activeCategory !== 'all') {
-      icons = icons.filter(name => categorizeIcon(name) === activeCategory);
+      iconNames = iconNames.filter(name => {
+        const kebabName = toKebabCase(name);
+        return categorizeIcon(kebabName) === activeCategory;
+      });
     }
 
     // Limit visible icons for performance
-    return icons.slice(0, MAX_VISIBLE_ICONS);
+    return iconNames.slice(0, MAX_VISIBLE_ICONS);
   }, [searchQuery, activeCategory]);
 
   const totalMatches = useMemo(() => {
-    let icons = allIconNames;
+    let iconNames = allIconNames;
     if (searchQuery.trim()) {
-      icons = searchIcons(icons, searchQuery);
+      const query = searchQuery.toLowerCase();
+      iconNames = iconNames.filter(name => 
+        name.toLowerCase().includes(query) || 
+        toKebabCase(name).includes(query)
+      );
     }
     if (activeCategory !== 'all') {
-      icons = icons.filter(name => categorizeIcon(name) === activeCategory);
+      iconNames = iconNames.filter(name => {
+        const kebabName = toKebabCase(name);
+        return categorizeIcon(kebabName) === activeCategory;
+      });
     }
-    return icons.length;
+    return iconNames.length;
   }, [searchQuery, activeCategory]);
 
   const handleIconClick = (iconName) => {
+    // Store as PascalCase (the key in icons object)
     onIconSelect(iconName);
     onOpenChange(false);
     setSearchQuery('');
@@ -90,12 +97,11 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
     onOpenChange(newOpen);
   };
 
-  // Convert kebab-case to Title Case for display
+  // Format icon name for display (PascalCase to Title Case with spaces)
   const formatIconName = (name) => {
     return name
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
   };
 
   return (
@@ -155,29 +161,34 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
                 <>
                   <div className="grid grid-cols-8 gap-1.5 p-1">
                     <TooltipProvider delayDuration={300}>
-                      {filteredIcons.map((iconName) => (
-                        <Tooltip key={iconName}>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => handleIconClick(iconName)}
-                              className={`
-                                flex items-center justify-center p-2.5 rounded-md
-                                transition-colors duration-150
-                                hover:bg-primary/10 hover:text-primary
-                                ${currentIcon === iconName 
-                                  ? 'bg-primary/20 text-primary ring-1 ring-primary/30' 
-                                  : 'bg-muted/50 text-foreground'
-                                }
-                              `}
-                            >
-                              <LazyIcon name={iconName} className="h-5 w-5" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">
-                            {formatIconName(iconName)}
-                          </TooltipContent>
-                        </Tooltip>
-                      ))}
+                      {filteredIcons.map((iconName) => {
+                        const IconComponent = icons[iconName];
+                        if (!IconComponent) return null;
+                        
+                        return (
+                          <Tooltip key={iconName}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => handleIconClick(iconName)}
+                                className={`
+                                  flex items-center justify-center p-2.5 rounded-md
+                                  transition-colors duration-150
+                                  hover:bg-primary/10 hover:text-primary
+                                  ${currentIcon === iconName 
+                                    ? 'bg-primary/20 text-primary ring-1 ring-primary/30' 
+                                    : 'bg-muted/50 text-foreground'
+                                  }
+                                `}
+                              >
+                                <IconComponent className="h-5 w-5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs">
+                              {formatIconName(iconName)}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
                     </TooltipProvider>
                   </div>
                   {totalMatches > MAX_VISIBLE_ICONS && (
