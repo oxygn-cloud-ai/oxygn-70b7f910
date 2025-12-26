@@ -1,33 +1,25 @@
 import React from "react";
-import { Menu, Search, Bell, Command } from "lucide-react";
+import { Search, Bell, Command } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const MockupTopBar = ({ onToggleFolderPanel, folderPanelOpen }) => {
+const MockupTopBar = () => {
   return (
     <header 
       className="h-16 flex items-center gap-4 px-4 bg-surface-container-low border-b border-outline-variant"
       style={{ height: "64px" }}
     >
-      {/* Leading - Hamburger Menu */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onToggleFolderPanel}
-            className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent className="text-label-md">
-          {folderPanelOpen ? "Close folders" : "Open folders"}
-        </TooltipContent>
-      </Tooltip>
-
-      {/* Logo / Title */}
-      <span className="text-title-md font-semibold text-on-surface">
-        Qonsol
-      </span>
+      {/* Logo + Title */}
+      <div className="flex items-center gap-2">
+        <img 
+          src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
+          alt="Qonsol Logo" 
+          className="h-8 w-auto"
+        />
+        <span className="text-title-md font-semibold text-on-surface">
+          Qonsol
+        </span>
+      </div>
 
       {/* Center - Search Bar */}
       <div className="flex-1 max-w-2xl mx-auto">
