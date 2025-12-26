@@ -4,11 +4,13 @@ import MockupTopBar from "@/components/mockup/MockupTopBar";
 import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
 import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
+import MockupExportPanel from "@/components/mockup/MockupExportPanel";
 
 const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
   const [activePromptId, setActivePromptId] = useState(2);
+  const [exportPanelOpen, setExportPanelOpen] = useState(true);
 
   // Toggle dark mode on the document
   useEffect(() => {
@@ -58,6 +60,9 @@ const Mockup = () => {
 
             {/* Conversation Panel - 320px, always open */}
             <MockupConversationPanel />
+
+            {/* Export Panel - 320px, toggleable */}
+            <MockupExportPanel isOpen={exportPanelOpen} onClose={() => setExportPanelOpen(false)} />
           </div>
         </div>
       </div>

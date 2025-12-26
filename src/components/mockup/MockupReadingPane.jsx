@@ -3,13 +3,11 @@ import {
   FileText, 
   Sliders, 
   Variable, 
-  LayoutTemplate, 
-  MessageSquare,
+  LayoutTemplate,
   Play,
   Copy,
   Download,
   MoreVertical,
-  ArrowLeft,
   Star,
   Trash2,
   Share2,
@@ -99,7 +97,6 @@ const MockupReadingPane = ({ hasSelection = true }) => {
     { id: "settings", icon: Sliders, label: "Prompt Settings" },
     { id: "variables", icon: Variable, label: "Variables" },
     { id: "templates", icon: LayoutTemplate, label: "Templates" },
-    { id: "conversation", icon: MessageSquare, label: "Conversation" },
   ];
 
   if (!hasSelection) {
@@ -121,11 +118,8 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         className="h-14 flex items-center gap-2 px-4 bg-surface border-b border-outline-variant"
         style={{ height: "56px" }}
       >
-        {/* Back button (mobile) */}
-        <IconButton icon={ArrowLeft} label="Back to list" />
-
         {/* Tabs */}
-        <div className="flex items-center gap-1 mx-2">
+        <div className="flex items-center gap-1">
           {tabs.map((tab) => (
             <TabButton
               key={tab.id}
@@ -290,15 +284,6 @@ const MockupReadingPane = ({ hasSelection = true }) => {
             <h2 className="text-title-md text-on-surface font-semibold">Templates</h2>
             <p className="text-body-md text-on-surface-variant">
               No templates attached to this prompt.
-            </p>
-          </div>
-        )}
-
-        {activeTab === "conversation" && (
-          <div className="max-w-xl space-y-6">
-            <h2 className="text-title-md text-on-surface font-semibold">Conversation</h2>
-            <p className="text-body-md text-on-surface-variant">
-              Start a conversation to test this prompt interactively.
             </p>
           </div>
         )}
