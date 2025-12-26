@@ -378,16 +378,37 @@ export const useCascadeExecutor = () => {
           // Build template variables from accumulated context AND system variables
           const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, topLevelPrompt, currentUser);
 
+          // Fetch user-defined variables for this prompt
+          const { data: userVariables } = await supabase
+            .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_variables')
+            .select('variable_name, variable_value, default_value')
+            .eq('prompt_row_id', prompt.row_id);
+
+          // Build user variables map
+          const userVarsMap = (userVariables || []).reduce((acc, v) => {
+            if (v.variable_name) {
+              acc[v.variable_name] = v.variable_value || v.default_value || '';
+            }
+            return acc;
+          }, {});
+
+          // Merge user variables into template vars
+          const mergedTemplateVars = {
+            ...templateVars,
+            ...userVarsMap,
+          };
+
           // Log variables to notifications
           notify.info(`Variables for: ${prompt.prompt_name}`, {
-            description: `${Object.keys(templateVars).length} variables resolved`,
+            description: `${Object.keys(mergedTemplateVars).length} variables resolved (${Object.keys(userVarsMap).length} user vars)`,
             source: 'useCascadeExecutor.executeCascade',
             details: JSON.stringify({
               promptRowId: prompt.row_id,
               promptName: prompt.prompt_name,
               level: levelIdx,
-              variableCount: Object.keys(templateVars).length,
-              variables: templateVars,
+              variableCount: Object.keys(mergedTemplateVars).length,
+              userVariableCount: Object.keys(userVarsMap).length,
+              variables: mergedTemplateVars,
             }, null, 2),
           });
 
@@ -415,7 +436,7 @@ export const useCascadeExecutor = () => {
 
               // Pass input_admin_prompt as a template variable for system context
               const extendedTemplateVars = {
-                ...templateVars,
+                ...mergedTemplateVars,
                 cascade_admin_prompt: prompt.input_admin_prompt || '',
               };
 

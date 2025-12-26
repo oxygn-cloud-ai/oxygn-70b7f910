@@ -535,13 +535,32 @@ serve(async (req) => {
       }
     }
 
-    // Build template variables from prompt fields
+    // Fetch user-defined variables from q_prompt_variables
+    const { data: promptVariables } = await supabase
+      .from(TABLES.PROMPT_VARIABLES)
+      .select('variable_name, variable_value, default_value')
+      .eq('prompt_row_id', child_prompt_row_id);
+
+    console.log(`Fetched ${promptVariables?.length || 0} user variables for prompt`);
+
+    // Build user variables map from q_prompt_variables
+    const userVariablesMap: Record<string, string> = (promptVariables || []).reduce((acc, v) => {
+      if (v.variable_name) {
+        acc[v.variable_name] = v.variable_value || v.default_value || '';
+      }
+      return acc;
+    }, {} as Record<string, string>);
+
+    // Build template variables from prompt fields + user variables
     const variables: Record<string, string> = {
       input_admin_prompt: childPrompt.input_admin_prompt || '',
       input_user_prompt: childPrompt.input_user_prompt || '',
       admin_prompt_result: childPrompt.admin_prompt_result || '',
       user_prompt_result: childPrompt.user_prompt_result || '',
       output_response: childPrompt.output_response || '',
+      // User-defined variables from q_prompt_variables
+      ...userVariablesMap,
+      // Template variables passed from client (cascade context, system vars, etc.)
       ...template_variables,
     };
 
