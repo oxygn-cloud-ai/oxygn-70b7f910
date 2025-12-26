@@ -29,35 +29,44 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false }) => (
 );
 
 const TreeItem = ({ icon: Icon, label, level = 0, hasChildren = false, isExpanded = false, onToggle, isActive = false }) => {
-  const paddingLeft = 12 + level * 16;
+  // Cap indentation at level 4, then use a subtle indicator for deeper levels
+  const visualLevel = Math.min(level, 4);
+  const paddingLeft = 12 + visualLevel * 12;
+  const depthIndicator = level > 4 ? `${level}` : null;
   
   return (
     <button
       onClick={onToggle}
       className={`
-        w-full h-8 flex items-center gap-2 pr-3 rounded-m3-sm
+        w-full h-7 flex items-center gap-1.5 pr-3 rounded-m3-sm
         transition-colors duration-150 ease-emphasized
         ${isActive 
           ? "bg-secondary-container text-secondary-container-foreground" 
           : "text-on-surface-variant hover:bg-on-surface/[0.08]"
         }
       `}
-      style={{ height: "32px", paddingLeft: `${paddingLeft}px` }}
+      style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
     >
+      {depthIndicator && (
+        <span className="text-[8px] text-on-surface-variant/50 w-3 flex-shrink-0">{depthIndicator}</span>
+      )}
       {hasChildren && (
         isExpanded 
-          ? <ChevronDown className="h-4 w-4 flex-shrink-0" />
-          : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+          ? <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
+          : <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
       )}
-      {!hasChildren && <span className="w-4" />}
-      <Icon className="h-4 w-4 flex-shrink-0" />
-      <span className="flex-1 text-left text-label-md truncate">{label}</span>
+      {!hasChildren && <span className="w-3.5" />}
+      <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+      <span className="flex-1 text-left text-[11px] truncate">{label}</span>
     </button>
   );
 };
 
 const MockupFolderPanel = ({ isOpen }) => {
-  const [expandedFolders, setExpandedFolders] = useState({ "project-a": true });
+  const [expandedFolders, setExpandedFolders] = useState({ 
+    "project-a": true,
+    "deep-nest": true 
+  });
 
   const toggleFolder = (id) => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
@@ -120,6 +129,28 @@ const MockupFolderPanel = ({ isOpen }) => {
             <>
               <TreeItem icon={FileText} label="Email Templates" level={1} />
               <TreeItem icon={FileText} label="Report Builder" level={1} />
+            </>
+          )}
+
+          {/* Deep Nesting Demo - Shows 9 levels */}
+          <TreeItem 
+            icon={Folder} 
+            label="Deep Nesting Demo" 
+            hasChildren 
+            isExpanded={expandedFolders["deep-nest"]}
+            onToggle={() => toggleFolder("deep-nest")}
+          />
+          {expandedFolders["deep-nest"] && (
+            <>
+              <TreeItem icon={FileText} label="Level 1 - Root Prompt" level={1} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 2 - First Child" level={2} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 3 - Grandchild" level={3} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 4 - Great-Grand" level={4} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 5 - Ancestor V" level={5} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 6 - Ancestor VI" level={6} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 7 - Ancestor VII" level={7} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 8 - Ancestor VIII" level={8} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Level 9 - Deepest Leaf" level={9} isActive />
             </>
           )}
 
