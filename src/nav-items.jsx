@@ -1,5 +1,5 @@
-import { HomeIcon, FolderIcon, SettingsIcon, LinkIcon, HeartPulse, LayoutTemplate, MessagesSquare } from "lucide-react";
-import Index from "./pages/Index.jsx";
+import { FolderIcon, SettingsIcon, LinkIcon, HeartPulse, LayoutTemplate, MessagesSquare } from "lucide-react";
+import { Navigate } from "react-router-dom";
 import Projects from "./pages/Projects.jsx";
 import Settings from "./pages/Settings.jsx";
 import Links from "./pages/Links.jsx";
@@ -11,8 +11,8 @@ export const navItems = [
   {
     title: "Home",
     to: "/",
-    icon: <HomeIcon className="h-4 w-4" />,
-    page: <Index />,
+    page: <Navigate to="/projects" replace />,
+    hidden: true,
   },
   {
     title: "Prompts",
