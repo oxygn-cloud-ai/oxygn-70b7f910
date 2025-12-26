@@ -73,11 +73,9 @@ const PromptTreeItem = ({ item, level = 0, expanded, onToggle }) => {
   );
 };
 
-const MockupExportPanel = ({ isOpen, onClose }) => {
+const MockupExportPanel = ({ onClose }) => {
   const [selectedType, setSelectedType] = useState("confluence");
   const [expandedIds, setExpandedIds] = useState(["1", "2"]);
-
-  if (!isOpen) return null;
 
   const toggleExpand = (id) => {
     setExpandedIds(prev => 
@@ -86,10 +84,7 @@ const MockupExportPanel = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div 
-      className="w-80 h-full flex flex-col bg-surface-container border-l border-outline-variant"
-      style={{ width: "320px", minWidth: "320px" }}
-    >
+    <div className="h-full flex flex-col bg-surface-container overflow-hidden">
       {/* Header */}
       <div 
         className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"

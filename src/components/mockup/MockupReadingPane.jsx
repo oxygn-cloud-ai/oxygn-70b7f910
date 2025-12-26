@@ -89,7 +89,7 @@ const mockVariables = [
   { name: "max_retries", value: "3", required: false, type: "number" },
 ];
 
-const MockupReadingPane = ({ hasSelection = true }) => {
+const MockupReadingPane = ({ hasSelection = true, onExport }) => {
   const [activeTab, setActiveTab] = useState("prompt");
 
   const tabs = [
@@ -136,7 +136,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         {/* Action buttons */}
         <IconButton icon={Star} label="Star" />
         <IconButton icon={Copy} label="Duplicate" />
-        <IconButton icon={Download} label="Export" />
+        <IconButton icon={Download} label="Export" onClick={onExport} />
         <IconButton icon={Share2} label="Share" />
         <IconButton icon={Trash2} label="Delete" />
         

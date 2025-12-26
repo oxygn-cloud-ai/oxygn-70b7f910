@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
 import MockupTopBar from "@/components/mockup/MockupTopBar";
 import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
@@ -10,7 +11,7 @@ const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
   const [activePromptId, setActivePromptId] = useState(2);
-  const [exportPanelOpen, setExportPanelOpen] = useState(true);
+  const [exportPanelOpen, setExportPanelOpen] = useState(false);
 
   // Toggle dark mode on the document
   useEffect(() => {
@@ -30,7 +31,7 @@ const Mockup = () => {
       <div className="h-10 flex items-center justify-center gap-4 bg-primary text-primary-foreground text-label-md">
         <span>M3 Gmail-Style Layout Mockup</span>
         <span className="opacity-70">|</span>
-        <span className="opacity-70">Static preview - no functionality</span>
+        <span className="opacity-70">Static preview - Panels are resizable</span>
       </div>
 
       {/* Main Layout */}
@@ -50,19 +51,44 @@ const Mockup = () => {
             onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
           />
 
-          {/* Main Content */}
+          {/* Main Content with Resizable Panels */}
           <div className="flex-1 flex overflow-hidden">
-            {/* Prompts Panel - 240px, collapsible */}
-            <MockupFolderPanel isOpen={folderPanelOpen} />
+            <ResizablePanelGroup direction="horizontal" className="flex-1">
+              {/* Prompts Panel - collapsible */}
+              {folderPanelOpen && (
+                <>
+                  <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                    <MockupFolderPanel />
+                  </ResizablePanel>
+                  <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                </>
+              )}
 
-            {/* Reading Pane - flexible */}
-            <MockupReadingPane hasSelection={activePromptId !== null} />
+              {/* Reading Pane - flexible */}
+              <ResizablePanel defaultSize={50} minSize={30}>
+                <MockupReadingPane 
+                  hasSelection={activePromptId !== null} 
+                  onExport={() => setExportPanelOpen(true)}
+                />
+              </ResizablePanel>
 
-            {/* Conversation Panel - 320px, always open */}
-            <MockupConversationPanel />
+              <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
 
-            {/* Export Panel - 320px, toggleable */}
-            <MockupExportPanel isOpen={exportPanelOpen} onClose={() => setExportPanelOpen(false)} />
+              {/* Conversation Panel */}
+              <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                <MockupConversationPanel />
+              </ResizablePanel>
+
+              {/* Export Panel - toggleable */}
+              {exportPanelOpen && (
+                <>
+                  <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                  <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+                    <MockupExportPanel isOpen={true} onClose={() => setExportPanelOpen(false)} />
+                  </ResizablePanel>
+                </>
+              )}
+            </ResizablePanelGroup>
           </div>
         </div>
       </div>
@@ -75,11 +101,10 @@ const Mockup = () => {
           <li>• Top Bar: 64dp height</li>
           <li>• FAB: 56×56dp, 16px radius</li>
           <li>• Search: 56dp, 28px radius</li>
-          <li>• List rows: 40dp height</li>
-          <li>• Tree items: 32dp height</li>
+          <li>• Tree items: 28dp height</li>
           <li>• Typography: 10-14px scale</li>
           <li>• State layers: 8% hover, 10% focus</li>
-          <li>• Icons: 24dp (nav), 20dp (action), 18dp (inline)</li>
+          <li>• Panels: Horizontally resizable</li>
         </ul>
       </div>
     </div>
