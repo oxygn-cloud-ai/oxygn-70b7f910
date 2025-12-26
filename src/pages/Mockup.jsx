@@ -2,14 +2,12 @@ import React, { useState, useEffect } from "react";
 import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
 import MockupTopBar from "@/components/mockup/MockupTopBar";
 import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
-import MockupListView from "@/components/mockup/MockupListView";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
 
 const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
   const [activePromptId, setActivePromptId] = useState(2);
-  const [showList, setShowList] = useState(true);
 
   // Toggle dark mode on the document
   useEffect(() => {
@@ -30,12 +28,6 @@ const Mockup = () => {
         <span>M3 Gmail-Style Layout Mockup</span>
         <span className="opacity-70">|</span>
         <span className="opacity-70">Static preview - no functionality</span>
-        <button 
-          onClick={() => setShowList(!showList)}
-          className="ml-4 px-3 py-1 bg-primary-foreground/20 rounded-m3-sm hover:bg-primary-foreground/30 transition-colors"
-        >
-          {showList ? "Hide List" : "Show List"}
-        </button>
       </div>
 
       {/* Main Layout */}
@@ -57,18 +49,8 @@ const Mockup = () => {
 
           {/* Main Content */}
           <div className="flex-1 flex overflow-hidden">
-            {/* Folder Panel - 240px, collapsible */}
+            {/* Prompts Panel - 240px, collapsible */}
             <MockupFolderPanel isOpen={folderPanelOpen} />
-
-            {/* List View - flexible, toggleable */}
-            {showList && (
-              <div className="w-96 border-r border-outline-variant">
-                <MockupListView 
-                  activePromptId={activePromptId}
-                  onSelectPrompt={setActivePromptId}
-                />
-              </div>
-            )}
 
             {/* Reading Pane - flexible */}
             <MockupReadingPane hasSelection={activePromptId !== null} />

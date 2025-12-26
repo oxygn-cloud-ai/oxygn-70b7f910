@@ -83,16 +83,12 @@ const VariableTypeIcon = ({ type }) => {
 };
 
 const mockVariables = [
-  { name: "customer_message", value: "", required: true, type: "text", description: "The customer's inquiry" },
-  { name: "account_type", value: "Premium", required: true, type: "enum", description: "Customer account tier", options: ["Free", "Premium", "Enterprise"] },
-  { name: "ticket_count", value: "3", required: false, type: "number", description: "Previous support tickets" },
-  { name: "api_key", value: "••••••••", required: true, type: "text", description: "API authentication key", isSecret: true },
-  { name: "base_url", value: "https://api.example.com", required: true, type: "text", description: "API endpoint base URL" },
-  { name: "previous_responses", value: "", required: false, type: "list", description: "List of prior AI responses" },
-  { name: "context_ref", value: "{{parent.output}}", required: false, type: "reference", description: "Reference to parent prompt output" },
-  { name: "max_retries", value: "3", required: false, type: "number", description: "Maximum retry attempts" },
-  { name: "custom_headers", value: '{"X-Custom": "value"}', required: false, type: "json", description: "Additional HTTP headers" },
-  { name: "output_format", value: "markdown", required: true, type: "enum", description: "Response format", options: ["json", "text", "markdown"] },
+  { name: "customer_message", value: "", required: true, type: "text" },
+  { name: "ticket_count", value: "3", required: false, type: "number" },
+  { name: "api_key", value: "••••••••", required: true, type: "text", isSecret: true },
+  { name: "base_url", value: "https://api.example.com", required: true, type: "text" },
+  { name: "context_ref", value: "{{parent.output}}", required: false, type: "reference" },
+  { name: "max_retries", value: "3", required: false, type: "number" },
 ];
 
 const MockupReadingPane = ({ hasSelection = true }) => {
@@ -254,60 +250,35 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         )}
 
         {activeTab === "variables" && (
-          <div className="max-w-xl mx-auto space-y-6">
+          <div className="max-w-xl mx-auto space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-title-md text-on-surface font-semibold">Variables</h2>
               <span className="text-label-sm text-on-surface-variant">{mockVariables.length} variables</span>
             </div>
             
-            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-auto scrollbar-thin pr-2">
+            {/* Compact variable rows */}
+            <div className="space-y-1">
               {mockVariables.map((variable) => (
                 <div 
                   key={variable.name}
-                  className="p-4 bg-surface-container rounded-m3-md border border-outline-variant"
-                  style={{ borderRadius: "12px" }}
+                  className="h-10 flex items-center gap-3 px-3 bg-surface-container rounded-m3-sm border border-outline-variant"
+                  style={{ height: "40px" }}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <VariableTypeIcon type={variable.type} />
-                    <span className="text-label-lg text-on-surface font-medium">
-                      {variable.name}
-                    </span>
-                    {variable.required && (
-                      <span className="text-label-sm text-primary">Required</span>
-                    )}
-                    {variable.isSecret && (
-                      <span className="text-label-sm text-orange-500">Secret</span>
-                    )}
-                    <span className="text-label-sm text-on-surface-variant ml-auto capitalize">
-                      {variable.type}
+                  <VariableTypeIcon type={variable.type} />
+                  <span className="text-label-md text-on-surface font-medium w-32 truncate">
+                    {variable.name}
+                  </span>
+                  {variable.required && (
+                    <span className="text-[10px] text-primary">*</span>
+                  )}
+                  {variable.isSecret && (
+                    <span className="text-[10px] text-warning">secret</span>
+                  )}
+                  <div className="flex-1 h-7 px-2 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
+                    <span className={`text-body-sm truncate ${variable.value ? "text-on-surface" : "text-on-surface-variant"}`}>
+                      {variable.value || "—"}
                     </span>
                   </div>
-                  {variable.description && (
-                    <p className="text-label-sm text-on-surface-variant mb-2">
-                      {variable.description}
-                    </p>
-                  )}
-                  <div className="h-10 px-3 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
-                    <span className={`text-body-md ${variable.value ? "text-on-surface" : "text-on-surface-variant"}`}>
-                      {variable.value || "Enter value..."}
-                    </span>
-                  </div>
-                  {variable.options && (
-                    <div className="flex gap-1 mt-2">
-                      {variable.options.map((opt) => (
-                        <span 
-                          key={opt}
-                          className={`text-label-sm px-2 py-0.5 rounded-m3-sm ${
-                            variable.value === opt 
-                              ? "bg-primary text-primary-foreground" 
-                              : "bg-surface-container-high text-on-surface-variant"
-                          }`}
-                        >
-                          {opt}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
