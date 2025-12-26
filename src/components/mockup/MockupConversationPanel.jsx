@@ -15,13 +15,16 @@ const MockupConversationPanel = () => {
       className="w-80 h-full flex flex-col bg-surface-container-low border-l border-outline-variant"
       style={{ width: "320px", minWidth: "320px" }}
     >
-      {/* Header */}
-      <div className="h-12 flex items-center justify-between px-4 border-b border-outline-variant">
+      {/* Header - matches main toolbar height */}
+      <div 
+        className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"
+        style={{ height: "56px" }}
+      >
         <span className="text-label-lg text-on-surface font-medium">Conversation</span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <MoreVertical className="h-4 w-4" />
+            <button className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <MoreVertical className="h-5 w-5" />
             </button>
           </TooltipTrigger>
           <TooltipContent className="text-label-sm">Options</TooltipContent>
