@@ -17,7 +17,8 @@ import {
   Braces,
   ToggleLeft,
   Library,
-  ChevronDown
+  ChevronDown,
+  Search
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -34,7 +35,68 @@ const LIBRARY_PROMPTS = [
   { id: "3", name: "Error Handler", category: "System" },
   { id: "4", name: "JSON Output Format", category: "Format" },
   { id: "5", name: "Step by Step", category: "Structure" },
+  { id: "6", name: "Chain of Thought", category: "Structure" },
+  { id: "7", name: "Few-shot Examples", category: "Format" },
+  { id: "8", name: "Formal Language", category: "Style" },
 ];
+
+const LibraryPickerDropdown = () => {
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const filteredPrompts = LIBRARY_PROMPTS.filter(prompt => 
+    prompt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    prompt.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <Library className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent className="text-[10px]">Insert from Library</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent className="w-56 bg-surface-container-high border-outline-variant z-50" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <div className="px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider">Library Prompts</div>
+        <div className="px-2 pb-2">
+          <div className="flex items-center gap-2 h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
+            <Search className="h-3.5 w-3.5 text-on-surface-variant" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search prompts..."
+              className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+        <DropdownMenuSeparator className="bg-outline-variant" />
+        <div className="max-h-48 overflow-auto">
+          {filteredPrompts.length > 0 ? (
+            filteredPrompts.map(prompt => (
+              <DropdownMenuItem 
+                key={prompt.id}
+                className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] focus:bg-on-surface/[0.12] cursor-pointer"
+              >
+                <span className="flex-1">{prompt.name}</span>
+                <span className="text-[10px] text-on-surface-variant">{prompt.category}</span>
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <div className="px-2 py-3 text-body-sm text-on-surface-variant text-center">
+              No prompts found
+            </div>
+          )}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
   <Tooltip>
@@ -184,31 +246,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
                   System Prompt
                 </label>
                 <div className="flex items-center gap-0.5">
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                            <Library className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Insert from Library</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent className="w-48 bg-surface-container-high border-outline-variant z-50">
-                      <div className="px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider">Library Prompts</div>
-                      <DropdownMenuSeparator className="bg-outline-variant" />
-                      {LIBRARY_PROMPTS.map(prompt => (
-                        <DropdownMenuItem 
-                          key={prompt.id}
-                          className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] focus:bg-on-surface/[0.12] cursor-pointer"
-                        >
-                          <span className="flex-1">{prompt.name}</span>
-                          <span className="text-[10px] text-on-surface-variant">{prompt.category}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <LibraryPickerDropdown />
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
@@ -267,31 +305,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
                   User Prompt
                 </label>
                 <div className="flex items-center gap-0.5">
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                            <Library className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Insert from Library</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent className="w-48 bg-surface-container-high border-outline-variant z-50">
-                      <div className="px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider">Library Prompts</div>
-                      <DropdownMenuSeparator className="bg-outline-variant" />
-                      {LIBRARY_PROMPTS.map(prompt => (
-                        <DropdownMenuItem 
-                          key={prompt.id}
-                          className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] focus:bg-on-surface/[0.12] cursor-pointer"
-                        >
-                          <span className="flex-1">{prompt.name}</span>
-                          <span className="text-[10px] text-on-surface-variant">{prompt.category}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <LibraryPickerDropdown />
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
