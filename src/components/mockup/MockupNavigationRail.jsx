@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const NavItem = ({ icon: Icon, label, isActive = false, onClick, onMouseEnter, onMouseLeave }) => (
+const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onClick, onMouseEnter, onMouseLeave }) => (
   <div 
     className="flex flex-col items-center gap-0.5"
     onMouseEnter={onMouseEnter}
@@ -22,21 +22,23 @@ const NavItem = ({ icon: Icon, label, isActive = false, onClick, onMouseEnter, o
         transition-all duration-200 ease-emphasized
         ${isActive 
           ? "bg-secondary-container text-secondary-container-foreground" 
-          : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+          : isHovered
+            ? "bg-on-surface/[0.12] text-on-surface"
+            : "text-on-surface-variant hover:bg-on-surface/[0.08]"
         }
       `}
     >
       <Icon className="h-5 w-5" />
     </button>
     <span 
-      className={`text-[9px] leading-tight ${isActive ? "text-on-surface" : "text-on-surface-variant"}`}
+      className={`text-[9px] leading-tight ${isActive || isHovered ? "text-on-surface" : "text-on-surface-variant"}`}
     >
       {label}
     </span>
   </div>
 );
 
-const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, onToggleFolderPanel, folderPanelOpen }) => {
+const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, onNavLeave, onToggleFolderPanel, folderPanelOpen }) => {
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts" },
     { id: "workbench", icon: MessageSquare, label: "Workbench" },
@@ -44,6 +46,18 @@ const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, 
     { id: "settings", icon: Settings, label: "Settings" },
     { id: "health", icon: Heart, label: "Health" },
   ];
+
+  const [hoveredId, setHoveredId] = React.useState(null);
+
+  const handleMouseEnter = (id) => {
+    setHoveredId(id);
+    onNavHover?.(id);
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredId(null);
+    onNavLeave?.();
+  };
 
   return (
     <nav 
@@ -73,9 +87,10 @@ const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, 
             icon={item.icon}
             label={item.label}
             isActive={activeNav === item.id}
+            isHovered={hoveredId === item.id && activeNav !== item.id}
             onClick={() => onNavChange?.(item.id)}
-            onMouseEnter={() => onNavHover?.(item.id)}
-            onMouseLeave={() => onNavHover?.(null)}
+            onMouseEnter={() => handleMouseEnter(item.id)}
+            onMouseLeave={handleMouseLeave}
           />
         ))}
       </div>
