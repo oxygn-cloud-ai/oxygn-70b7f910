@@ -496,12 +496,194 @@ const mockVariables = [
   { name: "max_retries", value: "3", required: false, type: "number" },
 ];
 
-const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", selectedTemplate = null, onToggleConversation, conversationPanelOpen = true }) => {
+// Import MessageSquare for workbench
+import { MessageSquare as MessageSquareIcon } from "lucide-react";
+
+// Workbench Content Component
+const WorkbenchContent = ({ activeSubItem, onToggleConversation, conversationPanelOpen }) => {
+  const getTitle = () => {
+    switch (activeSubItem) {
+      case "new-conversation": return "New Conversation";
+      case "recent": return "Recent Conversations";
+      case "starred": return "Starred Conversations";
+      case "continue-last": return "Continue Last Session";
+      default: return "Workbench";
+    }
+  };
+
+  const getDescription = () => {
+    switch (activeSubItem) {
+      case "new-conversation": return "Start a fresh conversation with the AI assistant";
+      case "recent": return "View and continue your recent conversations";
+      case "starred": return "Access your favorite saved conversations";
+      case "continue-last": return "Resume where you left off";
+      default: return "Select an option from the menu to get started";
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+      <div className="h-14 flex items-center justify-between px-4 bg-surface border-b border-outline-variant" style={{ height: "56px" }}>
+        <h2 className="text-title-md text-on-surface font-semibold">{getTitle()}</h2>
+        {!conversationPanelOpen && onToggleConversation && (
+          <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <PanelRightOpen className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <MessageSquareIcon className="h-16 w-16 mx-auto mb-4 text-primary opacity-50" />
+          <h3 className="text-headline-sm text-on-surface font-semibold mb-2">{getTitle()}</h3>
+          <p className="text-body-md text-on-surface-variant">{getDescription()}</p>
+          {activeSubItem === "new-conversation" && (
+            <button className="mt-6 px-6 py-3 bg-primary text-primary-foreground rounded-m3-lg text-label-lg font-medium hover:bg-primary/90 transition-colors">
+              Start New Conversation
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Settings Content Component
+const SettingsContent = ({ activeSubItem, onToggleConversation, conversationPanelOpen }) => {
+  const settingsData = {
+    general: { title: "General Settings", description: "Configure application preferences and defaults" },
+    "ai-models": { title: "AI Models", description: "Manage model defaults, pricing, and configurations" },
+    "api-keys": { title: "API Keys", description: "Securely manage your API credentials" },
+    theme: { title: "Theme Settings", description: "Customize light and dark mode preferences" },
+    notifications: { title: "Notifications", description: "Configure alert and notification preferences" },
+    profile: { title: "Profile Settings", description: "Manage your account and user preferences" },
+  };
+
+  const current = settingsData[activeSubItem] || { title: "Settings", description: "Select a settings category from the menu" };
+
+  return (
+    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+      <div className="h-14 flex items-center justify-between px-4 bg-surface border-b border-outline-variant" style={{ height: "56px" }}>
+        <h2 className="text-title-md text-on-surface font-semibold">{current.title}</h2>
+        {!conversationPanelOpen && onToggleConversation && (
+          <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <PanelRightOpen className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-2xl space-y-6">
+          <div>
+            <h3 className="text-headline-sm text-on-surface font-semibold mb-2">{current.title}</h3>
+            <p className="text-body-md text-on-surface-variant">{current.description}</p>
+          </div>
+          
+          {activeSubItem && (
+            <div className="space-y-4">
+              <div className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+                <label className="text-label-lg text-on-surface font-medium block mb-2">Example Setting</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter value..." 
+                  className="w-full h-10 px-3 bg-surface-container rounded-m3-md border border-outline-variant text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+                <label className="text-label-lg text-on-surface font-medium block mb-2">Toggle Option</label>
+                <div className="flex items-center justify-between">
+                  <span className="text-body-md text-on-surface-variant">Enable this feature</span>
+                  <div className="w-12 h-6 bg-primary rounded-full relative cursor-pointer">
+                    <div className="absolute right-1 top-1 w-4 h-4 bg-primary-foreground rounded-full" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Health Content Component
+const HealthContent = ({ activeSubItem, onToggleConversation, conversationPanelOpen }) => {
+  const healthData = {
+    overview: { title: "System Overview", status: "operational", items: ["Database", "AI Services", "Authentication", "API"] },
+    database: { title: "Database Status", status: "connected", details: "PostgreSQL connected • 45ms latency • 156 active connections" },
+    "ai-services": { title: "AI Services", status: "online", details: "OpenAI API operational • GPT-4 available • 23ms avg response" },
+    "auth-status": { title: "Authentication", status: "authenticated", details: "Session valid • Token expires in 23h • MFA enabled" },
+    "api-health": { title: "API Health", status: "healthy", details: "All endpoints responding • 99.9% uptime • Rate limit: 847/1000" },
+  };
+
+  const current = healthData[activeSubItem] || { title: "Health Check", status: "unknown" };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "operational":
+      case "connected":
+      case "online":
+      case "authenticated":
+      case "healthy":
+        return "bg-green-500";
+      case "degraded":
+        return "bg-yellow-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+      <div className="h-14 flex items-center justify-between px-4 bg-surface border-b border-outline-variant" style={{ height: "56px" }}>
+        <div className="flex items-center gap-3">
+          <h2 className="text-title-md text-on-surface font-semibold">{current.title}</h2>
+          <span className={`w-2 h-2 rounded-full ${getStatusColor(current.status)}`} />
+        </div>
+        {!conversationPanelOpen && onToggleConversation && (
+          <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <PanelRightOpen className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-2xl space-y-6">
+          {activeSubItem === "overview" ? (
+            <div className="grid grid-cols-2 gap-4">
+              {current.items?.map((item, i) => (
+                <div key={i} className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-label-lg text-on-surface font-medium">{item}</span>
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                  </div>
+                  <span className="text-body-sm text-on-surface-variant">Operational</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+              <div className="flex items-center gap-3 mb-4">
+                <span className={`w-3 h-3 rounded-full ${getStatusColor(current.status)}`} />
+                <span className="text-label-lg text-on-surface font-medium capitalize">{current.status}</span>
+              </div>
+              {current.details && (
+                <p className="text-body-md text-on-surface-variant">{current.details}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", activeSubItem = null, selectedTemplate = null, onToggleConversation, conversationPanelOpen = true }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [templateTab, setTemplateTab] = useState("overview");
 
   // When activeNav is templates, show template-specific tabs
   const isTemplateMode = activeNav === "templates";
+  const isWorkbenchMode = activeNav === "workbench";
+  const isSettingsMode = activeNav === "settings";
+  const isHealthMode = activeNav === "health";
   const effectiveTab = isTemplateMode ? "templates" : activeTab;
 
   const promptTabs = [
@@ -519,6 +701,27 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
   const tabs = isTemplateMode ? templateTabs : promptTabs;
   const currentTab = isTemplateMode ? templateTab : activeTab;
   const setCurrentTab = isTemplateMode ? setTemplateTab : setActiveTab;
+
+  // Workbench mode view
+  if (isWorkbenchMode) {
+    return (
+      <WorkbenchContent activeSubItem={activeSubItem} onToggleConversation={onToggleConversation} conversationPanelOpen={conversationPanelOpen} />
+    );
+  }
+
+  // Settings mode view
+  if (isSettingsMode) {
+    return (
+      <SettingsContent activeSubItem={activeSubItem} onToggleConversation={onToggleConversation} conversationPanelOpen={conversationPanelOpen} />
+    );
+  }
+
+  // Health mode view
+  if (isHealthMode) {
+    return (
+      <HealthContent activeSubItem={activeSubItem} onToggleConversation={onToggleConversation} conversationPanelOpen={conversationPanelOpen} />
+    );
+  }
 
   if (!hasSelection && !isTemplateMode) {
     return (

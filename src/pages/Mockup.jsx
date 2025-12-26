@@ -16,6 +16,7 @@ const Mockup = () => {
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
   const [conversationPanelOpen, setConversationPanelOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("prompts");
+  const [activeSubItem, setActiveSubItem] = useState(null);
   const [hoveredNav, setHoveredNav] = useState(null);
   const [isHoveringSubmenu, setIsHoveringSubmenu] = useState(false);
   const [activePromptId, setActivePromptId] = useState(2);
@@ -39,9 +40,12 @@ const Mockup = () => {
   const effectiveHoveredNav = (hoveredNav || isHoveringSubmenu) ? (hoveredNav || (isHoveringSubmenu ? activeNav : null)) : null;
   const showSubmenu = effectiveHoveredNav && effectiveHoveredNav !== "prompts" && effectiveHoveredNav !== "templates" && effectiveHoveredNav !== activeNav;
 
-  const handleSubmenuClick = (itemId) => {
-    console.log("Submenu item clicked:", itemId);
-    // In a real app, this would navigate or trigger actions
+  const handleSubmenuClick = (navId, itemId) => {
+    // Navigate to the parent nav and set the sub-item
+    setActiveNav(navId);
+    setActiveSubItem(itemId);
+    setHoveredNav(null);
+    setIsHoveringSubmenu(false);
   };
 
   const handleSelectTemplate = (template) => {
@@ -52,6 +56,13 @@ const Mockup = () => {
   useEffect(() => {
     if (activeNav !== "templates") {
       setSelectedTemplate(null);
+    }
+  }, [activeNav]);
+
+  // Clear sub-item when switching nav
+  useEffect(() => {
+    if (activeNav === "prompts" || activeNav === "templates") {
+      setActiveSubItem(null);
     }
   }, [activeNav]);
 
@@ -108,7 +119,8 @@ const Mockup = () => {
                         {showSubmenu ? (
                           <MockupSubmenuPanel 
                             hoveredNav={effectiveHoveredNav} 
-                            onItemClick={handleSubmenuClick}
+                            activeSubItem={activeSubItem}
+                            onItemClick={(itemId) => handleSubmenuClick(effectiveHoveredNav, itemId)}
                           />
                         ) : activeNav === "prompts" ? (
                           <MockupFolderPanel />
@@ -120,7 +132,8 @@ const Mockup = () => {
                         ) : (
                           <MockupSubmenuPanel 
                             hoveredNav={activeNav} 
-                            onItemClick={handleSubmenuClick}
+                            activeSubItem={activeSubItem}
+                            onItemClick={(itemId) => handleSubmenuClick(activeNav, itemId)}
                           />
                         )}
                       </div>
@@ -135,6 +148,7 @@ const Mockup = () => {
                     hasSelection={activePromptId !== null} 
                     onExport={() => setExportPanelOpen(true)}
                     activeNav={activeNav}
+                    activeSubItem={activeSubItem}
                     selectedTemplate={selectedTemplate}
                     onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
                     conversationPanelOpen={conversationPanelOpen}

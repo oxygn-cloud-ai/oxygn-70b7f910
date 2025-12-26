@@ -37,7 +37,7 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
     <div className="flex-1 min-w-0">
       <p className="text-label-lg font-medium truncate">{label}</p>
       {description && (
-        <p className="text-label-sm text-on-surface-variant truncate mt-0.5">{description}</p>
+        <p className={`text-label-sm truncate mt-0.5 ${isActive ? "opacity-80" : "text-on-surface-variant"}`}>{description}</p>
       )}
     </div>
   </button>
@@ -54,25 +54,28 @@ const SubmenuSection = ({ title, children }) => (
   </div>
 );
 
-const WorkbenchSubmenu = ({ onItemClick }) => (
+const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
   <div className="p-2 space-y-4">
     <SubmenuSection title="Conversations">
       <SubmenuItem 
         icon={Plus} 
         label="New Conversation" 
         description="Start a new chat thread"
+        isActive={activeSubItem === "new-conversation"}
         onClick={() => onItemClick?.("new-conversation")}
       />
       <SubmenuItem 
         icon={Clock} 
         label="Recent" 
         description="5 conversations"
+        isActive={activeSubItem === "recent"}
         onClick={() => onItemClick?.("recent")}
       />
       <SubmenuItem 
         icon={Star} 
         label="Starred" 
         description="2 starred"
+        isActive={activeSubItem === "starred"}
         onClick={() => onItemClick?.("starred")}
       />
     </SubmenuSection>
@@ -84,31 +87,35 @@ const WorkbenchSubmenu = ({ onItemClick }) => (
         icon={MessageSquare} 
         label="Continue Last" 
         description="Resume previous session"
+        isActive={activeSubItem === "continue-last"}
         onClick={() => onItemClick?.("continue-last")}
       />
     </SubmenuSection>
   </div>
 );
 
-const TemplatesSubmenu = ({ onItemClick }) => (
+const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
   <div className="p-2 space-y-4">
     <SubmenuSection title="Template Types">
       <SubmenuItem 
         icon={LayoutTemplate} 
         label="Prompt Templates" 
         description="Reusable prompt structures"
+        isActive={activeSubItem === "prompt-templates"}
         onClick={() => onItemClick?.("prompt-templates")}
       />
       <SubmenuItem 
         icon={Braces} 
         label="JSON Schemas" 
         description="Output format definitions"
+        isActive={activeSubItem === "json-schemas"}
         onClick={() => onItemClick?.("json-schemas")}
       />
       <SubmenuItem 
         icon={FileJson} 
         label="Export Mappings" 
         description="Field mapping templates"
+        isActive={activeSubItem === "export-mappings"}
         onClick={() => onItemClick?.("export-mappings")}
       />
     </SubmenuSection>
@@ -120,31 +127,35 @@ const TemplatesSubmenu = ({ onItemClick }) => (
         icon={Plus} 
         label="Create Template" 
         description="Start from scratch"
+        isActive={activeSubItem === "create-template"}
         onClick={() => onItemClick?.("create-template")}
       />
     </SubmenuSection>
   </div>
 );
 
-const SettingsSubmenu = ({ onItemClick }) => (
+const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
   <div className="p-2 space-y-4">
     <SubmenuSection title="Configuration">
       <SubmenuItem 
         icon={Settings} 
         label="General" 
         description="App preferences"
+        isActive={activeSubItem === "general"}
         onClick={() => onItemClick?.("general")}
       />
       <SubmenuItem 
         icon={Database} 
         label="AI Models" 
         description="Model defaults & pricing"
+        isActive={activeSubItem === "ai-models"}
         onClick={() => onItemClick?.("ai-models")}
       />
       <SubmenuItem 
         icon={Key} 
         label="API Keys" 
         description="Manage credentials"
+        isActive={activeSubItem === "api-keys"}
         onClick={() => onItemClick?.("api-keys")}
       />
     </SubmenuSection>
@@ -156,12 +167,14 @@ const SettingsSubmenu = ({ onItemClick }) => (
         icon={Palette} 
         label="Theme" 
         description="Light / Dark mode"
+        isActive={activeSubItem === "theme"}
         onClick={() => onItemClick?.("theme")}
       />
       <SubmenuItem 
         icon={Bell} 
         label="Notifications" 
         description="Alert preferences"
+        isActive={activeSubItem === "notifications"}
         onClick={() => onItemClick?.("notifications")}
       />
     </SubmenuSection>
@@ -173,31 +186,35 @@ const SettingsSubmenu = ({ onItemClick }) => (
         icon={User} 
         label="Profile" 
         description="User settings"
+        isActive={activeSubItem === "profile"}
         onClick={() => onItemClick?.("profile")}
       />
     </SubmenuSection>
   </div>
 );
 
-const HealthSubmenu = ({ onItemClick }) => (
+const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
   <div className="p-2 space-y-4">
     <SubmenuSection title="System Status">
       <SubmenuItem 
         icon={Activity} 
         label="Overview" 
         description="All systems operational"
+        isActive={activeSubItem === "overview"}
         onClick={() => onItemClick?.("overview")}
       />
       <SubmenuItem 
         icon={Server} 
         label="Database" 
         description="Connected"
+        isActive={activeSubItem === "database"}
         onClick={() => onItemClick?.("database")}
       />
       <SubmenuItem 
         icon={Zap} 
         label="AI Services" 
         description="Online"
+        isActive={activeSubItem === "ai-services"}
         onClick={() => onItemClick?.("ai-services")}
       />
     </SubmenuSection>
@@ -209,19 +226,21 @@ const HealthSubmenu = ({ onItemClick }) => (
         icon={Shield} 
         label="Auth Status" 
         description="Authenticated"
+        isActive={activeSubItem === "auth-status"}
         onClick={() => onItemClick?.("auth-status")}
       />
       <SubmenuItem 
         icon={Key} 
         label="API Health" 
         description="All keys valid"
+        isActive={activeSubItem === "api-health"}
         onClick={() => onItemClick?.("api-health")}
       />
     </SubmenuSection>
   </div>
 );
 
-const MockupSubmenuPanel = ({ hoveredNav, onItemClick }) => {
+const MockupSubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
   const submenus = {
     workbench: WorkbenchSubmenu,
     templates: TemplatesSubmenu,
@@ -236,7 +255,7 @@ const MockupSubmenuPanel = ({ hoveredNav, onItemClick }) => {
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       <div className="flex-1 overflow-auto scrollbar-thin">
-        <SubmenuComponent onItemClick={onItemClick} />
+        <SubmenuComponent onItemClick={onItemClick} activeSubItem={activeSubItem} />
       </div>
     </div>
   );
