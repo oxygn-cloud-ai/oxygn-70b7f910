@@ -6,6 +6,7 @@ import { navItems } from "./nav-items";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
+import Mockup from "./pages/Mockup";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./components/AppSidebar";
 import { ApiCallProvider } from "@/contexts/ApiCallContext";
@@ -102,6 +103,7 @@ const App = () => (
                       <ErrorBoundary message="This page encountered an error.">
                         <Routes>
                           <Route path="/auth" element={<Auth />} />
+                          <Route path="/mockup" element={<Mockup />} />
                           <Route
                             path="/*"
                             element={
