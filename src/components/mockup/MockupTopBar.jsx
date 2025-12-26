@@ -1,9 +1,9 @@
 import React from "react";
-import { Search, Bell, Command, MessageCircleQuestion } from "lucide-react";
+import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const MockupTopBar = ({ tooltipsEnabled = true, onToggleTooltips }) => {
+const MockupTopBar = ({ tooltipsEnabled = true, onToggleTooltips, isDark = false, onToggleDark }) => {
   return (
     <header 
       className="h-16 flex items-center gap-4 px-4 bg-surface-container-low border-b border-outline-variant"
@@ -38,15 +38,15 @@ const MockupTopBar = ({ tooltipsEnabled = true, onToggleTooltips }) => {
         </div>
       </div>
 
-      {/* Trailing - Tooltips Toggle, Notifications & Avatar */}
-      <div className="flex items-center gap-2">
+      {/* Trailing - Toggles, Notifications & Avatar */}
+      <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <button 
               onClick={onToggleTooltips}
               className={`w-10 h-10 flex items-center justify-center rounded-m3-full transition-colors duration-200 ${
                 tooltipsEnabled 
-                  ? "text-primary bg-primary/10 hover:bg-primary/20" 
+                  ? "text-primary hover:bg-primary/10" 
                   : "text-on-surface-variant hover:bg-on-surface/[0.08]"
               }`}
             >
@@ -55,6 +55,20 @@ const MockupTopBar = ({ tooltipsEnabled = true, onToggleTooltips }) => {
           </TooltipTrigger>
           <TooltipContent className="text-label-md">
             {tooltipsEnabled ? "Disable tooltips" : "Enable tooltips"}
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button 
+              onClick={onToggleDark}
+              className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200"
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-label-md">
+            {isDark ? "Light mode" : "Dark mode"}
           </TooltipContent>
         </Tooltip>
 

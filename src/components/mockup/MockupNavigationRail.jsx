@@ -5,9 +5,7 @@ import {
   MessageSquare, 
   LayoutTemplate, 
   Settings, 
-  Heart,
-  Moon,
-  Sun
+  Heart
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -38,7 +36,7 @@ const NavItem = ({ icon: Icon, label, isActive = false, onClick, onMouseEnter, o
   </div>
 );
 
-const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, onToggleDark, isDark, onToggleFolderPanel, folderPanelOpen }) => {
+const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, onToggleFolderPanel, folderPanelOpen }) => {
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts" },
     { id: "workbench", icon: MessageSquare, label: "Workbench" },
@@ -81,21 +79,6 @@ const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, 
           />
         ))}
       </div>
-
-      {/* Dark Mode Toggle */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onToggleDark}
-            className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200"
-          >
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="text-label-md">
-          {isDark ? "Light mode" : "Dark mode"}
-        </TooltipContent>
-      </Tooltip>
     </nav>
   );
 };
