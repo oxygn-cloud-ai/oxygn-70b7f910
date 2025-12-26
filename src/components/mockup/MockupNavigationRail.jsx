@@ -12,25 +12,25 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const NavItem = ({ icon: Icon, label, isActive = false }) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button
-        className={`
-          relative w-14 h-8 flex items-center justify-center rounded-m3-lg
-          transition-all duration-200 ease-emphasized
-          ${isActive 
-            ? "bg-secondary-container text-secondary-container-foreground" 
-            : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-          }
-        `}
-      >
-        <Icon className="h-6 w-6" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent side="right" className="text-label-md">
+  <div className="flex flex-col items-center gap-0.5">
+    <button
+      className={`
+        relative w-14 h-8 flex items-center justify-center rounded-m3-lg
+        transition-all duration-200 ease-emphasized
+        ${isActive 
+          ? "bg-secondary-container text-secondary-container-foreground" 
+          : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+        }
+      `}
+    >
+      <Icon className="h-5 w-5" />
+    </button>
+    <span 
+      className={`text-[9px] leading-tight ${isActive ? "text-on-surface" : "text-on-surface-variant"}`}
+    >
       {label}
-    </TooltipContent>
-  </Tooltip>
+    </span>
+  </div>
 );
 
 const MockupNavigationRail = ({ activeNav = "prompts", onToggleDark, isDark }) => {
