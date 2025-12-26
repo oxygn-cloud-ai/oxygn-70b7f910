@@ -44,15 +44,14 @@ const Mockup = () => {
             activeNav="prompts"
             isDark={isDark}
             onToggleDark={() => setIsDark(!isDark)}
+            folderPanelOpen={folderPanelOpen}
+            onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
           />
 
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top Bar - 64dp */}
-            <MockupTopBar 
-              folderPanelOpen={folderPanelOpen}
-              onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
-            />
+            <MockupTopBar />
 
             {/* Main Content with Resizable Panels */}
             <div className="flex-1 flex overflow-hidden">

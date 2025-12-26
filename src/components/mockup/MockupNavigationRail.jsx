@@ -1,6 +1,6 @@
 import React from "react";
 import { 
-  Plus, 
+  Menu,
   FileText, 
   MessageSquare, 
   LayoutTemplate, 
@@ -33,7 +33,7 @@ const NavItem = ({ icon: Icon, label, isActive = false }) => (
   </div>
 );
 
-const MockupNavigationRail = ({ activeNav = "prompts", onToggleDark, isDark }) => {
+const MockupNavigationRail = ({ activeNav = "prompts", onToggleDark, isDark, onToggleFolderPanel, folderPanelOpen }) => {
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts" },
     { id: "workbench", icon: MessageSquare, label: "Workbench" },
@@ -47,17 +47,18 @@ const MockupNavigationRail = ({ activeNav = "prompts", onToggleDark, isDark }) =
       className="w-20 h-full flex flex-col items-center py-4 gap-2 bg-surface-container-lowest border-r border-outline-variant"
       style={{ minWidth: "80px", maxWidth: "80px" }}
     >
-      {/* FAB - New Prompt */}
+      {/* Hamburger Menu - Toggle Folder Panel */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button 
-            className="w-14 h-14 rounded-m3-lg bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:shadow-lg transition-shadow duration-200 ease-emphasized mb-4"
+            onClick={onToggleFolderPanel}
+            className="w-10 h-10 rounded-m3-full flex items-center justify-center text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200 mb-4"
           >
-            <Plus className="h-6 w-6" />
+            <Menu className="h-6 w-6" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="right" className="text-label-md">
-          New Prompt
+          {folderPanelOpen ? "Close folders" : "Open folders"}
         </TooltipContent>
       </Tooltip>
 
