@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Save } from 'lucide-react';
+import { Save, RotateCcw, Info } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -11,11 +11,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from 'lucide-react';
 
 const coreSettings = [
   { key: 'build', label: 'Build', type: 'text', description: 'Current build identifier' },
   { key: 'version', label: 'Version', type: 'text', description: 'Application version' },
 ];
+
+// Default action system prompt
+const DEFAULT_ACTION_SYSTEM_PROMPT = `You are an AI assistant that responds ONLY with valid JSON according to the provided schema.
+
+CRITICAL INSTRUCTIONS:
+1. Your response must be ONLY valid JSON - no markdown, no explanations, no additional text
+2. Do not wrap your response in code blocks or backticks
+3. Follow the exact schema structure provided
+4. Include all required fields
+5. Use appropriate data types as specified in the schema
+
+{{schema_description}}
+
+Respond with the JSON object now.`;
 
 export function QonsolSettingsSection({
   settings,
@@ -27,6 +49,12 @@ export function QonsolSettingsSection({
   onSave,
   onRefresh,
 }) {
+  const [isActionPromptOpen, setIsActionPromptOpen] = useState(false);
+
+  const handleResetActionPrompt = () => {
+    onValueChange('default_action_system_prompt', DEFAULT_ACTION_SYSTEM_PROMPT);
+  };
+
   return (
     <div className="space-y-4">
         {/* Default Model Selection */}
@@ -136,6 +164,78 @@ export function QonsolSettingsSection({
             <p className="text-xs text-muted-foreground">System instructions for Workbench AI conversations</p>
           </div>
         </div>
+
+        {/* Action Node System Prompt */}
+        <Collapsible open={isActionPromptOpen} onOpenChange={setIsActionPromptOpen}>
+          <div className="p-4 border rounded-lg">
+            <CollapsibleTrigger asChild>
+              <div className="flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium">Action Node System Prompt</h3>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">
+                          This prompt is prepended to action node requests to instruct the AI 
+                          to respond with valid JSON. Use <code>{'{{schema_description}}'}</code> to 
+                          insert the schema details.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform ${isActionPromptOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="default_action_system_prompt" className="text-xs text-muted-foreground">
+                  System prompt for action nodes
+                </Label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs"
+                    onClick={handleResetActionPrompt}
+                  >
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Reset
+                  </Button>
+                  {editedValues['default_action_system_prompt'] !== undefined && 
+                   editedValues['default_action_system_prompt'] !== (settings['default_action_system_prompt']?.value || '') && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7"
+                      onClick={() => onSave('default_action_system_prompt')}
+                      disabled={isSaving}
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      Save
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <Textarea
+                id="default_action_system_prompt"
+                value={editedValues['default_action_system_prompt'] !== undefined 
+                  ? editedValues['default_action_system_prompt'] 
+                  : (settings['default_action_system_prompt']?.value || DEFAULT_ACTION_SYSTEM_PROMPT)}
+                onChange={(e) => onValueChange('default_action_system_prompt', e.target.value)}
+                placeholder="Enter the system prompt for action nodes"
+                className="font-mono text-xs"
+                rows={10}
+              />
+              <p className="text-xs text-muted-foreground">
+                Use <code className="bg-muted px-1 py-0.5 rounded">{'{{schema_description}}'}</code> to insert the JSON schema details.
+              </p>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         {coreSettings.map(({ key, label, type, description }) => {
           const settingData = settings[key];

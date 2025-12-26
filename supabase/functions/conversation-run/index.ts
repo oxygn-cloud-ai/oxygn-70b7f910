@@ -97,6 +97,62 @@ interface ResponsesResult {
   response_id?: string;
 }
 
+// Default system prompt for action nodes - instructs AI to respond with JSON
+const DEFAULT_ACTION_SYSTEM_PROMPT = `You are an AI assistant that responds ONLY with valid JSON according to the provided schema.
+
+CRITICAL INSTRUCTIONS:
+1. Your response must be ONLY valid JSON - no markdown, no explanations, no additional text
+2. Do not wrap your response in code blocks or backticks
+3. Follow the exact schema structure provided
+4. Include all required fields
+5. Use appropriate data types as specified in the schema
+
+{{schema_description}}
+
+Respond with the JSON object now.`;
+
+// Format JSON schema for human-readable prompt
+function formatSchemaForPrompt(schema: any): string {
+  if (!schema) return '';
+  
+  const lines: string[] = ['Expected JSON Schema:'];
+  
+  if (schema.type === 'object' && schema.properties) {
+    lines.push('{');
+    for (const [key, prop] of Object.entries(schema.properties) as [string, any][]) {
+      const isRequired = schema.required?.includes(key);
+      const reqMarker = isRequired ? ' (required)' : ' (optional)';
+      
+      if (prop.type === 'array' && prop.items) {
+        const itemType = prop.items.type || 'object';
+        lines.push(`  "${key}": Array<${itemType}>${reqMarker}`);
+        if (prop.items.properties) {
+          lines.push('    Each item: {');
+          for (const [itemKey, itemProp] of Object.entries(prop.items.properties) as [string, any][]) {
+            const itemReq = prop.items.required?.includes(itemKey) ? ' (required)' : '';
+            lines.push(`      "${itemKey}": ${itemProp.type || 'any'}${itemReq}`);
+          }
+          lines.push('    }');
+        }
+      } else if (prop.type === 'object' && prop.properties) {
+        lines.push(`  "${key}": {${reqMarker}`);
+        for (const [subKey, subProp] of Object.entries(prop.properties) as [string, any][]) {
+          lines.push(`    "${subKey}": ${(subProp as any).type || 'any'}`);
+        }
+        lines.push('  }');
+      } else {
+        const enumVals = prop.enum ? ` (one of: ${prop.enum.join(', ')})` : '';
+        lines.push(`  "${key}": ${prop.type || 'any'}${reqMarker}${enumVals}`);
+      }
+    }
+    lines.push('}');
+  } else if (schema.type === 'array') {
+    lines.push(`Array<${schema.items?.type || 'any'}>`);
+  }
+  
+  return lines.join('\n');
+}
+
 // Call OpenAI Responses API - uses previous_response_id for multi-turn context
 async function runResponsesAPI(
   assistantData: any,
@@ -104,6 +160,12 @@ async function runResponsesAPI(
   systemPrompt: string,
   previousResponseId: string | null,
   apiKey: string,
+  options: {
+    responseFormat?: any;
+    seed?: number;
+    toolChoice?: string;
+    reasoningEffort?: string;
+  } = {},
 ): Promise<ResponsesResult> {
   const requestedModel = assistantData.model_override || 'gpt-4o-mini';
   const modelId = resolveModelId(requestedModel);
@@ -125,6 +187,19 @@ async function runResponsesAPI(
     requestBody.instructions = systemPrompt.trim();
   }
 
+  // Add structured output format if provided
+  if (options.responseFormat && options.responseFormat.type === 'json_schema') {
+    requestBody.text = {
+      format: {
+        type: 'json_schema',
+        name: options.responseFormat.json_schema?.name || 'response',
+        schema: options.responseFormat.json_schema?.schema,
+        strict: options.responseFormat.json_schema?.strict ?? true,
+      },
+    };
+    console.log('Using structured output format:', requestBody.text.format.name);
+  }
+
   // Add model parameters if set
   const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
   const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
@@ -143,10 +218,21 @@ async function runResponsesAPI(
     requestBody.max_output_tokens = maxTokens;
   }
 
+  // Add seed if provided
+  if (options.seed !== undefined && !isNaN(options.seed)) {
+    requestBody.seed = options.seed;
+  }
+
+  // Add reasoning effort for o1/o3 models
+  if (options.reasoningEffort && ['low', 'medium', 'high'].includes(options.reasoningEffort)) {
+    requestBody.reasoning = { effort: options.reasoningEffort };
+  }
+
   console.log('Calling Responses API:', { 
     model: modelId, 
     hasPreviousResponse: !!previousResponseId,
     hasInstructions: !!systemPrompt,
+    hasStructuredOutput: !!options.responseFormat,
     requestBody: JSON.stringify(requestBody),
   });
 
@@ -529,13 +615,82 @@ serve(async (req) => {
         : adminPrompt.trim();
     }
 
+    // Build API options from prompt settings
+    const apiOptions: {
+      responseFormat?: any;
+      seed?: number;
+      toolChoice?: string;
+      reasoningEffort?: string;
+    } = {};
+
+    // Handle action nodes - prepend action system prompt and set structured output
+    if (childPrompt.node_type === 'action') {
+      // Parse response_format for structured output
+      if (childPrompt.response_format) {
+        try {
+          const format = typeof childPrompt.response_format === 'string' 
+            ? JSON.parse(childPrompt.response_format) 
+            : childPrompt.response_format;
+          
+          if (format.type === 'json_schema') {
+            apiOptions.responseFormat = format;
+            
+            // Generate schema description for the prompt
+            const schemaDesc = formatSchemaForPrompt(format.json_schema?.schema);
+            
+            // Fetch custom action system prompt or use default
+            let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
+            try {
+              const { data: customPrompt } = await supabase
+                .from(TABLES.SETTINGS)
+                .select('setting_value')
+                .eq('setting_key', 'default_action_system_prompt')
+                .single();
+              
+              if (customPrompt?.setting_value) {
+                actionSystemPrompt = customPrompt.setting_value;
+              }
+            } catch {
+              console.log('Using default action system prompt');
+            }
+            
+            // Insert schema description into prompt
+            actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
+            
+            // Prepend action system prompt
+            systemPrompt = systemPrompt
+              ? `${actionSystemPrompt}\n\n---\n\n${systemPrompt}`
+              : actionSystemPrompt;
+            
+            console.log('Action node: applied structured output format');
+          }
+        } catch (err) {
+          console.warn('Could not parse response_format:', err);
+        }
+      }
+    }
+
+    // Add seed if enabled
+    if (childPrompt.seed_on && childPrompt.seed) {
+      const seed = parseInt(childPrompt.seed, 10);
+      if (!isNaN(seed)) {
+        apiOptions.seed = seed;
+      }
+    }
+
+    // Add reasoning effort for o1/o3 models
+    if (childPrompt.reasoning_effort_on && childPrompt.reasoning_effort) {
+      apiOptions.reasoningEffort = childPrompt.reasoning_effort;
+    }
+
     // Call OpenAI Responses API with previous_response_id for multi-turn context
     const result = await runResponsesAPI(
       assistantData,
       finalMessage,
       systemPrompt,
       previousResponseId,
-      OPENAI_API_KEY
+      OPENAI_API_KEY,
+      apiOptions
     );
 
     if (!result.success) {
