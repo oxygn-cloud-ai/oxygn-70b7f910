@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -6,6 +6,16 @@ import {
   SYSTEM_VARIABLE_TYPES,
   getSystemVariableNames 
 } from '@/config/systemVariables';
+import { usePromptNameLookup } from '@/hooks/usePromptNameLookup';
+
+// Field labels for friendly display
+const FIELD_LABELS = {
+  output_response: 'AI Response',
+  user_prompt_result: 'User Result',
+  input_admin_prompt: 'System Prompt',
+  input_user_prompt: 'User Prompt',
+  prompt_name: 'Name',
+};
 
 /**
  * A textarea with syntax highlighting for {{variables}} and autocomplete
@@ -170,8 +180,11 @@ const HighlightedTextarea = React.forwardRef(({
     selection.addRange(range);
   }, []);
 
+  // Lookup prompt names for q.ref[UUID] patterns
+  const { nameMap: promptNameMap } = usePromptNameLookup(value);
+
   // Parse text and create highlighted HTML
-  const getHighlightedHtml = useCallback((text) => {
+  const getHighlightedHtml = useCallback((text, nameMap) => {
     if (!text) return '';
     
     // Escape HTML entities
@@ -180,10 +193,21 @@ const HighlightedTextarea = React.forwardRef(({
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-    // Highlight variables with pink color
-    const highlighted = escaped.replace(
+    // First, replace q.ref[UUID].field patterns with friendly names
+    const refPattern = /\{\{q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)\}\}/gi;
+    let highlighted = escaped.replace(refPattern, (match, uuid, field) => {
+      const promptInfo = nameMap?.get(uuid.toLowerCase());
+      const promptName = promptInfo?.name || 'Unknown';
+      const fieldLabel = FIELD_LABELS[field] || field;
+      return `<span class="var-highlight var-ref" data-uuid="${uuid}" data-field="${field}" title="${promptName} → ${fieldLabel}">{{📄 ${promptName} → ${fieldLabel}}}</span>`;
+    });
+
+    // Then highlight remaining variables with pink color
+    highlighted = highlighted.replace(
       /(\{\{[^}]+\}\})/g,
       (match) => {
+        // Skip if already wrapped (check for var-highlight)
+        if (match.includes('var-highlight')) return match;
         return `<span class="var-highlight">${match}</span>`;
       }
     );
@@ -200,14 +224,14 @@ const HighlightedTextarea = React.forwardRef(({
     const currentText = getPlainText(editor);
     if (currentText !== value) {
       const cursorPos = getCursorPosition();
-      editor.innerHTML = getHighlightedHtml(value) || '<br>';
+      editor.innerHTML = getHighlightedHtml(value, promptNameMap) || '<br>';
       
       // Restore cursor position
       if (document.activeElement === editor) {
         setCursorPosition(Math.min(cursorPos, value.length));
       }
     }
-  }, [value, getPlainText, getHighlightedHtml, getCursorPosition, setCursorPosition]);
+  }, [value, getPlainText, getHighlightedHtml, getCursorPosition, setCursorPosition, promptNameMap]);
 
   // Get caret coordinates for positioning autocomplete
   const getCaretCoordinates = useCallback(() => {
@@ -261,7 +285,7 @@ const HighlightedTextarea = React.forwardRef(({
     const cursorPos = getCursorPosition();
     
     // Update the HTML with highlights while preserving cursor
-    const newHtml = getHighlightedHtml(plainText);
+    const newHtml = getHighlightedHtml(plainText, promptNameMap);
     if (editor.innerHTML !== newHtml && editor.innerHTML !== newHtml + '<br>') {
       editor.innerHTML = newHtml || '<br>';
       setCursorPosition(cursorPos);
@@ -282,7 +306,7 @@ const HighlightedTextarea = React.forwardRef(({
     setTimeout(() => {
       checkForTrigger(plainText, getCursorPosition());
     }, 0);
-  }, [getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, checkForTrigger]);
+  }, [getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, checkForTrigger, promptNameMap]);
 
   // Handle paste - strip formatting
   const handlePaste = useCallback((e) => {
@@ -333,7 +357,7 @@ const HighlightedTextarea = React.forwardRef(({
     const newCursorPos = beforeTrigger.length + varText.length;
     
     // Update content
-    editor.innerHTML = getHighlightedHtml(newValue) || '<br>';
+    editor.innerHTML = getHighlightedHtml(newValue, promptNameMap) || '<br>';
     setCursorPosition(newCursorPos);
     
     // Create synthetic event
@@ -347,7 +371,7 @@ const HighlightedTextarea = React.forwardRef(({
     
     onChange?.(syntheticEvent);
     setShowAutocomplete(false);
-  }, [triggerStart, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange]);
+  }, [triggerStart, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, promptNameMap]);
 
   const handleBlur = useCallback(() => {
     // Delay hiding to allow click on autocomplete item
@@ -371,6 +395,15 @@ const HighlightedTextarea = React.forwardRef(({
       <style>{`
         .highlighted-textarea-container .var-highlight {
           color: hsl(var(--primary));
+        }
+        .highlighted-textarea-container .var-ref {
+          background: hsl(var(--primary) / 0.1);
+          border-radius: 3px;
+          padding: 0 2px;
+          cursor: help;
+        }
+        .highlighted-textarea-container .var-ref:hover {
+          background: hsl(var(--primary) / 0.2);
         }
         .highlighted-textarea-container .editor-content {
           min-height: ${minHeight};

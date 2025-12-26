@@ -116,7 +116,8 @@ export const useCascadeExecutor = () => {
   }, [supabase]);
 
   // Build cascade context variables from accumulated responses
-  const buildCascadeVariables = useCallback((accumulatedResponses, currentLevel, prompt, parentData, user) => {
+  // Also includes q.ref[UUID] resolution for already-executed prompts
+  const buildCascadeVariables = useCallback((accumulatedResponses, currentLevel, prompt, parentData, user, promptDataMap = new Map()) => {
     // Start with system variables (q.today, q.user.name, etc.)
     const vars = buildSystemVariablesForRun({
       promptData: prompt,
@@ -149,6 +150,22 @@ export const useCascadeExecutor = () => {
     // Level-specific responses
     accumulatedResponses.forEach((r, idx) => {
       vars[`cascade_level_${r.level}_response_${idx}`] = r.response || '';
+    });
+
+    // Add q.ref[UUID] variables from already-executed prompts in this cascade
+    promptDataMap.forEach((data, promptId) => {
+      vars[`q.ref[${promptId}].output_response`] = data.output_response || '';
+      vars[`q.ref[${promptId}].user_prompt_result`] = data.user_prompt_result || '';
+      vars[`q.ref[${promptId}].prompt_name`] = data.prompt_name || '';
+      vars[`q.ref[${promptId}].input_admin_prompt`] = data.input_admin_prompt || '';
+      vars[`q.ref[${promptId}].input_user_prompt`] = data.input_user_prompt || '';
+      
+      // Include system variables from referenced prompt
+      if (data.system_variables && typeof data.system_variables === 'object') {
+        Object.entries(data.system_variables).forEach(([key, val]) => {
+          vars[`q.ref[${promptId}].${key}`] = String(val || '');
+        });
+      }
     });
 
     return vars;
@@ -323,6 +340,9 @@ export const useCascadeExecutor = () => {
 
     const accumulatedResponses = [];
     let promptIndex = 0;
+    
+    // Track executed prompts for q.ref[UUID] resolution within cascade
+    const promptDataMap = new Map();
 
     try {
       // Process ALL levels starting from level 0 (top-level prompt)
@@ -376,7 +396,8 @@ export const useCascadeExecutor = () => {
           });
 
           // Build template variables from accumulated context AND system variables
-          const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, topLevelPrompt, currentUser);
+          // Pass promptDataMap for q.ref[UUID] resolution of already-executed prompts
+          const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, topLevelPrompt, currentUser, promptDataMap);
 
           // Fetch user-defined variables for this prompt
           const { data: userVariables } = await supabase
@@ -457,6 +478,16 @@ export const useCascadeExecutor = () => {
                   promptRowId: prompt.row_id,
                   promptName: prompt.prompt_name,
                   response: result.response,
+                });
+
+                // Store in promptDataMap for q.ref[UUID] resolution in subsequent prompts
+                promptDataMap.set(prompt.row_id, {
+                  output_response: result.response,
+                  user_prompt_result: result.response,
+                  prompt_name: prompt.prompt_name,
+                  input_admin_prompt: prompt.input_admin_prompt || '',
+                  input_user_prompt: prompt.input_user_prompt || '',
+                  system_variables: prompt.system_variables || {},
                 });
 
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
