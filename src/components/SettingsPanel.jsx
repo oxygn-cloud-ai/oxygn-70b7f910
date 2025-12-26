@@ -17,7 +17,7 @@ import {
   getModelTools,
   isSettingSupported, 
   isToolSupported 
-} from '../config/modelCapabilities';
+} from '@/config/modelCapabilities';
 
 const TOOL_ICONS = {
   web_search: Globe,
