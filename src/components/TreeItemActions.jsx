@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles, Upload, FileX, FileCheck } from 'lucide-react';
+import { PlusIcon, EditIcon, Trash2Icon, Copy, ArrowUp, ArrowDown, Info, Check, X, Loader2, Square, Ban, Play, Sparkles, Upload, FileX, FileCheck, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useSupabase } from '../hooks/useSupabase';
@@ -12,6 +12,23 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOOLTIPS } from '@/config/labels';
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  getRecentVarRefs, 
+  addRecentVarRef, 
+  buildRefString, 
+  getFieldLabel,
+  FIELD_LABELS 
+} from '@/utils/recentVarRefs';
+
+// Fields available for reference
+const REFERENCE_FIELDS = [
+  { key: 'output_response', label: 'AI Response' },
+  { key: 'user_prompt_result', label: 'User Prompt Result' },
+  { key: 'input_admin_prompt', label: 'System Prompt' },
+  { key: 'input_user_prompt', label: 'User Prompt' },
+  { key: 'prompt_name', label: 'Name' },
+];
 
 export const TreeItemActions = ({ 
   item, 
@@ -27,6 +44,7 @@ export const TreeItemActions = ({
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [showNewPromptChoice, setShowNewPromptChoice] = useState(false);
+  const [showCopyRefMenu, setShowCopyRefMenu] = useState(false);
   const [bulkCount, setBulkCount] = useState('2');
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, isAdding: false });
   const longPressTimer = useRef(null);
@@ -37,6 +55,23 @@ export const TreeItemActions = ({
   const isExcluded = item.exclude_from_cascade === true;
   const isExcludedFromExport = item.exclude_from_export === true;
   const isTopLevel = !item.parent_row_id;
+
+  // Get recent variable references for this item
+  const recentRefs = getRecentVarRefs().filter(r => r.promptId !== item.id).slice(0, 3);
+
+  // Handle copying a variable reference
+  const handleCopyRef = useCallback((field, promptId = item.id, promptName = item.prompt_name) => {
+    const refString = buildRefString(promptId, field);
+    navigator.clipboard.writeText(refString).then(() => {
+      addRecentVarRef(promptId, promptName, field);
+      toast.success(`Copied: ${promptName} → ${getFieldLabel(field)}`, {
+        description: refString,
+      });
+      setShowCopyRefMenu(false);
+    }).catch(() => {
+      toast.error('Failed to copy to clipboard');
+    });
+  }, [item.id, item.prompt_name]);
 
   // Navigate to the prompt page for running
   const handleRunClick = useCallback((e) => {
@@ -55,6 +90,7 @@ export const TreeItemActions = ({
       onExportPrompt(item.id);
     }
   }, [item.id, onExportPrompt]);
+  
   const handleMove = async (direction) => {
     const siblingsArray = Array.isArray(siblings) ? siblings : [];
     
@@ -336,6 +372,63 @@ export const TreeItemActions = ({
               </Tooltip>
             </TooltipProvider>
           )}
+
+          {/* Copy Variable Reference button */}
+          <Popover open={showCopyRefMenu} onOpenChange={setShowCopyRefMenu}>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Copy variable reference
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <PopoverContent className="w-48 p-1" onClick={(e) => e.stopPropagation()}>
+              <ScrollArea className="max-h-[200px]">
+                {/* Recently Used */}
+                {recentRefs.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-[10px] text-muted-foreground font-medium">Recently Used</div>
+                    {recentRefs.map((ref, idx) => (
+                      <button
+                        key={`recent-${idx}`}
+                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded flex items-center gap-1.5"
+                        onClick={() => handleCopyRef(ref.field, ref.promptId, ref.promptName)}
+                      >
+                        <span className="truncate">{ref.promptName}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="text-muted-foreground">{getFieldLabel(ref.field)}</span>
+                      </button>
+                    ))}
+                    <div className="border-t border-border my-1" />
+                  </>
+                )}
+                
+                {/* Current prompt fields */}
+                <div className="px-2 py-1 text-[10px] text-muted-foreground font-medium">This Prompt</div>
+                {REFERENCE_FIELDS.map((field) => (
+                  <button
+                    key={field.key}
+                    className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded"
+                    onClick={() => handleCopyRef(field.key)}
+                  >
+                    {field.label}
+                  </button>
+                ))}
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
 
           {/* Add button - opens choice dialog */}
           <TooltipProvider>
