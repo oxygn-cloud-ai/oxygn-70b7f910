@@ -311,7 +311,7 @@ export const useExport = () => {
   }, []);
 
   // Get export data based on selections
-  // IMPORTANT: Include row_id for resolveSourceValue to find prompts correctly
+  // IMPORTANT: Include ALL variables (not just selected) for {{variable}} resolution
   const getExportData = useMemo(() => {
     return promptsData.map(prompt => {
       const data = { 
@@ -320,25 +320,23 @@ export const useExport = () => {
         prompt_name: prompt.prompt_name  // Always include prompt_name for reference
       };
       
+      // Include selected fields
       selectedFields.forEach(fieldId => {
         if (prompt[fieldId] !== undefined) {
           data[fieldId] = prompt[fieldId];
         }
       });
 
-      const promptVars = selectedVariables[prompt.row_id] || [];
-      const vars = variablesData[prompt.row_id] || [];
-      
-      promptVars.forEach(varName => {
-        const variable = vars.find(v => v.variable_name === varName);
-        if (variable) {
-          data[`var_${varName}`] = variable.variable_value || variable.default_value || '';
-        }
+      // Include ALL variables for this prompt (needed for {{variable}} resolution)
+      // Not just selected ones - we need all for proper substitution
+      const allVars = variablesData[prompt.row_id] || [];
+      allVars.forEach(variable => {
+        data[`var_${variable.variable_name}`] = variable.variable_value || variable.default_value || '';
       });
 
       return data;
     });
-  }, [promptsData, selectedFields, selectedVariables, variablesData]);
+  }, [promptsData, selectedFields, variablesData]);
 
   // Check if can proceed to next step
   const canProceed = useMemo(() => {
