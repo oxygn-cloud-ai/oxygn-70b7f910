@@ -142,6 +142,7 @@ const Mockup = () => {
                 </ResizablePanel>
 
                 {conversationPanelOpen && (
+                  <>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
 
                     {/* Conversation Panel */}
