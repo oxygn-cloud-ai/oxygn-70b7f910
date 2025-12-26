@@ -1,7 +1,6 @@
 import React from 'react';
 import { Search, X, Filter } from 'lucide-react';
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,52 +26,66 @@ export function SearchFilter({
   const activeFilter = filterOptions.find(f => f.value === filterType);
 
   return (
-    <div className="flex items-center gap-2 p-2 border-b border-border bg-muted/30">
-      {/* Search Input */}
-      <div className="relative flex-1">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+    <div className="flex items-center gap-2">
+      {/* M3 Search Bar */}
+      <div className="m3-search-bar flex-1 flex items-center gap-2 h-10 px-3 rounded-full bg-surface-container-high transition-all duration-medium-2 ease-standard focus-within:bg-surface-container-highest focus-within:ring-2 focus-within:ring-primary/20">
+        <Search className="h-4 w-4 text-on-surface-variant flex-shrink-0" />
         <Input
           type="text"
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-8 pl-8 pr-8 text-sm bg-background border-border focus:ring-primary focus:border-primary"
+          className="h-full flex-1 border-0 bg-transparent px-0 text-sm text-on-surface placeholder:text-on-surface-variant focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         {searchQuery && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0 hover:bg-muted"
+          <button
+            type="button"
             onClick={() => onSearchChange('')}
+            className="h-6 w-6 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:text-on-surface hover:bg-on-surface/8 transition-colors duration-short-4 ease-standard"
           >
-            <X className="h-3 w-3 text-muted-foreground" />
-          </Button>
+            <X className="h-3.5 w-3.5" />
+          </button>
         )}
       </div>
 
-      {/* Filter Dropdown */}
+      {/* M3 Filter Icon Button */}
       {showFilter && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className={`h-8 gap-1.5 text-xs ${filterType !== 'all' ? '!text-primary !bg-transparent' : '!text-muted-foreground hover:!text-foreground'} hover:!bg-muted/50`}
+            <button 
+              type="button"
+              className={`
+                h-10 w-10 inline-flex items-center justify-center rounded-full
+                transition-all duration-short-4 ease-standard
+                ${filterType !== 'all' 
+                  ? 'bg-primary/12 text-primary' 
+                  : 'text-on-surface-variant hover:bg-on-surface/8 hover:text-on-surface'
+                }
+              `}
             >
-              <Filter className="h-3 w-3" />
-              <span className="hidden sm:inline">{activeFilter?.label}</span>
-            </Button>
+              <Filter className="h-4 w-4" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40 bg-popover">
+          <DropdownMenuContent 
+            align="end" 
+            className="w-48 rounded-2xl bg-surface-container p-1 border-outline-variant shadow-elevation-2"
+          >
             {filterOptions.map((option, index) => (
               <React.Fragment key={option.value}>
                 <DropdownMenuItem
                   onClick={() => onFilterChange(option.value)}
-                  className={`text-xs ${filterType === option.value ? 'bg-primary/10 text-primary' : ''}`}
+                  className={`
+                    rounded-xl px-3 py-2.5 text-sm cursor-pointer
+                    transition-colors duration-short-4 ease-standard
+                    ${filterType === option.value 
+                      ? 'bg-primary/12 text-primary font-medium' 
+                      : 'text-on-surface hover:bg-on-surface/8'
+                    }
+                  `}
                 >
                   {option.label}
                 </DropdownMenuItem>
-                {index === 0 && <DropdownMenuSeparator />}
+                {index === 0 && <DropdownMenuSeparator className="my-1 bg-outline-variant" />}
               </React.Fragment>
             ))}
           </DropdownMenuContent>

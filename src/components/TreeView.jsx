@@ -163,9 +163,9 @@ const handleOpenNewPromptDialog = () => {
   const conversationCount = treeData.filter(item => item.is_assistant).length;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header with search and add button */}
-      <div className="flex items-center gap-2 p-2 border-b border-border">
+    <div className="flex flex-col h-full bg-surface-container-low">
+      {/* M3 Header with search and add button */}
+      <div className="flex items-center gap-2 p-3">
         <div className="flex-1">
           <SearchFilter
             searchQuery={searchQuery}
@@ -180,33 +180,33 @@ const handleOpenNewPromptDialog = () => {
             <button
               type="button"
               onClick={handleOpenNewPromptDialog}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="fab-small h-10 w-10 inline-flex items-center justify-center rounded-xl bg-primary text-on-primary shadow-elevation-1 hover:shadow-elevation-2 transition-all duration-short-4 ease-standard focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               aria-label="Create new prompt"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">
+          <TooltipContent side="bottom" className="rounded-lg bg-inverse-surface text-inverse-on-surface px-3 py-1.5 text-label-medium">
             <p>Create new prompt</p>
           </TooltipContent>
         </Tooltip>
       </div>
 
-      {/* Stats bar */}
+      {/* M3 Stats bar */}
       {totalCount > 0 && (
-        <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border bg-muted/20">
+        <div className="flex items-center gap-3 px-4 py-2 text-label-small text-on-surface-variant border-t border-outline-variant/50">
           <span>{totalCount} prompt{totalCount !== 1 ? 's' : ''}</span>
           {conversationCount > 0 && (
-            <span className="text-primary">• {conversationCount} conversation{conversationCount !== 1 ? 's' : ''}</span>
+            <span className="text-primary font-medium">• {conversationCount} conversation{conversationCount !== 1 ? 's' : ''}</span>
           )}
           {searchQuery && filteredData.length !== totalCount && (
-            <span className="text-accent">• {filteredData.length} shown</span>
+            <span className="text-tertiary font-medium">• {filteredData.length} shown</span>
           )}
         </div>
       )}
 
-      {/* Tree content */}
-      <div className="flex-1 overflow-auto p-2 scrollbar-thin">
+      {/* M3 Tree content */}
+      <div className="flex-1 overflow-auto px-2 pb-2 scrollbar-thin">
         {filteredData.length > 0 ? (
           <Accordion
             type="multiple"

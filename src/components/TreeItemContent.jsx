@@ -135,12 +135,12 @@ export const TreeItemContent = ({
     return 'bg-background';
   };
   
-  // Render the icon based on custom icon_name or default
+  // M3 Render the icon based on custom icon_name or default
   const renderIcon = () => {
     const iconClasses = `
-      flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
-      cursor-pointer transition-all duration-150
-      ${isIconHovered ? 'ring-2 ring-primary/40 scale-110' : ''}
+      flex items-center justify-center w-8 h-8 rounded-xl flex-shrink-0 
+      cursor-pointer transition-all duration-short-4 ease-standard
+      ${isIconHovered ? 'ring-2 ring-primary/30 scale-105' : ''}
     `;
     
     // Custom icon takes priority - icons are stored as PascalCase
@@ -148,12 +148,12 @@ export const TreeItemContent = ({
       const CustomIcon = icons[item.icon_name];
       return (
         <div 
-          className={`${iconClasses} bg-primary/15 text-primary`}
+          className={`${iconClasses} bg-primary/12 text-primary`}
           onMouseEnter={handleIconMouseEnter}
           onMouseLeave={handleIconMouseLeave}
           onContextMenu={handleIconContextMenu}
         >
-          <CustomIcon className="h-3.5 w-3.5" />
+          <CustomIcon className="h-4 w-4" />
         </div>
       );
     }
@@ -162,24 +162,24 @@ export const TreeItemContent = ({
     if (item.is_assistant) {
       return (
         <div 
-          className={`${iconClasses} bg-primary/15 text-primary`}
+          className={`${iconClasses} bg-primary/12 text-primary`}
           onMouseEnter={handleIconMouseEnter}
           onMouseLeave={handleIconMouseLeave}
           onContextMenu={handleIconContextMenu}
         >
-          <Bot className="h-3.5 w-3.5" />
+          <Bot className="h-4 w-4" />
         </div>
       );
     }
     
     return (
       <div 
-        className={`${iconClasses} text-muted-foreground ${isIconHovered ? 'bg-muted' : ''}`}
+        className={`${iconClasses} bg-surface-container-high text-on-surface-variant ${isIconHovered ? 'bg-surface-container-highest' : ''}`}
         onMouseEnter={handleIconMouseEnter}
         onMouseLeave={handleIconMouseLeave}
         onContextMenu={handleIconContextMenu}
       >
-        <FileText className="h-3.5 w-3.5" />
+        <FileText className="h-4 w-4" />
       </div>
     );
   };
@@ -188,48 +188,45 @@ export const TreeItemContent = ({
     <>
       <div
         className={`
-          group relative flex items-center
-          py-1.5 px-2 rounded-md
-          transition-all duration-150
-          ${isDeleting ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
+          m3-list-item group relative flex items-center
+          py-2 px-3 rounded-2xl
+          transition-all duration-medium-2 ease-standard
+          ${isDeleting ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
           ${isActive && !isDeleting
-            ? 'bg-primary/10 border border-primary/30 shadow-sm' 
-            : 'hover:bg-muted/60 border border-transparent'
+            ? 'bg-secondary-container text-on-secondary-container shadow-elevation-1' 
+            : 'hover:bg-on-surface/8 text-on-surface'
           }
         `}
-        style={{ paddingLeft: `${level * 14 + 4}px` }}
+        style={{ paddingLeft: `${level * 14 + 8}px` }}
         onClick={() => !isDeleting && setActiveItem(item.id)}
       >
         {/* Main content - truncates when needed */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
-          {/* Expand/Collapse Button */}
+          {/* M3 Expand/Collapse Button */}
           {hasChildren ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-0 h-5 w-5 flex-shrink-0 hover:bg-muted"
+            <button
+              type="button"
+              className="p-0.5 h-6 w-6 flex-shrink-0 rounded-full inline-flex items-center justify-center text-on-surface-variant hover:bg-on-surface/8 transition-colors duration-short-4 ease-standard"
               onClick={handleToggle}
             >
-              {isExpanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
-            </Button>
+              <div className={`transition-transform duration-short-4 ease-standard ${isExpanded ? 'rotate-90' : ''}`}>
+                <ChevronRight className="h-4 w-4" />
+              </div>
+            </button>
           ) : (
-            <div className="w-5 h-5 flex-shrink-0" />
+            <div className="w-6 h-6 flex-shrink-0" />
           )}
 
-          {/* Type Icon - show spinning loader when running, otherwise custom/default icon */}
+          {/* M3 Type Icon - show spinning loader when running, otherwise custom/default icon */}
           {isCurrentlyRunning ? (
-            <div className="flex items-center justify-center w-5 h-5 rounded flex-shrink-0 text-accent">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <div className="flex items-center justify-center w-8 h-8 rounded-xl flex-shrink-0 bg-tertiary/12 text-tertiary">
+              <Loader2 className="h-4 w-4 animate-spin" />
             </div>
           ) : (
             renderIcon()
           )}
 
-          {/* Name */}
+          {/* M3 Name */}
           {editingItem && editingItem.id === item.id ? (
             <Input
               value={editingItem.name}
@@ -237,20 +234,21 @@ export const TreeItemContent = ({
               onKeyDown={handleKeyDown}
               onBlur={cancelRenaming}
               onClick={(e) => e.stopPropagation()}
-              className="h-6 py-0.5 px-1.5 text-sm flex-1 min-w-0 focus:ring-primary"
+              className="h-8 py-1 px-2 text-sm flex-1 min-w-0 rounded-xl bg-surface-container-highest border-outline focus:ring-primary"
               autoFocus
             />
           ) : (
             <span 
               className={`
-                truncate text-sm font-medium flex-1 min-w-0
+                truncate text-body-medium font-medium flex-1 min-w-0
+                transition-colors duration-short-4 ease-standard
                 ${isDeleting 
-                  ? 'text-muted-foreground/50' 
+                  ? 'text-on-surface/40' 
                   : isCurrentlyRunning
-                    ? 'text-accent'
+                    ? 'text-tertiary'
                     : isActive 
-                      ? 'text-primary' 
-                      : 'text-foreground'
+                      ? 'text-on-secondary-container' 
+                      : 'text-on-surface'
                 }
               `}
               onDoubleClick={() => !isDeleting && startRenaming(item.id, item.prompt_name)}
@@ -367,11 +365,11 @@ export const TreeItemContent = ({
             </TooltipProvider>
           )}
 
-          {/* Child count badge */}
+          {/* M3 Child count badge */}
           {hasChildren && !isExpanded && (
             <Badge 
               variant="secondary" 
-              className="ml-1 h-4 px-1.5 text-[10px] font-medium bg-muted text-muted-foreground flex-shrink-0"
+              className="ml-1 h-5 px-2 text-label-small font-medium bg-surface-container-high text-on-surface-variant rounded-full flex-shrink-0"
             >
               {childCount}
             </Badge>

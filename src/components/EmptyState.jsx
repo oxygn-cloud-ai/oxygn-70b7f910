@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Search, FolderOpen, Bot, Inbox, AlertCircle } from 'lucide-react';
+import { FileText, Search, FolderOpen, Bot, Inbox, AlertCircle, Plus } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
 const iconMap = {
@@ -25,41 +25,47 @@ export function EmptyState({
   const Icon = iconMap[icon] || Inbox;
 
   return (
-    <div className={`flex flex-col items-center justify-center py-12 px-4 text-center ${className}`}>
-      {/* Icon */}
-      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-        <Icon className="h-6 w-6 text-muted-foreground" />
+    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}>
+      {/* M3 Icon Container with surface tint */}
+      <div className="w-16 h-16 rounded-full bg-primary/8 flex items-center justify-center mb-6 animate-scale-in">
+        <Icon className="h-8 w-8 text-primary" />
       </div>
 
-      {/* Title */}
-      <h3 className="text-base font-semibold text-foreground mb-1">{title}</h3>
+      {/* M3 Typography - Headline Small */}
+      <h3 className="text-headline-small text-on-surface mb-2">{title}</h3>
 
-      {/* Description */}
-      <p className="text-sm text-muted-foreground max-w-[240px] mb-4">{description}</p>
+      {/* M3 Typography - Body Medium */}
+      <p className="text-body-medium text-on-surface-variant max-w-[280px] mb-6">{description}</p>
 
-      {/* Action */}
+      {/* M3 FAB Action */}
       {onAction && (actionIcon || actionLabel) && (
         actionIcon ? (
-          <button
-            type="button"
+          <Button
+            variant="fab"
+            size="fab"
             onClick={onAction}
             aria-label={actionAriaLabel || actionLabel || 'Action'}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="animate-fade-in"
           >
             {actionIcon}
-          </button>
+          </Button>
         ) : (
-          <Button variant="secondary" onClick={onAction}>
+          <Button 
+            variant="fabExtended" 
+            onClick={onAction}
+            className="animate-fade-in"
+          >
+            <Plus className="h-5 w-5 mr-2" />
             {actionLabel}
           </Button>
         )
       )}
 
-      {/* Tip */}
+      {/* M3 Tip with subtle styling */}
       {tip && (
-        <p className="text-xs text-muted-foreground mt-4 flex items-center gap-1.5">
+        <p className="text-label-medium text-on-surface-variant mt-6 flex items-center gap-2 px-4 py-2 rounded-full bg-surface-container-low">
           <span className="text-primary">💡</span>
-          <span>Tip: {tip}</span>
+          <span>{tip}</span>
         </p>
       )}
     </div>
