@@ -155,7 +155,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-6 scrollbar-thin">
         {activeTab === "prompt" && (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-3xl space-y-6">
             {/* Title */}
             <div>
               <h1 className="text-headline-sm text-on-surface font-semibold" style={{ fontSize: "24px" }}>
@@ -225,7 +225,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         )}
 
         {activeTab === "settings" && (
-          <div className="max-w-xl mx-auto space-y-6">
+          <div className="max-w-xl space-y-6">
             <h2 className="text-title-md text-on-surface font-semibold">Prompt Settings</h2>
             
             <div className="space-y-4">
@@ -250,7 +250,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         )}
 
         {activeTab === "variables" && (
-          <div className="max-w-xl mx-auto space-y-4">
+          <div className="max-w-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-title-md text-on-surface font-semibold">Variables</h2>
               <span className="text-label-sm text-on-surface-variant">{mockVariables.length} variables</span>
@@ -286,7 +286,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         )}
 
         {activeTab === "templates" && (
-          <div className="max-w-xl mx-auto space-y-6">
+          <div className="max-w-xl space-y-6">
             <h2 className="text-title-md text-on-surface font-semibold">Templates</h2>
             <p className="text-body-md text-on-surface-variant">
               No templates attached to this prompt.
@@ -295,7 +295,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
         )}
 
         {activeTab === "conversation" && (
-          <div className="max-w-xl mx-auto space-y-6">
+          <div className="max-w-xl space-y-6">
             <h2 className="text-title-md text-on-surface font-semibold">Conversation</h2>
             <p className="text-body-md text-on-surface-variant">
               Start a conversation to test this prompt interactively.
