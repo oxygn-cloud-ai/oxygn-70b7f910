@@ -94,8 +94,6 @@ const Mockup = () => {
             activeNav={activeNav}
             onNavChange={setActiveNav}
             onNavHover={setHoveredNav}
-            isDark={isDark}
-            onToggleDark={() => setIsDark(!isDark)}
             folderPanelOpen={folderPanelOpen}
             onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
           />
@@ -105,7 +103,9 @@ const Mockup = () => {
             {/* Top Bar - 64dp */}
             <MockupTopBar 
               tooltipsEnabled={tooltipsEnabled} 
-              onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)} 
+              onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
+              isDark={isDark}
+              onToggleDark={() => setIsDark(!isDark)}
             />
 
             {/* Main Content with Resizable Panels */}
