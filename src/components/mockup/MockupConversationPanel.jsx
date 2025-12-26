@@ -11,10 +11,7 @@ const mockMessages = [
 
 const MockupConversationPanel = () => {
   return (
-    <aside 
-      className="w-80 h-full flex flex-col bg-surface-container-low border-l border-outline-variant"
-      style={{ width: "320px", minWidth: "320px" }}
-    >
+    <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       {/* Header - matches main toolbar height */}
       <div 
         className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"
