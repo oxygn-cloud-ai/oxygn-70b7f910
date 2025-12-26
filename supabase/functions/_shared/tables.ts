@@ -27,6 +27,9 @@ export const TABLES = {
   WORKBENCH_FILES: getEnv('WORKBENCH_FILES_TBL', 'q_workbench_files'),
   WORKBENCH_CONFLUENCE: getEnv('WORKBENCH_CONFLUENCE_TBL', 'q_workbench_confluence_links'),
   PROMPT_LIBRARY: getEnv('PROMPT_LIBRARY_TBL', 'q_prompt_library'),
+  // New tables
+  JSON_SCHEMA_TEMPLATES: getEnv('JSON_SCHEMA_TEMPLATES_TBL', 'q_json_schema_templates'),
+  EXPORT_TEMPLATES: getEnv('EXPORT_TEMPLATES_TBL', 'q_export_templates'),
 } as const;
 
 // Helper to build FK relationship strings dynamically
