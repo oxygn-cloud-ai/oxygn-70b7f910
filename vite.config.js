@@ -1,3 +1,4 @@
+// Cache invalidation: 2025-12-26T12:00:00Z
 import { fileURLToPath, URL } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
