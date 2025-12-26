@@ -1,4 +1,4 @@
-// Model capabilities configuration
+// Model capabilities configuration - v2
 // Defines which settings and tools each model/provider supports
 
 // Settings that each model supports
