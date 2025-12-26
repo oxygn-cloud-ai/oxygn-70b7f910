@@ -5,6 +5,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
 import MockupTopBar from "@/components/mockup/MockupTopBar";
 import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
+import MockupSubmenuPanel from "@/components/mockup/MockupSubmenuPanel";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
 import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
 import MockupExportPanel from "@/components/mockup/MockupExportPanel";
@@ -13,6 +14,7 @@ const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("prompts");
+  const [hoveredNav, setHoveredNav] = useState(null);
   const [activePromptId, setActivePromptId] = useState(2);
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
 
@@ -27,6 +29,15 @@ const Mockup = () => {
       document.documentElement.classList.remove("dark");
     };
   }, [isDark]);
+
+  // Determine which panel content to show - hovered takes priority over active
+  const showSubmenu = hoveredNav && hoveredNav !== "prompts" && hoveredNav !== activeNav;
+  const displayNav = showSubmenu ? hoveredNav : activeNav;
+
+  const handleSubmenuClick = (itemId) => {
+    console.log("Submenu item clicked:", itemId);
+    // In a real app, this would navigate or trigger actions
+  };
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -44,6 +55,7 @@ const Mockup = () => {
           <MockupNavigationRail 
             activeNav={activeNav}
             onNavChange={setActiveNav}
+            onNavHover={setHoveredNav}
             isDark={isDark}
             onToggleDark={() => setIsDark(!isDark)}
             folderPanelOpen={folderPanelOpen}
@@ -58,11 +70,23 @@ const Mockup = () => {
             {/* Main Content with Resizable Panels */}
             <div className="flex-1 flex overflow-hidden">
               <ResizablePanelGroup direction="horizontal" className="flex-1">
-                {/* Prompts Panel - collapsible */}
+                {/* Folder/Submenu Panel - collapsible */}
                 {folderPanelOpen && (
                   <>
                     <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                      <MockupFolderPanel />
+                      {showSubmenu ? (
+                        <MockupSubmenuPanel 
+                          hoveredNav={hoveredNav} 
+                          onItemClick={handleSubmenuClick}
+                        />
+                      ) : activeNav === "prompts" ? (
+                        <MockupFolderPanel />
+                      ) : (
+                        <MockupSubmenuPanel 
+                          hoveredNav={activeNav} 
+                          onItemClick={handleSubmenuClick}
+                        />
+                      )}
                     </ResizablePanel>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
                   </>
@@ -104,13 +128,13 @@ const Mockup = () => {
           <ul className="text-label-sm text-on-surface-variant space-y-1">
             <li>• Nav Rail: 80px wide</li>
             <li>• Top Bar: 64dp height</li>
-            <li>• FAB: 56×56dp, 16px radius</li>
             <li>• Search: 56dp, 28px radius</li>
             <li>• Tree items: 28dp height</li>
             <li>• Typography: 10-14px scale</li>
             <li>• State layers: 8% hover, 10% focus</li>
             <li>• Panels: Horizontally resizable</li>
             <li>• Drag & Drop: Reorder prompts</li>
+            <li>• Nav Hover: Submenu preview</li>
           </ul>
         </div>
       </div>
