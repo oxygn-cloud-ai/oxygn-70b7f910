@@ -83,7 +83,7 @@ const MockupConversationPanel = () => {
           </div>
         </div>
       </div>
-    </aside>
+    </div>
   );
 };
 
