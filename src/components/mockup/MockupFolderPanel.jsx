@@ -103,7 +103,7 @@ const MockupFolderPanel = ({ isOpen }) => {
           {expandedFolders["project-a"] && (
             <>
               <TreeItem icon={FileText} label="API Documentation" level={1} />
-              <TreeItem icon={Bot} label="Customer Support Bot" level={1} isActive />
+              <TreeItem icon={MessageSquare} label="Customer Support Bot" level={1} isActive />
               <TreeItem icon={FileText} label="Summary Generator" level={1} />
             </>
           )}
