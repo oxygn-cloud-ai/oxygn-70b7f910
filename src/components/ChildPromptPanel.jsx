@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { FileText, Settings, Variable, LayoutTemplate, Sparkles, Loader2, ListTree, Upload } from 'lucide-react';
+import { FileText, Settings, Variable, LayoutTemplate, Sparkles, Loader2, ListTree, Upload, GitBranch } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
@@ -389,40 +389,33 @@ const ChildPromptPanel = ({
         <div className="flex-1 overflow-auto">
           <TabsContent value="prompt" className="h-full m-0 p-0">
             <div className="flex flex-col gap-4 p-4">
-              {/* Thread Strategy Selector */}
-              <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
-                <div className="flex-1">
-                  <div className="flex items-center gap-1 mb-1">
-                    <Label className="text-xs font-medium">Thread Strategy</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground">
-                          <Info className="h-3 w-3" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 bg-popover" side="top">
-                        <div className="space-y-2">
-                          <h4 className="font-medium text-sm">Thread Strategy</h4>
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Parent Thread:</strong> Messages go to the parent assistant's Studio thread, maintaining shared conversation context.
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Isolated:</strong> This child prompt has its own separate threads.
-                          </p>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <Select value={childThreadStrategy} onValueChange={handleThreadStrategyChange}>
-                    <SelectTrigger className="h-8 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      <SelectItem value="parent">Use Parent Thread</SelectItem>
-                      <SelectItem value="isolated">Isolated Threads</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Thread Strategy Toggle - Compact icon style */}
+              <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border border-border/50">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className={`flex items-center justify-center h-8 w-8 rounded-md cursor-pointer transition-colors ${
+                        childThreadStrategy === 'parent' 
+                          ? 'bg-primary/20 text-primary' 
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                      onClick={() => handleThreadStrategyChange(childThreadStrategy === 'parent' ? 'isolated' : 'parent')}
+                    >
+                      <GitBranch className="h-4 w-4" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">
+                      {childThreadStrategy === 'parent' 
+                        ? 'Using parent thread (click for isolated)' 
+                        : 'Isolated threads (click to use parent)'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <span className="text-xs text-muted-foreground">
+                  {childThreadStrategy === 'parent' ? 'Parent thread' : 'Isolated threads'}
+                </span>
               </div>
 
               {/* Thread Selector - Only show for isolated strategy */}
