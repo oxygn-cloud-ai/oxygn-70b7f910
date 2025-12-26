@@ -3,6 +3,7 @@ import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
 import MockupTopBar from "@/components/mockup/MockupTopBar";
 import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
+import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
 
 const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
@@ -54,6 +55,9 @@ const Mockup = () => {
 
             {/* Reading Pane - flexible */}
             <MockupReadingPane hasSelection={activePromptId !== null} />
+
+            {/* Conversation Panel - 320px, always open */}
+            <MockupConversationPanel />
           </div>
         </div>
       </div>
