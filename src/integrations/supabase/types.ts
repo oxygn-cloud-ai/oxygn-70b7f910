@@ -477,6 +477,45 @@ export type Database = {
         }
         Relationships: []
       }
+      q_json_schema_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          is_deleted: boolean | null
+          is_private: boolean | null
+          json_schema: Json
+          owner_id: string | null
+          row_id: string
+          schema_description: string | null
+          schema_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          is_deleted?: boolean | null
+          is_private?: boolean | null
+          json_schema: Json
+          owner_id?: string | null
+          row_id?: string
+          schema_description?: string | null
+          schema_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          is_deleted?: boolean | null
+          is_private?: boolean | null
+          json_schema?: Json
+          owner_id?: string | null
+          row_id?: string
+          schema_description?: string | null
+          schema_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       q_model_defaults: {
         Row: {
           created_at: string | null
@@ -705,6 +744,7 @@ export type Database = {
           best_of: string | null
           best_of_on: boolean | null
           child_thread_strategy: string | null
+          code_interpreter_on: boolean | null
           confluence_enabled: boolean | null
           context_length: string | null
           context_length_on: boolean | null
@@ -715,6 +755,7 @@ export type Database = {
           exclude_from_cascade: boolean | null
           exclude_from_export: boolean | null
           extracted_variables: Json | null
+          file_search_on: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
           input_admin_prompt: string | null
@@ -723,6 +764,7 @@ export type Database = {
           is_deleted: boolean | null
           is_legacy: boolean | null
           is_private: boolean | null
+          json_schema_template_id: string | null
           last_ai_call_metadata: Json | null
           library_prompt_id: string | null
           logit_bias: string | null
@@ -748,9 +790,13 @@ export type Database = {
           presence_penalty: string | null
           presence_penalty_on: boolean | null
           prompt_name: string | null
+          reasoning_effort: string | null
+          reasoning_effort_on: boolean | null
           response_format: string | null
           response_format_on: boolean | null
           row_id: string
+          seed: string | null
+          seed_on: boolean | null
           settings_expanded: boolean | null
           stop: string | null
           stop_on: boolean | null
@@ -763,6 +809,8 @@ export type Database = {
           temperature_on: boolean | null
           template_row_id: string | null
           thread_mode: string | null
+          tool_choice: string | null
+          tool_choice_on: boolean | null
           top_p: string | null
           top_p_on: boolean | null
           updated_at: string | null
@@ -774,6 +822,7 @@ export type Database = {
           best_of?: string | null
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
+          code_interpreter_on?: boolean | null
           confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
@@ -784,6 +833,7 @@ export type Database = {
           exclude_from_cascade?: boolean | null
           exclude_from_export?: boolean | null
           extracted_variables?: Json | null
+          file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -792,6 +842,7 @@ export type Database = {
           is_deleted?: boolean | null
           is_legacy?: boolean | null
           is_private?: boolean | null
+          json_schema_template_id?: string | null
           last_ai_call_metadata?: Json | null
           library_prompt_id?: string | null
           logit_bias?: string | null
@@ -817,9 +868,13 @@ export type Database = {
           presence_penalty?: string | null
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
+          reasoning_effort?: string | null
+          reasoning_effort_on?: boolean | null
           response_format?: string | null
           response_format_on?: boolean | null
           row_id?: string
+          seed?: string | null
+          seed_on?: boolean | null
           settings_expanded?: boolean | null
           stop?: string | null
           stop_on?: boolean | null
@@ -832,6 +887,8 @@ export type Database = {
           temperature_on?: boolean | null
           template_row_id?: string | null
           thread_mode?: string | null
+          tool_choice?: string | null
+          tool_choice_on?: boolean | null
           top_p?: string | null
           top_p_on?: boolean | null
           updated_at?: string | null
@@ -843,6 +900,7 @@ export type Database = {
           best_of?: string | null
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
+          code_interpreter_on?: boolean | null
           confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
@@ -853,6 +911,7 @@ export type Database = {
           exclude_from_cascade?: boolean | null
           exclude_from_export?: boolean | null
           extracted_variables?: Json | null
+          file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
           input_admin_prompt?: string | null
@@ -861,6 +920,7 @@ export type Database = {
           is_deleted?: boolean | null
           is_legacy?: boolean | null
           is_private?: boolean | null
+          json_schema_template_id?: string | null
           last_ai_call_metadata?: Json | null
           library_prompt_id?: string | null
           logit_bias?: string | null
@@ -886,9 +946,13 @@ export type Database = {
           presence_penalty?: string | null
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
+          reasoning_effort?: string | null
+          reasoning_effort_on?: boolean | null
           response_format?: string | null
           response_format_on?: boolean | null
           row_id?: string
+          seed?: string | null
+          seed_on?: boolean | null
           settings_expanded?: boolean | null
           stop?: string | null
           stop_on?: boolean | null
@@ -901,6 +965,8 @@ export type Database = {
           temperature_on?: boolean | null
           template_row_id?: string | null
           thread_mode?: string | null
+          tool_choice?: string | null
+          tool_choice_on?: boolean | null
           top_p?: string | null
           top_p_on?: boolean | null
           updated_at?: string | null
@@ -908,6 +974,13 @@ export type Database = {
           web_search_on?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "q_prompts_json_schema_template_id_fkey"
+            columns: ["json_schema_template_id"]
+            isOneToOne: false
+            referencedRelation: "q_json_schema_templates"
+            referencedColumns: ["row_id"]
+          },
           {
             foreignKeyName: "q_prompts_parent_row_id_fkey"
             columns: ["parent_row_id"]
