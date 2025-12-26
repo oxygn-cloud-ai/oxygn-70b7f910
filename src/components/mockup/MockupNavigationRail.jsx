@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const NavItem = ({ icon: Icon, label, isActive = false, onClick }) => (
-  <div className="flex flex-col items-center gap-0.5">
+const NavItem = ({ icon: Icon, label, isActive = false, onClick, onMouseEnter, onMouseLeave }) => (
+  <div 
+    className="flex flex-col items-center gap-0.5"
+    onMouseEnter={onMouseEnter}
+    onMouseLeave={onMouseLeave}
+  >
     <button
       onClick={onClick}
       className={`
@@ -34,7 +38,7 @@ const NavItem = ({ icon: Icon, label, isActive = false, onClick }) => (
   </div>
 );
 
-const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onToggleDark, isDark, onToggleFolderPanel, folderPanelOpen }) => {
+const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, onToggleDark, isDark, onToggleFolderPanel, folderPanelOpen }) => {
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts" },
     { id: "workbench", icon: MessageSquare, label: "Workbench" },
@@ -72,6 +76,8 @@ const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onToggleDark
             label={item.label}
             isActive={activeNav === item.id}
             onClick={() => onNavChange?.(item.id)}
+            onMouseEnter={() => onNavHover?.(item.id)}
+            onMouseLeave={() => onNavHover?.(null)}
           />
         ))}
       </div>
