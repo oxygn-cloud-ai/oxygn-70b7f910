@@ -495,15 +495,20 @@ const mockVariables = [
   { name: "max_retries", value: "3", required: false, type: "number" },
 ];
 
-const MockupReadingPane = ({ hasSelection = true, onExport }) => {
+const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts" }) => {
   const [activeTab, setActiveTab] = useState("prompt");
 
-  const tabs = [
-    { id: "prompt", icon: FileText, label: "Prompt" },
-    { id: "settings", icon: Sliders, label: "Prompt Settings" },
-    { id: "variables", icon: Variable, label: "Variables" },
-    { id: "templates", icon: LayoutTemplate, label: "Templates" },
-  ];
+  // When activeNav is templates, always show templates tab
+  const effectiveTab = activeNav === "templates" ? "templates" : activeTab;
+
+  const tabs = activeNav === "templates" 
+    ? [{ id: "templates", icon: LayoutTemplate, label: "Templates" }]
+    : [
+        { id: "prompt", icon: FileText, label: "Prompt" },
+        { id: "settings", icon: Sliders, label: "Prompt Settings" },
+        { id: "variables", icon: Variable, label: "Variables" },
+        { id: "templates", icon: LayoutTemplate, label: "Templates" },
+      ];
 
   if (!hasSelection) {
     return (
@@ -531,7 +536,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
               key={tab.id}
               icon={tab.icon}
               label={tab.label}
-              isActive={activeTab === tab.id}
+              isActive={effectiveTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
             />
           ))}
@@ -554,7 +559,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-6 scrollbar-thin">
-        {activeTab === "prompt" && (
+        {effectiveTab === "prompt" && (
           <div className="max-w-3xl space-y-6">
             {/* Title */}
             <div>
@@ -718,7 +723,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
           </div>
         )}
 
-        {activeTab === "settings" && (
+        {effectiveTab === "settings" && (
           <div className="max-w-xl space-y-6">
             <h2 className="text-title-md text-on-surface font-semibold">Prompt Settings</h2>
             
@@ -743,7 +748,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
           </div>
         )}
 
-        {activeTab === "variables" && (
+        {effectiveTab === "variables" && (
           <div className="max-w-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-title-md text-on-surface font-semibold">Variables</h2>
@@ -779,7 +784,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
           </div>
         )}
 
-        {activeTab === "templates" && (
+        {effectiveTab === "templates" && (
           <MockupTemplatesTab />
         )}
       </div>

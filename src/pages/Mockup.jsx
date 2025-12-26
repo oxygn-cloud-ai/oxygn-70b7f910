@@ -12,6 +12,7 @@ import MockupExportPanel from "@/components/mockup/MockupExportPanel";
 const Mockup = () => {
   const [isDark, setIsDark] = useState(false);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
+  const [activeNav, setActiveNav] = useState("prompts");
   const [activePromptId, setActivePromptId] = useState(2);
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
 
@@ -41,7 +42,8 @@ const Mockup = () => {
         <div className="flex-1 flex overflow-hidden">
           {/* Navigation Rail - 80px */}
           <MockupNavigationRail 
-            activeNav="prompts"
+            activeNav={activeNav}
+            onNavChange={setActiveNav}
             isDark={isDark}
             onToggleDark={() => setIsDark(!isDark)}
             folderPanelOpen={folderPanelOpen}
@@ -71,6 +73,7 @@ const Mockup = () => {
                   <MockupReadingPane 
                     hasSelection={activePromptId !== null} 
                     onExport={() => setExportPanelOpen(true)}
+                    activeNav={activeNav}
                   />
                 </ResizablePanel>
 
