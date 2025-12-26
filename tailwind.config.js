@@ -40,6 +40,7 @@ module.exports = {
           container: "hsl(var(--primary-container))",
           "container-foreground": "hsl(var(--on-primary-container))",
         },
+        "on-primary": "hsl(var(--primary-foreground))",
         "on-primary-container": "hsl(var(--on-primary-container))",
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -96,19 +97,22 @@ module.exports = {
         },
         "secondary-container": {
           DEFAULT: "hsl(var(--secondary-container))",
-          foreground: "hsl(var(--on-secondary-container))",
         },
+        "on-secondary-container": "hsl(var(--on-secondary-container))",
         tertiary: {
           DEFAULT: "hsl(var(--tertiary))",
           container: "hsl(var(--tertiary-container))",
           foreground: "hsl(var(--on-tertiary-container))",
         },
+        "on-tertiary": "hsl(var(--on-tertiary))",
         // M3 Inverse colors
         inverse: {
           surface: "hsl(var(--inverse-surface))",
           "on-surface": "hsl(var(--inverse-on-surface))",
           primary: "hsl(var(--inverse-primary))",
         },
+        "inverse-surface": "hsl(var(--inverse-surface))",
+        "inverse-on-surface": "hsl(var(--inverse-on-surface))",
         scrim: "hsl(var(--scrim))",
       },
       borderRadius: {
