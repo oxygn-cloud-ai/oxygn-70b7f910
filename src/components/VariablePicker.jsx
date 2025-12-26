@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Braces, Clock, User, FileText, ChevronRight } from 'lucide-react';
+import { Braces, Clock, User, FileText, ChevronRight, Link2 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -19,6 +19,7 @@ import {
   SYSTEM_VARIABLE_TYPES,
   getSystemVariableNames,
 } from '@/config/systemVariables';
+import PromptReferencePicker from './PromptReferencePicker';
 
 /**
  * Compact variable picker with icon trigger
@@ -33,6 +34,7 @@ const VariablePicker = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
+  const [showPromptPicker, setShowPromptPicker] = useState(false);
 
   const handleInsert = (varName) => {
     onInsert(varName);
@@ -121,6 +123,23 @@ const VariablePicker = ({
       >
         <ScrollArea className="max-h-[300px]">
           <div className="p-1">
+            {/* Prompt References - Top Section */}
+            <div className="mb-1">
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  setShowPromptPicker(true);
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-primary hover:text-primary hover:bg-primary/10 rounded"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                <span>Prompt References</span>
+                <ChevronRight className="h-3 w-3 ml-auto" />
+              </button>
+            </div>
+
+            <div className="border-t border-border my-1" />
+
             {/* System Variable Groups */}
             {Object.entries(systemVarGroups).map(([key, group]) => {
               const Icon = group.icon;
@@ -186,6 +205,16 @@ const VariablePicker = ({
           </div>
         </ScrollArea>
       </PopoverContent>
+
+      {/* Prompt Reference Picker Modal */}
+      <PromptReferencePicker
+        isOpen={showPromptPicker}
+        onClose={() => setShowPromptPicker(false)}
+        onInsert={(reference) => {
+          onInsert(reference);
+          setShowPromptPicker(false);
+        }}
+      />
     </Popover>
   );
 };

@@ -578,6 +578,60 @@ serve(async (req) => {
       ...template_variables,
     };
 
+    // ============================================================================
+    // RESOLVE q.ref[UUID].field REFERENCES
+    // Pattern: {{q.ref[uuid].field}} - references another prompt's field by UUID
+    // ============================================================================
+    const REF_PATTERN = /\{\{q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)\}\}/gi;
+    
+    const extractReferencedIds = (texts: string[]): string[] => {
+      const ids = new Set<string>();
+      const combined = texts.join(' ');
+      let match;
+      while ((match = REF_PATTERN.exec(combined)) !== null) {
+        ids.add(match[1].toLowerCase());
+      }
+      REF_PATTERN.lastIndex = 0; // Reset for reuse
+      return Array.from(ids);
+    };
+
+    // Gather all text fields that might contain references
+    const textsToScan = [
+      childPrompt.input_admin_prompt || '',
+      childPrompt.input_user_prompt || '',
+      user_message || '',
+      assistantData.instructions || ''
+    ];
+    
+    const referencedIds = extractReferencedIds(textsToScan);
+    
+    if (referencedIds.length > 0) {
+      console.log(`Found ${referencedIds.length} q.ref references to resolve:`, referencedIds);
+      
+      const { data: refPrompts } = await supabase
+        .from(TABLES.PROMPTS)
+        .select('row_id, prompt_name, output_response, user_prompt_result, input_admin_prompt, input_user_prompt, system_variables')
+        .in('row_id', referencedIds);
+      
+      if (refPrompts && refPrompts.length > 0) {
+        refPrompts.forEach((p: any) => {
+          variables[`q.ref[${p.row_id}].output_response`] = p.output_response || '';
+          variables[`q.ref[${p.row_id}].user_prompt_result`] = p.user_prompt_result || '';
+          variables[`q.ref[${p.row_id}].input_admin_prompt`] = p.input_admin_prompt || '';
+          variables[`q.ref[${p.row_id}].input_user_prompt`] = p.input_user_prompt || '';
+          variables[`q.ref[${p.row_id}].prompt_name`] = p.prompt_name || '';
+          
+          // Include system variables from referenced prompt
+          if (p.system_variables && typeof p.system_variables === 'object') {
+            Object.entries(p.system_variables).forEach(([key, val]) => {
+              variables[`q.ref[${p.row_id}].${key}`] = String(val ?? '');
+            });
+          }
+        });
+        console.log(`Resolved ${refPrompts.length} referenced prompts`);
+      }
+    }
+
     // Fetch empty prompt fallback setting
     let emptyPromptFallback = 'Execute this prompt';
     try {
