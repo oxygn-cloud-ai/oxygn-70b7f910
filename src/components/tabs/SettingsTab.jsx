@@ -38,12 +38,45 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
     handleChange('node_type', value);
     handleSave('node_type', value);
     
-    // Auto-enable JSON mode for action nodes
+    // Auto-set response_format based on node type
     if (value === 'action') {
-      handleChange('response_format', 'json_object');
+      // Set structured output format for action nodes
+      const structuredFormat = JSON.stringify({
+        type: 'json_schema',
+        json_schema: {
+          name: 'action_response',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    content: { type: 'string' }
+                  },
+                  required: ['name', 'content'],
+                  additionalProperties: false
+                }
+              }
+            },
+            required: ['items'],
+            additionalProperties: false
+          }
+        }
+      });
+      handleChange('response_format', structuredFormat);
       handleChange('response_format_on', true);
-      handleSave('response_format', 'json_object');
+      handleSave('response_format', structuredFormat);
       handleSave('response_format_on', true);
+    } else {
+      // Reset to text format for standard nodes
+      handleChange('response_format', '{"type": "text"}');
+      handleChange('response_format_on', false);
+      handleSave('response_format', '{"type": "text"}');
+      handleSave('response_format_on', false);
     }
   };
 
