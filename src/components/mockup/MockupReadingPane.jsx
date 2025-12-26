@@ -495,27 +495,48 @@ const mockVariables = [
   { name: "max_retries", value: "3", required: false, type: "number" },
 ];
 
-const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts" }) => {
+const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", selectedTemplate = null }) => {
   const [activeTab, setActiveTab] = useState("prompt");
+  const [templateTab, setTemplateTab] = useState("overview");
 
-  // When activeNav is templates, always show templates tab
-  const effectiveTab = activeNav === "templates" ? "templates" : activeTab;
+  // When activeNav is templates, show template-specific tabs
+  const isTemplateMode = activeNav === "templates";
+  const effectiveTab = isTemplateMode ? "templates" : activeTab;
 
-  const tabs = activeNav === "templates" 
-    ? [{ id: "templates", icon: LayoutTemplate, label: "Templates" }]
-    : [
-        { id: "prompt", icon: FileText, label: "Prompt" },
-        { id: "settings", icon: Sliders, label: "Prompt Settings" },
-        { id: "variables", icon: Variable, label: "Variables" },
-        { id: "templates", icon: LayoutTemplate, label: "Templates" },
-      ];
+  const promptTabs = [
+    { id: "prompt", icon: FileText, label: "Prompt" },
+    { id: "settings", icon: Sliders, label: "Prompt Settings" },
+    { id: "variables", icon: Variable, label: "Variables" },
+  ];
 
-  if (!hasSelection) {
+  const templateTabs = [
+    { id: "overview", icon: FileText, label: "Overview" },
+    { id: "structure", icon: LayoutTemplate, label: "Structure" },
+    { id: "variables", icon: Variable, label: "Variables" },
+  ];
+
+  const tabs = isTemplateMode ? templateTabs : promptTabs;
+  const currentTab = isTemplateMode ? templateTab : activeTab;
+  const setCurrentTab = isTemplateMode ? setTemplateTab : setActiveTab;
+
+  if (!hasSelection && !isTemplateMode) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface">
         <div className="text-center text-on-surface-variant">
           <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
           <p className="text-body-md">Select a prompt to view</p>
+          <p className="text-label-md mt-1">or create a new one</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isTemplateMode && !selectedTemplate) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-surface">
+        <div className="text-center text-on-surface-variant">
+          <LayoutTemplate className="h-16 w-16 mx-auto mb-4 opacity-30" />
+          <p className="text-body-md">Select a template to view</p>
           <p className="text-label-md mt-1">or create a new one</p>
         </div>
       </div>
@@ -536,8 +557,8 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
               key={tab.id}
               icon={tab.icon}
               label={tab.label}
-              isActive={effectiveTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              isActive={currentTab === tab.id}
+              onClick={() => setCurrentTab(tab.id)}
             />
           ))}
         </div>
@@ -551,15 +572,178 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
         <IconButton icon={Share2} label="Share" />
         <IconButton icon={Trash2} label="Delete" />
         
-        {/* Run button */}
-        <IconButton icon={Play} label="Run prompt" variant="primary" />
+        {/* Run button - only for prompts */}
+        {!isTemplateMode && (
+          <IconButton icon={Play} label="Run prompt" variant="primary" />
+        )}
         
         <IconButton icon={MoreVertical} label="More options" />
       </div>
 
       {/* Content Area */}
       <div className="flex-1 overflow-auto p-6 scrollbar-thin">
-        {effectiveTab === "prompt" && (
+        {/* Template Editor Content */}
+        {isTemplateMode && selectedTemplate && (
+          <>
+            {templateTab === "overview" && (
+              <div className="max-w-3xl space-y-6">
+                {/* Title */}
+                <div>
+                  <h1 className="text-headline-sm text-on-surface font-semibold" style={{ fontSize: "24px" }}>
+                    {selectedTemplate.name}
+                  </h1>
+                  <p className="text-body-sm text-on-surface-variant mt-1">
+                    Last edited Dec 23, 2024
+                  </p>
+                </div>
+
+                {/* Name Field */}
+                <div className="space-y-2">
+                  <label className="text-label-lg text-on-surface font-medium">Template Name</label>
+                  <div 
+                    className="min-h-12 p-4 bg-surface-container rounded-m3-md border border-outline-variant"
+                    style={{ borderRadius: "12px" }}
+                  >
+                    <p className="text-body-md text-on-surface">{selectedTemplate.name}</p>
+                  </div>
+                </div>
+
+                {/* Description Field */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-label-lg text-on-surface font-medium">Description</label>
+                    <div className="flex items-center gap-0.5">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px]">Copy</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </div>
+                  <div 
+                    className="min-h-20 p-4 bg-surface-container rounded-m3-md border border-outline-variant"
+                    style={{ borderRadius: "12px" }}
+                  >
+                    <p className="text-body-md text-on-surface">
+                      A reusable template for creating professional customer support agent prompts with consistent tone and behavior guidelines.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Category Field */}
+                <div className="space-y-2">
+                  <label className="text-label-lg text-on-surface font-medium">Category</label>
+                  <div 
+                    className="min-h-12 p-4 bg-surface-container rounded-m3-md border border-outline-variant flex items-center"
+                    style={{ borderRadius: "12px" }}
+                  >
+                    <span className="text-body-md px-2 py-1 rounded bg-amber-500/10 text-amber-600">
+                      {selectedTemplate.category || "Business"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Notes Field - template specific */}
+                <div className="space-y-2">
+                  <label className="text-label-lg text-on-surface font-medium">Usage Notes</label>
+                  <div 
+                    className="min-h-24 p-4 bg-surface-container rounded-m3-md border border-outline-variant"
+                    style={{ borderRadius: "12px" }}
+                  >
+                    <p className="text-body-md text-on-surface-variant italic">
+                      Add notes about when and how to use this template...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {templateTab === "structure" && (
+              <div className="max-w-3xl space-y-6">
+                <div>
+                  <h2 className="text-title-md text-on-surface font-semibold">Template Structure</h2>
+                  <p className="text-body-sm text-on-surface-variant mt-1">Define the hierarchy of prompts in this template</p>
+                </div>
+
+                {/* Structure Tree */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-label-lg text-on-surface font-medium">Prompt Nodes</label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="w-7 h-7 flex items-center justify-center rounded-sm text-primary hover:bg-on-surface/[0.08]">
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">Add Node</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="p-4 bg-surface-container rounded-m3-md border border-outline-variant space-y-2">
+                    {[
+                      { name: "1. Initialize Context", level: 0 },
+                      { name: "2. Process Input", level: 1 },
+                      { name: "3. Generate Response", level: 1 },
+                      { name: "4. Format Output", level: 2 },
+                      { name: "5. Quality Check", level: 1 },
+                    ].map((node, idx) => (
+                      <div 
+                        key={idx}
+                        className="h-10 flex items-center gap-2 px-3 bg-surface-container-high rounded-m3-sm border border-outline-variant"
+                        style={{ marginLeft: `${node.level * 20}px` }}
+                      >
+                        <FileText className="h-4 w-4 text-on-surface-variant" />
+                        <span className="text-body-sm text-on-surface">{node.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {templateTab === "variables" && (
+              <div className="max-w-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-title-md text-on-surface font-semibold">Template Variables</h2>
+                  <span className="text-label-sm text-on-surface-variant">4 variables</span>
+                </div>
+                
+                <div className="space-y-1">
+                  {[
+                    { name: "company_name", type: "text", required: true, default: "Your Company" },
+                    { name: "support_email", type: "text", required: true, default: "support@example.com" },
+                    { name: "tone", type: "enum", required: false, default: "Professional" },
+                    { name: "escalation_threshold", type: "number", required: false, default: "3" },
+                  ].map((variable) => (
+                    <div 
+                      key={variable.name}
+                      className="h-10 flex items-center gap-3 px-3 bg-surface-container rounded-m3-sm border border-outline-variant"
+                      style={{ height: "40px" }}
+                    >
+                      <VariableTypeIcon type={variable.type} />
+                      <span className="text-label-md text-on-surface font-medium w-40 truncate">
+                        {variable.name}
+                      </span>
+                      {variable.required && (
+                        <span className="text-[10px] text-primary">*</span>
+                      )}
+                      <div className="flex-1 h-7 px-2 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
+                        <span className="text-body-sm text-on-surface-variant truncate">
+                          Default: {variable.default}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Prompt Editor Content */}
+        {!isTemplateMode && currentTab === "prompt" && (
           <div className="max-w-3xl space-y-6">
             {/* Title */}
             <div>
@@ -723,7 +907,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
           </div>
         )}
 
-        {effectiveTab === "settings" && (
+        {!isTemplateMode && currentTab === "settings" && (
           <div className="max-w-xl space-y-6">
             <h2 className="text-title-md text-on-surface font-semibold">Prompt Settings</h2>
             
@@ -748,7 +932,7 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
           </div>
         )}
 
-        {effectiveTab === "variables" && (
+        {!isTemplateMode && currentTab === "variables" && (
           <div className="max-w-xl space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-title-md text-on-surface font-semibold">Variables</h2>
@@ -782,10 +966,6 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
               ))}
             </div>
           </div>
-        )}
-
-        {effectiveTab === "templates" && (
-          <MockupTemplatesTab />
         )}
       </div>
     </div>

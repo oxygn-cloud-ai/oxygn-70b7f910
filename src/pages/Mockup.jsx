@@ -5,6 +5,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
 import MockupTopBar from "@/components/mockup/MockupTopBar";
 import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
+import MockupTemplatesFolderPanel from "@/components/mockup/MockupTemplatesFolderPanel";
 import MockupSubmenuPanel from "@/components/mockup/MockupSubmenuPanel";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
 import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
@@ -16,6 +17,7 @@ const Mockup = () => {
   const [activeNav, setActiveNav] = useState("prompts");
   const [hoveredNav, setHoveredNav] = useState(null);
   const [activePromptId, setActivePromptId] = useState(2);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
 
   // Toggle dark mode on the document
@@ -30,14 +32,24 @@ const Mockup = () => {
     };
   }, [isDark]);
 
-  // Determine which panel content to show - hovered takes priority over active
-  const showSubmenu = hoveredNav && hoveredNav !== "prompts" && hoveredNav !== activeNav;
-  const displayNav = showSubmenu ? hoveredNav : activeNav;
+  // Determine which panel content to show - hovered takes priority over active (except for templates)
+  const showSubmenu = hoveredNav && hoveredNav !== "prompts" && hoveredNav !== "templates" && hoveredNav !== activeNav;
 
   const handleSubmenuClick = (itemId) => {
     console.log("Submenu item clicked:", itemId);
     // In a real app, this would navigate or trigger actions
   };
+
+  const handleSelectTemplate = (template) => {
+    setSelectedTemplate(template);
+  };
+
+  // Clear selected template when switching away from templates nav
+  useEffect(() => {
+    if (activeNav !== "templates") {
+      setSelectedTemplate(null);
+    }
+  }, [activeNav]);
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -81,6 +93,11 @@ const Mockup = () => {
                         />
                       ) : activeNav === "prompts" ? (
                         <MockupFolderPanel />
+                      ) : activeNav === "templates" ? (
+                        <MockupTemplatesFolderPanel 
+                          onSelectTemplate={handleSelectTemplate}
+                          selectedTemplateId={selectedTemplate?.id}
+                        />
                       ) : (
                         <MockupSubmenuPanel 
                           hoveredNav={activeNav} 
@@ -98,6 +115,7 @@ const Mockup = () => {
                     hasSelection={activePromptId !== null} 
                     onExport={() => setExportPanelOpen(true)}
                     activeNav={activeNav}
+                    selectedTemplate={selectedTemplate}
                   />
                 </ResizablePanel>
 
