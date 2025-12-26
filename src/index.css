@@ -51,6 +51,67 @@
 
     /* Tree item active background (opaque equivalent of primary/10 on background) */
     --tree-active-bg: 333 60% 95%;
+
+    /* M3 Surface Container System - Light */
+    --surface: 30 20% 99%;
+    --surface-dim: 30 15% 92%;
+    --surface-bright: 30 20% 100%;
+    --surface-container-lowest: 0 0% 100%;
+    --surface-container-low: 30 18% 97%;
+    --surface-container: 30 16% 95%;
+    --surface-container-high: 30 14% 93%;
+    --surface-container-highest: 30 12% 91%;
+
+    /* M3 On-Surface Colors */
+    --on-surface: 14 28% 15%;
+    --on-surface-variant: 14 20% 40%;
+
+    /* M3 Outline */
+    --outline: 30 10% 75%;
+    --outline-variant: 30 15% 85%;
+
+    /* M3 Secondary Container */
+    --secondary-container: 333 40% 90%;
+    --on-secondary-container: 333 60% 25%;
+
+    /* M3 Tertiary */
+    --tertiary: 30 88% 35%;
+    --tertiary-container: 30 60% 88%;
+    --on-tertiary-container: 30 80% 20%;
+
+    /* M3 Shape System */
+    --radius-xs: 4px;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 28px;
+    --radius-full: 9999px;
+
+    /* M3 Typography Scale (compact) */
+    --text-display-sm: 36px;
+    --text-headline-lg: 32px;
+    --text-headline-md: 28px;
+    --text-headline-sm: 24px;
+    --text-title-lg: 22px;
+    --text-title-md: 14px;
+    --text-title-sm: 13px;
+    --text-body-lg: 14px;
+    --text-body-md: 13px;
+    --text-body-sm: 12px;
+    --text-label-lg: 12px;
+    --text-label-md: 11px;
+    --text-label-sm: 10px;
+
+    /* M3 State Layer Opacities */
+    --state-hover: 0.08;
+    --state-focus: 0.10;
+    --state-pressed: 0.10;
+    --state-dragged: 0.16;
+
+    /* M3 Elevation Tint */
+    --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --elevation-2: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --elevation-3: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   }
 
   .dark {
@@ -99,6 +160,33 @@
 
     /* Tree item active background (opaque equivalent of primary/10 on dark background) */
     --tree-active-bg: 333 40% 15%;
+
+    /* M3 Surface Container System - Dark */
+    --surface: 14 20% 10%;
+    --surface-dim: 14 20% 6%;
+    --surface-bright: 14 15% 18%;
+    --surface-container-lowest: 14 25% 4%;
+    --surface-container-low: 14 22% 9%;
+    --surface-container: 14 20% 12%;
+    --surface-container-high: 14 18% 15%;
+    --surface-container-highest: 14 16% 18%;
+
+    /* M3 On-Surface Colors - Dark */
+    --on-surface: 30 15% 92%;
+    --on-surface-variant: 30 12% 70%;
+
+    /* M3 Outline - Dark */
+    --outline: 14 15% 35%;
+    --outline-variant: 14 12% 25%;
+
+    /* M3 Secondary Container - Dark */
+    --secondary-container: 333 35% 25%;
+    --on-secondary-container: 333 50% 90%;
+
+    /* M3 Tertiary - Dark */
+    --tertiary: 30 70% 50%;
+    --tertiary-container: 30 50% 20%;
+    --on-tertiary-container: 30 60% 85%;
   }
 }
 
@@ -154,6 +242,88 @@
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
   }
+
+  /* M3 State Layer */
+  .state-layer {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .state-layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  
+  .state-layer:hover::before {
+    opacity: var(--state-hover);
+  }
+  
+  .state-layer:focus-visible::before {
+    opacity: var(--state-focus);
+  }
+  
+  .state-layer:active::before {
+    opacity: var(--state-pressed);
+  }
+
+  /* M3 Surface tint for elevation */
+  .surface-tint-1 {
+    background-color: hsl(var(--surface-container-low));
+  }
+  
+  .surface-tint-2 {
+    background-color: hsl(var(--surface-container));
+  }
+  
+  .surface-tint-3 {
+    background-color: hsl(var(--surface-container-high));
+  }
+
+  /* M3 Typography utilities */
+  .text-title-md {
+    font-size: var(--text-title-md);
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  
+  .text-title-sm {
+    font-size: var(--text-title-sm);
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  
+  .text-body-md {
+    font-size: var(--text-body-md);
+    line-height: 1.5;
+  }
+  
+  .text-body-sm {
+    font-size: var(--text-body-sm);
+    line-height: 1.5;
+  }
+  
+  .text-label-lg {
+    font-size: var(--text-label-lg);
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  
+  .text-label-md {
+    font-size: var(--text-label-md);
+    line-height: 1.4;
+    font-weight: 500;
+  }
+  
+  .text-label-sm {
+    font-size: var(--text-label-sm);
+    line-height: 1.4;
+    font-weight: 500;
+  }
 }
 
 @layer utilities {
@@ -179,5 +349,18 @@
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* M3 Emphasized easing */
+  .ease-emphasized {
+    transition-timing-function: cubic-bezier(0.2, 0.0, 0, 1.0);
+  }
+  
+  .ease-emphasized-decel {
+    transition-timing-function: cubic-bezier(0.05, 0.7, 0.1, 1.0);
+  }
+  
+  .ease-emphasized-accel {
+    transition-timing-function: cubic-bezier(0.3, 0.0, 0.8, 0.15);
   }
 }

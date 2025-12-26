@@ -72,11 +72,46 @@ module.exports = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // M3 Surface containers
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          dim: "hsl(var(--surface-dim))",
+          bright: "hsl(var(--surface-bright))",
+          "container-lowest": "hsl(var(--surface-container-lowest))",
+          "container-low": "hsl(var(--surface-container-low))",
+          container: "hsl(var(--surface-container))",
+          "container-high": "hsl(var(--surface-container-high))",
+          "container-highest": "hsl(var(--surface-container-highest))",
+        },
+        "on-surface": {
+          DEFAULT: "hsl(var(--on-surface))",
+          variant: "hsl(var(--on-surface-variant))",
+        },
+        outline: {
+          DEFAULT: "hsl(var(--outline))",
+          variant: "hsl(var(--outline-variant))",
+        },
+        "secondary-container": {
+          DEFAULT: "hsl(var(--secondary-container))",
+          foreground: "hsl(var(--on-secondary-container))",
+        },
+        tertiary: {
+          DEFAULT: "hsl(var(--tertiary))",
+          container: "hsl(var(--tertiary-container))",
+          foreground: "hsl(var(--on-tertiary-container))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        // M3 Shape scale
+        xs: "var(--radius-xs)",
+        "m3-sm": "var(--radius-sm)",
+        "m3-md": "var(--radius-md)",
+        "m3-lg": "var(--radius-lg)",
+        "m3-xl": "var(--radius-xl)",
+        "m3-full": "var(--radius-full)",
       },
       keyframes: {
         "accordion-down": {
