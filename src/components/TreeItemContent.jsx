@@ -77,6 +77,17 @@ export const TreeItemContent = ({
     setShowIconPicker(true);
   };
   
+  // Handle icon hover - controls action menu visibility
+  const handleIconMouseEnter = () => {
+    setIsIconHovered(true);
+    if (!isDeleting) setIsHovered(true);
+  };
+  
+  const handleIconMouseLeave = () => {
+    setIsIconHovered(false);
+    setIsHovered(false);
+  };
+  
   // Handle icon selection
   const handleIconChange = async (iconName) => {
     try {
@@ -126,87 +137,50 @@ export const TreeItemContent = ({
   
   // Render the icon based on custom icon_name or default
   const renderIcon = () => {
+    const iconClasses = `
+      flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
+      cursor-pointer transition-all duration-150
+      ${isIconHovered ? 'ring-2 ring-primary/40 scale-110' : ''}
+    `;
+    
     // Custom icon takes priority - icons are stored as PascalCase
     if (item.icon_name && icons[item.icon_name]) {
       const CustomIcon = icons[item.icon_name];
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div 
-                className={`
-                  flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
-                  bg-primary/15 text-primary cursor-pointer
-                  transition-all duration-150
-                  ${isIconHovered ? 'ring-2 ring-primary/40 scale-110' : ''}
-                `}
-                onMouseEnter={() => setIsIconHovered(true)}
-                onMouseLeave={() => setIsIconHovered(false)}
-                onContextMenu={handleIconContextMenu}
-              >
-                <CustomIcon className="h-3.5 w-3.5" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              Right-click to change icon
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div 
+          className={`${iconClasses} bg-primary/15 text-primary`}
+          onMouseEnter={handleIconMouseEnter}
+          onMouseLeave={handleIconMouseLeave}
+          onContextMenu={handleIconContextMenu}
+        >
+          <CustomIcon className="h-3.5 w-3.5" />
+        </div>
       );
     }
     
     // Default: Bot for assistants, FileText for others
     if (item.is_assistant) {
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div 
-                className={`
-                  flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
-                  bg-primary/15 text-primary cursor-pointer
-                  transition-all duration-150
-                  ${isIconHovered ? 'ring-2 ring-primary/40 scale-110' : ''}
-                `}
-                onMouseEnter={() => setIsIconHovered(true)}
-                onMouseLeave={() => setIsIconHovered(false)}
-                onContextMenu={handleIconContextMenu}
-              >
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
-              {TOOLTIPS.prompts.assistant.active}
-              <span className="block text-muted-foreground mt-1">Right-click to change icon</span>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div 
+          className={`${iconClasses} bg-primary/15 text-primary`}
+          onMouseEnter={handleIconMouseEnter}
+          onMouseLeave={handleIconMouseLeave}
+          onContextMenu={handleIconContextMenu}
+        >
+          <Bot className="h-3.5 w-3.5" />
+        </div>
       );
     }
     
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div 
-              className={`
-                flex items-center justify-center w-5 h-5 rounded flex-shrink-0 
-                text-muted-foreground cursor-pointer
-                transition-all duration-150
-                ${isIconHovered ? 'bg-muted ring-2 ring-muted-foreground/40 scale-110' : ''}
-              `}
-              onMouseEnter={() => setIsIconHovered(true)}
-              onMouseLeave={() => setIsIconHovered(false)}
-              onContextMenu={handleIconContextMenu}
-            >
-              <FileText className="h-3.5 w-3.5" />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="text-xs">
-            Right-click to change icon
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div 
+        className={`${iconClasses} text-muted-foreground ${isIconHovered ? 'bg-muted' : ''}`}
+        onMouseEnter={handleIconMouseEnter}
+        onMouseLeave={handleIconMouseLeave}
+        onContextMenu={handleIconContextMenu}
+      >
+        <FileText className="h-3.5 w-3.5" />
+      </div>
     );
   };
 
@@ -224,8 +198,6 @@ export const TreeItemContent = ({
           }
         `}
         style={{ paddingLeft: `${level * 14 + 4}px` }}
-        onMouseEnter={() => !isDeleting && setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         onClick={() => !isDeleting && setActiveItem(item.id)}
       >
         {/* Main content - truncates when needed */}
@@ -406,14 +378,14 @@ export const TreeItemContent = ({
           )}
         </div>
 
-        {/* Actions - fixed to right edge with gradient fade, min distance from name */}
+        {/* Actions - fixed to right edge with gradient fade, only visible on icon hover */}
         {!isDeleting && (
           <div 
             className={`
               absolute right-0 top-0 bottom-0 
               flex items-center justify-end
               transition-opacity duration-150
-              ${isHovered || isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+              ${isIconHovered || isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}
             `}
             style={{ maxWidth: `calc(100% - ${level * 14 + 4 + 56}px)` }}
           >
