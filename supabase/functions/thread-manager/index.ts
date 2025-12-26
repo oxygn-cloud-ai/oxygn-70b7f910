@@ -22,19 +22,29 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   }
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-  const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+  // Try SUPABASE_ANON_KEY first, fallback to SUPABASE_PUBLISHABLE_KEY
+  const SUPABASE_KEY = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
   
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('Missing env vars:', { 
+      hasUrl: !!SUPABASE_URL, 
+      hasAnonKey: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      hasPublishableKey: !!Deno.env.get('SUPABASE_PUBLISHABLE_KEY')
+    });
     return { valid: false, error: 'Server configuration error' };
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // Extract the token from the header
+  const token = authHeader.replace('Bearer ', '');
+  
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     global: { headers: { Authorization: authHeader } }
   });
 
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const { data: { user }, error } = await supabase.auth.getUser(token);
   
   if (error || !user) {
+    console.error('Auth error:', error?.message || 'No user returned');
     return { valid: false, error: 'Invalid or expired token' };
   }
 
