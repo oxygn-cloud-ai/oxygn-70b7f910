@@ -40,6 +40,7 @@ module.exports = {
           container: "hsl(var(--primary-container))",
           "container-foreground": "hsl(var(--on-primary-container))",
         },
+        "on-primary-container": "hsl(var(--on-primary-container))",
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
