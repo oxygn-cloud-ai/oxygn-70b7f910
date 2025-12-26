@@ -1,7 +1,6 @@
 import React from "react";
 import { 
   Plus, 
-  Home, 
   FileText, 
   MessageSquare, 
   LayoutTemplate, 
@@ -36,7 +35,6 @@ const NavItem = ({ icon: Icon, label, isActive = false }) => (
 
 const MockupNavigationRail = ({ activeNav = "prompts", onToggleDark, isDark }) => {
   const navItems = [
-    { id: "home", icon: Home, label: "Home" },
     { id: "prompts", icon: FileText, label: "Prompts" },
     { id: "workbench", icon: MessageSquare, label: "Workbench" },
     { id: "templates", icon: LayoutTemplate, label: "Templates" },

@@ -4,7 +4,7 @@ import {
   Sliders, 
   Variable, 
   LayoutTemplate, 
-  Bot,
+  MessageSquare,
   Play,
   Copy,
   Download,
@@ -12,7 +12,12 @@ import {
   ArrowLeft,
   Star,
   Trash2,
-  Share2
+  Share2,
+  Link2,
+  Hash,
+  List,
+  Braces,
+  ToggleLeft
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -64,15 +69,41 @@ const IconButton = ({ icon: Icon, label, variant = "default", onClick }) => (
   </Tooltip>
 );
 
+const VariableTypeIcon = ({ type }) => {
+  const icons = {
+    text: Variable,
+    reference: Link2,
+    number: Hash,
+    list: List,
+    json: Braces,
+    enum: ToggleLeft
+  };
+  const Icon = icons[type] || Variable;
+  return <Icon className="h-4 w-4 text-primary" />;
+};
+
+const mockVariables = [
+  { name: "customer_message", value: "", required: true, type: "text", description: "The customer's inquiry" },
+  { name: "account_type", value: "Premium", required: true, type: "enum", description: "Customer account tier", options: ["Free", "Premium", "Enterprise"] },
+  { name: "ticket_count", value: "3", required: false, type: "number", description: "Previous support tickets" },
+  { name: "api_key", value: "••••••••", required: true, type: "text", description: "API authentication key", isSecret: true },
+  { name: "base_url", value: "https://api.example.com", required: true, type: "text", description: "API endpoint base URL" },
+  { name: "previous_responses", value: "", required: false, type: "list", description: "List of prior AI responses" },
+  { name: "context_ref", value: "{{parent.output}}", required: false, type: "reference", description: "Reference to parent prompt output" },
+  { name: "max_retries", value: "3", required: false, type: "number", description: "Maximum retry attempts" },
+  { name: "custom_headers", value: '{"X-Custom": "value"}', required: false, type: "json", description: "Additional HTTP headers" },
+  { name: "output_format", value: "markdown", required: true, type: "enum", description: "Response format", options: ["json", "text", "markdown"] },
+];
+
 const MockupReadingPane = ({ hasSelection = true }) => {
   const [activeTab, setActiveTab] = useState("prompt");
 
   const tabs = [
     { id: "prompt", icon: FileText, label: "Prompt" },
-    { id: "settings", icon: Sliders, label: "Settings" },
+    { id: "settings", icon: Sliders, label: "Prompt Settings" },
     { id: "variables", icon: Variable, label: "Variables" },
     { id: "templates", icon: LayoutTemplate, label: "Templates" },
-    { id: "conversation", icon: Bot, label: "Conversation" },
+    { id: "conversation", icon: MessageSquare, label: "Conversation" },
   ];
 
   if (!hasSelection) {
@@ -199,7 +230,7 @@ const MockupReadingPane = ({ hasSelection = true }) => {
 
         {activeTab === "settings" && (
           <div className="max-w-xl mx-auto space-y-6">
-            <h2 className="text-title-md text-on-surface font-semibold">Model Settings</h2>
+            <h2 className="text-title-md text-on-surface font-semibold">Prompt Settings</h2>
             
             <div className="space-y-4">
               <div className="flex items-center justify-between py-3 border-b border-outline-variant">
@@ -224,33 +255,59 @@ const MockupReadingPane = ({ hasSelection = true }) => {
 
         {activeTab === "variables" && (
           <div className="max-w-xl mx-auto space-y-6">
-            <h2 className="text-title-md text-on-surface font-semibold">Variables</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-title-md text-on-surface font-semibold">Variables</h2>
+              <span className="text-label-sm text-on-surface-variant">{mockVariables.length} variables</span>
+            </div>
             
-            <div className="space-y-3">
-              {[
-                { name: "customer_message", value: "", required: true },
-                { name: "account_type", value: "Premium", required: false },
-                { name: "ticket_count", value: "3", required: false },
-              ].map((variable) => (
+            <div className="space-y-3 max-h-[calc(100vh-280px)] overflow-auto scrollbar-thin pr-2">
+              {mockVariables.map((variable) => (
                 <div 
                   key={variable.name}
                   className="p-4 bg-surface-container rounded-m3-md border border-outline-variant"
                   style={{ borderRadius: "12px" }}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Variable className="h-4 w-4 text-primary" />
+                    <VariableTypeIcon type={variable.type} />
                     <span className="text-label-lg text-on-surface font-medium">
                       {variable.name}
                     </span>
                     {variable.required && (
                       <span className="text-label-sm text-primary">Required</span>
                     )}
+                    {variable.isSecret && (
+                      <span className="text-label-sm text-orange-500">Secret</span>
+                    )}
+                    <span className="text-label-sm text-on-surface-variant ml-auto capitalize">
+                      {variable.type}
+                    </span>
                   </div>
+                  {variable.description && (
+                    <p className="text-label-sm text-on-surface-variant mb-2">
+                      {variable.description}
+                    </p>
+                  )}
                   <div className="h-10 px-3 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
-                    <span className="text-body-md text-on-surface-variant">
+                    <span className={`text-body-md ${variable.value ? "text-on-surface" : "text-on-surface-variant"}`}>
                       {variable.value || "Enter value..."}
                     </span>
                   </div>
+                  {variable.options && (
+                    <div className="flex gap-1 mt-2">
+                      {variable.options.map((opt) => (
+                        <span 
+                          key={opt}
+                          className={`text-label-sm px-2 py-0.5 rounded-m3-sm ${
+                            variable.value === opt 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-surface-container-high text-on-surface-variant"
+                          }`}
+                        >
+                          {opt}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

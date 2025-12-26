@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { 
   Inbox, 
-  Bot, 
+  MessageSquare, 
   Star, 
   Clock, 
   ChevronRight, 
@@ -77,7 +77,7 @@ const MockupFolderPanel = ({ isOpen }) => {
         </p>
         <div className="flex flex-col gap-0.5">
           <SmartFolder icon={Inbox} label="All Prompts" count={24} isActive />
-          <SmartFolder icon={Bot} label="Assistants" count={3} />
+          <SmartFolder icon={MessageSquare} label="Conversations" count={3} />
           <SmartFolder icon={Star} label="Starred" count={7} />
           <SmartFolder icon={Clock} label="Recent" count={5} />
         </div>

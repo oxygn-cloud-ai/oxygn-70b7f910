@@ -1,12 +1,17 @@
 import React, { useState } from "react";
 import { 
   FileText, 
-  Bot, 
+  MessageSquare, 
   Star, 
   Copy, 
   Trash2, 
   Download,
-  Check
+  Sparkles,
+  Link2,
+  Plus,
+  Upload,
+  Ban,
+  FileX
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -17,52 +22,64 @@ const mockPrompts = [
     name: "API Documentation Generator", 
     type: "prompt", 
     preview: "Generate comprehensive API documentation from code...", 
-    date: "Dec 24",
-    starred: true 
+    owner: { initials: "JD", color: "bg-blue-500" },
+    starred: true,
+    excludedFromCascade: false,
+    excludedFromExport: false
   },
   { 
     id: 2, 
     name: "Customer Support Bot", 
-    type: "assistant", 
+    type: "conversation", 
     preview: "Handle customer inquiries with professional responses...", 
-    date: "Dec 23",
-    starred: false 
+    owner: { initials: "AM", color: "bg-purple-500" },
+    starred: false,
+    excludedFromCascade: true,
+    excludedFromExport: false
   },
   { 
     id: 3, 
     name: "Summary Generator", 
     type: "prompt", 
     preview: "Create concise summaries of long documents and articles...", 
-    date: "Dec 22",
-    starred: true 
+    owner: { initials: "JD", color: "bg-blue-500" },
+    starred: true,
+    excludedFromCascade: false,
+    excludedFromExport: true
   },
   { 
     id: 4, 
     name: "Code Review Assistant", 
-    type: "assistant", 
+    type: "conversation", 
     preview: "Review code for best practices, bugs, and improvements...", 
-    date: "Dec 21",
-    starred: false 
+    owner: { initials: "KL", color: "bg-green-500" },
+    starred: false,
+    excludedFromCascade: true,
+    excludedFromExport: true
   },
   { 
     id: 5, 
     name: "Email Template Builder", 
     type: "prompt", 
     preview: "Create professional email templates for various purposes...", 
-    date: "Dec 20",
-    starred: false 
+    owner: { initials: "AM", color: "bg-purple-500" },
+    starred: false,
+    excludedFromCascade: false,
+    excludedFromExport: false
   },
   { 
     id: 6, 
     name: "Report Generator", 
     type: "prompt", 
     preview: "Generate detailed reports from raw data and metrics...", 
-    date: "Dec 19",
-    starred: true 
+    owner: { initials: "JD", color: "bg-blue-500" },
+    starred: true,
+    excludedFromCascade: false,
+    excludedFromExport: false
   },
 ];
 
-const IconButton = ({ icon: Icon, label, onClick }) => (
+const IconButton = ({ icon: Icon, label, onClick, className = "" }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
@@ -70,16 +87,25 @@ const IconButton = ({ icon: Icon, label, onClick }) => (
           e.stopPropagation();
           onClick?.();
         }}
-        className="w-7 h-7 flex items-center justify-center rounded-m3-sm text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-150"
-        style={{ width: "28px", height: "28px" }}
+        className={`w-6 h-6 flex items-center justify-center rounded-m3-sm text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-150 ${className}`}
+        style={{ width: "24px", height: "24px" }}
       >
-        <Icon className="h-[18px] w-[18px]" />
+        <Icon className="h-4 w-4" />
       </button>
     </TooltipTrigger>
     <TooltipContent className="text-label-sm">
       {label}
     </TooltipContent>
   </Tooltip>
+);
+
+const OwnerAvatar = ({ initials, color }) => (
+  <div 
+    className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${color}`}
+    style={{ width: "24px", height: "24px" }}
+  >
+    {initials}
+  </div>
 );
 
 const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
@@ -112,8 +138,8 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
       </div>
 
       {/* Icon */}
-      {prompt.type === "assistant" ? (
-        <Bot className="h-5 w-5 text-primary flex-shrink-0" />
+      {prompt.type === "conversation" ? (
+        <MessageSquare className="h-5 w-5 text-primary flex-shrink-0" />
       ) : (
         <FileText className="h-5 w-5 text-on-surface-variant flex-shrink-0" />
       )}
@@ -137,29 +163,54 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
         {prompt.preview}
       </span>
 
-      {/* Hover Actions or Date */}
-      <div className="flex items-center gap-1 w-24 justify-end">
+      {/* Hover Actions or Owner + Status */}
+      <div className="flex items-center gap-0.5 justify-end">
         {isHovered ? (
           <>
             <IconButton 
-              icon={prompt.starred ? Star : Star} 
+              icon={Star} 
               label={prompt.starred ? "Unstar" : "Star"} 
+              className={prompt.starred ? "text-primary" : ""}
             />
+            <IconButton icon={Sparkles} label="Run" />
+            <IconButton icon={Link2} label="Copy Variable Reference" />
+            <IconButton icon={Plus} label="Add Child" />
             <IconButton icon={Copy} label="Duplicate" />
-            <IconButton icon={Download} label="Export" />
+            <IconButton icon={Upload} label="Export" />
+            <IconButton 
+              icon={Ban} 
+              label={prompt.excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
+              className={prompt.excludedFromCascade ? "text-muted-foreground" : ""}
+            />
+            <IconButton 
+              icon={FileX} 
+              label={prompt.excludedFromExport ? "Include in Export" : "Exclude from Export"} 
+              className={prompt.excludedFromExport ? "text-orange-500" : ""}
+            />
             <IconButton icon={Trash2} label="Delete" />
           </>
         ) : (
           <>
             {prompt.starred && (
-              <Star className="h-4 w-4 text-primary fill-primary" />
+              <Star className="h-4 w-4 text-primary fill-primary flex-shrink-0" />
             )}
-            <span 
-              className="text-label-sm text-on-surface-variant"
-              style={{ fontSize: "10px" }}
-            >
-              {prompt.date}
-            </span>
+            {prompt.excludedFromCascade && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Ban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent className="text-label-sm">Excluded from Cascade</TooltipContent>
+              </Tooltip>
+            )}
+            {prompt.excludedFromExport && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <FileX className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent className="text-label-sm">Excluded from Export</TooltipContent>
+              </Tooltip>
+            )}
+            <OwnerAvatar initials={prompt.owner.initials} color={prompt.owner.color} />
           </>
         )}
       </div>
