@@ -35,7 +35,6 @@ const LIBRARY_PROMPTS = [
   { id: "4", name: "JSON Output Format", category: "Format" },
   { id: "5", name: "Step by Step", category: "Structure" },
 ];
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
   <Tooltip>
