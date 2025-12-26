@@ -4,12 +4,10 @@ import {
   FileJson, 
   FileText, 
   Globe,
-  ChevronRight,
-  ChevronDown,
-  Check,
-  Square
+  Check
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const EXPORT_TYPES = [
   { id: "confluence", icon: Globe, label: "Confluence", description: "Export to Confluence pages" },
@@ -17,70 +15,21 @@ const EXPORT_TYPES = [
   { id: "markdown", icon: FileText, label: "Markdown", description: "Download as Markdown" },
 ];
 
-const mockPromptTree = [
-  { 
-    id: "1", 
-    name: "Document Processor", 
-    selected: true,
-    children: [
-      { id: "1-1", name: "Parse Input", selected: true },
-      { id: "1-2", name: "Extract Metadata", selected: true },
-      { id: "1-3", name: "Validate Schema", selected: false },
-    ]
-  },
-  { 
-    id: "2", 
-    name: "Customer Support Bot", 
-    selected: true,
-    children: [
-      { id: "2-1", name: "Greeting Handler", selected: true },
-      { id: "2-2", name: "Issue Classifier", selected: true },
-    ]
-  },
-  { id: "3", name: "API Documentation", selected: false, children: [] },
-  { id: "4", name: "Summary Generator", selected: true, children: [] },
+const EXPORT_FIELDS = [
+  { id: "system_prompt", label: "System Prompt", checked: true },
+  { id: "user_prompt", label: "User Prompt", checked: true },
+  { id: "output", label: "Output", checked: true },
+  { id: "variables", label: "Variables", checked: true },
+  { id: "settings", label: "Settings", checked: false },
+  { id: "children", label: "Include Children", checked: true },
 ];
-
-const PromptTreeItem = ({ item, level = 0, expanded, onToggle }) => {
-  const hasChildren = item.children?.length > 0;
-  const paddingLeft = 12 + level * 16;
-
-  return (
-    <>
-      <div 
-        className="h-9 flex items-center gap-2 pr-3 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer"
-        style={{ paddingLeft: `${paddingLeft}px` }}
-        onClick={onToggle}
-      >
-        {hasChildren ? (
-          expanded ? <ChevronDown className="h-4 w-4 text-on-surface-variant" /> : <ChevronRight className="h-4 w-4 text-on-surface-variant" />
-        ) : (
-          <span className="w-4" />
-        )}
-        <div className={`w-4 h-4 rounded-sm border flex items-center justify-center ${
-          item.selected 
-            ? "bg-primary border-primary" 
-            : "border-on-surface-variant"
-        }`}>
-          {item.selected && <Check className="h-3 w-3 text-primary-foreground" />}
-        </div>
-        <span className="text-body-sm text-on-surface truncate">{item.name}</span>
-      </div>
-      {hasChildren && expanded && item.children.map(child => (
-        <PromptTreeItem key={child.id} item={child} level={level + 1} expanded={false} />
-      ))}
-    </>
-  );
-};
 
 const MockupExportPanel = ({ onClose }) => {
   const [selectedType, setSelectedType] = useState("confluence");
-  const [expandedIds, setExpandedIds] = useState(["1", "2"]);
+  const [fields, setFields] = useState(EXPORT_FIELDS);
 
-  const toggleExpand = (id) => {
-    setExpandedIds(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+  const toggleField = (id) => {
+    setFields(prev => prev.map(f => f.id === id ? { ...f, checked: !f.checked } : f));
   };
 
   return (
@@ -90,7 +39,10 @@ const MockupExportPanel = ({ onClose }) => {
         className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"
         style={{ height: "56px" }}
       >
-        <span className="text-title-md text-on-surface font-semibold">Export</span>
+        <div>
+          <span className="text-title-md text-on-surface font-semibold">Export</span>
+          <p className="text-[10px] text-on-surface-variant">Customer Support Bot</p>
+        </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <button 
@@ -105,7 +57,7 @@ const MockupExportPanel = ({ onClose }) => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 space-y-6 scrollbar-thin">
+      <div className="flex-1 overflow-auto p-4 space-y-5 scrollbar-thin">
         {/* Export Type Selection */}
         <div className="space-y-2">
           <label className="text-label-md text-on-surface font-medium">Destination</label>
@@ -117,16 +69,15 @@ const MockupExportPanel = ({ onClose }) => {
                 <button
                   key={type.id}
                   onClick={() => setSelectedType(type.id)}
-                  className={`w-full h-12 flex items-center gap-3 px-3 rounded-m3-md border transition-colors ${
+                  className={`w-full h-11 flex items-center gap-3 px-3 rounded-m3-md border transition-colors ${
                     isSelected 
-                      ? "border-primary bg-primary/10" 
+                      ? "border-primary bg-secondary-container" 
                       : "border-outline-variant hover:bg-on-surface/[0.08]"
                   }`}
                 >
                   <Icon className={`h-5 w-5 ${isSelected ? "text-primary" : "text-on-surface-variant"}`} />
                   <div className="flex-1 text-left">
-                    <p className={`text-body-sm ${isSelected ? "text-primary" : "text-on-surface"}`}>{type.label}</p>
-                    <p className="text-[10px] text-on-surface-variant">{type.description}</p>
+                    <p className={`text-body-sm ${isSelected ? "text-on-surface" : "text-on-surface"}`}>{type.label}</p>
                   </div>
                   {isSelected && <Check className="h-4 w-4 text-primary" />}
                 </button>
@@ -135,38 +86,40 @@ const MockupExportPanel = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Prompt Selection */}
+        {/* Fields Selection - compact inline layout */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-label-md text-on-surface font-medium">Select Prompts</label>
-            <span className="text-[10px] text-on-surface-variant">4 of 7 selected</span>
-          </div>
-          <div className="border border-outline-variant rounded-m3-md p-2 max-h-64 overflow-auto scrollbar-thin">
-            {mockPromptTree.map(item => (
-              <PromptTreeItem 
-                key={item.id} 
-                item={item} 
-                expanded={expandedIds.includes(item.id)}
-                onToggle={() => toggleExpand(item.id)}
-              />
+          <label className="text-label-md text-on-surface font-medium">Include</label>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {fields.map(field => (
+              <label 
+                key={field.id} 
+                className="flex items-center gap-2 cursor-pointer"
+              >
+                <Checkbox 
+                  checked={field.checked}
+                  onCheckedChange={() => toggleField(field.id)}
+                  className="h-4 w-4 border-on-surface-variant data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <span className="text-body-sm text-on-surface">{field.label}</span>
+              </label>
             ))}
           </div>
         </div>
 
-        {/* Fields Selection (simplified) */}
-        <div className="space-y-2">
-          <label className="text-label-md text-on-surface font-medium">Include Fields</label>
-          <div className="space-y-1">
-            {["System Prompt", "User Prompt", "Output", "Variables", "Settings"].map(field => (
-              <div key={field} className="h-8 flex items-center gap-2 px-2">
-                <div className="w-4 h-4 rounded-sm border border-primary bg-primary flex items-center justify-center">
-                  <Check className="h-3 w-3 text-primary-foreground" />
-                </div>
-                <span className="text-body-sm text-on-surface">{field}</span>
+        {/* Confluence-specific options */}
+        {selectedType === "confluence" && (
+          <div className="space-y-3 pt-2 border-t border-outline-variant">
+            <label className="text-label-md text-on-surface font-medium">Confluence Settings</label>
+            <div className="space-y-2">
+              <div className="h-10 px-3 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
+                <span className="text-body-sm text-on-surface-variant">Select parent page...</span>
               </div>
-            ))}
+              <div className="h-10 px-3 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant">
+                <span className="text-body-sm text-on-surface-variant">Select space...</span>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Footer */}

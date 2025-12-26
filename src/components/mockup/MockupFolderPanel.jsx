@@ -12,7 +12,9 @@ import {
   Trash2,
   Ban,
   FileX,
-  Sparkles
+  Sparkles,
+  Link2,
+  Upload
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -50,7 +52,7 @@ const IconButton = ({ icon: Icon, label, className = "" }) => (
 
 const OwnerAvatar = ({ initials, color }) => (
   <div 
-    className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-medium text-primary-foreground ${color}`}
+    className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-medium ${color}`}
     style={{ width: "20px", height: "20px" }}
   >
     {initials}
@@ -105,11 +107,14 @@ const TreeItem = ({
       {/* Hover actions or status icons */}
       {isHovered ? (
         <div className="flex items-center gap-0.5">
+          <IconButton icon={Star} label="Star" className={starred ? "text-primary" : ""} />
           <IconButton icon={Sparkles} label="Run" />
+          <IconButton icon={Link2} label="Copy Variable Reference" />
           <IconButton icon={Plus} label="Add Child" />
           <IconButton icon={Copy} label="Duplicate" />
-          <IconButton icon={Ban} label="Exclude from Cascade" />
-          <IconButton icon={FileX} label="Exclude from Export" />
+          <IconButton icon={Upload} label="Export" />
+          <IconButton icon={Ban} label="Exclude from Cascade" className={excludedFromCascade ? "text-muted-foreground" : ""} />
+          <IconButton icon={FileX} label="Exclude from Export" className={excludedFromExport ? "text-warning" : ""} />
           <IconButton icon={Trash2} label="Delete" />
         </div>
       ) : (
@@ -135,9 +140,9 @@ const MockupFolderPanel = () => {
   };
 
   const owners = {
-    jd: { initials: "JD", color: "bg-primary" },
-    am: { initials: "AM", color: "bg-tertiary" },
-    kl: { initials: "KL", color: "bg-secondary" },
+    jd: { initials: "JD", color: "bg-primary text-primary-foreground" },
+    am: { initials: "AM", color: "bg-secondary-container text-secondary-container-foreground" },
+    kl: { initials: "KL", color: "bg-tertiary-container text-on-surface" },
   };
 
   return (
