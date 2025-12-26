@@ -162,9 +162,45 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
 
             {/* System Prompt */}
             <div className="space-y-2">
-              <label className="text-label-lg text-on-surface font-medium">
-                System Prompt
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-label-lg text-on-surface font-medium">
+                  System Prompt
+                </label>
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Variable className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Insert Variable</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Link2 className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Insert Reference</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Copy</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">More Options</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
               <div 
                 className="min-h-32 p-4 bg-surface-container rounded-m3-md border border-outline-variant"
                 style={{ borderRadius: "12px" }}
@@ -184,9 +220,45 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
 
             {/* User Prompt */}
             <div className="space-y-2">
-              <label className="text-label-lg text-on-surface font-medium">
-                User Prompt
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-label-lg text-on-surface font-medium">
+                  User Prompt
+                </label>
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Variable className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Insert Variable</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Link2 className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Insert Reference</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Copy</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">More Options</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
               <div 
                 className="min-h-24 p-4 bg-surface-container rounded-m3-md border border-outline-variant"
                 style={{ borderRadius: "12px" }}
@@ -203,9 +275,29 @@ const MockupReadingPane = ({ hasSelection = true, onExport }) => {
 
             {/* Output */}
             <div className="space-y-2">
-              <label className="text-label-lg text-on-surface font-medium">
-                Last Output
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-label-lg text-on-surface font-medium">
+                  Last Output
+                </label>
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Copy</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">More Options</TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
               <div 
                 className="min-h-24 p-4 bg-surface-container-high rounded-m3-md border border-outline-variant"
                 style={{ borderRadius: "12px" }}
