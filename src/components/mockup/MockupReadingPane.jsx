@@ -19,7 +19,8 @@ import {
   Library,
   ChevronDown,
   Search,
-  Plus
+  Plus,
+  PanelRightOpen
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -495,7 +496,7 @@ const mockVariables = [
   { name: "max_retries", value: "3", required: false, type: "number" },
 ];
 
-const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", selectedTemplate = null }) => {
+const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts", selectedTemplate = null, onToggleConversation, conversationPanelOpen = true }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [templateTab, setTemplateTab] = useState("overview");
 
@@ -578,6 +579,11 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
         )}
         
         <IconButton icon={MoreVertical} label="More options" />
+        
+        {/* Conversation panel toggle */}
+        {!conversationPanelOpen && onToggleConversation && (
+          <IconButton icon={PanelRightOpen} label="Show conversation" onClick={onToggleConversation} />
+        )}
       </div>
 
       {/* Content Area */}
