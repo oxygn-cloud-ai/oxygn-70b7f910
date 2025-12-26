@@ -193,34 +193,67 @@ const PromptEditorTabs = ({
     return baseTabs;
   }, [isTopLevel, selectedItemData?.is_assistant]);
 
+  // M3 Floating Toolbar Icon Button
   const QuickAccessIcon = ({ tab, needsAttention = false }) => {
     const isActive = activeTab === tab.id;
     
     const getIconClasses = () => {
       if (needsAttention) {
-        return 'animate-attention-flash rounded-md';
+        return 'animate-attention-flash rounded-xl';
       }
       if (isActive) {
-        return 'text-primary bg-primary/10 hover:bg-primary/20';
+        return 'text-on-primary bg-primary shadow-elevation-1';
       }
-      return 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent';
+      return 'text-on-surface-variant hover:text-on-surface hover:bg-on-surface/8';
     };
     
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`h-7 w-7 p-0 transition-colors ${getIconClasses()}`}
+            <button
+              type="button"
+              className={`h-9 w-9 inline-flex items-center justify-center rounded-xl transition-all duration-short-4 ease-standard ${getIconClasses()}`}
               onClick={() => setActiveTab(tab.id)}
             >
               <tab.icon className="h-4 w-4" />
-            </Button>
+            </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p className="text-xs">{tab.description}</p>
+          <TooltipContent side="bottom" className="rounded-lg bg-inverse-surface text-inverse-on-surface px-3 py-1.5 text-label-medium">
+            <p>{tab.description}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
+  // M3 Action Icon Button (for cascade, run, export)
+  const ActionIcon = ({ icon: Icon, onClick, disabled, isLoading, tooltip, variant = 'default' }) => {
+    const variantClasses = {
+      default: 'text-on-surface-variant hover:text-on-surface hover:bg-on-surface/8',
+      warning: 'text-tertiary hover:bg-tertiary/12',
+      primary: 'text-primary hover:bg-primary/12',
+    };
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className={`h-9 w-9 inline-flex items-center justify-center rounded-xl transition-all duration-short-4 ease-standard disabled:opacity-40 disabled:pointer-events-none ${variantClasses[variant]}`}
+              onClick={onClick}
+              disabled={disabled}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Icon className="h-4 w-4" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="rounded-lg bg-inverse-surface text-inverse-on-surface px-3 py-1.5 text-label-medium">
+            <p>{tooltip}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -236,64 +269,57 @@ const PromptEditorTabs = ({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Quick access icons bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-1">
+    <div className="flex flex-col h-full bg-surface">
+      {/* M3 Floating Toolbar */}
+      <div className="floating-toolbar flex items-center justify-between mx-3 mt-3 mb-2 px-2 py-1.5 rounded-2xl bg-surface-container shadow-elevation-1">
+        <div className="flex items-center gap-0.5">
           {tabs.map(tab => (
             <QuickAccessIcon key={tab.id} tab={tab} />
           ))}
           
           {/* Re-enable conversation icon - only shows when assistant record is missing */}
           {isTopLevel && selectedItemData?.is_assistant && assistantMissing && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 transition-colors text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 disabled:opacity-50"
-                    onClick={handleCreateAssistant}
-                    disabled={isCreatingAssistant}
-                  >
-                    {isCreatingAssistant ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <MessageCirclePlus className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">Re-enable conversation</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <ActionIcon
+              icon={MessageCirclePlus}
+              onClick={handleCreateAssistant}
+              disabled={isCreatingAssistant}
+              isLoading={isCreatingAssistant}
+              tooltip="Re-enable conversation"
+              variant="warning"
+            />
           )}
 
           {/* Cascade Run icon - aligned with tab icons */}
           {selectedItemData?.is_assistant && hasChildPrompts && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 transition-colors text-muted-foreground hover:text-foreground hover:bg-sidebar-accent disabled:opacity-50"
-                    onClick={handleCascadeRun}
-                    disabled={isCascadeRunning || isPromptRunning || assistantMissing}
-                  >
-                    {isCascadeRunning ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ListTree className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="text-xs">{assistantMissing ? 'Re-enable conversation first' : 'Run cascade'}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <ActionIcon
+              icon={ListTree}
+              onClick={handleCascadeRun}
+              disabled={isCascadeRunning || isPromptRunning || assistantMissing}
+              isLoading={isCascadeRunning}
+              tooltip={assistantMissing ? 'Re-enable conversation first' : 'Run cascade'}
+            />
+          )}
+          
+          {/* Single prompt Run icon */}
+          {selectedItemData?.is_assistant && (
+            <ActionIcon
+              icon={Sparkles}
+              onClick={handleSingleRun}
+              disabled={isCascadeRunning || isPromptRunning || assistantMissing}
+              isLoading={isPromptRunning}
+              tooltip={assistantMissing ? 'Re-enable conversation first' : isPromptRunning ? 'Running...' : 'Run this prompt'}
+              variant="primary"
+            />
+          )}
+
+          {/* Export icon */}
+          {onExportPrompt && (
+            <ActionIcon
+              icon={Upload}
+              onClick={() => onExportPrompt(selectedItemData?.row_id)}
+              tooltip="Export this prompt"
+              variant="primary"
+            />
           )}
           
           {/* Single prompt Run icon */}
@@ -345,7 +371,7 @@ const PromptEditorTabs = ({
         </div>
       </div>
 
-      {/* Tabs content */}
+      {/* M3 Tabs content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">
           <TabsContent value="prompt" className="h-full m-0 p-0">
