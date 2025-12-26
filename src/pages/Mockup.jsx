@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
@@ -19,10 +19,13 @@ const Mockup = () => {
   const [activeNav, setActiveNav] = useState("prompts");
   const [activeSubItem, setActiveSubItem] = useState(null);
   const [hoveredNav, setHoveredNav] = useState(null);
-  const [isHoveringSubmenu, setIsHoveringSubmenu] = useState(false);
   const [activePromptId, setActivePromptId] = useState(2);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
+  
+  // Track if mouse is over the submenu panel
+  const submenuRef = useRef(null);
+  const hoverTimeoutRef = useRef(null);
 
   // Toggle dark mode on the document
   useEffect(() => {
@@ -36,17 +39,57 @@ const Mockup = () => {
     };
   }, [isDark]);
 
-  // Determine which panel content to show - hovered takes priority over active (except for templates)
-  // Keep submenu visible if hovering nav item OR hovering the submenu itself
-  const effectiveHoveredNav = (hoveredNav || isHoveringSubmenu) ? (hoveredNav || (isHoveringSubmenu ? activeNav : null)) : null;
-  const showSubmenu = effectiveHoveredNav && effectiveHoveredNav !== "prompts" && effectiveHoveredNav !== "templates" && effectiveHoveredNav !== activeNav;
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Determine what to show in the submenu panel
+  // If hovering a nav item, show that nav's submenu
+  // Otherwise show the active nav's content
+  const displayedNav = hoveredNav || activeNav;
+  
+  // Check if current displayed nav has a submenu (not prompts or templates which have folder panels)
+  const hasSubmenu = (navId) => navId !== "prompts" && navId !== "templates";
+
+  const handleNavHover = (navId) => {
+    // Clear any pending timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredNav(navId);
+  };
+
+  const handleNavLeave = () => {
+    // Delay clearing hover to allow mouse to move to submenu
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredNav(null);
+    }, 150);
+  };
+
+  const handleSubmenuMouseEnter = () => {
+    // Cancel the timeout if mouse enters submenu
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  const handleSubmenuMouseLeave = () => {
+    // When leaving submenu, clear hover state
+    setHoveredNav(null);
+  };
 
   const handleSubmenuClick = (navId, itemId) => {
     // Navigate to the parent nav and set the sub-item
     setActiveNav(navId);
     setActiveSubItem(itemId);
     setHoveredNav(null);
-    setIsHoveringSubmenu(false);
   };
 
   const handleSelectTemplate = (template) => {
@@ -67,14 +110,48 @@ const Mockup = () => {
     }
   }, [activeNav]);
 
-  // Handle submenu hover - keep track of the last hovered nav when entering submenu
-  const handleSubmenuMouseEnter = () => {
-    setIsHoveringSubmenu(true);
-  };
+  // Render the appropriate panel content
+  const renderFolderPanelContent = () => {
+    // If hovering a nav with submenu, show that submenu
+    if (hoveredNav && hasSubmenu(hoveredNav)) {
+      return (
+        <div
+          ref={submenuRef}
+          onMouseEnter={handleSubmenuMouseEnter}
+          onMouseLeave={handleSubmenuMouseLeave}
+          className="h-full"
+        >
+          <MockupSubmenuPanel 
+            hoveredNav={hoveredNav}
+            activeSubItem={hoveredNav === activeNav ? activeSubItem : null}
+            onItemClick={(itemId) => handleSubmenuClick(hoveredNav, itemId)}
+          />
+        </div>
+      );
+    }
 
-  const handleSubmenuMouseLeave = () => {
-    setIsHoveringSubmenu(false);
-    setHoveredNav(null);
+    // Otherwise show the active nav's content
+    if (activeNav === "prompts") {
+      return <MockupFolderPanel />;
+    }
+    
+    if (activeNav === "templates") {
+      return (
+        <MockupTemplatesFolderPanel 
+          onSelectTemplate={handleSelectTemplate}
+          selectedTemplateId={selectedTemplate?.id}
+        />
+      );
+    }
+    
+    // For other nav items, show their submenu
+    return (
+      <MockupSubmenuPanel 
+        hoveredNav={activeNav}
+        activeSubItem={activeSubItem}
+        onItemClick={(itemId) => handleSubmenuClick(activeNav, itemId)}
+      />
+    );
   };
 
   return (
@@ -93,7 +170,8 @@ const Mockup = () => {
           <MockupNavigationRail 
             activeNav={activeNav}
             onNavChange={setActiveNav}
-            onNavHover={setHoveredNav}
+            onNavHover={handleNavHover}
+            onNavLeave={handleNavLeave}
             folderPanelOpen={folderPanelOpen}
             onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
           />
@@ -115,31 +193,8 @@ const Mockup = () => {
                 {folderPanelOpen && (
                   <>
                     <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                      <div 
-                        className="h-full"
-                        onMouseEnter={showSubmenu ? handleSubmenuMouseEnter : undefined}
-                        onMouseLeave={showSubmenu ? handleSubmenuMouseLeave : undefined}
-                      >
-                        {showSubmenu ? (
-                          <MockupSubmenuPanel 
-                            hoveredNav={effectiveHoveredNav} 
-                            activeSubItem={activeSubItem}
-                            onItemClick={(itemId) => handleSubmenuClick(effectiveHoveredNav, itemId)}
-                          />
-                        ) : activeNav === "prompts" ? (
-                          <MockupFolderPanel />
-                        ) : activeNav === "templates" ? (
-                          <MockupTemplatesFolderPanel 
-                            onSelectTemplate={handleSelectTemplate}
-                            selectedTemplateId={selectedTemplate?.id}
-                          />
-                        ) : (
-                          <MockupSubmenuPanel 
-                            hoveredNav={activeNav} 
-                            activeSubItem={activeSubItem}
-                            onItemClick={(itemId) => handleSubmenuClick(activeNav, itemId)}
-                          />
-                        )}
+                      <div className="h-full">
+                        {renderFolderPanelContent()}
                       </div>
                     </ResizablePanel>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
