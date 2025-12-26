@@ -758,6 +758,7 @@ export type Database = {
           file_search_on: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
+          icon_name: string | null
           input_admin_prompt: string | null
           input_user_prompt: string | null
           is_assistant: boolean | null
@@ -836,6 +837,7 @@ export type Database = {
           file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
+          icon_name?: string | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
           is_assistant?: boolean | null
@@ -914,6 +916,7 @@ export type Database = {
           file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
+          icon_name?: string | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
           is_assistant?: boolean | null
