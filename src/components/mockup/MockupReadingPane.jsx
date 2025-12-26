@@ -46,7 +46,6 @@ const LIBRARY_PROMPTS = [
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
   customer_message: { name: "customer_message", type: "text", description: "The customer's original inquiry or message", source: "User Input", required: true },
-  account_type: { name: "account_type", type: "enum", description: "Customer account tier (free, pro, enterprise)", source: "System", required: false, default: "free" },
   ticket_count: { name: "ticket_count", type: "number", description: "Number of previous support tickets", source: "Database", required: false, default: "0" },
   company_name: { name: "company_name", type: "text", description: "Name of the company", source: "Settings", required: true },
   support_email: { name: "support_email", type: "text", description: "Support contact email address", source: "Settings", required: true },
@@ -1142,8 +1141,6 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
                   <HighlightedText text="Customer inquiry: {{customer_message}}" />
                   {"\n\n"}
                   <span>Customer context:</span>
-                  {"\n"}
-                  <span>- Account type: </span><HighlightedText text="{{account_type}}" />
                   {"\n"}
                   <span>- Previous tickets: </span><HighlightedText text="{{ticket_count}}" />
                 </div>
