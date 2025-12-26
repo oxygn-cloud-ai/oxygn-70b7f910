@@ -44,13 +44,9 @@ const MockupTopBar = ({ tooltipsEnabled = true, onToggleTooltips, isDark = false
           <TooltipTrigger asChild>
             <button 
               onClick={onToggleTooltips}
-              className={`w-10 h-10 flex items-center justify-center rounded-m3-full transition-colors duration-200 ${
-                tooltipsEnabled 
-                  ? "text-primary hover:bg-primary/10" 
-                  : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-              }`}
+              className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200"
             >
-              <MessageCircleQuestion className="h-5 w-5" />
+              <MessageCircleQuestion className={`h-5 w-5 ${tooltipsEnabled ? "text-on-surface" : "opacity-50"}`} />
             </button>
           </TooltipTrigger>
           <TooltipContent className="text-label-md">
