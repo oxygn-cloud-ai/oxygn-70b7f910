@@ -211,9 +211,19 @@ const MockupFolderPanel = () => {
 
       {/* Prompts Tree */}
       <div className="flex-1 overflow-auto p-2 scrollbar-thin">
-        <p className="px-3 py-2 text-label-sm text-on-surface-variant uppercase tracking-wider">
-          Prompts
-        </p>
+        <div className="flex items-center justify-between px-3 py-2">
+          <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+            Prompts
+          </p>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors">
+                <Plus className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Create new prompt</TooltipContent>
+          </Tooltip>
+        </div>
         <div className="flex flex-col gap-0.5">
           {/* Top-level prompt with deep child hierarchy */}
           <TreeItem 
