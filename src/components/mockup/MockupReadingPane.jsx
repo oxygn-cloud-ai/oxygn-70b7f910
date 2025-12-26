@@ -43,6 +43,69 @@ const LIBRARY_PROMPTS = [
   { id: "8", name: "Formal Language", category: "Style" },
 ];
 
+// Variable definitions for hover tooltips
+const VARIABLE_DEFINITIONS = {
+  customer_message: { name: "customer_message", type: "text", description: "The customer's original inquiry or message", source: "User Input", required: true },
+  account_type: { name: "account_type", type: "enum", description: "Customer account tier (free, pro, enterprise)", source: "System", required: false, default: "free" },
+  ticket_count: { name: "ticket_count", type: "number", description: "Number of previous support tickets", source: "Database", required: false, default: "0" },
+  company_name: { name: "company_name", type: "text", description: "Name of the company", source: "Settings", required: true },
+  support_email: { name: "support_email", type: "text", description: "Support contact email address", source: "Settings", required: true },
+};
+
+// Component to render text with highlighted variables
+const HighlightedText = ({ text }) => {
+  const variablePattern = /\{\{(\w+)\}\}/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = variablePattern.exec(text)) !== null) {
+    // Add text before the variable
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={`text-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>
+      );
+    }
+    
+    // Add the highlighted variable
+    const varName = match[1];
+    const varDef = VARIABLE_DEFINITIONS[varName];
+    
+    parts.push(
+      <Tooltip key={`var-${match.index}`}>
+        <TooltipTrigger asChild>
+          <span className="text-primary font-medium cursor-help bg-primary/10 px-0.5 rounded">
+            {`{{${varName}}}`}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs p-3 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-label-md font-semibold text-on-surface">{varName}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">{varDef?.type || "text"}</span>
+            {varDef?.required && <span className="text-[10px] text-destructive">*required</span>}
+          </div>
+          {varDef?.description && (
+            <p className="text-[11px] text-on-surface-variant">{varDef.description}</p>
+          )}
+          <div className="flex items-center gap-3 text-[10px] text-on-surface-variant">
+            {varDef?.source && <span>Source: {varDef.source}</span>}
+            {varDef?.default && <span>Default: {varDef.default}</span>}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+  }
+  
+  return <>{parts}</>;
+};
+
 const LibraryPickerDropdown = () => {
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -1075,13 +1138,15 @@ const MockupReadingPane = ({ hasSelection = true, onExport, activeNav = "prompts
                 className="min-h-24 p-4 bg-surface-container rounded-m3-md border border-outline-variant"
                 style={{ borderRadius: "12px" }}
               >
-                <p className="text-body-md text-on-surface whitespace-pre-wrap">
-                  Customer inquiry: {"{{customer_message}}"}
-
-                  Customer context:
-                  - Account type: {"{{account_type}}"}
-                  - Previous tickets: {"{{ticket_count}}"}
-                </p>
+                <div className="text-body-md text-on-surface whitespace-pre-wrap">
+                  <HighlightedText text="Customer inquiry: {{customer_message}}" />
+                  {"\n\n"}
+                  <span>Customer context:</span>
+                  {"\n"}
+                  <span>- Account type: </span><HighlightedText text="{{account_type}}" />
+                  {"\n"}
+                  <span>- Previous tickets: </span><HighlightedText text="{{ticket_count}}" />
+                </div>
               </div>
             </div>
 
