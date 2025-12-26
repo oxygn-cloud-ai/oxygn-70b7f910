@@ -17,7 +17,10 @@ const MockupConversationPanel = () => {
         className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"
         style={{ height: "56px" }}
       >
-        <span className="text-label-lg text-on-surface font-medium">Conversation</span>
+        <div>
+          <span className="text-title-md text-on-surface font-semibold">Conversation</span>
+          <p className="text-[10px] text-on-surface-variant">Customer Support Bot • 4 messages</p>
+        </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <button className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
