@@ -425,7 +425,7 @@ const MockupTemplatesTab = () => {
   );
 };
 
-
+const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
