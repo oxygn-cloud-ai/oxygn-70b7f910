@@ -6,7 +6,6 @@ import {
   Clock, 
   ChevronRight, 
   ChevronDown, 
-  Folder, 
   FileText 
 } from "lucide-react";
 
@@ -64,8 +63,8 @@ const TreeItem = ({ icon: Icon, label, level = 0, hasChildren = false, isExpande
 
 const MockupFolderPanel = ({ isOpen }) => {
   const [expandedFolders, setExpandedFolders] = useState({ 
-    "project-a": true,
-    "deep-nest": true 
+    "doc-processor": true,
+    "support-bot": true
   });
 
   const toggleFolder = (id) => {
@@ -95,52 +94,21 @@ const MockupFolderPanel = ({ isOpen }) => {
       {/* Divider */}
       <div className="mx-3 h-px bg-outline-variant" />
 
-      {/* Folders Tree */}
+      {/* Prompts Tree */}
       <div className="flex-1 overflow-auto p-2 scrollbar-thin">
         <p className="px-3 py-2 text-label-sm text-on-surface-variant uppercase tracking-wider">
-          Folders
+          Prompts
         </p>
         <div className="flex flex-col gap-0.5">
-          {/* Project A - Expanded */}
-          <TreeItem 
-            icon={Folder} 
-            label="Project A" 
-            hasChildren 
-            isExpanded={expandedFolders["project-a"]}
-            onToggle={() => toggleFolder("project-a")}
-          />
-          {expandedFolders["project-a"] && (
-            <>
-              <TreeItem icon={FileText} label="API Documentation" level={1} />
-              <TreeItem icon={MessageSquare} label="Customer Support Bot" level={1} isActive />
-              <TreeItem icon={FileText} label="Summary Generator" level={1} />
-            </>
-          )}
-
-          {/* Project B - Collapsed */}
-          <TreeItem 
-            icon={Folder} 
-            label="Project B" 
-            hasChildren 
-            isExpanded={expandedFolders["project-b"]}
-            onToggle={() => toggleFolder("project-b")}
-          />
-          {expandedFolders["project-b"] && (
-            <>
-              <TreeItem icon={FileText} label="Email Templates" level={1} />
-              <TreeItem icon={FileText} label="Report Builder" level={1} />
-            </>
-          )}
-
-          {/* Prompt with Deep Child Hierarchy - Shows 9 levels of nested prompts */}
+          {/* Top-level prompt with deep child hierarchy */}
           <TreeItem 
             icon={FileText} 
             label="Document Processor" 
             hasChildren 
-            isExpanded={expandedFolders["deep-nest"]}
-            onToggle={() => toggleFolder("deep-nest")}
+            isExpanded={expandedFolders["doc-processor"]}
+            onToggle={() => toggleFolder("doc-processor")}
           />
-          {expandedFolders["deep-nest"] && (
+          {expandedFolders["doc-processor"] && (
             <>
               <TreeItem icon={FileText} label="1. Parse Input" level={1} hasChildren isExpanded />
               <TreeItem icon={FileText} label="2. Extract Metadata" level={2} hasChildren isExpanded />
@@ -150,20 +118,39 @@ const MockupFolderPanel = ({ isOpen }) => {
               <TreeItem icon={FileText} label="6. Apply Rules" level={6} hasChildren isExpanded />
               <TreeItem icon={FileText} label="7. Generate Output" level={7} hasChildren isExpanded />
               <TreeItem icon={FileText} label="8. Format Response" level={8} hasChildren isExpanded />
-              <TreeItem icon={FileText} label="9. Final Review" level={9} isActive />
+              <TreeItem icon={FileText} label="9. Final Review" level={9} />
             </>
           )}
 
-          {/* Project C */}
+          {/* Conversation with children */}
           <TreeItem 
-            icon={Folder} 
-            label="Project C" 
+            icon={MessageSquare} 
+            label="Customer Support Bot" 
             hasChildren 
-            isExpanded={expandedFolders["project-c"]}
-            onToggle={() => toggleFolder("project-c")}
+            isExpanded={expandedFolders["support-bot"]}
+            onToggle={() => toggleFolder("support-bot")}
+            isActive
           />
+          {expandedFolders["support-bot"] && (
+            <>
+              <TreeItem icon={FileText} label="Greeting Handler" level={1} />
+              <TreeItem icon={FileText} label="Issue Classifier" level={1} hasChildren isExpanded />
+              <TreeItem icon={FileText} label="Technical Issues" level={2} />
+              <TreeItem icon={FileText} label="Billing Issues" level={2} />
+              <TreeItem icon={FileText} label="Escalation Handler" level={1} />
+            </>
+          )}
 
-          {/* Standalone prompts */}
+          {/* Simple top-level prompts */}
+          <TreeItem icon={FileText} label="API Documentation" />
+          <TreeItem icon={FileText} label="Summary Generator" />
+          <TreeItem icon={FileText} label="Email Templates" hasChildren isExpanded={expandedFolders["email"]} onToggle={() => toggleFolder("email")} />
+          {expandedFolders["email"] && (
+            <>
+              <TreeItem icon={FileText} label="Welcome Email" level={1} />
+              <TreeItem icon={FileText} label="Follow-up Email" level={1} />
+            </>
+          )}
           <TreeItem icon={FileText} label="Quick Notes" />
           <TreeItem icon={FileText} label="Code Review" />
         </div>
