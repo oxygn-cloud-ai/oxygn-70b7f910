@@ -28,6 +28,8 @@ import { useTemplates } from "@/hooks/useTemplates";
 import { useJsonSchemaTemplates } from "@/hooks/useJsonSchemaTemplates";
 import { useConversationRun } from "@/hooks/useConversationRun";
 import { useCascadeExecutor } from "@/hooks/useCascadeExecutor";
+import { useCostTracking } from "@/hooks/useCostTracking";
+import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults";
 import { toast } from "@/components/ui/sonner";
 
 const Mockup = () => {
@@ -91,6 +93,12 @@ const Mockup = () => {
   // Template hooks - Phase 8-9
   const templatesHook = useTemplates();
   const jsonSchemaTemplatesHook = useJsonSchemaTemplates();
+  
+  // Cost tracking hook - Phase 4
+  const costTracking = useCostTracking();
+  
+  // Conversation tool defaults - Phase 4
+  const conversationToolDefaults = useConversationToolDefaults();
   
   // Fetch messages when active thread changes
   useEffect(() => {
@@ -598,6 +606,9 @@ const Mockup = () => {
                         const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
                         if (model) toggleModelActive(model.row_id, !model.is_active);
                       }}
+                      // Phase 4 - Cost analytics and conversation defaults
+                      costTracking={costTracking}
+                      conversationToolDefaults={conversationToolDefaults}
                       // Workbench props for Phase 3
                       workbenchThreads={workbenchThreads}
                       workbenchMessages={workbenchMessages}

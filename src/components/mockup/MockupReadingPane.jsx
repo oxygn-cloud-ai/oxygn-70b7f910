@@ -35,6 +35,9 @@ const MockupReadingPane = ({
   models = [],
   isLoadingModels = false,
   onToggleModel,
+  // Phase 4 - Cost analytics and conversation defaults
+  costTracking,
+  conversationToolDefaults,
   // Workbench props - Phase 3
   workbenchThreads,
   workbenchMessages,
@@ -70,6 +73,8 @@ const MockupReadingPane = ({
         models={models}
         isLoadingModels={isLoadingModels}
         onToggleModel={onToggleModel}
+        costTracking={costTracking}
+        conversationToolDefaults={conversationToolDefaults}
       />
     );
   }

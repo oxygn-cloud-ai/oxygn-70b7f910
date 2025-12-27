@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Settings, Database, Key, Palette, Bell, User, 
   Link2, DollarSign, CreditCard, MessageSquare, Sparkles,
@@ -14,8 +14,11 @@ import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
 import { SettingInput } from "@/components/ui/setting-input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getThemePreference, setThemePreference } from '@/components/ui/sonner';
+import { useSupabase } from "@/hooks/useSupabase";
+import { toast } from "@/components/ui/sonner";
 
-// Mock data
+// Mock data for fallback
 const MOCK_MODELS = [
   { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", active: true, inputCost: 2.50, outputCost: 10.00 },
   { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI", active: true, inputCost: 0.15, outputCost: 0.60 },
@@ -29,23 +32,10 @@ const MOCK_API_KEYS = [
   { id: "confluence", name: "Confluence API Token", key: "ATATT•••••••••abc123", status: "Active", lastUsed: "1 day ago" },
 ];
 
-const MOCK_COST_DATA = {
-  todayCost: 12.47,
-  monthCost: 284.63,
-  totalTokens: "2.4M",
-  avgCostPerPrompt: "0.08",
-};
-
 const MOCK_NAMING_LEVELS = [
   { level: 0, name: "Prompt", prefix: "", suffix: "" },
   { level: 1, name: "Sub-prompt", prefix: "", suffix: "" },
   { level: 2, name: "Task", prefix: "", suffix: "" },
-];
-
-const MOCK_CONVERSATIONS = [
-  { id: "1", name: "Customer Support Bot", model: "gpt-4o", promptName: "Support Agent", createdAt: "Dec 20, 2024", isOrphaned: false },
-  { id: "2", name: "Code Assistant", model: "gpt-4-turbo", promptName: "Code Helper", createdAt: "Dec 18, 2024", isOrphaned: false },
-  { id: "3", name: "Old Chat Bot", model: "gpt-3.5-turbo", promptName: null, createdAt: "Nov 15, 2024", isOrphaned: true },
 ];
 
 // General Settings Section - Connected to real settings
@@ -499,10 +489,58 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Conversations Section (NEW - matching real ConversationsSection.jsx)
+// Conversations Section - Connected to real Supabase data
 const ConversationsSection = () => {
+  const supabase = useSupabase();
   const [selectedIds, setSelectedIds] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchConversations = useCallback(async () => {
+    if (!supabase) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('conversation-manager', {
+        body: { action: 'list' }
+      });
+      if (error) throw error;
+      setConversations(data?.conversations || []);
+    } catch (err) {
+      console.error('Error fetching conversations:', err);
+      toast.error('Failed to load conversations');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  const handleDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('conversation-manager', {
+        body: { action: 'delete', ids: selectedIds }
+      });
+      if (error) throw error;
+      toast.success(`Deleted ${selectedIds.length} conversation(s)`);
+      setSelectedIds([]);
+      fetchConversations();
+    } catch (err) {
+      console.error('Error deleting:', err);
+      toast.error('Failed to delete conversations');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   const toggleSelect = (id) => {
     setSelectedIds(prev => 
@@ -511,10 +549,10 @@ const ConversationsSection = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === MOCK_CONVERSATIONS.length) {
+    if (selectedIds.length === conversations.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(MOCK_CONVERSATIONS.map(c => c.id));
+      setSelectedIds(conversations.map(c => c.row_id || c.id));
     }
   };
 
@@ -528,69 +566,95 @@ const ConversationsSection = () => {
               These are all conversation configurations. Orphaned items have no linked prompt.
             </p>
           </div>
-          {selectedIds.length > 0 && (
+          <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
-                  <Trash2 className="h-4 w-4" />
+                <button onClick={fetchConversations} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Delete {selectedIds.length} selected</TooltipContent>
+              <TooltipContent className="text-[10px]">Refresh</TooltipContent>
             </Tooltip>
-          )}
-        </div>
-
-        {/* Table Header */}
-        <div className="grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
-          <div className="flex items-center justify-center">
-            <Checkbox 
-              checked={selectedIds.length === MOCK_CONVERSATIONS.length}
-              onCheckedChange={toggleSelectAll}
-              className="h-3.5 w-3.5"
-            />
+            {selectedIds.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={handleDelete} 
+                    disabled={isDeleting}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]"
+                  >
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Delete {selectedIds.length} selected</TooltipContent>
+              </Tooltip>
+            )}
           </div>
-          <span>Name</span>
-          <span>Model</span>
-          <span>Linked Prompt</span>
-          <span>Created</span>
         </div>
 
-        {/* Table Rows */}
-        <div className="divide-y divide-outline-variant">
-          {MOCK_CONVERSATIONS.map(conv => (
-            <div 
-              key={conv.id} 
-              className={`grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-2.5 items-center transition-colors ${
-                selectedIds.includes(conv.id) ? "bg-secondary-container/30" : ""
-              }`}
-            >
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="text-center py-8 text-on-surface-variant text-body-sm">
+            No conversations found.
+          </div>
+        ) : (
+          <>
+            {/* Table Header */}
+            <div className="grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
               <div className="flex items-center justify-center">
                 <Checkbox 
-                  checked={selectedIds.includes(conv.id)}
-                  onCheckedChange={() => toggleSelect(conv.id)}
+                  checked={selectedIds.length === conversations.length}
+                  onCheckedChange={toggleSelectAll}
                   className="h-3.5 w-3.5"
                 />
               </div>
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-body-sm text-on-surface font-medium truncate">{conv.name}</span>
-                {conv.isOrphaned && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 bg-destructive/10 text-destructive rounded-full shrink-0">
-                        <AlertCircle className="h-2.5 w-2.5" />
-                        Orphaned
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">No linked prompt in the system</TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              <span className="text-[11px] text-on-surface-variant truncate">{conv.model}</span>
-              <span className="text-[11px] text-on-surface-variant truncate">{conv.promptName || "-"}</span>
-              <span className="text-[11px] text-on-surface-variant">{conv.createdAt}</span>
+              <span>Name</span>
+              <span>Model</span>
+              <span>Linked Prompt</span>
+              <span>Created</span>
             </div>
-          ))}
-        </div>
+
+            {/* Table Rows */}
+            <div className="divide-y divide-outline-variant">
+              {conversations.map(conv => (
+                <div 
+                  key={conv.row_id || conv.id} 
+                  className={`grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-2.5 items-center transition-colors ${
+                    selectedIds.includes(conv.row_id || conv.id) ? "bg-secondary-container/30" : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-center">
+                    <Checkbox 
+                      checked={selectedIds.includes(conv.row_id || conv.id)}
+                      onCheckedChange={() => toggleSelect(conv.row_id || conv.id)}
+                      className="h-3.5 w-3.5"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-body-sm text-on-surface font-medium truncate">{conv.name || 'Unnamed'}</span>
+                    {!conv.prompt_row_id && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 bg-destructive/10 text-destructive rounded-full shrink-0">
+                            <AlertCircle className="h-2.5 w-2.5" />
+                            Orphaned
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px]">No linked prompt in the system</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-on-surface-variant truncate">{conv.model_override || conv.model || '-'}</span>
+                  <span className="text-[11px] text-on-surface-variant truncate">{conv.prompt_name || "-"}</span>
+                  <span className="text-[11px] text-on-surface-variant">{formatDate(conv.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </SettingCard>
     </div>
   );
@@ -744,9 +808,22 @@ const APIKeysSection = () => {
   );
 };
 
-// Theme Section
+// Theme Section - Connected to real theme persistence
 const ThemeSection = () => {
-  const [theme, setTheme] = useState("system");
+  const [theme, setTheme] = useState(getThemePreference());
+
+  useEffect(() => {
+    const handleChange = () => {
+      setTheme(getThemePreference());
+    };
+    window.addEventListener('theme-preference-change', handleChange);
+    return () => window.removeEventListener('theme-preference-change', handleChange);
+  }, []);
+
+  const handleThemeChange = (value) => {
+    setThemePreference(value);
+    setTheme(value);
+  };
 
   return (
     <div className="space-y-3">
@@ -759,7 +836,7 @@ const ThemeSection = () => {
           ].map(option => (
             <button
               key={option.id}
-              onClick={() => setTheme(option.id)}
+              onClick={() => handleThemeChange(option.id)}
               className={`flex flex-col items-center gap-2 p-3 rounded-m3-lg border transition-colors ${
                 theme === option.id 
                   ? "bg-secondary-container border-outline" 
@@ -862,37 +939,90 @@ const ConfluenceSection = () => (
   </SettingCard>
 );
 
-// Cost Analytics Section
-const CostAnalyticsSection = () => (
-  <div className="grid grid-cols-2 gap-3">
-    <SettingCard>
-      <div className="text-center">
-        <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
-        <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.todayCost.toFixed(2)}</span>
-        <p className="text-[10px] text-on-surface-variant">Today</p>
+// Cost Analytics Section - Connected to real cost tracking
+const CostAnalyticsSection = ({ costTracking }) => {
+  const [analytics, setAnalytics] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchAnalytics = useCallback(async () => {
+    if (!costTracking?.getPlatformCosts) return;
+    setIsLoading(true);
+    try {
+      const endDate = new Date().toISOString();
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const data = await costTracking.getPlatformCosts({ startDate, endDate });
+      setAnalytics(data);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [costTracking]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  const formatCurrency = (value) => `$${(value || 0).toFixed(2)}`;
+  const formatNumber = (value) => {
+    if (!value) return '0';
+    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+    return value.toString();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
       </div>
-    </SettingCard>
-    <SettingCard>
-      <div className="text-center">
-        <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
-        <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.monthCost.toFixed(2)}</span>
-        <p className="text-[10px] text-on-surface-variant">This Month</p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={fetchAnalytics} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Refresh</TooltipContent>
+        </Tooltip>
       </div>
-    </SettingCard>
-    <SettingCard>
-      <div className="text-center">
-        <span className="text-title-sm text-on-surface font-semibold">{MOCK_COST_DATA.totalTokens}</span>
-        <p className="text-[10px] text-on-surface-variant">Total Tokens</p>
+      <div className="grid grid-cols-2 gap-3">
+        <SettingCard>
+          <div className="text-center">
+            <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
+            <span className="text-title-sm text-on-surface font-semibold">{formatCurrency(analytics?.totalCost)}</span>
+            <p className="text-[10px] text-on-surface-variant">Last 30 Days</p>
+          </div>
+        </SettingCard>
+        <SettingCard>
+          <div className="text-center">
+            <span className="text-title-sm text-on-surface font-semibold">{analytics?.totalCalls || 0}</span>
+            <p className="text-[10px] text-on-surface-variant">Total Calls</p>
+          </div>
+        </SettingCard>
+        <SettingCard>
+          <div className="text-center">
+            <span className="text-title-sm text-on-surface font-semibold">{formatNumber(analytics?.totalTokens)}</span>
+            <p className="text-[10px] text-on-surface-variant">Total Tokens</p>
+          </div>
+        </SettingCard>
+        <SettingCard>
+          <div className="text-center">
+            <span className="text-title-sm text-on-surface font-semibold">
+              {formatCurrency(analytics?.totalCalls ? analytics.totalCost / analytics.totalCalls : 0)}
+            </span>
+            <p className="text-[10px] text-on-surface-variant">Avg/Call</p>
+          </div>
+        </SettingCard>
       </div>
-    </SettingCard>
-    <SettingCard>
-      <div className="text-center">
-        <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.avgCostPerPrompt}</span>
-        <p className="text-[10px] text-on-surface-variant">Avg/Prompt</p>
-      </div>
-    </SettingCard>
-  </div>
-);
+    </div>
+  );
+};
 
 // Workbench Settings Section - Connected to real settings
 const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] }) => {
@@ -1305,6 +1435,8 @@ const MockupSettingsContent = ({
   models = [],
   isLoadingModels = false,
   onToggleModel,
+  costTracking,
+  conversationToolDefaults,
 }) => {
   const section = SETTINGS_SECTIONS[activeSubItem] || SETTINGS_SECTIONS.qonsol;
   const SectionComponent = section.component;
@@ -1333,7 +1465,7 @@ const MockupSettingsContent = ({
           onUpdateSetting,
         };
       case 'assistants':
-        return commonSettingsProps;
+        return { ...commonSettingsProps, conversationToolDefaults };
       case 'workbench':
         return { 
           ...commonSettingsProps,
@@ -1343,6 +1475,8 @@ const MockupSettingsContent = ({
         return commonSettingsProps;
       case 'confluence':
         return commonSettingsProps;
+      case 'cost-analytics':
+        return { costTracking };
       default:
         return commonSettingsProps;
     }
