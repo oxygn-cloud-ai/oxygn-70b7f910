@@ -515,44 +515,7 @@ const AttachmentsTab = () => {
   );
 };
 
-// Keep remaining component code but skip file list mapping
-const AttachmentsTabEmpty = () => {
-  const [isDragging, setIsDragging] = useState(false);
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      {/* Upload Dropzone */}
-      <div 
-        className={`border-2 border-dashed rounded-m3-lg p-6 text-center transition-colors ${
-          isDragging 
-            ? "border-primary bg-primary/5" 
-            : "border-outline-variant hover:border-on-surface-variant"
-        }`}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={() => setIsDragging(false)}
-      >
-        <Upload className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
-        <p className="text-body-sm text-on-surface">Drop files here or click to upload</p>
-        <p className="text-[10px] text-on-surface-variant mt-1">PDF, DOCX, TXT, JSON up to 10MB</p>
-      </div>
-
-      {/* Empty State */}
-      <div className="space-y-1.5">
-        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files (0)</span>
-        <div className="text-center py-4">
-          <p className="text-body-sm text-on-surface-variant">No files attached yet</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Dummy to satisfy the reference - actual files come from props
-const MOCK_ATTACHMENTS_PLACEHOLDER = []; // Empty - real data via props
-const dummyFiles = MOCK_ATTACHMENTS_PLACEHOLDER;
-// Note: The AttachmentsTab component now shows empty state
-// Real file handling should be wired via props from parent
+// AttachmentsTabWithFiles component accepts real files via props
 
 // Continue with file list (empty by default)
 const AttachmentsTabWithFiles = ({ files = [] }) => {

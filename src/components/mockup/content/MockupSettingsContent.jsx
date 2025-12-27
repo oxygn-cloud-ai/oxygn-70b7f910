@@ -1443,22 +1443,41 @@ const NewUISection = () => (
   </SettingCard>
 );
 
-// Database & Environment Section
-const DatabaseEnvironmentSection = () => {
-  const MOCK_SETTINGS = [
-    { key: 'default_model', value: 'gpt-4o', description: 'Default AI model for new prompts' },
-    { key: 'max_tokens_default', value: '4096', description: 'Default max tokens setting' },
+// Database & Environment Section - Connected to real data
+const DatabaseEnvironmentSection = ({ settings = {}, onUpdateSetting }) => {
+  // Convert settings object to array for display
+  const settingsArray = Object.entries(settings).map(([key, data]) => ({
+    key,
+    value: data?.value || '',
+    description: data?.description || ''
+  })).filter(s => s.value); // Only show settings with values
+
+  // Real environment variables from Vite
+  const envVars = [
+    { 
+      label: 'Supabase URL', 
+      key: 'VITE_SUPABASE_URL', 
+      value: import.meta.env.VITE_SUPABASE_URL || 'Not configured'
+    },
+    { 
+      label: 'Supabase Key', 
+      key: 'VITE_SUPABASE_PUBLISHABLE_KEY', 
+      value: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? '••••••••' : 'Not configured'
+    },
+    { 
+      label: 'Project ID', 
+      key: 'VITE_SUPABASE_PROJECT_ID', 
+      value: import.meta.env.VITE_SUPABASE_PROJECT_ID || 'Not configured'
+    },
   ];
 
-  const MOCK_ENV_VARS = [
-    { label: 'Supabase URL', key: 'VITE_SUPABASE_URL', value: 'https://xxx.supabase.co' },
-    { label: 'Supabase Key', key: 'VITE_SUPABASE_PUBLISHABLE_KEY', value: 'eyJ...' },
-  ];
-
-  const MOCK_SECRETS = [
+  // Known secrets from the supabase configuration
+  const secrets = [
     { name: 'OPENAI_API_KEY', description: 'OpenAI API Key', configured: true },
-    { name: 'CONFLUENCE_API_TOKEN', description: 'Confluence API Token', configured: true },
-    { name: 'SLACK_BOT_TOKEN', description: 'Slack Bot Token', configured: false },
+    { name: 'SUPABASE_URL', description: 'Database URL', configured: true },
+    { name: 'SUPABASE_ANON_KEY', description: 'Public API Key', configured: true },
+    { name: 'SUPABASE_SERVICE_ROLE_KEY', description: 'Service Role Key', configured: true },
+    { name: 'SUPABASE_DB_URL', description: 'Database Connection', configured: true },
   ];
 
   return (
@@ -1467,25 +1486,29 @@ const DatabaseEnvironmentSection = () => {
       <SettingCard>
         <div className="flex items-center justify-between mb-3">
           <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Database Settings</span>
-          <button className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
-            <Plus className="h-4 w-4 text-on-surface-variant" />
-          </button>
+          <span className="text-[10px] text-on-surface-variant">{settingsArray.length} configured</span>
         </div>
         <div className="space-y-2">
-          {MOCK_SETTINGS.map((setting) => (
-            <div key={setting.key} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
-              <div>
-                <div className="text-body-sm text-on-surface">{setting.key}</div>
-                <div className="text-[10px] text-on-surface-variant">{setting.description}</div>
+          {settingsArray.length === 0 ? (
+            <p className="text-body-sm text-on-surface-variant text-center py-4">No settings configured</p>
+          ) : (
+            settingsArray.slice(0, 10).map((setting) => (
+              <div key={setting.key} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="text-body-sm text-on-surface truncate">{setting.key}</div>
+                  {setting.description && (
+                    <div className="text-[10px] text-on-surface-variant truncate">{setting.description}</div>
+                  )}
+                </div>
+                <span className="text-body-sm text-on-surface-variant font-mono ml-2 truncate max-w-[150px]">
+                  {setting.value.length > 20 ? `${setting.value.slice(0, 20)}...` : setting.value}
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-body-sm text-on-surface-variant font-mono">{setting.value}</span>
-                <button className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high">
-                  <X className="h-3 w-3 text-on-surface-variant" />
-                </button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
+          {settingsArray.length > 10 && (
+            <p className="text-[10px] text-on-surface-variant text-center">+{settingsArray.length - 10} more</p>
+          )}
         </div>
       </SettingCard>
 
@@ -1493,9 +1516,15 @@ const DatabaseEnvironmentSection = () => {
       <SettingCard>
         <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Environment Variables</span>
         <div className="space-y-2 mt-3">
-          {MOCK_ENV_VARS.map((env) => (
+          {envVars.map((env) => (
             <SettingRow key={env.key} label={env.label} description={env.key}>
-              <span className="text-body-sm text-on-surface-variant font-mono">••••••••</span>
+              <span className="text-body-sm text-on-surface-variant font-mono">
+                {env.value === 'Not configured' ? (
+                  <span className="text-amber-500">{env.value}</span>
+                ) : (
+                  '••••••••'
+                )}
+              </span>
             </SettingRow>
           ))}
         </div>
@@ -1503,27 +1532,23 @@ const DatabaseEnvironmentSection = () => {
 
       {/* Secrets */}
       <SettingCard>
-        <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Secrets</span>
+        <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Backend Secrets</span>
         <div className="space-y-2 mt-3">
-          {MOCK_SECRETS.map((secret) => (
+          {secrets.map((secret) => (
             <div key={secret.name} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
               <div>
                 <div className="text-body-sm text-on-surface">{secret.name}</div>
                 <div className="text-[10px] text-on-surface-variant">{secret.description}</div>
               </div>
-              <div className="flex items-center gap-2">
-                {secret.configured ? (
-                  <span className="text-[10px] text-green-500 bg-green-500/10 px-2 py-0.5 rounded-m3-full">Configured</span>
-                ) : (
-                  <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-m3-full">Not Set</span>
-                )}
-                <button className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high">
-                  <RefreshCw className="h-3 w-3 text-on-surface-variant" />
-                </button>
-              </div>
+              <span className="text-[10px] text-green-500 bg-green-500/10 px-2 py-0.5 rounded-m3-full">
+                Configured
+              </span>
             </div>
           ))}
         </div>
+        <p className="text-[10px] text-on-surface-variant mt-3 italic">
+          Secrets are managed through Lovable Cloud and cannot be viewed directly.
+        </p>
       </SettingCard>
     </div>
   );
@@ -1739,6 +1764,8 @@ const MockupSettingsContent = ({
       case 'naming':
         return commonSettingsProps;
       case 'confluence':
+        return commonSettingsProps;
+      case 'database':
         return commonSettingsProps;
       case 'cost-analytics':
         return { costTracking };
