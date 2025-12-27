@@ -5,7 +5,6 @@ import {
   Clock,
   Star,
   LayoutTemplate,
-  FileText,
   Braces,
   FileJson,
   Settings,
@@ -23,7 +22,8 @@ import {
   DollarSign,
   CreditCard,
   Briefcase,
-  Sparkles
+  Sparkles,
+  FileText
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -48,20 +48,10 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
   </button>
 );
 
-const SubmenuSection = ({ title, children }) => (
-  <div className="space-y-0.5">
-    <p className="px-2.5 py-1.5 text-[9px] text-on-surface-variant uppercase tracking-wider">
-      {title}
-    </p>
-    <div className="flex flex-col gap-0.5">
-      {children}
-    </div>
-  </div>
-);
-
+// Flat menu layout (no section titles) - matches Health pattern
 const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5 space-y-3">
-    <SubmenuSection title="Conversations">
+  <div className="p-1.5">
+    <div className="flex flex-col gap-0.5">
       <SubmenuItem 
         icon={Plus} 
         label="New Conversation" 
@@ -83,11 +73,6 @@ const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "starred"}
         onClick={() => onItemClick?.("starred")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Quick Actions">
       <SubmenuItem 
         icon={MessageSquare} 
         label="Continue Last" 
@@ -95,13 +80,14 @@ const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "continue-last"}
         onClick={() => onItemClick?.("continue-last")}
       />
-    </SubmenuSection>
+    </div>
   </div>
 );
 
+// Flat menu layout (no section titles) - matches Health pattern
 const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5 space-y-3">
-    <SubmenuSection title="Template Types">
+  <div className="p-1.5">
+    <div className="flex flex-col gap-0.5">
       <SubmenuItem 
         icon={LayoutTemplate} 
         label="Prompt Templates" 
@@ -123,11 +109,6 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "export-mappings"}
         onClick={() => onItemClick?.("export-mappings")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Actions">
       <SubmenuItem 
         icon={Plus} 
         label="Create Template" 
@@ -135,13 +116,14 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "create-template"}
         onClick={() => onItemClick?.("create-template")}
       />
-    </SubmenuSection>
+    </div>
   </div>
 );
 
+// Flat menu layout (no section titles) - matches Health pattern
 const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5 space-y-3">
-    <SubmenuSection title="Configuration">
+  <div className="p-1.5">
+    <div className="flex flex-col gap-0.5">
       <SubmenuItem 
         icon={Settings} 
         label="General" 
@@ -170,11 +152,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "database"}
         onClick={() => onItemClick?.("database")}
       />
-    </SubmenuSection>
-
-    <div className="mx-2 h-px bg-outline-variant" />
-
-    <SubmenuSection title="Features">
       <SubmenuItem 
         icon={MessageSquare} 
         label="Conversation Defaults" 
@@ -203,11 +180,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "workbench"}
         onClick={() => onItemClick?.("workbench")}
       />
-    </SubmenuSection>
-
-    <div className="mx-2 h-px bg-outline-variant" />
-
-    <SubmenuSection title="Billing & Usage">
       <SubmenuItem 
         icon={DollarSign} 
         label="Cost Analytics" 
@@ -222,11 +194,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "openai-billing"}
         onClick={() => onItemClick?.("openai-billing")}
       />
-    </SubmenuSection>
-
-    <div className="mx-2 h-px bg-outline-variant" />
-
-    <SubmenuSection title="Preferences">
       <SubmenuItem 
         icon={Palette} 
         label="Appearance" 
@@ -248,11 +215,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "notifications"}
         onClick={() => onItemClick?.("notifications")}
       />
-    </SubmenuSection>
-
-    <div className="mx-2 h-px bg-outline-variant" />
-
-    <SubmenuSection title="Account">
       <SubmenuItem 
         icon={User} 
         label="Profile" 
@@ -267,7 +229,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "api-keys"}
         onClick={() => onItemClick?.("api-keys")}
       />
-    </SubmenuSection>
+    </div>
   </div>
 );
 
