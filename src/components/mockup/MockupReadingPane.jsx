@@ -10,14 +10,23 @@ import {
 
 const MockupReadingPane = ({ 
   hasSelection = true, 
+  selectedPromptId,
+  promptData,
+  isLoadingPrompt,
+  onUpdateField,
+  variables,
+  isLoadingVariables,
+  onAddVariable,
+  onUpdateVariable,
+  onDeleteVariable,
+  selectedPromptHasChildren = false,
   onExport, 
   activeNav = "prompts", 
   activeSubItem = null, 
   selectedTemplate = null,
   activeTemplateTab = "prompts",
   onToggleConversation, 
-  conversationPanelOpen = true, 
-  selectedPromptHasChildren = true 
+  conversationPanelOpen = true
 }) => {
   // Workbench mode - full workbench with threads and chat
   if (activeNav === "workbench") {
@@ -60,10 +69,19 @@ const MockupReadingPane = ({
   return (
     <MockupPromptsContent
       hasSelection={hasSelection}
+      selectedPromptId={selectedPromptId}
+      promptData={promptData}
+      isLoadingPrompt={isLoadingPrompt}
+      onUpdateField={onUpdateField}
+      variables={variables}
+      isLoadingVariables={isLoadingVariables}
+      onAddVariable={onAddVariable}
+      onUpdateVariable={onUpdateVariable}
+      onDeleteVariable={onDeleteVariable}
+      selectedPromptHasChildren={selectedPromptHasChildren}
       onExport={onExport}
       onToggleConversation={onToggleConversation}
       conversationPanelOpen={conversationPanelOpen}
-      selectedPromptHasChildren={selectedPromptHasChildren}
     />
   );
 };
