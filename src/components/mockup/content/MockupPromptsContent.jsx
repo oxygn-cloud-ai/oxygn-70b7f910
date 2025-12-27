@@ -4,7 +4,7 @@ import {
   Download, MoreVertical, Star, Trash2, Share2, Link2, 
   Hash, List, Braces, ToggleLeft, Library, ChevronDown, 
   Search, Plus, PanelRightOpen, Workflow, Bot, Thermometer,
-  Zap, Code, Globe, Edit3, Check, X, User, Sparkles,
+  Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch
 } from "lucide-react";
@@ -537,6 +537,8 @@ const SettingsTabContent = ({ promptData, onUpdateField }) => {
             { key: "file_search_on", icon: Search, label: "File Search" },
             { key: "web_search_on", icon: Globe, label: "Web Search" },
             { key: "function_calling_on", icon: Zap, label: "Functions" },
+            { key: "confluence_enabled", icon: FileText, label: "Confluence" },
+            { key: "jira_enabled", icon: Briefcase, label: "Jira" },
           ].map(tool => (
             <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
               <div className="flex items-center gap-1.5">
@@ -1047,11 +1049,13 @@ const MockupPromptsContent = ({
 
   if (!hasSelection) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-surface">
-        <div className="text-center text-on-surface-variant">
-          <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
-          <p className="text-body-sm">Select a prompt to view</p>
-          <p className="text-[10px] opacity-70 mt-0.5">or create a new one</p>
+      <div className="flex-1 flex flex-col min-h-0 overflow-auto bg-surface">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-on-surface-variant">
+            <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+            <p className="text-body-sm">Select a prompt to view</p>
+            <p className="text-[10px] opacity-70 mt-0.5">or create a new one</p>
+          </div>
         </div>
       </div>
     );
