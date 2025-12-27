@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Braces, 
   ChevronRight, 
@@ -77,26 +77,34 @@ const SYSTEM_VARIABLE_GROUPS = [
   },
 ];
 
-// Mock user-defined variables
-const MOCK_USER_VARIABLES = [
-  { name: "customer_name", type: "text" },
-  { name: "ticket_id", type: "text" },
-  { name: "priority", type: "enum" },
-  { name: "company_name", type: "text" },
-];
-
-// Mock prompt references
-const MOCK_PROMPT_REFERENCES = [
-  { id: "1", name: "Customer Support Bot", field: "output" },
-  { id: "2", name: "Greeting Generator", field: "output" },
-  { id: "3", name: "FAQ Handler", field: "system_prompt" },
-];
-
-export const MockupVariablePicker = ({ onInsert, userVariables = MOCK_USER_VARIABLES, className = "" }) => {
+export const MockupVariablePicker = ({ 
+  onInsert, 
+  userVariables = [], 
+  promptReferences = [],
+  className = "" 
+}) => {
   const [open, setOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
   const [showPromptPicker, setShowPromptPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Transform user variables to expected format
+  const transformedUserVars = useMemo(() => {
+    return userVariables.map(v => ({
+      name: v.variable_name || v.name,
+      type: v.type || "text",
+      value: v.variable_value || v.value || v.default_value
+    }));
+  }, [userVariables]);
+
+  // Transform prompt references to expected format  
+  const transformedRefs = useMemo(() => {
+    return promptReferences.map(p => ({
+      id: p.row_id || p.id,
+      name: p.prompt_name || p.name,
+      field: "output"
+    }));
+  }, [promptReferences]);
 
   const handleInsert = (varName) => {
     onInsert?.(`{{${varName}}}`);
@@ -121,8 +129,8 @@ export const MockupVariablePicker = ({ onInsert, userVariables = MOCK_USER_VARIA
     )
   })).filter(group => group.variables.length > 0);
 
-  const filteredUserVars = userVariables.filter(v => 
-    v.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUserVars = transformedUserVars.filter(v => 
+    (v.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -156,19 +164,23 @@ export const MockupVariablePicker = ({ onInsert, userVariables = MOCK_USER_VARIA
               <span className="text-label-sm text-on-surface-variant">Prompt References</span>
             </div>
             <div className="space-y-1">
-              {MOCK_PROMPT_REFERENCES.map(ref => (
-                <button
-                  key={ref.id}
-                  onClick={() => handlePromptRefInsert(ref.id, ref.name, ref.field)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm hover:bg-on-surface/[0.08] text-left"
-                >
-                  <Link2 className="h-3.5 w-3.5 text-on-surface-variant" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-body-sm text-on-surface truncate block">{ref.name}</span>
-                    <span className="text-[10px] text-on-surface-variant">.{ref.field}</span>
-                  </div>
-                </button>
-              ))}
+              {transformedRefs.length === 0 ? (
+                <p className="text-[11px] text-on-surface-variant py-2 px-2">No prompts available</p>
+              ) : (
+                transformedRefs.map(ref => (
+                  <button
+                    key={ref.id}
+                    onClick={() => handlePromptRefInsert(ref.id, ref.name, ref.field)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm hover:bg-on-surface/[0.08] text-left"
+                  >
+                    <Link2 className="h-3.5 w-3.5 text-on-surface-variant" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-body-sm text-on-surface truncate block">{ref.name}</span>
+                      <span className="text-[10px] text-on-surface-variant">.{ref.field}</span>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         ) : (
