@@ -24,7 +24,7 @@ import { useWorkbenchMessages } from "@/hooks/useWorkbenchMessages";
 import { useWorkbenchFiles } from "@/hooks/useWorkbenchFiles";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useJsonSchemaTemplates } from "@/hooks/useJsonSchemaTemplates";
-import { buildTree } from "@/utils/positionUtils";
+
 
 const Mockup = () => {
   // Real data hooks
@@ -33,11 +33,8 @@ const Mockup = () => {
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
   
-  // Transform flat treeData to hierarchical structure for the UI
-  const hierarchicalTreeData = React.useMemo(() => {
-    if (!treeData || treeData.length === 0) return [];
-    return buildTree(treeData);
-  }, [treeData]);
+  // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
+  const hierarchicalTreeData = treeData || [];
   
   // Selected prompt state and data
   const [selectedPromptId, setSelectedPromptId] = useState(null);
