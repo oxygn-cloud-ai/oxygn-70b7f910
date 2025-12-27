@@ -6,7 +6,7 @@ import {
   Search, Plus, PanelRightOpen, Workflow, Bot, Thermometer,
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
-  RefreshCw, ChevronRight, AlertCircle, Info
+  RefreshCw, ChevronRight, AlertCircle, Info, Loader2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -21,6 +21,17 @@ import { Slider } from "@/components/ui/slider";
 import { LabelPicker } from "@/components/ui/label-picker";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  SkeletonPromptEditor, 
+  SkeletonVariableRow,
+  SkeletonSettingRow,
+  SkeletonChat
+} from "../shared/MockupSkeletons";
+import { 
+  EmptyVariables, 
+  EmptyConversation,
+  EmptyOutput 
+} from "../shared/MockupEmptyStates";
 
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
@@ -135,18 +146,21 @@ const HighlightedText = ({ text }) => {
   return <>{parts}</>;
 };
 
-const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
+const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
         onClick={onClick}
-        className={`h-8 w-9 flex items-center justify-center rounded-m3-sm transition-colors ${
+        className={`h-8 w-9 flex items-center justify-center rounded-m3-sm transition-all duration-200 relative ${
           isActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
-            : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+            : "text-on-surface-variant hover:bg-on-surface/[0.08] hover:scale-105"
         }`}
       >
         <Icon className="h-4 w-4" />
+        {badge && (
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full animate-pulse" />
+        )}
       </button>
     </TooltipTrigger>
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
