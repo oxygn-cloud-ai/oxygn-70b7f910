@@ -20,6 +20,18 @@ const MOCK_MODELS = [
   { id: "o1-mini", name: "O1 Mini", provider: "OpenAI", active: true, inputCost: 3.00, outputCost: 12.00 },
 ];
 
+const MOCK_API_KEYS = [
+  { id: "openai", name: "OpenAI API Key", key: "sk-•••••••••••••xyz789", status: "Active", lastUsed: "2 hours ago" },
+  { id: "confluence", name: "Confluence API Token", key: "ATATT•••••••••abc123", status: "Active", lastUsed: "1 day ago" },
+];
+
+const MOCK_COST_DATA = {
+  todayCost: 12.47,
+  monthCost: 284.63,
+  totalTokens: "2.4M",
+  avgCostPerPrompt: "0.08",
+};
+
 // General Settings Section
 const GeneralSection = () => (
   <div className="space-y-3">
