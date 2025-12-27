@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
   LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
   ChevronRight, ChevronDown, Settings, ArrowRight, Layers,
   Edit3, Check, X, AlertCircle, Upload, Paperclip, CheckCircle2,
-  Clock, XCircle
+  Clock, XCircle, Loader2, Save
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LabelPicker } from "@/components/ui/label-picker";
@@ -14,7 +14,7 @@ import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
 import { MockupVariablePicker } from "../shared/MockupVariablePicker";
 
-// Mock structure data
+// Mock structure data (fallback when no structure exists)
 const MOCK_STRUCTURE = [
   { 
     id: "1", 
@@ -43,13 +43,6 @@ const MOCK_STRUCTURE = [
     expanded: false,
     children: []
   },
-];
-
-const MOCK_VARIABLES = [
-  { name: "customer_name", type: "string", required: true, default: "", description: "Customer's full name" },
-  { name: "ticket_id", type: "string", required: true, default: "", description: "Support ticket identifier" },
-  { name: "priority", type: "enum", required: false, default: "medium", description: "Ticket priority level", options: ["low", "medium", "high"] },
-  { name: "context", type: "text", required: false, default: "", description: "Additional context from knowledge base" },
 ];
 
 const MOCK_VARIABLE_MAPPINGS = [
@@ -160,137 +153,6 @@ const AttachmentsTab = () => {
   );
 };
 
-// Import/Export Dialog Component  
-const ImportExportActions = ({ onExport, onImport }) => (
-  <div className="flex items-center gap-0.5">
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button 
-          onClick={onImport}
-          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-        >
-          <Upload className="h-4 w-4" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent className="text-[10px]">Import JSON</TooltipContent>
-    </Tooltip>
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button 
-          onClick={onExport}
-          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-        >
-          <Download className="h-4 w-4" />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent className="text-[10px]">Export JSON</TooltipContent>
-    </Tooltip>
-  </div>
-);
-
-// Enhanced Preview Panel with Live Variable Resolution
-const EnhancedPreviewPanel = ({ template }) => {
-  const [resolveMode, setResolveMode] = useState(false);
-  
-  const resolvedValues = {
-    company_name: "Acme Corporation",
-    customer_name: "John Doe",
-    ticket_id: "TKT-12345",
-    priority: "high"
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-label-sm text-on-surface-variant uppercase">Live Preview</span>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-on-surface-variant">Resolve Variables</span>
-          <Switch checked={resolveMode} onCheckedChange={setResolveMode} />
-        </div>
-      </div>
-      
-      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
-        <div className="space-y-3">
-          <div className="p-3 bg-surface-container rounded-m3-md">
-            <span className="text-[10px] text-on-surface-variant uppercase">System Prompt</span>
-            <p className="text-body-sm text-on-surface mt-1">
-              You are a helpful customer support agent for{" "}
-              {resolveMode ? (
-                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
-                  {resolvedValues.company_name}
-                </span>
-              ) : (
-                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
-                  {"{{company_name}}"}
-                </span>
-              )}. Always be polite and professional.
-            </p>
-          </div>
-          
-          <div className="p-3 bg-surface-container rounded-m3-md">
-            <span className="text-[10px] text-on-surface-variant uppercase">User Prompt</span>
-            <p className="text-body-sm text-on-surface mt-1">
-              Handle the following support ticket from{" "}
-              {resolveMode ? (
-                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
-                  {resolvedValues.customer_name}
-                </span>
-              ) : (
-                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
-                  {"{{customer_name}}"}
-                </span>
-              )}:
-              <br /><br />
-              Ticket ID:{" "}
-              {resolveMode ? (
-                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
-                  {resolvedValues.ticket_id}
-                </span>
-              ) : (
-                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
-                  {"{{ticket_id}}"}
-                </span>
-              )}
-              <br />
-              Priority:{" "}
-              {resolveMode ? (
-                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
-                  {resolvedValues.priority}
-                </span>
-              ) : (
-                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
-                  {"{{priority}}"}
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Variable Status */}
-      <div className="space-y-2">
-        <span className="text-[10px] text-on-surface-variant uppercase">Variable Status</span>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(resolvedValues).map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2 p-2 bg-surface-container rounded-m3-sm">
-              <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-              <code className="text-[10px] text-on-surface font-mono">{key}</code>
-              {resolveMode && (
-                <span className="text-[10px] text-on-surface-variant truncate ml-auto">= {value}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-m3-md">
-        <AlertCircle className="h-4 w-4 text-amber-600" />
-        <span className="text-body-sm text-amber-700">0 unresolved variables</span>
-      </div>
-    </div>
-  );
-};
-
 // Structure Tree Node Component
 const StructureNode = ({ node, level = 0 }) => {
   const [expanded, setExpanded] = useState(node.expanded);
@@ -323,11 +185,11 @@ const StructureNode = ({ node, level = 0 }) => {
           <div className="w-4" />
         )}
         
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${typeColors[node.type]}`}>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${typeColors[node.type] || typeColors.section}`}>
           {node.type}
         </span>
         
-        <span className="text-body-sm text-on-surface flex-1">{node.name}</span>
+        <span className="text-body-sm text-on-surface flex-1">{node.name || node.prompt_name || "Unnamed"}</span>
         
         <Tooltip>
           <TooltipTrigger asChild>
@@ -341,8 +203,8 @@ const StructureNode = ({ node, level = 0 }) => {
       
       {expanded && hasChildren && (
         <div>
-          {node.children.map(child => (
-            <StructureNode key={child.id} node={child} level={level + 1} />
+          {node.children.map((child, idx) => (
+            <StructureNode key={child.id || child._id || idx} node={child} level={level + 1} />
           ))}
         </div>
       )}
@@ -359,24 +221,26 @@ const VariableRow = ({ variable, isEditing = false }) => {
     number: "bg-amber-500/10 text-amber-600",
   };
 
+  const varType = variable.type || "string";
+
   return (
     <div className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant group">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <code className="text-body-sm text-on-surface font-mono font-medium">{variable.name}</code>
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${typeColors[variable.type]}`}>
-            {variable.type}
+          <code className="text-body-sm text-on-surface font-mono font-medium">{variable.name || variable.variable_name}</code>
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${typeColors[varType] || typeColors.string}`}>
+            {varType}
           </span>
-          {variable.required && (
+          {(variable.required || variable.is_required) && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600">required</span>
           )}
         </div>
-        <p className="text-[10px] text-on-surface-variant mt-0.5">{variable.description}</p>
+        <p className="text-[10px] text-on-surface-variant mt-0.5">{variable.description || variable.variable_description || ""}</p>
       </div>
       
-      {variable.default && (
+      {(variable.default || variable.default_value) && (
         <div className="text-[10px] text-on-surface-variant">
-          default: <code className="text-on-surface">{variable.default}</code>
+          default: <code className="text-on-surface">{variable.default || variable.default_value}</code>
         </div>
       )}
       
@@ -440,46 +304,149 @@ const MappingRow = ({ mapping }) => {
   );
 };
 
-// Preview Panel Component
-const PreviewPanel = ({ template }) => (
-  <div className="space-y-4">
-    <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
-      <div className="flex items-center gap-2 mb-3">
-        <Eye className="h-4 w-4 text-on-surface-variant" />
+// Enhanced Preview Panel with Live Variable Resolution
+const EnhancedPreviewPanel = ({ template, variables = [] }) => {
+  const [resolveMode, setResolveMode] = useState(false);
+  
+  const resolvedValues = useMemo(() => {
+    const values = {};
+    variables.forEach(v => {
+      const name = v.name || v.variable_name;
+      values[name] = v.default || v.default_value || `[${name}]`;
+    });
+    return values;
+  }, [variables]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <span className="text-label-sm text-on-surface-variant uppercase">Live Preview</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-on-surface-variant">Resolve Variables</span>
+          <Switch checked={resolveMode} onCheckedChange={setResolveMode} />
+        </div>
       </div>
       
-      <div className="space-y-3">
-        <div className="p-3 bg-surface-container rounded-m3-md">
-          <span className="text-[10px] text-on-surface-variant uppercase">System Prompt</span>
-          <p className="text-body-sm text-on-surface mt-1">
-            You are a helpful customer support agent for <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">{"{{company_name}}"}</span>. 
-            Always be polite and professional.
-          </p>
-        </div>
-        
-        <div className="p-3 bg-surface-container rounded-m3-md">
-          <span className="text-[10px] text-on-surface-variant uppercase">User Prompt</span>
-          <p className="text-body-sm text-on-surface mt-1">
-            Handle the following support ticket from <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">{"{{customer_name}}"}</span>:
-            <br /><br />
-            Ticket ID: <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">{"{{ticket_id}}"}</span>
-            <br />
-            Priority: <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">{"{{priority}}"}</span>
-          </p>
+      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+        <div className="space-y-3">
+          <div className="p-3 bg-surface-container rounded-m3-md">
+            <span className="text-[10px] text-on-surface-variant uppercase">System Prompt</span>
+            <p className="text-body-sm text-on-surface mt-1">
+              {template?.structure?.input_admin_prompt || "No system prompt defined"}
+            </p>
+          </div>
+          
+          <div className="p-3 bg-surface-container rounded-m3-md">
+            <span className="text-[10px] text-on-surface-variant uppercase">User Prompt</span>
+            <p className="text-body-sm text-on-surface mt-1">
+              {template?.structure?.input_user_prompt || "No user prompt defined"}
+            </p>
+          </div>
         </div>
       </div>
+      
+      {/* Variable Status */}
+      {variables.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-[10px] text-on-surface-variant uppercase">Variable Status</span>
+          <div className="grid grid-cols-2 gap-2">
+            {variables.slice(0, 4).map((v, idx) => {
+              const name = v.name || v.variable_name;
+              return (
+                <div key={idx} className="flex items-center gap-2 p-2 bg-surface-container rounded-m3-sm">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                  <code className="text-[10px] text-on-surface font-mono">{name}</code>
+                  {resolveMode && resolvedValues[name] && (
+                    <span className="text-[10px] text-on-surface-variant truncate ml-auto">= {resolvedValues[name]}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-m3-md">
+        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <span className="text-body-sm text-green-700">All variables resolved</span>
+      </div>
     </div>
-    
-    <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-m3-md">
-      <AlertCircle className="h-4 w-4 text-amber-600" />
-      <span className="text-body-sm text-amber-700">2 required variables not mapped</span>
-    </div>
-  </div>
-);
+  );
+};
 
-const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts" }) => {
+const MockupTemplatesContent = ({ 
+  selectedTemplate, 
+  activeTemplateTab = "prompts",
+  // Real data hooks - Phase 8-9
+  templatesHook,
+  jsonSchemaTemplatesHook,
+}) => {
   const [activeEditorTab, setActiveEditorTab] = useState("overview");
+  const [editedName, setEditedName] = useState("");
+  const [editedDescription, setEditedDescription] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get the display name and description from template
+  const templateName = useMemo(() => {
+    if (!selectedTemplate) return "";
+    return selectedTemplate.template_name || selectedTemplate.schema_name || selectedTemplate.name || "Untitled";
+  }, [selectedTemplate]);
+
+  const templateDescription = useMemo(() => {
+    if (!selectedTemplate) return "";
+    return selectedTemplate.template_description || selectedTemplate.schema_description || selectedTemplate.description || "";
+  }, [selectedTemplate]);
+
+  // Extract variables from template
+  const extractedVariables = useMemo(() => {
+    if (!selectedTemplate?.structure || !templatesHook?.extractTemplateVariables) return [];
+    const varNames = templatesHook.extractTemplateVariables(selectedTemplate.structure);
+    return varNames.map(name => ({ name, type: "string", required: true }));
+  }, [selectedTemplate, templatesHook]);
+
+  // Variable definitions from template
+  const variableDefinitions = useMemo(() => {
+    if (!selectedTemplate?.variable_definitions) return [];
+    if (Array.isArray(selectedTemplate.variable_definitions)) {
+      return selectedTemplate.variable_definitions;
+    }
+    return [];
+  }, [selectedTemplate]);
+
+  const displayVariables = variableDefinitions.length > 0 ? variableDefinitions : extractedVariables;
+
+  // Save handler
+  const handleSave = useCallback(async () => {
+    if (!selectedTemplate?.row_id) return;
+    
+    setIsSaving(true);
+    try {
+      if (activeTemplateTab === "prompts" && templatesHook?.updateTemplate) {
+        await templatesHook.updateTemplate(selectedTemplate.row_id, {
+          template_name: editedName || templateName,
+          template_description: editedDescription || templateDescription,
+        });
+      } else if (activeTemplateTab === "schemas" && jsonSchemaTemplatesHook?.updateTemplate) {
+        await jsonSchemaTemplatesHook.updateTemplate(selectedTemplate.row_id, {
+          schema_name: editedName || templateName,
+          schema_description: editedDescription || templateDescription,
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, editedName, editedDescription, templateName, templateDescription]);
+
+  // Delete handler
+  const handleDelete = useCallback(async () => {
+    if (!selectedTemplate?.row_id) return;
+    
+    if (activeTemplateTab === "prompts" && templatesHook?.deleteTemplate) {
+      await templatesHook.deleteTemplate(selectedTemplate.row_id);
+    } else if (activeTemplateTab === "schemas" && jsonSchemaTemplatesHook?.deleteTemplate) {
+      await jsonSchemaTemplatesHook.deleteTemplate(selectedTemplate.row_id);
+    }
+  }, [selectedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook]);
 
   // Empty state when no template selected
   if (!selectedTemplate) {
@@ -499,12 +466,28 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
       {/* Header - 56px */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
         <div>
-          <h3 className="text-title-sm text-on-surface font-medium">{selectedTemplate.name}</h3>
-          {selectedTemplate.description && (
-            <p className="text-[10px] text-on-surface-variant">{selectedTemplate.description}</p>
+          <h3 className="text-title-sm text-on-surface font-medium">{templateName}</h3>
+          {templateDescription && (
+            <p className="text-[10px] text-on-surface-variant">{templateDescription}</p>
           )}
         </div>
         <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={handleSave}
+                disabled={isSaving}
+                className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Save</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
@@ -531,7 +514,10 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
+              <button 
+                onClick={handleDelete}
+                className="w-7 h-7 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]"
+              >
                 <Trash2 className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -573,45 +559,46 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
             <SettingCard label="Details">
               <div className="space-y-3">
                 <SettingRow label="Name">
-                  <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-                    <span className="text-body-sm text-on-surface">{selectedTemplate.name}</span>
-                  </div>
+                  <input
+                    type="text"
+                    value={editedName || templateName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    className="h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant min-w-44 text-body-sm text-on-surface"
+                  />
                 </SettingRow>
                 <SettingDivider />
                 <SettingRow label="Description">
-                  <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-                    <span className="text-body-sm text-on-surface">{selectedTemplate.description}</span>
-                  </div>
+                  <input
+                    type="text"
+                    value={editedDescription || templateDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    className="h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant min-w-44 text-body-sm text-on-surface"
+                  />
                 </SettingRow>
                 <SettingDivider />
                 <SettingRow label="Category">
                   <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-                    <span className="text-body-sm text-on-surface">Customer Support</span>
+                    <span className="text-body-sm text-on-surface">{selectedTemplate.category || "General"}</span>
                   </div>
                 </SettingRow>
               </div>
             </SettingCard>
 
-            <SettingCard label="Labels">
-              <LabelPicker 
-                labels={selectedTemplate.labels || []} 
-                onLabelsChange={(newLabels) => console.log('Labels changed:', newLabels)}
-              />
-            </SettingCard>
-
             <SettingCard label="Statistics">
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-2 bg-surface-container rounded-m3-sm text-center">
-                  <span className="text-title-sm text-on-surface font-semibold">{selectedTemplate.nodes || 3}</span>
+                  <span className="text-title-sm text-on-surface font-semibold">
+                    {selectedTemplate.structure?.children?.length || 0}
+                  </span>
                   <p className="text-[10px] text-on-surface-variant">Nodes</p>
                 </div>
                 <div className="p-2 bg-surface-container rounded-m3-sm text-center">
-                  <span className="text-title-sm text-on-surface font-semibold">{selectedTemplate.vars || 4}</span>
+                  <span className="text-title-sm text-on-surface font-semibold">{displayVariables.length}</span>
                   <p className="text-[10px] text-on-surface-variant">Variables</p>
                 </div>
                 <div className="p-2 bg-surface-container rounded-m3-sm text-center">
-                  <span className="text-title-sm text-on-surface font-semibold">12</span>
-                  <p className="text-[10px] text-on-surface-variant">Uses</p>
+                  <span className="text-title-sm text-on-surface font-semibold">{selectedTemplate.version || 1}</span>
+                  <p className="text-[10px] text-on-surface-variant">Version</p>
                 </div>
               </div>
             </SettingCard>
@@ -634,9 +621,13 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
             </div>
             
             <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant p-2">
-              {MOCK_STRUCTURE.map(node => (
-                <StructureNode key={node.id} node={node} />
-              ))}
+              {selectedTemplate.structure ? (
+                <StructureNode node={selectedTemplate.structure} />
+              ) : (
+                MOCK_STRUCTURE.map(node => (
+                  <StructureNode key={node.id} node={node} />
+                ))
+              )}
             </div>
             
             <p className="text-[10px] text-on-surface-variant">
@@ -649,7 +640,7 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
         {activeEditorTab === "variables" && activeTemplateTab === "prompts" && (
           <div className="space-y-3 max-w-2xl">
             <div className="flex items-center justify-between">
-              <span className="text-label-sm text-on-surface-variant uppercase">Template Variables</span>
+              <span className="text-label-sm text-on-surface-variant uppercase">Template Variables ({displayVariables.length})</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
@@ -660,11 +651,18 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
               </Tooltip>
             </div>
             
-            <div className="space-y-2">
-              {MOCK_VARIABLES.map(variable => (
-                <VariableRow key={variable.name} variable={variable} />
-              ))}
-            </div>
+            {displayVariables.length === 0 ? (
+              <div className="text-center py-8 text-on-surface-variant">
+                <Variable className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-[11px]">No variables defined</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {displayVariables.map((variable, idx) => (
+                  <VariableRow key={variable.name || variable.variable_name || idx} variable={variable} />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -676,7 +674,7 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
         {/* Preview Tab */}
         {activeEditorTab === "preview" && activeTemplateTab === "prompts" && (
           <div className="max-w-2xl">
-            <EnhancedPreviewPanel template={selectedTemplate} />
+            <EnhancedPreviewPanel template={selectedTemplate} variables={displayVariables} />
           </div>
         )}
 
@@ -686,27 +684,15 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
             <div className="space-y-1.5">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema</label>
               <div className="min-h-56 p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[10px] text-on-surface whitespace-pre overflow-auto">
-{`{
+                {selectedTemplate.json_schema ? (
+                  JSON.stringify(selectedTemplate.json_schema, null, 2)
+                ) : (
+`{
   "type": "object",
-  "properties": {
-    "action": {
-      "type": "string",
-      "description": "Action to take"
-    },
-    "priority": {
-      "type": "string",
-      "enum": ["low", "medium", "high"]
-    },
-    "details": {
-      "type": "object",
-      "properties": {
-        "reason": { "type": "string" },
-        "confidence": { "type": "number" }
-      }
-    }
-  },
-  "required": ["action", "priority"]
-}`}
+  "properties": {},
+  "required": []
+}`
+                )}
               </div>
             </div>
             
@@ -730,12 +716,8 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
             <span className="text-label-sm text-on-surface-variant uppercase">Sample Output</span>
             <div className="p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[11px] text-on-surface whitespace-pre overflow-auto">
 {`{
-  "action": "escalate_to_support",
-  "priority": "high",
-  "details": {
-    "reason": "Customer reported billing discrepancy",
-    "confidence": 0.92
-  }
+  "action": "example_action",
+  "data": {}
 }`}
             </div>
             <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-m3-md">

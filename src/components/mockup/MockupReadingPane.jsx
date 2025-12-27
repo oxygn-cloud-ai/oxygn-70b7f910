@@ -38,6 +38,9 @@ const MockupReadingPane = ({
   workbenchThreads,
   workbenchMessages,
   workbenchFiles,
+  // Templates props - Phase 8-9
+  templatesHook,
+  jsonSchemaTemplatesHook,
 }) => {
   // Workbench mode - full workbench with threads and chat (now with real data)
   if (activeNav === "workbench") {
@@ -71,12 +74,14 @@ const MockupReadingPane = ({
     return <MockupHealthContent activeSubItem={activeSubItem} />;
   }
 
-  // Templates mode - template editor
+  // Templates mode - template editor (now with real data)
   if (activeNav === "templates") {
     return (
       <MockupTemplatesContent 
         selectedTemplate={selectedTemplate}
         activeTemplateTab={activeTemplateTab}
+        templatesHook={templatesHook}
+        jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
       />
     );
   }
