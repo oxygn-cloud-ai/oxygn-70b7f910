@@ -22,7 +22,6 @@ import {
   DollarSign,
   CreditCard,
   Briefcase,
-  Sparkles,
   FileText
 } from "lucide-react";
 
@@ -200,13 +199,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Theme & colors"
         isActive={activeSubItem === "appearance"}
         onClick={() => onItemClick?.("appearance")}
-      />
-      <SubmenuItem 
-        icon={Sparkles} 
-        label="New UI (Beta)" 
-        description="Experimental interface"
-        isActive={activeSubItem === "new-ui"}
-        onClick={() => onItemClick?.("new-ui")}
       />
       <SubmenuItem 
         icon={Bell} 
