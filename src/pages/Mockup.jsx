@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { motion, AnimatePresence } from "framer-motion";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
 import MockupTopBar from "@/components/mockup/MockupTopBar";
@@ -10,6 +11,7 @@ import MockupSubmenuPanel from "@/components/mockup/MockupSubmenuPanel";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
 import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
 import MockupExportPanel from "@/components/mockup/MockupExportPanel";
+import MockupSearchModal from "@/components/mockup/MockupSearchModal";
 import { useSupabase } from "@/hooks/useSupabase";
 import useTreeData from "@/hooks/useTreeData";
 import { useTreeOperations } from "@/hooks/useTreeOperations";
@@ -30,7 +32,37 @@ import { useConversationRun } from "@/hooks/useConversationRun";
 import { useCascadeExecutor } from "@/hooks/useCascadeExecutor";
 import { useCostTracking } from "@/hooks/useCostTracking";
 import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "@/components/ui/sonner";
+import { Loader2 } from "lucide-react";
+
+// Initial loading screen component
+const LoadingScreen = () => (
+  <motion.div 
+    className="h-screen w-full flex flex-col items-center justify-center bg-surface gap-4"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+  >
+    <motion.img 
+      src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
+      alt="Qonsol Logo" 
+      className="h-12 w-auto"
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ delay: 0.1 }}
+    />
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.2 }}
+      className="flex items-center gap-2 text-on-surface-variant"
+    >
+      <Loader2 className="h-4 w-4 animate-spin" />
+      <span className="text-body-sm">Loading workspace...</span>
+    </motion.div>
+  </motion.div>
+);
 
 const Mockup = () => {
   // Real data hooks
@@ -304,6 +336,45 @@ const Mockup = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [activeTemplateTab, setActiveTemplateTab] = useState("prompts");
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Initial load state
+  useEffect(() => {
+    if (!isLoadingTree && !isLoadingSettings) {
+      // Small delay for smooth transition
+      const timer = setTimeout(() => setIsInitialLoad(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoadingTree, isLoadingSettings]);
+  
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: () => setSearchOpen(true),
+    onToggleFolderPanel: () => setFolderPanelOpen(prev => !prev),
+    onToggleConversationPanel: () => {
+      if (activeNav === "prompts") {
+        setConversationPanelOpen(prev => !prev);
+      }
+    },
+    onSave: () => {
+      // Save current item - could trigger template save or prompt save
+      toast.info("Save triggered (Cmd+S)");
+    },
+    onRun: () => {
+      if (selectedPromptId) {
+        handleRunPrompt(selectedPromptId);
+      }
+    },
+    onEscape: () => {
+      if (searchOpen) {
+        setSearchOpen(false);
+      } else if (exportPanelOpen) {
+        setExportPanelOpen(false);
+      }
+    },
+    enabled: true,
+  });
   
   // Determine if conversation panel should be shown based on active nav
   const showConversationPanel = activeNav === "prompts" && conversationPanelOpen;
@@ -406,11 +477,15 @@ const Mockup = () => {
       // Show templates folder panel preview when hovering templates
       if (hoveredNav === "templates") {
         return (
-          <div
+          <motion.div
             ref={submenuRef}
             onMouseEnter={handleSubmenuMouseEnter}
             onMouseLeave={handleSubmenuMouseLeave}
             className="h-full"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.15 }}
           >
             <MockupTemplatesFolderPanel 
               onSelectTemplate={handleSelectTemplate}
@@ -426,18 +501,22 @@ const Mockup = () => {
               onCreateSchema={jsonSchemaTemplatesHook.createTemplate}
               onDeleteSchema={jsonSchemaTemplatesHook.deleteTemplate}
             />
-          </div>
+          </motion.div>
         );
       }
       
       // Show prompts folder panel preview when hovering prompts
       if (hoveredNav === "prompts") {
         return (
-          <div
+          <motion.div
             ref={submenuRef}
             onMouseEnter={handleSubmenuMouseEnter}
             onMouseLeave={handleSubmenuMouseLeave}
             className="h-full"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.15 }}
           >
             <MockupFolderPanel 
               treeData={hierarchicalTreeData}
@@ -457,25 +536,29 @@ const Mockup = () => {
               isRunningPrompt={isRunningPrompt}
               isRunningCascade={isRunningCascade}
             />
-          </div>
+          </motion.div>
         );
       }
       
       // Show submenu for other nav items
       if (hasSubmenu(hoveredNav)) {
         return (
-          <div
+          <motion.div
             ref={submenuRef}
             onMouseEnter={handleSubmenuMouseEnter}
             onMouseLeave={handleSubmenuMouseLeave}
             className="h-full"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.15 }}
           >
             <MockupSubmenuPanel 
               hoveredNav={hoveredNav}
               activeSubItem={hoveredNav === activeNav ? activeSubItem : null}
               onItemClick={(itemId) => handleSubmenuClick(hoveredNav, itemId)}
             />
-          </div>
+          </motion.div>
         );
       }
     }
@@ -534,9 +617,33 @@ const Mockup = () => {
     );
   };
 
+  // Show loading screen on initial load
+  if (isInitialLoad) {
+    return <LoadingScreen />;
+  }
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0">
+        {/* Search Modal */}
+        <MockupSearchModal
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          treeData={hierarchicalTreeData}
+          templates={[...templatesHook.templates, ...jsonSchemaTemplatesHook.templates]}
+          onSelectPrompt={(id) => {
+            setActiveNav("prompts");
+            setSelectedPromptId(id);
+          }}
+          onSelectTemplate={(template) => {
+            setActiveNav("templates");
+            setSelectedTemplate(template);
+          }}
+          onNavigate={(navId) => {
+            setActiveNav(navId);
+          }}
+        />
+
         {/* Main Layout */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Navigation Rail - 80px */}
@@ -547,6 +654,7 @@ const Mockup = () => {
             onNavLeave={handleNavLeave}
             folderPanelOpen={folderPanelOpen}
             onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
+            onShowShortcuts={() => toast.info("Keyboard shortcuts: ⌘K search, ⌘B folders, ⌘J chat")}
           />
 
           {/* Content Area */}
@@ -557,26 +665,44 @@ const Mockup = () => {
               onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
               isDark={isDark}
               onToggleDark={() => setIsDark(!isDark)}
+              onOpenSearch={() => setSearchOpen(true)}
             />
 
             {/* Main Content with Resizable Panels */}
-            <div className="flex-1 flex overflow-hidden min-h-0">
+            <motion.div 
+              className="flex-1 flex overflow-hidden min-h-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
               <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
                 {/* Folder/Submenu Panel - collapsible */}
-                {folderPanelOpen && (
-                  <>
-                    <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                      <div className="h-full min-h-0 overflow-hidden">
-                        {renderFolderPanelContent()}
-                      </div>
-                    </ResizablePanel>
-                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
-                  </>
-                )}
+                <AnimatePresence mode="wait">
+                  {folderPanelOpen && (
+                    <>
+                      <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                        <motion.div 
+                          className="h-full min-h-0 overflow-hidden"
+                          initial={{ opacity: 0, width: 0 }}
+                          animate={{ opacity: 1, width: "auto" }}
+                          exit={{ opacity: 0, width: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {renderFolderPanelContent()}
+                        </motion.div>
+                      </ResizablePanel>
+                      <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                    </>
+                  )}
+                </AnimatePresence>
 
                 {/* Reading Pane - flexible */}
                 <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
-                  <div className="h-full min-h-0 flex flex-col overflow-hidden">
+                  <motion.div 
+                    className="h-full min-h-0 flex flex-col overflow-hidden"
+                    layout
+                    transition={{ duration: 0.2 }}
+                  >
                     <MockupReadingPane 
                       hasSelection={selectedPromptId !== null} 
                       selectedPromptId={selectedPromptId}
@@ -619,54 +745,74 @@ const Mockup = () => {
                       templatesHook={templatesHook}
                       jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
                     />
-                  </div>
+                  </motion.div>
                 </ResizablePanel>
 
-                {showConversationPanel && (
-                  <>
-                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                <AnimatePresence mode="wait">
+                  {showConversationPanel && (
+                    <>
+                      <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
 
-                    {/* Conversation Panel - only shown for prompts */}
-                    <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-                      <MockupConversationPanel 
-                        onClose={() => setConversationPanelOpen(false)}
-                        threads={threads}
-                        activeThread={activeThread}
-                        onSelectThread={setActiveThread}
-                        messages={messages}
-                        isLoadingThreads={isLoadingThreads}
-                        isLoadingMessages={isLoadingMessages}
-                        isSending={isSendingMessage}
-                        onCreateThread={createThread}
-                        onDeleteThread={deleteThread}
-                        onRenameThread={renameThread}
-                        onSendMessage={handleSendConversationMessage}
-                        promptName={selectedPromptData?.prompt_name}
-                      />
-                    </ResizablePanel>
-                  </>
-                )}
+                      {/* Conversation Panel - only shown for prompts */}
+                      <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                        <motion.div
+                          className="h-full"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <MockupConversationPanel 
+                            onClose={() => setConversationPanelOpen(false)}
+                            threads={threads}
+                            activeThread={activeThread}
+                            onSelectThread={setActiveThread}
+                            messages={messages}
+                            isLoadingThreads={isLoadingThreads}
+                            isLoadingMessages={isLoadingMessages}
+                            isSending={isSendingMessage}
+                            onCreateThread={createThread}
+                            onDeleteThread={deleteThread}
+                            onRenameThread={renameThread}
+                            onSendMessage={handleSendConversationMessage}
+                            promptName={selectedPromptData?.prompt_name}
+                          />
+                        </motion.div>
+                      </ResizablePanel>
+                    </>
+                  )}
+                </AnimatePresence>
 
                 {/* Export Panel - toggleable, now connected to useExport */}
-                {exportPanelOpen && (
-                  <>
-                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
-                    <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
-                      <MockupExportPanel 
-                        isOpen={true} 
-                        onClose={() => {
-                          setExportPanelOpen(false);
-                          exportState.closeExport();
-                        }}
-                        exportState={exportState}
-                        treeData={hierarchicalTreeData}
-                        selectedPromptId={selectedPromptId}
-                      />
-                    </ResizablePanel>
-                  </>
-                )}
+                <AnimatePresence mode="wait">
+                  {exportPanelOpen && (
+                    <>
+                      <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                      <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+                        <motion.div
+                          className="h-full"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <MockupExportPanel 
+                            isOpen={true} 
+                            onClose={() => {
+                              setExportPanelOpen(false);
+                              exportState.closeExport();
+                            }}
+                            exportState={exportState}
+                            treeData={hierarchicalTreeData}
+                            selectedPromptId={selectedPromptId}
+                          />
+                        </motion.div>
+                      </ResizablePanel>
+                    </>
+                  )}
+                </AnimatePresence>
               </ResizablePanelGroup>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>
