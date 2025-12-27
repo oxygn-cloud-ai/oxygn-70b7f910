@@ -1,5 +1,6 @@
 import React from "react";
-import { FileText, LayoutTemplate } from "lucide-react";
+import { FileText, LayoutTemplate, PanelRightOpen } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   MockupPromptsContent,
   MockupWorkbenchContent,
@@ -89,11 +90,26 @@ const MockupReadingPane = ({
   // Prompts mode (default) - prompt editor
   if (!hasSelection) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-surface">
-        <div className="text-center text-on-surface-variant">
-          <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
-          <p className="text-body-md">Select a prompt to view</p>
-          <p className="text-label-md mt-1">or create a new one</p>
+      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-auto">
+        {/* Header with toggle button when conversation panel is closed */}
+        {!conversationPanelOpen && onToggleConversation && (
+          <div className="h-14 flex items-center justify-end px-3 border-b border-outline-variant shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <PanelRightOpen className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show Conversation</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-on-surface-variant">
+            <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
+            <p className="text-body-md">Select a prompt to view</p>
+            <p className="text-label-md mt-1">or create a new one</p>
+          </div>
         </div>
       </div>
     );

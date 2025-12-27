@@ -1050,6 +1050,19 @@ const MockupPromptsContent = ({
   if (!hasSelection) {
     return (
       <div className="flex-1 flex flex-col min-h-0 overflow-auto bg-surface">
+        {/* Header with toggle button when conversation panel is closed */}
+        {!conversationPanelOpen && onToggleConversation && (
+          <div className="h-14 flex items-center justify-end px-3 border-b border-outline-variant shrink-0">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <PanelRightOpen className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show Conversation</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-on-surface-variant">
             <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
