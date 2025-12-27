@@ -65,7 +65,7 @@ const StatusBadge = ({ status }) => {
 };
 
 const HealthCard = ({ icon: Icon, title, status, children }) => (
-  <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+  <div className="p-3 bg-surface-container-low rounded-m3-lg">
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 text-on-surface-variant" />
@@ -137,7 +137,7 @@ const OverviewSection = () => (
 // Database Section
 const DatabaseSection = () => (
   <div className="space-y-4">
-    <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
+    <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
       <div className="grid grid-cols-[1fr,80px,100px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Table</span>
         <span className="text-right">Rows</span>
@@ -161,7 +161,7 @@ const DatabaseSection = () => (
 // AI Services Section
 const AIServicesSection = () => (
   <div className="space-y-4">
-    <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
+    <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
       <div className="grid grid-cols-[1fr,100px,100px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Model</span>
         <span className="text-center">Status</span>
@@ -185,7 +185,7 @@ const AIServicesSection = () => (
 // Auth Status Section
 const AuthStatusSection = () => (
   <div className="space-y-4">
-    <div className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+    <div className="p-4 bg-surface-container-low rounded-m3-lg">
       <div className="flex items-center gap-3 mb-4">
         <Shield className="h-5 w-5 text-green-600" />
         <div>
@@ -219,7 +219,7 @@ const AuthStatusSection = () => (
 // API Health Section
 const APIHealthSection = () => (
   <div className="space-y-4">
-    <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
+    <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
       <div className="grid grid-cols-[1fr,100px,100px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Endpoint</span>
         <span className="text-center">Status</span>
@@ -243,7 +243,7 @@ const APIHealthSection = () => (
 // Environment Section
 const EnvironmentSection = () => (
   <div className="space-y-4">
-    <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
+    <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
       <div className="grid grid-cols-[1fr,80px,180px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Variable</span>
         <span className="text-center">Status</span>
