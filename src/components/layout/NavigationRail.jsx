@@ -7,7 +7,6 @@ import {
   LayoutTemplate, 
   Settings, 
   Heart,
-  Undo2,
   PanelLeftClose,
   PanelLeft,
   Keyboard
@@ -17,10 +16,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useUIPreference } from "@/contexts/UIPreferenceContext";
 
 const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onClick, onMouseEnter, onMouseLeave, shortcut }) => (
   <Tooltip>
@@ -95,8 +92,6 @@ const MockupNavigationRail = ({
   folderPanelOpen,
   onShowShortcuts 
 }) => {
-  const { toggleUI } = useUIPreference();
-  
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts", shortcut: "1" },
     { id: "templates", icon: LayoutTemplate, label: "Templates", shortcut: "2" },
@@ -150,11 +145,6 @@ const MockupNavigationRail = ({
             <Keyboard className="h-4 w-4" />
             <span>Keyboard shortcuts</span>
             <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-surface-container">?</kbd>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={toggleUI} className="gap-2">
-            <Undo2 className="h-4 w-4" />
-            <span>Switch to Old UI</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

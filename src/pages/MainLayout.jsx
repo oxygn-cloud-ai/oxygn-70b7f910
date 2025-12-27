@@ -3,15 +3,15 @@ import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { motion, AnimatePresence } from "framer-motion";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import MockupNavigationRail from "@/components/mockup/MockupNavigationRail";
-import MockupTopBar from "@/components/mockup/MockupTopBar";
-import MockupFolderPanel from "@/components/mockup/MockupFolderPanel";
-import MockupTemplatesFolderPanel from "@/components/mockup/MockupTemplatesFolderPanel";
-import MockupSubmenuPanel from "@/components/mockup/MockupSubmenuPanel";
-import MockupReadingPane from "@/components/mockup/MockupReadingPane";
-import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
-import MockupExportPanel from "@/components/mockup/MockupExportPanel";
-import MockupSearchModal from "@/components/mockup/MockupSearchModal";
+import NavigationRail from "@/components/layout/NavigationRail";
+import TopBar from "@/components/layout/TopBar";
+import FolderPanel from "@/components/layout/FolderPanel";
+import TemplatesFolderPanel from "@/components/layout/TemplatesFolderPanel";
+import SubmenuPanel from "@/components/layout/SubmenuPanel";
+import ReadingPane from "@/components/layout/ReadingPane";
+import ConversationPanel from "@/components/layout/ConversationPanel";
+import ExportPanel from "@/components/layout/ExportPanel";
+import SearchModal from "@/components/layout/SearchModal";
 import { useSupabase } from "@/hooks/useSupabase";
 import useTreeData from "@/hooks/useTreeData";
 import { useTreeOperations } from "@/hooks/useTreeOperations";
@@ -64,7 +64,7 @@ const LoadingScreen = () => (
   </motion.div>
 );
 
-const Mockup = () => {
+const MainLayout = () => {
   // Real data hooks
   const supabase = useSupabase();
   const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
@@ -487,7 +487,7 @@ const Mockup = () => {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.15 }}
           >
-            <MockupTemplatesFolderPanel 
+            <TemplatesFolderPanel 
               onSelectTemplate={handleSelectTemplate}
               selectedTemplateId={selectedTemplate?.row_id || selectedTemplate?.id}
               activeTemplateTab={activeTemplateTab}
@@ -518,7 +518,7 @@ const Mockup = () => {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.15 }}
           >
-            <MockupFolderPanel 
+            <FolderPanel 
               treeData={hierarchicalTreeData}
               isLoading={isLoadingTree}
               selectedPromptId={selectedPromptId}
@@ -553,7 +553,7 @@ const Mockup = () => {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.15 }}
           >
-            <MockupSubmenuPanel 
+            <SubmenuPanel 
               hoveredNav={hoveredNav}
               activeSubItem={hoveredNav === activeNav ? activeSubItem : null}
               onItemClick={(itemId) => handleSubmenuClick(hoveredNav, itemId)}
@@ -566,7 +566,7 @@ const Mockup = () => {
     // Otherwise show the active nav's content
     if (activeNav === "prompts") {
       return (
-        <MockupFolderPanel 
+        <FolderPanel 
           treeData={hierarchicalTreeData}
           isLoading={isLoadingTree}
           selectedPromptId={selectedPromptId}
@@ -589,7 +589,7 @@ const Mockup = () => {
     
     if (activeNav === "templates") {
       return (
-        <MockupTemplatesFolderPanel 
+        <TemplatesFolderPanel 
           onSelectTemplate={handleSelectTemplate}
           selectedTemplateId={selectedTemplate?.row_id || selectedTemplate?.id}
           activeTemplateTab={activeTemplateTab}
@@ -609,7 +609,7 @@ const Mockup = () => {
     
     // For other nav items, show their submenu
     return (
-      <MockupSubmenuPanel 
+      <SubmenuPanel 
         hoveredNav={activeNav}
         activeSubItem={activeSubItem}
         onItemClick={(itemId) => handleSubmenuClick(activeNav, itemId)}
@@ -626,7 +626,7 @@ const Mockup = () => {
     <DndProvider backend={HTML5Backend}>
       <div className="h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0">
         {/* Search Modal */}
-        <MockupSearchModal
+        <SearchModal
           isOpen={searchOpen}
           onClose={() => setSearchOpen(false)}
           treeData={hierarchicalTreeData}
@@ -647,7 +647,7 @@ const Mockup = () => {
         {/* Main Layout */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Navigation Rail - 80px */}
-          <MockupNavigationRail 
+          <NavigationRail 
             activeNav={activeNav}
             onNavChange={setActiveNav}
             onNavHover={handleNavHover}
@@ -660,7 +660,7 @@ const Mockup = () => {
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Top Bar - 64dp */}
-            <MockupTopBar 
+            <TopBar 
               tooltipsEnabled={tooltipsEnabled} 
               onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
               isDark={isDark}
@@ -703,7 +703,7 @@ const Mockup = () => {
                     layout
                     transition={{ duration: 0.2 }}
                   >
-                    <MockupReadingPane 
+                    <ReadingPane 
                       hasSelection={selectedPromptId !== null} 
                       selectedPromptId={selectedPromptId}
                       promptData={selectedPromptData}
@@ -767,7 +767,7 @@ const Mockup = () => {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <MockupConversationPanel 
+                          <ConversationPanel 
                             onClose={() => setConversationPanelOpen(false)}
                             threads={threads}
                             activeThread={activeThread}
@@ -801,7 +801,7 @@ const Mockup = () => {
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ duration: 0.2 }}
                         >
-                          <MockupExportPanel 
+                          <ExportPanel 
                             isOpen={true} 
                             onClose={() => {
                               setExportPanelOpen(false);
@@ -825,4 +825,4 @@ const Mockup = () => {
   );
 };
 
-export default Mockup;
+export default MainLayout;

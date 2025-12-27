@@ -1424,25 +1424,6 @@ const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] 
   );
 };
 
-// New UI Section
-const NewUISection = () => (
-  <SettingCard>
-    <div className="flex items-center gap-3 p-2 mb-3 bg-amber-500/10 rounded-m3-md">
-      <Sparkles className="h-4 w-4 text-amber-600" />
-      <span className="text-body-sm text-amber-700">You're currently using the new UI</span>
-    </div>
-    <div className="space-y-3">
-      <SettingRow label="Enable New UI" description="Switch to the experimental interface">
-        <Switch defaultChecked />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Show onboarding tips" description="Display helpful hints for new features">
-        <Switch defaultChecked />
-      </SettingRow>
-    </div>
-  </SettingCard>
-);
-
 // Database & Environment Section - Connected to real data
 const DatabaseEnvironmentSection = ({ settings = {}, onUpdateSetting }) => {
   // Convert settings object to array for display
@@ -1711,7 +1692,6 @@ const SETTINGS_SECTIONS = {
   "openai-billing": { component: OpenAIBillingSection, icon: CreditCard, title: "OpenAI Billing" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "workbench": { component: WorkbenchSettingsSection, icon: Briefcase, title: "Workbench" },
-  "new-ui": { component: NewUISection, icon: Sparkles, title: "New UI (Beta)" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
   "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
