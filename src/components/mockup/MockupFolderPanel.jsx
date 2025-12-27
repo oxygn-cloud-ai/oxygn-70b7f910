@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Inbox, 
   MessageSquare, 
@@ -18,7 +19,9 @@ import {
   GripVertical,
   Workflow,
   RefreshCw,
-  Loader2
+  Loader2,
+  FolderOpen,
+  Filter
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
@@ -27,25 +30,51 @@ import { toast } from "@/components/ui/sonner";
 
 const ITEM_TYPE = "PROMPT_ITEM";
 
-const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick }) => (
-  <button
+const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick, badge }) => (
+  <motion.button
     onClick={onClick}
+    whileHover={{ x: isActive ? 0 : 2 }}
+    whileTap={{ scale: 0.98 }}
     className={`
       w-full h-7 flex items-center gap-2 px-2.5 rounded-m3-sm
-      transition-all duration-200 ease-emphasized group
+      transition-all duration-200 ease-emphasized group relative
       ${isActive 
-        ? "bg-secondary-container text-secondary-container-foreground" 
-        : "text-on-surface-variant hover:bg-on-surface/[0.08] hover:translate-x-0.5"
+        ? "bg-secondary-container text-secondary-container-foreground shadow-sm" 
+        : "text-on-surface-variant hover:bg-on-surface/[0.08]"
       }
     `}
     style={{ height: "28px" }}
   >
-    <Icon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`} />
-    <span className="flex-1 text-left text-[11px] truncate">{label}</span>
-    <span className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
-      isActive ? 'bg-secondary-container-foreground/10' : 'bg-on-surface/[0.05]'
-    }`}>{count}</span>
-  </button>
+    {/* Active indicator bar */}
+    {isActive && (
+      <motion.div 
+        layoutId="smartFolderIndicator"
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-primary rounded-full"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+      />
+    )}
+    <Icon className={`h-4 w-4 flex-shrink-0 transition-all duration-200 ${
+      isActive ? 'text-primary scale-105' : 'group-hover:scale-110'
+    }`} />
+    <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
+    {badge && (
+      <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/20 text-primary font-medium mr-1">
+        {badge}
+      </span>
+    )}
+    <motion.span 
+      key={count}
+      initial={{ scale: 1.2, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors min-w-[20px] text-center ${
+        isActive ? 'bg-primary/20 text-primary font-medium' : 'bg-on-surface/[0.08]'
+      }`}
+    >
+      {count}
+    </motion.span>
+  </motion.button>
 );
 
 const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
@@ -468,13 +497,40 @@ const MockupFolderPanel = ({
     return filtered.map(item => ({ ...item, children: [] }));
   }, [treeData, activeSmartFolder]);
 
+  // Get label for current filter
+  const getFilterLabel = () => {
+    switch (activeSmartFolder) {
+      case "starred": return "Showing starred only";
+      case "conversations": return "Showing conversations only";
+      case "recent": return "Showing last 24 hours";
+      default: return null;
+    }
+  };
+  
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       {/* Smart Folders */}
       <div className="p-1.5">
-        <p className="px-2 py-1 text-[9px] text-on-surface-variant uppercase tracking-wider">
-          Smart Folders
-        </p>
+        <div className="flex items-center justify-between px-2 py-1">
+          <p className="text-[9px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
+            <FolderOpen className="h-3 w-3" />
+            Smart Folders
+          </p>
+          {activeSmartFolder !== "all" && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setActiveSmartFolder("all")}
+                  className="text-[9px] text-primary hover:text-primary/80 flex items-center gap-0.5 transition-colors"
+                >
+                  <Filter className="h-2.5 w-2.5" />
+                  Clear
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show all prompts</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
         <div className="flex flex-col gap-0.5">
           <SmartFolder 
             icon={Inbox} 
@@ -503,6 +559,7 @@ const MockupFolderPanel = ({
             count={counts.recent}
             isActive={activeSmartFolder === "recent"}
             onClick={() => setActiveSmartFolder("recent")}
+            badge="24h"
           />
         </div>
       </div>
@@ -513,9 +570,24 @@ const MockupFolderPanel = ({
       {/* Prompts Tree */}
       <div className="flex-1 overflow-auto p-1.5 scrollbar-thin">
         <div className="flex items-center justify-between px-2 py-1">
-          <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
-            Prompts
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
+              {activeSmartFolder === "all" ? "Prompts" : 
+               activeSmartFolder === "starred" ? "Starred" :
+               activeSmartFolder === "conversations" ? "Conversations" :
+               "Recent"}
+            </p>
+            {/* Filter indicator badge */}
+            {activeSmartFolder !== "all" && (
+              <motion.span 
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-[8px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium"
+              >
+                {filteredTreeData.length} items
+              </motion.span>
+            )}
+          </div>
           <div className="flex items-center gap-0.5">
             {onRefresh && (
               <Tooltip>
@@ -544,6 +616,31 @@ const MockupFolderPanel = ({
           </div>
         </div>
         
+        {/* Active filter banner */}
+        <AnimatePresence>
+          {getFilterLabel() && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="mx-1 mb-1.5 px-2 py-1 rounded-m3-sm bg-primary/10 border border-primary/20 flex items-center justify-between">
+                <span className="text-[10px] text-primary flex items-center gap-1">
+                  <Filter className="h-3 w-3" />
+                  {getFilterLabel()}
+                </span>
+                <button
+                  onClick={() => setActiveSmartFolder("all")}
+                  className="text-[9px] text-primary/70 hover:text-primary underline"
+                >
+                  Show all
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         <div className="flex flex-col">
           {/* Loading state */}
           {isLoading && (
@@ -558,23 +655,62 @@ const MockupFolderPanel = ({
           
           {/* Empty state */}
           {!isLoading && filteredTreeData.length === 0 && (
-            <div className="px-2 py-8 text-center">
-              <FileText className="h-8 w-8 mx-auto mb-2 text-on-surface-variant/40" />
-              <p className="text-[11px] text-on-surface-variant">
-                {activeSmartFolder === "all" ? "No prompts yet" : 
-                 activeSmartFolder === "starred" ? "No starred prompts" :
-                 activeSmartFolder === "conversations" ? "No conversations" :
-                 "No recent prompts"}
-              </p>
-              {activeSmartFolder === "all" && (
-                <button 
-                  onClick={() => onAddPrompt?.(null)}
-                  className="mt-2 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 rounded-m3-sm transition-colors"
-                >
-                  Create your first prompt
-                </button>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-3 py-8 text-center"
+            >
+              {activeSmartFolder === "all" ? (
+                <>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-container flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-on-surface-variant/50" />
+                  </div>
+                  <p className="text-body-sm text-on-surface mb-1">No prompts yet</p>
+                  <p className="text-[10px] text-on-surface-variant mb-3">
+                    Create your first prompt to get started
+                  </p>
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onAddPrompt?.(null)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-on-primary bg-primary hover:bg-primary/90 rounded-m3-sm transition-colors shadow-sm"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Create Prompt
+                  </motion.button>
+                </>
+              ) : activeSmartFolder === "starred" ? (
+                <>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    <Star className="h-6 w-6 text-amber-500/50" />
+                  </div>
+                  <p className="text-body-sm text-on-surface mb-1">No starred prompts</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    Star your favorite prompts for quick access
+                  </p>
+                </>
+              ) : activeSmartFolder === "conversations" ? (
+                <>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
+                    <MessageSquare className="h-6 w-6 text-primary/50" />
+                  </div>
+                  <p className="text-body-sm text-on-surface mb-1">No conversations</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    Enable conversation mode on a prompt to start chatting
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-surface-container flex items-center justify-center">
+                    <Clock className="h-6 w-6 text-on-surface-variant/50" />
+                  </div>
+                  <p className="text-body-sm text-on-surface mb-1">No recent activity</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    Prompts edited in the last 24 hours will appear here
+                  </p>
+                </>
               )}
-            </div>
+            </motion.div>
           )}
           
           {/* Real tree data - filtered */}
