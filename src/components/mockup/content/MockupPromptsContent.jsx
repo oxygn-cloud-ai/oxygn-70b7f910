@@ -743,11 +743,39 @@ const ActionConfigSection = () => {
 };
 
 // Enhanced Variables Tab Content
-const VariablesTabContent = () => {
+const VariablesTabContent = ({ promptData, promptVariables = [] }) => {
   const [showValues, setShowValues] = useState(true);
   
+  // Use real extracted_variables from promptData, fallback to promptVariables, then mock
+  const variables = React.useMemo(() => {
+    // First try extracted_variables from the prompt
+    if (promptData?.extracted_variables && Array.isArray(promptData.extracted_variables) && promptData.extracted_variables.length > 0) {
+      return promptData.extracted_variables.map(v => ({
+        name: v.name || v,
+        value: v.value || '',
+        type: v.type || 'text',
+        source: v.source || 'input',
+        required: v.required ?? true,
+        description: v.description || '',
+      }));
+    }
+    // Then try promptVariables from the hook
+    if (promptVariables.length > 0) {
+      return promptVariables.map(v => ({
+        name: v.variable_name,
+        value: v.variable_value || v.default_value || '',
+        type: 'text',
+        source: 'input',
+        required: v.is_required ?? true,
+        description: v.variable_description || '',
+      }));
+    }
+    // Fallback to mock
+    return MOCK_VARIABLES;
+  }, [promptData?.extracted_variables, promptVariables]);
+  
   // Group variables by source
-  const groupedVariables = MOCK_VARIABLES.reduce((acc, variable) => {
+  const groupedVariables = variables.reduce((acc, variable) => {
     const source = variable.source || 'other';
     if (!acc[source]) acc[source] = [];
     acc[source].push(variable);
@@ -779,7 +807,7 @@ const VariablesTabContent = () => {
         <div className="flex items-center gap-2">
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Variables</label>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">
-            {MOCK_VARIABLES.length}
+            {variables.length}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -1153,11 +1181,8 @@ const MockupPromptsContent = ({
           )}
           {activeTab === "variables" && (
             <VariablesTabContent 
-              variables={variables}
-              isLoading={isLoadingVariables}
-              onAdd={onAddVariable}
-              onUpdate={onUpdateVariable}
-              onDelete={onDeleteVariable}
+              promptData={promptData}
+              promptVariables={variables}
             />
           )}
           {activeTab === "conversation" && <ConversationTabContent isAssistantEnabled={isAssistantEnabled} />}
