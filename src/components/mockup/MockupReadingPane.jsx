@@ -92,6 +92,11 @@ const MockupReadingPane = ({
         activeTemplateTab={activeTemplateTab}
         templatesHook={templatesHook}
         jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+        onTemplateChange={(template) => {
+          // Refresh templates list when template changes
+          if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
+          if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
+        }}
       />
     );
   }

@@ -401,14 +401,72 @@ const MockupFolderPanel = ({
       });
       return count;
     };
+
+    const getRecentItems = (items, acc = []) => {
+      items.forEach(item => {
+        acc.push(item);
+        if (item.children) {
+          getRecentItems(item.children, acc);
+        }
+      });
+      return acc;
+    };
+    
+    const allItems = getRecentItems(treeData);
+    const recentCount = allItems
+      .filter(item => {
+        const updatedAt = new Date(item.updated_at || item.created_at);
+        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        return updatedAt > dayAgo;
+      })
+      .length || Math.min(5, flatCount(treeData));
     
     return {
       all: flatCount(treeData),
       conversations: countWithConversations(treeData),
       starred: countStarred(treeData),
-      recent: Math.min(5, flatCount(treeData))
+      recent: recentCount
     };
   }, [treeData]);
+
+  // Filter tree data based on smart folder selection
+  const filteredTreeData = useMemo(() => {
+    if (activeSmartFolder === "all") {
+      return treeData;
+    }
+
+    // Helper to flatten tree and then rebuild filtered
+    const flattenTree = (items, acc = []) => {
+      items.forEach(item => {
+        acc.push(item);
+        if (item.children) {
+          flattenTree(item.children, acc);
+        }
+      });
+      return acc;
+    };
+
+    const allItems = flattenTree(treeData);
+    
+    let filtered = [];
+    
+    if (activeSmartFolder === "starred") {
+      filtered = allItems.filter(item => item.starred);
+    } else if (activeSmartFolder === "conversations") {
+      filtered = allItems.filter(item => item.is_assistant);
+    } else if (activeSmartFolder === "recent") {
+      filtered = allItems
+        .sort((a, b) => {
+          const aDate = new Date(a.updated_at || a.created_at);
+          const bDate = new Date(b.updated_at || b.created_at);
+          return bDate - aDate;
+        })
+        .slice(0, 10);
+    }
+
+    // Return as flat list for filtered views (no hierarchy)
+    return filtered.map(item => ({ ...item, children: [] }));
+  }, [treeData, activeSmartFolder]);
 
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
@@ -499,24 +557,31 @@ const MockupFolderPanel = ({
           )}
           
           {/* Empty state */}
-          {!isLoading && treeData.length === 0 && (
+          {!isLoading && filteredTreeData.length === 0 && (
             <div className="px-2 py-8 text-center">
               <FileText className="h-8 w-8 mx-auto mb-2 text-on-surface-variant/40" />
-              <p className="text-[11px] text-on-surface-variant">No prompts yet</p>
-              <button 
-                onClick={() => onAddPrompt?.(null)}
-                className="mt-2 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 rounded-m3-sm transition-colors"
-              >
-                Create your first prompt
-              </button>
+              <p className="text-[11px] text-on-surface-variant">
+                {activeSmartFolder === "all" ? "No prompts yet" : 
+                 activeSmartFolder === "starred" ? "No starred prompts" :
+                 activeSmartFolder === "conversations" ? "No conversations" :
+                 "No recent prompts"}
+              </p>
+              {activeSmartFolder === "all" && (
+                <button 
+                  onClick={() => onAddPrompt?.(null)}
+                  className="mt-2 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 rounded-m3-sm transition-colors"
+                >
+                  Create your first prompt
+                </button>
+              )}
             </div>
           )}
           
-          {/* Real tree data */}
-          {!isLoading && treeData.length > 0 && (
+          {/* Real tree data - filtered */}
+          {!isLoading && filteredTreeData.length > 0 && (
             <>
               <DropZone onDrop={handleMoveBetween} isFirst />
-              {treeData.map((item, idx) => (
+              {filteredTreeData.map((item, idx) => (
                 <React.Fragment key={item.id || item.row_id}>
                   <TreeItem
                     item={item}

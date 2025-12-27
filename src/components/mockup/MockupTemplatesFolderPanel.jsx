@@ -234,7 +234,7 @@ const MockupTemplatesFolderPanel = ({
         name: "New Template",
         description: "",
         category: "general",
-        structure: {},
+        structure: { input_admin_prompt: "", input_user_prompt: "" },
         isPrivate: false,
       });
       if (newTemplate) {
@@ -245,7 +245,7 @@ const MockupTemplatesFolderPanel = ({
         schemaName: "New Schema",
         schemaDescription: "",
         category: "general",
-        jsonSchema: { type: "object", properties: {} },
+        jsonSchema: { type: "object", properties: {}, required: [] },
       });
       if (newSchema) {
         onSelectTemplate?.(newSchema);

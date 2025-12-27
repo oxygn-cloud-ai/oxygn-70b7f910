@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
   LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
@@ -832,76 +832,151 @@ const EnhancedPreviewPanel = ({ template, variables = [] }) => {
 const MockupTemplatesContent = ({ 
   selectedTemplate, 
   activeTemplateTab = "prompts",
-  // Real data hooks - Phase 8-9
+  // Real data hooks - Phase 5
   templatesHook,
   jsonSchemaTemplatesHook,
+  onTemplateChange,
 }) => {
   const [activeEditorTab, setActiveEditorTab] = useState("prompt");
-  const [editedName, setEditedName] = useState("");
-  const [editedDescription, setEditedDescription] = useState("");
+  const [editedTemplate, setEditedTemplate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Sync editedTemplate with selectedTemplate
+  useEffect(() => {
+    if (selectedTemplate) {
+      setEditedTemplate({ ...selectedTemplate });
+      setHasUnsavedChanges(false);
+    } else {
+      setEditedTemplate(null);
+    }
+  }, [selectedTemplate?.row_id]);
+
+  // Reset active tab when switching template types
+  useEffect(() => {
+    if (activeTemplateTab === "prompts") {
+      setActiveEditorTab("prompt");
+    } else if (activeTemplateTab === "schemas") {
+      setActiveEditorTab("schema");
+    } else if (activeTemplateTab === "mappings") {
+      setActiveEditorTab("fields");
+    }
+  }, [activeTemplateTab]);
 
   // Get the display name and description from template
   const templateName = useMemo(() => {
-    if (!selectedTemplate) return "";
-    return selectedTemplate.template_name || selectedTemplate.schema_name || selectedTemplate.name || "Untitled";
-  }, [selectedTemplate]);
+    if (!editedTemplate) return "";
+    return editedTemplate.template_name || editedTemplate.schema_name || editedTemplate.name || "Untitled";
+  }, [editedTemplate]);
 
   const templateDescription = useMemo(() => {
-    if (!selectedTemplate) return "";
-    return selectedTemplate.template_description || selectedTemplate.schema_description || selectedTemplate.description || "";
-  }, [selectedTemplate]);
+    if (!editedTemplate) return "";
+    return editedTemplate.template_description || editedTemplate.schema_description || editedTemplate.description || "";
+  }, [editedTemplate]);
 
   // Extract variables from template
   const extractedVariables = useMemo(() => {
-    if (!selectedTemplate?.structure || !templatesHook?.extractTemplateVariables) return [];
-    const varNames = templatesHook.extractTemplateVariables(selectedTemplate.structure);
+    if (!editedTemplate?.structure || !templatesHook?.extractTemplateVariables) return [];
+    const varNames = templatesHook.extractTemplateVariables(editedTemplate.structure);
     return varNames.map(name => ({ name, type: "string", required: true }));
-  }, [selectedTemplate, templatesHook]);
+  }, [editedTemplate, templatesHook]);
 
   // Variable definitions from template
   const variableDefinitions = useMemo(() => {
-    if (!selectedTemplate?.variable_definitions) return [];
-    if (Array.isArray(selectedTemplate.variable_definitions)) {
-      return selectedTemplate.variable_definitions;
+    if (!editedTemplate?.variable_definitions) return [];
+    if (Array.isArray(editedTemplate.variable_definitions)) {
+      return editedTemplate.variable_definitions;
     }
     return [];
-  }, [selectedTemplate]);
+  }, [editedTemplate]);
 
   const displayVariables = variableDefinitions.length > 0 ? variableDefinitions : extractedVariables;
 
+  // Handle field updates for template
+  const handleUpdateField = useCallback((fieldPath, value) => {
+    setEditedTemplate(prev => {
+      if (!prev) return prev;
+      // Handle nested paths like 'structure.input_admin_prompt'
+      if (fieldPath.includes('.')) {
+        const parts = fieldPath.split('.');
+        const newTemplate = { ...prev };
+        let current = newTemplate;
+        for (let i = 0; i < parts.length - 1; i++) {
+          current[parts[i]] = { ...(current[parts[i]] || {}) };
+          current = current[parts[i]];
+        }
+        current[parts[parts.length - 1]] = value;
+        return newTemplate;
+      }
+      return { ...prev, [fieldPath]: value };
+    });
+    setHasUnsavedChanges(true);
+  }, []);
+
   // Save handler
   const handleSave = useCallback(async () => {
-    if (!selectedTemplate?.row_id) return;
+    if (!editedTemplate?.row_id) return;
     
     setIsSaving(true);
     try {
       if (activeTemplateTab === "prompts" && templatesHook?.updateTemplate) {
-        await templatesHook.updateTemplate(selectedTemplate.row_id, {
-          template_name: editedName || templateName,
-          template_description: editedDescription || templateDescription,
+        await templatesHook.updateTemplate(editedTemplate.row_id, {
+          template_name: editedTemplate.template_name,
+          template_description: editedTemplate.template_description,
+          structure: editedTemplate.structure,
+          variable_definitions: editedTemplate.variable_definitions,
+          category: editedTemplate.category,
         });
       } else if (activeTemplateTab === "schemas" && jsonSchemaTemplatesHook?.updateTemplate) {
-        await jsonSchemaTemplatesHook.updateTemplate(selectedTemplate.row_id, {
-          schema_name: editedName || templateName,
-          schema_description: editedDescription || templateDescription,
+        await jsonSchemaTemplatesHook.updateTemplate(editedTemplate.row_id, {
+          schema_name: editedTemplate.schema_name,
+          schema_description: editedTemplate.schema_description,
+          json_schema: editedTemplate.json_schema,
+          category: editedTemplate.category,
         });
       }
+      setHasUnsavedChanges(false);
+      onTemplateChange?.(editedTemplate);
     } finally {
       setIsSaving(false);
     }
-  }, [selectedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, editedName, editedDescription, templateName, templateDescription]);
+  }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, onTemplateChange]);
 
   // Delete handler
   const handleDelete = useCallback(async () => {
-    if (!selectedTemplate?.row_id) return;
+    if (!editedTemplate?.row_id) return;
     
     if (activeTemplateTab === "prompts" && templatesHook?.deleteTemplate) {
-      await templatesHook.deleteTemplate(selectedTemplate.row_id);
+      await templatesHook.deleteTemplate(editedTemplate.row_id);
     } else if (activeTemplateTab === "schemas" && jsonSchemaTemplatesHook?.deleteTemplate) {
-      await jsonSchemaTemplatesHook.deleteTemplate(selectedTemplate.row_id);
+      await jsonSchemaTemplatesHook.deleteTemplate(editedTemplate.row_id);
     }
-  }, [selectedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook]);
+    onTemplateChange?.(null);
+  }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, onTemplateChange]);
+
+  // Duplicate handler
+  const handleDuplicate = useCallback(async () => {
+    if (!editedTemplate) return;
+    
+    if (activeTemplateTab === "prompts" && templatesHook?.createTemplate) {
+      const newTemplate = await templatesHook.createTemplate({
+        template_name: `${templateName} (copy)`,
+        template_description: templateDescription,
+        structure: editedTemplate.structure,
+        variable_definitions: editedTemplate.variable_definitions,
+        category: editedTemplate.category,
+      });
+      onTemplateChange?.(newTemplate);
+    } else if (activeTemplateTab === "schemas" && jsonSchemaTemplatesHook?.createTemplate) {
+      const newTemplate = await jsonSchemaTemplatesHook.createTemplate({
+        schemaName: `${templateName} (copy)`,
+        schemaDescription: templateDescription,
+        jsonSchema: editedTemplate.json_schema,
+        category: editedTemplate.category,
+      });
+      onTemplateChange?.(newTemplate);
+    }
+  }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, templateName, templateDescription, onTemplateChange]);
 
   // Empty state when no template selected
   if (!selectedTemplate) {
@@ -924,13 +999,28 @@ const MockupTemplatesContent = ({
           <h2 className="text-title-sm text-on-surface font-medium">{templateName}</h2>
           {activeTemplateTab === "prompts" && (
             <LabelPicker 
-              labels={selectedTemplate?.labels || []} 
-              onLabelsChange={() => {}}
+              labels={editedTemplate?.labels || []} 
+              onLabelsChange={(labels) => handleUpdateField('labels', labels)}
               maxDisplay={2}
             />
           )}
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
+          {/* Save button - shown when there are unsaved changes */}
+          {hasUnsavedChanges && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-primary/10 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Save Changes</TooltipContent>
+            </Tooltip>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
@@ -939,7 +1029,7 @@ const MockupTemplatesContent = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-surface-container-high border-outline-variant">
               <DropdownMenuItem className="text-body-sm"><Star className="h-3.5 w-3.5 mr-2" /> Star</DropdownMenuItem>
-              <DropdownMenuItem className="text-body-sm"><Copy className="h-3.5 w-3.5 mr-2" /> Duplicate</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDuplicate} className="text-body-sm"><Copy className="h-3.5 w-3.5 mr-2" /> Duplicate</DropdownMenuItem>
               <DropdownMenuItem className="text-body-sm"><Share2 className="h-3.5 w-3.5 mr-2" /> Share</DropdownMenuItem>
               <DropdownMenuSeparator className="bg-outline-variant" />
               <DropdownMenuItem onClick={handleDelete} className="text-body-sm text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" /> Delete</DropdownMenuItem>
@@ -1007,16 +1097,16 @@ const MockupTemplatesContent = ({
           {/* Prompt Tab - for Prompt Templates */}
           {activeEditorTab === "prompt" && activeTemplateTab === "prompts" && (
             <TemplatePromptTabContent 
-              templateData={selectedTemplate}
-              onUpdateField={() => {}}
+              templateData={editedTemplate}
+              onUpdateField={handleUpdateField}
             />
           )}
 
           {/* Settings Tab - for Prompt Templates */}
           {activeEditorTab === "settings" && activeTemplateTab === "prompts" && (
             <TemplateSettingsTabContent 
-              templateData={selectedTemplate}
-              onUpdateField={() => {}}
+              templateData={editedTemplate}
+              onUpdateField={handleUpdateField}
             />
           )}
 
@@ -1034,8 +1124,8 @@ const MockupTemplatesContent = ({
             <div className="space-y-1.5">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema</label>
               <div className="min-h-56 p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[10px] text-on-surface whitespace-pre overflow-auto">
-                {selectedTemplate.json_schema ? (
-                  JSON.stringify(selectedTemplate.json_schema, null, 2)
+                {editedTemplate?.json_schema ? (
+                  JSON.stringify(editedTemplate.json_schema, null, 2)
                 ) : (
 `{
   "type": "object",
