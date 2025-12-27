@@ -117,7 +117,7 @@ const TreeItem = ({
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
   const visualLevel = Math.min(level, 4);
-  const paddingLeft = 10 + visualLevel * 10;
+  const paddingLeft = 10 + visualLevel * 12;
   const depthIndicator = level > 4 ? `${level}` : null;
   
   const hasChildren = item.children && item.children.length > 0;
@@ -156,15 +156,29 @@ const TreeItem = ({
   const Icon = isConversation ? MessageSquare : FileText;
   const itemIsActive = selectedPromptId === id;
   
+  // Handle toggle click
+  const handleToggleClick = (e) => {
+    e.stopPropagation();
+    onToggle?.(id);
+  };
+  
+  // Handle row click - if has children, toggle; otherwise select
+  const handleRowClick = () => {
+    if (hasChildren) {
+      onToggle?.(id);
+    }
+    onSelect?.(id);
+  };
+  
   return (
     <>
       <div
         ref={ref}
-        onClick={() => onSelect?.(id)}
+        onClick={handleRowClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`
-          w-full h-6 flex items-center gap-1 pr-1.5 rounded-m3-sm cursor-grab
+          w-full h-7 flex items-center gap-1.5 pr-1.5 rounded-m3-sm cursor-pointer
           transition-all duration-200 ease-emphasized group
           ${itemIsActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
@@ -173,28 +187,39 @@ const TreeItem = ({
           ${isDragging ? "opacity-50 scale-95" : "hover:translate-x-0.5"}
           ${isOver && canDrop ? "ring-1 ring-primary bg-primary/10" : ""}
         `}
-        style={{ height: "24px", paddingLeft: `${paddingLeft}px` }}
+        style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
       >
-        {/* Drag handle */}
-        <GripVertical className="h-2.5 w-2.5 flex-shrink-0 text-on-surface-variant/40 cursor-grab" />
+        {/* Drag handle - only on hover */}
+        <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
         
         {depthIndicator && (
           <span className="text-[7px] text-on-surface-variant/50 w-2.5 flex-shrink-0">{depthIndicator}</span>
         )}
-        {hasChildren && (
+        
+        {/* Expand/collapse chevron - always show for items with children */}
+        {hasChildren ? (
           <button 
-            onClick={(e) => { e.stopPropagation(); onToggle?.(id); }}
-            className="w-4 h-4 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.12] transition-colors"
+            onClick={handleToggleClick}
+            className="w-5 h-5 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.12] transition-all flex-shrink-0"
           >
             {isExpanded 
-              ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
-              : <ChevronRight className="h-3 w-3 flex-shrink-0" />
+              ? <ChevronDown className="h-3.5 w-3.5" />
+              : <ChevronRight className="h-3.5 w-3.5" />
             }
           </button>
+        ) : (
+          <span className="w-5 flex-shrink-0" />
         )}
-        {!hasChildren && <span className="w-4" />}
-        <Icon className="h-3 w-3 flex-shrink-0" />
-        <span className="flex-1 text-left text-[10px] truncate">{label}</span>
+        
+        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+        <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
+        
+        {/* Child count badge when collapsed */}
+        {hasChildren && !isExpanded && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-on-surface/[0.08] text-on-surface-variant">
+            {item.children.length}
+          </span>
+        )}
         
         {/* Hover actions or status icons */}
         {isHovered ? (
@@ -229,26 +254,35 @@ const TreeItem = ({
         </div>
       )}
       
-      {/* Render children recursively */}
-      {hasChildren && isExpanded && item.children.map((child, idx) => (
-        <React.Fragment key={child.id || child.row_id}>
-          <TreeItem
-            item={child}
-            level={level + 1}
-            isExpanded={expandedFolders[child.id || child.row_id]}
-            onToggle={onToggle}
-            onMoveInto={onMoveInto}
-            onMoveBetween={onMoveBetween}
-            onSelect={onSelect}
-            onAdd={onAdd}
-            onDelete={onDelete}
-            onDuplicate={onDuplicate}
-            expandedFolders={expandedFolders}
-            selectedPromptId={selectedPromptId}
+      {/* Render children recursively - with indentation line */}
+      {hasChildren && isExpanded && (
+        <div className="relative">
+          {/* Vertical indent line */}
+          <div 
+            className="absolute top-0 bottom-0 w-px bg-outline-variant/50"
+            style={{ left: `${paddingLeft + 10}px` }}
           />
-          <DropZone onDrop={onMoveBetween} />
-        </React.Fragment>
-      ))}
+          {item.children.map((child, idx) => (
+            <React.Fragment key={child.id || child.row_id}>
+              <TreeItem
+                item={child}
+                level={level + 1}
+                isExpanded={expandedFolders[child.id || child.row_id]}
+                onToggle={onToggle}
+                onMoveInto={onMoveInto}
+                onMoveBetween={onMoveBetween}
+                onSelect={onSelect}
+                onAdd={onAdd}
+                onDelete={onDelete}
+                onDuplicate={onDuplicate}
+                expandedFolders={expandedFolders}
+                selectedPromptId={selectedPromptId}
+              />
+              <DropZone onDrop={onMoveBetween} />
+            </React.Fragment>
+          ))}
+        </div>
+      )}
     </>
   );
 };
