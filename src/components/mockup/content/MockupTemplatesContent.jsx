@@ -1026,6 +1026,7 @@ const MockupTemplatesContent = ({
               variables={displayVariables}
             />
           )}
+        </div>
 
         {/* Schema Tab */}
         {activeTemplateTab === "schemas" && activeEditorTab === "schema" && (
