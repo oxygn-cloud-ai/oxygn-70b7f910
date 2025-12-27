@@ -4,20 +4,7 @@ import {
   LayoutTemplate, Variable, Code, Eye
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-const getCategoryColor = (category) => {
-  const colors = {
-    Business: "bg-amber-500/10 text-amber-600",
-    Technical: "bg-green-500/10 text-green-600",
-    Marketing: "bg-blue-500/10 text-blue-600",
-    Creative: "bg-purple-500/10 text-purple-600",
-    Action: "bg-orange-500/10 text-orange-600",
-    Extraction: "bg-cyan-500/10 text-cyan-600",
-    Analysis: "bg-indigo-500/10 text-indigo-600",
-    NLP: "bg-pink-500/10 text-pink-600",
-  };
-  return colors[category] || "bg-muted text-muted-foreground";
-};
+import { LabelPicker } from "@/components/ui/label-picker";
 
 const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
   <Tooltip>
@@ -139,12 +126,11 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Category</label>
-              <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                <span className={`text-body-sm px-1.5 py-0.5 rounded ${getCategoryColor(selectedTemplate.category)}`}>
-                  {selectedTemplate.category}
-                </span>
-              </div>
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Labels</label>
+              <LabelPicker 
+                labels={selectedTemplate.labels || []} 
+                onLabelsChange={(newLabels) => console.log('Labels changed:', newLabels)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
