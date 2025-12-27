@@ -355,9 +355,9 @@ const Mockup = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-screen w-full flex flex-col bg-surface overflow-hidden">
+      <div className="h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0">
         {/* Main Layout */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Navigation Rail - 80px */}
           <MockupNavigationRail 
             activeNav={activeNav}
@@ -369,7 +369,7 @@ const Mockup = () => {
           />
 
           {/* Content Area */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Top Bar - 64dp */}
             <MockupTopBar 
               tooltipsEnabled={tooltipsEnabled} 
@@ -379,13 +379,13 @@ const Mockup = () => {
             />
 
             {/* Main Content with Resizable Panels */}
-            <div className="flex-1 flex overflow-hidden">
-              <ResizablePanelGroup direction="horizontal" className="flex-1">
+            <div className="flex-1 flex overflow-hidden min-h-0">
+              <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
                 {/* Folder/Submenu Panel - collapsible */}
                 {folderPanelOpen && (
                   <>
                     <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-                      <div className="h-full">
+                      <div className="h-full min-h-0 overflow-hidden">
                         {renderFolderPanelContent()}
                       </div>
                     </ResizablePanel>
@@ -395,43 +395,45 @@ const Mockup = () => {
 
                 {/* Reading Pane - flexible */}
                 <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
-                  <MockupReadingPane 
-                    hasSelection={selectedPromptId !== null} 
-                    selectedPromptId={selectedPromptId}
-                    promptData={selectedPromptData}
-                    isLoadingPrompt={isLoadingPrompt}
-                    onUpdateField={handleUpdateField}
-                    variables={variables}
-                    isLoadingVariables={isLoadingVariables}
-                    onAddVariable={addVariable}
-                    onUpdateVariable={updateVariable}
-                    onDeleteVariable={deleteVariable}
-                    selectedPromptHasChildren={selectedPromptHasChildren}
-                    onExport={() => setExportPanelOpen(true)}
-                    activeNav={activeNav}
-                    activeSubItem={activeSubItem}
-                    selectedTemplate={selectedTemplate}
-                    activeTemplateTab={activeTemplateTab}
-                    onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
-                    conversationPanelOpen={conversationPanelOpen}
-                    // Settings props for Phase 6
-                    settings={settings}
-                    isLoadingSettings={isLoadingSettings}
-                    onUpdateSetting={updateSetting}
-                    models={models}
-                    isLoadingModels={isLoadingModels}
-                    onToggleModel={(modelId) => {
-                      const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
-                      if (model) toggleModelActive(model.row_id, !model.is_active);
-                    }}
-                    // Workbench props for Phase 7
-                    workbenchThreads={workbenchThreads}
-                    workbenchMessages={workbenchMessages}
-                    workbenchFiles={workbenchFiles}
-                    // Templates props for Phase 8-9
-                    templatesHook={templatesHook}
-                    jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
-                  />
+                  <div className="h-full min-h-0 flex flex-col overflow-hidden">
+                    <MockupReadingPane 
+                      hasSelection={selectedPromptId !== null} 
+                      selectedPromptId={selectedPromptId}
+                      promptData={selectedPromptData}
+                      isLoadingPrompt={isLoadingPrompt}
+                      onUpdateField={handleUpdateField}
+                      variables={variables}
+                      isLoadingVariables={isLoadingVariables}
+                      onAddVariable={addVariable}
+                      onUpdateVariable={updateVariable}
+                      onDeleteVariable={deleteVariable}
+                      selectedPromptHasChildren={selectedPromptHasChildren}
+                      onExport={() => setExportPanelOpen(true)}
+                      activeNav={activeNav}
+                      activeSubItem={activeSubItem}
+                      selectedTemplate={selectedTemplate}
+                      activeTemplateTab={activeTemplateTab}
+                      onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
+                      conversationPanelOpen={conversationPanelOpen}
+                      // Settings props for Phase 6
+                      settings={settings}
+                      isLoadingSettings={isLoadingSettings}
+                      onUpdateSetting={updateSetting}
+                      models={models}
+                      isLoadingModels={isLoadingModels}
+                      onToggleModel={(modelId) => {
+                        const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
+                        if (model) toggleModelActive(model.row_id, !model.is_active);
+                      }}
+                      // Workbench props for Phase 7
+                      workbenchThreads={workbenchThreads}
+                      workbenchMessages={workbenchMessages}
+                      workbenchFiles={workbenchFiles}
+                      // Templates props for Phase 8-9
+                      templatesHook={templatesHook}
+                      jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+                    />
+                  </div>
                 </ResizablePanel>
 
                 {showConversationPanel && (

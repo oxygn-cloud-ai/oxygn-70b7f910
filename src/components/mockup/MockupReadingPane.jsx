@@ -90,7 +90,7 @@ const MockupReadingPane = ({
   // Prompts mode (default) - prompt editor
   if (!hasSelection) {
     return (
-      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-auto">
+      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
         {/* Header with toggle button when conversation panel is closed */}
         {!conversationPanelOpen && onToggleConversation && (
           <div className="h-14 flex items-center justify-end px-3 border-b border-outline-variant shrink-0">
