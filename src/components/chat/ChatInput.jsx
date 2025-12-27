@@ -69,29 +69,11 @@ const M3FABSend = ({ onClick, disabled, isSending, hasContent, type = 'submit' }
       </span>
       
       {/* Icon */}
-      <AnimatePresence mode="wait">
-        {isSending ? (
-          <motion.div
-            key="loading"
-            initial={{ opacity: 0, rotate: -90 }}
-            animate={{ opacity: 1, rotate: 0 }}
-            exit={{ opacity: 0, rotate: 90 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="send"
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Send className="h-6 w-6" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isSending ? (
+        <Loader2 className="h-6 w-6 animate-spin" />
+      ) : (
+        <Send className="h-6 w-6" />
+      )}
     </motion.button>
   );
 };
