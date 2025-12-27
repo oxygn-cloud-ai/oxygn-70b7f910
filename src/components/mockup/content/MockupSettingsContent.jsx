@@ -5,7 +5,7 @@ import {
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, TrendingUp, Save
+  Code, Search, Globe, Zap, TrendingUp, Save, XCircle
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -16,6 +16,7 @@ import { SettingInput } from "@/components/ui/setting-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getThemePreference, setThemePreference } from '@/components/ui/sonner';
 import { useSupabase } from "@/hooks/useSupabase";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
 
 // Mock data for fallback
@@ -27,12 +28,7 @@ const MOCK_MODELS = [
   { id: "o1-mini", name: "O1 Mini", provider: "OpenAI", active: true, inputCost: 3.00, outputCost: 12.00 },
 ];
 
-const MOCK_API_KEYS = [
-  { id: "openai", name: "OpenAI API Key", key: "sk-•••••••••••••xyz789", status: "Active", lastUsed: "2 hours ago" },
-  { id: "confluence", name: "Confluence API Token", key: "ATATT•••••••••abc123", status: "Active", lastUsed: "1 day ago" },
-];
-
-const MOCK_NAMING_LEVELS = [
+const DEFAULT_NAMING_LEVELS = [
   { level: 0, name: "Prompt", prefix: "", suffix: "" },
   { level: 1, name: "Sub-prompt", prefix: "", suffix: "" },
   { level: 2, name: "Task", prefix: "", suffix: "" },
@@ -169,10 +165,59 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   );
 };
 
-// Prompt Naming Section (NEW - matching real PromptNamingSettings.jsx)
-const PromptNamingSection = () => {
-  const [levels, setLevels] = useState(MOCK_NAMING_LEVELS);
+// Prompt Naming Section - Connected to q_settings
+const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
+  const [levels, setLevels] = useState(DEFAULT_NAMING_LEVELS);
   const [expandedSet, setExpandedSet] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load from settings on mount
+  useEffect(() => {
+    const savedNaming = settings['prompt_naming_defaults']?.value;
+    if (savedNaming) {
+      try {
+        const parsed = JSON.parse(savedNaming);
+        if (parsed.levels && Array.isArray(parsed.levels)) {
+          setLevels(parsed.levels);
+        }
+      } catch (e) {
+        console.error('Failed to parse naming defaults:', e);
+      }
+    }
+  }, [settings]);
+
+  const handleLevelChange = (index, field, value) => {
+    setLevels(prev => prev.map((lvl, i) => 
+      i === index ? { ...lvl, [field]: value } : lvl
+    ));
+    setHasChanges(true);
+  };
+
+  const handleAddLevel = () => {
+    setLevels(prev => [...prev, { level: prev.length, name: `Level ${prev.length}`, prefix: "", suffix: "" }]);
+    setHasChanges(true);
+  };
+
+  const handleRemoveLevel = (index) => {
+    if (levels.length <= 1) return;
+    setLevels(prev => prev.filter((_, i) => i !== index).map((lvl, i) => ({ ...lvl, level: i })));
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    if (!onUpdateSetting) return;
+    setIsSaving(true);
+    try {
+      await onUpdateSetting('prompt_naming_defaults', JSON.stringify({ levels }));
+      setHasChanges(false);
+      toast.success('Naming defaults saved');
+    } catch (e) {
+      toast.error('Failed to save naming defaults');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -181,23 +226,39 @@ const PromptNamingSection = () => {
         <p className="text-body-sm text-on-surface-variant">
           Use template codes in prefix/suffix fields for dynamic naming.
         </p>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <HelpCircle className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs p-3">
-            <div className="space-y-2 text-[10px]">
-              <p className="font-medium">Available Template Codes:</p>
-              <div className="space-y-1">
-                <p><code className="bg-surface-container px-1 rounded">{"{n}"}</code> - Sequence number</p>
-                <p><code className="bg-surface-container px-1 rounded">{"{date}"}</code> - Current date</p>
-                <p><code className="bg-surface-container px-1 rounded">{"{level}"}</code> - Hierarchy level</p>
+        <div className="flex items-center gap-2">
+          {hasChanges && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                >
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Save Changes</TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <HelpCircle className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs p-3">
+              <div className="space-y-2 text-[10px]">
+                <p className="font-medium">Available Template Codes:</p>
+                <div className="space-y-1">
+                  <p><code className="bg-surface-container px-1 rounded">{"{n}"}</code> - Sequence number</p>
+                  <p><code className="bg-surface-container px-1 rounded">{"{date}"}</code> - Current date</p>
+                  <p><code className="bg-surface-container px-1 rounded">{"{level}"}</code> - Hierarchy level</p>
+                </div>
               </div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Default Naming Table */}
@@ -215,29 +276,36 @@ const PromptNamingSection = () => {
           
           {/* Table Rows */}
           {levels.map((level, index) => (
-            <div key={level.level} className="grid grid-cols-[40px,1fr,1fr,1fr,100px,40px] gap-2 items-center p-2 bg-surface-container rounded-m3-sm">
+            <div key={index} className="grid grid-cols-[40px,1fr,1fr,1fr,100px,40px] gap-2 items-center p-2 bg-surface-container rounded-m3-sm">
               <span className="text-body-sm text-on-surface-variant">{index}</span>
               <input 
                 type="text" 
-                defaultValue={level.name}
+                value={level.name}
+                onChange={(e) => handleLevelChange(index, 'name', e.target.value)}
                 className="h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <input 
                 type="text" 
-                defaultValue={level.prefix}
+                value={level.prefix}
+                onChange={(e) => handleLevelChange(index, 'prefix', e.target.value)}
                 placeholder="Prefix"
                 className="h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <input 
                 type="text" 
-                defaultValue={level.suffix}
+                value={level.suffix}
+                onChange={(e) => handleLevelChange(index, 'suffix', e.target.value)}
                 placeholder="Suffix"
                 className="h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
               />
               <span className="text-[10px] text-on-surface-variant truncate">{level.prefix}{level.name}{level.suffix}</span>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
+                  <button 
+                    onClick={() => handleRemoveLevel(index)}
+                    disabled={levels.length <= 1}
+                    className={`w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${levels.length <= 1 ? 'opacity-30' : 'text-destructive'}`}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
@@ -247,7 +315,10 @@ const PromptNamingSection = () => {
           ))}
           
           {/* Add Level */}
-          <button className="flex items-center gap-1.5 px-2 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors">
+          <button 
+            onClick={handleAddLevel}
+            className="flex items-center gap-1.5 px-2 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
+          >
             <Plus className="h-3.5 w-3.5" />
             <span>Add Level</span>
           </button>
@@ -733,76 +804,87 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel }) => {
   );
 };
 
-// API Keys Section
-const APIKeysSection = () => {
+// API Keys Section - Connected to real settings for status check
+const APIKeysSection = ({ settings = {} }) => {
   const [showKey, setShowKey] = useState({});
+  
+  // Derive API key status from settings
+  const apiKeys = [
+    { 
+      id: "openai", 
+      name: "OpenAI API Key", 
+      configured: !!settings['openai_api_key']?.value || !!settings['OPENAI_API_KEY']?.value,
+      description: "Required for AI completions"
+    },
+    { 
+      id: "confluence_token", 
+      name: "Confluence API Token", 
+      configured: !!settings['CONFLUENCE_API_TOKEN']?.value || !!settings['confluence_api_token']?.value,
+      description: "Required for Confluence integration"
+    },
+    { 
+      id: "confluence_email", 
+      name: "Confluence Email", 
+      configured: !!settings['CONFLUENCE_EMAIL']?.value || !!settings['confluence_email']?.value,
+      description: "Email for Confluence API authentication"
+    },
+  ];
 
   return (
     <div className="space-y-3">
       <SettingCard>
         <div className="space-y-2">
-          {MOCK_API_KEYS.map((apiKey, i) => (
+          {apiKeys.map((apiKey, i) => (
             <div key={apiKey.id}>
               {i > 0 && <SettingDivider className="my-2" />}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-body-sm text-on-surface font-medium">{apiKey.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">
-                      {apiKey.status}
-                    </span>
+                    {apiKey.configured ? (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">
+                        Configured
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">
+                        Not Set
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <code className="text-[11px] text-on-surface-variant font-mono">
-                      {showKey[apiKey.id] ? "sk-abc123...xyz789" : apiKey.key}
-                    </code>
-                    <span className="text-[10px] text-on-surface-variant">• Last used {apiKey.lastUsed}</span>
-                  </div>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">{apiKey.description}</p>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button 
-                        onClick={() => setShowKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
-                        className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                      >
-                        {showKey[apiKey.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">{showKey[apiKey.id] ? "Hide" : "Show"}</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">Copy</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">Delete</TooltipContent>
-                  </Tooltip>
+                  {apiKey.configured && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button 
+                          onClick={() => setShowKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
+                          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                        >
+                          {showKey[apiKey.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">
+                        {showKey[apiKey.id] ? "Hide" : "Show (masked)"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
               </div>
+              {showKey[apiKey.id] && apiKey.configured && (
+                <code className="block mt-1 text-[11px] text-on-surface-variant font-mono px-2">
+                  •••••••••••••••••••••
+                </code>
+              )}
             </div>
           ))}
         </div>
       </SettingCard>
 
-      <div className="flex">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <Plus className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Add API Key</TooltipContent>
-        </Tooltip>
+      <div className="p-3 bg-surface-container-low rounded-m3-lg">
+        <p className="text-[10px] text-on-surface-variant">
+          API keys are managed through Lovable Cloud secrets for security. Contact your administrator to update keys.
+        </p>
       </div>
     </div>
   );
@@ -868,76 +950,259 @@ const ThemeSection = () => {
   );
 };
 
-// Notifications Section
-const NotificationsSection = () => (
-  <SettingCard>
-    <div className="space-y-3">
-      <SettingRow label="Email notifications" description="Receive updates via email">
-        <Switch defaultChecked />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Cascade completion" description="Notify when cascades finish">
-        <Switch defaultChecked />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Error alerts" description="Get notified about failures">
-        <Switch defaultChecked />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Usage warnings" description="Alert when approaching limits">
-        <Switch />
-      </SettingRow>
-    </div>
-  </SettingCard>
-);
+// Notifications Section - Connected to q_settings
+const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
+  const [prefs, setPrefs] = useState({
+    email_notifications: true,
+    cascade_completion: true,
+    error_alerts: true,
+    usage_warnings: false,
+  });
+  const [isSaving, setIsSaving] = useState({});
 
-// Profile Section
-const ProfileSection = () => (
-  <SettingCard>
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center">
-        <User className="h-6 w-6 text-on-surface-variant" />
-      </div>
-      <div>
-        <h4 className="text-title-sm text-on-surface font-medium">John Doe</h4>
-        <p className="text-body-sm text-on-surface-variant">john.doe@company.com</p>
-      </div>
-    </div>
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <label className="text-[10px] text-on-surface-variant">Display Name</label>
-        <SettingInput minWidth="w-full">John Doe</SettingInput>
-      </div>
-      <div className="space-y-1">
-        <label className="text-[10px] text-on-surface-variant">Email</label>
-        <SettingInput minWidth="w-full">john.doe@company.com</SettingInput>
-      </div>
-    </div>
-  </SettingCard>
-);
+  // Load from settings on mount
+  useEffect(() => {
+    const savedPrefs = settings['notification_preferences']?.value;
+    if (savedPrefs) {
+      try {
+        const parsed = JSON.parse(savedPrefs);
+        setPrefs(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.error('Failed to parse notification preferences:', e);
+      }
+    }
+  }, [settings]);
 
-// Confluence Section
-const ConfluenceSection = () => (
-  <SettingCard>
-    <div className="flex items-center gap-3 mb-3">
-      <Link2 className="h-5 w-5 text-on-surface-variant" />
-      <div className="flex-1">
-        <h4 className="text-body-sm text-on-surface font-medium">Connected</h4>
-        <p className="text-[10px] text-on-surface-variant">mycompany.atlassian.net</p>
+  const handleToggle = async (key, value) => {
+    if (!onUpdateSetting) return;
+    
+    const newPrefs = { ...prefs, [key]: value };
+    setPrefs(newPrefs);
+    setIsSaving(prev => ({ ...prev, [key]: true }));
+    
+    try {
+      await onUpdateSetting('notification_preferences', JSON.stringify(newPrefs));
+    } catch (e) {
+      // Revert on error
+      setPrefs(prefs);
+      toast.error('Failed to save preference');
+    } finally {
+      setIsSaving(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  return (
+    <SettingCard>
+      <div className="space-y-3">
+        <SettingRow label="Email notifications" description="Receive updates via email">
+          <Switch 
+            checked={prefs.email_notifications} 
+            onCheckedChange={(v) => handleToggle('email_notifications', v)}
+            disabled={isSaving.email_notifications}
+          />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow label="Cascade completion" description="Notify when cascades finish">
+          <Switch 
+            checked={prefs.cascade_completion} 
+            onCheckedChange={(v) => handleToggle('cascade_completion', v)}
+            disabled={isSaving.cascade_completion}
+          />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow label="Error alerts" description="Get notified about failures">
+          <Switch 
+            checked={prefs.error_alerts} 
+            onCheckedChange={(v) => handleToggle('error_alerts', v)}
+            disabled={isSaving.error_alerts}
+          />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow label="Usage warnings" description="Alert when approaching limits">
+          <Switch 
+            checked={prefs.usage_warnings} 
+            onCheckedChange={(v) => handleToggle('usage_warnings', v)}
+            disabled={isSaving.usage_warnings}
+          />
+        </SettingRow>
       </div>
-      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
-    </div>
-    <div className="space-y-3">
-      <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
-        <Switch defaultChecked />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Default space">
-        <SettingInput minWidth="min-w-36">Engineering</SettingInput>
-      </SettingRow>
-    </div>
-  </SettingCard>
-);
+    </SettingCard>
+  );
+};
+
+// Profile Section - Connected to auth context
+const ProfileSection = () => {
+  const { user, userProfile } = useAuth();
+  
+  const displayName = userProfile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const email = userProfile?.email || user?.email || 'No email';
+  const avatarUrl = userProfile?.avatar_url || user?.user_metadata?.avatar_url;
+
+  return (
+    <SettingCard>
+      <div className="flex items-center gap-3 mb-4">
+        {avatarUrl ? (
+          <img 
+            src={avatarUrl} 
+            alt={displayName}
+            className="w-12 h-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center">
+            <User className="h-6 w-6 text-on-surface-variant" />
+          </div>
+        )}
+        <div>
+          <h4 className="text-title-sm text-on-surface font-medium">{displayName}</h4>
+          <p className="text-body-sm text-on-surface-variant">{email}</p>
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-[10px] text-on-surface-variant">Display Name</label>
+          <input 
+            type="text"
+            value={displayName}
+            readOnly
+            className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] text-on-surface-variant">Email</label>
+          <input 
+            type="text"
+            value={email}
+            readOnly
+            className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant"
+          />
+        </div>
+        <p className="text-[10px] text-on-surface-variant/70 italic">
+          Profile is managed through your Google account.
+        </p>
+      </div>
+    </SettingCard>
+  );
+};
+
+// Confluence Section - Connected to real settings
+const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
+  const [editedValues, setEditedValues] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Check if confluence is configured
+  const confluenceUrl = settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value;
+  const confluenceEmail = settings['CONFLUENCE_EMAIL']?.value || settings['confluence_email']?.value;
+  const confluenceToken = settings['CONFLUENCE_API_TOKEN']?.value || settings['confluence_api_token']?.value;
+  const isConnected = !!(confluenceUrl && confluenceEmail && confluenceToken);
+  
+  const autoSync = settings['confluence_auto_sync']?.value === 'true';
+  const defaultSpace = settings['confluence_default_space']?.value || '';
+
+  const handleValueChange = (key, value) => {
+    setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async (key) => {
+    if (!onUpdateSetting) return;
+    setIsSaving(true);
+    try {
+      await onUpdateSetting(key, editedValues[key]);
+      setEditedValues(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      toast.success('Setting saved');
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleAutoSync = async (value) => {
+    if (!onUpdateSetting) return;
+    try {
+      await onUpdateSetting('confluence_auto_sync', value ? 'true' : 'false');
+    } catch {
+      toast.error('Failed to save');
+    }
+  };
+
+  const hasChanges = (key) => editedValues[key] !== undefined;
+  const getValue = (key, fallback) => editedValues[key] ?? fallback;
+
+  // Extract domain from URL for display
+  let displayDomain = 'Not configured';
+  if (confluenceUrl) {
+    try {
+      const url = new URL(confluenceUrl.startsWith('http') ? confluenceUrl : `https://${confluenceUrl}`);
+      displayDomain = url.hostname;
+    } catch {
+      displayDomain = confluenceUrl;
+    }
+  }
+
+  return (
+    <SettingCard>
+      <div className="flex items-center gap-3 mb-3">
+        <Link2 className="h-5 w-5 text-on-surface-variant" />
+        <div className="flex-1">
+          <h4 className="text-body-sm text-on-surface font-medium">
+            {isConnected ? 'Connected' : 'Not Connected'}
+          </h4>
+          <p className="text-[10px] text-on-surface-variant">{displayDomain}</p>
+        </div>
+        {isConnected ? (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+        ) : (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Incomplete</span>
+        )}
+      </div>
+      <div className="space-y-3">
+        <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
+          <Switch 
+            checked={autoSync} 
+            onCheckedChange={handleToggleAutoSync}
+            disabled={!isConnected}
+          />
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow label="Default space">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={getValue('confluence_default_space', defaultSpace)}
+              onChange={(e) => handleValueChange('confluence_default_space', e.target.value)}
+              placeholder="e.g. ENG"
+              disabled={!isConnected}
+              className="h-7 w-28 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+            />
+            {hasChanges('confluence_default_space') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSave('confluence_default_space')}
+                    disabled={isSaving}
+                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </SettingRow>
+        {!isConnected && (
+          <p className="text-[10px] text-amber-600 bg-amber-500/10 p-2 rounded-m3-sm">
+            Configure Confluence URL, email, and API token in Database & Environment settings to enable.
+          </p>
+        )}
+      </div>
+    </SettingCard>
+  );
+};
 
 // Cost Analytics Section - Connected to real cost tracking
 const CostAnalyticsSection = ({ costTracking }) => {
@@ -1477,6 +1742,12 @@ const MockupSettingsContent = ({
         return commonSettingsProps;
       case 'cost-analytics':
         return { costTracking };
+      case 'api-keys':
+        return { settings };
+      case 'notifications':
+        return commonSettingsProps;
+      case 'profile':
+        return {};
       default:
         return commonSettingsProps;
     }
