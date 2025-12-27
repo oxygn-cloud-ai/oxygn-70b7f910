@@ -176,7 +176,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar
   );
 };
 
-const MockupListView = ({ 
+const ListView = ({ 
   onSelectPrompt, 
   activePromptId,
   treeData = [],
@@ -267,4 +267,4 @@ const MockupListView = ({
   );
 };
 
-export default MockupListView;
+export default ListView;

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const MockupSearchResults = ({ 
+const SearchResults = ({ 
   isOpen = true, 
   searchQuery = "", 
   onClose,
@@ -238,4 +238,4 @@ const MockupSearchResults = ({
   );
 };
 
-export default MockupSearchResults;
+export default SearchResults;

@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MockupVariablePicker } from "../shared/MockupVariablePicker";
+import { VariablePicker } from "@/components/shared";
 
 // Source options for variable mappings
 const SOURCE_OPTIONS = [
@@ -788,7 +788,7 @@ const EnhancedPreviewPanel = ({ template, variables = [] }) => {
   );
 };
 
-const MockupTemplatesContent = ({ 
+const TemplatesContent = ({ 
   selectedTemplate, 
   activeTemplateTab = "prompts",
   // Real data hooks - Phase 5
@@ -1188,4 +1188,4 @@ const MockupTemplatesContent = ({
   );
 };
 
-export default MockupTemplatesContent;
+export default TemplatesContent;

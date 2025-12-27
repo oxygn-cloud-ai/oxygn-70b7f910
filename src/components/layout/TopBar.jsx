@@ -1,10 +1,10 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun, Sparkles } from "lucide-react";
+import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const MockupTopBar = ({ 
+const TopBar = ({ 
   tooltipsEnabled = true, 
   onToggleTooltips, 
   isDark = false, 
@@ -35,15 +35,6 @@ const MockupTopBar = ({
         <span className="text-title-sm font-medium text-on-surface">
           Qonsol
         </span>
-        <motion.span 
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-[8px] px-1.5 py-0.5 rounded-full bg-primary/20 text-primary font-medium flex items-center gap-1"
-        >
-          <Sparkles className="h-2.5 w-2.5" />
-          NEW
-        </motion.span>
       </motion.div>
 
       {/* Center - Search Bar */}
@@ -185,4 +176,4 @@ const MockupTopBar = ({
   );
 };
 
-export default MockupTopBar;
+export default TopBar;

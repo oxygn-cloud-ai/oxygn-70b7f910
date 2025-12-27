@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { Send, Paperclip, Mic, MoreVertical, PanelRightClose, Plus, Trash2, Loader2, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SkeletonListItem, SkeletonChat } from "./shared/MockupSkeletons";
+import { SkeletonListItem, SkeletonChat } from "@/components/shared/Skeletons";
 
-const MockupConversationPanel = ({ 
+const ConversationPanel = ({ 
   onClose,
   threads = [],
   activeThread,
@@ -210,4 +210,4 @@ const MockupConversationPanel = ({
   );
 };
 
-export default MockupConversationPanel;
+export default ConversationPanel;

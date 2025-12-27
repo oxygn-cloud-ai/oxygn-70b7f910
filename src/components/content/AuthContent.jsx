@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { SettingInput } from "@/components/ui/setting-input";
 
-const MockupAuthContent = () => {
+const AuthContent = () => {
   const [mode, setMode] = useState("login"); // "login" or "signup"
   const [showPassword, setShowPassword] = useState(false);
 
@@ -158,4 +158,4 @@ const MockupAuthContent = () => {
   );
 };
 
-export default MockupAuthContent;
+export default AuthContent;

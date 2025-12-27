@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
-import { SkeletonListItem } from "./shared/MockupSkeletons";
+import { SkeletonListItem } from "@/components/shared/Skeletons";
 import { toast } from "@/components/ui/sonner";
 
 const ITEM_TYPE = "PROMPT_ITEM";
@@ -359,7 +359,7 @@ const TreeItem = ({
   );
 };
 
-const MockupFolderPanel = ({ 
+const FolderPanel = ({ 
   treeData = [], 
   isLoading = false, 
   selectedPromptId, 
@@ -751,4 +751,4 @@ const MockupFolderPanel = ({
   );
 };
 
-export default MockupFolderPanel;
+export default FolderPanel;

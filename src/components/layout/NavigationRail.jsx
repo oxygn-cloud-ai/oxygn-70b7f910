@@ -83,7 +83,7 @@ const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onCli
   </Tooltip>
 );
 
-const MockupNavigationRail = ({ 
+const NavigationRail = ({ 
   activeNav = "prompts", 
   onNavChange, 
   onNavHover, 
@@ -198,4 +198,4 @@ const MockupNavigationRail = ({
   );
 };
 
-export default MockupNavigationRail;
+export default NavigationRail;
