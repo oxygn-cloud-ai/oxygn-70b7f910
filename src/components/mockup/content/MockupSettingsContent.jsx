@@ -48,26 +48,136 @@ const MOCK_CONVERSATIONS = [
   { id: "3", name: "Old Chat Bot", model: "gpt-3.5-turbo", promptName: null, createdAt: "Nov 15, 2024", isOrphaned: true },
 ];
 
-// General Settings Section
-const GeneralSection = () => (
-  <div className="space-y-3">
-    <SettingCard label="Application">
-      <div className="space-y-3">
-        <SettingRow label="Default Project" description="Project to open on startup">
-          <SettingInput>Customer Support</SettingInput>
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow label="Auto-save" description="Automatically save changes">
-          <Switch defaultChecked />
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow label="Confirm before delete" description="Show confirmation dialogs">
-          <Switch defaultChecked />
-        </SettingRow>
-      </div>
-    </SettingCard>
-  </div>
-);
+// General Settings Section - Connected to real settings
+const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoadingSettings }) => {
+  const [editedValues, setEditedValues] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleValueChange = (key, value) => {
+    setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async (key) => {
+    if (!onUpdateSetting) return;
+    setIsSaving(true);
+    try {
+      await onUpdateSetting(key, editedValues[key]);
+      setEditedValues(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getValue = (key, fallback = '') => {
+    if (editedValues[key] !== undefined) return editedValues[key];
+    return settings[key]?.value || fallback;
+  };
+
+  const hasChanges = (key) => {
+    return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Default Model */}
+      <SettingCard label="Default Model">
+        <div className="space-y-3">
+          <SettingRow label="Default Model" description="Model used for new prompts">
+            <div className="flex items-center gap-2">
+              <select
+                value={getValue('default_model')}
+                onChange={(e) => handleValueChange('default_model', e.target.value)}
+                className="h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Select model...</option>
+                {models.map((model) => (
+                  <option key={model.row_id || model.id} value={model.model_id || model.id}>
+                    {model.model_name || model.name}
+                  </option>
+                ))}
+              </select>
+              {hasChanges('default_model') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSave('default_model')}
+                      disabled={isSaving}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+        </div>
+      </SettingCard>
+
+      {/* Application Settings */}
+      <SettingCard label="Application">
+        <div className="space-y-3">
+          <SettingRow label="Build" description="Current build identifier">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={getValue('build')}
+                onChange={(e) => handleValueChange('build', e.target.value)}
+                placeholder="e.g. 1.0.0"
+                className="h-8 w-24 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {hasChanges('build') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSave('build')}
+                      disabled={isSaving}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow label="Version" description="Application version">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={getValue('version')}
+                onChange={(e) => handleValueChange('version', e.target.value)}
+                placeholder="e.g. 1.0.0"
+                className="h-8 w-24 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              {hasChanges('version') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSave('version')}
+                      disabled={isSaving}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
 
 // Prompt Naming Section (NEW - matching real PromptNamingSettings.jsx)
 const PromptNamingSection = () => {
@@ -213,103 +323,181 @@ const PromptNamingSection = () => {
   );
 };
 
-// Conversation Defaults Section (NEW - matching real ConversationDefaultsSection.jsx)
-const ConversationDefaultsSection = () => (
-  <div className="space-y-4">
-    {/* Default Context Prompt */}
-    <SettingCard label="Default Context Prompt">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-on-surface-variant">Context/system prompt for new prompts</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Save className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Save</TooltipContent>
-          </Tooltip>
-        </div>
-        <textarea 
-          rows={4}
-          placeholder="Default context/system prompt for new prompts..."
-          className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-          defaultValue="You are a helpful AI assistant. Respond clearly and concisely."
-        />
-      </div>
-    </SettingCard>
+// Conversation Defaults Section - Connected to real settings
+const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
+  const [editedValues, setEditedValues] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
 
-    {/* Default System Instructions */}
-    <SettingCard label="Default System Instructions">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-on-surface-variant">Instructions for new top-level conversations</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Save className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Save</TooltipContent>
-          </Tooltip>
-        </div>
-        <textarea 
-          rows={4}
-          placeholder="Default instructions for new top-level conversations..."
-          className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-        />
-      </div>
-    </SettingCard>
+  const handleValueChange = (key, value) => {
+    setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
 
-    {/* Default Tools */}
-    <SettingCard label="Default Tools">
-      <div className="space-y-3">
-        <p className="text-[10px] text-on-surface-variant">Default tools enabled for new conversations</p>
+  const handleSave = async (key) => {
+    if (!onUpdateSetting) return;
+    setIsSaving(true);
+    try {
+      await onUpdateSetting(key, editedValues[key]);
+      setEditedValues(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getValue = (key, fallback = '') => {
+    if (editedValues[key] !== undefined) return editedValues[key];
+    return settings[key]?.value || fallback;
+  };
+
+  const hasChanges = (key) => {
+    return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Default Context Prompt */}
+      <SettingCard label="Default Context Prompt">
         <div className="space-y-2">
-          {[
-            { icon: Code, label: "Code Interpreter", description: "Allows the AI to write and run Python code", enabled: false },
-            { icon: Search, label: "File Search", description: "Enables searching through uploaded files", enabled: true },
-            { icon: Zap, label: "Function Calling", description: "Allows defining custom functions for the AI", enabled: false },
-          ].map(tool => (
-            <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm">
-              <div className="flex items-center gap-2">
-                <tool.icon className="h-4 w-4 text-on-surface-variant" />
-                <div>
-                  <span className="text-body-sm text-on-surface">{tool.label}</span>
-                  <p className="text-[10px] text-on-surface-variant">{tool.description}</p>
-                </div>
-              </div>
-              <Switch defaultChecked={tool.enabled} />
-            </div>
-          ))}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-on-surface-variant">Context/system prompt for new prompts</span>
+            {hasChanges('default_context_prompt') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSave('default_context_prompt')}
+                    disabled={isSaving}
+                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <textarea 
+            rows={4}
+            value={getValue('default_context_prompt', 'You are a helpful AI assistant. Respond clearly and concisely.')}
+            onChange={(e) => handleValueChange('default_context_prompt', e.target.value)}
+            placeholder="Default context/system prompt for new prompts..."
+            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+          />
         </div>
-      </div>
-    </SettingCard>
+      </SettingCard>
 
-    {/* Default Thread Mode */}
-    <SettingCard label="Default Thread Mode">
-      <div className="space-y-2">
-        <select className="w-full h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">
-          <option value="new">New Thread - Create fresh conversation for each execution</option>
-          <option value="reuse">Reuse Thread - Maintain conversation history</option>
-        </select>
-        <p className="text-[10px] text-on-surface-variant">Default thread behavior for new child prompts</p>
-      </div>
-    </SettingCard>
+      {/* Default System Instructions */}
+      <SettingCard label="Default System Instructions">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-on-surface-variant">Instructions for new top-level conversations</span>
+            {hasChanges('default_system_instructions') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSave('default_system_instructions')}
+                    disabled={isSaving}
+                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <textarea 
+            rows={4}
+            value={getValue('default_system_instructions')}
+            onChange={(e) => handleValueChange('default_system_instructions', e.target.value)}
+            placeholder="Default instructions for new top-level conversations..."
+            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+          />
+        </div>
+      </SettingCard>
 
-    {/* Empty Prompt Fallback */}
-    <SettingCard label="Empty Prompt Fallback Message">
-      <div className="space-y-2">
-        <input 
-          type="text"
-          defaultValue="Execute this prompt"
-          className="w-full h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        <p className="text-[10px] text-on-surface-variant">Message sent to AI when a prompt has no user or admin content</p>
-      </div>
-    </SettingCard>
-  </div>
-);
+      {/* Default Tools */}
+      <SettingCard label="Default Tools">
+        <div className="space-y-3">
+          <p className="text-[10px] text-on-surface-variant">Default tools enabled for new conversations</p>
+          <div className="space-y-2">
+            {[
+              { key: 'default_code_interpreter', icon: Code, label: "Code Interpreter", description: "Allows the AI to write and run Python code" },
+              { key: 'default_file_search', icon: Search, label: "File Search", description: "Enables searching through uploaded files" },
+              { key: 'default_function_calling', icon: Zap, label: "Function Calling", description: "Allows defining custom functions for the AI" },
+            ].map(tool => (
+              <div key={tool.key} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm">
+                <div className="flex items-center gap-2">
+                  <tool.icon className="h-4 w-4 text-on-surface-variant" />
+                  <div>
+                    <span className="text-body-sm text-on-surface">{tool.label}</span>
+                    <p className="text-[10px] text-on-surface-variant">{tool.description}</p>
+                  </div>
+                </div>
+                <Switch 
+                  checked={getValue(tool.key) === 'true'} 
+                  onCheckedChange={(checked) => {
+                    handleValueChange(tool.key, checked ? 'true' : 'false');
+                    if (onUpdateSetting) onUpdateSetting(tool.key, checked ? 'true' : 'false');
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </SettingCard>
+
+      {/* Default Thread Mode */}
+      <SettingCard label="Default Thread Mode">
+        <div className="space-y-2">
+          <select 
+            value={getValue('default_thread_mode', 'new')}
+            onChange={(e) => {
+              handleValueChange('default_thread_mode', e.target.value);
+              if (onUpdateSetting) onUpdateSetting('default_thread_mode', e.target.value);
+            }}
+            className="w-full h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="new">New Thread - Create fresh conversation for each execution</option>
+            <option value="reuse">Reuse Thread - Maintain conversation history</option>
+          </select>
+          <p className="text-[10px] text-on-surface-variant">Default thread behavior for new child prompts</p>
+        </div>
+      </SettingCard>
+
+      {/* Empty Prompt Fallback */}
+      <SettingCard label="Empty Prompt Fallback Message">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input 
+              type="text"
+              value={getValue('empty_prompt_fallback', 'Execute this prompt')}
+              onChange={(e) => handleValueChange('empty_prompt_fallback', e.target.value)}
+              className="flex-1 h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {hasChanges('empty_prompt_fallback') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSave('empty_prompt_fallback')}
+                    disabled={isSaving}
+                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <p className="text-[10px] text-on-surface-variant">Message sent to AI when a prompt has no user or admin content</p>
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
 
 // Conversations Section (NEW - matching real ConversationsSection.jsx)
 const ConversationsSection = () => {
@@ -542,14 +730,16 @@ const APIKeysSection = () => {
         </div>
       </SettingCard>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-            <Plus className="h-4 w-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent className="text-[10px]">Add API Key</TooltipContent>
-      </Tooltip>
+      <div className="flex">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <Plus className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Add API Key</TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 };
@@ -704,28 +894,140 @@ const CostAnalyticsSection = () => (
   </div>
 );
 
-// Workbench Settings Section
-const WorkbenchSettingsSection = () => (
-  <SettingCard>
-    <div className="space-y-3">
-      <SettingRow label="Default model" description="Model used for new conversations">
-        <SettingInput minWidth="min-w-36">GPT-4o</SettingInput>
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Enable file search" description="Allow searching uploaded files">
-        <Switch defaultChecked />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Enable code interpreter" description="Allow code execution">
-        <Switch />
-      </SettingRow>
-      <SettingDivider />
-      <SettingRow label="Auto-save threads" description="Save conversation history">
-        <Switch defaultChecked />
-      </SettingRow>
+// Workbench Settings Section - Connected to real settings
+const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] }) => {
+  const [editedValues, setEditedValues] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleValueChange = (key, value) => {
+    setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async (key) => {
+    if (!onUpdateSetting) return;
+    setIsSaving(true);
+    try {
+      await onUpdateSetting(key, editedValues[key]);
+      setEditedValues(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getValue = (key, fallback = '') => {
+    if (editedValues[key] !== undefined) return editedValues[key];
+    return settings[key]?.value || fallback;
+  };
+
+  const hasChanges = (key) => {
+    return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
+  };
+
+  return (
+    <div className="space-y-4">
+      <SettingCard label="Workbench Defaults">
+        <div className="space-y-3">
+          <SettingRow label="Default model" description="Model used for new conversations">
+            <div className="flex items-center gap-2">
+              <select
+                value={getValue('workbench_default_model')}
+                onChange={(e) => handleValueChange('workbench_default_model', e.target.value)}
+                className="h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">Select model...</option>
+                {models.map((model) => (
+                  <option key={model.row_id || model.id} value={model.model_id || model.id}>
+                    {model.model_name || model.name}
+                  </option>
+                ))}
+              </select>
+              {hasChanges('workbench_default_model') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSave('workbench_default_model')}
+                      disabled={isSaving}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow label="Enable file search" description="Allow searching uploaded files">
+            <Switch 
+              checked={getValue('workbench_file_search') === 'true'} 
+              onCheckedChange={(checked) => {
+                const value = checked ? 'true' : 'false';
+                handleValueChange('workbench_file_search', value);
+                if (onUpdateSetting) onUpdateSetting('workbench_file_search', value);
+              }}
+            />
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow label="Enable code interpreter" description="Allow code execution">
+            <Switch 
+              checked={getValue('workbench_code_interpreter') === 'true'} 
+              onCheckedChange={(checked) => {
+                const value = checked ? 'true' : 'false';
+                handleValueChange('workbench_code_interpreter', value);
+                if (onUpdateSetting) onUpdateSetting('workbench_code_interpreter', value);
+              }}
+            />
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow label="Auto-save threads" description="Save conversation history">
+            <Switch 
+              checked={getValue('workbench_auto_save', 'true') === 'true'} 
+              onCheckedChange={(checked) => {
+                const value = checked ? 'true' : 'false';
+                handleValueChange('workbench_auto_save', value);
+                if (onUpdateSetting) onUpdateSetting('workbench_auto_save', value);
+              }}
+            />
+          </SettingRow>
+        </div>
+      </SettingCard>
+
+      <SettingCard label="System Prompt">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-on-surface-variant">Default system prompt for workbench conversations</span>
+            {hasChanges('workbench_system_prompt') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSave('workbench_system_prompt')}
+                    disabled={isSaving}
+                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <textarea 
+            rows={4}
+            value={getValue('workbench_system_prompt')}
+            onChange={(e) => handleValueChange('workbench_system_prompt', e.target.value)}
+            placeholder="Enter the system prompt for Workbench AI..."
+            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+          />
+        </div>
+      </SettingCard>
     </div>
-  </SettingCard>
-);
+  );
+};
 
 // New UI Section
 const NewUISection = () => (
@@ -1010,16 +1312,39 @@ const MockupSettingsContent = ({
 
   // Prepare props to pass to section components based on which section is active
   const getSectionProps = () => {
+    const commonSettingsProps = { 
+      settings, 
+      onUpdateSetting, 
+      isLoadingSettings 
+    };
+    
     switch (activeSubItem) {
+      case 'qonsol':
+        return { 
+          ...commonSettingsProps,
+          models, 
+        };
       case 'models':
         return { 
           models, 
           isLoading: isLoadingModels, 
-          onToggleModel 
+          onToggleModel,
+          settings,
+          onUpdateSetting,
         };
-      // Future: Add settings props for other sections
+      case 'assistants':
+        return commonSettingsProps;
+      case 'workbench':
+        return { 
+          ...commonSettingsProps,
+          models 
+        };
+      case 'naming':
+        return commonSettingsProps;
+      case 'confluence':
+        return commonSettingsProps;
       default:
-        return {};
+        return commonSettingsProps;
     }
   };
 
