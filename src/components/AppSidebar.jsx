@@ -26,6 +26,7 @@ import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { M3IconButton } from "@/components/ui/m3-icon-button";
 import { ExportDrawer } from '@/components/export';
 import { useExport } from '@/hooks/useExport';
 import { useConfluenceExport } from '@/hooks/useConfluenceExport';
@@ -164,32 +165,33 @@ export function AppSidebar({ activeSettingsSection, onSettingsSectionChange, act
         STANDARD_FIELDS={exportState.STANDARD_FIELDS}
         confluenceExport={confluenceExport}
       />
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
+    <Sidebar collapsible="icon" className="border-r border-outline-variant bg-surface-container-low">
       {/* Header with Logo */}
-      <SidebarHeader className="flex flex-col items-start gap-3 px-3 py-4 border-b border-sidebar-border">
+      <SidebarHeader className="flex flex-col items-start gap-3 px-3 py-4 border-b border-outline-variant">
         <div className="flex items-center gap-3">
           <img 
             src="/favicon.png" 
             alt="Chocolate Logo" 
-            className="h-8 w-8 flex-shrink-0 object-contain transition-transform hover:scale-105"
+            className="h-8 w-8 flex-shrink-0 object-contain transition-transform duration-short-4 ease-standard hover:scale-105"
           />
           {!isCollapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-sidebar-foreground">Qonsol</span>
-              <span className="text-[10px] text-primary font-medium">Policy Builder 7</span>
+              <span className="text-label-large font-semibold text-on-surface">Qonsol</span>
+              <span className="text-label-small text-primary font-medium">Policy Builder 7</span>
             </div>
           )}
         </div>
-        <button
+        <M3IconButton
+          variant="standard"
+          size="small"
           onClick={toggleSidebar}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/70 hover:text-sidebar-foreground transition-all"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          tooltip={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <ChevronLeft className={`h-4 w-4 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
-        </button>
+          <ChevronLeft className={`transition-transform duration-medium-2 ease-standard ${isCollapsed ? 'rotate-180' : ''}`} />
+        </M3IconButton>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-3">
+      <SidebarContent className="px-2 py-3 bg-surface-container-low">
         {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>

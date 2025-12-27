@@ -113,10 +113,10 @@ const SettingField = ({
 
   const fieldContent = (
     <div className={cn(
-      "relative p-3 rounded-lg border transition-all",
+      "relative p-4 rounded-2xl border transition-all duration-medium-2 ease-standard",
       isDisabled 
-        ? "bg-muted/50 border-muted opacity-60 cursor-not-allowed" 
-        : "bg-background border-border hover:border-primary/50"
+        ? "bg-surface-container-low border-outline-variant/50 opacity-60 cursor-not-allowed" 
+        : "bg-surface-container border-outline-variant hover:border-primary/50"
     )}>
       <div className="flex items-center space-x-2 mb-2">
         {type === 'switch' ? (
