@@ -23,12 +23,6 @@ import { LabelPicker } from "@/components/ui/label-picker";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  SkeletonPromptEditor, 
-  SkeletonVariableRow,
-  SkeletonSettingRow,
-  SkeletonChat
-} from "../shared/MockupSkeletons";
-import { 
   EmptyVariables, 
   EmptyConversation,
   EmptyOutput 
@@ -246,13 +240,25 @@ const LibraryPickerDropdown = () => {
 };
 
 // Editable Text Area Component with Variable Picker
-const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick }) => {
+const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick, onChange }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+
+  // Sync editValue when value prop changes
+  React.useEffect(() => {
+    setEditValue(value || '');
+  }, [value]);
 
   const handleInsertVariable = (variable) => {
     const insertion = `{{${variable}}}`;
     setEditValue(prev => prev + insertion);
+  };
+
+  const handleDoneEditing = () => {
+    setIsEditing(false);
+    if (onChange && editValue !== value) {
+      onChange(editValue);
+    }
   };
 
   return (
@@ -265,7 +271,7 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={() => isEditing ? handleDoneEditing() : setIsEditing(true)}
                 className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
                   isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
                 }`}
@@ -294,36 +300,12 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
 };
 
 // Prompt Tab Content
-const PromptTabContent = () => {
-  const systemPrompt = `You are a professional customer support agent for {{company_name}}.
-
-Analyze the following customer message and provide a helpful response:
-{{customer_message}}
-
-Previous ticket count: {{ticket_count}}
-Contact: {{support_email}}
-
-Guidelines:
-- Be empathetic and professional
-- Provide actionable solutions
-- Offer to escalate if needed`;
-
-  const userPrompt = `Please help me with the following request. Consider the context from {{parent.output}} if available.`;
-
-  const outputResponse = `Thank you for contacting Acme Corp support! I understand your concern about order #12345.
-
-I've checked our system and can see that your order is currently in transit. Here's what I found:
-
-**Order Status:** In Transit
-**Expected Delivery:** Tomorrow by 5 PM
-**Tracking Number:** TRK-789456123
-
-Would you like me to:
-1. Send you real-time tracking updates via SMS
-2. Arrange for expedited delivery
-3. Process a partial refund for the delay
-
-Please let me know how I can best assist you!`;
+const PromptTabContent = ({ promptData, onUpdateField }) => {
+  // Use real data from promptData, with fallbacks
+  const systemPrompt = promptData?.input_admin_prompt || '';
+  const userPrompt = promptData?.input_user_prompt || '';
+  const outputResponse = promptData?.output_response || '';
+  const metadata = promptData?.last_ai_call_metadata;
 
   return (
     <div className="space-y-4">
@@ -334,6 +316,7 @@ Please let me know how I can best assist you!`;
         placeholder="Enter system prompt..."
         minHeight="min-h-40"
         onLibraryPick
+        onChange={(value) => onUpdateField?.('input_admin_prompt', value)}
       />
 
       {/* User Prompt */}
@@ -343,6 +326,7 @@ Please let me know how I can best assist you!`;
         placeholder="Enter user prompt..."
         minHeight="min-h-16"
         onLibraryPick
+        onChange={(value) => onUpdateField?.('input_user_prompt', value)}
       />
 
       {/* Output */}
@@ -350,10 +334,12 @@ Please let me know how I can best assist you!`;
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Output</label>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 flex items-center gap-1">
-              <Check className="h-2.5 w-2.5" />
-              Generated
-            </span>
+            {outputResponse && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 flex items-center gap-1">
+                <Check className="h-2.5 w-2.5" />
+                Generated
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -375,32 +361,81 @@ Please let me know how I can best assist you!`;
           </div>
         </div>
         <div className="min-h-36 p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
-          {outputResponse}
+          {outputResponse || <span className="text-on-surface-variant opacity-50">No output yet. Run the prompt to generate a response.</span>}
         </div>
         
         {/* Metadata */}
-        <div className="flex items-center gap-3 text-[10px] text-on-surface-variant">
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            1.2s
-          </span>
-          <span>•</span>
-          <span>GPT-4o</span>
-          <span>•</span>
-          <span>847 tokens</span>
-          <span>•</span>
-          <span>$0.0042</span>
-        </div>
+        {metadata && (
+          <div className="flex items-center gap-3 text-[10px] text-on-surface-variant">
+            {metadata.latency_ms && (
+              <>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {(metadata.latency_ms / 1000).toFixed(1)}s
+                </span>
+                <span>•</span>
+              </>
+            )}
+            {metadata.model && (
+              <>
+                <span>{metadata.model}</span>
+                <span>•</span>
+              </>
+            )}
+            {metadata.tokens_total && (
+              <>
+                <span>{metadata.tokens_total} tokens</span>
+                <span>•</span>
+              </>
+            )}
+            {metadata.cost_total_usd && (
+              <span>${metadata.cost_total_usd.toFixed(4)}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // Settings Tab Content
-const SettingsTabContent = () => {
-  const [temperature, setTemperature] = useState([0.7]);
-  const [maxTokens, setMaxTokens] = useState("4096");
-  const [isAssistant, setIsAssistant] = useState(false);
+const SettingsTabContent = ({ promptData, onUpdateField }) => {
+  // Use real data from promptData
+  const currentModel = promptData?.model || 'gpt-4o';
+  const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
+  const currentMaxTokens = promptData?.max_tokens || '4096';
+  const isAssistant = promptData?.is_assistant || false;
+
+  const [temperature, setTemperature] = useState([currentTemp]);
+  const [maxTokens, setMaxTokens] = useState(currentMaxTokens);
+
+  // Sync state when promptData changes
+  React.useEffect(() => {
+    if (promptData?.temperature) {
+      setTemperature([parseFloat(promptData.temperature)]);
+    }
+    if (promptData?.max_tokens) {
+      setMaxTokens(promptData.max_tokens);
+    }
+  }, [promptData?.temperature, promptData?.max_tokens]);
+
+  const handleTemperatureChange = (value) => {
+    setTemperature(value);
+    onUpdateField?.('temperature', String(value[0]));
+  };
+
+  const handleMaxTokensChange = (e) => {
+    setMaxTokens(e.target.value);
+    onUpdateField?.('max_tokens', e.target.value);
+  };
+
+  const handleModelChange = (modelId) => {
+    onUpdateField?.('model', modelId);
+  };
+
+  const handleAssistantToggle = (checked) => {
+    onUpdateField?.('is_assistant', checked);
+  };
 
   return (
     <div className="space-y-4">
@@ -410,13 +445,17 @@ const SettingsTabContent = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span>GPT-4o</span>
+              <span>{currentModel}</span>
               <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
             {MOCK_MODELS.map(model => (
-              <DropdownMenuItem key={model.id} className="text-body-sm text-on-surface">
+              <DropdownMenuItem 
+                key={model.id} 
+                onClick={() => handleModelChange(model.id)}
+                className="text-body-sm text-on-surface"
+              >
                 <span className="flex-1">{model.name}</span>
                 <span className="text-[10px] text-on-surface-variant">{model.provider}</span>
               </DropdownMenuItem>
@@ -433,7 +472,7 @@ const SettingsTabContent = () => {
         </div>
         <Slider
           value={temperature}
-          onValueChange={setTemperature}
+          onValueChange={handleTemperatureChange}
           max={2}
           step={0.1}
           className="w-full"
@@ -450,7 +489,7 @@ const SettingsTabContent = () => {
         <input
           type="number"
           value={maxTokens}
-          onChange={(e) => setMaxTokens(e.target.value)}
+          onChange={handleMaxTokensChange}
           className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
@@ -485,7 +524,7 @@ const SettingsTabContent = () => {
               <p className="text-[10px] text-on-surface-variant">Enable conversational memory</p>
             </div>
           </div>
-          <Switch checked={isAssistant} onCheckedChange={setIsAssistant} />
+          <Switch checked={isAssistant} onCheckedChange={handleAssistantToggle} />
         </div>
       </div>
 
@@ -494,24 +533,27 @@ const SettingsTabContent = () => {
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tools</label>
         <div className="grid grid-cols-2 gap-2">
           {[
-            { icon: Code, label: "Code Interpreter", enabled: true },
-            { icon: Search, label: "File Search", enabled: false },
-            { icon: Globe, label: "Web Search", enabled: false },
-            { icon: Zap, label: "Functions", enabled: false },
+            { key: "code_interpreter_on", icon: Code, label: "Code Interpreter" },
+            { key: "file_search_on", icon: Search, label: "File Search" },
+            { key: "web_search_on", icon: Globe, label: "Web Search" },
+            { key: "function_calling_on", icon: Zap, label: "Functions" },
           ].map(tool => (
             <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
               <div className="flex items-center gap-1.5">
                 <tool.icon className="h-3.5 w-3.5 text-on-surface-variant" />
                 <span className="text-[11px] text-on-surface">{tool.label}</span>
               </div>
-              <Switch defaultChecked={tool.enabled} />
+              <Switch 
+                checked={promptData?.[tool.key] || false}
+                onCheckedChange={(checked) => onUpdateField?.(tool.key, checked)} 
+              />
             </div>
           ))}
         </div>
       </div>
 
       {/* Actions & Cascade Section */}
-      <ActionConfigSection />
+      <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} />
     </div>
   );
 };
@@ -992,10 +1034,22 @@ const MockupPromptsContent = ({
     return (
       <div className="flex-1 flex flex-col bg-surface overflow-hidden">
         <div className="h-14 flex items-center px-3 border-b border-outline-variant">
-          <SkeletonPromptEditor />
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-32 bg-on-surface/[0.08] rounded-m3-sm animate-pulse" />
+            <div className="h-4 w-16 bg-on-surface/[0.08] rounded-m3-sm animate-pulse" />
+          </div>
         </div>
         <div className="flex-1 p-4">
-          <SkeletonPromptEditor />
+          <div className="space-y-4 animate-fade-in">
+            <div className="space-y-1.5">
+              <div className="h-3 w-20 bg-on-surface/[0.08] rounded-m3-sm animate-pulse" />
+              <div className="w-full h-40 bg-on-surface/[0.08] rounded-m3-md animate-pulse" />
+            </div>
+            <div className="space-y-1.5">
+              <div className="h-3 w-16 bg-on-surface/[0.08] rounded-m3-sm animate-pulse" />
+              <div className="w-full h-20 bg-on-surface/[0.08] rounded-m3-md animate-pulse" />
+            </div>
+          </div>
         </div>
       </div>
     );
