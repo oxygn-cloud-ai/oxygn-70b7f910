@@ -943,14 +943,30 @@ const ConversationTabContent = ({ isAssistantEnabled = true }) => {
 
 // Main Prompts Content Component
 const MockupPromptsContent = ({ 
-  hasSelection = true, 
+  hasSelection = true,
+  selectedPromptId,
+  promptData,
+  isLoadingPrompt = false,
+  onUpdateField,
+  variables = [],
+  isLoadingVariables = false,
+  onAddVariable,
+  onUpdateVariable,
+  onDeleteVariable,
+  selectedPromptHasChildren = false,
   onExport, 
   onToggleConversation, 
-  conversationPanelOpen = true,
-  selectedPromptHasChildren = true 
+  conversationPanelOpen = true
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
-  const [isAssistantEnabled, setIsAssistantEnabled] = useState(true);
+  const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
+
+  // Update isAssistantEnabled when promptData changes
+  React.useEffect(() => {
+    if (promptData) {
+      setIsAssistantEnabled(promptData.is_assistant || false);
+    }
+  }, [promptData?.is_assistant]);
 
   const tabs = [
     { id: "prompt", icon: FileText, label: "Prompt" },
@@ -971,15 +987,31 @@ const MockupPromptsContent = ({
     );
   }
 
+  // Loading state
+  if (isLoadingPrompt) {
+    return (
+      <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+        <div className="h-14 flex items-center px-3 border-b border-outline-variant">
+          <SkeletonPromptEditor />
+        </div>
+        <div className="flex-1 p-4">
+          <SkeletonPromptEditor />
+        </div>
+      </div>
+    );
+  }
+
+  const promptName = promptData?.prompt_name || 'Untitled Prompt';
+
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">
-          <h2 className="text-title-sm text-on-surface font-medium">Customer Support Agent</h2>
+          <h2 className="text-title-sm text-on-surface font-medium">{promptName}</h2>
           <LabelPicker 
-            labels={["Business", "Support"]} 
-            onLabelsChange={(newLabels) => console.log('Labels changed:', newLabels)}
+            labels={promptData?.labels || []} 
+            onLabelsChange={(newLabels) => onUpdateField?.('labels', newLabels)}
             maxDisplay={2}
           />
         </div>
@@ -1053,9 +1085,27 @@ const MockupPromptsContent = ({
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
-          {activeTab === "prompt" && <PromptTabContent />}
-          {activeTab === "settings" && <SettingsTabContent />}
-          {activeTab === "variables" && <VariablesTabContent />}
+          {activeTab === "prompt" && (
+            <PromptTabContent 
+              promptData={promptData}
+              onUpdateField={onUpdateField}
+            />
+          )}
+          {activeTab === "settings" && (
+            <SettingsTabContent 
+              promptData={promptData}
+              onUpdateField={onUpdateField}
+            />
+          )}
+          {activeTab === "variables" && (
+            <VariablesTabContent 
+              variables={variables}
+              isLoading={isLoadingVariables}
+              onAdd={onAddVariable}
+              onUpdate={onUpdateVariable}
+              onDelete={onDeleteVariable}
+            />
+          )}
           {activeTab === "conversation" && <ConversationTabContent isAssistantEnabled={isAssistantEnabled} />}
         </div>
       </div>

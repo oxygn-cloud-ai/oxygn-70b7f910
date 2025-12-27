@@ -13,6 +13,9 @@ import MockupExportPanel from "@/components/mockup/MockupExportPanel";
 import { useSupabase } from "@/hooks/useSupabase";
 import useTreeData from "@/hooks/useTreeData";
 import { useTreeOperations } from "@/hooks/useTreeOperations";
+import { usePromptData } from "@/hooks/usePromptData";
+import { usePromptVariables } from "@/hooks/usePromptVariables";
+import { useThreads } from "@/hooks/useThreads";
 import { buildTree } from "@/utils/positionUtils";
 
 const Mockup = () => {
@@ -20,6 +23,7 @@ const Mockup = () => {
   const supabase = useSupabase();
   const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
+  const { updateField, fetchItemData } = usePromptData(supabase);
   
   // Transform flat treeData to hierarchical structure for the UI
   const hierarchicalTreeData = React.useMemo(() => {
@@ -27,8 +31,76 @@ const Mockup = () => {
     return buildTree(treeData);
   }, [treeData]);
   
-  // Selected prompt state
+  // Selected prompt state and data
   const [selectedPromptId, setSelectedPromptId] = useState(null);
+  const [selectedPromptData, setSelectedPromptData] = useState(null);
+  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  
+  // Prompt variables for selected prompt
+  const { 
+    variables, 
+    isLoading: isLoadingVariables, 
+    addVariable, 
+    updateVariable, 
+    deleteVariable 
+  } = usePromptVariables(selectedPromptId);
+  
+  // Get assistant row id from selected prompt data for threads
+  const assistantRowId = selectedPromptData?.is_assistant ? 
+    treeData?.find(p => p.row_id === selectedPromptId)?.assistant_row_id : null;
+  
+  // Threads and messages for conversation panel
+  const {
+    threads,
+    activeThread,
+    setActiveThread,
+    messages,
+    isLoading: isLoadingThreads,
+    isLoadingMessages,
+    createThread,
+    deleteThread,
+    fetchMessages,
+    renameThread,
+  } = useThreads(assistantRowId, selectedPromptId);
+  
+  // Fetch messages when active thread changes
+  useEffect(() => {
+    if (activeThread?.row_id) {
+      fetchMessages(activeThread.row_id);
+    }
+  }, [activeThread?.row_id, fetchMessages]);
+  
+  // Fetch prompt data when selection changes
+  useEffect(() => {
+    const loadPromptData = async () => {
+      if (!selectedPromptId) {
+        setSelectedPromptData(null);
+        return;
+      }
+      setIsLoadingPrompt(true);
+      const data = await fetchItemData(selectedPromptId);
+      setSelectedPromptData(data);
+      setIsLoadingPrompt(false);
+    };
+    loadPromptData();
+  }, [selectedPromptId, fetchItemData]);
+  
+  // Handle field updates
+  const handleUpdateField = useCallback(async (fieldName, value) => {
+    if (!selectedPromptId) return false;
+    const success = await updateField(selectedPromptId, fieldName, value);
+    if (success) {
+      setSelectedPromptData(prev => prev ? { ...prev, [fieldName]: value } : null);
+    }
+    return success;
+  }, [selectedPromptId, updateField]);
+  
+  // Check if selected prompt has children
+  const selectedPromptHasChildren = React.useMemo(() => {
+    if (!selectedPromptId || !treeData) return false;
+    return treeData.some(p => p.parent_row_id === selectedPromptId);
+  }, [selectedPromptId, treeData]);
+
   const [isDark, setIsDark] = useState(false);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
@@ -237,7 +309,15 @@ const Mockup = () => {
                   <MockupReadingPane 
                     hasSelection={selectedPromptId !== null} 
                     selectedPromptId={selectedPromptId}
-                    onExport={() => setExportPanelOpen(true)}
+                    promptData={selectedPromptData}
+                    isLoadingPrompt={isLoadingPrompt}
+                    onUpdateField={handleUpdateField}
+                    variables={variables}
+                    isLoadingVariables={isLoadingVariables}
+                    onAddVariable={addVariable}
+                    onUpdateVariable={updateVariable}
+                    onDeleteVariable={deleteVariable}
+                    selectedPromptHasChildren={selectedPromptHasChildren}
                     onExport={() => setExportPanelOpen(true)}
                     activeNav={activeNav}
                     activeSubItem={activeSubItem}
@@ -254,7 +334,19 @@ const Mockup = () => {
 
                     {/* Conversation Panel - only shown for prompts */}
                     <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-                      <MockupConversationPanel onClose={() => setConversationPanelOpen(false)} />
+                      <MockupConversationPanel 
+                        onClose={() => setConversationPanelOpen(false)}
+                        threads={threads}
+                        activeThread={activeThread}
+                        onSelectThread={setActiveThread}
+                        messages={messages}
+                        isLoadingThreads={isLoadingThreads}
+                        isLoadingMessages={isLoadingMessages}
+                        onCreateThread={createThread}
+                        onDeleteThread={deleteThread}
+                        onRenameThread={renameThread}
+                        promptName={selectedPromptData?.prompt_name}
+                      />
                     </ResizablePanel>
                   </>
                 )}
