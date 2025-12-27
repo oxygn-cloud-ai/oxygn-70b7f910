@@ -19,6 +19,9 @@ import { useThreads } from "@/hooks/useThreads";
 import { useExport } from "@/hooks/useExport";
 import { useSettings } from "@/hooks/useSettings";
 import { useModels } from "@/hooks/useModels";
+import { useWorkbenchThreads } from "@/hooks/useWorkbenchThreads";
+import { useWorkbenchMessages } from "@/hooks/useWorkbenchMessages";
+import { useWorkbenchFiles } from "@/hooks/useWorkbenchFiles";
 import { buildTree } from "@/utils/positionUtils";
 
 const Mockup = () => {
@@ -74,6 +77,11 @@ const Mockup = () => {
   
   // Models hook - Phase 6
   const { models, isLoading: isLoadingModels, toggleModelActive } = useModels();
+  
+  // Workbench hooks - Phase 7
+  const workbenchThreads = useWorkbenchThreads();
+  const workbenchMessages = useWorkbenchMessages();
+  const workbenchFiles = useWorkbenchFiles();
   
   // Fetch messages when active thread changes
   useEffect(() => {
@@ -347,6 +355,10 @@ const Mockup = () => {
                       const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
                       if (model) toggleModelActive(model.row_id, !model.is_active);
                     }}
+                    // Workbench props for Phase 7
+                    workbenchThreads={workbenchThreads}
+                    workbenchMessages={workbenchMessages}
+                    workbenchFiles={workbenchFiles}
                   />
                 </ResizablePanel>
 

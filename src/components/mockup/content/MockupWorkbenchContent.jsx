@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { 
+import React, { useState, useEffect } from "react";
+import {
   MessageSquare, Plus, Clock, Star, Search, Send, Paperclip, 
   Mic, MoreVertical, PanelRightClose, PanelRightOpen, 
   Trash2, Edit3, FileText, Link2, BookOpen, Loader2,
@@ -593,22 +593,85 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
   );
 };
 
-// Main Workbench Content Component
-const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascadeProgress = false, showCascadeError = false }) => {
-  const [activeThread, setActiveThread] = useState(null);
+// Main Workbench Content Component - Now connected to real hooks
+const MockupWorkbenchContent = ({ 
+  activeSubItem = "new-conversation", 
+  showCascadeProgress = false, 
+  showCascadeError = false,
+  workbenchThreads,
+  workbenchMessages,
+  workbenchFiles,
+}) => {
+  // Destructure from props with fallbacks
+  const {
+    threads = [],
+    activeThread,
+    setActiveThread,
+    isLoading: isLoadingThreads = false,
+    createThread,
+    deleteThread,
+    updateThread,
+  } = workbenchThreads || {};
+  
+  const {
+    messages = [],
+    isLoading: isLoadingMessages = false,
+    isStreaming = false,
+    streamingMessage = '',
+    toolActivity = [],
+    isExecutingTools = false,
+    fetchMessages,
+    sendMessage,
+    clearMessages,
+  } = workbenchMessages || {};
+  
+  const {
+    files = [],
+    isLoading: isLoadingFiles = false,
+    isUploading = false,
+    uploadFile,
+    deleteFile: deleteWorkbenchFile,
+  } = workbenchFiles || {};
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [resourcesOpen, setResourcesOpen] = useState(true);
-  const [showToolActivity, setShowToolActivity] = useState(true);
   const [cascadePaused, setCascadePaused] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  // Fetch messages when active thread changes
+  useEffect(() => {
+    if (activeThread?.row_id && fetchMessages) {
+      fetchMessages(activeThread.row_id);
+    }
+  }, [activeThread?.row_id, fetchMessages]);
+  
+  // Fetch files when active thread changes
+  useEffect(() => {
+    if (activeThread?.row_id && workbenchFiles?.fetchFiles) {
+      workbenchFiles.fetchFiles(activeThread.row_id);
+    }
+  }, [activeThread?.row_id, workbenchFiles]);
 
   const getFilteredThreads = () => {
+    // Use real threads if available
+    const realThreads = threads.map(t => ({
+      id: t.row_id,
+      title: t.title || 'Untitled',
+      lastMessage: t.updated_at ? new Date(t.updated_at).toLocaleDateString() : 'No date',
+      messageCount: 0, // Would need to be fetched separately
+      starred: false, // Not in current schema
+    }));
+    
+    // Fallback to mock if no real threads
+    const displayThreads = realThreads.length > 0 ? realThreads : MOCK_THREADS;
+    
     switch (activeSubItem) {
       case "starred":
-        return MOCK_THREADS.filter(t => t.starred);
+        return displayThreads.filter(t => t.starred);
       case "recent":
-        return MOCK_THREADS.slice(0, 3);
+        return displayThreads.slice(0, 3);
       default:
-        return MOCK_THREADS;
+        return displayThreads;
     }
   };
 
@@ -654,6 +717,19 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
               <div className="flex-1 h-11 px-4 bg-surface-container rounded-2xl border border-outline-variant flex items-center gap-2 transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
                 <input 
                   type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && inputValue.trim() && createThread && sendMessage) {
+                      e.preventDefault();
+                      // Create new thread and send first message
+                      const newThread = await createThread('New Conversation');
+                      if (newThread) {
+                        await sendMessage(newThread.row_id, inputValue);
+                        setInputValue("");
+                      }
+                    }
+                  }}
                   placeholder="Type your message..."
                   className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
                 />
@@ -666,7 +742,19 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
                   <TooltipContent className="text-[10px]">Attach</TooltipContent>
                 </Tooltip>
               </div>
-              <button className="w-11 h-11 flex items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:scale-105 hover:shadow-md active:scale-95">
+              <button 
+                onClick={async () => {
+                  if (inputValue.trim() && createThread && sendMessage) {
+                    const newThread = await createThread('New Conversation');
+                    if (newThread) {
+                      await sendMessage(newThread.row_id, inputValue);
+                      setInputValue("");
+                    }
+                  }
+                }}
+                disabled={!inputValue.trim()}
+                className="w-11 h-11 flex items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:scale-105 hover:shadow-md active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+              >
                 <Send className="h-4 w-4" />
               </button>
             </div>
@@ -706,7 +794,10 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
             <span className="text-title-sm text-on-surface font-medium">{getTitle()}</span>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <button 
+                  onClick={() => createThread?.('New Thread')}
+                  className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
                   <Plus className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
@@ -759,7 +850,10 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                      <button 
+                        onClick={() => deleteThread?.(activeThread.row_id || activeThread.id)}
+                        className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
@@ -787,13 +881,25 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
                 </div>
               </div>
 
-              {/* Messages */}
+              {/* Messages - Use real messages if available */}
               <div className="flex-1 overflow-auto p-3 space-y-3">
-                {MOCK_MESSAGES.map(msg => (
-                  <ChatMessage key={msg.id} message={msg} />
-                ))}
-                {showToolActivity && (
-                  <ToolActivityIndicator tools={MOCK_TOOL_ACTIVITY} isExecuting={true} />
+                {isLoadingMessages ? (
+                  <SkeletonChat />
+                ) : (
+                  <>
+                    {/* Real messages */}
+                    {(messages.length > 0 ? messages : MOCK_MESSAGES).map((msg, index) => (
+                      <ChatMessage key={msg.row_id || msg.id} message={msg} index={index} />
+                    ))}
+                    {/* Streaming message */}
+                    {isStreaming && streamingMessage && (
+                      <ChatMessage message={{ role: 'assistant', content: streamingMessage }} />
+                    )}
+                    {/* Tool activity */}
+                    {(toolActivity.length > 0 || isExecutingTools) && (
+                      <ToolActivityIndicator tools={toolActivity.length > 0 ? toolActivity : MOCK_TOOL_ACTIVITY} isExecuting={isExecutingTools} />
+                    )}
+                  </>
                 )}
               </div>
 
@@ -801,7 +907,24 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
               <div className="p-3 border-t border-outline-variant">
                 <div className="flex items-end gap-2">
                   <div className="flex-1 min-h-10 px-3 py-2 bg-surface-container-high rounded-2xl border border-outline-variant flex items-center">
-                    <span className="text-body-sm text-on-surface-variant">Type a message...</span>
+                    <input 
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && inputValue.trim() && !isStreaming) {
+                          e.preventDefault();
+                          const threadId = activeThread?.row_id || activeThread?.id;
+                          if (threadId && sendMessage) {
+                            sendMessage(threadId, inputValue);
+                            setInputValue("");
+                          }
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      disabled={isStreaming}
+                      className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none disabled:opacity-50"
+                    />
                   </div>
                   <div className="flex gap-0.5">
                     <Tooltip>
@@ -814,8 +937,24 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container">
-                          <Send className="h-4 w-4" />
+                        <button 
+                          onClick={() => {
+                            if (inputValue.trim() && !isStreaming) {
+                              const threadId = activeThread?.row_id || activeThread?.id;
+                              if (threadId && sendMessage) {
+                                sendMessage(threadId, inputValue);
+                                setInputValue("");
+                              }
+                            }
+                          }}
+                          disabled={!inputValue.trim() || isStreaming}
+                          className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
+                        >
+                          {isStreaming ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="h-4 w-4" />
+                          )}
                         </button>
                       </TooltipTrigger>
                       <TooltipContent className="text-[10px]">Send</TooltipContent>
