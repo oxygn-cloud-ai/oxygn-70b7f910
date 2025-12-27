@@ -190,7 +190,7 @@ import ResizablePromptArea from "../shared/ResizablePromptArea";
 import ResizableOutputArea from "../shared/ResizableOutputArea";
 
 // Prompt Tab Content
-const PromptTabContent = ({ promptData, onUpdateField }) => {
+const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt }) => {
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
@@ -226,7 +226,8 @@ const PromptTabContent = ({ promptData, onUpdateField }) => {
         placeholder="No output yet. Run the prompt to generate a response."
         metadata={metadata}
         defaultHeight={144}
-        onRegenerate={() => {}}
+        onRegenerate={() => onRunPrompt?.(selectedPromptId)}
+        isRegenerating={isRunningPrompt}
       />
     </div>
   );
@@ -877,6 +878,11 @@ const MockupPromptsContent = ({
   models = [],
   schemas = [],
   libraryItems = [],
+  // Run prompt handlers
+  onRunPrompt,
+  onRunCascade,
+  isRunningPrompt = false,
+  isRunningCascade = false,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
@@ -1005,20 +1011,28 @@ const MockupPromptsContent = ({
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
-                <Play className="h-4 w-4" />
+              <button 
+                onClick={() => onRunPrompt?.(selectedPromptId)}
+                disabled={isRunningPrompt}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${isRunningPrompt ? 'text-primary' : 'text-on-surface-variant'}`}
+              >
+                {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Run Prompt</TooltipContent>
+            <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Run Prompt'}</TooltipContent>
           </Tooltip>
           {selectedPromptHasChildren && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Workflow className="h-4 w-4" />
+                <button 
+                  onClick={() => onRunCascade?.(selectedPromptId)}
+                  disabled={isRunningCascade}
+                  className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${isRunningCascade ? 'text-primary' : 'text-on-surface-variant'}`}
+                >
+                  {isRunningCascade ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Run Cascade</TooltipContent>
+              <TooltipContent className="text-[10px]">{isRunningCascade ? 'Running Cascade...' : 'Run Cascade'}</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
@@ -1039,6 +1053,9 @@ const MockupPromptsContent = ({
             <PromptTabContent 
               promptData={promptData}
               onUpdateField={onUpdateField}
+              onRunPrompt={onRunPrompt}
+              selectedPromptId={selectedPromptId}
+              isRunningPrompt={isRunningPrompt}
             />
           )}
           {activeTab === "settings" && (

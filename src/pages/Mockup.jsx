@@ -722,6 +722,11 @@ const Mockup = () => {
                       activeTemplateTab={activeTemplateTab}
                       onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
                       conversationPanelOpen={conversationPanelOpen}
+                      // Run prompt and cascade handlers
+                      onRunPrompt={handleRunPrompt}
+                      onRunCascade={handleRunCascade}
+                      isRunningPrompt={isRunningPrompt}
+                      isRunningCascade={isRunningCascade}
                       // Settings props for Phase 6
                       settings={settings}
                       isLoadingSettings={isLoadingSettings}
