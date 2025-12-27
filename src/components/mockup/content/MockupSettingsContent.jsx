@@ -28,18 +28,9 @@ const MOCK_COST_DATA = {
   avgCostPerPrompt: 0.023,
 };
 
-const SettingSection = ({ title, description, children }) => (
-  <div className="space-y-3">
-    <div>
-      <h3 className="text-title-sm text-on-surface font-medium">{title}</h3>
-      {description && <p className="text-body-sm text-on-surface-variant mt-0.5">{description}</p>}
-    </div>
-    {children}
-  </div>
-);
-
-const SettingCard = ({ children, className = "" }) => (
+const SettingCard = ({ label, children, className = "" }) => (
   <div className={`p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant ${className}`}>
+    {label && <span className="text-label-sm text-on-surface-variant mb-2 block">{label}</span>}
     {children}
   </div>
 );
@@ -56,42 +47,38 @@ const SettingRow = ({ label, description, children }) => (
 
 // General Settings Section
 const GeneralSection = () => (
-  <div className="space-y-4">
-    <SettingSection title="Application" description="Configure application-wide preferences">
-      <SettingCard>
-        <div className="space-y-3">
-          <SettingRow label="Default Project" description="Project to open on startup">
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-              <span className="text-body-sm text-on-surface">Customer Support</span>
-            </div>
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Auto-save" description="Automatically save changes">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Confirm before delete" description="Show confirmation dialogs">
-            <Switch defaultChecked />
-          </SettingRow>
-        </div>
-      </SettingCard>
-    </SettingSection>
+  <div className="space-y-3">
+    <SettingCard label="Application">
+      <div className="space-y-3">
+        <SettingRow label="Default Project" description="Project to open on startup">
+          <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
+            <span className="text-body-sm text-on-surface">Customer Support</span>
+          </div>
+        </SettingRow>
+        <div className="h-px bg-outline-variant" />
+        <SettingRow label="Auto-save" description="Automatically save changes">
+          <Switch defaultChecked />
+        </SettingRow>
+        <div className="h-px bg-outline-variant" />
+        <SettingRow label="Confirm before delete" description="Show confirmation dialogs">
+          <Switch defaultChecked />
+        </SettingRow>
+      </div>
+    </SettingCard>
 
-    <SettingSection title="Prompt Naming" description="Configure automatic prompt naming">
-      <SettingCard>
-        <div className="space-y-3">
-          <SettingRow label="Auto-generate names" description="Use AI to generate prompt names">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Naming template">
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-              <span className="text-body-sm text-on-surface">{"{{category}}_{{action}}"}</span>
-            </div>
-          </SettingRow>
-        </div>
-      </SettingCard>
-    </SettingSection>
+    <SettingCard label="Prompt Naming">
+      <div className="space-y-3">
+        <SettingRow label="Auto-generate names" description="Use AI to generate prompt names">
+          <Switch defaultChecked />
+        </SettingRow>
+        <div className="h-px bg-outline-variant" />
+        <SettingRow label="Naming template">
+          <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
+            <span className="text-body-sm text-on-surface">{"{{category}}_{{action}}"}</span>
+          </div>
+        </SettingRow>
+      </div>
+    </SettingCard>
   </div>
 );
 
@@ -104,59 +91,55 @@ const AIModelsSection = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <SettingSection title="Available Models" description="Enable or disable AI models for your prompts">
-        <SettingCard>
-          <div className="space-y-1">
-            <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
-              <span>Model</span>
-              <span className="text-right">Input $/1M</span>
-              <span className="text-right">Output $/1M</span>
-              <span className="text-center">Active</span>
-            </div>
-            {models.map((model, i) => (
-              <div key={model.id}>
-                {i > 0 && <div className="h-px bg-outline-variant" />}
-                <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 items-center">
-                  <div>
-                    <span className="text-body-sm text-on-surface font-medium">{model.name}</span>
-                    <span className="text-[10px] text-on-surface-variant ml-2">{model.provider}</span>
-                  </div>
-                  <span className="text-body-sm text-on-surface-variant text-right">${model.inputCost.toFixed(2)}</span>
-                  <span className="text-body-sm text-on-surface-variant text-right">${model.outputCost.toFixed(2)}</span>
-                  <div className="flex justify-center">
-                    <Switch checked={model.active} onCheckedChange={() => toggleModel(model.id)} />
-                  </div>
+    <div className="space-y-3">
+      <SettingCard label="Available Models">
+        <div className="space-y-1">
+          <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
+            <span>Model</span>
+            <span className="text-right">Input $/1M</span>
+            <span className="text-right">Output $/1M</span>
+            <span className="text-center">Active</span>
+          </div>
+          {models.map((model, i) => (
+            <div key={model.id}>
+              {i > 0 && <div className="h-px bg-outline-variant" />}
+              <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 items-center">
+                <div>
+                  <span className="text-body-sm text-on-surface font-medium">{model.name}</span>
+                  <span className="text-[10px] text-on-surface-variant ml-2">{model.provider}</span>
+                </div>
+                <span className="text-body-sm text-on-surface-variant text-right">${model.inputCost.toFixed(2)}</span>
+                <span className="text-body-sm text-on-surface-variant text-right">${model.outputCost.toFixed(2)}</span>
+                <div className="flex justify-center">
+                  <Switch checked={model.active} onCheckedChange={() => toggleModel(model.id)} />
                 </div>
               </div>
-            ))}
-          </div>
-        </SettingCard>
-      </SettingSection>
+            </div>
+          ))}
+        </div>
+      </SettingCard>
 
-      <SettingSection title="Default Model Settings" description="Configure default parameters for new prompts">
-        <SettingCard>
-          <div className="space-y-3">
-            <SettingRow label="Default Model">
-              <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-                <span className="text-body-sm text-on-surface">GPT-4o</span>
-              </div>
-            </SettingRow>
-            <div className="h-px bg-outline-variant" />
-            <SettingRow label="Temperature" description="0.0 - 2.0">
-              <div className="h-8 w-16 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                <span className="text-body-sm text-on-surface">0.7</span>
-              </div>
-            </SettingRow>
-            <div className="h-px bg-outline-variant" />
-            <SettingRow label="Max Tokens">
-              <div className="h-8 w-20 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                <span className="text-body-sm text-on-surface">4096</span>
-              </div>
-            </SettingRow>
-          </div>
-        </SettingCard>
-      </SettingSection>
+      <SettingCard label="Default Model Settings">
+        <div className="space-y-3">
+          <SettingRow label="Default Model">
+            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
+              <span className="text-body-sm text-on-surface">GPT-4o</span>
+            </div>
+          </SettingRow>
+          <div className="h-px bg-outline-variant" />
+          <SettingRow label="Temperature" description="0.0 - 2.0">
+            <div className="h-8 w-16 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+              <span className="text-body-sm text-on-surface">0.7</span>
+            </div>
+          </SettingRow>
+          <div className="h-px bg-outline-variant" />
+          <SettingRow label="Max Tokens">
+            <div className="h-8 w-20 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+              <span className="text-body-sm text-on-surface">4096</span>
+            </div>
+          </SettingRow>
+        </div>
+      </SettingCard>
     </div>
   );
 };
@@ -166,72 +149,70 @@ const APIKeysSection = () => {
   const [showKey, setShowKey] = useState({});
 
   return (
-    <div className="space-y-4">
-      <SettingSection title="API Credentials" description="Manage your API keys and tokens securely">
-        <SettingCard>
-          <div className="space-y-2">
-            {MOCK_API_KEYS.map((apiKey, i) => (
-              <div key={apiKey.id}>
-                {i > 0 && <div className="h-px bg-outline-variant my-2" />}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-body-sm text-on-surface font-medium">{apiKey.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">
-                        {apiKey.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <code className="text-[11px] text-on-surface-variant font-mono">
-                        {showKey[apiKey.id] ? "sk-abc123...xyz789" : apiKey.key}
-                      </code>
-                      <span className="text-[10px] text-on-surface-variant">• Last used {apiKey.lastUsed}</span>
-                    </div>
+    <div className="space-y-3">
+      <SettingCard>
+        <div className="space-y-2">
+          {MOCK_API_KEYS.map((apiKey, i) => (
+            <div key={apiKey.id}>
+              {i > 0 && <div className="h-px bg-outline-variant my-2" />}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-body-sm text-on-surface font-medium">{apiKey.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">
+                      {apiKey.status}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-0.5">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button 
-                          onClick={() => setShowKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
-                          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                        >
-                          {showKey[apiKey.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">{showKey[apiKey.id] ? "Hide" : "Show"}</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                          <Copy className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Copy</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Delete</TooltipContent>
-                    </Tooltip>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <code className="text-[11px] text-on-surface-variant font-mono">
+                      {showKey[apiKey.id] ? "sk-abc123...xyz789" : apiKey.key}
+                    </code>
+                    <span className="text-[10px] text-on-surface-variant">• Last used {apiKey.lastUsed}</span>
                   </div>
                 </div>
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        onClick={() => setShowKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
+                        className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                      >
+                        {showKey[apiKey.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">{showKey[apiKey.id] ? "Hide" : "Show"}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Copy</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Delete</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
-            ))}
-          </div>
-        </SettingCard>
+            </div>
+          ))}
+        </div>
+      </SettingCard>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <Plus className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Add API Key</TooltipContent>
-        </Tooltip>
-      </SettingSection>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <Plus className="h-4 w-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="text-[10px]">Add API Key</TooltipContent>
+      </Tooltip>
     </div>
   );
 };
@@ -241,230 +222,199 @@ const ThemeSection = () => {
   const [theme, setTheme] = useState("system");
 
   return (
-    <div className="space-y-4">
-      <SettingSection title="Appearance" description="Customize the look and feel of the application">
-        <SettingCard>
-          <div className="space-y-3">
-            <span className="text-label-sm text-on-surface-variant">Theme</span>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: "light", icon: Sun, label: "Light" },
-                { id: "dark", icon: Moon, label: "Dark" },
-                { id: "system", icon: Monitor, label: "System" },
-              ].map(option => (
-                <button
-                  key={option.id}
-                  onClick={() => setTheme(option.id)}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-m3-lg border transition-colors ${
-                    theme === option.id 
-                      ? "bg-secondary-container border-outline" 
-                      : "border-outline-variant hover:bg-on-surface/[0.08]"
-                  }`}
-                >
-                  <option.icon className={`h-5 w-5 ${theme === option.id ? "text-secondary-container-foreground" : "text-on-surface-variant"}`} />
-                  <span className={`text-[11px] ${theme === option.id ? "text-secondary-container-foreground font-medium" : "text-on-surface-variant"}`}>
-                    {option.label}
-                  </span>
-                  {theme === option.id && <Check className="h-3.5 w-3.5 text-secondary-container-foreground" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </SettingCard>
-      </SettingSection>
+    <div className="space-y-3">
+      <SettingCard label="Appearance">
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { id: "light", icon: Sun, label: "Light" },
+            { id: "dark", icon: Moon, label: "Dark" },
+            { id: "system", icon: Monitor, label: "System" },
+          ].map(option => (
+            <button
+              key={option.id}
+              onClick={() => setTheme(option.id)}
+              className={`flex flex-col items-center gap-2 p-3 rounded-m3-lg border transition-colors ${
+                theme === option.id 
+                  ? "bg-secondary-container border-outline" 
+                  : "border-outline-variant hover:bg-on-surface/[0.08]"
+              }`}
+            >
+              <option.icon className={`h-5 w-5 ${theme === option.id ? "text-secondary-container-foreground" : "text-on-surface-variant"}`} />
+              <span className={`text-[11px] ${theme === option.id ? "text-secondary-container-foreground font-medium" : "text-on-surface-variant"}`}>
+                {option.label}
+              </span>
+              {theme === option.id && <Check className="h-3.5 w-3.5 text-secondary-container-foreground" />}
+            </button>
+          ))}
+        </div>
+      </SettingCard>
 
-      <SettingSection title="Accent Color" description="Choose your preferred accent color">
-        <SettingCard>
-          <div className="flex gap-2">
-            {["#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#22c55e", "#06b6d4"].map(color => (
-              <button
-                key={color}
-                className="w-8 h-8 rounded-full border-2 border-transparent hover:border-on-surface/20 transition-colors"
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
-        </SettingCard>
-      </SettingSection>
+      <SettingCard label="Accent Color">
+        <div className="flex gap-2">
+          {["#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#22c55e", "#06b6d4"].map(color => (
+            <button
+              key={color}
+              className="w-8 h-8 rounded-full border-2 border-transparent hover:border-on-surface/20 transition-colors"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </SettingCard>
     </div>
   );
 };
 
 // Notifications Section
 const NotificationsSection = () => (
-  <div className="space-y-4">
-    <SettingSection title="Notification Preferences" description="Control how and when you receive notifications">
-      <SettingCard>
-        <div className="space-y-3">
-          <SettingRow label="Email notifications" description="Receive updates via email">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Cascade completion" description="Notify when cascades finish">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Error alerts" description="Get notified about failures">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Usage warnings" description="Alert when approaching limits">
-            <Switch />
-          </SettingRow>
-        </div>
-      </SettingCard>
-    </SettingSection>
-  </div>
+  <SettingCard>
+    <div className="space-y-3">
+      <SettingRow label="Email notifications" description="Receive updates via email">
+        <Switch defaultChecked />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Cascade completion" description="Notify when cascades finish">
+        <Switch defaultChecked />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Error alerts" description="Get notified about failures">
+        <Switch defaultChecked />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Usage warnings" description="Alert when approaching limits">
+        <Switch />
+      </SettingRow>
+    </div>
+  </SettingCard>
 );
 
 // Profile Section
 const ProfileSection = () => (
-  <div className="space-y-4">
-    <SettingSection title="User Profile" description="Manage your account information">
-      <SettingCard>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center">
-            <User className="h-6 w-6 text-on-surface-variant" />
-          </div>
-          <div>
-            <h4 className="text-title-sm text-on-surface font-medium">John Doe</h4>
-            <p className="text-body-sm text-on-surface-variant">john.doe@company.com</p>
-          </div>
+  <SettingCard>
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center">
+        <User className="h-6 w-6 text-on-surface-variant" />
+      </div>
+      <div>
+        <h4 className="text-title-sm text-on-surface font-medium">John Doe</h4>
+        <p className="text-body-sm text-on-surface-variant">john.doe@company.com</p>
+      </div>
+    </div>
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <label className="text-[10px] text-on-surface-variant">Display Name</label>
+        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+          <span className="text-body-sm text-on-surface">John Doe</span>
         </div>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-[10px] text-on-surface-variant">Display Name</label>
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-              <span className="text-body-sm text-on-surface">John Doe</span>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] text-on-surface-variant">Email</label>
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-              <span className="text-body-sm text-on-surface">john.doe@company.com</span>
-            </div>
-          </div>
+      </div>
+      <div className="space-y-1">
+        <label className="text-[10px] text-on-surface-variant">Email</label>
+        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+          <span className="text-body-sm text-on-surface">john.doe@company.com</span>
         </div>
-      </SettingCard>
-    </SettingSection>
-  </div>
+      </div>
+    </div>
+  </SettingCard>
 );
 
 // Confluence Section
 const ConfluenceSection = () => (
-  <div className="space-y-4">
-    <SettingSection title="Confluence Integration" description="Connect and configure Confluence">
-      <SettingCard>
-        <div className="flex items-center gap-3 mb-3">
-          <Link2 className="h-5 w-5 text-on-surface-variant" />
-          <div className="flex-1">
-            <h4 className="text-body-sm text-on-surface font-medium">Connected</h4>
-            <p className="text-[10px] text-on-surface-variant">mycompany.atlassian.net</p>
-          </div>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+  <SettingCard>
+    <div className="flex items-center gap-3 mb-3">
+      <Link2 className="h-5 w-5 text-on-surface-variant" />
+      <div className="flex-1">
+        <h4 className="text-body-sm text-on-surface font-medium">Connected</h4>
+        <p className="text-[10px] text-on-surface-variant">mycompany.atlassian.net</p>
+      </div>
+      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+    </div>
+    <div className="space-y-3">
+      <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
+        <Switch defaultChecked />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Default space">
+        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-36">
+          <span className="text-body-sm text-on-surface">Engineering</span>
         </div>
-        <div className="space-y-3">
-          <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Default space">
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-36">
-              <span className="text-body-sm text-on-surface">Engineering</span>
-            </div>
-          </SettingRow>
-        </div>
-      </SettingCard>
-    </SettingSection>
-  </div>
+      </SettingRow>
+    </div>
+  </SettingCard>
 );
 
 // Cost Analytics Section
 const CostAnalyticsSection = () => (
-  <div className="space-y-4">
-    <SettingSection title="Cost Overview" description="Monitor your AI usage and costs">
-      <div className="grid grid-cols-2 gap-3">
-        <SettingCard>
-          <div className="text-center">
-            <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
-            <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.todayCost.toFixed(2)}</span>
-            <p className="text-[10px] text-on-surface-variant">Today</p>
-          </div>
-        </SettingCard>
-        <SettingCard>
-          <div className="text-center">
-            <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
-            <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.monthCost.toFixed(2)}</span>
-            <p className="text-[10px] text-on-surface-variant">This Month</p>
-          </div>
-        </SettingCard>
-        <SettingCard>
-          <div className="text-center">
-            <span className="text-title-sm text-on-surface font-semibold">{MOCK_COST_DATA.totalTokens}</span>
-            <p className="text-[10px] text-on-surface-variant">Total Tokens</p>
-          </div>
-        </SettingCard>
-        <SettingCard>
-          <div className="text-center">
-            <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.avgCostPerPrompt}</span>
-            <p className="text-[10px] text-on-surface-variant">Avg/Prompt</p>
-          </div>
-        </SettingCard>
+  <div className="grid grid-cols-2 gap-3">
+    <SettingCard>
+      <div className="text-center">
+        <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
+        <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.todayCost.toFixed(2)}</span>
+        <p className="text-[10px] text-on-surface-variant">Today</p>
       </div>
-    </SettingSection>
+    </SettingCard>
+    <SettingCard>
+      <div className="text-center">
+        <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
+        <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.monthCost.toFixed(2)}</span>
+        <p className="text-[10px] text-on-surface-variant">This Month</p>
+      </div>
+    </SettingCard>
+    <SettingCard>
+      <div className="text-center">
+        <span className="text-title-sm text-on-surface font-semibold">{MOCK_COST_DATA.totalTokens}</span>
+        <p className="text-[10px] text-on-surface-variant">Total Tokens</p>
+      </div>
+    </SettingCard>
+    <SettingCard>
+      <div className="text-center">
+        <span className="text-title-sm text-on-surface font-semibold">${MOCK_COST_DATA.avgCostPerPrompt}</span>
+        <p className="text-[10px] text-on-surface-variant">Avg/Prompt</p>
+      </div>
+    </SettingCard>
   </div>
 );
 
 // Workbench Settings Section
 const WorkbenchSettingsSection = () => (
-  <div className="space-y-4">
-    <SettingSection title="Workbench Preferences" description="Configure the workbench chat interface">
-      <SettingCard>
-        <div className="space-y-3">
-          <SettingRow label="Default model" description="Model used for new conversations">
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-36">
-              <span className="text-body-sm text-on-surface">GPT-4o</span>
-            </div>
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Enable file search" description="Allow searching uploaded files">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Enable code interpreter" description="Allow code execution">
-            <Switch />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Auto-save threads" description="Save conversation history">
-            <Switch defaultChecked />
-          </SettingRow>
+  <SettingCard>
+    <div className="space-y-3">
+      <SettingRow label="Default model" description="Model used for new conversations">
+        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-36">
+          <span className="text-body-sm text-on-surface">GPT-4o</span>
         </div>
-      </SettingCard>
-    </SettingSection>
-  </div>
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Enable file search" description="Allow searching uploaded files">
+        <Switch defaultChecked />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Enable code interpreter" description="Allow code execution">
+        <Switch />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Auto-save threads" description="Save conversation history">
+        <Switch defaultChecked />
+      </SettingRow>
+    </div>
+  </SettingCard>
 );
 
 // New UI Section
 const NewUISection = () => (
-  <div className="space-y-4">
-    <SettingSection title="New UI (Beta)" description="Try the experimental new interface">
-      <SettingCard>
-        <div className="flex items-center gap-3 p-2 mb-3 bg-amber-500/10 rounded-m3-md">
-          <Sparkles className="h-4 w-4 text-amber-600" />
-          <span className="text-body-sm text-amber-700">You're currently using the new UI</span>
-        </div>
-        <div className="space-y-3">
-          <SettingRow label="Enable New UI" description="Switch to the experimental interface">
-            <Switch defaultChecked />
-          </SettingRow>
-          <div className="h-px bg-outline-variant" />
-          <SettingRow label="Show onboarding tips" description="Display helpful hints for new features">
-            <Switch defaultChecked />
-          </SettingRow>
-        </div>
-      </SettingCard>
-    </SettingSection>
-  </div>
+  <SettingCard>
+    <div className="flex items-center gap-3 p-2 mb-3 bg-amber-500/10 rounded-m3-md">
+      <Sparkles className="h-4 w-4 text-amber-600" />
+      <span className="text-body-sm text-amber-700">You're currently using the new UI</span>
+    </div>
+    <div className="space-y-3">
+      <SettingRow label="Enable New UI" description="Switch to the experimental interface">
+        <Switch defaultChecked />
+      </SettingRow>
+      <div className="h-px bg-outline-variant" />
+      <SettingRow label="Show onboarding tips" description="Display helpful hints for new features">
+        <Switch defaultChecked />
+      </SettingRow>
+    </div>
+  </SettingCard>
 );
 
 const SETTINGS_SECTIONS = {
