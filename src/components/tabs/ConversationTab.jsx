@@ -142,24 +142,26 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
           <div className="flex items-center gap-1">
             <Label className="text-xs">{settingInfo.label}</Label>
             {(settingInfo.details || settingInfo.docUrl) && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
-                    <Info className="h-3 w-3" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-72 bg-popover" side="top">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">{settingInfo.label}</h4>
-                    {settingInfo.details && <p className="text-xs text-muted-foreground">{settingInfo.details}</p>}
-                    {settingInfo.docUrl && (
-                      <a href={settingInfo.docUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                        Documentation <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground">
+                      <Info className="h-3 w-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <div className="space-y-1">
+                      <h4 className="font-medium text-xs">{settingInfo.label}</h4>
+                      {settingInfo.details && <p className="text-[10px] text-muted-foreground">{settingInfo.details}</p>}
+                      {settingInfo.docUrl && (
+                        <a href={settingInfo.docUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">
+                          Documentation <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
           {type === 'slider' && <span className="text-xs text-muted-foreground">{value || 'Default'}</span>}
