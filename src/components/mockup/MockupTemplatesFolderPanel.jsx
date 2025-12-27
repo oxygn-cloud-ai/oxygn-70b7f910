@@ -260,7 +260,7 @@ const MockupTemplatesFolderPanel = ({
       <div className="flex-1 overflow-auto p-2 scrollbar-thin">
         <div className="flex items-center justify-between px-3 py-2">
           <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
-            Templates
+            {activeType === "prompts" ? "Prompt Templates" : activeType === "schemas" ? "JSON Schemas" : "Variable Mappings"}
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -268,7 +268,7 @@ const MockupTemplatesFolderPanel = ({
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">New Template</TooltipContent>
+            <TooltipContent className="text-[10px]">New {activeType === "prompts" ? "Template" : activeType === "schemas" ? "Schema" : "Mapping"}</TooltipContent>
           </Tooltip>
         </div>
         <div className="flex flex-col gap-0.5">
