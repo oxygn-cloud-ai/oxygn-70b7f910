@@ -37,61 +37,7 @@ const VARIABLE_DEFINITIONS = {
   parent_output: { name: "parent.output", type: "reference", description: "Output from parent prompt", source: "Cascade", required: false },
 };
 
-const MOCK_MODELS = [
-  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI" },
-  { id: "o1-preview", name: "O1 Preview", provider: "OpenAI" },
-  { id: "o1-mini", name: "O1 Mini", provider: "OpenAI" },
-];
-
-const MOCK_SCHEMAS = [
-  { id: "1", name: "Action Response" },
-  { id: "2", name: "Data Extraction" },
-  { id: "3", name: "Sentiment Analysis" },
-];
-
-const MOCK_VARIABLES = [
-  { name: "customer_message", value: "", required: true, type: "text", source: "input", description: "The customer's original message" },
-  { name: "ticket_count", value: "3", required: false, type: "number", source: "database", description: "Previous support tickets" },
-  { name: "company_name", value: "Acme Corp", required: true, type: "text", source: "settings", description: "Company display name" },
-  { name: "support_email", value: "support@acme.com", required: true, type: "text", source: "settings", description: "Support email" },
-  { name: "api_key", value: "sk-••••••••", required: true, type: "text", source: "secret", isSecret: true, description: "API authentication key" },
-  { name: "parent.output", value: "", required: false, type: "reference", source: "cascade", description: "Output from parent prompt" },
-];
-
-const LIBRARY_PROMPTS = [
-  { id: "1", name: "Professional Tone", labels: ["Style"] },
-  { id: "2", name: "Friendly Greeting", labels: ["Intro", "Style"] },
-  { id: "3", name: "Error Handler", labels: ["System", "Technical"] },
-  { id: "4", name: "JSON Output Format", labels: ["Format", "Technical"] },
-];
-
-const MOCK_CONVERSATION = [
-  { 
-    id: 1, 
-    role: "user", 
-    content: "I'm having trouble with my order #12345. It was supposed to arrive yesterday but I haven't received any updates.",
-    timestamp: "2:34 PM"
-  },
-  { 
-    id: 2, 
-    role: "assistant", 
-    content: "I understand your concern about order #12345. Let me look into this for you right away.\n\nI can see that your order experienced a slight delay at our distribution center. The good news is that it's now on its way and should arrive by tomorrow.\n\nWould you like me to:\n1. Send you the updated tracking information\n2. Expedite the shipping at no extra cost\n3. Arrange for a partial refund for the delay",
-    timestamp: "2:35 PM"
-  },
-  { 
-    id: 3, 
-    role: "user", 
-    content: "Yes, please send me the tracking info and I'd appreciate the expedited shipping.",
-    timestamp: "2:36 PM"
-  },
-  { 
-    id: 4, 
-    role: "assistant", 
-    content: "Done! I've upgraded your shipping to express delivery at no charge. Here's your tracking number: **TRK-789456123**\n\nYou can track your package here: [Track Order](https://tracking.example.com)\n\nIs there anything else I can help you with?",
-    timestamp: "2:37 PM"
-  },
-];
+// No mock data - all data comes from props
 
 // Component to render text with highlighted variables
 const HighlightedText = ({ text }) => {
@@ -188,11 +134,11 @@ const SourceIcon = ({ source }) => {
   return <Icon className="h-3 w-3" />;
 };
 
-const LibraryPickerDropdown = () => {
+const LibraryPickerDropdown = ({ libraryItems = [] }) => {
   const [searchQuery, setSearchQuery] = useState("");
   
-  const filteredPrompts = LIBRARY_PROMPTS.filter(prompt => 
-    prompt.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPrompts = libraryItems.filter(prompt => 
+    (prompt.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -287,7 +233,7 @@ const PromptTabContent = ({ promptData, onUpdateField }) => {
 };
 
 // Settings Tab Content
-const SettingsTabContent = ({ promptData, onUpdateField }) => {
+const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
   // Use real data from promptData
   const currentModel = promptData?.model || 'gpt-4o';
   const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
@@ -338,14 +284,18 @@ const SettingsTabContent = ({ promptData, onUpdateField }) => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {MOCK_MODELS.map(model => (
+            {models.length === 0 ? (
+              <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+                No models available
+              </DropdownMenuItem>
+            ) : models.map(model => (
               <DropdownMenuItem 
-                key={model.id} 
-                onClick={() => handleModelChange(model.id)}
+                key={model.row_id || model.id || model.model_id} 
+                onClick={() => handleModelChange(model.model_id || model.id)}
                 className="text-body-sm text-on-surface"
               >
-                <span className="flex-1">{model.name}</span>
-                <span className="text-[10px] text-on-surface-variant">{model.provider}</span>
+                <span className="flex-1">{model.model_name || model.name}</span>
+                <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -393,9 +343,13 @@ const SettingsTabContent = ({ promptData, onUpdateField }) => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {MOCK_SCHEMAS.map(schema => (
-              <DropdownMenuItem key={schema.id} className="text-body-sm text-on-surface">
-                {schema.name}
+            {schemas.length === 0 ? (
+              <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+                No schemas available
+              </DropdownMenuItem>
+            ) : schemas.map(schema => (
+              <DropdownMenuItem key={schema.row_id || schema.id} className="text-body-sm text-on-surface">
+                {schema.schema_name || schema.name}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -660,8 +614,8 @@ const VariablesTabContent = ({ promptData, promptVariables = [] }) => {
         description: v.variable_description || '',
       }));
     }
-    // Fallback to mock
-    return MOCK_VARIABLES;
+    // No fallback - return empty array
+    return [];
   }, [promptData?.extracted_variables, promptVariables]);
   
   // Group variables by source
@@ -797,7 +751,7 @@ const VariablesTabContent = ({ promptData, promptVariables = [] }) => {
 };
 
 // Conversation Tab Content with Messages
-const ConversationTabContent = ({ isAssistantEnabled = true }) => {
+const ConversationTabContent = ({ isAssistantEnabled = true, messages = [] }) => {
   const [inputValue, setInputValue] = useState("");
 
   if (!isAssistantEnabled) {
@@ -840,7 +794,12 @@ const ConversationTabContent = ({ isAssistantEnabled = true }) => {
 
       {/* Messages (page-level scroll handles overflow) */}
       <div className="p-3 space-y-3">
-        {MOCK_CONVERSATION.map((message) => (
+        {messages.length === 0 ? (
+          <div className="text-center py-8">
+            <MessageSquare className="h-8 w-8 mx-auto text-on-surface-variant/30 mb-2" />
+            <p className="text-body-sm text-on-surface-variant">No messages yet</p>
+          </div>
+        ) : messages.map((message) => (
           <div 
             key={message.id}
             className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -914,7 +873,10 @@ const MockupPromptsContent = ({
   selectedPromptHasChildren = false,
   onExport, 
   onToggleConversation, 
-  conversationPanelOpen = true
+  conversationPanelOpen = true,
+  models = [],
+  schemas = [],
+  libraryItems = [],
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);

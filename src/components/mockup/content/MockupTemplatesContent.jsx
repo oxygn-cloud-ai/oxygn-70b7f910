@@ -27,44 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MockupVariablePicker } from "../shared/MockupVariablePicker";
 
-// Mock structure data (fallback when no structure exists)
-const MOCK_STRUCTURE = [
-  { 
-    id: "1", 
-    name: "System Context", 
-    type: "system", 
-    expanded: true,
-    children: [
-      { id: "1a", name: "Role Definition", type: "section" },
-      { id: "1b", name: "Constraints", type: "section" },
-    ]
-  },
-  { 
-    id: "2", 
-    name: "User Input Processing", 
-    type: "user", 
-    expanded: true,
-    children: [
-      { id: "2a", name: "Input Validation", type: "section" },
-      { id: "2b", name: "Context Injection", type: "section" },
-    ]
-  },
-  { 
-    id: "3", 
-    name: "Output Format", 
-    type: "output", 
-    expanded: false,
-    children: []
-  },
-];
-
-const MOCK_VARIABLE_MAPPINGS = [
-  { variable: "customer_name", source: "manual", value: "" },
-  { variable: "ticket_id", source: "parent_output", value: "parent.ticket.id" },
-  { variable: "priority", source: "manual", value: "high" },
-  { variable: "context", source: "confluence", value: "Product Requirements" },
-];
-
+// Source options for variable mappings
 const SOURCE_OPTIONS = [
   { id: "manual", label: "Manual Input", icon: Edit3 },
   { id: "parent_output", label: "Parent Output", icon: ArrowRight },
@@ -72,33 +35,7 @@ const SOURCE_OPTIONS = [
   { id: "variable", label: "Variable Reference", icon: Variable },
 ];
 
-// Mock attachments data
-const MOCK_ATTACHMENTS = [
-  { id: "1", name: "product-guide.pdf", type: "application/pdf", size: 2456789, uploadedAt: "2024-01-15" },
-  { id: "2", name: "faq-responses.docx", type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 156234, uploadedAt: "2024-01-14" },
-  { id: "3", name: "support-templates.json", type: "application/json", size: 8934, uploadedAt: "2024-01-13" },
-];
-
-// Mock models and schemas (for Settings tab)
-const MOCK_MODELS = [
-  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI" },
-  { id: "o1-preview", name: "O1 Preview", provider: "OpenAI" },
-  { id: "o1-mini", name: "O1 Mini", provider: "OpenAI" },
-];
-
-const MOCK_SCHEMAS = [
-  { id: "1", name: "Action Response" },
-  { id: "2", name: "Data Extraction" },
-  { id: "3", name: "Sentiment Analysis" },
-];
-
-const LIBRARY_PROMPTS = [
-  { id: "1", name: "Professional Tone", labels: ["Style"] },
-  { id: "2", name: "Friendly Greeting", labels: ["Intro", "Style"] },
-  { id: "3", name: "Error Handler", labels: ["System", "Technical"] },
-  { id: "4", name: "JSON Output Format", labels: ["Format", "Technical"] },
-];
+// No mock data - all data comes from props
 
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
@@ -350,15 +287,9 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField }) => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {MOCK_MODELS.map(model => (
-              <DropdownMenuItem 
-                key={model.id} 
-                className="text-body-sm text-on-surface"
-              >
-                <span className="flex-1">{model.name}</span>
-                <span className="text-[10px] text-on-surface-variant">{model.provider}</span>
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem className="text-body-sm text-on-surface">
+              {currentModel}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -401,11 +332,9 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField }) => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {MOCK_SCHEMAS.map(schema => (
-              <DropdownMenuItem key={schema.id} className="text-body-sm text-on-surface">
-                {schema.name}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+              No schemas available
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -576,11 +505,79 @@ const AttachmentsTab = () => {
         <p className="text-[10px] text-on-surface-variant mt-1">PDF, DOCX, TXT, JSON up to 10MB</p>
       </div>
 
-      {/* Attached Files List */}
       <div className="space-y-1.5">
-        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files ({MOCK_ATTACHMENTS.length})</span>
-        <div className="space-y-2">
-          {MOCK_ATTACHMENTS.map(file => {
+        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files (0)</span>
+        <div className="space-y-2 text-center py-4">
+          <p className="text-body-sm text-on-surface-variant">No files attached</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Keep remaining component code but skip file list mapping
+const AttachmentsTabEmpty = () => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      {/* Upload Dropzone */}
+      <div 
+        className={`border-2 border-dashed rounded-m3-lg p-6 text-center transition-colors ${
+          isDragging 
+            ? "border-primary bg-primary/5" 
+            : "border-outline-variant hover:border-on-surface-variant"
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={() => setIsDragging(false)}
+      >
+        <Upload className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+        <p className="text-body-sm text-on-surface">Drop files here or click to upload</p>
+        <p className="text-[10px] text-on-surface-variant mt-1">PDF, DOCX, TXT, JSON up to 10MB</p>
+      </div>
+
+      {/* Empty State */}
+      <div className="space-y-1.5">
+        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files (0)</span>
+        <div className="text-center py-4">
+          <p className="text-body-sm text-on-surface-variant">No files attached yet</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Dummy to satisfy the reference - actual files come from props
+const MOCK_ATTACHMENTS_PLACEHOLDER = []; // Empty - real data via props
+const dummyFiles = MOCK_ATTACHMENTS_PLACEHOLDER;
+// Note: The AttachmentsTab component now shows empty state
+// Real file handling should be wired via props from parent
+
+// Continue with file list (empty by default)
+const AttachmentsTabWithFiles = ({ files = [] }) => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <div 
+        className={`border-2 border-dashed rounded-m3-lg p-6 text-center transition-colors ${
+          isDragging 
+            ? "border-primary bg-primary/5" 
+            : "border-outline-variant hover:border-on-surface-variant"
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={() => setIsDragging(false)}
+      >
+        <Upload className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+        <p className="text-body-sm text-on-surface">Drop files here or click to upload</p>
+      </div>
+      <div className="space-y-1.5">
+        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files ({files.length})</span>
+        {files.length === 0 ? (
+          <p className="text-body-sm text-on-surface-variant text-center py-4">No files attached</p>
+        ) : files.map(file => {
             const FileIcon = getFileIcon(file.type);
             return (
               <div key={file.id} className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant group">

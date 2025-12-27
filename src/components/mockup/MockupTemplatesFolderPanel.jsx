@@ -168,12 +168,7 @@ const MockupTemplatesFolderPanel = ({
     console.log(`Move ${draggedId} to position near ${targetId} (index: ${targetIndex})`);
   };
 
-  // Mock mapping templates (not yet implemented in real hooks)
-  const mappingTemplates = [
-    { id: "m1", name: "Standard Export", labels: [] },
-    { id: "m2", name: "Documentation Only", labels: ["Docs"] },
-    { id: "m3", name: "Full Backup", labels: [] },
-  ];
+  // Mapping templates come from exportTemplates prop (empty array fallback)
 
   // Transform real data to display format
   const displayTemplates = useMemo(() => {

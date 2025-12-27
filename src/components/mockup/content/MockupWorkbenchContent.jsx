@@ -22,49 +22,7 @@ import {
   EmptyLinkedPages 
 } from "../shared/MockupEmptyStates";
 
-// Mock data
-const MOCK_THREADS = [
-  { id: "1", title: "Customer Support Analysis", lastMessage: "2 hours ago", messageCount: 12, starred: true },
-  { id: "2", title: "Code Review Discussion", lastMessage: "5 hours ago", messageCount: 8, starred: false },
-  { id: "3", title: "Marketing Copy Draft", lastMessage: "1 day ago", messageCount: 24, starred: true },
-  { id: "4", title: "API Integration Help", lastMessage: "2 days ago", messageCount: 6, starred: false },
-  { id: "5", title: "Bug Investigation", lastMessage: "3 days ago", messageCount: 15, starred: false },
-];
-
-const MOCK_MESSAGES = [
-  { id: 1, role: "user", content: "Can you help me analyze this customer feedback data?" },
-  { id: 2, role: "assistant", content: "Of course! I'd be happy to help analyze customer feedback data. Could you share the data you'd like me to look at? I can help identify:\n\n• Key themes and patterns\n• Sentiment analysis\n• Common pain points\n• Actionable insights\n\nPlease paste the feedback or upload a file." },
-  { id: 3, role: "user", content: "Here's a sample: 'Love the product but wish the mobile app was faster. Support team is always helpful though!'" },
-  { id: 4, role: "assistant", content: "Great example! Here's my analysis:\n\n**Sentiment:** Mixed positive\n\n**Key Points:**\n1. **Product satisfaction** - Customer loves the core product\n2. **Performance issue** - Mobile app speed is a concern\n3. **Support praise** - Positive experience with support team\n\n**Recommendations:**\n• Prioritize mobile app performance optimization\n• Document support best practices for consistency\n• Consider in-app feedback for more data" },
-];
-
-const MOCK_TOOL_ACTIVITY = [
-  { name: "list_prompts", label: "Listing prompts", status: "complete", icon: List, color: "text-blue-500" },
-  { name: "get_prompt_details", label: "Reading prompt details", status: "complete", icon: FileText, color: "text-blue-500" },
-  { name: "execute_prompt", label: "Executing prompt", status: "running", icon: Play, color: "text-green-500" },
-];
-
-const MOCK_FILES = [
-  { id: "1", name: "customer_data.csv", size: "2.4 MB", type: "csv", status: "ready" },
-  { id: "2", name: "analysis_results.json", size: "156 KB", type: "json", status: "ready" },
-];
-
-const MOCK_PAGES = [
-  { id: "1", title: "Product Requirements", space: "Engineering", pageId: "12345", syncStatus: "synced", lastSynced: "2 min ago" },
-  { id: "2", title: "Customer Personas", space: "Marketing", pageId: "67890", syncStatus: "pending", lastSynced: null },
-];
-
-const MOCK_CONFLUENCE_SPACES = [
-  { key: "ENG", name: "Engineering" },
-  { key: "MKT", name: "Marketing" },
-  { key: "PROD", name: "Product" },
-];
-
-const MOCK_LIBRARY_PROMPTS = [
-  { id: "1", name: "Professional Tone", category: "Style", description: "Ensure professional communication" },
-  { id: "2", name: "Error Handler", category: "System", description: "Handle errors gracefully" },
-  { id: "3", name: "JSON Formatter", category: "Format", description: "Output as structured JSON" },
-];
+// No mock data - all data comes from props/hooks
 
 // Cascade Progress Bar Component
 const CascadeProgressBar = ({ 
@@ -826,8 +784,8 @@ const MockupWorkbenchContent = ({
       starred: false, // Not in current schema
     }));
     
-    // Fallback to mock if no real threads
-    const displayThreads = realThreads.length > 0 ? realThreads : MOCK_THREADS;
+    // Use real threads only - empty state shown if none
+    const displayThreads = realThreads;
     
     switch (activeSubItem) {
       case "starred":
@@ -1051,8 +1009,8 @@ const MockupWorkbenchContent = ({
                   <SkeletonChat />
                 ) : (
                   <>
-                    {/* Real messages */}
-                    {(messages.length > 0 ? messages : MOCK_MESSAGES).map((msg, index) => (
+                    {/* Real messages only */}
+                    {messages.map((msg, index) => (
                       <ChatMessage key={msg.row_id || msg.id} message={msg} index={index} />
                     ))}
                     {/* Streaming message */}
@@ -1061,7 +1019,7 @@ const MockupWorkbenchContent = ({
                     )}
                     {/* Tool activity */}
                     {(toolActivity.length > 0 || isExecutingTools) && (
-                      <ToolActivityIndicator tools={toolActivity.length > 0 ? toolActivity : MOCK_TOOL_ACTIVITY} isExecuting={isExecutingTools} />
+                      <ToolActivityIndicator tools={toolActivity} isExecuting={isExecutingTools} />
                     )}
                   </>
                 )}
