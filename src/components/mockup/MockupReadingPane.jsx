@@ -26,16 +26,33 @@ const MockupReadingPane = ({
   selectedTemplate = null,
   activeTemplateTab = "prompts",
   onToggleConversation, 
-  conversationPanelOpen = true
+  conversationPanelOpen = true,
+  // Settings props - Phase 6
+  settings = {},
+  isLoadingSettings = false,
+  onUpdateSetting,
+  models = [],
+  isLoadingModels = false,
+  onToggleModel,
 }) => {
   // Workbench mode - full workbench with threads and chat
   if (activeNav === "workbench") {
     return <MockupWorkbenchContent activeSubItem={activeSubItem} />;
   }
 
-  // Settings mode - all settings sections
+  // Settings mode - all settings sections (now with real data)
   if (activeNav === "settings") {
-    return <MockupSettingsContent activeSubItem={activeSubItem} />;
+    return (
+      <MockupSettingsContent 
+        activeSubItem={activeSubItem}
+        settings={settings}
+        isLoadingSettings={isLoadingSettings}
+        onUpdateSetting={onUpdateSetting}
+        models={models}
+        isLoadingModels={isLoadingModels}
+        onToggleModel={onToggleModel}
+      />
+    );
   }
 
   // Health mode - health check sections

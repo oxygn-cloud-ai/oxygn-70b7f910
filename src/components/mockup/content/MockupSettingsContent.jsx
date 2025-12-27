@@ -408,12 +408,15 @@ const ConversationsSection = () => {
   );
 };
 
-// AI Models Section
-const AIModelsSection = () => {
-  const [models, setModels] = useState(MOCK_MODELS);
+// AI Models Section - Updated to accept real data
+const AIModelsSection = ({ models = [], isLoading = false, onToggleModel }) => {
+  // Use real models if provided, fallback to mock
+  const displayModels = models.length > 0 ? models : MOCK_MODELS;
 
-  const toggleModel = (id) => {
-    setModels(prev => prev.map(m => m.id === id ? { ...m, active: !m.active } : m));
+  const handleToggle = (id) => {
+    if (onToggleModel) {
+      onToggleModel(id);
+    }
   };
 
   return (
@@ -426,22 +429,36 @@ const AIModelsSection = () => {
             <span className="text-right">Output $/1M</span>
             <span className="text-center">Active</span>
           </div>
-          {models.map((model, i) => (
-            <div key={model.id}>
-              {i > 0 && <SettingDivider />}
-              <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 items-center">
-                <div>
-                  <span className="text-body-sm text-on-surface font-medium">{model.name}</span>
-                  <span className="text-[10px] text-on-surface-variant ml-2">{model.provider}</span>
-                </div>
-                <span className="text-body-sm text-on-surface-variant text-right">${model.inputCost.toFixed(2)}</span>
-                <span className="text-body-sm text-on-surface-variant text-right">${model.outputCost.toFixed(2)}</span>
-                <div className="flex justify-center">
-                  <Switch checked={model.active} onCheckedChange={() => toggleModel(model.id)} />
+          {isLoading ? (
+            <div className="flex items-center gap-2 py-4 px-3">
+              <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+              <span className="text-body-sm text-on-surface-variant">Loading models...</span>
+            </div>
+          ) : (
+            displayModels.map((model, i) => (
+              <div key={model.model_id || model.id}>
+                {i > 0 && <SettingDivider />}
+                <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 items-center">
+                  <div>
+                    <span className="text-body-sm text-on-surface font-medium">{model.model_name || model.name}</span>
+                    <span className="text-[10px] text-on-surface-variant ml-2">{model.provider || 'OpenAI'}</span>
+                  </div>
+                  <span className="text-body-sm text-on-surface-variant text-right">
+                    ${(model.inputCost || 0).toFixed(2)}
+                  </span>
+                  <span className="text-body-sm text-on-surface-variant text-right">
+                    ${(model.outputCost || 0).toFixed(2)}
+                  </span>
+                  <div className="flex justify-center">
+                    <Switch 
+                      checked={model.is_active ?? model.active ?? true} 
+                      onCheckedChange={() => handleToggle(model.model_id || model.id)} 
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </SettingCard>
 
@@ -978,10 +995,33 @@ const SETTINGS_SECTIONS = {
   "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
 };
 
-const MockupSettingsContent = ({ activeSubItem = "qonsol" }) => {
+const MockupSettingsContent = ({ 
+  activeSubItem = "qonsol",
+  settings = {},
+  isLoadingSettings = false,
+  onUpdateSetting,
+  models = [],
+  isLoadingModels = false,
+  onToggleModel,
+}) => {
   const section = SETTINGS_SECTIONS[activeSubItem] || SETTINGS_SECTIONS.qonsol;
   const SectionComponent = section.component;
   const Icon = section.icon;
+
+  // Prepare props to pass to section components based on which section is active
+  const getSectionProps = () => {
+    switch (activeSubItem) {
+      case 'models':
+        return { 
+          models, 
+          isLoading: isLoadingModels, 
+          onToggleModel 
+        };
+      // Future: Add settings props for other sections
+      default:
+        return {};
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
@@ -994,7 +1034,7 @@ const MockupSettingsContent = ({ activeSubItem = "qonsol" }) => {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
-          <SectionComponent />
+          <SectionComponent {...getSectionProps()} />
         </div>
       </div>
     </div>
