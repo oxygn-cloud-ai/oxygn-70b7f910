@@ -462,7 +462,7 @@ const MockupTemplatesContent = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+    <div className="flex-1 flex flex-col bg-surface min-h-0">
       {/* Header - 56px */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
         <div>

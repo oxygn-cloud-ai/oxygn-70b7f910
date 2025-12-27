@@ -288,7 +288,7 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
           placeholder={placeholder}
-          className={`w-full ${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-none font-mono`}
+          className={`w-full ${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y font-mono`}
         />
       ) : (
         <div className={`${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap`}>
@@ -1060,7 +1060,7 @@ const MockupPromptsContent = ({
   // Loading state
   if (isLoadingPrompt) {
     return (
-      <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+      <div className="flex-1 flex flex-col bg-surface min-h-0">
         <div className="h-14 flex items-center px-3 border-b border-outline-variant">
           <div className="flex items-center gap-2">
             <div className="h-5 w-32 bg-on-surface/[0.08] rounded-m3-sm animate-pulse" />
@@ -1086,7 +1086,7 @@ const MockupPromptsContent = ({
   const promptName = promptData?.prompt_name || 'Untitled Prompt';
 
   return (
-    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+    <div className="flex-1 flex flex-col bg-surface min-h-0">
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">

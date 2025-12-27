@@ -383,7 +383,7 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
             value={getValue('default_context_prompt', 'You are a helpful AI assistant. Respond clearly and concisely.')}
             onChange={(e) => handleValueChange('default_context_prompt', e.target.value)}
             placeholder="Default context/system prompt for new prompts..."
-            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y"
           />
         </div>
       </SettingCard>
@@ -413,7 +413,7 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
             value={getValue('default_system_instructions')}
             onChange={(e) => handleValueChange('default_system_instructions', e.target.value)}
             placeholder="Default instructions for new top-level conversations..."
-            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y"
           />
         </div>
       </SettingCard>
@@ -1021,7 +1021,7 @@ const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] 
             value={getValue('workbench_system_prompt')}
             onChange={(e) => handleValueChange('workbench_system_prompt', e.target.value)}
             placeholder="Enter the system prompt for Workbench AI..."
-            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y"
           />
         </div>
       </SettingCard>
@@ -1349,7 +1349,7 @@ const MockupSettingsContent = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+    <div className="flex-1 flex flex-col bg-surface min-h-0">
       {/* Header */}
       <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant" style={{ height: "56px" }}>
         <Icon className="h-5 w-5 text-on-surface-variant" />
