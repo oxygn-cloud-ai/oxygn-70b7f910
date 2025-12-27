@@ -2,14 +2,14 @@ import React from "react";
 import { FileText, LayoutTemplate, PanelRightOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  MockupPromptsContent,
-  MockupWorkbenchContent,
-  MockupTemplatesContent,
-  MockupSettingsContent,
-  MockupHealthContent,
-} from "./content";
+  PromptsContent,
+  WorkbenchContent,
+  TemplatesContent,
+  SettingsContent,
+  HealthContent,
+} from "@/components/content";
 
-const MockupReadingPane = ({ 
+const ReadingPane = ({ 
   hasSelection = true, 
   selectedPromptId,
   promptData,
@@ -56,7 +56,7 @@ const MockupReadingPane = ({
   // Workbench mode - full workbench with threads and chat (now with real data)
   if (activeNav === "workbench") {
     return (
-      <MockupWorkbenchContent 
+      <WorkbenchContent 
         activeSubItem={activeSubItem}
         workbenchThreads={workbenchThreads}
         workbenchMessages={workbenchMessages}
@@ -70,7 +70,7 @@ const MockupReadingPane = ({
   // Settings mode - all settings sections (now with real data)
   if (activeNav === "settings") {
     return (
-      <MockupSettingsContent 
+      <SettingsContent 
         activeSubItem={activeSubItem}
         settings={settings}
         isLoadingSettings={isLoadingSettings}
@@ -86,13 +86,13 @@ const MockupReadingPane = ({
 
   // Health mode - health check sections
   if (activeNav === "health") {
-    return <MockupHealthContent activeSubItem={activeSubItem} />;
+    return <HealthContent activeSubItem={activeSubItem} />;
   }
 
   // Templates mode - template editor (now with real data)
   if (activeNav === "templates") {
     return (
-      <MockupTemplatesContent 
+      <TemplatesContent 
         selectedTemplate={selectedTemplate}
         activeTemplateTab={activeTemplateTab}
         templatesHook={templatesHook}
@@ -135,7 +135,7 @@ const MockupReadingPane = ({
   }
 
   return (
-    <MockupPromptsContent
+    <PromptsContent
       hasSelection={hasSelection}
       selectedPromptId={selectedPromptId}
       promptData={promptData}
@@ -158,4 +158,4 @@ const MockupReadingPane = ({
   );
 };
 
-export default MockupReadingPane;
+export default ReadingPane;
