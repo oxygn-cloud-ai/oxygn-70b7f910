@@ -301,11 +301,49 @@ const MockupExportPanel = ({
         setIsExporting(false);
       }
     } else {
-      // JSON/Markdown export (mock for now)
+      // JSON/Markdown export - real implementation
       setIsExporting(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setIsExporting(false);
-      onClose?.();
+      try {
+        const exportData = getExportData;
+        if (!exportData || exportData.length === 0) {
+          console.error('[MockupExportPanel] No export data available');
+          return;
+        }
+        
+        const filename = `prompts-export-${new Date().toISOString().split('T')[0]}`;
+        
+        if (exportType === 'json') {
+          const jsonString = JSON.stringify(exportData, null, 2);
+          const blob = new Blob([jsonString], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${filename}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } else if (exportType === 'markdown') {
+          const markdown = exportData.map(p => {
+            let md = `# ${p.prompt_name || 'Untitled'}\n\n`;
+            if (p.input_admin_prompt) md += `## System Prompt\n\n${p.input_admin_prompt}\n\n`;
+            if (p.input_user_prompt) md += `## User Prompt\n\n${p.input_user_prompt}\n\n`;
+            if (p.output_response) md += `## Output\n\n${p.output_response}\n\n`;
+            return md;
+          }).join('\n---\n\n');
+          const blob = new Blob([markdown], { type: 'text/markdown' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${filename}.md`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+        
+        onClose?.();
+      } catch (error) {
+        console.error('[MockupExportPanel] Export failed:', error);
+      } finally {
+        setIsExporting(false);
+      }
     }
   };
 

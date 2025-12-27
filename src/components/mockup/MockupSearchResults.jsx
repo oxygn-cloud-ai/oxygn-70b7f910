@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { 
   FileText, 
   FolderOpen, 
@@ -13,32 +13,51 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 const MockupSearchResults = ({ 
   isOpen = true, 
-  searchQuery = "customer", 
+  searchQuery = "", 
   onClose,
-  onSelectResult 
+  onSelectResult,
+  treeData = [],
+  templates = [],
+  threads = []
 }) => {
-  // Mock search results data
-  const recentSearches = [
-    "customer support",
-    "email template",
-    "API documentation"
-  ];
+  // Flatten tree data for search
+  const flatPrompts = useMemo(() => {
+    const flatten = (items, result = []) => {
+      items.forEach(item => {
+        result.push(item);
+        if (item.children?.length > 0) {
+          flatten(item.children, result);
+        }
+      });
+      return result;
+    };
+    return flatten(treeData);
+  }, [treeData]);
 
-  const results = {
-    prompts: [
-      { id: 1, name: "Customer Support Bot", category: "Support", starred: true },
-      { id: 2, name: "Customer Onboarding Flow", category: "Onboarding", starred: false },
-      { id: 3, name: "Customer Feedback Analysis", category: "Analysis", starred: true }
-    ],
-    templates: [
-      { id: 1, name: "Customer Email Response", category: "Email" },
-      { id: 2, name: "Customer Survey Template", category: "Survey" }
-    ],
-    conversations: [
-      { id: 1, name: "Customer inquiry about pricing", date: "2 hours ago" },
-      { id: 2, name: "Customer feature request discussion", date: "Yesterday" }
-    ]
-  };
+  // Filter results based on search query
+  const filteredResults = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    if (!query) {
+      return {
+        prompts: flatPrompts.slice(0, 5),
+        templates: templates.slice(0, 3),
+        conversations: threads.slice(0, 3)
+      };
+    }
+    
+    return {
+      prompts: flatPrompts.filter(p => 
+        (p.prompt_name || '').toLowerCase().includes(query) ||
+        (p.input_admin_prompt || '').toLowerCase().includes(query)
+      ).slice(0, 5),
+      templates: templates.filter(t => 
+        (t.template_name || t.schema_name || '').toLowerCase().includes(query)
+      ).slice(0, 3),
+      conversations: threads.filter(t => 
+        (t.title || t.name || '').toLowerCase().includes(query)
+      ).slice(0, 3)
+    };
+  }, [searchQuery, flatPrompts, templates, threads]);
 
   const getCategoryColor = (category) => {
     const colors = {
@@ -52,9 +71,9 @@ const MockupSearchResults = ({
   };
 
   const highlightMatch = (text, query) => {
-    if (!query) return text;
+    if (!query || !text) return text || '';
     const regex = new RegExp(`(${query})`, 'gi');
-    const parts = text.split(regex);
+    const parts = String(text).split(regex);
     return parts.map((part, i) => 
       regex.test(part) ? (
         <span key={i} className="bg-primary/20 text-primary font-medium">{part}</span>
@@ -63,6 +82,8 @@ const MockupSearchResults = ({
   };
 
   if (!isOpen) return null;
+
+  const totalResults = filteredResults.prompts.length + filteredResults.templates.length + filteredResults.conversations.length;
 
   return (
     <div 
@@ -91,37 +112,19 @@ const MockupSearchResults = ({
         </Tooltip>
       </div>
 
-      {/* Recent Searches */}
-      {!searchQuery && (
-        <div className="p-2">
-          <span className="px-2 text-label-sm text-on-surface-variant">Recent</span>
-          <div className="mt-1">
-            {recentSearches.map((search, idx) => (
-              <button
-                key={idx}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm hover:bg-on-surface/[0.08] transition-colors"
-              >
-                <Clock className="h-3.5 w-3.5 text-on-surface-variant" />
-                <span className="text-body-sm text-on-surface">{search}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Search Results */}
-      {searchQuery && (
-        <div className="max-h-80 overflow-y-auto">
-          {/* Prompts Section */}
+      <div className="max-h-80 overflow-y-auto">
+        {/* Prompts Section */}
+        {filteredResults.prompts.length > 0 && (
           <div className="p-2">
             <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-label-sm text-on-surface-variant">Prompts</span>
-              <span className="text-[10px] text-on-surface-variant">{results.prompts.length} results</span>
+              <span className="text-[10px] text-on-surface-variant">{filteredResults.prompts.length} results</span>
             </div>
-            {results.prompts.map((prompt) => (
+            {filteredResults.prompts.map((prompt) => (
               <button
-                key={prompt.id}
-                onClick={() => onSelectResult?.(prompt)}
+                key={prompt.row_id}
+                onClick={() => onSelectResult?.({ type: 'prompt', item: prompt })}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-m3-sm hover:bg-on-surface/[0.08] transition-colors group"
               >
                 <div className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-primary-container">
@@ -130,29 +133,28 @@ const MockupSearchResults = ({
                 <div className="flex-1 text-left">
                   <div className="flex items-center gap-1.5">
                     <span className="text-body-sm text-on-surface">
-                      {highlightMatch(prompt.name, searchQuery)}
+                      {highlightMatch(prompt.prompt_name || 'Unnamed', searchQuery)}
                     </span>
                     {prompt.starred && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
                   </div>
-                  <span className={`text-[10px] px-1 py-0.5 rounded ${getCategoryColor(prompt.category)}`}>
-                    {prompt.category}
-                  </span>
                 </div>
                 <ArrowRight className="h-4 w-4 text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             ))}
           </div>
+        )}
 
-          {/* Templates Section */}
+        {/* Templates Section */}
+        {filteredResults.templates.length > 0 && (
           <div className="p-2 border-t border-outline-variant">
             <div className="flex items-center justify-between px-2 mb-1">
               <span className="text-label-sm text-on-surface-variant">Templates</span>
-              <span className="text-[10px] text-on-surface-variant">{results.templates.length} results</span>
+              <span className="text-[10px] text-on-surface-variant">{filteredResults.templates.length} results</span>
             </div>
-            {results.templates.map((template) => (
+            {filteredResults.templates.map((template) => (
               <button
-                key={template.id}
-                onClick={() => onSelectResult?.(template)}
+                key={template.row_id}
+                onClick={() => onSelectResult?.({ type: 'template', item: template })}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-m3-sm hover:bg-on-surface/[0.08] transition-colors group"
               >
                 <div className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-secondary-container">
@@ -160,27 +162,31 @@ const MockupSearchResults = ({
                 </div>
                 <div className="flex-1 text-left">
                   <span className="text-body-sm text-on-surface">
-                    {highlightMatch(template.name, searchQuery)}
+                    {highlightMatch(template.template_name || template.schema_name || 'Unnamed', searchQuery)}
                   </span>
-                  <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded ${getCategoryColor(template.category)}`}>
-                    {template.category}
-                  </span>
+                  {template.category && (
+                    <span className={`ml-1.5 text-[10px] px-1 py-0.5 rounded ${getCategoryColor(template.category)}`}>
+                      {template.category}
+                    </span>
+                  )}
                 </div>
                 <ArrowRight className="h-4 w-4 text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             ))}
           </div>
+        )}
 
-          {/* Conversations Section */}
+        {/* Conversations Section */}
+        {filteredResults.conversations.length > 0 && (
           <div className="p-2 border-t border-outline-variant">
             <div className="flex items-center justify-between px-2 mb-1">
-              <span className="text-label-sm text-on-surface-variant">Conversations</span>
-              <span className="text-[10px] text-on-surface-variant">{results.conversations.length} results</span>
+              <span className="text-label-sm text-on-surface-variant">Threads</span>
+              <span className="text-[10px] text-on-surface-variant">{filteredResults.conversations.length} results</span>
             </div>
-            {results.conversations.map((convo) => (
+            {filteredResults.conversations.map((thread) => (
               <button
-                key={convo.id}
-                onClick={() => onSelectResult?.(convo)}
+                key={thread.row_id}
+                onClick={() => onSelectResult?.({ type: 'thread', item: thread })}
                 className="w-full flex items-center gap-2 px-2 py-2 rounded-m3-sm hover:bg-on-surface/[0.08] transition-colors group"
               >
                 <div className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-tertiary-container">
@@ -188,18 +194,25 @@ const MockupSearchResults = ({
                 </div>
                 <div className="flex-1 text-left">
                   <span className="text-body-sm text-on-surface">
-                    {highlightMatch(convo.name, searchQuery)}
+                    {highlightMatch(thread.title || thread.name || 'Untitled', searchQuery)}
                   </span>
                   <span className="ml-1.5 text-[10px] text-on-surface-variant">
-                    {convo.date}
+                    {thread.updated_at ? new Date(thread.updated_at).toLocaleDateString() : ''}
                   </span>
                 </div>
                 <ArrowRight className="h-4 w-4 text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Empty state */}
+        {totalResults === 0 && searchQuery && (
+          <div className="p-8 text-center">
+            <p className="text-body-sm text-on-surface-variant">No results found for "{searchQuery}"</p>
+          </div>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between p-2 border-t border-outline-variant bg-surface-container-low">
@@ -218,7 +231,7 @@ const MockupSearchResults = ({
           </span>
         </div>
         <span className="text-[10px] text-on-surface-variant">
-          {results.prompts.length + results.templates.length + results.conversations.length} total results
+          {totalResults} total results
         </span>
       </div>
     </div>

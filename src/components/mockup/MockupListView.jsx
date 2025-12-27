@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   FileText, 
   MessageSquare, 
@@ -15,69 +15,6 @@ import {
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-const mockPrompts = [
-  { 
-    id: 1, 
-    name: "API Documentation Generator", 
-    type: "prompt", 
-    preview: "Generate comprehensive API documentation from code...", 
-    owner: { initials: "JD", color: "bg-blue-500" },
-    starred: true,
-    excludedFromCascade: false,
-    excludedFromExport: false
-  },
-  { 
-    id: 2, 
-    name: "Customer Support Bot", 
-    type: "conversation", 
-    preview: "Handle customer inquiries with professional responses...", 
-    owner: { initials: "AM", color: "bg-purple-500" },
-    starred: false,
-    excludedFromCascade: true,
-    excludedFromExport: false
-  },
-  { 
-    id: 3, 
-    name: "Summary Generator", 
-    type: "prompt", 
-    preview: "Create concise summaries of long documents and articles...", 
-    owner: { initials: "JD", color: "bg-blue-500" },
-    starred: true,
-    excludedFromCascade: false,
-    excludedFromExport: true
-  },
-  { 
-    id: 4, 
-    name: "Code Review Assistant", 
-    type: "conversation", 
-    preview: "Review code for best practices, bugs, and improvements...", 
-    owner: { initials: "KL", color: "bg-green-500" },
-    starred: false,
-    excludedFromCascade: true,
-    excludedFromExport: true
-  },
-  { 
-    id: 5, 
-    name: "Email Template Builder", 
-    type: "prompt", 
-    preview: "Create professional email templates for various purposes...", 
-    owner: { initials: "AM", color: "bg-purple-500" },
-    starred: false,
-    excludedFromCascade: false,
-    excludedFromExport: false
-  },
-  { 
-    id: 6, 
-    name: "Report Generator", 
-    type: "prompt", 
-    preview: "Generate detailed reports from raw data and metrics...", 
-    owner: { initials: "JD", color: "bg-blue-500" },
-    starred: true,
-    excludedFromCascade: false,
-    excludedFromExport: false
-  },
-];
 
 const IconButton = ({ icon: Icon, label, onClick, className = "" }) => (
   <Tooltip>
@@ -108,8 +45,24 @@ const OwnerAvatar = ({ initials, color }) => (
   </div>
 );
 
-const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
+const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar, onDelete }) => {
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Get owner initials from owner_id or fallback
+  const getOwnerInitials = () => {
+    if (prompt.owner?.initials) return prompt.owner.initials;
+    // Generate from prompt name if no owner
+    const name = prompt.prompt_name || prompt.name || "?";
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const getOwnerColor = () => {
+    if (prompt.owner?.color) return prompt.owner.color;
+    // Generate color based on owner_id hash
+    const colors = ["bg-blue-500", "bg-purple-500", "bg-green-500", "bg-orange-500", "bg-pink-500"];
+    const hash = (prompt.owner_id || prompt.row_id || "").charCodeAt(0) || 0;
+    return colors[hash % colors.length];
+  };
 
   return (
     <div
@@ -138,7 +91,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
       </div>
 
       {/* Icon */}
-      {prompt.type === "conversation" ? (
+      {prompt.is_assistant ? (
         <MessageSquare className="h-5 w-5 text-primary flex-shrink-0" />
       ) : (
         <FileText className="h-5 w-5 text-on-surface-variant flex-shrink-0" />
@@ -152,7 +105,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
         `}
         style={{ fontSize: "12px" }}
       >
-        {prompt.name}
+        {prompt.prompt_name || prompt.name || "Unnamed"}
       </span>
 
       {/* Preview - 11px */}
@@ -160,7 +113,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
         className="flex-1 truncate text-label-md text-on-surface-variant"
         style={{ fontSize: "11px" }}
       >
-        {prompt.preview}
+        {prompt.input_admin_prompt?.slice(0, 80) || prompt.preview || "No description"}
       </span>
 
       {/* Hover Actions or Owner + Status */}
@@ -171,6 +124,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
               icon={Star} 
               label={prompt.starred ? "Unstar" : "Star"} 
               className={prompt.starred ? "text-primary" : ""}
+              onClick={() => onToggleStar?.(prompt.row_id)}
             />
             <IconButton icon={Sparkles} label="Run" />
             <IconButton icon={Link2} label="Copy Variable Reference" />
@@ -179,22 +133,26 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
             <IconButton icon={Upload} label="Export" />
             <IconButton 
               icon={Ban} 
-              label={prompt.excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
-              className={prompt.excludedFromCascade ? "text-muted-foreground" : ""}
+              label={prompt.exclude_from_cascade ? "Include in Cascade" : "Exclude from Cascade"} 
+              className={prompt.exclude_from_cascade ? "text-muted-foreground" : ""}
             />
             <IconButton 
               icon={FileX} 
-              label={prompt.excludedFromExport ? "Include in Export" : "Exclude from Export"} 
-              className={prompt.excludedFromExport ? "text-orange-500" : ""}
+              label={prompt.exclude_from_export ? "Include in Export" : "Exclude from Export"} 
+              className={prompt.exclude_from_export ? "text-orange-500" : ""}
             />
-            <IconButton icon={Trash2} label="Delete" />
+            <IconButton 
+              icon={Trash2} 
+              label="Delete" 
+              onClick={() => onDelete?.(prompt.row_id)}
+            />
           </>
         ) : (
           <>
             {prompt.starred && (
               <Star className="h-4 w-4 text-primary fill-primary flex-shrink-0" />
             )}
-            {prompt.excludedFromCascade && (
+            {prompt.exclude_from_cascade && (
               <Tooltip>
                 <TooltipTrigger>
                   <Ban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -202,7 +160,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
                 <TooltipContent className="text-label-sm">Excluded from Cascade</TooltipContent>
               </Tooltip>
             )}
-            {prompt.excludedFromExport && (
+            {prompt.exclude_from_export && (
               <Tooltip>
                 <TooltipTrigger>
                   <FileX className="h-4 w-4 text-orange-500 flex-shrink-0" />
@@ -210,7 +168,7 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
                 <TooltipContent className="text-label-sm">Excluded from Export</TooltipContent>
               </Tooltip>
             )}
-            <OwnerAvatar initials={prompt.owner.initials} color={prompt.owner.color} />
+            <OwnerAvatar initials={getOwnerInitials()} color={getOwnerColor()} />
           </>
         )}
       </div>
@@ -218,8 +176,28 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick }) => {
   );
 };
 
-const MockupListView = ({ onSelectPrompt, activePromptId }) => {
+const MockupListView = ({ 
+  onSelectPrompt, 
+  activePromptId,
+  treeData = [],
+  onToggleStar,
+  onDelete
+}) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
+
+  // Flatten tree data for list view
+  const flatPrompts = useMemo(() => {
+    const flatten = (items, result = []) => {
+      items.forEach(item => {
+        result.push(item);
+        if (item.children?.length > 0) {
+          flatten(item.children, result);
+        }
+      });
+      return result;
+    };
+    return flatten(treeData);
+  }, [treeData]);
 
   const toggleSelection = (id) => {
     setSelectedIds(prev => {
@@ -239,10 +217,10 @@ const MockupListView = ({ onSelectPrompt, activePromptId }) => {
       {selectedIds.size > 0 && (
         <div className="h-10 flex items-center gap-3 px-4 bg-surface-container-high border-b border-outline-variant">
           <Checkbox 
-            checked={selectedIds.size === mockPrompts.length}
+            checked={selectedIds.size === flatPrompts.length}
             onCheckedChange={(checked) => {
               if (checked) {
-                setSelectedIds(new Set(mockPrompts.map(p => p.id)));
+                setSelectedIds(new Set(flatPrompts.map(p => p.row_id)));
               } else {
                 setSelectedIds(new Set());
               }
@@ -261,18 +239,29 @@ const MockupListView = ({ onSelectPrompt, activePromptId }) => {
 
       {/* List */}
       <div className="flex-1 overflow-auto p-2 scrollbar-thin">
-        <div className="flex flex-col gap-0.5">
-          {mockPrompts.map((prompt) => (
-            <ListRow
-              key={prompt.id}
-              prompt={prompt}
-              isSelected={selectedIds.has(prompt.id)}
-              onSelect={() => toggleSelection(prompt.id)}
-              isActive={activePromptId === prompt.id}
-              onClick={() => onSelectPrompt?.(prompt.id)}
-            />
-          ))}
-        </div>
+        {flatPrompts.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-on-surface-variant">
+            <div className="text-center">
+              <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-body-sm">No prompts found</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {flatPrompts.map((prompt) => (
+              <ListRow
+                key={prompt.row_id}
+                prompt={prompt}
+                isSelected={selectedIds.has(prompt.row_id)}
+                onSelect={() => toggleSelection(prompt.row_id)}
+                isActive={activePromptId === prompt.row_id}
+                onClick={() => onSelectPrompt?.(prompt.row_id)}
+                onToggleStar={onToggleStar}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

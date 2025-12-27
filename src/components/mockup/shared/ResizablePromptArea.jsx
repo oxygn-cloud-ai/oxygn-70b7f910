@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
   Edit3, Check, Library, Search, Variable 
@@ -25,23 +25,9 @@ const VARIABLE_DEFINITIONS = {
   parent_output: { name: "parent.output", type: "reference", description: "Output from parent prompt", source: "Cascade", required: false },
 };
 
-const LIBRARY_PROMPTS = [
-  { id: "1", name: "Professional Tone", labels: ["Style"] },
-  { id: "2", name: "Friendly Greeting", labels: ["Intro", "Style"] },
-  { id: "3", name: "Error Handler", labels: ["System", "Technical"] },
-  { id: "4", name: "JSON Output Format", labels: ["Format", "Technical"] },
-];
-
-const MOCK_VARIABLES = [
-  { name: "customer_message" },
-  { name: "ticket_count" },
-  { name: "company_name" },
-  { name: "support_email" },
-  { name: "parent.output" },
-];
-
 // Highlighted text component
-const HighlightedText = ({ text }) => {
+const HighlightedText = ({ text, variableDefinitions = {} }) => {
+  const allDefs = { ...VARIABLE_DEFINITIONS, ...variableDefinitions };
   const variablePattern = /\{\{(\w+(?:\.\w+)?)\}\}/g;
   const parts = [];
   let lastIndex = 0;
@@ -53,7 +39,7 @@ const HighlightedText = ({ text }) => {
     }
     
     const varName = match[1];
-    const varDef = VARIABLE_DEFINITIONS[varName] || VARIABLE_DEFINITIONS[varName.replace('.', '_')];
+    const varDef = allDefs[varName] || allDefs[varName.replace('.', '_')];
     
     parts.push(
       <Tooltip key={`var-${match.index}`}>
@@ -89,7 +75,22 @@ const HighlightedText = ({ text }) => {
 };
 
 // Variable Picker Dropdown
-const VariablePickerDropdown = ({ onInsert }) => {
+const VariablePickerDropdown = ({ onInsert, variables = [] }) => {
+  // Transform variables to expected format
+  const displayVars = useMemo(() => {
+    if (variables.length === 0) {
+      // Fallback to common variables if none provided
+      return [
+        { name: "customer_message" },
+        { name: "company_name" },
+        { name: "parent.output" },
+      ];
+    }
+    return variables.map(v => ({
+      name: v.variable_name || v.name
+    }));
+  }, [variables]);
+
   return (
     <DropdownMenu>
       <Tooltip>
@@ -105,7 +106,7 @@ const VariablePickerDropdown = ({ onInsert }) => {
       <DropdownMenuContent className="w-44 bg-surface-container-high border-outline-variant">
         <div className="px-2 py-1 text-[10px] text-on-surface-variant uppercase tracking-wider">Variables</div>
         <DropdownMenuSeparator className="bg-outline-variant" />
-        {MOCK_VARIABLES.map(v => (
+        {displayVars.map(v => (
           <DropdownMenuItem 
             key={v.name} 
             onClick={() => onInsert(v.name)}
@@ -120,12 +121,15 @@ const VariablePickerDropdown = ({ onInsert }) => {
 };
 
 // Library Picker Dropdown
-const LibraryPickerDropdown = () => {
+const LibraryPickerDropdown = ({ libraryItems = [] }) => {
   const [searchQuery, setSearchQuery] = useState("");
   
-  const filteredPrompts = LIBRARY_PROMPTS.filter(prompt => 
-    prompt.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPrompts = useMemo(() => {
+    if (libraryItems.length === 0) return [];
+    return libraryItems.filter(prompt => 
+      (prompt.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [libraryItems, searchQuery]);
 
   return (
     <DropdownMenu>
@@ -155,16 +159,20 @@ const LibraryPickerDropdown = () => {
         </div>
         <DropdownMenuSeparator className="bg-outline-variant" />
         <div className="max-h-40 overflow-auto">
-          {filteredPrompts.map(prompt => (
-            <DropdownMenuItem key={prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
-              <span className="flex-1">{prompt.name}</span>
-              <div className="flex gap-1">
-                {prompt.labels?.slice(0, 1).map(lbl => (
-                  <LabelBadge key={lbl} label={lbl} size="xs" />
-                ))}
-              </div>
-            </DropdownMenuItem>
-          ))}
+          {filteredPrompts.length === 0 ? (
+            <p className="text-[11px] text-on-surface-variant py-2 px-2 text-center">
+              {libraryItems.length === 0 ? "No library items" : "No matches"}
+            </p>
+          ) : (
+            filteredPrompts.map(prompt => (
+              <DropdownMenuItem key={prompt.row_id || prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
+                <span className="flex-1">{prompt.name}</span>
+                {prompt.category && (
+                  <LabelBadge label={prompt.category} size="xs" />
+                )}
+              </DropdownMenuItem>
+            ))
+          )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -197,7 +205,9 @@ const ResizablePromptArea = ({
   placeholder, 
   onLibraryPick, 
   onChange,
-  defaultHeight = MIN_HEIGHT 
+  defaultHeight = MIN_HEIGHT,
+  variables = [],
+  libraryItems = []
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value || '');
@@ -318,8 +328,8 @@ const ResizablePromptArea = ({
         
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
-          <VariablePickerDropdown onInsert={handleInsertVariable} />
-          {onLibraryPick && <LibraryPickerDropdown />}
+          <VariablePickerDropdown onInsert={handleInsertVariable} variables={variables} />
+          {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
