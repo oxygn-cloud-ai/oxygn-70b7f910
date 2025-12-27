@@ -343,6 +343,8 @@ serve(async (req) => {
       existing_thread_row_id,
     } = await req.json();
 
+    const startTime = Date.now();
+    
     console.log('Conversation run request:', { 
       child_prompt_row_id, 
       user: validation.user?.email,
@@ -819,10 +821,20 @@ serve(async (req) => {
       return new Response(JSON.stringify(body), { status, headers });
     }
 
-    // Update child prompt with response
+    // Update child prompt with response (output_response is displayed in UI)
     await supabase
       .from(TABLES.PROMPTS)
-      .update({ user_prompt_result: result.response })
+      .update({ 
+        output_response: result.response,
+        last_ai_call_metadata: {
+          latency_ms: Date.now() - startTime,
+          model: assistantData.model_override || 'gpt-4o-mini',
+          tokens_input: result.usage?.prompt_tokens || 0,
+          tokens_output: result.usage?.completion_tokens || 0,
+          tokens_total: result.usage?.total_tokens || 0,
+          response_id: result.response_id,
+        }
+      })
       .eq('row_id', child_prompt_row_id);
 
     // Update thread's last_message_at and last_response_id
