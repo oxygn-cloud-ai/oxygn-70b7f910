@@ -182,14 +182,17 @@ const TreeItem = ({
           <span className="text-[7px] text-on-surface-variant/50 w-2.5 flex-shrink-0">{depthIndicator}</span>
         )}
         {hasChildren && (
-          <span onClick={(e) => { e.stopPropagation(); onToggle?.(id); }}>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggle?.(id); }}
+            className="w-4 h-4 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.12] transition-colors"
+          >
             {isExpanded 
               ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
               : <ChevronRight className="h-3 w-3 flex-shrink-0" />
             }
-          </span>
+          </button>
         )}
-        {!hasChildren && <span className="w-3" />}
+        {!hasChildren && <span className="w-4" />}
         <Icon className="h-3 w-3 flex-shrink-0" />
         <span className="flex-1 text-left text-[10px] truncate">{label}</span>
         

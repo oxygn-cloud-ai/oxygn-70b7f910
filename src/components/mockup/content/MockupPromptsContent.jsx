@@ -1044,7 +1044,6 @@ const MockupPromptsContent = ({
     { id: "prompt", icon: FileText, label: "Prompt" },
     { id: "settings", icon: Sliders, label: "Settings" },
     { id: "variables", icon: Variable, label: "Variables" },
-    { id: "conversation", icon: MessageSquare, label: "Conversation" },
   ];
 
   if (!hasSelection) {
@@ -1115,32 +1114,6 @@ const MockupPromptsContent = ({
           />
         </div>
         <div className="flex items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
-                <Play className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Run Prompt</TooltipContent>
-          </Tooltip>
-          {selectedPromptHasChildren && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Workflow className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Run Cascade</TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button onClick={onExport} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Download className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Export</TooltipContent>
-          </Tooltip>
           {!conversationPanelOpen && onToggleConversation && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1168,17 +1141,47 @@ const MockupPromptsContent = ({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-outline-variant shrink-0">
-        {tabs.map(tab => (
-          <TabButton 
-            key={tab.id} 
-            icon={tab.icon} 
-            label={tab.label} 
-            isActive={activeTab === tab.id} 
-            onClick={() => setActiveTab(tab.id)} 
-          />
-        ))}
+      {/* Tabs with Actions */}
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant shrink-0">
+        <div className="flex items-center gap-0.5">
+          {tabs.map(tab => (
+            <TabButton 
+              key={tab.id} 
+              icon={tab.icon} 
+              label={tab.label} 
+              isActive={activeTab === tab.id} 
+              onClick={() => setActiveTab(tab.id)} 
+            />
+          ))}
+        </div>
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                <Play className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Run Prompt</TooltipContent>
+          </Tooltip>
+          {selectedPromptHasChildren && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Workflow className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Run Cascade</TooltipContent>
+            </Tooltip>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={onExport} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Download className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Export</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Content */}
@@ -1202,7 +1205,6 @@ const MockupPromptsContent = ({
               promptVariables={variables}
             />
           )}
-          {activeTab === "conversation" && <ConversationTabContent isAssistantEnabled={isAssistantEnabled} />}
         </div>
       </div>
     </div>
