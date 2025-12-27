@@ -80,7 +80,7 @@ const MockupExportPanel = ({ onClose }) => {
         style={{ height: "56px" }}
       >
         <div>
-          <span className="text-title-md text-on-surface font-semibold">Export</span>
+          <span className="text-title-sm text-on-surface font-medium">Export</span>
           <p className="text-[10px] text-on-surface-variant">Customer Support Bot</p>
         </div>
         <Tooltip>
@@ -92,7 +92,7 @@ const MockupExportPanel = ({ onClose }) => {
               <X className="h-5 w-5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="text-label-sm">Close</TooltipContent>
+          <TooltipContent className="text-[10px]">Close</TooltipContent>
         </Tooltip>
       </div>
 
@@ -127,7 +127,7 @@ const MockupExportPanel = ({ onClose }) => {
                   <Save className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-label-sm">Save as Template</TooltipContent>
+              <TooltipContent className="text-[10px]">Save as Template</TooltipContent>
             </Tooltip>
           </div>
           
@@ -141,11 +141,14 @@ const MockupExportPanel = ({ onClose }) => {
                 placeholder="Template name..."
                 className="flex-1 h-9 px-3 bg-surface-container-high border border-outline-variant rounded-m3-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <button 
-                className="h-9 px-3 bg-primary text-primary-foreground rounded-m3-sm text-label-sm font-medium hover:bg-primary/90"
-              >
-                Save
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-9 h-9 flex items-center justify-center rounded-m3-sm bg-primary text-primary-foreground hover:bg-primary/90">
+                    <Check className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save Template</TooltipContent>
+              </Tooltip>
             </div>
           )}
         </div>
@@ -251,9 +254,14 @@ const MockupExportPanel = ({ onClose }) => {
 
       {/* Footer */}
       <div className="p-4 border-t border-outline-variant">
-        <button className="w-full h-10 bg-primary text-primary-foreground rounded-m3-md text-label-lg font-medium hover:bg-primary/90 transition-colors">
-          Export
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button className="w-full h-10 flex items-center justify-center bg-primary text-primary-foreground rounded-m3-md hover:bg-primary/90 transition-colors">
+              <Globe className="h-5 w-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Export</TooltipContent>
+        </Tooltip>
       </div>
     </div>
   );
