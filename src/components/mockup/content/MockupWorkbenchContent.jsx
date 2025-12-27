@@ -3,7 +3,7 @@ import {
   MessageSquare, Plus, Clock, Star, Search, Send, Paperclip, 
   Mic, MoreVertical, PanelRightClose, PanelRightOpen, 
   Trash2, Edit3, FileText, Link2, BookOpen, Loader2,
-  RefreshCw, X, ChevronDown
+  RefreshCw, X, ChevronDown, CheckCircle2, Wrench, Play, List
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,12 @@ const MOCK_MESSAGES = [
   { id: 2, role: "assistant", content: "Of course! I'd be happy to help analyze customer feedback data. Could you share the data you'd like me to look at? I can help identify:\n\n• Key themes and patterns\n• Sentiment analysis\n• Common pain points\n• Actionable insights\n\nPlease paste the feedback or upload a file." },
   { id: 3, role: "user", content: "Here's a sample: 'Love the product but wish the mobile app was faster. Support team is always helpful though!'" },
   { id: 4, role: "assistant", content: "Great example! Here's my analysis:\n\n**Sentiment:** Mixed positive\n\n**Key Points:**\n1. **Product satisfaction** - Customer loves the core product\n2. **Performance issue** - Mobile app speed is a concern\n3. **Support praise** - Positive experience with support team\n\n**Recommendations:**\n• Prioritize mobile app performance optimization\n• Document support best practices for consistency\n• Consider in-app feedback for more data" },
+];
+
+const MOCK_TOOL_ACTIVITY = [
+  { name: "list_prompts", label: "Listing prompts", status: "complete", icon: List, color: "text-blue-500" },
+  { name: "get_prompt_details", label: "Reading prompt details", status: "complete", icon: FileText, color: "text-blue-500" },
+  { name: "execute_prompt", label: "Executing prompt", status: "running", icon: Play, color: "text-green-500" },
 ];
 
 const MOCK_FILES = [
@@ -86,6 +92,53 @@ const ChatMessage = ({ message }) => {
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
+    </div>
+  );
+};
+
+// Tool Activity Indicator Component
+const ToolActivityIndicator = ({ tools, isExecuting }) => {
+  if (!tools || tools.length === 0) return null;
+
+  return (
+    <div className="px-3 py-2 mx-3 my-1 bg-surface-container rounded-m3-lg border border-outline-variant">
+      <div className="flex items-center gap-2 text-[10px] text-on-surface-variant mb-2">
+        <Wrench className="h-3 w-3" />
+        <span className="font-medium">AI is using tools</span>
+      </div>
+      <div className="space-y-1">
+        {tools.map((tool, index) => {
+          const Icon = tool.icon;
+          const isComplete = tool.status === "complete";
+          const isRunning = tool.status === "running";
+
+          return (
+            <div 
+              key={`${tool.name}-${index}`}
+              className={`flex items-center gap-2 text-[11px] py-1 px-2 rounded-m3-sm ${
+                isComplete ? "bg-surface/50" : "bg-surface"
+              }`}
+            >
+              {isRunning ? (
+                <Loader2 className={`h-3 w-3 animate-spin ${tool.color}`} />
+              ) : isComplete ? (
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+              ) : (
+                <Icon className={`h-3 w-3 ${tool.color}`} />
+              )}
+              <span className={isComplete ? "text-on-surface-variant" : "text-on-surface"}>
+                {tool.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {isExecuting && (
+        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-outline-variant text-[10px] text-on-surface-variant">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          Processing tool results...
+        </div>
+      )}
     </div>
   );
 };
@@ -186,7 +239,7 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
   const [activeThread, setActiveThread] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [resourcesOpen, setResourcesOpen] = useState(true);
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [showToolActivity, setShowToolActivity] = useState(true);
 
   // Determine what to show based on activeSubItem
   const getFilteredThreads = () => {
@@ -330,11 +383,8 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
               {MOCK_MESSAGES.map(msg => (
                 <ChatMessage key={msg.id} message={msg} />
               ))}
-              {isStreaming && (
-                <div className="flex items-center gap-2 text-on-surface-variant">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="text-body-sm">Thinking...</span>
-                </div>
+              {showToolActivity && (
+                <ToolActivityIndicator tools={MOCK_TOOL_ACTIVITY} isExecuting={true} />
               )}
             </div>
 
