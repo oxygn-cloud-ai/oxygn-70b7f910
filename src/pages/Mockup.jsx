@@ -22,6 +22,8 @@ import { useModels } from "@/hooks/useModels";
 import { useWorkbenchThreads } from "@/hooks/useWorkbenchThreads";
 import { useWorkbenchMessages } from "@/hooks/useWorkbenchMessages";
 import { useWorkbenchFiles } from "@/hooks/useWorkbenchFiles";
+import { useWorkbenchConfluence } from "@/hooks/useWorkbenchConfluence";
+import { usePromptLibrary } from "@/hooks/usePromptLibrary";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useJsonSchemaTemplates } from "@/hooks/useJsonSchemaTemplates";
 import { useConversationRun } from "@/hooks/useConversationRun";
@@ -79,10 +81,12 @@ const Mockup = () => {
   // Models hook - Phase 6
   const { models, isLoading: isLoadingModels, toggleModelActive } = useModels();
   
-  // Workbench hooks - Phase 7
+  // Workbench hooks - Phase 3
   const workbenchThreads = useWorkbenchThreads();
   const workbenchMessages = useWorkbenchMessages();
   const workbenchFiles = useWorkbenchFiles();
+  const workbenchConfluence = useWorkbenchConfluence();
+  const promptLibrary = usePromptLibrary();
   
   // Template hooks - Phase 8-9
   const templatesHook = useTemplates();
@@ -594,10 +598,12 @@ const Mockup = () => {
                         const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
                         if (model) toggleModelActive(model.row_id, !model.is_active);
                       }}
-                      // Workbench props for Phase 7
+                      // Workbench props for Phase 3
                       workbenchThreads={workbenchThreads}
                       workbenchMessages={workbenchMessages}
                       workbenchFiles={workbenchFiles}
+                      workbenchConfluence={workbenchConfluence}
+                      promptLibrary={promptLibrary}
                       // Templates props for Phase 8-9
                       templatesHook={templatesHook}
                       jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
