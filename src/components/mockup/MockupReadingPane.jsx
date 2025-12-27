@@ -28,6 +28,11 @@ const MockupReadingPane = ({
   activeTemplateTab = "prompts",
   onToggleConversation, 
   conversationPanelOpen = true,
+  // Run prompt handlers
+  onRunPrompt,
+  onRunCascade,
+  isRunningPrompt = false,
+  isRunningCascade = false,
   // Settings props - Phase 6
   settings = {},
   isLoadingSettings = false,
@@ -145,6 +150,10 @@ const MockupReadingPane = ({
       onExport={onExport}
       onToggleConversation={onToggleConversation}
       conversationPanelOpen={conversationPanelOpen}
+      onRunPrompt={onRunPrompt}
+      onRunCascade={onRunCascade}
+      isRunningPrompt={isRunningPrompt}
+      isRunningCascade={isRunningCascade}
     />
   );
 };

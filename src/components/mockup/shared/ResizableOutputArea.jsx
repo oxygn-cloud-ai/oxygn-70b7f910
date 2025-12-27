@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  RefreshCw, Copy, Check, Clock
+  RefreshCw, Copy, Check, Clock, Loader2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -35,6 +35,7 @@ const ResizableOutputArea = ({
   placeholder = "No output yet. Run the prompt to generate a response.",
   metadata,
   onRegenerate,
+  isRegenerating = false,
   defaultHeight = MIN_HEIGHT 
 }) => {
   const [expandState, setExpandState] = useState('min'); // 'collapsed' | 'min' | 'full'
@@ -153,12 +154,13 @@ const ResizableOutputArea = ({
               <TooltipTrigger asChild>
                 <button 
                   onClick={onRegenerate}
-                  className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
+                  disabled={isRegenerating}
+                  className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${isRegenerating ? 'text-primary' : 'text-on-surface-variant'}`}
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Regenerate</TooltipContent>
+              <TooltipContent className="text-[10px]">{isRegenerating ? 'Running...' : 'Regenerate'}</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
