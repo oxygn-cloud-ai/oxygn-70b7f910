@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
+import { LabelBadge } from "@/components/ui/label-badge";
 
 const ITEM_TYPE = "TEMPLATE_ITEM";
 
@@ -58,7 +59,7 @@ const TemplateTreeItem = ({
   label, 
   isActive = false,
   starred = false,
-  category,
+  labels = [],
   onMove,
   index,
   onClick
@@ -89,18 +90,6 @@ const TemplateTreeItem = ({
   });
 
   drag(drop(ref));
-
-  const getCategoryColor = (cat) => {
-    const colors = {
-      Business: "bg-amber-500/10 text-amber-600",
-      Technical: "bg-green-500/10 text-green-600",
-      Marketing: "bg-blue-500/10 text-blue-600",
-      Action: "bg-orange-500/10 text-orange-600",
-      Extraction: "bg-cyan-500/10 text-cyan-600",
-      Analysis: "bg-indigo-500/10 text-indigo-600",
-    };
-    return colors[cat] || "bg-muted text-muted-foreground";
-  };
   
   return (
     <div
@@ -134,10 +123,11 @@ const TemplateTreeItem = ({
       ) : (
         <div className="flex items-center gap-1">
           {starred && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
-          {category && (
-            <span className={`text-[8px] px-1 py-0.5 rounded ${getCategoryColor(category)}`}>
-              {category}
-            </span>
+          {labels.slice(0, 1).map(lbl => (
+            <LabelBadge key={lbl} label={lbl} size="xs" />
+          ))}
+          {labels.length > 1 && (
+            <span className="text-[8px] text-on-surface-variant">+{labels.length - 1}</span>
           )}
         </div>
       )}
@@ -164,23 +154,23 @@ const MockupTemplatesFolderPanel = ({
   };
 
   const promptTemplates = [
-    { id: "p1", name: "Customer Support Agent", category: "Business", starred: true },
-    { id: "p2", name: "Code Review Assistant", category: "Technical" },
-    { id: "p3", name: "Content Writer", category: "Marketing" },
-    { id: "p4", name: "Data Analyst", category: "Technical", starred: true },
-    { id: "p5", name: "Email Composer", category: "Business" },
+    { id: "p1", name: "Customer Support Agent", labels: ["Business", "Support"], starred: true },
+    { id: "p2", name: "Code Review Assistant", labels: ["Technical"] },
+    { id: "p3", name: "Content Writer", labels: ["Marketing", "Creative"] },
+    { id: "p4", name: "Data Analyst", labels: ["Technical", "Analysis"], starred: true },
+    { id: "p5", name: "Email Composer", labels: ["Business"] },
   ];
 
   const schemaTemplates = [
-    { id: "s1", name: "Action Response", category: "Action" },
-    { id: "s2", name: "Data Extraction", category: "Extraction" },
-    { id: "s3", name: "Sentiment Analysis", category: "Analysis" },
+    { id: "s1", name: "Action Response", labels: ["Action"] },
+    { id: "s2", name: "Data Extraction", labels: ["Extraction", "Technical"] },
+    { id: "s3", name: "Sentiment Analysis", labels: ["Analysis", "NLP"] },
   ];
 
   const mappingTemplates = [
-    { id: "m1", name: "Standard Export" },
-    { id: "m2", name: "Documentation Only" },
-    { id: "m3", name: "Full Backup" },
+    { id: "m1", name: "Standard Export", labels: [] },
+    { id: "m2", name: "Documentation Only", labels: ["Docs"] },
+    { id: "m3", name: "Full Backup", labels: [] },
   ];
 
   const getTemplates = () => {
@@ -290,7 +280,7 @@ const MockupTemplatesFolderPanel = ({
                 id={template.id}
                 icon={TemplateIcon} 
                 label={template.name}
-                category={template.category}
+                labels={template.labels || []}
                 starred={template.starred}
                 isActive={selectedTemplateId === template.id}
                 onMove={handleMove}

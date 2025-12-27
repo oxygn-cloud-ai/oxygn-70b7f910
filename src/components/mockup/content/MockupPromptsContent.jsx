@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
+import { LabelPicker } from "@/components/ui/label-picker";
+import { LabelBadge } from "@/components/ui/label-badge";
 
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
@@ -48,10 +50,10 @@ const MOCK_VARIABLES = [
 ];
 
 const LIBRARY_PROMPTS = [
-  { id: "1", name: "Professional Tone", category: "Style" },
-  { id: "2", name: "Friendly Greeting", category: "Intro" },
-  { id: "3", name: "Error Handler", category: "System" },
-  { id: "4", name: "JSON Output Format", category: "Format" },
+  { id: "1", name: "Professional Tone", labels: ["Style"] },
+  { id: "2", name: "Friendly Greeting", labels: ["Intro", "Style"] },
+  { id: "3", name: "Error Handler", labels: ["System", "Technical"] },
+  { id: "4", name: "JSON Output Format", labels: ["Format", "Technical"] },
 ];
 
 // Component to render text with highlighted variables
@@ -168,7 +170,11 @@ const LibraryPickerDropdown = () => {
           {filteredPrompts.map(prompt => (
             <DropdownMenuItem key={prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
               <span className="flex-1">{prompt.name}</span>
-              <span className="text-[10px] text-on-surface-variant">{prompt.category}</span>
+              <div className="flex gap-1">
+                {prompt.labels?.slice(0, 1).map(lbl => (
+                  <LabelBadge key={lbl} label={lbl} size="xs" />
+                ))}
+              </div>
             </DropdownMenuItem>
           ))}
         </div>
@@ -441,7 +447,11 @@ const MockupPromptsContent = ({
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
         <div className="flex items-center gap-2">
           <h2 className="text-title-sm text-on-surface font-medium">Customer Support Agent</h2>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Business</span>
+          <LabelPicker 
+            labels={["Business", "Support"]} 
+            onLabelsChange={(newLabels) => console.log('Labels changed:', newLabels)}
+            maxDisplay={2}
+          />
         </div>
         <div className="flex items-center gap-0.5">
           <Tooltip>
