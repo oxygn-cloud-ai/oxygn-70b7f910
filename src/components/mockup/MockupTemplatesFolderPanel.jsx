@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { 
   LayoutTemplate, 
   Star, 
@@ -12,7 +12,8 @@ import {
   Copy,
   Trash2,
   Upload,
-  GripVertical
+  GripVertical,
+  Loader2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
@@ -39,11 +40,14 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick }) =>
   </button>
 );
 
-const IconButton = ({ icon: Icon, label, className = "" }) => (
+const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick?.();
+        }}
         className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] ${className}`}
       >
         <Icon className="h-3.5 w-3.5" />
@@ -62,7 +66,9 @@ const TemplateTreeItem = ({
   labels = [],
   onMove,
   index,
-  onClick
+  onClick,
+  onDelete,
+  onDuplicate
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
@@ -116,9 +122,9 @@ const TemplateTreeItem = ({
       {isHovered ? (
         <div className="flex items-center gap-0.5">
           <IconButton icon={Star} label="Star" className={starred ? "text-amber-500" : ""} />
-          <IconButton icon={Copy} label="Duplicate" />
+          <IconButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
           <IconButton icon={Upload} label="Export" />
-          <IconButton icon={Trash2} label="Delete" />
+          <IconButton icon={Trash2} label="Delete" onClick={onDelete} />
         </div>
       ) : (
         <div className="flex items-center gap-1">
@@ -139,7 +145,16 @@ const MockupTemplatesFolderPanel = ({
   onSelectTemplate, 
   selectedTemplateId,
   activeTemplateTab = "prompts",
-  onTemplateTabChange
+  onTemplateTabChange,
+  // Real data props - Phase 8-9
+  templates = [],
+  schemaTemplates = [],
+  isLoadingTemplates = false,
+  isLoadingSchemas = false,
+  onCreateTemplate,
+  onDeleteTemplate,
+  onCreateSchema,
+  onDeleteSchema,
 }) => {
   const [activeFolder, setActiveFolder] = useState("all");
 
@@ -153,34 +168,52 @@ const MockupTemplatesFolderPanel = ({
     console.log(`Move ${draggedId} to position near ${targetId} (index: ${targetIndex})`);
   };
 
-  const promptTemplates = [
-    { id: "p1", name: "Customer Support Agent", labels: ["Business", "Support"], starred: true },
-    { id: "p2", name: "Code Review Assistant", labels: ["Technical"] },
-    { id: "p3", name: "Content Writer", labels: ["Marketing", "Creative"] },
-    { id: "p4", name: "Data Analyst", labels: ["Technical", "Analysis"], starred: true },
-    { id: "p5", name: "Email Composer", labels: ["Business"] },
-  ];
-
-  const schemaTemplates = [
-    { id: "s1", name: "Action Response", labels: ["Action"] },
-    { id: "s2", name: "Data Extraction", labels: ["Extraction", "Technical"] },
-    { id: "s3", name: "Sentiment Analysis", labels: ["Analysis", "NLP"] },
-  ];
-
+  // Mock mapping templates (not yet implemented in real hooks)
   const mappingTemplates = [
     { id: "m1", name: "Standard Export", labels: [] },
     { id: "m2", name: "Documentation Only", labels: ["Docs"] },
     { id: "m3", name: "Full Backup", labels: [] },
   ];
 
-  const getTemplates = () => {
+  // Transform real data to display format
+  const displayTemplates = useMemo(() => {
     switch (activeType) {
-      case "prompts": return promptTemplates;
-      case "schemas": return schemaTemplates;
-      case "mappings": return mappingTemplates;
-      default: return promptTemplates;
+      case "prompts":
+        return templates.map(t => ({
+          id: t.row_id,
+          row_id: t.row_id,
+          name: t.template_name || "Untitled Template",
+          description: t.template_description,
+          labels: t.category ? [t.category] : [],
+          starred: false, // Not implemented yet
+          structure: t.structure,
+          variable_definitions: t.variable_definitions,
+          version: t.version,
+          is_private: t.is_private,
+        }));
+      case "schemas":
+        return schemaTemplates.map(s => ({
+          id: s.row_id,
+          row_id: s.row_id,
+          name: s.schema_name || "Untitled Schema",
+          description: s.schema_description,
+          labels: s.category ? [s.category] : [],
+          starred: false,
+          json_schema: s.json_schema,
+          is_private: s.is_private,
+        }));
+      case "mappings":
+        return mappingTemplates;
+      default:
+        return templates.map(t => ({
+          id: t.row_id,
+          row_id: t.row_id,
+          name: t.template_name || "Untitled Template",
+          labels: t.category ? [t.category] : [],
+          starred: false,
+        }));
     }
-  };
+  }, [activeType, templates, schemaTemplates]);
 
   const getIcon = () => {
     switch (activeType) {
@@ -191,8 +224,42 @@ const MockupTemplatesFolderPanel = ({
     }
   };
 
-  const templates = getTemplates();
   const TemplateIcon = getIcon();
+  const isLoading = activeType === "prompts" ? isLoadingTemplates : 
+                    activeType === "schemas" ? isLoadingSchemas : false;
+
+  const handleCreateNew = async () => {
+    if (activeType === "prompts" && onCreateTemplate) {
+      const newTemplate = await onCreateTemplate({
+        name: "New Template",
+        description: "",
+        category: "general",
+        structure: {},
+        isPrivate: false,
+      });
+      if (newTemplate) {
+        onSelectTemplate?.(newTemplate);
+      }
+    } else if (activeType === "schemas" && onCreateSchema) {
+      const newSchema = await onCreateSchema({
+        schemaName: "New Schema",
+        schemaDescription: "",
+        category: "general",
+        jsonSchema: { type: "object", properties: {} },
+      });
+      if (newSchema) {
+        onSelectTemplate?.(newSchema);
+      }
+    }
+  };
+
+  const handleDelete = async (template) => {
+    if (activeType === "prompts" && onDeleteTemplate) {
+      await onDeleteTemplate(template.row_id);
+    } else if (activeType === "schemas" && onDeleteSchema) {
+      await onDeleteSchema(template.row_id);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
@@ -232,21 +299,21 @@ const MockupTemplatesFolderPanel = ({
           <SmartFolder 
             icon={LayoutTemplate} 
             label="All Templates" 
-            count={templates.length} 
+            count={displayTemplates.length} 
             isActive={activeFolder === "all"}
             onClick={() => setActiveFolder("all")}
           />
           <SmartFolder 
             icon={Star} 
             label="Starred" 
-            count={templates.filter(t => t.starred).length}
+            count={displayTemplates.filter(t => t.starred).length}
             isActive={activeFolder === "starred"}
             onClick={() => setActiveFolder("starred")}
           />
           <SmartFolder 
             icon={Clock} 
             label="Recent" 
-            count={3}
+            count={Math.min(3, displayTemplates.length)}
             isActive={activeFolder === "recent"}
             onClick={() => setActiveFolder("recent")}
           />
@@ -264,31 +331,48 @@ const MockupTemplatesFolderPanel = ({
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button 
+                onClick={handleCreateNew}
+                className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">New {activeType === "prompts" ? "Template" : activeType === "schemas" ? "Schema" : "Mapping"}</TooltipContent>
           </Tooltip>
         </div>
-        <div className="flex flex-col gap-0.5">
-          {templates
-            .filter(t => activeFolder === "all" || (activeFolder === "starred" && t.starred))
-            .map((template, index) => (
-              <TemplateTreeItem 
-                key={template.id}
-                id={template.id}
-                icon={TemplateIcon} 
-                label={template.name}
-                labels={template.labels || []}
-                starred={template.starred}
-                isActive={selectedTemplateId === template.id}
-                onMove={handleMove}
-                index={index}
-                onClick={() => onSelectTemplate?.(template)}
-              />
-            ))}
-        </div>
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 text-on-surface-variant animate-spin" />
+          </div>
+        ) : displayTemplates.length === 0 ? (
+          <div className="text-center py-8 text-on-surface-variant">
+            <LayoutTemplate className="h-8 w-8 mx-auto mb-2 opacity-30" />
+            <p className="text-[11px]">No {activeType} yet</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            {displayTemplates
+              .filter(t => activeFolder === "all" || (activeFolder === "starred" && t.starred))
+              .slice(0, activeFolder === "recent" ? 3 : undefined)
+              .map((template, index) => (
+                <TemplateTreeItem 
+                  key={template.id}
+                  id={template.id}
+                  icon={TemplateIcon} 
+                  label={template.name}
+                  labels={template.labels || []}
+                  starred={template.starred}
+                  isActive={selectedTemplateId === template.id || selectedTemplateId === template.row_id}
+                  onMove={handleMove}
+                  index={index}
+                  onClick={() => onSelectTemplate?.(template)}
+                  onDelete={() => handleDelete(template)}
+                />
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );

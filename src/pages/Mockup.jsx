@@ -22,6 +22,8 @@ import { useModels } from "@/hooks/useModels";
 import { useWorkbenchThreads } from "@/hooks/useWorkbenchThreads";
 import { useWorkbenchMessages } from "@/hooks/useWorkbenchMessages";
 import { useWorkbenchFiles } from "@/hooks/useWorkbenchFiles";
+import { useTemplates } from "@/hooks/useTemplates";
+import { useJsonSchemaTemplates } from "@/hooks/useJsonSchemaTemplates";
 import { buildTree } from "@/utils/positionUtils";
 
 const Mockup = () => {
@@ -82,6 +84,10 @@ const Mockup = () => {
   const workbenchThreads = useWorkbenchThreads();
   const workbenchMessages = useWorkbenchMessages();
   const workbenchFiles = useWorkbenchFiles();
+  
+  // Template hooks - Phase 8-9
+  const templatesHook = useTemplates();
+  const jsonSchemaTemplatesHook = useJsonSchemaTemplates();
   
   // Fetch messages when active thread changes
   useEffect(() => {
@@ -267,9 +273,18 @@ const Mockup = () => {
       return (
         <MockupTemplatesFolderPanel 
           onSelectTemplate={handleSelectTemplate}
-          selectedTemplateId={selectedTemplate?.id}
+          selectedTemplateId={selectedTemplate?.row_id || selectedTemplate?.id}
           activeTemplateTab={activeTemplateTab}
           onTemplateTabChange={setActiveTemplateTab}
+          // Phase 8-9: Real templates data
+          templates={templatesHook.templates}
+          schemaTemplates={jsonSchemaTemplatesHook.templates}
+          isLoadingTemplates={templatesHook.isLoading}
+          isLoadingSchemas={jsonSchemaTemplatesHook.isLoading}
+          onCreateTemplate={templatesHook.createTemplate}
+          onDeleteTemplate={templatesHook.deleteTemplate}
+          onCreateSchema={jsonSchemaTemplatesHook.createTemplate}
+          onDeleteSchema={jsonSchemaTemplatesHook.deleteTemplate}
         />
       );
     }
@@ -359,6 +374,9 @@ const Mockup = () => {
                     workbenchThreads={workbenchThreads}
                     workbenchMessages={workbenchMessages}
                     workbenchFiles={workbenchFiles}
+                    // Templates props for Phase 8-9
+                    templatesHook={templatesHook}
+                    jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
                   />
                 </ResizablePanel>
 
