@@ -35,10 +35,12 @@ const MockupReadingPane = ({
   models = [],
   isLoadingModels = false,
   onToggleModel,
-  // Workbench props - Phase 7
+  // Workbench props - Phase 3
   workbenchThreads,
   workbenchMessages,
   workbenchFiles,
+  workbenchConfluence,
+  promptLibrary,
   // Templates props - Phase 8-9
   templatesHook,
   jsonSchemaTemplatesHook,
@@ -51,6 +53,8 @@ const MockupReadingPane = ({
         workbenchThreads={workbenchThreads}
         workbenchMessages={workbenchMessages}
         workbenchFiles={workbenchFiles}
+        workbenchConfluence={workbenchConfluence}
+        promptLibrary={promptLibrary}
       />
     );
   }

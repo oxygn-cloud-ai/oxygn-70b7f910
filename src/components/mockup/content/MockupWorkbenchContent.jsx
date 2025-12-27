@@ -375,14 +375,82 @@ const ToolActivityIndicator = ({ tools, isExecuting }) => {
 };
 
 // Enhanced Resources Panel Component
-const ResourcesPanel = ({ isOpen, onClose }) => {
+const ResourcesPanel = ({ 
+  isOpen, 
+  onClose, 
+  files = [], 
+  isLoadingFiles = false,
+  isUploading = false, 
+  onUploadFile, 
+  onDeleteFile,
+  activeThreadId,
+  confluenceHook,
+  libraryHook
+}) => {
   const [activeTab, setActiveTab] = useState("files");
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [confluenceSearch, setConfluenceSearch] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedSpace, setSelectedSpace] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
+  const fileInputRef = React.useRef(null);
+
+  // Destructure confluence hook
+  const {
+    pages = [],
+    searchResults = [],
+    spaces = [],
+    isLoading: isLoadingPages = false,
+    isSearching = false,
+    isSyncing = false,
+    searchPages,
+    listSpaces,
+    attachPage,
+    detachPage,
+    syncPage,
+    clearSearch,
+  } = confluenceHook || {};
+
+  // Destructure library hook
+  const {
+    items: libraryItems = [],
+    categories = [],
+    isLoading: isLoadingLibrary = false,
+    searchItems,
+  } = libraryHook || {};
+
+  // Load spaces on mount
+  useEffect(() => {
+    if (listSpaces) {
+      listSpaces();
+    }
+  }, [listSpaces]);
+
+  const handleFileSelect = async (e) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile && onUploadFile && activeThreadId) {
+      await onUploadFile(activeThreadId, selectedFile);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSearch = (query) => {
+    setConfluenceSearch(query);
+    if (searchPages) {
+      searchPages(query);
+    }
+  };
+
+  const handleAttachPage = async (page) => {
+    if (attachPage && activeThreadId) {
+      await attachPage(activeThreadId, page);
+      clearSearch?.();
+      setConfluenceSearch('');
+    }
+  };
+
+  const filteredLibrary = librarySearch 
+    ? (searchItems ? searchItems(librarySearch) : libraryItems)
+    : libraryItems;
 
   if (!isOpen) return null;
 
@@ -406,18 +474,18 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
         <TabsList className="w-full h-9 grid grid-cols-3 bg-surface-container m-2 rounded-m3-sm">
           <TabsTrigger value="files" className="text-[10px] gap-1 data-[state=active]:bg-secondary-container">
             <Paperclip className="h-3.5 w-3.5" />
-            <span className="text-[9px]">{MOCK_FILES.length}</span>
+            <span className="text-[9px]">{files.length}</span>
           </TabsTrigger>
           <TabsTrigger value="pages" className="text-[10px] gap-1 data-[state=active]:bg-secondary-container">
             <FileText className="h-3.5 w-3.5" />
-            <span className="text-[9px]">{MOCK_PAGES.length}</span>
+            <span className="text-[9px]">{pages.length}</span>
           </TabsTrigger>
           <TabsTrigger value="library" className="text-[10px] gap-1 data-[state=active]:bg-secondary-container">
             <BookOpen className="h-3.5 w-3.5" />
           </TabsTrigger>
         </TabsList>
 
-        {/* Files Tab - Enhanced */}
+        {/* Files Tab - Real Data */}
         <TabsContent value="files" className="flex-1 m-0 overflow-auto p-2">
           <div className="space-y-2">
             {/* Upload Progress */}
@@ -427,26 +495,44 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
                   <Loader2 className="h-3 w-3 text-primary animate-spin" />
                   <span className="text-[11px] text-on-surface">Uploading file...</span>
                 </div>
-                <Progress value={uploadProgress} className="h-1.5" />
+                <Progress value={50} className="h-1.5" />
+              </div>
+            )}
+
+            {/* Loading state */}
+            {isLoadingFiles && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 text-primary animate-spin" />
               </div>
             )}
 
             {/* File List */}
-            {MOCK_FILES.map(file => (
-              <div key={file.id} className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] group">
+            {!isLoadingFiles && files.map(file => (
+              <div key={file.row_id} className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] group">
                 <div className="w-8 h-8 flex items-center justify-center bg-surface-container rounded-m3-sm">
                   <FileText className="h-4 w-4 text-on-surface-variant" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-body-sm text-on-surface truncate">{file.name}</p>
+                  <p className="text-body-sm text-on-surface truncate">{file.original_filename}</p>
                   <div className="flex items-center gap-2">
-                    <p className="text-[10px] text-on-surface-variant">{file.size}</p>
-                    <span className="text-[9px] px-1 py-0.5 rounded bg-green-500/10 text-green-600">Ready</span>
+                    <p className="text-[10px] text-on-surface-variant">
+                      {file.file_size ? `${Math.round(file.file_size / 1024)} KB` : 'Unknown size'}
+                    </p>
+                    <span className={`text-[9px] px-1 py-0.5 rounded ${
+                      file.upload_status === 'synced' ? 'bg-green-500/10 text-green-600' :
+                      file.upload_status === 'uploaded' ? 'bg-blue-500/10 text-blue-600' :
+                      'bg-amber-500/10 text-amber-600'
+                    }`}>
+                      {file.upload_status || 'Pending'}
+                    </span>
                   </div>
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]">
+                    <button 
+                      onClick={() => onDeleteFile?.(file.row_id)}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </TooltipTrigger>
@@ -455,15 +541,33 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
               </div>
             ))}
 
+            {/* Empty state */}
+            {!isLoadingFiles && files.length === 0 && (
+              <div className="text-center py-4 text-on-surface-variant">
+                <Paperclip className="h-6 w-6 mx-auto opacity-30 mb-1" />
+                <p className="text-[11px]">No files attached</p>
+              </div>
+            )}
+
             {/* Upload Button */}
-            <button className="w-full h-16 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-outline-variant rounded-m3-md hover:border-primary hover:bg-primary/5 transition-colors">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="w-full h-16 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-outline-variant rounded-m3-md hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+            >
               <Upload className="h-4 w-4 text-on-surface-variant" />
               <span className="text-[10px] text-on-surface-variant">Drop files or click to upload</span>
             </button>
           </div>
         </TabsContent>
 
-        {/* Confluence Tab - Enhanced */}
+        {/* Confluence Tab - Real Data */}
         <TabsContent value="pages" className="flex-1 m-0 overflow-auto p-2">
           <div className="space-y-2">
             {/* Search */}
@@ -476,90 +580,125 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
               <input
                 type="text"
                 value={confluenceSearch}
-                onChange={(e) => setConfluenceSearch(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Search Confluence..."
                 className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
               />
+              {confluenceSearch && (
+                <button 
+                  onClick={() => { setConfluenceSearch(''); clearSearch?.(); }}
+                  className="w-5 h-5 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </div>
 
-            {/* Space Selector */}
-            <div className="flex items-center gap-2 h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
-              <FolderOpen className="h-3.5 w-3.5 text-on-surface-variant" />
-              <select 
-                value={selectedSpace}
-                onChange={(e) => setSelectedSpace(e.target.value)}
-                className="flex-1 bg-transparent text-body-sm text-on-surface focus:outline-none"
-              >
-                <option value="">All Spaces</option>
-                {MOCK_CONFLUENCE_SPACES.map(space => (
-                  <option key={space.key} value={space.key}>{space.name}</option>
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="space-y-1 border-b border-outline-variant pb-2">
+                <span className="text-[10px] text-on-surface-variant uppercase">Search Results</span>
+                {searchResults.map(page => (
+                  <div 
+                    key={page.page_id} 
+                    onClick={() => handleAttachPage(page)}
+                    className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-on-surface-variant" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-body-sm text-on-surface truncate">{page.page_title || page.title}</p>
+                      <p className="text-[10px] text-on-surface-variant">{page.space_key}</p>
+                    </div>
+                    <Plus className="h-3.5 w-3.5 text-primary" />
+                  </div>
                 ))}
-              </select>
-            </div>
+              </div>
+            )}
 
             {/* Linked Pages */}
             <div className="space-y-1">
               <span className="text-[10px] text-on-surface-variant uppercase">Linked Pages</span>
-              {MOCK_PAGES.map(page => (
-                <div key={page.id} className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] group">
-                  <Link2 className="h-3.5 w-3.5 text-on-surface-variant" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body-sm text-on-surface truncate">{page.title}</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] text-on-surface-variant">{page.space}</p>
-                      {page.syncStatus === "synced" ? (
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-green-500/10 text-green-600 flex items-center gap-0.5">
-                          <CheckCircle2 className="h-2.5 w-2.5" />
-                          {page.lastSynced}
-                        </span>
-                      ) : (
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600">Pending</span>
+              
+              {isLoadingPages ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                </div>
+              ) : pages.length === 0 ? (
+                <div className="text-center py-4 text-on-surface-variant">
+                  <Link2 className="h-6 w-6 mx-auto opacity-30 mb-1" />
+                  <p className="text-[11px]">No pages linked</p>
+                  <p className="text-[10px] opacity-70">Search above to link pages</p>
+                </div>
+              ) : (
+                pages.map(page => (
+                  <div key={page.row_id} className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] group">
+                    <Link2 className="h-3.5 w-3.5 text-on-surface-variant" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-body-sm text-on-surface truncate">{page.page_title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-on-surface-variant">{page.space_key}</p>
+                        {page.sync_status === "synced" ? (
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-green-500/10 text-green-600 flex items-center gap-0.5">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            Synced
+                          </span>
+                        ) : page.sync_status === "failed" ? (
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-red-500/10 text-red-600">Failed</span>
+                        ) : (
+                          <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600">
+                            {isSyncing ? 'Syncing...' : 'Pending'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button 
+                            onClick={() => syncPage?.(page.row_id)}
+                            disabled={isSyncing}
+                            className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] disabled:opacity-50"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px]">Sync</TooltipContent>
+                      </Tooltip>
+                      {page.page_url && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a 
+                              href={page.page_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-[10px]">Open in Confluence</TooltipContent>
+                        </Tooltip>
                       )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button 
+                            onClick={() => detachPage?.(page.row_id)}
+                            className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px]">Detach</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                          <RefreshCw className="h-3 w-3" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Sync</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Open in Confluence</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">Detach</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-
-            {/* Add Page Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Plus className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Link Page</TooltipContent>
-            </Tooltip>
           </div>
         </TabsContent>
 
-        {/* Library Tab - Enhanced */}
+        {/* Library Tab - Real Data */}
         <TabsContent value="library" className="flex-1 m-0 overflow-auto p-2">
           <div className="space-y-2">
             {/* Search */}
@@ -576,15 +715,30 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
 
             {/* Library Prompts */}
             <div className="space-y-1">
-              {MOCK_LIBRARY_PROMPTS.map(prompt => (
-                <div key={prompt.id} className="p-2 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer group">
-                  <div className="flex items-center justify-between">
-                    <span className="text-body-sm text-on-surface font-medium">{prompt.name}</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">{prompt.category}</span>
-                  </div>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">{prompt.description}</p>
+              {isLoadingLibrary ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
                 </div>
-              ))}
+              ) : filteredLibrary.length === 0 ? (
+                <div className="text-center py-4 text-on-surface-variant">
+                  <BookOpen className="h-6 w-6 mx-auto opacity-30 mb-1" />
+                  <p className="text-[11px]">{librarySearch ? 'No matches found' : 'Library empty'}</p>
+                </div>
+              ) : (
+                filteredLibrary.map(prompt => (
+                  <div key={prompt.row_id} className="p-2 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer group">
+                    <div className="flex items-center justify-between">
+                      <span className="text-body-sm text-on-surface font-medium">{prompt.name}</span>
+                      {prompt.category && (
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">{prompt.category}</span>
+                      )}
+                    </div>
+                    {prompt.description && (
+                      <p className="text-[10px] text-on-surface-variant mt-0.5">{prompt.description}</p>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </TabsContent>
@@ -601,6 +755,8 @@ const MockupWorkbenchContent = ({
   workbenchThreads,
   workbenchMessages,
   workbenchFiles,
+  workbenchConfluence,
+  promptLibrary,
 }) => {
   // Destructure from props with fallbacks
   const {
@@ -631,6 +787,7 @@ const MockupWorkbenchContent = ({
     isUploading = false,
     uploadFile,
     deleteFile: deleteWorkbenchFile,
+    fetchFiles,
   } = workbenchFiles || {};
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -647,10 +804,17 @@ const MockupWorkbenchContent = ({
   
   // Fetch files when active thread changes
   useEffect(() => {
-    if (activeThread?.row_id && workbenchFiles?.fetchFiles) {
-      workbenchFiles.fetchFiles(activeThread.row_id);
+    if (activeThread?.row_id && fetchFiles) {
+      fetchFiles(activeThread.row_id);
     }
-  }, [activeThread?.row_id, workbenchFiles]);
+  }, [activeThread?.row_id, fetchFiles]);
+  
+  // Fetch confluence pages when active thread changes
+  useEffect(() => {
+    if (activeThread?.row_id && workbenchConfluence?.fetchPages) {
+      workbenchConfluence.fetchPages(activeThread.row_id);
+    }
+  }, [activeThread?.row_id, workbenchConfluence]);
 
   const getFilteredThreads = () => {
     // Use real threads if available
@@ -975,7 +1139,20 @@ const MockupWorkbenchContent = ({
         </div>
 
         {/* Resources Panel */}
-        {activeThread && <ResourcesPanel isOpen={resourcesOpen} onClose={() => setResourcesOpen(false)} />}
+        {activeThread && (
+          <ResourcesPanel 
+            isOpen={resourcesOpen} 
+            onClose={() => setResourcesOpen(false)}
+            files={files}
+            isLoadingFiles={isLoadingFiles}
+            isUploading={isUploading}
+            onUploadFile={uploadFile}
+            onDeleteFile={deleteWorkbenchFile}
+            activeThreadId={activeThread?.row_id}
+            confluenceHook={workbenchConfluence}
+            libraryHook={promptLibrary}
+          />
+        )}
       </div>
 
       {/* Cascade Error Dialog */}
