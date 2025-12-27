@@ -14,11 +14,16 @@ import {
   Palette,
   Bell,
   User,
-  Heart,
   Activity,
   Server,
   Shield,
-  Zap
+  Zap,
+  Type,
+  Cpu,
+  DollarSign,
+  CreditCard,
+  Briefcase,
+  Sparkles
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -135,42 +140,54 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5">
-    <div className="flex flex-col gap-0.5">
+  <div className="p-1.5 space-y-3">
+    <SubmenuSection title="Configuration">
       <SubmenuItem 
         icon={Settings} 
         label="General" 
         description="App preferences"
-        isActive={activeSubItem === "general"}
-        onClick={() => onItemClick?.("general")}
+        isActive={activeSubItem === "qonsol"}
+        onClick={() => onItemClick?.("qonsol")}
+      />
+      <SubmenuItem 
+        icon={Type} 
+        label="Prompt Naming" 
+        description="Naming conventions"
+        isActive={activeSubItem === "naming"}
+        onClick={() => onItemClick?.("naming")}
+      />
+      <SubmenuItem 
+        icon={Cpu} 
+        label="AI Models" 
+        description="Model defaults & pricing"
+        isActive={activeSubItem === "models"}
+        onClick={() => onItemClick?.("models")}
       />
       <SubmenuItem 
         icon={Database} 
-        label="AI Models" 
-        description="Model defaults & pricing"
-        isActive={activeSubItem === "ai-models"}
-        onClick={() => onItemClick?.("ai-models")}
+        label="Database & Environment" 
+        description="Settings & secrets"
+        isActive={activeSubItem === "database"}
+        onClick={() => onItemClick?.("database")}
+      />
+    </SubmenuSection>
+
+    <div className="mx-2 h-px bg-outline-variant" />
+
+    <SubmenuSection title="Features">
+      <SubmenuItem 
+        icon={MessageSquare} 
+        label="Conversation Defaults" 
+        description="Assistant settings"
+        isActive={activeSubItem === "assistants"}
+        onClick={() => onItemClick?.("assistants")}
       />
       <SubmenuItem 
-        icon={Key} 
-        label="Credentials" 
-        description="API keys & tokens"
-        isActive={activeSubItem === "api-keys"}
-        onClick={() => onItemClick?.("api-keys")}
-      />
-      <SubmenuItem 
-        icon={Palette} 
-        label="Theme" 
-        description="Light / Dark mode"
-        isActive={activeSubItem === "theme"}
-        onClick={() => onItemClick?.("theme")}
-      />
-      <SubmenuItem 
-        icon={Bell} 
-        label="Notifications" 
-        description="Alert preferences"
-        isActive={activeSubItem === "notifications"}
-        onClick={() => onItemClick?.("notifications")}
+        icon={MessageSquare} 
+        label="Conversations" 
+        description="Thread management"
+        isActive={activeSubItem === "conversations"}
+        onClick={() => onItemClick?.("conversations")}
       />
       <SubmenuItem 
         icon={FileText} 
@@ -180,12 +197,62 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("confluence")}
       />
       <SubmenuItem 
-        icon={Activity} 
+        icon={Briefcase} 
+        label="Workbench" 
+        description="Workbench options"
+        isActive={activeSubItem === "workbench"}
+        onClick={() => onItemClick?.("workbench")}
+      />
+    </SubmenuSection>
+
+    <div className="mx-2 h-px bg-outline-variant" />
+
+    <SubmenuSection title="Billing & Usage">
+      <SubmenuItem 
+        icon={DollarSign} 
         label="Cost Analytics" 
         description="Usage & spending"
         isActive={activeSubItem === "cost-analytics"}
         onClick={() => onItemClick?.("cost-analytics")}
       />
+      <SubmenuItem 
+        icon={CreditCard} 
+        label="OpenAI Billing" 
+        description="Subscription & credits"
+        isActive={activeSubItem === "openai-billing"}
+        onClick={() => onItemClick?.("openai-billing")}
+      />
+    </SubmenuSection>
+
+    <div className="mx-2 h-px bg-outline-variant" />
+
+    <SubmenuSection title="Preferences">
+      <SubmenuItem 
+        icon={Palette} 
+        label="Appearance" 
+        description="Theme & colors"
+        isActive={activeSubItem === "appearance"}
+        onClick={() => onItemClick?.("appearance")}
+      />
+      <SubmenuItem 
+        icon={Sparkles} 
+        label="New UI (Beta)" 
+        description="Experimental interface"
+        isActive={activeSubItem === "new-ui"}
+        onClick={() => onItemClick?.("new-ui")}
+      />
+      <SubmenuItem 
+        icon={Bell} 
+        label="Notifications" 
+        description="Alert preferences"
+        isActive={activeSubItem === "notifications"}
+        onClick={() => onItemClick?.("notifications")}
+      />
+    </SubmenuSection>
+
+    <div className="mx-2 h-px bg-outline-variant" />
+
+    <SubmenuSection title="Account">
       <SubmenuItem 
         icon={User} 
         label="Profile" 
@@ -194,13 +261,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("profile")}
       />
       <SubmenuItem 
-        icon={Heart} 
-        label="New UI (Beta)" 
-        description="Experimental interface"
-        isActive={activeSubItem === "new-ui"}
-        onClick={() => onItemClick?.("new-ui")}
+        icon={Key} 
+        label="API Keys" 
+        description="Credentials & tokens"
+        isActive={activeSubItem === "api-keys"}
+        onClick={() => onItemClick?.("api-keys")}
       />
-    </div>
+    </SubmenuSection>
   </div>
 );
 
