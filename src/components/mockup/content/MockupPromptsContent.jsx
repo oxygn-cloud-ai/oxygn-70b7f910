@@ -923,9 +923,9 @@ const ConversationTabContent = ({ isAssistantEnabled = true }) => {
   }
 
   return (
-    <div className="flex flex-col h-[400px] -m-4">
+    <div className="rounded-m3-lg border border-outline-variant bg-surface-container-low overflow-hidden">
       {/* Conversation Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant shrink-0">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant">
         <div className="flex items-center gap-2">
           <span className="text-body-sm text-on-surface font-medium">Thread #1</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
@@ -950,45 +950,43 @@ const ConversationTabContent = ({ isAssistantEnabled = true }) => {
         </div>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1">
-        <div className="p-3 space-y-3">
-          {MOCK_CONVERSATION.map((message) => (
-            <div 
-              key={message.id}
-              className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.role === 'assistant' && (
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <Sparkles className="h-3 w-3 text-primary" />
-                </div>
-              )}
-              <div className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : ''}`}>
-                <div 
-                  className={`p-2.5 rounded-m3-md text-body-sm ${
-                    message.role === 'user' 
-                      ? 'bg-primary text-primary-foreground rounded-br-sm' 
-                      : 'bg-surface-container border border-outline-variant text-on-surface rounded-bl-sm'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
-                <p className={`text-[10px] text-on-surface-variant mt-0.5 ${message.role === 'user' ? 'text-right' : ''}`}>
-                  {message.timestamp}
-                </p>
+      {/* Messages (page-level scroll handles overflow) */}
+      <div className="p-3 space-y-3">
+        {MOCK_CONVERSATION.map((message) => (
+          <div 
+            key={message.id}
+            className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            {message.role === 'assistant' && (
+              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Sparkles className="h-3 w-3 text-primary" />
               </div>
-              {message.role === 'user' && (
-                <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
-                  <User className="h-3 w-3 text-secondary-container-foreground" />
-                </div>
-              )}
+            )}
+            <div className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : ''}`}>
+              <div 
+                className={`p-2.5 rounded-m3-md text-body-sm ${
+                  message.role === 'user' 
+                    ? 'bg-primary text-primary-foreground rounded-br-sm' 
+                    : 'bg-surface-container border border-outline-variant text-on-surface rounded-bl-sm'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              </div>
+              <p className={`text-[10px] text-on-surface-variant mt-0.5 ${message.role === 'user' ? 'text-right' : ''}`}>
+                {message.timestamp}
+              </p>
             </div>
-          ))}
-        </div>
-      </ScrollArea>
+            {message.role === 'user' && (
+              <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+                <User className="h-3 w-3 text-secondary-container-foreground" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-outline-variant shrink-0">
+      <div className="p-3 border-t border-outline-variant">
         <div className="flex items-end gap-2">
           <div className="flex-1 min-h-[36px] max-h-24 bg-surface-container rounded-m3-md border border-outline-variant">
             <textarea
