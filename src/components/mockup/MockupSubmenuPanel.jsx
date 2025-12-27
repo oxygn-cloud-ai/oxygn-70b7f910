@@ -205,8 +205,8 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5 space-y-3">
-    <SubmenuSection title="System Status">
+  <div className="p-1.5">
+    <div className="flex flex-col gap-0.5">
       <SubmenuItem 
         icon={Activity} 
         label="Overview" 
@@ -228,11 +228,6 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "ai-services"}
         onClick={() => onItemClick?.("ai-services")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Security">
       <SubmenuItem 
         icon={Shield} 
         label="Auth Status" 
@@ -247,11 +242,6 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "api-health"}
         onClick={() => onItemClick?.("api-health")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Configuration">
       <SubmenuItem 
         icon={Server} 
         label="Environment" 
@@ -259,7 +249,7 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "environment"}
         onClick={() => onItemClick?.("environment")}
       />
-    </SubmenuSection>
+    </div>
   </div>
 );
 
