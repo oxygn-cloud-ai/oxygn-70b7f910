@@ -239,8 +239,9 @@ const LibraryPickerDropdown = () => {
   );
 };
 
-// Import the ResizablePromptArea component
+// Import the resizable area components
 import ResizablePromptArea from "../shared/ResizablePromptArea";
+import ResizableOutputArea from "../shared/ResizableOutputArea";
 
 // Prompt Tab Content
 const PromptTabContent = ({ promptData, onUpdateField }) => {
@@ -273,70 +274,14 @@ const PromptTabContent = ({ promptData, onUpdateField }) => {
       />
 
       {/* Output */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Output</label>
-            {outputResponse && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 flex items-center gap-1">
-                <Check className="h-2.5 w-2.5" />
-                Generated
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Regenerate</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Copy Output</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-        <div className="min-h-36 p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
-          {outputResponse || <span className="text-on-surface-variant opacity-50">No output yet. Run the prompt to generate a response.</span>}
-        </div>
-        
-        {/* Metadata */}
-        {metadata && (
-          <div className="flex items-center gap-3 text-[10px] text-on-surface-variant">
-            {metadata.latency_ms && (
-              <>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {(metadata.latency_ms / 1000).toFixed(1)}s
-                </span>
-                <span>•</span>
-              </>
-            )}
-            {metadata.model && (
-              <>
-                <span>{metadata.model}</span>
-                <span>•</span>
-              </>
-            )}
-            {metadata.tokens_total && (
-              <>
-                <span>{metadata.tokens_total} tokens</span>
-                <span>•</span>
-              </>
-            )}
-            {metadata.cost_total_usd && (
-              <span>${metadata.cost_total_usd.toFixed(4)}</span>
-            )}
-          </div>
-        )}
-      </div>
+      <ResizableOutputArea
+        label="Output"
+        value={outputResponse}
+        placeholder="No output yet. Run the prompt to generate a response."
+        metadata={metadata}
+        defaultHeight={144}
+        onRegenerate={() => {}}
+      />
     </div>
   );
 };
