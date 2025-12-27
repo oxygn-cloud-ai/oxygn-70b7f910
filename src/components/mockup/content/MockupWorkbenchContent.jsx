@@ -689,7 +689,7 @@ const MockupWorkbenchContent = ({
   // Show new conversation view
   if (activeSubItem === "new-conversation" && !activeThread) {
     return (
-      <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+      <div className="flex-1 flex flex-col bg-surface min-h-0">
         {/* Cascade Progress Bar */}
         {showCascadeProgress && (
           <CascadeProgressBar 
@@ -775,7 +775,7 @@ const MockupWorkbenchContent = ({
 
   // Show thread list and chat view
   return (
-    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+    <div className="flex-1 flex flex-col bg-surface min-h-0">
       {/* Cascade Progress Bar */}
       {showCascadeProgress && (
         <CascadeProgressBar 
@@ -923,7 +923,7 @@ const MockupWorkbenchContent = ({
                       }}
                       placeholder="Type a message..."
                       disabled={isStreaming}
-                      className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none disabled:opacity-50"
+                      className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none disabled:opacity-50 resize-y"
                     />
                   </div>
                   <div className="flex gap-0.5">

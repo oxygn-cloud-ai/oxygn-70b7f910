@@ -34,7 +34,7 @@ const MockupConversationPanel = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
+    <div className="h-full flex flex-col bg-surface-container-low min-h-0">
       {/* Header - matches main toolbar height */}
       <div 
         className="h-14 flex items-center justify-between px-3 border-b border-outline-variant"
@@ -144,7 +144,7 @@ const MockupConversationPanel = ({
               onKeyDown={handleKeyDown}
               placeholder="Type a message..."
               rows={1}
-              className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none"
+              className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-y"
             />
           </div>
           <div className="flex gap-0.5">

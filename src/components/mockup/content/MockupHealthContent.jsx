@@ -418,7 +418,7 @@ const MockupHealthContent = ({ activeSubItem = "overview" }) => {
   const Icon = section.icon;
 
   return (
-    <div className="flex-1 flex flex-col bg-surface overflow-hidden">
+    <div className="flex-1 flex flex-col bg-surface min-h-0">
       {/* Header */}
       <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant" style={{ height: "56px" }}>
         <Icon className="h-5 w-5 text-on-surface-variant" />
