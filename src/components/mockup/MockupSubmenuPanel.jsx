@@ -153,8 +153,8 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
       />
       <SubmenuItem 
         icon={Key} 
-        label="API Keys" 
-        description="Manage credentials"
+        label="Credentials" 
+        description="API keys & tokens"
         isActive={activeSubItem === "api-keys"}
         onClick={() => onItemClick?.("api-keys")}
       />
@@ -181,6 +181,25 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
     
     <div className="mx-3 h-px bg-outline-variant" />
     
+    <SubmenuSection title="Integrations">
+      <SubmenuItem 
+        icon={FileText} 
+        label="Confluence" 
+        description="Page sync settings"
+        isActive={activeSubItem === "confluence"}
+        onClick={() => onItemClick?.("confluence")}
+      />
+      <SubmenuItem 
+        icon={Activity} 
+        label="Cost Analytics" 
+        description="Usage & spending"
+        isActive={activeSubItem === "cost-analytics"}
+        onClick={() => onItemClick?.("cost-analytics")}
+      />
+    </SubmenuSection>
+    
+    <div className="mx-3 h-px bg-outline-variant" />
+    
     <SubmenuSection title="Account">
       <SubmenuItem 
         icon={User} 
@@ -188,6 +207,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="User settings"
         isActive={activeSubItem === "profile"}
         onClick={() => onItemClick?.("profile")}
+      />
+      <SubmenuItem 
+        icon={Heart} 
+        label="New UI (Beta)" 
+        description="Experimental interface"
+        isActive={activeSubItem === "new-ui"}
+        onClick={() => onItemClick?.("new-ui")}
       />
     </SubmenuSection>
   </div>
@@ -235,6 +261,18 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
         description="All keys valid"
         isActive={activeSubItem === "api-health"}
         onClick={() => onItemClick?.("api-health")}
+      />
+    </SubmenuSection>
+    
+    <div className="mx-3 h-px bg-outline-variant" />
+    
+    <SubmenuSection title="Configuration">
+      <SubmenuItem 
+        icon={Server} 
+        label="Environment" 
+        description="Variables & secrets"
+        isActive={activeSubItem === "environment"}
+        onClick={() => onItemClick?.("environment")}
       />
     </SubmenuSection>
   </div>
