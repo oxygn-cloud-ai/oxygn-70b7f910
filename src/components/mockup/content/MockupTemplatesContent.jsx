@@ -1026,23 +1026,6 @@ const MockupTemplatesContent = ({
               variables={displayVariables}
             />
           )}
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Attachments Tab */}
-        {activeEditorTab === "attachments" && activeTemplateTab === "prompts" && (
-          <AttachmentsTab />
-        )}
-
-        {/* Preview Tab */}
-        {activeEditorTab === "preview" && activeTemplateTab === "prompts" && (
-          <div className="max-w-2xl">
-            <EnhancedPreviewPanel template={selectedTemplate} variables={displayVariables} />
-          </div>
-        )}
 
         {/* Schema Tab */}
         {activeTemplateTab === "schemas" && activeEditorTab === "schema" && (
