@@ -239,65 +239,8 @@ const LibraryPickerDropdown = () => {
   );
 };
 
-// Editable Text Area Component with Variable Picker
-const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick, onChange }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-
-  // Sync editValue when value prop changes
-  React.useEffect(() => {
-    setEditValue(value || '');
-  }, [value]);
-
-  const handleInsertVariable = (variable) => {
-    const insertion = `{{${variable}}}`;
-    setEditValue(prev => prev + insertion);
-  };
-
-  const handleDoneEditing = () => {
-    setIsEditing(false);
-    if (onChange && editValue !== value) {
-      onChange(editValue);
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</label>
-        <div className="flex items-center gap-1">
-          <MockupVariablePicker onInsert={handleInsertVariable} />
-          {onLibraryPick && <LibraryPickerDropdown />}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={() => isEditing ? handleDoneEditing() : setIsEditing(true)}
-                className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
-                  isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-                }`}
-              >
-                {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-      {isEditing ? (
-        <textarea
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          placeholder={placeholder}
-          className={`w-full ${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y font-mono`}
-        />
-      ) : (
-        <div className={`${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap`}>
-          {value ? <HighlightedText text={value} /> : <span className="text-on-surface-variant opacity-50">{placeholder}</span>}
-        </div>
-      )}
-    </div>
-  );
-};
+// Import the ResizablePromptArea component
+import ResizablePromptArea from "../shared/ResizablePromptArea";
 
 // Prompt Tab Content
 const PromptTabContent = ({ promptData, onUpdateField }) => {
@@ -310,21 +253,21 @@ const PromptTabContent = ({ promptData, onUpdateField }) => {
   return (
     <div className="space-y-4">
       {/* System Prompt */}
-      <EditablePromptArea 
+      <ResizablePromptArea 
         label="System Prompt"
         value={systemPrompt}
         placeholder="Enter system prompt..."
-        minHeight="min-h-40"
+        defaultHeight={160}
         onLibraryPick
         onChange={(value) => onUpdateField?.('input_admin_prompt', value)}
       />
 
       {/* User Prompt */}
-      <EditablePromptArea 
+      <ResizablePromptArea 
         label="User Prompt"
         value={userPrompt}
         placeholder="Enter user prompt..."
-        minHeight="min-h-16"
+        defaultHeight={64}
         onLibraryPick
         onChange={(value) => onUpdateField?.('input_user_prompt', value)}
       />
