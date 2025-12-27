@@ -8,11 +8,7 @@ const EnvironmentSection = ({ isLoading, onRefresh }) => {
     <div className="space-y-4">
 
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Environment Variables</CardTitle>
-          <CardDescription>Table name configuration from environment</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="space-y-2 text-sm font-mono">
             <div className="flex justify-between">
               <span className="text-muted-foreground">VITE_PROMPTS_TBL:</span>

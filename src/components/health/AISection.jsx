@@ -34,17 +34,7 @@ const AISection = ({ results, isLoading, onRefresh }) => {
     <div className="space-y-4">
 
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <Bot className="h-5 w-5 text-primary" />
-            <div className="flex-1">
-              <CardTitle className="text-lg">API Status</CardTitle>
-              <CardDescription>Configuration and connectivity</CardDescription>
-            </div>
-            <StatusIcon status={results.openai.connection.status} />
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="space-y-3">
             {/* API Key */}
             <div className="flex items-center justify-between py-2 border-b">
