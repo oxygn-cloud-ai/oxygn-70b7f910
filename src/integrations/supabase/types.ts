@@ -799,6 +799,7 @@ export type Database = {
           seed: string | null
           seed_on: boolean | null
           settings_expanded: boolean | null
+          starred: boolean | null
           stop: string | null
           stop_on: boolean | null
           stream: boolean | null
@@ -878,6 +879,7 @@ export type Database = {
           seed?: string | null
           seed_on?: boolean | null
           settings_expanded?: boolean | null
+          starred?: boolean | null
           stop?: string | null
           stop_on?: boolean | null
           stream?: boolean | null
@@ -957,6 +959,7 @@ export type Database = {
           seed?: string | null
           seed_on?: boolean | null
           settings_expanded?: boolean | null
+          starred?: boolean | null
           stop?: string | null
           stop_on?: boolean | null
           stream?: boolean | null
