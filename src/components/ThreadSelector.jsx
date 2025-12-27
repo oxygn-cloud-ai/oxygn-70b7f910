@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, MessageSquare, Info, ExternalLink } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { M3IconButton } from '@/components/ui/m3-icon-button';
 import {
   Select,
   SelectContent,
@@ -13,12 +13,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { TOOLTIPS } from '@/config/labels';
 import {
   AlertDialog,
@@ -54,27 +48,27 @@ const ThreadSelector = ({
   };
 
   return (
-    <div className="space-y-4 border rounded-lg p-4">
+    <div className="space-y-4 border border-outline-variant rounded-xl p-4 bg-surface-container-low">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" />
-          <h4 className="font-medium">Thread Management</h4>
+          <MessageSquare className="h-5 w-5 text-on-surface-variant" />
+          <h4 className="text-title-small font-medium text-on-surface">Thread Management</h4>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Info className="h-4 w-4 text-muted-foreground" />
-              </Button>
+              <M3IconButton size="small" tooltip="Thread mode info">
+                <Info className="h-5 w-5" />
+              </M3IconButton>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80 bg-surface-container-high border-outline-variant">
               <div className="space-y-3">
-                <h4 className="font-semibold">Thread Mode</h4>
-                <div className="space-y-2 text-sm">
+                <h4 className="text-title-small font-semibold text-on-surface">Thread Mode</h4>
+                <div className="space-y-2 text-body-small text-on-surface-variant">
                   <p>
-                    <strong>New Thread</strong> - Each execution creates a fresh
+                    <strong className="text-on-surface">New Thread</strong> - Each execution creates a fresh
                     conversation. Best for independent queries.
                   </p>
                   <p>
-                    <strong>Reuse Thread</strong> - Messages are added to the
+                    <strong className="text-on-surface">Reuse Thread</strong> - Messages are added to the
                     existing thread, maintaining conversation history. Best for
                     iterative refinement.
                   </p>
@@ -83,9 +77,9 @@ const ThreadSelector = ({
                   href="https://platform.openai.com/docs/api-reference/responses"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                  className="flex items-center gap-1 text-label-medium text-primary hover:underline"
                 >
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="h-3.5 w-3.5" />
                   Responses API Documentation
                 </a>
               </div>
@@ -96,21 +90,21 @@ const ThreadSelector = ({
 
       {/* Thread Mode Selection */}
       <div className="space-y-2">
-        <Label>Thread Mode</Label>
+        <Label className="text-label-medium text-on-surface-variant">Thread Mode</Label>
         <RadioGroup
           value={threadMode}
           onValueChange={onThreadModeChange}
           className="flex gap-4"
         >
           <div className="flex items-center space-x-2">
-            <RadioGroupItem value="new" id="mode-new" />
-            <Label htmlFor="mode-new" className="font-normal cursor-pointer">
+            <RadioGroupItem value="new" id="mode-new" className="border-outline" />
+            <Label htmlFor="mode-new" className="text-body-medium text-on-surface cursor-pointer">
               New Thread
             </Label>
           </div>
           <div className="flex items-center space-x-2">
-            <RadioGroupItem value="reuse" id="mode-reuse" />
-            <Label htmlFor="mode-reuse" className="font-normal cursor-pointer">
+            <RadioGroupItem value="reuse" id="mode-reuse" className="border-outline" />
+            <Label htmlFor="mode-reuse" className="text-body-medium text-on-surface cursor-pointer">
               Reuse Thread
             </Label>
           </div>
@@ -120,7 +114,7 @@ const ThreadSelector = ({
       {/* Thread Selection (only shown in reuse mode) */}
       {threadMode === 'reuse' && (
         <div className="space-y-2">
-          <Label>Active Thread</Label>
+          <Label className="text-label-medium text-on-surface-variant">Active Thread</Label>
           <div className="flex items-center gap-2">
             <Select
               value={activeThread?.row_id || ''}
@@ -130,15 +124,15 @@ const ThreadSelector = ({
               }}
               disabled={isLoading || threads.length === 0}
             >
-              <SelectTrigger className="flex-1">
+              <SelectTrigger className="flex-1 bg-surface-container border-outline-variant text-on-surface">
                 <SelectValue placeholder={threads.length === 0 ? "No threads available" : "Select a thread"} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-surface-container-high border-outline-variant">
                 {threads.map((thread) => (
-                  <SelectItem key={thread.row_id} value={thread.row_id}>
+                  <SelectItem key={thread.row_id} value={thread.row_id} className="text-on-surface">
                     {thread.name || `Thread ${thread.row_id.slice(0, 8)}`}
                     {thread.message_count > 0 && (
-                      <span className="ml-2 text-muted-foreground">
+                      <span className="ml-2 text-on-surface-variant">
                         ({thread.message_count} msgs)
                       </span>
                     )}
@@ -147,50 +141,35 @@ const ThreadSelector = ({
               </SelectContent>
             </Select>
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleCreateThread}
-                    disabled={isCreating}
-                    className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{TOOLTIPS.threads.createNew}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <M3IconButton
+              size="small"
+              tooltip={TOOLTIPS.threads.createNew}
+              onClick={handleCreateThread}
+              disabled={isCreating}
+            >
+              <Plus className="h-5 w-5" />
+            </M3IconButton>
 
             {activeThread && (
               <AlertDialog>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="!text-destructive hover:!text-destructive hover:!bg-destructive/10">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>{TOOLTIPS.threads.delete}</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <AlertDialogContent>
+                <AlertDialogTrigger asChild>
+                  <M3IconButton size="small" tooltip={TOOLTIPS.threads.delete}>
+                    <Trash2 className="h-5 w-5 text-error" />
+                  </M3IconButton>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-surface-container-high border-outline-variant">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Thread?</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogTitle className="text-headline-small text-on-surface">Delete Thread?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-body-medium text-on-surface-variant">
                       This will permanently delete this thread and all its messages.
                       This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel className="bg-surface-container text-on-surface border-outline-variant">Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => onDeleteThread(activeThread.row_id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      className="bg-error text-on-error hover:bg-error/90"
                     >
                       Delete
                     </AlertDialogAction>
@@ -201,7 +180,7 @@ const ThreadSelector = ({
           </div>
 
           {activeThread && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-label-small text-on-surface-variant">
               {activeThread.message_count || 0} messages • Last updated:{' '}
               {activeThread.last_message_at
                 ? new Date(activeThread.last_message_at).toLocaleString()

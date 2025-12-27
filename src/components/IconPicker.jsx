@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { icons, Search, RotateCcw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { M3IconButton } from '@/components/ui/m3-icon-button';
 import { ICON_CATEGORIES, categorizeIcon, searchIcons } from '@/config/iconCategories';
 
 // Get all icon names from lucide-react icons object
@@ -106,30 +106,28 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-surface-container-high border-outline-variant">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between text-headline-small text-on-surface">
             <span>Choose Icon</span>
-            <Button
-              variant="ghost"
-              size="sm"
+            <M3IconButton
+              size="small"
+              tooltip="Reset to Default"
               onClick={handleReset}
-              className="text-muted-foreground hover:text-foreground"
             >
-              <RotateCcw className="h-4 w-4 mr-1.5" />
-              Reset to Default
-            </Button>
+              <RotateCcw className="h-5 w-5" />
+            </M3IconButton>
           </DialogTitle>
         </DialogHeader>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-variant" />
           <Input
             placeholder="Search icons..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-10 bg-surface-container border-outline-variant text-on-surface"
             autoFocus
           />
         </div>
@@ -137,12 +135,12 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
         {/* Category Tabs */}
         <Tabs value={activeCategory} onValueChange={setActiveCategory} className="flex-1 flex flex-col min-h-0">
           <ScrollArea className="w-full" orientation="horizontal">
-            <TabsList className="inline-flex w-max gap-1 p-1">
+            <TabsList className="inline-flex w-max gap-1 p-1 bg-surface-container-highest">
               {Object.entries(ICON_CATEGORIES).map(([key, category]) => (
                 <TabsTrigger
                   key={key}
                   value={key}
-                  className="text-xs px-2.5 py-1 whitespace-nowrap"
+                  className="text-label-medium px-3 py-1.5 whitespace-nowrap data-[state=active]:bg-secondary-container data-[state=active]:text-on-secondary-container"
                 >
                   {category.name}
                 </TabsTrigger>
@@ -153,9 +151,9 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
           <TabsContent value={activeCategory} className="flex-1 mt-3 min-h-0">
             <ScrollArea className="h-[350px]">
               {filteredIcons.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-32 text-on-surface-variant">
                   <Search className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">No icons found</p>
+                  <p className="text-body-medium">No icons found</p>
                 </div>
               ) : (
                 <>
@@ -171,19 +169,19 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
                               <button
                                 onClick={() => handleIconClick(iconName)}
                                 className={`
-                                  flex items-center justify-center p-2.5 rounded-md
-                                  transition-colors duration-150
+                                  flex items-center justify-center p-2.5 rounded-xl
+                                  transition-all duration-medium-1 ease-standard
                                   hover:bg-primary/10 hover:text-primary
                                   ${currentIcon === iconName 
-                                    ? 'bg-primary/20 text-primary ring-1 ring-primary/30' 
-                                    : 'bg-muted/50 text-foreground'
+                                    ? 'bg-primary-container text-on-primary-container ring-1 ring-primary/30' 
+                                    : 'bg-surface-container-highest text-on-surface'
                                   }
                                 `}
                               >
                                 <IconComponent className="h-5 w-5" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent side="bottom" className="text-xs">
+                            <TooltipContent side="bottom" className="text-label-small bg-inverse-surface text-inverse-on-surface">
                               {formatIconName(iconName)}
                             </TooltipContent>
                           </Tooltip>
@@ -192,7 +190,7 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
                     </TooltipProvider>
                   </div>
                   {totalMatches > MAX_VISIBLE_ICONS && (
-                    <p className="text-xs text-muted-foreground text-center mt-3 pb-2">
+                    <p className="text-label-small text-on-surface-variant text-center mt-3 pb-2">
                       Showing {MAX_VISIBLE_ICONS} of {totalMatches} icons. Use search to find more.
                     </p>
                   )}
