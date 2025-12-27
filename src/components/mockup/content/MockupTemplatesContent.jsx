@@ -538,22 +538,6 @@ const TemplateVariablesTabContent = ({ variables = [] }) => {
     </div>
   );
 };
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button
-        onClick={onClick}
-        className={`h-8 w-9 flex items-center justify-center rounded-m3-sm transition-colors ${
-          isActive 
-            ? "bg-secondary-container text-secondary-container-foreground" 
-            : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-        }`}
-      >
-        <Icon className="h-4 w-4" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent className="text-[10px]">{label}</TooltipContent>
-  </Tooltip>
-);
 
 // File type icon helper
 const getFileIcon = (type) => {
