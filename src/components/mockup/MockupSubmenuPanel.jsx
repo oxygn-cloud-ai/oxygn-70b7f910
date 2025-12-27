@@ -135,8 +135,8 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5 space-y-3">
-    <SubmenuSection title="Configuration">
+  <div className="p-1.5">
+    <div className="flex flex-col gap-0.5">
       <SubmenuItem 
         icon={Settings} 
         label="General" 
@@ -158,11 +158,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "api-keys"}
         onClick={() => onItemClick?.("api-keys")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Appearance">
       <SubmenuItem 
         icon={Palette} 
         label="Theme" 
@@ -177,11 +172,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "notifications"}
         onClick={() => onItemClick?.("notifications")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Integrations">
       <SubmenuItem 
         icon={FileText} 
         label="Confluence" 
@@ -196,11 +186,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "cost-analytics"}
         onClick={() => onItemClick?.("cost-analytics")}
       />
-    </SubmenuSection>
-    
-    <div className="mx-2 h-px bg-outline-variant" />
-    
-    <SubmenuSection title="Account">
       <SubmenuItem 
         icon={User} 
         label="Profile" 
@@ -215,7 +200,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "new-ui"}
         onClick={() => onItemClick?.("new-ui")}
       />
-    </SubmenuSection>
+    </div>
   </div>
 );
 
