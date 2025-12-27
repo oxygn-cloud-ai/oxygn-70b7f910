@@ -3,7 +3,8 @@ import {
   FileText, Braces, Link2, Copy, Download, Trash2,
   LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
   ChevronRight, ChevronDown, Settings, ArrowRight, Layers,
-  Edit3, Check, X, AlertCircle
+  Edit3, Check, X, AlertCircle, Upload, Paperclip, CheckCircle2,
+  Clock, XCircle
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LabelPicker } from "@/components/ui/label-picker";
@@ -11,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { SettingCard } from "@/components/ui/setting-card";
 import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
+import { MockupVariablePicker } from "../shared/MockupVariablePicker";
 
 // Mock structure data
 const MOCK_STRUCTURE = [
@@ -64,6 +66,13 @@ const SOURCE_OPTIONS = [
   { id: "variable", label: "Variable Reference", icon: Variable },
 ];
 
+// Mock attachments data
+const MOCK_ATTACHMENTS = [
+  { id: "1", name: "product-guide.pdf", type: "application/pdf", size: 2456789, uploadedAt: "2024-01-15" },
+  { id: "2", name: "faq-responses.docx", type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 156234, uploadedAt: "2024-01-14" },
+  { id: "3", name: "support-templates.json", type: "application/json", size: 8934, uploadedAt: "2024-01-13" },
+];
+
 const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
   <Tooltip>
     <TooltipTrigger asChild>
@@ -81,6 +90,206 @@ const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
   </Tooltip>
 );
+
+// File type icon helper
+const getFileIcon = (type) => {
+  if (type.includes('pdf')) return FileText;
+  if (type.includes('json')) return Braces;
+  if (type.includes('word') || type.includes('document')) return FileText;
+  return Paperclip;
+};
+
+// Format file size
+const formatFileSize = (bytes) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+// Attachments Tab Component
+const AttachmentsTab = () => {
+  const [isDragging, setIsDragging] = useState(false);
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      {/* Upload Dropzone */}
+      <div 
+        className={`border-2 border-dashed rounded-m3-lg p-6 text-center transition-colors ${
+          isDragging 
+            ? "border-primary bg-primary/5" 
+            : "border-outline-variant hover:border-on-surface-variant"
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={() => setIsDragging(false)}
+      >
+        <Upload className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+        <p className="text-body-sm text-on-surface">Drop files here or click to upload</p>
+        <p className="text-[10px] text-on-surface-variant mt-1">PDF, DOCX, TXT, JSON up to 10MB</p>
+      </div>
+
+      {/* Attached Files List */}
+      <div className="space-y-1.5">
+        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files ({MOCK_ATTACHMENTS.length})</span>
+        <div className="space-y-2">
+          {MOCK_ATTACHMENTS.map(file => {
+            const FileIcon = getFileIcon(file.type);
+            return (
+              <div key={file.id} className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant group">
+                <div className="w-8 h-8 flex items-center justify-center bg-surface-container-high rounded-m3-sm">
+                  <FileIcon className="h-4 w-4 text-on-surface-variant" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-body-sm text-on-surface truncate">{file.name}</p>
+                  <p className="text-[10px] text-on-surface-variant">{formatFileSize(file.size)} • {file.uploadedAt}</p>
+                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Remove</TooltipContent>
+                </Tooltip>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Import/Export Dialog Component  
+const ImportExportActions = ({ onExport, onImport }) => (
+  <div className="flex items-center gap-0.5">
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button 
+          onClick={onImport}
+          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+        >
+          <Upload className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="text-[10px]">Import JSON</TooltipContent>
+    </Tooltip>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button 
+          onClick={onExport}
+          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+        >
+          <Download className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="text-[10px]">Export JSON</TooltipContent>
+    </Tooltip>
+  </div>
+);
+
+// Enhanced Preview Panel with Live Variable Resolution
+const EnhancedPreviewPanel = ({ template }) => {
+  const [resolveMode, setResolveMode] = useState(false);
+  
+  const resolvedValues = {
+    company_name: "Acme Corporation",
+    customer_name: "John Doe",
+    ticket_id: "TKT-12345",
+    priority: "high"
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <span className="text-label-sm text-on-surface-variant uppercase">Live Preview</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-on-surface-variant">Resolve Variables</span>
+          <Switch checked={resolveMode} onCheckedChange={setResolveMode} />
+        </div>
+      </div>
+      
+      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+        <div className="space-y-3">
+          <div className="p-3 bg-surface-container rounded-m3-md">
+            <span className="text-[10px] text-on-surface-variant uppercase">System Prompt</span>
+            <p className="text-body-sm text-on-surface mt-1">
+              You are a helpful customer support agent for{" "}
+              {resolveMode ? (
+                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
+                  {resolvedValues.company_name}
+                </span>
+              ) : (
+                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
+                  {"{{company_name}}"}
+                </span>
+              )}. Always be polite and professional.
+            </p>
+          </div>
+          
+          <div className="p-3 bg-surface-container rounded-m3-md">
+            <span className="text-[10px] text-on-surface-variant uppercase">User Prompt</span>
+            <p className="text-body-sm text-on-surface mt-1">
+              Handle the following support ticket from{" "}
+              {resolveMode ? (
+                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
+                  {resolvedValues.customer_name}
+                </span>
+              ) : (
+                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
+                  {"{{customer_name}}"}
+                </span>
+              )}:
+              <br /><br />
+              Ticket ID:{" "}
+              {resolveMode ? (
+                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
+                  {resolvedValues.ticket_id}
+                </span>
+              ) : (
+                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
+                  {"{{ticket_id}}"}
+                </span>
+              )}
+              <br />
+              Priority:{" "}
+              {resolveMode ? (
+                <span className="px-1 py-0.5 bg-green-500/10 text-green-600 rounded font-mono text-[11px]">
+                  {resolvedValues.priority}
+                </span>
+              ) : (
+                <span className="px-1 py-0.5 bg-primary/10 text-primary rounded font-mono text-[11px]">
+                  {"{{priority}}"}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Variable Status */}
+      <div className="space-y-2">
+        <span className="text-[10px] text-on-surface-variant uppercase">Variable Status</span>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(resolvedValues).map(([key, value]) => (
+            <div key={key} className="flex items-center gap-2 p-2 bg-surface-container rounded-m3-sm">
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+              <code className="text-[10px] text-on-surface font-mono">{key}</code>
+              {resolveMode && (
+                <span className="text-[10px] text-on-surface-variant truncate ml-auto">= {value}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2 p-2 bg-amber-500/10 rounded-m3-md">
+        <AlertCircle className="h-4 w-4 text-amber-600" />
+        <span className="text-body-sm text-amber-700">0 unresolved variables</span>
+      </div>
+    </div>
+  );
+};
 
 // Structure Tree Node Component
 const StructureNode = ({ node, level = 0 }) => {
@@ -338,6 +547,7 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
             <TabButton icon={FileText} label="Overview" isActive={activeEditorTab === "overview"} onClick={() => setActiveEditorTab("overview")} />
             <TabButton icon={Layers} label="Structure" isActive={activeEditorTab === "structure"} onClick={() => setActiveEditorTab("structure")} />
             <TabButton icon={Variable} label="Variables" isActive={activeEditorTab === "variables"} onClick={() => setActiveEditorTab("variables")} />
+            <TabButton icon={Paperclip} label="Attachments" isActive={activeEditorTab === "attachments"} onClick={() => setActiveEditorTab("attachments")} />
             <TabButton icon={Eye} label="Preview" isActive={activeEditorTab === "preview"} onClick={() => setActiveEditorTab("preview")} />
           </>
         )}
@@ -458,10 +668,15 @@ const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts
           </div>
         )}
 
+        {/* Attachments Tab */}
+        {activeEditorTab === "attachments" && activeTemplateTab === "prompts" && (
+          <AttachmentsTab />
+        )}
+
         {/* Preview Tab */}
         {activeEditorTab === "preview" && activeTemplateTab === "prompts" && (
           <div className="max-w-2xl">
-            <PreviewPanel template={selectedTemplate} />
+            <EnhancedPreviewPanel template={selectedTemplate} />
           </div>
         )}
 

@@ -6,8 +6,9 @@ import {
   Search, Plus, PanelRightOpen, Workflow, Bot, Thermometer,
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
-  RefreshCw, ChevronRight, AlertCircle, Info, Loader2
+  RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch
 } from "lucide-react";
+import { MockupVariablePicker } from "../shared/MockupVariablePicker";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -244,16 +245,22 @@ const LibraryPickerDropdown = () => {
   );
 };
 
-// Editable Text Area Component
+// Editable Text Area Component with Variable Picker
 const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+
+  const handleInsertVariable = (variable) => {
+    const insertion = `{{${variable}}}`;
+    setEditValue(prev => prev + insertion);
+  };
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</label>
         <div className="flex items-center gap-1">
+          <MockupVariablePicker onInsert={handleInsertVariable} />
           {onLibraryPick && <LibraryPickerDropdown />}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -502,6 +509,193 @@ const SettingsTabContent = () => {
           ))}
         </div>
       </div>
+
+      {/* Actions & Cascade Section */}
+      <ActionConfigSection />
+    </div>
+  );
+};
+
+// Action Configuration Section
+const ACTION_TYPES = [
+  { id: "none", label: "None", description: "No post-action" },
+  { id: "create_children_text", label: "Create Children (Text)", description: "Parse output and create child prompts from text" },
+  { id: "create_children_json", label: "Create Children (JSON)", description: "Parse JSON output to create child prompts" },
+  { id: "create_template", label: "Create Template", description: "Generate a template from the output" },
+];
+
+const ActionConfigSection = () => {
+  const [actionType, setActionType] = useState("create_children_json");
+  const [includeInCascade, setIncludeInCascade] = useState(true);
+
+  return (
+    <div className="space-y-4">
+      {/* Action Type Selector */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Post Action</label>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+              <span className="flex items-center gap-2">
+                <GitBranch className="h-3.5 w-3.5 text-on-surface-variant" />
+                {ACTION_TYPES.find(a => a.id === actionType)?.label || "None"}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-64 bg-surface-container-high border-outline-variant">
+            {ACTION_TYPES.map(action => (
+              <DropdownMenuItem 
+                key={action.id} 
+                onClick={() => setActionType(action.id)}
+                className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer"
+              >
+                <div className="flex-1">
+                  <span className="block">{action.label}</span>
+                  <span className="text-[10px] text-on-surface-variant">{action.description}</span>
+                </div>
+                {actionType === action.id && <Check className="h-4 w-4 text-primary" />}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Action Configuration (shown when action type is not none) */}
+      {actionType !== "none" && (
+        <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant space-y-3">
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-on-surface-variant" />
+            <span className="text-label-sm text-on-surface font-medium">Action Configuration</span>
+          </div>
+
+          {actionType === "create_children_json" && (
+            <>
+              {/* JSON Path */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Path</label>
+                <input
+                  type="text"
+                  defaultValue="$.items[*]"
+                  placeholder="$.items[*]"
+                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="text-[10px] text-on-surface-variant">Path to array of items to create as children</p>
+              </div>
+
+              {/* Name Field */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Field</label>
+                <input
+                  type="text"
+                  defaultValue="title"
+                  placeholder="title"
+                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* Content Field */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Content Field</label>
+                <input
+                  type="text"
+                  defaultValue="content"
+                  placeholder="content"
+                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </>
+          )}
+
+          {actionType === "create_children_text" && (
+            <>
+              {/* Delimiter */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Delimiter</label>
+                <input
+                  type="text"
+                  defaultValue="---"
+                  placeholder="---"
+                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <p className="text-[10px] text-on-surface-variant">Text separator between child items</p>
+              </div>
+
+              {/* Skip Empty */}
+              <div className="flex items-center justify-between">
+                <span className="text-body-sm text-on-surface">Skip empty sections</span>
+                <Switch defaultChecked />
+              </div>
+            </>
+          )}
+
+          {actionType === "create_template" && (
+            <>
+              {/* Library Prompt */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Template Source</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                      <span className="flex items-center gap-2">
+                        <Library className="h-3.5 w-3.5 text-on-surface-variant" />
+                        JSON Output Format
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+                    <DropdownMenuItem className="text-body-sm text-on-surface">Professional Tone</DropdownMenuItem>
+                    <DropdownMenuItem className="text-body-sm text-on-surface">JSON Output Format</DropdownMenuItem>
+                    <DropdownMenuItem className="text-body-sm text-on-surface">Error Handler</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Template Name Pattern */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Pattern</label>
+                <input
+                  type="text"
+                  defaultValue="{{parent_name}}_template"
+                  placeholder="{{parent_name}}_template"
+                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Cascade Toggle */}
+      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Workflow className="h-4 w-4 text-on-surface-variant" />
+            <div>
+              <span className="text-body-sm text-on-surface font-medium">Include in Cascade</span>
+              <p className="text-[10px] text-on-surface-variant">Run this prompt during cascade execution</p>
+            </div>
+          </div>
+          <Switch checked={includeInCascade} onCheckedChange={setIncludeInCascade} />
+        </div>
+      </div>
+
+      {/* Action Preview */}
+      {actionType !== "none" && (
+        <div className="p-2 bg-secondary-container/30 rounded-m3-md border border-outline-variant">
+          <div className="flex items-center gap-2">
+            <Info className="h-3.5 w-3.5 text-on-surface-variant" />
+            <span className="text-[10px] text-on-surface-variant">
+              After execution, output will be parsed and {
+                actionType === "create_children_json" ? "JSON items will become child prompts" :
+                actionType === "create_children_text" ? "text sections will become child prompts" :
+                "a new template will be created"
+              }
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
