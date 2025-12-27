@@ -599,7 +599,6 @@ const AttachmentsTabWithFiles = ({ files = [] }) => {
               </div>
             );
           })}
-        </div>
       </div>
     </div>
   );
