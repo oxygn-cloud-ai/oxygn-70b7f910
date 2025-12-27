@@ -16,6 +16,7 @@ import CostAnalyticsSection from '../components/settings/CostAnalyticsSection';
 import OpenAIBillingSection from '../components/settings/OpenAIBillingSection';
 import AppearanceSection from '../components/settings/AppearanceSection';
 import { WorkbenchSettingsSection } from '../components/settings/WorkbenchSettingsSection';
+import NewUISection from '../components/settings/NewUISection';
 
 const MAX_SETTING_VALUE_LENGTH = 500000;
 
@@ -214,6 +215,8 @@ const Settings = () => {
             onRefresh={handleRefresh}
           />
         );
+      case 'new-ui':
+        return <NewUISection />;
       default:
         return null;
     }
