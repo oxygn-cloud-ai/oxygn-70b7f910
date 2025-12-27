@@ -1697,7 +1697,7 @@ const SETTINGS_SECTIONS = {
   "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
 };
 
-const MockupSettingsContent = ({ 
+const SettingsContent = ({ 
   activeSubItem = "qonsol",
   settings = {},
   isLoadingSettings = false,
@@ -1778,4 +1778,4 @@ const MockupSettingsContent = ({
   );
 };
 
-export default MockupSettingsContent;
+export default SettingsContent;

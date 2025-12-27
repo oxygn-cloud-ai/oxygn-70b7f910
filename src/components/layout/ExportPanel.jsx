@@ -172,7 +172,7 @@ const PageTreeItem = ({ page, pages, selectedId, onSelect, level = 0 }) => {
   );
 };
 
-const MockupExportPanel = ({ 
+const ExportPanel = ({ 
   onClose, 
   exportState,
   treeData = [],
@@ -677,4 +677,4 @@ const MockupExportPanel = ({
   );
 };
 
-export default MockupExportPanel;
+export default ExportPanel;

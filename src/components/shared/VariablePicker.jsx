@@ -77,7 +77,7 @@ const SYSTEM_VARIABLE_GROUPS = [
   },
 ];
 
-export const MockupVariablePicker = ({ 
+export const VariablePicker = ({ 
   onInsert, 
   userVariables = [], 
   promptReferences = [],
@@ -279,4 +279,6 @@ export const MockupVariablePicker = ({
   );
 };
 
-export default MockupVariablePicker;
+// Keep MockupVariablePicker as alias for backward compatibility
+export const MockupVariablePicker = VariablePicker;
+export default VariablePicker;

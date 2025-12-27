@@ -14,13 +14,13 @@ import {
   SkeletonThreadList, 
   SkeletonChat, 
   SkeletonListItem 
-} from "../shared/MockupSkeletons";
+} from "@/components/shared/Skeletons";
 import { 
   EmptyThreads, 
   EmptySearchResults, 
   WelcomeChat,
   EmptyLinkedPages 
-} from "../shared/MockupEmptyStates";
+} from "@/components/shared/EmptyStates";
 
 // No mock data - all data comes from props/hooks
 
@@ -706,7 +706,7 @@ const ResourcesPanel = ({
 };
 
 // Main Workbench Content Component - Now connected to real hooks
-const MockupWorkbenchContent = ({ 
+const WorkbenchContent = ({ 
   activeSubItem = "new-conversation", 
   showCascadeProgress = false, 
   showCascadeError = false,
@@ -1125,4 +1125,4 @@ const MockupWorkbenchContent = ({
   );
 };
 
-export default MockupWorkbenchContent;
+export default WorkbenchContent;

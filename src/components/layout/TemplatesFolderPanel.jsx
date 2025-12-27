@@ -141,7 +141,7 @@ const TemplateTreeItem = ({
   );
 };
 
-const MockupTemplatesFolderPanel = ({ 
+const TemplatesFolderPanel = ({ 
   onSelectTemplate, 
   selectedTemplateId,
   activeTemplateTab = "prompts",
@@ -373,4 +373,4 @@ const MockupTemplatesFolderPanel = ({
   );
 };
 
-export default MockupTemplatesFolderPanel;
+export default TemplatesFolderPanel;

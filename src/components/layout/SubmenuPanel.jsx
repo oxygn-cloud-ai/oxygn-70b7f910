@@ -274,7 +274,7 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
   </div>
 );
 
-const MockupSubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
+const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
   const submenus = {
     workbench: WorkbenchSubmenu,
     templates: TemplatesSubmenu,
@@ -295,4 +295,4 @@ const MockupSubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
   );
 };
 
-export default MockupSubmenuPanel;
+export default SubmenuPanel;

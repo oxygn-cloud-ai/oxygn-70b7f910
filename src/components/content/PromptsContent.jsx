@@ -8,7 +8,7 @@ import {
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch
 } from "lucide-react";
-import { MockupVariablePicker } from "../shared/MockupVariablePicker";
+import { VariablePicker } from "@/components/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -26,7 +26,7 @@ import {
   EmptyVariables, 
   EmptyConversation,
   EmptyOutput 
-} from "../shared/MockupEmptyStates";
+} from "@/components/shared";
 
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
@@ -860,7 +860,7 @@ const ConversationTabContent = ({ isAssistantEnabled = true, messages = [] }) =>
 };
 
 // Main Prompts Content Component
-const MockupPromptsContent = ({ 
+const PromptsContent = ({ 
   hasSelection = true,
   selectedPromptId,
   promptData,
@@ -1076,4 +1076,4 @@ const MockupPromptsContent = ({
   );
 };
 
-export default MockupPromptsContent;
+export default PromptsContent;

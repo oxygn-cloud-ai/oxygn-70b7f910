@@ -322,7 +322,7 @@ const EnvironmentSection = ({ healthData, isLoading }) => {
   );
 };
 
-const MockupHealthContent = ({ activeSubItem = "overview" }) => {
+const HealthContent = ({ activeSubItem = "overview" }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [healthData, setHealthData] = useState({
     database: { status: 'pending', message: '' },
@@ -450,4 +450,4 @@ const MockupHealthContent = ({ activeSubItem = "overview" }) => {
   );
 };
 
-export default MockupHealthContent;
+export default HealthContent;

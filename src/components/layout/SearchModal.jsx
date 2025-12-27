@@ -11,7 +11,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 
-const MockupSearchModal = ({
+const SearchModal = ({
   isOpen,
   onClose,
   treeData = [],
@@ -161,4 +161,4 @@ const MockupSearchModal = ({
   );
 };
 
-export default MockupSearchModal;
+export default SearchModal;
