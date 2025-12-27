@@ -27,6 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useConfluenceExport } from "@/hooks/useConfluenceExport";
+import { ConfluenceConfig } from "@/components/export/types/confluence/ConfluenceConfig";
 
 // Step definitions
 const STEPS = [
@@ -40,20 +42,6 @@ const EXPORT_TYPE_OPTIONS = [
   { id: "confluence", icon: Globe, label: "Confluence", description: "Export to Confluence pages" },
   { id: "json", icon: FileJson, label: "JSON", description: "Download as JSON file" },
   { id: "markdown", icon: FileText, label: "Markdown", description: "Download as Markdown" },
-];
-
-// Mock data for configuration step (will be replaced with real Confluence data later)
-const CONFLUENCE_SPACES = [
-  { id: "eng", name: "Engineering", key: "ENG" },
-  { id: "prod", name: "Product", key: "PROD" },
-  { id: "docs", name: "Documentation", key: "DOCS" },
-];
-
-const CONFLUENCE_PAGES = [
-  { id: "p1", name: "AI Prompts", space: "eng", children: ["p1a"] },
-  { id: "p1a", name: "Production Prompts", space: "eng", parentId: "p1", children: [] },
-  { id: "p2", name: "Product Specs", space: "prod", children: [] },
-  { id: "p3", name: "User Guides", space: "docs", children: [] },
 ];
 
 // Step Navigation Component
@@ -214,11 +202,13 @@ const MockupExportPanel = ({
     fetchPromptsData,
     fetchVariablesData,
     STANDARD_FIELDS = [],
+    getExportData = [],
   } = exportState || {};
   
+  // Real Confluence export hook
+  const confluenceExport = useConfluenceExport();
+  
   // Local state for configuration step
-  const [selectedSpace, setSelectedSpace] = useState("");
-  const [selectedPage, setSelectedPage] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
@@ -247,9 +237,12 @@ const MockupExportPanel = ({
     }
   }, [currentStep, selectedPromptIds, promptsData.length, fetchPromptsData, fetchVariablesData]);
   
-  const filteredPages = selectedSpace 
-    ? CONFLUENCE_PAGES.filter(p => p.space === selectedSpace && !p.parentId)
-    : CONFLUENCE_PAGES.filter(p => !p.parentId);
+  // When moving to step 4 (Confluence config), initialize
+  useEffect(() => {
+    if (currentStep === 4 && exportType === 'confluence') {
+      confluenceExport.initialize();
+    }
+  }, [currentStep, exportType, confluenceExport]);
 
   const selectedPromptsCount = selectedPromptIds.length;
   const selectedFieldsCount = selectedFields.length;
@@ -265,7 +258,12 @@ const MockupExportPanel = ({
       case 1: return selectedPromptsCount > 0;
       case 2: return selectedFieldsCount > 0 || selectedVariablesCount > 0;
       case 3: return exportType !== null;
-      case 4: return exportType !== 'confluence' || (selectedSpace && selectedPage);
+      case 4: 
+        if (exportType === 'confluence') {
+          return confluenceExport.selectedSpaceKey && 
+            (confluenceExport.pageTitle || confluenceExport.pageTitleSource);
+        }
+        return true;
       default: return true;
     }
   };
@@ -279,11 +277,36 @@ const MockupExportPanel = ({
   };
   
   const handleExport = async () => {
-    setIsExporting(true);
-    // Simulate export
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsExporting(false);
-    onClose?.();
+    if (exportType === 'confluence') {
+      try {
+        setIsExporting(true);
+        const exportData = getExportData;
+        
+        if (!exportData || exportData.length === 0) {
+          console.error('[MockupExportPanel] No export data available');
+          return;
+        }
+        
+        const result = await confluenceExport.exportToConfluence(
+          exportData,
+          confluenceExport.pageTitle || 'Exported Prompts'
+        );
+        if (result?.page?.url) {
+          window.open(result.page.url, '_blank');
+        }
+        onClose?.();
+      } catch (error) {
+        console.error('[MockupExportPanel] Export failed:', error);
+      } finally {
+        setIsExporting(false);
+      }
+    } else {
+      // JSON/Markdown export (mock for now)
+      setIsExporting(true);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setIsExporting(false);
+      onClose?.();
+    }
   };
 
   return (
@@ -490,45 +513,34 @@ const MockupExportPanel = ({
         {currentStep === 4 && (
           <div className="space-y-4">
             {exportType === "confluence" && (
-              <>
-                {/* Space Selector */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-on-surface-variant uppercase">Confluence Space</label>
-                  <Select value={selectedSpace} onValueChange={(val) => { setSelectedSpace(val); setSelectedPage(""); }}>
-                    <SelectTrigger className="w-full h-10 bg-surface-container-high border-outline-variant text-on-surface">
-                      <SelectValue placeholder="Select space..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-                      {CONFLUENCE_SPACES.map(space => (
-                        <SelectItem key={space.id} value={space.id}>
-                          <span className="flex items-center gap-2">
-                            <span className="text-[10px] text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded">{space.key}</span>
-                            {space.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Parent Page Tree */}
-                {selectedSpace && (
-                  <div className="space-y-2">
-                    <label className="text-label-sm text-on-surface-variant uppercase">Parent Page</label>
-                    <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant p-2 max-h-40 overflow-auto">
-                      {filteredPages.map(page => (
-                        <PageTreeItem 
-                          key={page.id} 
-                          page={page} 
-                          pages={CONFLUENCE_PAGES}
-                          selectedId={selectedPage}
-                          onSelect={setSelectedPage}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+              <ConfluenceConfig
+                spaces={confluenceExport.spaces}
+                templates={confluenceExport.templates}
+                spaceTree={confluenceExport.spaceTree}
+                selectedSpaceKey={confluenceExport.selectedSpaceKey}
+                selectedParentId={confluenceExport.selectedParentId}
+                selectedTemplate={confluenceExport.selectedTemplate}
+                templateMappings={confluenceExport.templateMappings}
+                pageTitle={confluenceExport.pageTitle}
+                useBlankPage={confluenceExport.useBlankPage}
+                pageTitleSource={confluenceExport.pageTitleSource}
+                isLoadingTree={confluenceExport.isLoadingTree}
+                isLoadingTemplates={confluenceExport.isLoadingTemplates}
+                promptsData={promptsData}
+                variablesData={variablesData}
+                selectedFields={selectedFields}
+                selectedVariables={selectedVariables}
+                onSelectSpace={confluenceExport.selectSpace}
+                onSelectParent={confluenceExport.selectParent}
+                onSelectTemplate={confluenceExport.selectTemplate}
+                onChooseBlankPage={confluenceExport.chooseBlankPage}
+                onUpdateMapping={confluenceExport.updateMapping}
+                onSetPageTitle={confluenceExport.setPageTitle}
+                onSetPageTitleSource={confluenceExport.setPageTitleSource}
+                onGetPageChildren={confluenceExport.getPageChildren}
+                onSetSpaceTree={confluenceExport.setSpaceTree}
+                STANDARD_FIELDS={STANDARD_FIELDS}
+              />
             )}
 
             {exportType === "json" && (
@@ -609,17 +621,17 @@ const MockupExportPanel = ({
             <TooltipTrigger asChild>
               <button 
                 onClick={handleExport}
-                disabled={!canProceedLocal() || isExporting}
+                disabled={!canProceedLocal() || isExporting || confluenceExport.isCreatingPage}
                 className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                {isExporting ? (
+                {(isExporting || confluenceExport.isCreatingPage) ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Download className="h-4 w-4" />
                 )}
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Export</TooltipContent>
+            <TooltipContent className="text-[10px]">Export to Confluence</TooltipContent>
           </Tooltip>
         )}
       </div>
