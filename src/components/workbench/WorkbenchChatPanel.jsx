@@ -1,9 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { Bot, Trash2, Paperclip, FileText, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { M3IconButton } from '@/components/ui/m3-icon-button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,35 +47,35 @@ const WorkbenchChatPanel = ({
 
   if (!activeThread) {
     return (
-      <div className="h-full flex items-center justify-center bg-background">
-        <div className="text-center text-muted-foreground">
+      <div className="h-full flex items-center justify-center bg-surface-container-lowest">
+        <div className="text-center text-on-surface-variant">
           <Bot className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">Select or create a thread to start chatting</p>
+          <p className="text-body-medium">Select or create a thread to start chatting</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-surface-container-lowest">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between bg-surface-container">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <Bot className="h-4 w-4 text-primary-foreground" />
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-elevation-1">
+            <Bot className="h-5 w-5 text-on-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold">{activeThread.title || 'Untitled Thread'}</h3>
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <h3 className="text-title-small font-semibold text-on-surface">{activeThread.title || 'Untitled Thread'}</h3>
+            <div className="flex items-center gap-2 text-label-small text-on-surface-variant">
               {filesCount > 0 && (
-                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                  <Paperclip className="h-2.5 w-2.5 mr-0.5" />
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-secondary-container text-on-secondary-container">
+                  <Paperclip className="h-3 w-3 mr-0.5" />
                   {filesCount}
                 </Badge>
               )}
               {pagesCount > 0 && (
-                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                  <FileText className="h-2.5 w-2.5 mr-0.5" />
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-secondary-container text-on-secondary-container">
+                  <FileText className="h-3 w-3 mr-0.5" />
                   {pagesCount}
                 </Badge>
               )}
@@ -86,21 +86,20 @@ const WorkbenchChatPanel = ({
         {messages.length > 0 && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground">
-                <Trash2 className="h-3 w-3 mr-1" />
-                Clear
-              </Button>
+              <M3IconButton size="small" tooltip="Clear conversation">
+                <Trash2 className="h-5 w-5" />
+              </M3IconButton>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="bg-surface-container-high border-outline-variant">
               <AlertDialogHeader>
-                <AlertDialogTitle>Clear conversation?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogTitle className="text-headline-small text-on-surface">Clear conversation?</AlertDialogTitle>
+                <AlertDialogDescription className="text-body-medium text-on-surface-variant">
                   This will delete all messages in this thread. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={onClearMessages}>
+                <AlertDialogCancel className="bg-surface-container text-on-surface border-outline-variant">Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onClearMessages} className="bg-error text-on-error hover:bg-error/90">
                   Clear
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -118,9 +117,11 @@ const WorkbenchChatPanel = ({
         ) : messages.length === 0 && !isStreaming ? (
           <div className="flex items-center justify-center h-full p-8">
             <div className="text-center max-w-sm">
-              <Bot className="h-10 w-10 mx-auto mb-3 text-primary/50" />
-              <h4 className="text-sm font-medium mb-1">Start a conversation</h4>
-              <p className="text-xs text-muted-foreground">
+              <div className="h-12 w-12 rounded-full bg-primary-container flex items-center justify-center mx-auto mb-3">
+                <Bot className="h-6 w-6 text-on-primary-container" />
+              </div>
+              <h4 className="text-title-small font-medium text-on-surface mb-1">Start a conversation</h4>
+              <p className="text-body-small text-on-surface-variant">
                 I can help you work with your prompts, library items, attached files, and Confluence pages.
               </p>
             </div>
