@@ -57,7 +57,7 @@ const ENV_VARIABLES = [
 const StatusBadge = ({ status }) => {
   const s = STATUS[status] || STATUS.unknown;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium ${s.bg} ${s.text}`}>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${s.bg} ${s.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.color}`} />
       {s.label}
     </span>
@@ -65,11 +65,11 @@ const StatusBadge = ({ status }) => {
 };
 
 const HealthCard = ({ icon: Icon, title, status, children }) => (
-  <div className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
-    <div className="flex items-center justify-between mb-3">
+  <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+    <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
-        <Icon className="h-5 w-5 text-on-surface-variant" />
-        <span className="text-label-lg text-on-surface font-medium">{title}</span>
+        <Icon className="h-4 w-4 text-on-surface-variant" />
+        <span className="text-label-sm text-on-surface font-medium">{title}</span>
       </div>
       <StatusBadge status={status} />
     </div>
@@ -79,68 +79,68 @@ const HealthCard = ({ icon: Icon, title, status, children }) => (
 
 // Overview Section
 const OverviewSection = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <div className="flex items-center justify-between">
       <div>
-        <h3 className="text-title-md text-on-surface font-semibold">System Status</h3>
-        <p className="text-body-sm text-on-surface-variant mt-1">All systems operational</p>
+        <h3 className="text-title-sm text-on-surface font-medium">System Status</h3>
+        <p className="text-body-sm text-on-surface-variant mt-0.5">All systems operational</p>
       </div>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-            <RefreshCw className="h-5 w-5" />
+          <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <RefreshCw className="h-4 w-4" />
           </button>
         </TooltipTrigger>
         <TooltipContent className="text-[10px]">Refresh Status</TooltipContent>
       </Tooltip>
     </div>
 
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-2 gap-3">
       <HealthCard icon={Database} title="Database" status={OVERVIEW_DATA.database.status}>
-        <div className="flex items-center justify-between text-body-sm">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-on-surface-variant">Latency</span>
           <span className="text-on-surface">{OVERVIEW_DATA.database.latency}</span>
         </div>
-        <div className="flex items-center justify-between text-body-sm mt-1">
+        <div className="flex items-center justify-between text-[11px] mt-1">
           <span className="text-on-surface-variant">Uptime</span>
           <span className="text-on-surface">{OVERVIEW_DATA.database.uptime}</span>
         </div>
       </HealthCard>
 
       <HealthCard icon={Zap} title="AI Services" status={OVERVIEW_DATA.ai.status}>
-        <div className="flex items-center justify-between text-body-sm">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-on-surface-variant">Latency</span>
           <span className="text-on-surface">{OVERVIEW_DATA.ai.latency}</span>
         </div>
-        <div className="flex items-center justify-between text-body-sm mt-1">
+        <div className="flex items-center justify-between text-[11px] mt-1">
           <span className="text-on-surface-variant">Uptime</span>
           <span className="text-on-surface">{OVERVIEW_DATA.ai.uptime}</span>
         </div>
       </HealthCard>
 
       <HealthCard icon={Shield} title="Authentication" status={OVERVIEW_DATA.auth.status}>
-        <div className="flex items-center justify-between text-body-sm">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-on-surface-variant">Sessions</span>
           <span className="text-on-surface">{OVERVIEW_DATA.auth.sessions}</span>
         </div>
       </HealthCard>
 
       <HealthCard icon={Globe} title="API" status={OVERVIEW_DATA.api.status}>
-        <div className="flex items-center justify-between text-body-sm">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-on-surface-variant">Requests</span>
           <span className="text-on-surface">{OVERVIEW_DATA.api.requests}</span>
         </div>
       </HealthCard>
 
       <HealthCard icon={HardDrive} title="Storage" status={OVERVIEW_DATA.storage.status}>
-        <div className="flex items-center justify-between text-body-sm">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-on-surface-variant">Usage</span>
           <span className="text-on-surface">{OVERVIEW_DATA.storage.used}</span>
         </div>
       </HealthCard>
 
       <HealthCard icon={Cpu} title="Edge Functions" status={OVERVIEW_DATA.functions.status}>
-        <div className="flex items-center justify-between text-body-sm">
+        <div className="flex items-center justify-between text-[11px]">
           <span className="text-on-surface-variant">Invocations</span>
           <span className="text-on-surface">{OVERVIEW_DATA.functions.invocations}</span>
         </div>
@@ -151,27 +151,27 @@ const OverviewSection = () => (
 
 // Database Section
 const DatabaseSection = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <div>
-      <h3 className="text-title-md text-on-surface font-semibold">Database Tables</h3>
-      <p className="text-body-sm text-on-surface-variant mt-1">Monitor table health and sync status</p>
+      <h3 className="text-title-sm text-on-surface font-medium">Database Tables</h3>
+      <p className="text-body-sm text-on-surface-variant mt-0.5">Monitor table health and sync status</p>
     </div>
 
     <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
-      <div className="grid grid-cols-[1fr,80px,100px,100px] gap-4 px-4 py-3 bg-surface-container text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+      <div className="grid grid-cols-[1fr,80px,100px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Table</span>
         <span className="text-right">Rows</span>
         <span className="text-center">Status</span>
         <span className="text-right">Last Sync</span>
       </div>
       {DATABASE_TABLES.map((table, i) => (
-        <div key={table.name} className={`grid grid-cols-[1fr,80px,100px,100px] gap-4 px-4 py-3 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
+        <div key={table.name} className={`grid grid-cols-[1fr,80px,100px,100px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
           <span className="text-body-sm text-on-surface font-mono">{table.name}</span>
           <span className="text-body-sm text-on-surface-variant text-right">{table.rows.toLocaleString()}</span>
           <div className="flex justify-center">
             <StatusBadge status={table.status} />
           </div>
-          <span className="text-body-sm text-on-surface-variant text-right">{table.lastSync}</span>
+          <span className="text-[11px] text-on-surface-variant text-right">{table.lastSync}</span>
         </div>
       ))}
     </div>
@@ -180,21 +180,21 @@ const DatabaseSection = () => (
 
 // AI Services Section
 const AIServicesSection = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <div>
-      <h3 className="text-title-md text-on-surface font-semibold">AI Model Status</h3>
-      <p className="text-body-sm text-on-surface-variant mt-1">Real-time availability and performance</p>
+      <h3 className="text-title-sm text-on-surface font-medium">AI Model Status</h3>
+      <p className="text-body-sm text-on-surface-variant mt-0.5">Real-time availability and performance</p>
     </div>
 
     <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
-      <div className="grid grid-cols-[1fr,100px,100px,100px] gap-4 px-4 py-3 bg-surface-container text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+      <div className="grid grid-cols-[1fr,100px,100px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Model</span>
         <span className="text-center">Status</span>
         <span className="text-right">Latency</span>
         <span className="text-right">Availability</span>
       </div>
       {AI_MODELS_STATUS.map((model, i) => (
-        <div key={model.name} className={`grid grid-cols-[1fr,100px,100px,100px] gap-4 px-4 py-3 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
+        <div key={model.name} className={`grid grid-cols-[1fr,100px,100px,100px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
           <span className="text-body-sm text-on-surface font-medium">{model.name}</span>
           <div className="flex justify-center">
             <StatusBadge status={model.status} />
@@ -209,24 +209,22 @@ const AIServicesSection = () => (
 
 // Auth Status Section
 const AuthStatusSection = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <div>
-      <h3 className="text-title-md text-on-surface font-semibold">Authentication Status</h3>
-      <p className="text-body-sm text-on-surface-variant mt-1">Current session and security information</p>
+      <h3 className="text-title-sm text-on-surface font-medium">Authentication Status</h3>
+      <p className="text-body-sm text-on-surface-variant mt-0.5">Current session and security information</p>
     </div>
 
-    <div className="p-6 bg-surface-container-low rounded-m3-lg border border-outline-variant">
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
-          <Shield className="h-6 w-6 text-green-600" />
-        </div>
+    <div className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+      <div className="flex items-center gap-3 mb-4">
+        <Shield className="h-5 w-5 text-green-600" />
         <div>
-          <h4 className="text-title-sm text-on-surface font-semibold">Authenticated</h4>
-          <p className="text-body-sm text-on-surface-variant">Session active and valid</p>
+          <h4 className="text-body-sm text-on-surface font-medium">Authenticated</h4>
+          <p className="text-[11px] text-on-surface-variant">Session active and valid</p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between py-2 border-b border-outline-variant">
           <span className="text-body-sm text-on-surface-variant">User</span>
           <span className="text-body-sm text-on-surface">john.doe@company.com</span>
@@ -250,21 +248,21 @@ const AuthStatusSection = () => (
 
 // API Health Section
 const APIHealthSection = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <div>
-      <h3 className="text-title-md text-on-surface font-semibold">Edge Functions</h3>
-      <p className="text-body-sm text-on-surface-variant mt-1">API endpoint health and performance</p>
+      <h3 className="text-title-sm text-on-surface font-medium">Edge Functions</h3>
+      <p className="text-body-sm text-on-surface-variant mt-0.5">API endpoint health and performance</p>
     </div>
 
     <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
-      <div className="grid grid-cols-[1fr,100px,100px,100px] gap-4 px-4 py-3 bg-surface-container text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+      <div className="grid grid-cols-[1fr,100px,100px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Endpoint</span>
         <span className="text-center">Status</span>
         <span className="text-right">Latency</span>
         <span className="text-right">Calls/hr</span>
       </div>
       {API_ENDPOINTS.map((endpoint, i) => (
-        <div key={endpoint.name} className={`grid grid-cols-[1fr,100px,100px,100px] gap-4 px-4 py-3 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
+        <div key={endpoint.name} className={`grid grid-cols-[1fr,100px,100px,100px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
           <span className="text-body-sm text-on-surface font-mono">{endpoint.name}</span>
           <div className="flex justify-center">
             <StatusBadge status={endpoint.status} />
@@ -279,28 +277,28 @@ const APIHealthSection = () => (
 
 // Environment Section
 const EnvironmentSection = () => (
-  <div className="space-y-6">
+  <div className="space-y-4">
     <div>
-      <h3 className="text-title-md text-on-surface font-semibold">Environment Variables</h3>
-      <p className="text-body-sm text-on-surface-variant mt-1">Required secrets and configuration</p>
+      <h3 className="text-title-sm text-on-surface font-medium">Environment Variables</h3>
+      <p className="text-body-sm text-on-surface-variant mt-0.5">Required secrets and configuration</p>
     </div>
 
     <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant overflow-hidden">
-      <div className="grid grid-cols-[1fr,80px,180px] gap-4 px-4 py-3 bg-surface-container text-label-sm text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+      <div className="grid grid-cols-[1fr,80px,180px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
         <span>Variable</span>
         <span className="text-center">Status</span>
         <span>Value</span>
       </div>
       {ENV_VARIABLES.map((envVar, i) => (
-        <div key={envVar.name} className={`grid grid-cols-[1fr,80px,180px] gap-4 px-4 py-3 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
+        <div key={envVar.name} className={`grid grid-cols-[1fr,80px,180px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
           <span className="text-body-sm text-on-surface font-mono">{envVar.name}</span>
           <div className="flex justify-center">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-green-500/10 text-green-600">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] bg-green-500/10 text-green-600">
               <CheckCircle className="h-3 w-3" />
               Set
             </span>
           </div>
-          <span className="text-body-sm text-on-surface-variant font-mono">{envVar.masked}</span>
+          <span className="text-[11px] text-on-surface-variant font-mono">{envVar.masked}</span>
         </div>
       ))}
     </div>
@@ -324,14 +322,14 @@ const MockupHealthContent = ({ activeSubItem = "overview" }) => {
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
       {/* Header */}
-      <div className="h-14 flex items-center gap-3 px-6 border-b border-outline-variant" style={{ height: "56px" }}>
+      <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant" style={{ height: "56px" }}>
         <Icon className="h-5 w-5 text-on-surface-variant" />
-        <h2 className="text-title-md text-on-surface font-semibold">{section.title}</h2>
+        <h2 className="text-title-sm text-on-surface font-medium">{section.title}</h2>
         <span className="ml-auto w-2 h-2 rounded-full bg-green-500" />
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         <div className="max-w-4xl">
           <SectionComponent />
         </div>

@@ -45,13 +45,13 @@ const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
     <TooltipTrigger asChild>
       <button
         onClick={onClick}
-        className={`h-8 w-10 flex items-center justify-center rounded-m3-sm transition-colors ${
+        className={`h-8 w-9 flex items-center justify-center rounded-m3-sm transition-colors ${
           isActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
             : "text-on-surface-variant hover:bg-on-surface/[0.08]"
         }`}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </button>
     </TooltipTrigger>
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
@@ -67,24 +67,24 @@ const TemplateListPanel = ({
   selectedTemplate, 
   setSelectedTemplate 
 }) => (
-  <div className="w-72 flex flex-col border-r border-outline-variant bg-surface-container-low overflow-hidden">
+  <div className="w-64 flex flex-col border-r border-outline-variant bg-surface-container-low overflow-hidden">
     {/* Header */}
-    <div className="p-3 border-b border-outline-variant space-y-3">
+    <div className="p-2.5 border-b border-outline-variant space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-label-lg text-on-surface font-medium">Templates</span>
-        <div className="flex items-center gap-1">
+        <span className="text-label-sm text-on-surface font-medium">Templates</span>
+        <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Upload className="h-4 w-4" />
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Upload className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Import</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Plus className="h-4 w-4" />
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Create New</TooltipContent>
@@ -93,7 +93,7 @@ const TemplateListPanel = ({
       </div>
 
       {/* Type Tabs */}
-      <div className="flex gap-1 p-1 bg-surface-container rounded-m3-sm">
+      <div className="flex gap-0.5 p-0.5 bg-surface-container rounded-m3-sm">
         {[
           { id: "prompts", icon: FileText, label: "Prompt Templates" },
           { id: "schemas", icon: Braces, label: "JSON Schemas" },
@@ -118,8 +118,8 @@ const TemplateListPanel = ({
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-2 h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
-        <Search className="h-3.5 w-3.5 text-on-surface-variant" />
+      <div className="flex items-center gap-1.5 h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
+        <Search className="h-3 w-3 text-on-surface-variant" />
         <input
           type="text"
           value={searchQuery}
@@ -131,12 +131,12 @@ const TemplateListPanel = ({
     </div>
 
     {/* Template List */}
-    <div className="flex-1 overflow-auto p-2 space-y-1">
+    <div className="flex-1 overflow-auto p-1.5 space-y-0.5">
       {activeTemplateTab === "prompts" && MOCK_PROMPT_TEMPLATES.map(template => (
         <button
           key={template.id}
           onClick={() => setSelectedTemplate(template)}
-          className={`w-full p-2.5 rounded-m3-sm text-left transition-colors ${
+          className={`w-full p-2 rounded-m3-sm text-left transition-colors ${
             selectedTemplate?.id === template.id 
               ? "bg-secondary-container" 
               : "hover:bg-on-surface/[0.08]"
@@ -146,12 +146,12 @@ const TemplateListPanel = ({
             <div className="flex-1 min-w-0">
               <p className="text-body-sm text-on-surface font-medium truncate">{template.name}</p>
               <p className="text-[10px] text-on-surface-variant truncate mt-0.5">{template.description}</p>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] text-on-surface-variant">{template.nodes} nodes</span>
                 <span className="text-[10px] text-on-surface-variant">• {template.vars} vars</span>
               </div>
             </div>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${getCategoryColor(template.category)}`}>
+            <span className={`text-[10px] px-1 py-0.5 rounded ${getCategoryColor(template.category)}`}>
               {template.category}
             </span>
           </div>
@@ -162,7 +162,7 @@ const TemplateListPanel = ({
         <button
           key={template.id}
           onClick={() => setSelectedTemplate(template)}
-          className={`w-full p-2.5 rounded-m3-sm text-left transition-colors ${
+          className={`w-full p-2 rounded-m3-sm text-left transition-colors ${
             selectedTemplate?.id === template.id 
               ? "bg-secondary-container" 
               : "hover:bg-on-surface/[0.08]"
@@ -173,7 +173,7 @@ const TemplateListPanel = ({
               <p className="text-body-sm text-on-surface font-medium truncate">{template.name}</p>
               <p className="text-[10px] text-on-surface-variant truncate mt-0.5">{template.description}</p>
             </div>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${getCategoryColor(template.category)}`}>
+            <span className={`text-[10px] px-1 py-0.5 rounded ${getCategoryColor(template.category)}`}>
               {template.category}
             </span>
           </div>
@@ -184,7 +184,7 @@ const TemplateListPanel = ({
         <button
           key={template.id}
           onClick={() => setSelectedTemplate(template)}
-          className={`w-full p-2.5 rounded-m3-sm text-left transition-colors ${
+          className={`w-full p-2 rounded-m3-sm text-left transition-colors ${
             selectedTemplate?.id === template.id 
               ? "bg-secondary-container" 
               : "hover:bg-on-surface/[0.08]"
@@ -210,9 +210,9 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface">
         <div className="text-center">
-          <LayoutTemplate className="h-12 w-12 mx-auto text-on-surface-variant/30 mb-3" />
-          <p className="text-body-md text-on-surface-variant">Select a template to view</p>
-          <p className="text-label-sm text-on-surface-variant/70 mt-1">or create a new one</p>
+          <LayoutTemplate className="h-10 w-10 mx-auto text-on-surface-variant/30 mb-2" />
+          <p className="text-body-sm text-on-surface-variant">Select a template to view</p>
+          <p className="text-[10px] text-on-surface-variant/70 mt-0.5">or create a new one</p>
         </div>
       </div>
     );
@@ -221,17 +221,17 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
       {/* Editor Header */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-outline-variant" style={{ height: "56px" }}>
+      <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
         <div>
-          <h3 className="text-title-sm text-on-surface font-semibold">{selectedTemplate.name}</h3>
+          <h3 className="text-title-sm text-on-surface font-medium">{selectedTemplate.name}</h3>
           {selectedTemplate.description && (
-            <p className="text-[11px] text-on-surface-variant">{selectedTemplate.description}</p>
+            <p className="text-[10px] text-on-surface-variant">{selectedTemplate.description}</p>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <Eye className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -239,7 +239,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <Copy className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -247,7 +247,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <Download className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -255,7 +255,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
+              <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
                 <Trash2 className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -265,7 +265,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
       </div>
 
       {/* Editor Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-outline-variant">
+      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-outline-variant">
         {activeTemplateTab === "prompts" && (
           <>
             <TabButton icon={FileText} label="Overview" isActive={activeEditorTab === "overview"} onClick={() => setActiveEditorTab("overview")} />
@@ -288,40 +288,40 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
       </div>
 
       {/* Editor Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {activeTemplateTab === "prompts" && (
-          <div className="space-y-6 max-w-2xl">
-            <div className="space-y-2">
-              <label className="text-label-sm text-on-surface-variant">Name</label>
-              <div className="h-10 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                <span className="text-body-md text-on-surface">{selectedTemplate.name}</span>
+          <div className="space-y-4 max-w-2xl">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name</label>
+              <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+                <span className="text-body-sm text-on-surface">{selectedTemplate.name}</span>
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-label-sm text-on-surface-variant">Description</label>
-              <div className="h-10 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                <span className="text-body-md text-on-surface">{selectedTemplate.description}</span>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Description</label>
+              <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+                <span className="text-body-sm text-on-surface">{selectedTemplate.description}</span>
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-label-sm text-on-surface-variant">Category</label>
-              <div className="h-10 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                <span className={`text-body-sm px-2 py-0.5 rounded ${getCategoryColor(selectedTemplate.category)}`}>
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Category</label>
+              <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+                <span className={`text-body-sm px-1.5 py-0.5 rounded ${getCategoryColor(selectedTemplate.category)}`}>
                   {selectedTemplate.category}
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-label-sm text-on-surface-variant">Nodes</label>
-                <div className="h-10 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                  <span className="text-body-md text-on-surface">{selectedTemplate.nodes}</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Nodes</label>
+                <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+                  <span className="text-body-sm text-on-surface">{selectedTemplate.nodes}</span>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-label-sm text-on-surface-variant">Variables</label>
-                <div className="h-10 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-                  <span className="text-body-md text-on-surface">{selectedTemplate.vars}</span>
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Variables</label>
+                <div className="h-8 px-2.5 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
+                  <span className="text-body-sm text-on-surface">{selectedTemplate.vars}</span>
                 </div>
               </div>
             </div>
@@ -329,10 +329,10 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
         )}
 
         {activeTemplateTab === "schemas" && (
-          <div className="space-y-4 max-w-2xl">
-            <div className="space-y-2">
-              <label className="text-label-sm text-on-surface-variant">JSON Schema</label>
-              <div className="min-h-64 p-4 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[11px] text-on-surface whitespace-pre overflow-auto">
+          <div className="space-y-3 max-w-2xl">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema</label>
+              <div className="min-h-56 p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[10px] text-on-surface whitespace-pre overflow-auto">
 {`{
   "type": "object",
   "properties": {
@@ -360,27 +360,27 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
         )}
 
         {activeTemplateTab === "mappings" && (
-          <div className="space-y-6 max-w-2xl">
-            <div className="space-y-2">
-              <label className="text-label-sm text-on-surface-variant">Selected Fields</label>
-              <div className="flex flex-wrap gap-2">
+          <div className="space-y-4 max-w-2xl">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Selected Fields</label>
+              <div className="flex flex-wrap gap-1.5">
                 {["System Prompt", "User Prompt", "Output", "Variables"].map(field => (
-                  <span key={field} className="text-body-sm px-3 py-1.5 bg-secondary-container text-secondary-container-foreground rounded-m3-sm">
+                  <span key={field} className="text-body-sm px-2 py-1 bg-secondary-container text-secondary-container-foreground rounded-m3-sm">
                     {field}
                   </span>
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-label-sm text-on-surface-variant">Variable Mappings</label>
-              <div className="space-y-2">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Variable Mappings</label>
+              <div className="space-y-1.5">
                 {[
                   { name: "customer_name", source: "Manual Input" },
                   { name: "ticket_id", source: "Parent Output" },
                   { name: "context", source: "Confluence Page" },
                 ].map(mapping => (
-                  <div key={mapping.name} className="h-10 flex items-center gap-4 px-4 bg-surface-container rounded-m3-sm border border-outline-variant">
-                    <span className="text-body-sm text-on-surface font-medium font-mono w-32">{mapping.name}</span>
+                  <div key={mapping.name} className="h-8 flex items-center gap-3 px-3 bg-surface-container rounded-m3-sm border border-outline-variant">
+                    <span className="text-body-sm text-on-surface font-medium font-mono w-28">{mapping.name}</span>
                     <span className="text-on-surface-variant">→</span>
                     <span className="text-body-sm text-on-surface-variant">{mapping.source}</span>
                   </div>

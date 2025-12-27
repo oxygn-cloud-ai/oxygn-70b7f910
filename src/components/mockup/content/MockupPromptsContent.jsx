@@ -76,14 +76,14 @@ const HighlightedText = ({ text }) => {
             {`{{${varName}}}`}
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-xs p-3 space-y-1.5">
+        <TooltipContent className="max-w-xs p-2 space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-label-md font-semibold text-on-surface">{varName}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary">{varDef?.type || "text"}</span>
+            <span className="text-label-sm font-medium text-on-surface">{varName}</span>
+            <span className="text-[10px] px-1 py-0.5 rounded bg-secondary-container text-secondary-container-foreground">{varDef?.type || "text"}</span>
             {varDef?.required && <span className="text-[10px] text-destructive">*required</span>}
           </div>
           {varDef?.description && (
-            <p className="text-[11px] text-on-surface-variant">{varDef.description}</p>
+            <p className="text-[10px] text-on-surface-variant">{varDef.description}</p>
           )}
         </TooltipContent>
       </Tooltip>
@@ -104,13 +104,13 @@ const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
     <TooltipTrigger asChild>
       <button
         onClick={onClick}
-        className={`h-8 w-10 flex items-center justify-center rounded-m3-sm transition-colors ${
+        className={`h-8 w-9 flex items-center justify-center rounded-m3-sm transition-colors ${
           isActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
             : "text-on-surface-variant hover:bg-on-surface/[0.08]"
         }`}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </button>
     </TooltipTrigger>
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
@@ -127,7 +127,7 @@ const VariableTypeIcon = ({ type }) => {
     enum: ToggleLeft
   };
   const Icon = icons[type] || Variable;
-  return <Icon className="h-4 w-4 text-primary" />;
+  return <Icon className="h-3.5 w-3.5 text-on-surface-variant" />;
 };
 
 const LibraryPickerDropdown = () => {
@@ -142,18 +142,18 @@ const LibraryPickerDropdown = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <Library className="h-4 w-4" />
+            <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <Library className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent className="text-[10px]">Insert from Library</TooltipContent>
       </Tooltip>
-      <DropdownMenuContent className="w-56 bg-surface-container-high border-outline-variant">
-        <div className="px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider">Library Prompts</div>
+      <DropdownMenuContent className="w-52 bg-surface-container-high border-outline-variant">
+        <div className="px-2 py-1 text-[10px] text-on-surface-variant uppercase tracking-wider">Library Prompts</div>
         <div className="px-2 pb-2">
-          <div className="flex items-center gap-2 h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
-            <Search className="h-3.5 w-3.5 text-on-surface-variant" />
+          <div className="flex items-center gap-2 h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
+            <Search className="h-3 w-3 text-on-surface-variant" />
             <input
               type="text"
               value={searchQuery}
@@ -164,7 +164,7 @@ const LibraryPickerDropdown = () => {
           </div>
         </div>
         <DropdownMenuSeparator className="bg-outline-variant" />
-        <div className="max-h-48 overflow-auto">
+        <div className="max-h-40 overflow-auto">
           {filteredPrompts.map(prompt => (
             <DropdownMenuItem key={prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
               <span className="flex-1">{prompt.name}</span>
@@ -193,43 +193,43 @@ Guidelines:
 - Offer to escalate if needed`;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* System Prompt */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-label-sm text-on-surface-variant">System Prompt</label>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">System Prompt</label>
           <LibraryPickerDropdown />
         </div>
-        <div className="min-h-48 p-3 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
+        <div className="min-h-40 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
           <HighlightedText text={promptText} />
         </div>
       </div>
 
       {/* User Prompt */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-label-sm text-on-surface-variant">User Prompt</label>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">User Prompt</label>
           <LibraryPickerDropdown />
         </div>
-        <div className="min-h-24 p-3 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface-variant">
+        <div className="min-h-20 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface-variant">
           <span className="opacity-50">Enter user prompt...</span>
         </div>
       </div>
 
       {/* Output */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-label-sm text-on-surface-variant">Output</label>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Output</label>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Copy className="h-4 w-4" />
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Copy className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Copy Output</TooltipContent>
           </Tooltip>
         </div>
-        <div className="min-h-32 p-3 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface-variant italic">
+        <div className="min-h-28 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface-variant italic">
           Run the prompt to see output...
         </div>
       </div>
@@ -244,15 +244,15 @@ const SettingsTabContent = () => {
   const [isAssistant, setIsAssistant] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Model Selection */}
-      <div className="space-y-2">
-        <label className="text-label-sm text-on-surface-variant">Model</label>
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model</label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full h-10 px-3 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
               <span>GPT-4o</span>
-              <ChevronDown className="h-4 w-4 text-on-surface-variant" />
+              <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
@@ -267,9 +267,9 @@ const SettingsTabContent = () => {
       </div>
 
       {/* Temperature */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-label-sm text-on-surface-variant">Temperature</label>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
           <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
         </div>
         <Slider
@@ -286,24 +286,24 @@ const SettingsTabContent = () => {
       </div>
 
       {/* Max Tokens */}
-      <div className="space-y-2">
-        <label className="text-label-sm text-on-surface-variant">Max Tokens</label>
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Max Tokens</label>
         <input
           type="number"
           value={maxTokens}
           onChange={(e) => setMaxTokens(e.target.value)}
-          className="w-full h-10 px-3 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
 
       {/* JSON Schema */}
-      <div className="space-y-2">
-        <label className="text-label-sm text-on-surface-variant">JSON Schema (Optional)</label>
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full h-10 px-3 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
+            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
               <span>Select a schema...</span>
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
@@ -317,13 +317,13 @@ const SettingsTabContent = () => {
       </div>
 
       {/* Assistant Mode Toggle */}
-      <div className="p-4 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Bot className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-on-surface-variant" />
             <div>
-              <span className="text-body-md text-on-surface font-medium">Assistant Mode</span>
-              <p className="text-body-sm text-on-surface-variant">Enable conversational memory</p>
+              <span className="text-body-sm text-on-surface font-medium">Assistant Mode</span>
+              <p className="text-[10px] text-on-surface-variant">Enable conversational memory</p>
             </div>
           </div>
           <Switch checked={isAssistant} onCheckedChange={setIsAssistant} />
@@ -331,19 +331,19 @@ const SettingsTabContent = () => {
       </div>
 
       {/* Tools Section */}
-      <div className="space-y-3">
-        <label className="text-label-sm text-on-surface-variant">Tools</label>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-2">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tools</label>
+        <div className="grid grid-cols-2 gap-2">
           {[
             { icon: Code, label: "Code Interpreter", enabled: true },
             { icon: Search, label: "File Search", enabled: false },
             { icon: Globe, label: "Web Search", enabled: false },
             { icon: Zap, label: "Functions", enabled: false },
           ].map(tool => (
-            <div key={tool.label} className="flex items-center justify-between p-3 bg-surface-container rounded-m3-sm border border-outline-variant">
-              <div className="flex items-center gap-2">
-                <tool.icon className="h-4 w-4 text-on-surface-variant" />
-                <span className="text-body-sm text-on-surface">{tool.label}</span>
+            <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
+              <div className="flex items-center gap-1.5">
+                <tool.icon className="h-3.5 w-3.5 text-on-surface-variant" />
+                <span className="text-[11px] text-on-surface">{tool.label}</span>
               </div>
               <Switch defaultChecked={tool.enabled} />
             </div>
@@ -356,39 +356,39 @@ const SettingsTabContent = () => {
 
 // Variables Tab Content
 const VariablesTabContent = () => (
-  <div className="space-y-4">
+  <div className="space-y-3">
     <div className="flex items-center justify-between">
-      <label className="text-label-sm text-on-surface-variant">Detected Variables</label>
+      <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Detected Variables</label>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button className="w-7 h-7 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-            <Plus className="h-4 w-4" />
+          <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <Plus className="h-3.5 w-3.5" />
           </button>
         </TooltipTrigger>
         <TooltipContent className="text-[10px]">Add Variable</TooltipContent>
       </Tooltip>
     </div>
 
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {MOCK_VARIABLES.map((variable, i) => (
         <div 
           key={variable.name}
-          className="flex items-center gap-3 p-3 bg-surface-container rounded-m3-sm border border-outline-variant"
+          className="flex items-center gap-2.5 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant"
         >
           <VariableTypeIcon type={variable.type} />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <span className="text-body-sm text-on-surface font-medium font-mono">{variable.name}</span>
               {variable.required && <span className="text-[10px] text-destructive">*</span>}
               {variable.isSecret && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600">secret</span>}
             </div>
           </div>
-          <div className="w-48">
+          <div className="w-40">
             <input
               type={variable.isSecret ? "password" : "text"}
               defaultValue={variable.value}
               placeholder="Enter value..."
-              className="w-full h-8 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>
@@ -399,10 +399,10 @@ const VariablesTabContent = () => (
 
 // Conversation Tab Content
 const ConversationTabContent = () => (
-  <div className="flex flex-col items-center justify-center h-64 text-center">
-    <MessageSquare className="h-12 w-12 text-on-surface-variant/30 mb-3" />
-    <p className="text-body-md text-on-surface-variant">Enable Assistant Mode</p>
-    <p className="text-body-sm text-on-surface-variant/70 mt-1">to use conversations</p>
+  <div className="flex flex-col items-center justify-center h-56 text-center">
+    <MessageSquare className="h-10 w-10 text-on-surface-variant/30 mb-2" />
+    <p className="text-body-sm text-on-surface-variant">Enable Assistant Mode</p>
+    <p className="text-[10px] text-on-surface-variant/70 mt-0.5">to use conversations</p>
   </div>
 );
 
@@ -427,9 +427,9 @@ const MockupPromptsContent = ({
     return (
       <div className="flex-1 flex items-center justify-center bg-surface">
         <div className="text-center text-on-surface-variant">
-          <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-body-md">Select a prompt to view</p>
-          <p className="text-body-sm opacity-70 mt-1">or create a new one</p>
+          <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          <p className="text-body-sm">Select a prompt to view</p>
+          <p className="text-[10px] opacity-70 mt-0.5">or create a new one</p>
         </div>
       </div>
     );
@@ -438,15 +438,15 @@ const MockupPromptsContent = ({
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
       {/* Header */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-outline-variant" style={{ height: "56px" }}>
-        <div className="flex items-center gap-3">
-          <h2 className="text-title-md text-on-surface font-semibold">Customer Support Agent</h2>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Business</span>
+      <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
+        <div className="flex items-center gap-2">
+          <h2 className="text-title-sm text-on-surface font-medium">Customer Support Agent</h2>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Business</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground">
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground">
                 <Play className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -455,7 +455,7 @@ const MockupPromptsContent = ({
           {selectedPromptHasChildren && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                   <Workflow className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
@@ -464,7 +464,7 @@ const MockupPromptsContent = ({
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={onExport} className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button onClick={onExport} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <Download className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -473,7 +473,7 @@ const MockupPromptsContent = ({
           {!conversationPanelOpen && onToggleConversation && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button onClick={onToggleConversation} className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                   <PanelRightOpen className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
@@ -482,23 +482,23 @@ const MockupPromptsContent = ({
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-surface-container-high border-outline-variant">
-              <DropdownMenuItem className="text-body-sm"><Star className="h-4 w-4 mr-2" /> Star</DropdownMenuItem>
-              <DropdownMenuItem className="text-body-sm"><Copy className="h-4 w-4 mr-2" /> Duplicate</DropdownMenuItem>
-              <DropdownMenuItem className="text-body-sm"><Share2 className="h-4 w-4 mr-2" /> Share</DropdownMenuItem>
+              <DropdownMenuItem className="text-body-sm"><Star className="h-3.5 w-3.5 mr-2" /> Star</DropdownMenuItem>
+              <DropdownMenuItem className="text-body-sm"><Copy className="h-3.5 w-3.5 mr-2" /> Duplicate</DropdownMenuItem>
+              <DropdownMenuItem className="text-body-sm"><Share2 className="h-3.5 w-3.5 mr-2" /> Share</DropdownMenuItem>
               <DropdownMenuSeparator className="bg-outline-variant" />
-              <DropdownMenuItem className="text-body-sm text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
+              <DropdownMenuItem className="text-body-sm text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" /> Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 border-b border-outline-variant">
+      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-outline-variant">
         {tabs.map(tab => (
           <TabButton 
             key={tab.id} 
@@ -511,7 +511,7 @@ const MockupPromptsContent = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
           {activeTab === "prompt" && <PromptTabContent />}
           {activeTab === "settings" && <SettingsTabContent />}
