@@ -37,17 +37,12 @@ const DatabaseSection = ({ results, tables, isLoading, onRefresh }) => {
 
       {/* Database Connection */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-3 mb-3">
             <Database className="h-5 w-5 text-primary" />
-            <div className="flex-1">
-              <CardTitle className="text-lg">Connection</CardTitle>
-              <CardDescription>Lovable Cloud connectivity status</CardDescription>
-            </div>
+            <span className="text-sm font-medium">Connection</span>
             <StatusIcon status={results.database.status} />
           </div>
-        </CardHeader>
-        <CardContent>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{results.database.message}</span>
             <StatusBadge status={results.database.status} />
@@ -57,16 +52,7 @@ const DatabaseSection = ({ results, tables, isLoading, onRefresh }) => {
 
       {/* Tables */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <Table2 className="h-5 w-5 text-primary" />
-            <div className="flex-1">
-              <CardTitle className="text-lg">Required Tables</CardTitle>
-              <CardDescription>Database tables needed by the application</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="space-y-3">
             {tables.map((table) => {
               const result = results.tables[table] || { status: 'pending', message: 'Checking...', count: 0 };

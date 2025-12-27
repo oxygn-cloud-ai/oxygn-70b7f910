@@ -51,17 +51,7 @@ const AuthSection = ({ results, isLoading, onRefresh }) => {
     <div className="space-y-4">
 
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <User className="h-5 w-5 text-primary" />
-            <div className="flex-1">
-              <CardTitle className="text-lg">Session Status</CardTitle>
-              <CardDescription>Authentication state</CardDescription>
-            </div>
-            <StatusIcon status={results.auth.status} />
-          </div>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{results.auth.message}</span>
             <StatusBadge status={results.auth.status} />
