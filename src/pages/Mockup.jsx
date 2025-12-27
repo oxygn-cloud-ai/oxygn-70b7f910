@@ -23,6 +23,9 @@ const Mockup = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
   
+  // Determine if conversation panel should be shown based on active nav
+  const showConversationPanel = activeNav === "prompts" && conversationPanelOpen;
+  
   // Track if mouse is over the submenu panel
   const submenuRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
@@ -103,10 +106,16 @@ const Mockup = () => {
     }
   }, [activeNav]);
 
-  // Clear sub-item when switching nav
+  // Clear sub-item when switching nav, and set defaults for settings/health
   useEffect(() => {
     if (activeNav === "prompts" || activeNav === "templates") {
       setActiveSubItem(null);
+    } else if (activeNav === "settings" && !activeSubItem) {
+      setActiveSubItem("general");
+    } else if (activeNav === "health" && !activeSubItem) {
+      setActiveSubItem("overview");
+    } else if (activeNav === "workbench" && !activeSubItem) {
+      setActiveSubItem("new-conversation");
     }
   }, [activeNav]);
 
@@ -195,7 +204,7 @@ const Mockup = () => {
                 )}
 
                 {/* Reading Pane - flexible */}
-                <ResizablePanel defaultSize={conversationPanelOpen ? 50 : 80} minSize={30}>
+                <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
                   <MockupReadingPane 
                     hasSelection={activePromptId !== null} 
                     onExport={() => setExportPanelOpen(true)}
@@ -207,11 +216,11 @@ const Mockup = () => {
                   />
                 </ResizablePanel>
 
-                {conversationPanelOpen && (
+                {showConversationPanel && (
                   <>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
 
-                    {/* Conversation Panel */}
+                    {/* Conversation Panel - only shown for prompts */}
                     <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
                       <MockupConversationPanel onClose={() => setConversationPanelOpen(false)} />
                     </ResizablePanel>
