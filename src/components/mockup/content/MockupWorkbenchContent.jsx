@@ -7,6 +7,17 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  SkeletonThreadList, 
+  SkeletonChat, 
+  SkeletonListItem 
+} from "../shared/MockupSkeletons";
+import { 
+  EmptyThreads, 
+  EmptySearchResults, 
+  WelcomeChat,
+  EmptyLinkedPages 
+} from "../shared/MockupEmptyStates";
 
 // Mock data
 const MOCK_THREADS = [
@@ -40,29 +51,47 @@ const MOCK_PAGES = [
   { id: "2", title: "Customer Personas", space: "Marketing" },
 ];
 
-// Thread List Component
-const ThreadList = ({ threads, activeThread, onSelectThread, filter = "all" }) => {
+// Thread List Component with micro-interactions
+const ThreadList = ({ threads, activeThread, onSelectThread, filter = "all", isLoading = false, searchQuery = "" }) => {
   const filteredThreads = filter === "starred" 
     ? threads.filter(t => t.starred) 
     : threads;
 
+  // Show loading skeleton
+  if (isLoading) {
+    return <SkeletonThreadList count={4} />;
+  }
+
+  // Show empty state for search
+  if (searchQuery && filteredThreads.length === 0) {
+    return <EmptySearchResults query={searchQuery} />;
+  }
+
+  // Show empty state for no threads
+  if (filteredThreads.length === 0) {
+    return <EmptyThreads />;
+  }
+
   return (
     <div className="space-y-1">
-      {filteredThreads.map(thread => (
+      {filteredThreads.map((thread, index) => (
         <button
           key={thread.id}
           onClick={() => onSelectThread(thread)}
-          className={`w-full p-2.5 rounded-m3-md text-left transition-colors ${
+          className={`w-full p-2.5 rounded-m3-md text-left transition-all duration-200 animate-fade-in group ${
             activeThread?.id === thread.id 
               ? "bg-secondary-container" 
-              : "hover:bg-on-surface/[0.08]"
+              : "hover:bg-on-surface/[0.08] hover:translate-x-0.5"
           }`}
+          style={{ animationDelay: `${index * 50}ms` }}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-body-sm text-on-surface font-medium truncate">{thread.title}</span>
-                {thread.starred && <Star className="h-3 w-3 text-amber-500 flex-shrink-0 fill-amber-500" />}
+                {thread.starred && (
+                  <Star className="h-3 w-3 text-amber-500 flex-shrink-0 fill-amber-500 transition-transform group-hover:scale-110" />
+                )}
               </div>
               <div className="flex items-center gap-2 mt-0.5 text-[10px] text-on-surface-variant">
                 <span>{thread.messageCount} messages</span>
@@ -77,17 +106,20 @@ const ThreadList = ({ threads, activeThread, onSelectThread, filter = "all" }) =
   );
 };
 
-// Chat Message Component
-const ChatMessage = ({ message }) => {
+// Chat Message Component with animations
+const ChatMessage = ({ message, index = 0 }) => {
   const isUser = message.role === "user";
   
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div 
+      className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in`}
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
       <div 
-        className={`max-w-[80%] px-3 py-2 rounded-2xl text-body-sm ${
+        className={`max-w-[80%] px-3 py-2 rounded-2xl text-body-sm transition-all duration-200 hover:shadow-sm ${
           isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-surface-container-high text-on-surface"
+            ? "bg-primary text-primary-foreground rounded-br-sm"
+            : "bg-surface-container-high text-on-surface rounded-bl-sm"
         }`}
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
@@ -273,19 +305,31 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
           <h2 className="text-title-sm text-on-surface font-medium">New Conversation</h2>
         </div>
 
-        {/* Empty State */}
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center max-w-md">
-            <MessageSquare className="h-10 w-10 mx-auto mb-3 text-on-surface-variant" />
-            <h3 className="text-title-sm text-on-surface font-medium mb-2">Start a Conversation</h3>
-            <p className="text-body-sm text-on-surface-variant mb-4">
-              Chat with an AI assistant. Attach files, link Confluence pages, and use your prompt library.
-            </p>
-            <div className="flex items-center gap-2 max-w-sm mx-auto">
-              <div className="flex-1 h-10 px-3 bg-surface-container-high rounded-2xl border border-outline-variant flex items-center">
-                <span className="text-body-sm text-on-surface-variant">Type your message...</span>
+        {/* Welcome State */}
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex items-center justify-center">
+            <WelcomeChat />
+          </div>
+          
+          {/* Input */}
+          <div className="p-4 border-t border-outline-variant">
+            <div className="flex items-center gap-2 max-w-2xl mx-auto">
+              <div className="flex-1 h-11 px-4 bg-surface-container rounded-2xl border border-outline-variant flex items-center gap-2 transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                <input 
+                  type="text"
+                  placeholder="Type your message..."
+                  className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors">
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Attach</TooltipContent>
+                </Tooltip>
               </div>
-              <button className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <button className="w-11 h-11 flex items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:scale-105 hover:shadow-md active:scale-95">
                 <Send className="h-4 w-4" />
               </button>
             </div>

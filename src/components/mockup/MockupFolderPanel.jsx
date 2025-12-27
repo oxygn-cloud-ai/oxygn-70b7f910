@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
+import { SkeletonListItem } from "./shared/MockupSkeletons";
 
 const ITEM_TYPE = "PROMPT_ITEM";
 
@@ -27,26 +28,28 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false }) => (
   <button
     className={`
       w-full h-7 flex items-center gap-2 px-2.5 rounded-m3-sm
-      transition-colors duration-150 ease-emphasized
+      transition-all duration-200 ease-emphasized group
       ${isActive 
         ? "bg-secondary-container text-secondary-container-foreground" 
-        : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+        : "text-on-surface-variant hover:bg-on-surface/[0.08] hover:translate-x-0.5"
       }
     `}
     style={{ height: "28px" }}
   >
-    <Icon className="h-4 w-4 flex-shrink-0" />
+    <Icon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isActive ? '' : 'group-hover:scale-110'}`} />
     <span className="flex-1 text-left text-[11px] truncate">{label}</span>
-    <span className="text-[10px]">{count}</span>
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
+      isActive ? 'bg-secondary-container-foreground/10' : 'bg-on-surface/[0.05]'
+    }`}>{count}</span>
   </button>
 );
 
-const IconButton = ({ icon: Icon, label, className = "" }) => (
+const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
-        onClick={(e) => e.stopPropagation()}
-        className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] ${className}`}
+        onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+        className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:scale-110 transition-all duration-150 ${className}`}
       >
         <Icon className="h-3 w-3" />
       </button>
@@ -151,12 +154,12 @@ const TreeItem = ({
         onMouseLeave={() => setIsHovered(false)}
         className={`
           w-full h-6 flex items-center gap-1 pr-1.5 rounded-m3-sm cursor-grab
-          transition-all duration-150 ease-emphasized
+          transition-all duration-200 ease-emphasized group
           ${isActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
             : "text-on-surface-variant hover:bg-on-surface/[0.08]"
           }
-          ${isDragging ? "opacity-50 scale-95" : ""}
+          ${isDragging ? "opacity-50 scale-95" : "hover:translate-x-0.5"}
           ${isOver && canDrop ? "ring-1 ring-primary bg-primary/10" : ""}
         `}
         style={{ height: "24px", paddingLeft: `${paddingLeft}px` }}
