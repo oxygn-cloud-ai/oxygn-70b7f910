@@ -121,9 +121,10 @@ const Mockup = () => {
   }, [selectedPromptId, updateField]);
   
   // Phase 1: Run prompt and cascade hooks
-  const { runPrompt, isRunning: isRunningPrompt } = useConversationRun();
+  const { runPrompt, runConversation, isRunning: isRunningPrompt } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren } = useCascadeExecutor();
   const [isRunningCascade, setIsRunningCascade] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   // Handler for running a single prompt
   const handleRunPrompt = useCallback(async (promptId) => {
@@ -238,6 +239,41 @@ const Mockup = () => {
       refreshTreeData();
     }
   }, [hierarchicalTreeData, updateField, refreshTreeData]);
+  
+  // Phase 2: Handler for sending conversation messages
+  const handleSendConversationMessage = useCallback(async (message) => {
+    if (!selectedPromptId || !message.trim()) return;
+    
+    setIsSendingMessage(true);
+    try {
+      // If no active thread exists, create one first
+      let threadToUse = activeThread;
+      if (!threadToUse && createThread) {
+        threadToUse = await createThread("New Conversation");
+        if (!threadToUse) {
+          throw new Error("Failed to create thread");
+        }
+      }
+      
+      // Run the conversation
+      await runConversation({
+        childPromptRowId: selectedPromptId,
+        userMessage: message,
+        threadMode: selectedPromptData?.thread_mode || 'reuse',
+        existingThreadRowId: threadToUse?.row_id,
+      });
+      
+      // Refresh messages for the active thread
+      if (threadToUse?.row_id) {
+        await fetchMessages(threadToUse.row_id);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to send message", { description: error.message });
+    } finally {
+      setIsSendingMessage(false);
+    }
+  }, [selectedPromptId, activeThread, createThread, runConversation, selectedPromptData, fetchMessages]);
   
   // Check if selected prompt has children
   const selectedPromptHasChildren = React.useMemo(() => {
@@ -583,9 +619,11 @@ const Mockup = () => {
                         messages={messages}
                         isLoadingThreads={isLoadingThreads}
                         isLoadingMessages={isLoadingMessages}
+                        isSending={isSendingMessage}
                         onCreateThread={createThread}
                         onDeleteThread={deleteThread}
                         onRenameThread={renameThread}
+                        onSendMessage={handleSendConversationMessage}
                         promptName={selectedPromptData?.prompt_name}
                       />
                     </ResizablePanel>

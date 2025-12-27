@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Send, Paperclip, Mic, MoreVertical, PanelRightClose, Plus, Trash2, Loader2, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,18 +12,31 @@ const MockupConversationPanel = ({
   messages = [],
   isLoadingThreads = false,
   isLoadingMessages = false,
+  isSending = false,
   onCreateThread,
   onDeleteThread,
   onRenameThread,
+  onSendMessage,
   promptName = "Prompt"
 }) => {
   const [inputValue, setInputValue] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef(null);
+
+  // Auto-scroll to bottom when messages change or when sending
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isSending]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || isSending) return;
-    // TODO: Wire to real send function
+    const message = inputValue.trim();
     setInputValue("");
+    
+    if (onSendMessage) {
+      await onSendMessage(message);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -102,7 +115,7 @@ const MockupConversationPanel = ({
       )}
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-2.5">
+      <ScrollArea className="flex-1 p-2.5" ref={scrollRef}>
         {isLoadingMessages ? (
           <SkeletonChat />
         ) : messages.length === 0 ? (
@@ -130,6 +143,20 @@ const MockupConversationPanel = ({
                 </div>
               </div>
             ))}
+            {/* Thinking indicator when sending */}
+            {isSending && (
+              <div className="flex justify-start">
+                <div 
+                  className="max-w-[85%] px-2.5 py-2 bg-surface-container-high text-on-surface-variant"
+                  style={{ borderRadius: "14px" }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-body-sm">Thinking...</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
