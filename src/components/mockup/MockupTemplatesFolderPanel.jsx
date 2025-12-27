@@ -145,9 +145,19 @@ const TemplateTreeItem = ({
   );
 };
 
-const MockupTemplatesFolderPanel = ({ onSelectTemplate, selectedTemplateId }) => {
+const MockupTemplatesFolderPanel = ({ 
+  onSelectTemplate, 
+  selectedTemplateId,
+  activeTemplateTab = "prompts",
+  onTemplateTabChange
+}) => {
   const [activeFolder, setActiveFolder] = useState("all");
-  const [activeType, setActiveType] = useState("prompts");
+
+  // Use controlled state if provided, otherwise internal
+  const activeType = activeTemplateTab;
+  const setActiveType = (type) => {
+    onTemplateTabChange?.(type);
+  };
 
   const handleMove = (draggedId, targetId, targetIndex) => {
     console.log(`Move ${draggedId} to position near ${targetId} (index: ${targetIndex})`);

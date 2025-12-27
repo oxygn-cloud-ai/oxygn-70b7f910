@@ -21,6 +21,7 @@ const Mockup = () => {
   const [hoveredNav, setHoveredNav] = useState(null);
   const [activePromptId, setActivePromptId] = useState(2);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [activeTemplateTab, setActiveTemplateTab] = useState("prompts");
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
   
   // Determine if conversation panel should be shown based on active nav
@@ -149,6 +150,8 @@ const Mockup = () => {
         <MockupTemplatesFolderPanel 
           onSelectTemplate={handleSelectTemplate}
           selectedTemplateId={selectedTemplate?.id}
+          activeTemplateTab={activeTemplateTab}
+          onTemplateTabChange={setActiveTemplateTab}
         />
       );
     }
@@ -211,6 +214,7 @@ const Mockup = () => {
                     activeNav={activeNav}
                     activeSubItem={activeSubItem}
                     selectedTemplate={selectedTemplate}
+                    activeTemplateTab={activeTemplateTab}
                     onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
                     conversationPanelOpen={conversationPanelOpen}
                   />

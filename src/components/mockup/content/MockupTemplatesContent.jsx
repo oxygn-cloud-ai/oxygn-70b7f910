@@ -1,30 +1,9 @@
 import React, { useState } from "react";
 import { 
-  FileText, Braces, Link2, Plus, Copy, Download, Trash2,
-  Search, LayoutTemplate, Variable, Upload, Code, Eye
+  FileText, Braces, Link2, Copy, Download, Trash2,
+  LayoutTemplate, Variable, Code, Eye
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-// Mock data
-const MOCK_PROMPT_TEMPLATES = [
-  { id: "1", name: "Customer Support Agent", description: "Professional support responses", category: "Business", nodes: 5, vars: 3 },
-  { id: "2", name: "Code Review Assistant", description: "Thorough code analysis", category: "Technical", nodes: 4, vars: 2 },
-  { id: "3", name: "Content Writer", description: "SEO-optimized blog content", category: "Marketing", nodes: 6, vars: 4 },
-  { id: "4", name: "Data Analyst", description: "Extract insights from data", category: "Technical", nodes: 3, vars: 5 },
-];
-
-const MOCK_SCHEMA_TEMPLATES = [
-  { id: "1", name: "Action Response", description: "Structured action items", category: "Action" },
-  { id: "2", name: "Data Extraction", description: "Extract structured data", category: "Extraction" },
-  { id: "3", name: "Sentiment Analysis", description: "Analyze text sentiment", category: "Analysis" },
-  { id: "4", name: "Entity Recognition", description: "Identify named entities", category: "NLP" },
-];
-
-const MOCK_MAPPING_TEMPLATES = [
-  { id: "1", name: "Standard Export", fields: 4, vars: 6 },
-  { id: "2", name: "Documentation Only", fields: 2, vars: 3 },
-  { id: "3", name: "Full Backup", fields: 6, vars: 8 },
-];
 
 const getCategoryColor = (category) => {
   const colors = {
@@ -58,161 +37,17 @@ const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
   </Tooltip>
 );
 
-// Template List Panel
-const TemplateListPanel = ({ 
-  activeTemplateTab, 
-  setActiveTemplateTab, 
-  searchQuery, 
-  setSearchQuery, 
-  selectedTemplate, 
-  setSelectedTemplate 
-}) => (
-  <div className="w-64 flex flex-col border-r border-outline-variant bg-surface-container-low overflow-hidden">
-    {/* Header */}
-    <div className="p-2.5 border-b border-outline-variant space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-label-sm text-on-surface font-medium">Templates</span>
-        <div className="flex items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Upload className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Import</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Create New</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* Type Tabs */}
-      <div className="flex gap-0.5 p-0.5 bg-surface-container rounded-m3-sm">
-        {[
-          { id: "prompts", icon: FileText, label: "Prompt Templates" },
-          { id: "schemas", icon: Braces, label: "JSON Schemas" },
-          { id: "mappings", icon: Link2, label: "Export Mappings" },
-        ].map(tab => (
-          <Tooltip key={tab.id}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => { setActiveTemplateTab(tab.id); setSelectedTemplate(null); }}
-                className={`flex-1 h-7 flex items-center justify-center rounded-sm transition-colors ${
-                  activeTemplateTab === tab.id 
-                    ? "bg-secondary-container text-secondary-container-foreground" 
-                    : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-                }`}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{tab.label}</TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="flex items-center gap-1.5 h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
-        <Search className="h-3 w-3 text-on-surface-variant" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search templates..."
-          className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none"
-        />
-      </div>
-    </div>
-
-    {/* Template List */}
-    <div className="flex-1 overflow-auto p-1.5 space-y-0.5">
-      {activeTemplateTab === "prompts" && MOCK_PROMPT_TEMPLATES.map(template => (
-        <button
-          key={template.id}
-          onClick={() => setSelectedTemplate(template)}
-          className={`w-full p-2 rounded-m3-sm text-left transition-colors ${
-            selectedTemplate?.id === template.id 
-              ? "bg-secondary-container" 
-              : "hover:bg-on-surface/[0.08]"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-body-sm text-on-surface font-medium truncate">{template.name}</p>
-              <p className="text-[10px] text-on-surface-variant truncate mt-0.5">{template.description}</p>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] text-on-surface-variant">{template.nodes} nodes</span>
-                <span className="text-[10px] text-on-surface-variant">• {template.vars} vars</span>
-              </div>
-            </div>
-            <span className={`text-[10px] px-1 py-0.5 rounded ${getCategoryColor(template.category)}`}>
-              {template.category}
-            </span>
-          </div>
-        </button>
-      ))}
-
-      {activeTemplateTab === "schemas" && MOCK_SCHEMA_TEMPLATES.map(template => (
-        <button
-          key={template.id}
-          onClick={() => setSelectedTemplate(template)}
-          className={`w-full p-2 rounded-m3-sm text-left transition-colors ${
-            selectedTemplate?.id === template.id 
-              ? "bg-secondary-container" 
-              : "hover:bg-on-surface/[0.08]"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-body-sm text-on-surface font-medium truncate">{template.name}</p>
-              <p className="text-[10px] text-on-surface-variant truncate mt-0.5">{template.description}</p>
-            </div>
-            <span className={`text-[10px] px-1 py-0.5 rounded ${getCategoryColor(template.category)}`}>
-              {template.category}
-            </span>
-          </div>
-        </button>
-      ))}
-
-      {activeTemplateTab === "mappings" && MOCK_MAPPING_TEMPLATES.map(template => (
-        <button
-          key={template.id}
-          onClick={() => setSelectedTemplate(template)}
-          className={`w-full p-2 rounded-m3-sm text-left transition-colors ${
-            selectedTemplate?.id === template.id 
-              ? "bg-secondary-container" 
-              : "hover:bg-on-surface/[0.08]"
-          }`}
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-body-sm text-on-surface font-medium truncate">{template.name}</p>
-            <p className="text-[10px] text-on-surface-variant mt-0.5">
-              {template.fields} fields • {template.vars} vars
-            </p>
-          </div>
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-// Template Editor Panel
-const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
+const MockupTemplatesContent = ({ selectedTemplate, activeTemplateTab = "prompts" }) => {
   const [activeEditorTab, setActiveEditorTab] = useState("overview");
 
+  // Empty state when no template selected
   if (!selectedTemplate) {
     return (
       <div className="flex-1 flex items-center justify-center bg-surface">
-        <div className="text-center">
-          <LayoutTemplate className="h-10 w-10 mx-auto text-on-surface-variant/30 mb-2" />
-          <p className="text-body-sm text-on-surface-variant">Select a template to view</p>
-          <p className="text-[10px] text-on-surface-variant/70 mt-0.5">or create a new one</p>
+        <div className="text-center text-on-surface-variant">
+          <LayoutTemplate className="h-16 w-16 mx-auto mb-4 opacity-30" />
+          <p className="text-body-md">Select a template to view</p>
+          <p className="text-label-md mt-1">or create a new one</p>
         </div>
       </div>
     );
@@ -220,7 +55,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
 
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
-      {/* Editor Header */}
+      {/* Header - 56px */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
         <div>
           <h3 className="text-title-sm text-on-surface font-medium">{selectedTemplate.name}</h3>
@@ -264,7 +99,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
         </div>
       </div>
 
-      {/* Editor Tabs */}
+      {/* Tab Bar */}
       <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-outline-variant">
         {activeTemplateTab === "prompts" && (
           <>
@@ -287,7 +122,7 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
         )}
       </div>
 
-      {/* Editor Content */}
+      {/* Content Area */}
       <div className="flex-1 overflow-auto p-4">
         {activeTemplateTab === "prompts" && (
           <div className="space-y-4 max-w-2xl">
@@ -390,30 +225,6 @@ const TemplateEditorPanel = ({ selectedTemplate, activeTemplateTab }) => {
           </div>
         )}
       </div>
-    </div>
-  );
-};
-
-// Main Templates Content Component
-const MockupTemplatesContent = () => {
-  const [activeTemplateTab, setActiveTemplateTab] = useState("prompts");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-
-  return (
-    <div className="flex-1 flex bg-surface overflow-hidden">
-      <TemplateListPanel
-        activeTemplateTab={activeTemplateTab}
-        setActiveTemplateTab={setActiveTemplateTab}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedTemplate={selectedTemplate}
-        setSelectedTemplate={setSelectedTemplate}
-      />
-      <TemplateEditorPanel
-        selectedTemplate={selectedTemplate}
-        activeTemplateTab={activeTemplateTab}
-      />
     </div>
   );
 };
