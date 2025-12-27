@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   X, 
   FileJson, 
@@ -36,71 +36,24 @@ const STEPS = [
   { id: 4, label: "Configure", icon: Settings },
 ];
 
-const EXPORT_TYPES = [
+const EXPORT_TYPE_OPTIONS = [
   { id: "confluence", icon: Globe, label: "Confluence", description: "Export to Confluence pages" },
   { id: "json", icon: FileJson, label: "JSON", description: "Download as JSON file" },
   { id: "markdown", icon: FileText, label: "Markdown", description: "Download as Markdown" },
 ];
 
-const EXPORT_FIELDS = [
-  { id: "system_prompt", label: "System Prompt", checked: true, category: "standard" },
-  { id: "user_prompt", label: "User Prompt", checked: true, category: "standard" },
-  { id: "output", label: "Output", checked: true, category: "standard" },
-  { id: "model", label: "Model", checked: false, category: "standard" },
-  { id: "temperature", label: "Temperature", checked: false, category: "standard" },
-  { id: "note", label: "Note", checked: false, category: "standard" },
-];
-
-const MOCK_PROMPTS = [
-  { id: "1", name: "Customer Support Bot", level: 0, children: ["2", "3"], checked: true },
-  { id: "2", name: "Greeting Generator", level: 1, parentId: "1", children: [], checked: true },
-  { id: "3", name: "FAQ Handler", level: 1, parentId: "1", children: ["4"], checked: true },
-  { id: "4", name: "Escalation Classifier", level: 2, parentId: "3", children: [], checked: false },
-  { id: "5", name: "Email Responder", level: 0, children: [], checked: false },
-];
-
-const MOCK_VARIABLES = [
-  { id: "v1", name: "customer_name", promptId: "1", checked: true },
-  { id: "v2", name: "ticket_id", promptId: "1", checked: true },
-  { id: "v3", name: "greeting_style", promptId: "2", checked: false },
-  { id: "v4", name: "faq_topic", promptId: "3", checked: true },
-];
-
+// Mock data for configuration step (will be replaced with real Confluence data later)
 const CONFLUENCE_SPACES = [
   { id: "eng", name: "Engineering", key: "ENG" },
   { id: "prod", name: "Product", key: "PROD" },
   { id: "docs", name: "Documentation", key: "DOCS" },
-  { id: "support", name: "Customer Support", key: "SUP" },
 ];
 
 const CONFLUENCE_PAGES = [
-  { id: "p1", name: "AI Prompts", space: "eng", children: ["p1a", "p1b"] },
+  { id: "p1", name: "AI Prompts", space: "eng", children: ["p1a"] },
   { id: "p1a", name: "Production Prompts", space: "eng", parentId: "p1", children: [] },
-  { id: "p1b", name: "Development Prompts", space: "eng", parentId: "p1", children: [] },
-  { id: "p2", name: "System Architecture", space: "eng", children: [] },
-  { id: "p3", name: "Product Specs", space: "prod", children: [] },
-  { id: "p4", name: "User Guides", space: "docs", children: [] },
-  { id: "p5", name: "FAQ", space: "support", children: [] },
-];
-
-const CONFLUENCE_TEMPLATES = [
-  { id: "t1", name: "Prompt Documentation", description: "Standard prompt doc template" },
-  { id: "t2", name: "Technical Spec", description: "Detailed technical specifications" },
-  { id: "t3", name: "Quick Reference", description: "Minimal, quick lookup format" },
-];
-
-const SAVED_TEMPLATES = [
-  { id: "t1", name: "Standard Export" },
-  { id: "t2", name: "Documentation Only" },
-  { id: "t3", name: "Full Backup" },
-];
-
-const TEMPLATE_VARIABLES = [
-  { name: "title", label: "Page Title", required: true },
-  { name: "system_prompt", label: "System Prompt Section" },
-  { name: "user_prompt", label: "User Prompt Section" },
-  { name: "output", label: "Output Section" },
-  { name: "metadata", label: "Metadata Footer" },
+  { id: "p2", name: "Product Specs", space: "prod", children: [] },
+  { id: "p3", name: "User Guides", space: "docs", children: [] },
 ];
 
 // Step Navigation Component
@@ -143,11 +96,11 @@ const StepNavigation = ({ currentStep, onStepClick }) => (
   </div>
 );
 
-// Prompt Tree Item Component
-const PromptTreeItem = ({ prompt, prompts, onToggle, level = 0 }) => {
+// Prompt Tree Item Component - Updated for real data structure
+const PromptTreeItem = ({ item, selectedIds, onToggle, level = 0 }) => {
   const [expanded, setExpanded] = useState(true);
-  const hasChildren = prompt.children && prompt.children.length > 0;
-  const childPrompts = prompts.filter(p => prompt.children?.includes(p.id));
+  const hasChildren = item.children && item.children.length > 0;
+  const isSelected = selectedIds.includes(item.row_id);
 
   return (
     <div>
@@ -167,17 +120,17 @@ const PromptTreeItem = ({ prompt, prompts, onToggle, level = 0 }) => {
           <div className="w-4" />
         )}
         <Checkbox 
-          checked={prompt.checked}
-          onCheckedChange={() => onToggle(prompt.id)}
+          checked={isSelected}
+          onCheckedChange={() => onToggle(item.row_id)}
           className="h-4 w-4"
         />
-        <span className="text-body-sm text-on-surface">{prompt.name}</span>
+        <span className="text-body-sm text-on-surface">{item.prompt_name || 'Unnamed'}</span>
       </div>
-      {expanded && childPrompts.map(child => (
+      {expanded && hasChildren && item.children.map(child => (
         <PromptTreeItem 
-          key={child.id} 
-          prompt={child} 
-          prompts={prompts}
+          key={child.row_id} 
+          item={child} 
+          selectedIds={selectedIds}
           onToggle={onToggle}
           level={level + 1} 
         />
@@ -231,88 +184,106 @@ const PageTreeItem = ({ page, pages, selectedId, onSelect, level = 0 }) => {
   );
 };
 
-// Variable Source Picker Component
-const VariableSourcePicker = ({ variable, prompts, onSourceChange }) => {
-  const [source, setSource] = useState("static");
-
-  const sources = [
-    { id: "static", label: "Static Text" },
-    { id: "field", label: "From Field" },
-    { id: "variable", label: "From Variable" },
-  ];
-
-  return (
-    <div className="flex items-center gap-2 p-2 bg-surface-container rounded-m3-sm border border-outline-variant">
-      <div className="flex-1 min-w-0">
-        <code className="text-body-sm text-on-surface font-mono">{`{{${variable.name}}}`}</code>
-        {variable.required && <span className="text-[10px] text-destructive ml-1">*</span>}
-      </div>
-      <Select value={source} onValueChange={(v) => { setSource(v); onSourceChange?.(variable.name, v); }}>
-        <SelectTrigger className="w-28 h-7 text-[11px] bg-surface-container-high border-outline-variant">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-          {sources.map(s => (
-            <SelectItem key={s.id} value={s.id} className="text-[11px]">{s.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {source === "static" && (
-        <input 
-          type="text"
-          placeholder="Enter value..."
-          className="w-32 h-7 px-2 bg-surface-container-high border border-outline-variant rounded-m3-sm text-[11px] text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      )}
-    </div>
-  );
-};
-
-const MockupExportPanel = ({ onClose }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedType, setSelectedType] = useState("confluence");
-  const [fields, setFields] = useState(EXPORT_FIELDS);
-  const [prompts, setPrompts] = useState(MOCK_PROMPTS);
-  const [variables, setVariables] = useState(MOCK_VARIABLES);
+const MockupExportPanel = ({ 
+  onClose, 
+  exportState,
+  treeData = [],
+  selectedPromptId 
+}) => {
+  // Destructure from exportState hook if provided, else use defaults
+  const {
+    currentStep = 1,
+    selectedPromptIds = [],
+    selectedFields = [],
+    selectedVariables = {},
+    exportType = 'confluence',
+    promptsData = [],
+    variablesData = {},
+    isLoadingPrompts = false,
+    isLoadingVariables = false,
+    canProceed = false,
+    goToStep,
+    goNext,
+    goBack,
+    togglePromptSelection,
+    toggleFieldSelection,
+    toggleVariableSelection,
+    selectAllPrompts,
+    clearPromptSelection,
+    setExportType,
+    fetchPromptsData,
+    fetchVariablesData,
+    STANDARD_FIELDS = [],
+  } = exportState || {};
+  
+  // Local state for configuration step
   const [selectedSpace, setSelectedSpace] = useState("");
   const [selectedPage, setSelectedPage] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("");
-  const [selectedConfluenceTemplate, setSelectedConfluenceTemplate] = useState("");
-  const [pageTitleSource, setPageTitleSource] = useState("static");
+  const [isExporting, setIsExporting] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
-
-  const toggleField = (id) => {
-    setFields(prev => prev.map(f => f.id === id ? { ...f, checked: !f.checked } : f));
-  };
-
-  const togglePrompt = (id) => {
-    setPrompts(prev => prev.map(p => p.id === id ? { ...p, checked: !p.checked } : p));
-  };
-
-  const toggleVariable = (id) => {
-    setVariables(prev => prev.map(v => v.id === id ? { ...v, checked: !v.checked } : v));
-  };
-
-  const selectAllPrompts = () => setPrompts(prev => prev.map(p => ({ ...p, checked: true })));
-  const clearAllPrompts = () => setPrompts(prev => prev.map(p => ({ ...p, checked: false })));
-
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  
+  // Get all prompt IDs from tree for select all
+  const allPromptIds = useMemo(() => {
+    const collectIds = (items) => {
+      const ids = [];
+      items.forEach(item => {
+        ids.push(item.row_id);
+        if (item.children?.length) {
+          ids.push(...collectIds(item.children));
+        }
+      });
+      return ids;
+    };
+    return collectIds(treeData);
+  }, [treeData]);
+  
+  // When moving to step 2 (fields), fetch prompts and variables data
+  useEffect(() => {
+    if (currentStep === 2 && selectedPromptIds.length > 0 && promptsData.length === 0) {
+      fetchPromptsData?.(selectedPromptIds);
+      fetchVariablesData?.(selectedPromptIds);
+    }
+  }, [currentStep, selectedPromptIds, promptsData.length, fetchPromptsData, fetchVariablesData]);
+  
   const filteredPages = selectedSpace 
     ? CONFLUENCE_PAGES.filter(p => p.space === selectedSpace && !p.parentId)
     : CONFLUENCE_PAGES.filter(p => !p.parentId);
 
-  const selectedPromptsCount = prompts.filter(p => p.checked).length;
-  const selectedFieldsCount = fields.filter(f => f.checked).length;
+  const selectedPromptsCount = selectedPromptIds.length;
+  const selectedFieldsCount = selectedFields.length;
+  
+  // Gather selected variables count
+  const selectedVariablesCount = Object.values(selectedVariables).reduce(
+    (acc, vars) => acc + (vars?.length || 0), 0
+  );
 
-  const canProceed = () => {
+  const canProceedLocal = () => {
+    if (!exportState) return false;
     switch (currentStep) {
       case 1: return selectedPromptsCount > 0;
-      case 2: return selectedFieldsCount > 0;
-      case 3: return selectedType !== "";
-      case 4: return selectedType !== "confluence" || (selectedSpace && selectedPage);
+      case 2: return selectedFieldsCount > 0 || selectedVariablesCount > 0;
+      case 3: return exportType !== null;
+      case 4: return exportType !== 'confluence' || (selectedSpace && selectedPage);
       default: return true;
     }
+  };
+  
+  const handleSelectAll = () => {
+    selectAllPrompts?.(allPromptIds);
+  };
+  
+  const handleClearAll = () => {
+    clearPromptSelection?.();
+  };
+  
+  const handleExport = async () => {
+    setIsExporting(true);
+    // Simulate export
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsExporting(false);
+    onClose?.();
   };
 
   return (
@@ -329,19 +300,6 @@ const MockupExportPanel = ({ onClose }) => {
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {/* Template Selector */}
-          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-            <SelectTrigger className="w-36 h-8 text-[11px] bg-surface-container-high border-outline-variant">
-              <SelectValue placeholder="Load template..." />
-            </SelectTrigger>
-            <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-              {SAVED_TEMPLATES.map(template => (
-                <SelectItem key={template.id} value={template.id} className="text-[11px]">
-                  {template.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
@@ -368,7 +326,7 @@ const MockupExportPanel = ({ onClose }) => {
       </div>
 
       {/* Step Navigation */}
-      <StepNavigation currentStep={currentStep} onStepClick={setCurrentStep} />
+      <StepNavigation currentStep={currentStep} onStepClick={goToStep} />
 
       {/* Save Template Input */}
       {showSaveTemplate && (
@@ -400,14 +358,14 @@ const MockupExportPanel = ({ onClose }) => {
               <label className="text-label-sm text-on-surface-variant uppercase">Select Prompts</label>
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={selectAllPrompts}
+                  onClick={handleSelectAll}
                   className="text-[10px] text-primary hover:underline"
                 >
                   Select All
                 </button>
                 <span className="text-on-surface-variant">•</span>
                 <button 
-                  onClick={clearAllPrompts}
+                  onClick={handleClearAll}
                   className="text-[10px] text-on-surface-variant hover:underline"
                 >
                   Clear
@@ -415,14 +373,18 @@ const MockupExportPanel = ({ onClose }) => {
               </div>
             </div>
             <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant p-2">
-              {prompts.filter(p => p.level === 0).map(prompt => (
-                <PromptTreeItem 
-                  key={prompt.id} 
-                  prompt={prompt} 
-                  prompts={prompts}
-                  onToggle={togglePrompt}
-                />
-              ))}
+              {treeData.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant py-4 text-center">No prompts available</p>
+              ) : (
+                treeData.map(item => (
+                  <PromptTreeItem 
+                    key={item.row_id} 
+                    item={item} 
+                    selectedIds={selectedPromptIds}
+                    onToggle={togglePromptSelection}
+                  />
+                ))
+              )}
             </div>
           </div>
         )}
@@ -433,45 +395,62 @@ const MockupExportPanel = ({ onClose }) => {
             {/* Standard Fields */}
             <div className="space-y-2">
               <label className="text-label-sm text-on-surface-variant uppercase">Standard Fields</label>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {fields.map(field => (
-                  <label key={field.id} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox 
-                      checked={field.checked}
-                      onCheckedChange={() => toggleField(field.id)}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-body-sm text-on-surface">{field.label}</span>
-                  </label>
-                ))}
-              </div>
+              {isLoadingPrompts ? (
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+                  <span className="text-body-sm text-on-surface-variant">Loading prompts...</span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                  {STANDARD_FIELDS.map(field => (
+                    <label key={field.id} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox 
+                        checked={selectedFields.includes(field.id)}
+                        onCheckedChange={() => toggleFieldSelection?.(field.id)}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-body-sm text-on-surface">{field.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Variables by Prompt */}
             <div className="space-y-2">
               <label className="text-label-sm text-on-surface-variant uppercase">Variables</label>
-              {prompts.filter(p => p.checked).map(prompt => {
-                const promptVars = variables.filter(v => v.promptId === prompt.id);
-                if (promptVars.length === 0) return null;
-                
-                return (
-                  <div key={prompt.id} className="bg-surface-container-low rounded-m3-md p-2">
-                    <span className="text-[10px] text-on-surface-variant">{prompt.name}</span>
-                    <div className="flex flex-wrap gap-2 mt-1.5">
-                      {promptVars.map(v => (
-                        <label key={v.id} className="flex items-center gap-1.5 px-2 py-1 bg-surface-container rounded-m3-sm cursor-pointer">
-                          <Checkbox 
-                            checked={v.checked}
-                            onCheckedChange={() => toggleVariable(v.id)}
-                            className="h-3.5 w-3.5"
-                          />
-                          <code className="text-[11px] text-on-surface font-mono">{v.name}</code>
-                        </label>
-                      ))}
+              {isLoadingVariables ? (
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+                  <span className="text-body-sm text-on-surface-variant">Loading variables...</span>
+                </div>
+              ) : (
+                promptsData.filter(p => selectedPromptIds.includes(p.row_id)).map(prompt => {
+                  const promptVars = variablesData[prompt.row_id] || [];
+                  if (promptVars.length === 0) return null;
+                  
+                  return (
+                    <div key={prompt.row_id} className="bg-surface-container-low rounded-m3-md p-2">
+                      <span className="text-[10px] text-on-surface-variant">{prompt.prompt_name}</span>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {promptVars.map(v => (
+                          <label key={v.variable_name} className="flex items-center gap-1.5 px-2 py-1 bg-surface-container rounded-m3-sm cursor-pointer">
+                            <Checkbox 
+                              checked={(selectedVariables[prompt.row_id] || []).includes(v.variable_name)}
+                              onCheckedChange={() => toggleVariableSelection?.(prompt.row_id, v.variable_name)}
+                              className="h-3.5 w-3.5"
+                            />
+                            <code className="text-[11px] text-on-surface font-mono">{v.variable_name}</code>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
+              {!isLoadingVariables && Object.keys(variablesData).length === 0 && (
+                <p className="text-body-sm text-on-surface-variant/70 italic py-2">No variables found for selected prompts.</p>
+              )}
             </div>
           </div>
         )}
@@ -481,13 +460,13 @@ const MockupExportPanel = ({ onClose }) => {
           <div className="space-y-3">
             <label className="text-label-sm text-on-surface-variant uppercase">Export Destination</label>
             <div className="space-y-1">
-              {EXPORT_TYPES.map(type => {
+              {EXPORT_TYPE_OPTIONS.map(type => {
                 const Icon = type.icon;
-                const isSelected = selectedType === type.id;
+                const isSelected = exportType === type.id;
                 return (
                   <button
                     key={type.id}
-                    onClick={() => setSelectedType(type.id)}
+                    onClick={() => setExportType?.(type.id)}
                     className={`w-full h-12 flex items-center gap-3 px-3 rounded-m3-md border transition-colors ${
                       isSelected 
                         ? "border-primary bg-secondary-container" 
@@ -510,7 +489,7 @@ const MockupExportPanel = ({ onClose }) => {
         {/* Step 4: Configure */}
         {currentStep === 4 && (
           <div className="space-y-4">
-            {selectedType === "confluence" && (
+            {exportType === "confluence" && (
               <>
                 {/* Space Selector */}
                 <div className="space-y-2">
@@ -549,73 +528,17 @@ const MockupExportPanel = ({ onClose }) => {
                     </div>
                   </div>
                 )}
-
-                {/* Template Selector */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-on-surface-variant uppercase">Page Template</label>
-                  <Select value={selectedConfluenceTemplate} onValueChange={setSelectedConfluenceTemplate}>
-                    <SelectTrigger className="w-full h-10 bg-surface-container-high border-outline-variant text-on-surface">
-                      <SelectValue placeholder="Select template (optional)..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-                      {CONFLUENCE_TEMPLATES.map(template => (
-                        <SelectItem key={template.id} value={template.id}>
-                          <div>
-                            <span className="text-on-surface">{template.name}</span>
-                            <span className="text-[10px] text-on-surface-variant ml-2">{template.description}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Page Title Source */}
-                <div className="space-y-2">
-                  <label className="text-label-sm text-on-surface-variant uppercase">Page Title</label>
-                  <div className="flex items-center gap-2">
-                    <Select value={pageTitleSource} onValueChange={setPageTitleSource}>
-                      <SelectTrigger className="w-32 h-9 bg-surface-container-high border-outline-variant text-[11px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-                        <SelectItem value="static" className="text-[11px]">Static Text</SelectItem>
-                        <SelectItem value="prompt_name" className="text-[11px]">Prompt Name</SelectItem>
-                        <SelectItem value="field" className="text-[11px]">From Field</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {pageTitleSource === "static" && (
-                      <input 
-                        type="text"
-                        placeholder="Enter page title..."
-                        className="flex-1 h-9 px-3 bg-surface-container-high border border-outline-variant rounded-m3-sm text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Variable Mappings */}
-                {selectedConfluenceTemplate && (
-                  <div className="space-y-2">
-                    <label className="text-label-sm text-on-surface-variant uppercase">Template Variable Mappings</label>
-                    <div className="space-y-1.5">
-                      {TEMPLATE_VARIABLES.map(v => (
-                        <VariableSourcePicker key={v.name} variable={v} prompts={prompts} />
-                      ))}
-                    </div>
-                  </div>
-                )}
               </>
             )}
 
-            {selectedType === "json" && (
+            {exportType === "json" && (
               <div className="space-y-3">
                 <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
                   <p className="text-body-sm text-on-surface">JSON export will include:</p>
                   <ul className="mt-2 space-y-1 text-[11px] text-on-surface-variant">
                     <li>• {selectedPromptsCount} prompts with hierarchy</li>
                     <li>• {selectedFieldsCount} fields per prompt</li>
-                    <li>• {variables.filter(v => v.checked).length} variable values</li>
+                    <li>• {selectedVariablesCount} variable values</li>
                   </ul>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -629,7 +552,7 @@ const MockupExportPanel = ({ onClose }) => {
               </div>
             )}
 
-            {selectedType === "markdown" && (
+            {exportType === "markdown" && (
               <div className="space-y-3">
                 <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
                   <p className="text-body-sm text-on-surface">Markdown export will create:</p>
@@ -658,7 +581,7 @@ const MockupExportPanel = ({ onClose }) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <button 
-              onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
+              onClick={() => goBack?.()}
               disabled={currentStep === 1}
               className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed"
             >
@@ -672,8 +595,8 @@ const MockupExportPanel = ({ onClose }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={() => setCurrentStep(Math.min(4, currentStep + 1))}
-                disabled={!canProceed()}
+                onClick={() => goNext?.()}
+                disabled={!canProceedLocal()}
                 className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ArrowRight className="h-4 w-4" />
@@ -685,8 +608,8 @@ const MockupExportPanel = ({ onClose }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={() => setIsExporting(true)}
-                disabled={!canProceed() || isExporting}
+                onClick={handleExport}
+                disabled={!canProceedLocal() || isExporting}
                 className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {isExporting ? (

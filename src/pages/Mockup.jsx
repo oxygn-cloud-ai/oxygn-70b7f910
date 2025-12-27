@@ -16,6 +16,9 @@ import { useTreeOperations } from "@/hooks/useTreeOperations";
 import { usePromptData } from "@/hooks/usePromptData";
 import { usePromptVariables } from "@/hooks/usePromptVariables";
 import { useThreads } from "@/hooks/useThreads";
+import { useExport } from "@/hooks/useExport";
+import { useSettings } from "@/hooks/useSettings";
+import { useModels } from "@/hooks/useModels";
 import { buildTree } from "@/utils/positionUtils";
 
 const Mockup = () => {
@@ -62,6 +65,15 @@ const Mockup = () => {
     fetchMessages,
     renameThread,
   } = useThreads(assistantRowId, selectedPromptId);
+  
+  // Export hook - Phase 5
+  const exportState = useExport();
+  
+  // Settings hook - Phase 6
+  const { settings, updateSetting, isLoading: isLoadingSettings } = useSettings(supabase);
+  
+  // Models hook - Phase 6
+  const { models, isLoading: isLoadingModels, toggleModelActive } = useModels();
   
   // Fetch messages when active thread changes
   useEffect(() => {
@@ -325,6 +337,16 @@ const Mockup = () => {
                     activeTemplateTab={activeTemplateTab}
                     onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
                     conversationPanelOpen={conversationPanelOpen}
+                    // Settings props for Phase 6
+                    settings={settings}
+                    isLoadingSettings={isLoadingSettings}
+                    onUpdateSetting={updateSetting}
+                    models={models}
+                    isLoadingModels={isLoadingModels}
+                    onToggleModel={(modelId) => {
+                      const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
+                      if (model) toggleModelActive(model.row_id, !model.is_active);
+                    }}
                   />
                 </ResizablePanel>
 
@@ -351,12 +373,21 @@ const Mockup = () => {
                   </>
                 )}
 
-                {/* Export Panel - toggleable */}
+                {/* Export Panel - toggleable, now connected to useExport */}
                 {exportPanelOpen && (
                   <>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
                     <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
-                      <MockupExportPanel isOpen={true} onClose={() => setExportPanelOpen(false)} />
+                      <MockupExportPanel 
+                        isOpen={true} 
+                        onClose={() => {
+                          setExportPanelOpen(false);
+                          exportState.closeExport();
+                        }}
+                        exportState={exportState}
+                        treeData={hierarchicalTreeData}
+                        selectedPromptId={selectedPromptId}
+                      />
                     </ResizablePanel>
                   </>
                 )}
