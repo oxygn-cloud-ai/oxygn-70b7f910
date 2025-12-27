@@ -26,18 +26,18 @@ const ITEM_TYPE = "PROMPT_ITEM";
 const SmartFolder = ({ icon: Icon, label, count, isActive = false }) => (
   <button
     className={`
-      w-full h-8 flex items-center gap-3 px-3 rounded-m3-sm
+      w-full h-7 flex items-center gap-2 px-2.5 rounded-m3-sm
       transition-colors duration-150 ease-emphasized
       ${isActive 
         ? "bg-secondary-container text-secondary-container-foreground" 
         : "text-on-surface-variant hover:bg-on-surface/[0.08]"
       }
     `}
-    style={{ height: "32px" }}
+    style={{ height: "28px" }}
   >
-    <Icon className="h-5 w-5 flex-shrink-0" />
-    <span className="flex-1 text-left text-label-lg truncate">{label}</span>
-    <span className="text-label-sm">{count}</span>
+    <Icon className="h-4 w-4 flex-shrink-0" />
+    <span className="flex-1 text-left text-[11px] truncate">{label}</span>
+    <span className="text-[10px]">{count}</span>
   </button>
 );
 
@@ -48,7 +48,7 @@ const IconButton = ({ icon: Icon, label, className = "" }) => (
         onClick={(e) => e.stopPropagation()}
         className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] ${className}`}
       >
-        <Icon className="h-3.5 w-3.5" />
+        <Icon className="h-3 w-3" />
       </button>
     </TooltipTrigger>
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
@@ -57,8 +57,8 @@ const IconButton = ({ icon: Icon, label, className = "" }) => (
 
 const OwnerAvatar = ({ initials, color }) => (
   <div 
-    className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-medium ${color}`}
-    style={{ width: "20px", height: "20px" }}
+    className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-medium ${color}`}
+    style={{ width: "16px", height: "16px" }}
   >
     {initials}
   </div>
@@ -81,13 +81,13 @@ const DropZone = ({ onDrop, isFirst = false }) => {
     <div
       ref={drop}
       className={`
-        h-1 mx-2 rounded-full transition-all duration-150
-        ${isOver && canDrop ? 'h-1 bg-primary' : 'bg-transparent'}
+        h-0.5 mx-2 rounded-full transition-all duration-150
+        ${isOver && canDrop ? 'h-0.5 bg-primary' : 'bg-transparent'}
         ${canDrop && !isOver ? 'hover:bg-primary/30' : ''}
       `}
       style={{ 
-        marginTop: isFirst ? 0 : '-2px',
-        marginBottom: '-2px'
+        marginTop: isFirst ? 0 : '-1px',
+        marginBottom: '-1px'
       }}
     />
   );
@@ -114,7 +114,7 @@ const TreeItem = ({
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
   const visualLevel = Math.min(level, 4);
-  const paddingLeft = 12 + visualLevel * 12;
+  const paddingLeft = 10 + visualLevel * 10;
   const depthIndicator = level > 4 ? `${level}` : null;
 
   const [{ isDragging }, drag, preview] = useDrag({
@@ -150,39 +150,39 @@ const TreeItem = ({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`
-          w-full h-7 flex items-center gap-1.5 pr-2 rounded-m3-sm cursor-grab
+          w-full h-6 flex items-center gap-1 pr-1.5 rounded-m3-sm cursor-grab
           transition-all duration-150 ease-emphasized
           ${isActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
             : "text-on-surface-variant hover:bg-on-surface/[0.08]"
           }
           ${isDragging ? "opacity-50 scale-95" : ""}
-          ${isOver && canDrop ? "ring-2 ring-primary bg-primary/10" : ""}
+          ${isOver && canDrop ? "ring-1 ring-primary bg-primary/10" : ""}
         `}
-        style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
+        style={{ height: "24px", paddingLeft: `${paddingLeft}px` }}
       >
         {/* Drag handle */}
-        <GripVertical className="h-3 w-3 flex-shrink-0 text-on-surface-variant/40 cursor-grab" />
+        <GripVertical className="h-2.5 w-2.5 flex-shrink-0 text-on-surface-variant/40 cursor-grab" />
         
         {depthIndicator && (
-          <span className="text-[8px] text-on-surface-variant/50 w-3 flex-shrink-0">{depthIndicator}</span>
+          <span className="text-[7px] text-on-surface-variant/50 w-2.5 flex-shrink-0">{depthIndicator}</span>
         )}
         {hasChildren && (
           <span onClick={(e) => { e.stopPropagation(); onToggle?.(); }}>
             {isExpanded 
-              ? <ChevronDown className="h-3.5 w-3.5 flex-shrink-0" />
-              : <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" />
+              ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
+              : <ChevronRight className="h-3 w-3 flex-shrink-0" />
             }
           </span>
         )}
-        {!hasChildren && <span className="w-3.5" />}
-        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-        <span className="flex-1 text-left text-[11px] truncate">{label}</span>
+        {!hasChildren && <span className="w-3" />}
+        <Icon className="h-3 w-3 flex-shrink-0" />
+        <span className="flex-1 text-left text-[10px] truncate">{label}</span>
         
         {/* Hover actions or status icons */}
         {isHovered ? (
           <div className="flex items-center gap-0.5">
-            <IconButton icon={Star} label="Star" className={starred ? "text-primary" : ""} />
+            <IconButton icon={Star} label="Star" className={starred ? "text-amber-500" : ""} />
             <IconButton icon={Sparkles} label="Run" />
             {hasChildren && <IconButton icon={Workflow} label="Run Cascade" />}
             <IconButton icon={Link2} label="Copy Variable Reference" />
@@ -194,10 +194,10 @@ const TreeItem = ({
             <IconButton icon={Trash2} label="Delete" />
           </div>
         ) : (
-          <div className="flex items-center gap-1">
-            {starred && <Star className="h-3 w-3 text-primary fill-primary" />}
-            {excludedFromCascade && <Ban className="h-3 w-3 text-muted-foreground" />}
-            {excludedFromExport && <FileX className="h-3 w-3 text-warning" />}
+          <div className="flex items-center gap-0.5">
+            {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
+            {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-muted-foreground" />}
+            {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
             {owner && <OwnerAvatar initials={owner.initials} color={owner.color} />}
           </div>
         )}
@@ -205,7 +205,7 @@ const TreeItem = ({
       
       {/* Drop indicator when hovering - shows "drop to make child" hint */}
       {isOver && canDrop && (
-        <div className="mx-2 py-0.5 text-[9px] text-primary text-center bg-primary/5 rounded">
+        <div className="mx-2 py-0.5 text-[8px] text-primary text-center bg-primary/5 rounded">
           Drop to make child of "{label}"
         </div>
       )}
@@ -234,16 +234,16 @@ const MockupFolderPanel = ({ selectedPrompt, onSelectPrompt }) => {
   };
 
   const owners = {
-    jd: { initials: "JD", color: "bg-primary text-primary-foreground" },
+    jd: { initials: "JD", color: "bg-tertiary-container text-on-surface" },
     am: { initials: "AM", color: "bg-secondary-container text-secondary-container-foreground" },
-    kl: { initials: "KL", color: "bg-tertiary-container text-on-surface" },
+    kl: { initials: "KL", color: "bg-surface-container-high text-on-surface" },
   };
 
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       {/* Smart Folders */}
-      <div className="p-2">
-        <p className="px-3 py-2 text-label-sm text-on-surface-variant uppercase tracking-wider">
+      <div className="p-1.5">
+        <p className="px-2 py-1 text-[9px] text-on-surface-variant uppercase tracking-wider">
           Smart Folders
         </p>
         <div className="flex flex-col gap-0.5">
@@ -255,18 +255,18 @@ const MockupFolderPanel = ({ selectedPrompt, onSelectPrompt }) => {
       </div>
 
       {/* Divider */}
-      <div className="mx-3 h-px bg-outline-variant" />
+      <div className="mx-2 h-px bg-outline-variant" />
 
       {/* Prompts Tree */}
-      <div className="flex-1 overflow-auto p-2 scrollbar-thin">
-        <div className="flex items-center justify-between px-3 py-2">
-          <p className="text-label-sm text-on-surface-variant uppercase tracking-wider">
+      <div className="flex-1 overflow-auto p-1.5 scrollbar-thin">
+        <div className="flex items-center justify-between px-2 py-1">
+          <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
             Prompts
           </p>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors">
-                <Plus className="h-4 w-4" />
+              <button className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors">
+                <Plus className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Create new prompt</TooltipContent>

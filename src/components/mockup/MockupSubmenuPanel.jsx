@@ -25,7 +25,7 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
   <button
     onClick={onClick}
     className={`
-      w-full flex items-start gap-3 p-3 rounded-m3-md text-left
+      w-full flex items-start gap-2.5 p-2.5 rounded-m3-md text-left
       transition-colors duration-150 ease-emphasized
       ${isActive 
         ? "bg-secondary-container text-secondary-container-foreground" 
@@ -33,19 +33,19 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
       }
     `}
   >
-    <Icon className="h-5 w-5 flex-shrink-0 mt-0.5" />
+    <Icon className="h-4 w-4 flex-shrink-0 mt-0.5" />
     <div className="flex-1 min-w-0">
-      <p className="text-label-lg font-medium truncate">{label}</p>
+      <p className="text-label-sm font-medium truncate">{label}</p>
       {description && (
-        <p className={`text-label-sm truncate mt-0.5 ${isActive ? "opacity-80" : "text-on-surface-variant"}`}>{description}</p>
+        <p className={`text-[10px] truncate mt-0.5 ${isActive ? "opacity-80" : "text-on-surface-variant"}`}>{description}</p>
       )}
     </div>
   </button>
 );
 
 const SubmenuSection = ({ title, children }) => (
-  <div className="space-y-1">
-    <p className="px-3 py-2 text-label-sm text-on-surface-variant uppercase tracking-wider">
+  <div className="space-y-0.5">
+    <p className="px-2.5 py-1.5 text-[9px] text-on-surface-variant uppercase tracking-wider">
       {title}
     </p>
     <div className="flex flex-col gap-0.5">
@@ -55,7 +55,7 @@ const SubmenuSection = ({ title, children }) => (
 );
 
 const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-2 space-y-4">
+  <div className="p-1.5 space-y-3">
     <SubmenuSection title="Conversations">
       <SubmenuItem 
         icon={Plus} 
@@ -80,7 +80,7 @@ const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Quick Actions">
       <SubmenuItem 
@@ -95,7 +95,7 @@ const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-2 space-y-4">
+  <div className="p-1.5 space-y-3">
     <SubmenuSection title="Template Types">
       <SubmenuItem 
         icon={LayoutTemplate} 
@@ -120,7 +120,7 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Actions">
       <SubmenuItem 
@@ -135,7 +135,7 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-2 space-y-4">
+  <div className="p-1.5 space-y-3">
     <SubmenuSection title="Configuration">
       <SubmenuItem 
         icon={Settings} 
@@ -160,7 +160,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Appearance">
       <SubmenuItem 
@@ -179,7 +179,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Integrations">
       <SubmenuItem 
@@ -198,7 +198,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Account">
       <SubmenuItem 
@@ -220,7 +220,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
 );
 
 const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-2 space-y-4">
+  <div className="p-1.5 space-y-3">
     <SubmenuSection title="System Status">
       <SubmenuItem 
         icon={Activity} 
@@ -245,7 +245,7 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Security">
       <SubmenuItem 
@@ -264,7 +264,7 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
       />
     </SubmenuSection>
     
-    <div className="mx-3 h-px bg-outline-variant" />
+    <div className="mx-2 h-px bg-outline-variant" />
     
     <SubmenuSection title="Configuration">
       <SubmenuItem 

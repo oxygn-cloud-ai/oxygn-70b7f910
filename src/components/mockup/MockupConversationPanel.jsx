@@ -14,52 +14,52 @@ const MockupConversationPanel = ({ onClose }) => {
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       {/* Header - matches main toolbar height */}
       <div 
-        className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"
+        className="h-14 flex items-center justify-between px-3 border-b border-outline-variant"
         style={{ height: "56px" }}
       >
         <div>
-          <span className="text-title-md text-on-surface font-semibold">Conversation</span>
+          <span className="text-title-sm text-on-surface font-medium">Conversation</span>
           <p className="text-[10px] text-on-surface-variant">Customer Support Bot • 4 messages</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <MoreVertical className="h-5 w-5" />
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <MoreVertical className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-label-sm">Options</TooltipContent>
+            <TooltipContent className="text-[10px]">Options</TooltipContent>
           </Tooltip>
           {onClose && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
                   onClick={onClose}
-                  className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
                 >
-                  <PanelRightClose className="h-5 w-5" />
+                  <PanelRightClose className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-label-sm">Hide panel</TooltipContent>
+              <TooltipContent className="text-[10px]">Hide panel</TooltipContent>
             </Tooltip>
           )}
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-auto p-3 space-y-3 scrollbar-thin">
+      <div className="flex-1 overflow-auto p-2.5 space-y-2 scrollbar-thin">
         {mockMessages.map((msg) => (
           <div 
             key={msg.id}
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div 
-              className={`max-w-[85%] px-3 py-2 rounded-m3-lg text-body-sm ${
+              className={`max-w-[85%] px-2.5 py-2 rounded-m3-lg text-body-sm ${
                 msg.role === "user"
                   ? "bg-primary text-primary-foreground"
                   : "bg-surface-container-high text-on-surface"
               }`}
-              style={{ borderRadius: "16px" }}
+              style={{ borderRadius: "14px" }}
             >
               <p className="whitespace-pre-wrap">{msg.content}</p>
             </div>
@@ -68,35 +68,35 @@ const MockupConversationPanel = ({ onClose }) => {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-outline-variant">
-        <div className="flex items-end gap-2">
-          <div className="flex-1 min-h-10 px-3 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-center">
+      <div className="p-2.5 border-t border-outline-variant">
+        <div className="flex items-end gap-1.5">
+          <div className="flex-1 min-h-9 px-2.5 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-center">
             <span className="text-body-sm text-on-surface-variant">Type a message...</span>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Paperclip className="h-5 w-5" />
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Paperclip className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-label-sm">Attach</TooltipContent>
+              <TooltipContent className="text-[10px]">Attach</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-10 h-10 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Mic className="h-5 w-5" />
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Mic className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-label-sm">Voice</TooltipContent>
+              <TooltipContent className="text-[10px]">Voice</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-10 h-10 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground">
-                  <Send className="h-5 w-5" />
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground">
+                  <Send className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-label-sm">Send</TooltipContent>
+              <TooltipContent className="text-[10px]">Send</TooltipContent>
             </Tooltip>
           </div>
         </div>

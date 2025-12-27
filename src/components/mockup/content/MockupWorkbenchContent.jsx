@@ -46,7 +46,7 @@ const ThreadList = ({ threads, activeThread, onSelectThread, filter = "all" }) =
         <button
           key={thread.id}
           onClick={() => onSelectThread(thread)}
-          className={`w-full p-3 rounded-m3-md text-left transition-colors ${
+          className={`w-full p-2.5 rounded-m3-md text-left transition-colors ${
             activeThread?.id === thread.id 
               ? "bg-secondary-container" 
               : "hover:bg-on-surface/[0.08]"
@@ -58,7 +58,7 @@ const ThreadList = ({ threads, activeThread, onSelectThread, filter = "all" }) =
                 <span className="text-body-sm text-on-surface font-medium truncate">{thread.title}</span>
                 {thread.starred && <Star className="h-3 w-3 text-amber-500 flex-shrink-0 fill-amber-500" />}
               </div>
-              <div className="flex items-center gap-2 mt-1 text-[10px] text-on-surface-variant">
+              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-on-surface-variant">
                 <span>{thread.messageCount} messages</span>
                 <span>•</span>
                 <span>{thread.lastMessage}</span>
@@ -78,7 +78,7 @@ const ChatMessage = ({ message }) => {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div 
-        className={`max-w-[80%] px-4 py-3 rounded-2xl text-body-sm ${
+        className={`max-w-[80%] px-3 py-2 rounded-2xl text-body-sm ${
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-surface-container-high text-on-surface"
@@ -97,13 +97,13 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="w-72 h-full flex flex-col bg-surface-container-low border-l border-outline-variant">
+    <div className="w-64 h-full flex flex-col bg-surface-container-low border-l border-outline-variant">
       {/* Header */}
-      <div className="h-14 flex items-center justify-between px-4 border-b border-outline-variant" style={{ height: "56px" }}>
-        <span className="text-title-sm text-on-surface font-semibold">Resources</span>
+      <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
+        <span className="text-title-sm text-on-surface font-medium">Resources</span>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
               <X className="h-4 w-4" />
             </button>
           </TooltipTrigger>
@@ -113,14 +113,14 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="w-full h-10 grid grid-cols-3 bg-surface-container m-2 rounded-m3-sm">
-          <TabsTrigger value="files" className="text-[11px] gap-1 data-[state=active]:bg-secondary-container">
+        <TabsList className="w-full h-9 grid grid-cols-3 bg-surface-container m-2 rounded-m3-sm">
+          <TabsTrigger value="files" className="text-[10px] gap-1 data-[state=active]:bg-secondary-container">
             <Paperclip className="h-3.5 w-3.5" />
           </TabsTrigger>
-          <TabsTrigger value="pages" className="text-[11px] gap-1 data-[state=active]:bg-secondary-container">
+          <TabsTrigger value="pages" className="text-[10px] gap-1 data-[state=active]:bg-secondary-container">
             <FileText className="h-3.5 w-3.5" />
           </TabsTrigger>
-          <TabsTrigger value="library" className="text-[11px] gap-1 data-[state=active]:bg-secondary-container">
+          <TabsTrigger value="library" className="text-[10px] gap-1 data-[state=active]:bg-secondary-container">
             <BookOpen className="h-3.5 w-3.5" />
           </TabsTrigger>
         </TabsList>
@@ -128,44 +128,52 @@ const ResourcesPanel = ({ isOpen, onClose }) => {
         <TabsContent value="files" className="flex-1 m-0 overflow-auto p-2">
           <div className="space-y-1">
             {MOCK_FILES.map(file => (
-              <div key={file.id} className="flex items-center gap-3 p-2 rounded-m3-sm hover:bg-on-surface/[0.08]">
-                <Paperclip className="h-4 w-4 text-on-surface-variant" />
+              <div key={file.id} className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08]">
+                <Paperclip className="h-3.5 w-3.5 text-on-surface-variant" />
                 <div className="flex-1 min-w-0">
                   <p className="text-body-sm text-on-surface truncate">{file.name}</p>
                   <p className="text-[10px] text-on-surface-variant">{file.size}</p>
                 </div>
               </div>
             ))}
-            <button className="w-full flex items-center gap-2 p-2 text-primary hover:bg-primary/[0.08] rounded-m3-sm">
-              <Plus className="h-4 w-4" />
-              <span className="text-body-sm">Upload File</span>
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Upload File</TooltipContent>
+            </Tooltip>
           </div>
         </TabsContent>
 
         <TabsContent value="pages" className="flex-1 m-0 overflow-auto p-2">
           <div className="space-y-1">
             {MOCK_PAGES.map(page => (
-              <div key={page.id} className="flex items-center gap-3 p-2 rounded-m3-sm hover:bg-on-surface/[0.08]">
-                <Link2 className="h-4 w-4 text-on-surface-variant" />
+              <div key={page.id} className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08]">
+                <Link2 className="h-3.5 w-3.5 text-on-surface-variant" />
                 <div className="flex-1 min-w-0">
                   <p className="text-body-sm text-on-surface truncate">{page.title}</p>
                   <p className="text-[10px] text-on-surface-variant">{page.space}</p>
                 </div>
               </div>
             ))}
-            <button className="w-full flex items-center gap-2 p-2 text-primary hover:bg-primary/[0.08] rounded-m3-sm">
-              <Plus className="h-4 w-4" />
-              <span className="text-body-sm">Link Page</span>
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Link Page</TooltipContent>
+            </Tooltip>
           </div>
         </TabsContent>
 
         <TabsContent value="library" className="flex-1 m-0 overflow-auto p-2">
-          <div className="flex flex-col items-center justify-center h-full text-center p-4">
-            <BookOpen className="h-8 w-8 text-on-surface-variant/30 mb-2" />
+          <div className="flex flex-col items-center justify-center h-full text-center p-3">
+            <BookOpen className="h-6 w-6 text-on-surface-variant/30 mb-2" />
             <p className="text-body-sm text-on-surface-variant">Prompt library shortcuts</p>
-            <p className="text-[10px] text-on-surface-variant/70 mt-1">Add frequently used prompts</p>
+            <p className="text-[10px] text-on-surface-variant/70 mt-0.5">Add frequently used prompts</p>
           </div>
         </TabsContent>
       </Tabs>
@@ -208,26 +216,24 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
     return (
       <div className="flex-1 flex flex-col bg-surface overflow-hidden">
         {/* Header */}
-        <div className="h-14 flex items-center justify-between px-6 border-b border-outline-variant" style={{ height: "56px" }}>
-          <h2 className="text-title-md text-on-surface font-semibold">New Conversation</h2>
+        <div className="h-14 flex items-center justify-between px-4 border-b border-outline-variant" style={{ height: "56px" }}>
+          <h2 className="text-title-sm text-on-surface font-medium">New Conversation</h2>
         </div>
 
         {/* Empty State */}
-        <div className="flex-1 flex items-center justify-center p-6">
+        <div className="flex-1 flex items-center justify-center p-4">
           <div className="text-center max-w-md">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
-              <MessageSquare className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-headline-sm text-on-surface font-semibold mb-2">Start a Conversation</h3>
-            <p className="text-body-md text-on-surface-variant mb-6">
+            <MessageSquare className="h-10 w-10 mx-auto mb-3 text-on-surface-variant" />
+            <h3 className="text-title-sm text-on-surface font-medium mb-2">Start a Conversation</h3>
+            <p className="text-body-sm text-on-surface-variant mb-4">
               Chat with an AI assistant. Attach files, link Confluence pages, and use your prompt library.
             </p>
             <div className="flex items-center gap-2 max-w-sm mx-auto">
-              <div className="flex-1 h-12 px-4 bg-surface-container-high rounded-2xl border border-outline-variant flex items-center">
-                <span className="text-body-md text-on-surface-variant">Type your message...</span>
+              <div className="flex-1 h-10 px-3 bg-surface-container-high rounded-2xl border border-outline-variant flex items-center">
+                <span className="text-body-sm text-on-surface-variant">Type your message...</span>
               </div>
-              <button className="w-12 h-12 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Send className="h-5 w-5" />
+              <button className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Send className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -240,13 +246,13 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
   return (
     <div className="flex-1 flex bg-surface overflow-hidden">
       {/* Thread Sidebar */}
-      <div className="w-64 h-full flex flex-col bg-surface-container-low border-r border-outline-variant">
+      <div className="w-56 h-full flex flex-col bg-surface-container-low border-r border-outline-variant">
         {/* Sidebar Header */}
-        <div className="h-14 flex items-center justify-between px-4 border-b border-outline-variant" style={{ height: "56px" }}>
-          <span className="text-title-sm text-on-surface font-semibold">{getTitle()}</span>
+        <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
+          <span className="text-title-sm text-on-surface font-medium">{getTitle()}</span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <Plus className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -256,8 +262,8 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
 
         {/* Search */}
         <div className="p-2">
-          <div className="flex items-center gap-2 h-9 px-3 bg-surface-container rounded-m3-sm border border-outline-variant">
-            <Search className="h-4 w-4 text-on-surface-variant" />
+          <div className="flex items-center gap-2 h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant">
+            <Search className="h-3.5 w-3.5 text-on-surface-variant" />
             <input
               type="text"
               value={searchQuery}
@@ -283,15 +289,15 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
         {activeThread ? (
           <>
             {/* Chat Header */}
-            <div className="h-14 flex items-center justify-between px-4 border-b border-outline-variant" style={{ height: "56px" }}>
-              <div className="flex items-center gap-3">
-                <h3 className="text-title-sm text-on-surface font-semibold">{activeThread.title}</h3>
-                <span className="text-body-sm text-on-surface-variant">{activeThread.messageCount} messages</span>
+            <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
+              <div className="flex items-center gap-2">
+                <h3 className="text-title-sm text-on-surface font-medium">{activeThread.title}</h3>
+                <span className="text-[10px] text-on-surface-variant">{activeThread.messageCount} messages</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                    <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                       <Star className={`h-4 w-4 ${activeThread.starred ? "text-amber-500 fill-amber-500" : ""}`} />
                     </button>
                   </TooltipTrigger>
@@ -301,7 +307,7 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
                   <TooltipTrigger asChild>
                     <button 
                       onClick={() => setResourcesOpen(!resourcesOpen)}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                      className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
                     >
                       {resourcesOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
                     </button>
@@ -310,7 +316,7 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                    <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                       <MoreVertical className="h-4 w-4" />
                     </button>
                   </TooltipTrigger>
@@ -320,35 +326,35 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-auto p-4 space-y-4">
+            <div className="flex-1 overflow-auto p-3 space-y-3">
               {MOCK_MESSAGES.map(msg => (
                 <ChatMessage key={msg.id} message={msg} />
               ))}
               {isStreaming && (
                 <div className="flex items-center gap-2 text-on-surface-variant">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   <span className="text-body-sm">Thinking...</span>
                 </div>
               )}
             </div>
 
             {/* Input */}
-            <div className="p-4 border-t border-outline-variant">
+            <div className="p-3 border-t border-outline-variant">
               <div className="flex items-end gap-2">
-                <div className="flex-1 min-h-12 px-4 py-3 bg-surface-container-high rounded-2xl border border-outline-variant flex items-center">
-                  <span className="text-body-md text-on-surface-variant">Type a message...</span>
+                <div className="flex-1 min-h-10 px-3 py-2 bg-surface-container-high rounded-2xl border border-outline-variant flex items-center">
+                  <span className="text-body-sm text-on-surface-variant">Type a message...</span>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-0.5">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button className="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                        <Paperclip className="h-5 w-5" />
+                      <button className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                        <Paperclip className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="text-[10px]">Attach</TooltipContent>
                   </Tooltip>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <Send className="h-5 w-5" />
+                  <button className="w-9 h-9 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <Send className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -357,9 +363,9 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation" }) => {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <MessageSquare className="h-12 w-12 mx-auto text-on-surface-variant/30 mb-3" />
-              <p className="text-body-md text-on-surface-variant">Select a conversation</p>
-              <p className="text-body-sm text-on-surface-variant/70 mt-1">or start a new one</p>
+              <MessageSquare className="h-10 w-10 mx-auto text-on-surface-variant/30 mb-2" />
+              <p className="text-body-sm text-on-surface-variant">Select a conversation</p>
+              <p className="text-[10px] text-on-surface-variant/70 mt-0.5">or start a new one</p>
             </div>
           </div>
         )}
