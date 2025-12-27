@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
@@ -10,8 +10,25 @@ import MockupSubmenuPanel from "@/components/mockup/MockupSubmenuPanel";
 import MockupReadingPane from "@/components/mockup/MockupReadingPane";
 import MockupConversationPanel from "@/components/mockup/MockupConversationPanel";
 import MockupExportPanel from "@/components/mockup/MockupExportPanel";
+import { useSupabase } from "@/hooks/useSupabase";
+import useTreeData from "@/hooks/useTreeData";
+import { useTreeOperations } from "@/hooks/useTreeOperations";
+import { buildTree } from "@/utils/positionUtils";
 
 const Mockup = () => {
+  // Real data hooks
+  const supabase = useSupabase();
+  const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
+  const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
+  
+  // Transform flat treeData to hierarchical structure for the UI
+  const hierarchicalTreeData = React.useMemo(() => {
+    if (!treeData || treeData.length === 0) return [];
+    return buildTree(treeData);
+  }, [treeData]);
+  
+  // Selected prompt state
+  const [selectedPromptId, setSelectedPromptId] = useState(null);
   const [isDark, setIsDark] = useState(false);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [folderPanelOpen, setFolderPanelOpen] = useState(true);
@@ -19,15 +36,12 @@ const Mockup = () => {
   const [activeNav, setActiveNav] = useState("prompts");
   const [activeSubItem, setActiveSubItem] = useState(null);
   const [hoveredNav, setHoveredNav] = useState(null);
-  const [activePromptId, setActivePromptId] = useState(2);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [activeTemplateTab, setActiveTemplateTab] = useState("prompts");
   const [exportPanelOpen, setExportPanelOpen] = useState(false);
   
   // Determine if conversation panel should be shown based on active nav
   const showConversationPanel = activeNav === "prompts" && conversationPanelOpen;
-  
-  // Track if mouse is over the submenu panel
   const submenuRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
 
@@ -142,7 +156,19 @@ const Mockup = () => {
 
     // Otherwise show the active nav's content
     if (activeNav === "prompts") {
-      return <MockupFolderPanel />;
+      return (
+        <MockupFolderPanel 
+          treeData={hierarchicalTreeData}
+          isLoading={isLoadingTree}
+          selectedPromptId={selectedPromptId}
+          onSelectPrompt={setSelectedPromptId}
+          onAddPrompt={handleAddItem}
+          onDeletePrompt={handleDeleteItem}
+          onDuplicatePrompt={handleDuplicateItem}
+          onMovePrompt={handleMoveItem}
+          onRefresh={refreshTreeData}
+        />
+      );
     }
     
     if (activeNav === "templates") {
@@ -209,7 +235,9 @@ const Mockup = () => {
                 {/* Reading Pane - flexible */}
                 <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
                   <MockupReadingPane 
-                    hasSelection={activePromptId !== null} 
+                    hasSelection={selectedPromptId !== null} 
+                    selectedPromptId={selectedPromptId}
+                    onExport={() => setExportPanelOpen(true)}
                     onExport={() => setExportPanelOpen(true)}
                     activeNav={activeNav}
                     activeSubItem={activeSubItem}
