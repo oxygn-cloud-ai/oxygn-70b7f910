@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Plus, MessageSquare, MoreHorizontal, Edit2, Trash2, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { M3IconButton } from '@/components/ui/m3-icon-button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// M3 Motion tokens
+const m3Motion = {
+  emphasized: {
+    initial: { opacity: 0, y: 8, scale: 0.96 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: -4, scale: 0.98 },
+  },
+  duration: { enter: 0.35, exit: 0.2 },
+  easing: { enter: [0.05, 0.7, 0.1, 1], exit: [0.3, 0, 0.8, 0.15] },
+};
 
 const WorkbenchSidebar = ({
   threads,
@@ -50,125 +62,158 @@ const WorkbenchSidebar = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-card/50 border-r border-border">
-      {/* Header */}
-      <div className="p-3 border-b border-border flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Threads</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
+    <div className="h-full flex flex-col bg-surface-container-low dark:bg-surface-container-lowest border-r border-outline-variant">
+      {/* Header - M3 Surface */}
+      <div className="p-4 border-b border-outline-variant flex items-center justify-between">
+        <h2 className="text-title-medium font-medium text-on-surface">Threads</h2>
+        <M3IconButton
+          size="small"
+          tooltip="New thread"
           onClick={() => onCreateThread()}
         >
-          <Plus className="h-4 w-4" />
-        </Button>
+          <Plus />
+        </M3IconButton>
       </div>
 
       {/* Thread List */}
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
           {threads.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No threads yet</p>
-              <Button
-                variant="link"
-                size="sm"
-                className="mt-1"
-                onClick={() => onCreateThread()}
-              >
-                Create your first thread
-              </Button>
-            </div>
-          ) : (
-            threads.map((thread) => (
-              <div
-                key={thread.row_id}
-                className={cn(
-                  "group flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
-                  activeThread?.row_id === thread.row_id
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-muted/50"
-                )}
-                onClick={() => onSelectThread(thread)}
-              >
-                <MessageSquare className="h-4 w-4 shrink-0 opacity-60" />
-                
-                {editingId === thread.row_id ? (
-                  <div className="flex-1 flex items-center gap-1">
-                    <Input
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      className="h-6 text-xs"
-                      autoFocus
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSaveEdit();
-                      }}
-                    >
-                      <Check className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCancelEdit();
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">
-                        {thread.title || 'Untitled'}
-                      </p>
-                      {thread.updated_at && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(thread.updated_at), { addSuffix: true })}
-                        </p>
-                      )}
-                    </div>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleStartEdit(thread)}>
-                          <Edit2 className="h-3.5 w-3.5 mr-2" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => onDeleteThread(thread.row_id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                )}
+            <motion.div 
+              className="text-center py-12 px-4"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.05, 0.7, 0.1, 1] }}
+            >
+              <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center mx-auto mb-4">
+                <MessageSquare className="h-8 w-8 text-on-surface-variant/50" />
               </div>
-            ))
+              <p className="text-title-small font-medium text-on-surface">No threads yet</p>
+              <p className="text-body-small text-on-surface-variant mt-1 mb-4">
+                Create your first thread to get started
+              </p>
+              <button
+                onClick={() => onCreateThread()}
+                className="text-label-large text-primary hover:text-primary/80 transition-colors duration-short-4"
+              >
+                Create thread
+              </button>
+            </motion.div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {threads.map((thread, index) => (
+                <motion.div
+                  key={thread.row_id}
+                  layout
+                  initial={m3Motion.emphasized.initial}
+                  animate={m3Motion.emphasized.animate}
+                  exit={m3Motion.emphasized.exit}
+                  transition={{
+                    duration: m3Motion.duration.enter,
+                    ease: m3Motion.easing.enter,
+                    delay: index * 0.03,
+                  }}
+                  className={cn(
+                    "group flex items-center gap-3 p-3 rounded-xl cursor-pointer",
+                    "transition-all duration-medium-2 ease-standard",
+                    activeThread?.row_id === thread.row_id
+                      ? "bg-secondary-container text-on-secondary-container"
+                      : "hover:bg-surface-container-highest dark:hover:bg-surface-container-high"
+                  )}
+                  onClick={() => onSelectThread(thread)}
+                >
+                  {/* M3 Icon container */}
+                  <div className={cn(
+                    "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                    "transition-colors duration-medium-1",
+                    activeThread?.row_id === thread.row_id
+                      ? "bg-on-secondary-container/12"
+                      : "bg-surface-container-high dark:bg-surface-container"
+                  )}>
+                    <MessageSquare className={cn(
+                      "h-5 w-5",
+                      activeThread?.row_id === thread.row_id 
+                        ? "text-on-secondary-container" 
+                        : "text-on-surface-variant"
+                    )} />
+                  </div>
+                  
+                  {editingId === thread.row_id ? (
+                    <div className="flex-1 flex items-center gap-1">
+                      <Input
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="h-8 text-body-medium bg-surface-container-highest"
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <M3IconButton
+                        size="small"
+                        variant="filledTonal"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSaveEdit();
+                        }}
+                      >
+                        <Check className="text-primary" />
+                      </M3IconButton>
+                      <M3IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelEdit();
+                        }}
+                      >
+                        <X />
+                      </M3IconButton>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-body-large font-medium truncate">
+                          {thread.title || 'Untitled'}
+                        </p>
+                        {thread.updated_at && (
+                          <p className="text-body-small text-on-surface-variant">
+                            {formatDistanceToNow(new Date(thread.updated_at), { addSuffix: true })}
+                          </p>
+                        )}
+                      </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-short-4"
+                          >
+                            <M3IconButton size="small">
+                              <MoreHorizontal />
+                            </M3IconButton>
+                          </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-surface-container-high border-outline-variant">
+                          <DropdownMenuItem 
+                            onClick={() => handleStartEdit(thread)}
+                            className="gap-2 text-body-medium"
+                          >
+                            <Edit2 className="h-5 w-5" />
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="gap-2 text-body-medium text-error focus:text-error"
+                            onClick={() => onDeleteThread(thread.row_id)}
+                          >
+                            <Trash2 className="h-5 w-5" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           )}
         </div>
       </ScrollArea>
