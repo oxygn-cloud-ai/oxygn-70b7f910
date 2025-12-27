@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info, Globe, FileText, Code, Search, ExternalLink } from 'lucide-react';
@@ -10,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useSupabase } from '../hooks/useSupabase';
 import { useSettings } from '../hooks/useSettings';
 import { toast } from '@/components/ui/sonner';
+import { M3IconButton } from '@/components/ui/m3-icon-button';
 import { 
   ALL_SETTINGS, 
   ALL_TOOLS, 
@@ -143,22 +143,22 @@ const SettingsPanel = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-3">
-        {/* Model Selection */}
-        <div className="flex items-center gap-2">
+      <div className="space-y-4">
+        {/* Model Selection - M3 Surface Container */}
+        <div className="p-3 bg-surface-container dark:bg-surface-container-low rounded-xl">
           <Select
             value={localData.model_on && localData.model ? localData.model : '__default__'}
             onValueChange={handleModelChange}
           >
-            <SelectTrigger className="h-7 text-xs flex-1">
+            <SelectTrigger className="h-10 text-body-medium bg-surface-container-highest dark:bg-surface-container-high border-outline-variant">
               <SelectValue placeholder="Select model" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__default__">
+            <SelectContent className="bg-surface-container-high border-outline-variant">
+              <SelectItem value="__default__" className="text-body-medium">
                 Default ({defaultModelName})
               </SelectItem>
               {models.map((model) => (
-                <SelectItem key={model.row_id} value={model.model_id}>
+                <SelectItem key={model.row_id} value={model.model_id} className="text-body-medium">
                   {model.model_name}
                 </SelectItem>
               ))}
@@ -166,8 +166,8 @@ const SettingsPanel = ({
           </Select>
         </div>
 
-        {/* Tools Row */}
-        <div className="flex items-center gap-1 p-1.5 bg-muted/30 rounded-md border border-border/50">
+        {/* Tools Row - M3 Surface Container */}
+        <div className="flex items-center gap-2 p-3 bg-surface-container dark:bg-surface-container-low rounded-xl">
           {toolKeys.map(toolKey => {
             const tool = ALL_TOOLS[toolKey];
             const IconComponent = TOOL_ICONS[toolKey];
@@ -184,21 +184,22 @@ const SettingsPanel = ({
                     onClick={() => actuallySupported && handleToolToggle(toolKey, !isEnabled)}
                     disabled={!actuallySupported}
                     className={cn(
-                      "flex items-center justify-center h-7 w-7 rounded transition-colors",
+                      "flex items-center justify-center h-10 w-10 rounded-full",
+                      "transition-all duration-medium-2 ease-standard",
                       isEnabled && actuallySupported
-                        ? "bg-primary/20 text-primary"
-                        : "bg-background text-muted-foreground hover:bg-muted",
-                      !actuallySupported && "opacity-40 cursor-not-allowed"
+                        ? "bg-primary text-on-primary shadow-elevation-1"
+                        : "bg-surface-container-highest dark:bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest/80",
+                      !actuallySupported && "opacity-38 cursor-not-allowed"
                     )}
                   >
-                    <IconComponent className="h-3.5 w-3.5" />
+                    <IconComponent className="h-5 w-5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px]">
-                  <p className="text-xs font-medium">{tool.label}</p>
-                  <p className="text-xs text-muted-foreground">{tool.description}</p>
+                <TooltipContent side="bottom" className="bg-inverse-surface text-inverse-on-surface max-w-[200px]">
+                  <p className="text-label-medium font-medium">{tool.label}</p>
+                  <p className="text-body-small opacity-80">{tool.description}</p>
                   {!actuallySupported && (
-                    <p className="text-xs text-destructive mt-1">Not supported by this model</p>
+                    <p className="text-body-small text-error mt-1">Not supported by this model</p>
                   )}
                 </TooltipContent>
               </Tooltip>
@@ -206,7 +207,7 @@ const SettingsPanel = ({
           })}
         </div>
 
-        {/* Settings Grid - 2 columns */}
+        {/* Settings Grid - M3 Surface Containers */}
         <div className="grid grid-cols-2 gap-2">
           {visibleSettings.map(settingKey => {
             const setting = ALL_SETTINGS[settingKey];
@@ -218,17 +219,18 @@ const SettingsPanel = ({
               <div 
                 key={settingKey}
                 className={cn(
-                  "flex items-center gap-1.5 p-1.5 rounded border transition-colors",
+                  "flex items-center gap-2 p-3 rounded-xl",
+                  "transition-all duration-medium-2 ease-standard",
                   isSupported 
-                    ? "bg-background border-border/50" 
-                    : "bg-muted/30 border-muted opacity-50"
+                    ? "bg-surface-container dark:bg-surface-container-low" 
+                    : "bg-surface-container-low dark:bg-surface-container-lowest opacity-50"
                 )}
               >
                 <Switch
                   checked={isEnabled}
                   onCheckedChange={(checked) => isSupported && handleToggleChange(settingKey, checked)}
                   disabled={!isSupported}
-                  className="h-4 w-7 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"
+                  className="h-5 w-9 data-[state=checked]:bg-primary data-[state=unchecked]:bg-surface-container-highest"
                 />
                 
                 <div className="flex-1 min-w-0">
@@ -238,12 +240,12 @@ const SettingsPanel = ({
                       onValueChange={(v) => handleValueChange(settingKey, v)}
                       disabled={!isEnabled || !isSupported}
                     >
-                      <SelectTrigger className="h-6 text-[10px] px-1.5 border-0 bg-transparent">
+                      <SelectTrigger className="h-8 text-body-small px-2 border-0 bg-transparent">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-surface-container-high border-outline-variant">
                         {setting.options?.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                          <SelectItem key={opt.value} value={opt.value} className="text-body-small">
                             {opt.label}
                           </SelectItem>
                         ))}
@@ -257,7 +259,7 @@ const SettingsPanel = ({
                       onBlur={() => handleValueBlur(settingKey)}
                       disabled={!isEnabled || !isSupported}
                       placeholder={setting.shortLabel}
-                      className="h-6 text-[10px] px-1.5 border-0 bg-transparent"
+                      className="h-8 text-body-small px-2 border-0 bg-transparent"
                       min={setting.min}
                       max={setting.max}
                       step={setting.step}
@@ -267,31 +269,35 @@ const SettingsPanel = ({
                 
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
-                    >
-                      <Info className="h-3 w-3" />
-                    </Button>
+                    <div>
+                      <M3IconButton
+                        size="small"
+                        className="text-on-surface-variant"
+                      >
+                        <Info />
+                      </M3IconButton>
+                    </div>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64" side="top">
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-sm">{setting.label}</h4>
-                      <p className="text-xs text-muted-foreground">{setting.details}</p>
+                  <PopoverContent 
+                    className="w-72 bg-surface-container-high dark:bg-surface-container border-outline-variant" 
+                    side="top"
+                  >
+                    <div className="space-y-3">
+                      <h4 className="text-title-small font-medium text-on-surface">{setting.label}</h4>
+                      <p className="text-body-small text-on-surface-variant">{setting.details}</p>
                       {setting.docUrl && (
                         <a 
                           href={setting.docUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                          className="inline-flex items-center gap-1.5 text-label-medium text-primary hover:text-primary/80 transition-colors"
                         >
                           API Docs
-                          <ExternalLink className="h-3 w-3" />
+                          <ExternalLink className="h-4 w-4" />
                         </a>
                       )}
                       {!isSupported && (
-                        <p className="text-xs text-destructive">Not supported by {currentModel}</p>
+                        <p className="text-body-small text-error">Not supported by {currentModel}</p>
                       )}
                     </div>
                   </PopoverContent>

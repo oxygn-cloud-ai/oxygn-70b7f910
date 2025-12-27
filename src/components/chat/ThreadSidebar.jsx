@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, MessageSquare, Search, Pencil, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { M3IconButton } from '@/components/ui/m3-icon-button';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// M3 Motion tokens
+const m3Motion = {
+  emphasized: {
+    initial: { opacity: 0, y: 8, scale: 0.96 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: -4, scale: 0.98 },
+  },
+  duration: { enter: 0.35, exit: 0.2 },
+  easing: { enter: [0.05, 0.7, 0.1, 1], exit: [0.3, 0, 0.8, 0.15] },
+};
 
 const ThreadSidebar = ({
   threads,
@@ -48,131 +58,143 @@ const ThreadSidebar = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-card/50 backdrop-blur-sm">
-      {/* Header */}
-      <div className="px-2 py-1.5 border-b border-border space-y-1.5">
+    <div className="h-full flex flex-col bg-surface-container-low dark:bg-surface-container-lowest">
+      {/* Header - M3 Surface Container */}
+      <div className="px-4 py-3 border-b border-outline-variant space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-foreground">
+          <span className="text-title-small font-medium text-on-surface">
             Conversations
           </span>
-          <div className="flex items-center gap-0.5">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 hover:bg-primary/10 hover:text-primary"
-                    onClick={onCreateThread}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>New conversation</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          <div className="flex items-center gap-1">
+            <M3IconButton
+              size="small"
+              tooltip="New conversation"
+              onClick={onCreateThread}
+            >
+              <Plus />
+            </M3IconButton>
             {onClose && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 hover:bg-muted"
+              <M3IconButton
+                size="small"
+                tooltip="Close"
                 onClick={onClose}
               >
-                <X className="h-3 w-3 text-muted-foreground" />
-              </Button>
+                <X />
+              </M3IconButton>
             )}
           </div>
         </div>
 
-        {/* Search */}
+        {/* M3 Search Bar */}
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-on-surface-variant" />
           <Input
-            placeholder="Search..."
+            placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 pl-7 text-xs bg-background/50"
+            className="h-10 pl-10 text-body-medium bg-surface-container-highest dark:bg-surface-container-high rounded-full border-0 focus-visible:ring-2 focus-visible:ring-primary"
           />
         </div>
       </div>
 
       {/* Thread list */}
       <ScrollArea className="flex-1">
-        <div className="p-1.5 space-y-0.5">
+        <div className="p-2 space-y-1">
           {isLoading ? (
             [1, 2, 3].map(i => (
-              <Skeleton key={i} className="h-10 w-full rounded-md" />
+              <Skeleton key={i} className="h-14 w-full rounded-xl" />
             ))
           ) : filteredThreads.length === 0 ? (
-            <div className="text-center py-4 px-2">
-              <div className="w-8 h-8 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-2">
-                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground/50" />
+            <motion.div 
+              className="text-center py-8 px-4"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.05, 0.7, 0.1, 1] }}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-surface-container flex items-center justify-center mx-auto mb-3">
+                <MessageSquare className="h-7 w-7 text-on-surface-variant/50" />
               </div>
-              <p className="text-xs font-medium text-muted-foreground">
-                {searchQuery ? 'No matches' : 'No conversations'}
+              <p className="text-title-small font-medium text-on-surface">
+                {searchQuery ? 'No matches found' : 'No conversations yet'}
               </p>
-              <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                {searchQuery ? 'Try different search' : 'Start chatting'}
+              <p className="text-body-small text-on-surface-variant mt-1">
+                {searchQuery ? 'Try a different search term' : 'Start a new conversation'}
               </p>
-            </div>
+            </motion.div>
           ) : (
-            <AnimatePresence>
-              {filteredThreads.map((thread) => (
+            <AnimatePresence mode="popLayout">
+              {filteredThreads.map((thread, index) => (
                 <motion.div
                   key={thread.row_id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
+                  layout
+                  initial={m3Motion.emphasized.initial}
+                  animate={m3Motion.emphasized.animate}
+                  exit={m3Motion.emphasized.exit}
+                  transition={{
+                    duration: m3Motion.duration.enter,
+                    ease: m3Motion.easing.enter,
+                    delay: index * 0.03,
+                  }}
                   onClick={() => onSelectThread(thread.row_id)}
                   className={cn(
-                    'group relative px-2 py-1.5 rounded-md cursor-pointer transition-all',
+                    'group relative px-3 py-3 rounded-xl cursor-pointer',
+                    'transition-all duration-medium-2 ease-standard',
                     activeThread?.row_id === thread.row_id
-                      ? 'bg-primary/10 border-l-2 border-l-primary'
-                      : 'hover:bg-muted/50 border-l-2 border-l-transparent'
+                      ? 'bg-secondary-container text-on-secondary-container'
+                      : 'hover:bg-surface-container-highest dark:hover:bg-surface-container-high'
                   )}
                 >
-                  <div className="flex items-start gap-1.5">
-                    <MessageSquare className={cn(
-                      "h-3 w-3 mt-0.5 shrink-0",
-                      activeThread?.row_id === thread.row_id ? "text-primary" : "text-muted-foreground"
-                    )} />
-                    <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-3">
+                    {/* M3 Icon container */}
+                    <div className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                      "transition-colors duration-medium-1",
+                      activeThread?.row_id === thread.row_id
+                        ? "bg-on-secondary-container/12"
+                        : "bg-surface-container-high dark:bg-surface-container"
+                    )}>
+                      <MessageSquare className={cn(
+                        "h-5 w-5",
+                        activeThread?.row_id === thread.row_id 
+                          ? "text-on-secondary-container" 
+                          : "text-on-surface-variant"
+                      )} />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0 py-0.5">
                       {editingThreadId === thread.row_id ? (
-                        <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                           <Input
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="h-5 text-[11px]"
+                            className="h-8 text-body-medium bg-surface-container-highest"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSaveRename(thread.row_id);
                               if (e.key === 'Escape') handleCancelRename();
                             }}
                           />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 shrink-0"
+                          <M3IconButton
+                            size="small"
+                            variant="filledTonal"
                             onClick={() => handleSaveRename(thread.row_id)}
                           >
-                            <Check className="h-2.5 w-2.5 text-primary" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 shrink-0"
+                            <Check className="text-primary" />
+                          </M3IconButton>
+                          <M3IconButton
+                            size="small"
                             onClick={handleCancelRename}
                           >
-                            <X className="h-2.5 w-2.5 text-muted-foreground" />
-                          </Button>
+                            <X />
+                          </M3IconButton>
                         </div>
                       ) : (
                         <>
-                          <div className="text-xs font-medium truncate text-foreground leading-tight">
+                          <p className="text-body-large font-medium truncate leading-tight">
                             {thread.name || 'Untitled'}
-                          </div>
+                          </p>
                           {thread.last_message_at && (
-                            <p className="text-[10px] text-muted-foreground/70 leading-tight">
+                            <p className="text-body-small text-on-surface-variant mt-0.5">
                               {formatDistanceToNow(new Date(thread.last_message_at), { addSuffix: true })}
                             </p>
                           )}
@@ -181,44 +203,35 @@ const ThreadSidebar = ({
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions - M3 Icon Buttons */}
                   {editingThreadId !== thread.row_id && (
-                    <div className={cn(
-                      "absolute right-1 top-1 flex items-center gap-0.5 transition-opacity",
-                      "opacity-0 group-hover:opacity-100"
-                    )}>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 hover:bg-muted"
-                              onClick={(e) => handleStartRename(thread, e)}
-                            >
-                              <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Rename</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteThread(thread.row_id);
-                              }}
-                            >
-                              <Trash2 className="h-2.5 w-2.5" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Delete</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
+                    <motion.div 
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5",
+                        "opacity-0 group-hover:opacity-100 transition-opacity duration-short-4"
+                      )}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                    >
+                      <M3IconButton
+                        size="small"
+                        tooltip="Rename"
+                        onClick={(e) => handleStartRename(thread, e)}
+                      >
+                        <Pencil />
+                      </M3IconButton>
+                      <M3IconButton
+                        size="small"
+                        tooltip="Delete"
+                        className="hover:bg-error-container hover:text-on-error-container"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteThread(thread.row_id);
+                        }}
+                      >
+                        <Trash2 />
+                      </M3IconButton>
+                    </motion.div>
                   )}
                 </motion.div>
               ))}
