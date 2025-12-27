@@ -240,7 +240,7 @@ const CascadeErrorDialog = ({
             <TooltipTrigger asChild>
               <button 
                 onClick={onRetry}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground"
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
@@ -812,9 +812,14 @@ const MockupWorkbenchContent = ({ activeSubItem = "new-conversation", showCascad
                       </TooltipTrigger>
                       <TooltipContent className="text-[10px]">Attach</TooltipContent>
                     </Tooltip>
-                    <button className="w-9 h-9 flex items-center justify-center rounded-full bg-primary text-primary-foreground">
-                      <Send className="h-4 w-4" />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button className="w-9 h-9 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container">
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">Send</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               </div>
