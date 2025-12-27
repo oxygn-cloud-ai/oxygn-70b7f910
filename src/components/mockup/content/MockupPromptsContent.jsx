@@ -927,9 +927,14 @@ const ConversationTabContent = ({ isAssistantEnabled = true }) => {
               className="w-full h-full min-h-[36px] p-2 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none"
             />
           </div>
-          <button className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground shrink-0">
-            <Send className="h-4 w-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container shrink-0">
+                <Send className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Send</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>
@@ -981,7 +986,7 @@ const MockupPromptsContent = ({
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground">
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
                 <Play className="h-4 w-4" />
               </button>
             </TooltipTrigger>

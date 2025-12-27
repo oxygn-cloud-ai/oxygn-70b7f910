@@ -92,7 +92,7 @@ const MockupConversationPanel = ({ onClose }) => {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground">
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
                   <Send className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
