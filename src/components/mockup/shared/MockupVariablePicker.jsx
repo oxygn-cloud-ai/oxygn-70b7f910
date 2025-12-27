@@ -92,7 +92,7 @@ const MOCK_PROMPT_REFERENCES = [
   { id: "3", name: "FAQ Handler", field: "system_prompt" },
 ];
 
-const MockupVariablePicker = ({ onInsert, userVariables = MOCK_USER_VARIABLES, className = "" }) => {
+export const MockupVariablePicker = ({ onInsert, userVariables = MOCK_USER_VARIABLES, className = "" }) => {
   const [open, setOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
   const [showPromptPicker, setShowPromptPicker] = useState(false);
