@@ -126,14 +126,14 @@ const TemplateTreeItem = ({
       
       {isHovered ? (
         <div className="flex items-center gap-0.5">
-          <IconButton icon={Star} label="Star" className={starred ? "text-primary" : ""} />
+          <IconButton icon={Star} label="Star" className={starred ? "text-amber-500" : ""} />
           <IconButton icon={Copy} label="Duplicate" />
           <IconButton icon={Upload} label="Export" />
           <IconButton icon={Trash2} label="Delete" />
         </div>
       ) : (
         <div className="flex items-center gap-1">
-          {starred && <Star className="h-3 w-3 text-primary fill-primary" />}
+          {starred && <Star className="h-3 w-3 text-amber-500 fill-amber-500" />}
           {category && (
             <span className={`text-[8px] px-1 py-0.5 rounded ${getCategoryColor(category)}`}>
               {category}
