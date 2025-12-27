@@ -74,7 +74,7 @@ export function AIModelsSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2 pb-2 border-b border-outline-variant">
+      <div className="flex items-center justify-end gap-2">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -152,13 +152,13 @@ export function AIModelsSection({
 
       <div>
         {modelsLoading ? (
-          <div className="text-center py-8 text-on-surface-variant">Loading models...</div>
+          <div className="text-center py-8 text-muted-foreground">Loading models...</div>
         ) : models.length === 0 ? (
-          <div className="text-center py-8 text-on-surface-variant">
-            No models configured. Click the + icon to add one.
+          <div className="text-center py-8 text-muted-foreground">
+            No models configured. Click the + button to add one.
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {models.map((model) => {
               const isExpanded = expandedModels[model.model_id];
               const defaultsCount = Object.keys(ALL_SETTINGS).filter(
@@ -171,14 +171,14 @@ export function AIModelsSection({
                   open={isExpanded}
                   onOpenChange={() => toggleModelExpanded(model.model_id)}
                 >
-                  <div className="border border-outline-variant rounded-2xl overflow-hidden bg-surface-container">
-                    <div className="flex items-center justify-between p-4 bg-surface-container-high">
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="flex items-center justify-between p-3 bg-background">
                       <div className="flex items-center gap-3">
                         <div>
-                          <div className="text-body-large font-medium text-on-surface">{model.model_name}</div>
-                          <code className="text-label-small text-on-surface-variant">{model.model_id}</code>
+                          <div className="font-medium">{model.model_name}</div>
+                          <code className="text-xs text-muted-foreground">{model.model_id}</code>
                         </div>
-                        <Badge variant="outline" className="capitalize border-outline-variant text-on-surface-variant">
+                        <Badge variant="outline" className="capitalize">
                           {model.provider || 'unknown'}
                         </Badge>
                       </div>

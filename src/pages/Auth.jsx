@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
@@ -22,21 +22,21 @@ const Auth = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-surface via-surface-container to-surface-container-high">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-secondary/90 to-accent/20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-surface via-surface-container to-surface-container-high p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-secondary/90 to-accent/20 p-4">
       {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-tertiary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
       </div>
 
-      <Card className="w-full max-w-md relative bg-surface-container-high/95 backdrop-blur shadow-elevation-3 border-outline-variant/50 rounded-3xl">
+      <Card className="w-full max-w-md relative bg-card/95 backdrop-blur shadow-warm-lg border-border/50">
         <CardHeader className="text-center pb-2">
           {/* Logo */}
           <div className="flex justify-center mb-4">
@@ -47,7 +47,7 @@ const Auth = () => {
             />
           </div>
 
-          <CardTitle className="text-display-small font-bold text-on-surface">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Qonsol
           </CardTitle>
         </CardHeader>
@@ -57,7 +57,7 @@ const Auth = () => {
           <Button 
             onClick={handleGoogleSignIn}
             variant="outline"
-            className="w-full flex items-center justify-center gap-3 h-14 bg-surface text-on-surface hover:bg-surface-container-highest border-outline hover:border-primary/30 transition-all duration-medium-2 rounded-full text-label-large"
+            className="w-full flex items-center justify-center gap-3 h-12 bg-background hover:bg-muted border-border hover:border-primary/30 transition-all"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -80,8 +80,9 @@ const Auth = () => {
             <span className="font-medium">Sign in with Google</span>
           </Button>
 
+
           {/* Footer text */}
-          <p className="text-center text-label-small text-on-surface-variant">
+          <p className="text-center text-xs text-muted-foreground">
             Only accounts from authorized domains can access this application
           </p>
         </CardContent>

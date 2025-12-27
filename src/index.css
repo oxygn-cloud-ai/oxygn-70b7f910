@@ -17,8 +17,6 @@
     /* Ruby Chocolate - Primary */
     --primary: 333 81% 51%;
     --primary-foreground: 0 0% 100%;
-    --primary-container: 333 60% 92%;
-    --on-primary-container: 333 70% 25%;
 
     /* Dark Chocolate - Secondary */
     --secondary: 14 56% 16%;
@@ -81,29 +79,15 @@
     --tertiary-container: 30 60% 88%;
     --on-tertiary-container: 30 80% 20%;
 
-    /* M3 Inverse Colors */
-    --inverse-surface: 14 28% 15%;
-    --inverse-on-surface: 30 15% 92%;
-    --inverse-primary: 333 70% 75%;
-
-    /* M3 Scrim */
-    --scrim: 0 0% 0%;
-
-    /* M3 Shadow Color */
-    --shadow-color: 14 28% 15%;
-
-    /* M3 Expressive Shape System */
+    /* M3 Shape System */
     --radius-xs: 4px;
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
-    --radius-xl: 24px;
-    --radius-2xl: 28px;
+    --radius-xl: 28px;
     --radius-full: 9999px;
 
     /* M3 Typography Scale (compact) */
-    --text-display-lg: 57px;
-    --text-display-md: 45px;
     --text-display-sm: 36px;
     --text-headline-lg: 32px;
     --text-headline-md: 28px;
@@ -123,26 +107,6 @@
     --state-focus: 0.10;
     --state-pressed: 0.10;
     --state-dragged: 0.16;
-
-    /* M3 Motion Easing Functions */
-    --ease-emphasized: cubic-bezier(0.2, 0.0, 0, 1.0);
-    --ease-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1.0);
-    --ease-emphasized-accel: cubic-bezier(0.3, 0.0, 0.8, 0.15);
-    --ease-standard: cubic-bezier(0.2, 0.0, 0, 1.0);
-    --ease-standard-decel: cubic-bezier(0, 0, 0, 1);
-    --ease-standard-accel: cubic-bezier(0.3, 0, 1, 1);
-
-    /* M3 Duration Tokens */
-    --duration-short-1: 50ms;
-    --duration-short-2: 100ms;
-    --duration-short-3: 150ms;
-    --duration-short-4: 200ms;
-    --duration-medium-1: 250ms;
-    --duration-medium-2: 300ms;
-    --duration-medium-3: 350ms;
-    --duration-medium-4: 400ms;
-    --duration-long-1: 450ms;
-    --duration-long-2: 500ms;
 
     /* M3 Elevation Tint */
     --elevation-1: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -165,8 +129,6 @@
     /* Ruby Chocolate - Primary (same in dark) */
     --primary: 333 81% 51%;
     --primary-foreground: 0 0% 100%;
-    --primary-container: 333 50% 25%;
-    --on-primary-container: 333 60% 90%;
 
     /* Lighter for dark mode */
     --secondary: 14 45% 20%;
@@ -225,14 +187,6 @@
     --tertiary: 30 70% 50%;
     --tertiary-container: 30 50% 20%;
     --on-tertiary-container: 30 60% 85%;
-
-    /* M3 Inverse Colors - Dark */
-    --inverse-surface: 30 15% 92%;
-    --inverse-on-surface: 14 28% 15%;
-    --inverse-primary: 333 70% 40%;
-
-    /* M3 Shadow Color - Dark */
-    --shadow-color: 0 0% 0%;
   }
 }
 
@@ -301,7 +255,7 @@
     inset: 0;
     background: currentColor;
     opacity: 0;
-    transition: opacity var(--duration-short-4) var(--ease-standard);
+    transition: opacity 0.2s ease;
     pointer-events: none;
   }
   
@@ -317,21 +271,6 @@
     opacity: var(--state-pressed);
   }
 
-  /* M3 Ripple Effect */
-  .ripple-container {
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.3;
-    pointer-events: none;
-    animation: ripple 0.6s linear forwards;
-  }
-
   /* M3 Surface tint for elevation */
   .surface-tint-1 {
     background-color: hsl(var(--surface-container-low));
@@ -344,216 +283,46 @@
   .surface-tint-3 {
     background-color: hsl(var(--surface-container-high));
   }
-  
-  .surface-tint-4 {
-    background-color: hsl(var(--surface-container-highest));
-  }
-
-  /* M3 Floating Toolbar */
-  .floating-toolbar {
-    @apply bg-surface-container-highest/95 backdrop-blur-md rounded-m3-2xl shadow-m3-2;
-    @apply transition-all duration-medium-2 ease-emphasized;
-  }
-  
-  .floating-toolbar:hover {
-    @apply shadow-m3-3;
-  }
-
-  /* M3 Squircle FAB */
-  .fab {
-    @apply inline-flex items-center justify-center;
-    @apply bg-primary-container text-on-primary-container;
-    @apply shadow-m3-3 transition-all duration-medium-2 ease-emphasized;
-    border-radius: 28%;
-  }
-  
-  .fab:hover {
-    @apply shadow-m3-4;
-    transform: scale(1.02);
-    border-radius: 24%;
-  }
-  
-  .fab:active {
-    @apply shadow-m3-2;
-    transform: scale(0.98);
-  }
-  
-  .fab-standard {
-    @apply w-14 h-14;
-  }
-  
-  .fab-small {
-    @apply w-10 h-10;
-    border-radius: 24%;
-  }
-  
-  .fab-small:hover {
-    border-radius: 20%;
-  }
-  
-  .fab-extended {
-    @apply h-14 px-5 gap-2;
-    border-radius: 16px;
-  }
-  
-  .fab-extended:hover {
-    border-radius: 20px;
-  }
-
-  /* M3 Container Styles */
-  .m3-container {
-    @apply bg-surface-container rounded-m3-2xl;
-    @apply transition-all duration-medium-2 ease-emphasized;
-  }
-  
-  .m3-container-low {
-    @apply bg-surface-container-low rounded-m3-xl;
-  }
-  
-  .m3-container-high {
-    @apply bg-surface-container-high rounded-m3-2xl;
-  }
-  
-  .m3-container-highest {
-    @apply bg-surface-container-highest rounded-m3-2xl;
-  }
-
-  /* M3 List Item */
-  .m3-list-item {
-    @apply relative flex items-center gap-3 px-4 py-3;
-    @apply rounded-m3-lg transition-all duration-short-4 ease-standard;
-    min-height: 56px;
-  }
-  
-  .m3-list-item:hover {
-    @apply bg-on-surface/[0.08];
-  }
-  
-  .m3-list-item.active {
-    @apply bg-secondary-container;
-    border-radius: 28px;
-  }
-  
-  .m3-list-item.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 4px;
-    height: 24px;
-    border-radius: 0 4px 4px 0;
-    background: hsl(var(--primary));
-  }
-
-  /* M3 Search Bar */
-  .m3-search-bar {
-    @apply flex items-center gap-3 px-4 h-12;
-    @apply bg-surface-container-highest rounded-full;
-    @apply border border-transparent;
-    @apply transition-all duration-medium-2 ease-emphasized;
-  }
-  
-  .m3-search-bar:focus-within {
-    @apply border-outline ring-2 ring-primary/10;
-    transform: scaleX(1.02);
-  }
 
   /* M3 Typography utilities */
-  .text-display-lg {
-    font-size: var(--text-display-lg);
-    line-height: 1.12;
-    font-weight: 400;
-    letter-spacing: -0.25px;
-  }
-  
-  .text-display-md {
-    font-size: var(--text-display-md);
-    line-height: 1.16;
-    font-weight: 400;
-  }
-  
-  .text-display-sm {
-    font-size: var(--text-display-sm);
-    line-height: 1.22;
-    font-weight: 400;
-  }
-  
-  .text-headline-lg {
-    font-size: var(--text-headline-lg);
-    line-height: 1.25;
-    font-weight: 400;
-  }
-  
-  .text-headline-md {
-    font-size: var(--text-headline-md);
-    line-height: 1.29;
-    font-weight: 400;
-  }
-  
-  .text-headline-sm {
-    font-size: var(--text-headline-sm);
-    line-height: 1.33;
-    font-weight: 400;
-  }
-  
-  .text-title-lg {
-    font-size: var(--text-title-lg);
-    line-height: 1.27;
-    font-weight: 500;
-  }
-  
   .text-title-md {
     font-size: var(--text-title-md);
     line-height: 1.4;
     font-weight: 500;
-    letter-spacing: 0.1px;
   }
   
   .text-title-sm {
     font-size: var(--text-title-sm);
     line-height: 1.4;
     font-weight: 500;
-    letter-spacing: 0.1px;
-  }
-  
-  .text-body-lg {
-    font-size: var(--text-body-lg);
-    line-height: 1.5;
-    letter-spacing: 0.25px;
   }
   
   .text-body-md {
     font-size: var(--text-body-md);
     line-height: 1.5;
-    letter-spacing: 0.25px;
   }
   
   .text-body-sm {
     font-size: var(--text-body-sm);
     line-height: 1.5;
-    letter-spacing: 0.4px;
   }
   
   .text-label-lg {
     font-size: var(--text-label-lg);
     line-height: 1.4;
     font-weight: 500;
-    letter-spacing: 0.5px;
   }
   
   .text-label-md {
     font-size: var(--text-label-md);
     line-height: 1.4;
     font-weight: 500;
-    letter-spacing: 0.5px;
   }
   
   .text-label-sm {
     font-size: var(--text-label-sm);
     line-height: 1.4;
     font-weight: 500;
-    letter-spacing: 0.5px;
   }
 }
 
@@ -561,7 +330,7 @@
   /* Scrollbar styling */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--outline-variant)) transparent;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
   
   .scrollbar-thin::-webkit-scrollbar {
@@ -574,65 +343,24 @@
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--outline-variant));
+    background-color: hsl(var(--border));
     border-radius: 3px;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--outline));
+    background-color: hsl(var(--muted-foreground) / 0.5);
   }
 
   /* M3 Emphasized easing */
   .ease-emphasized {
-    transition-timing-function: var(--ease-emphasized);
+    transition-timing-function: cubic-bezier(0.2, 0.0, 0, 1.0);
   }
   
   .ease-emphasized-decel {
-    transition-timing-function: var(--ease-emphasized-decel);
+    transition-timing-function: cubic-bezier(0.05, 0.7, 0.1, 1.0);
   }
   
   .ease-emphasized-accel {
-    transition-timing-function: var(--ease-emphasized-accel);
-  }
-  
-  .ease-standard {
-    transition-timing-function: var(--ease-standard);
-  }
-
-  /* M3 Duration utilities */
-  .duration-short-1 { transition-duration: var(--duration-short-1); }
-  .duration-short-2 { transition-duration: var(--duration-short-2); }
-  .duration-short-3 { transition-duration: var(--duration-short-3); }
-  .duration-short-4 { transition-duration: var(--duration-short-4); }
-  .duration-medium-1 { transition-duration: var(--duration-medium-1); }
-  .duration-medium-2 { transition-duration: var(--duration-medium-2); }
-  .duration-medium-3 { transition-duration: var(--duration-medium-3); }
-  .duration-medium-4 { transition-duration: var(--duration-medium-4); }
-  .duration-long-1 { transition-duration: var(--duration-long-1); }
-  .duration-long-2 { transition-duration: var(--duration-long-2); }
-
-  /* M3 State layer opacity utilities */
-  .hover-state-layer {
-    @apply relative overflow-hidden;
-  }
-  
-  .hover-state-layer::after {
-    content: '';
-    @apply absolute inset-0 bg-current opacity-0 transition-opacity duration-short-3;
-    pointer-events: none;
-  }
-  
-  .hover-state-layer:hover::after {
-    opacity: 0.08;
-  }
-  
-  .hover-state-layer:active::after {
-    opacity: 0.1;
-  }
-
-  /* Scrim overlay */
-  .scrim {
-    background-color: hsl(var(--scrim) / 0.32);
-    backdrop-filter: blur(4px);
+    transition-timing-function: cubic-bezier(0.3, 0.0, 0.8, 0.15);
   }
 }

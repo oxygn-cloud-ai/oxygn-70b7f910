@@ -304,8 +304,8 @@ const ChildPromptPanel = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* M3 Quick access icons bar */}
-      <div className="flex items-center px-4 py-2 border-b border-outline-variant bg-surface-container">
+      {/* Quick access icons bar - same as top-level */}
+      <div className="flex items-center px-4 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center gap-1">
           {tabs.map(tab => (
             <QuickAccessIcon key={tab.id} tab={tab} />
@@ -389,8 +389,8 @@ const ChildPromptPanel = ({
         <div className="flex-1 overflow-auto">
           <TabsContent value="prompt" className="h-full m-0 p-0">
             <div className="flex flex-col gap-4 p-4">
-              {/* M3 Thread Strategy Toggle */}
-              <div className="flex items-center gap-4 p-3 bg-surface-container-high rounded-2xl border border-outline-variant/50">
+              {/* Thread Strategy Toggle - Compact icon style */}
+              <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border border-border/50">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div 

@@ -67,11 +67,11 @@ const TreeItem = ({
     <div 
       className={`
         border-none 
-        ${level === 1 ? 'pt-1' : 'pt-0.5'} 
+        ${level === 1 ? 'pt-1.5' : 'pt-0.5'} 
         pb-0.5 
-        transition-all duration-medium-2 ease-standard
-        ${isDragging ? 'opacity-40 scale-[0.97]' : ''} 
-        ${isOver ? 'bg-primary/8 rounded-2xl ring-2 ring-primary/20' : ''}
+        transition-all duration-150
+        ${isDragging ? 'opacity-40 scale-[0.98]' : ''} 
+        ${isOver ? 'bg-primary/10 rounded-md ring-1 ring-primary/30' : ''}
       `}
       ref={ref}
       onMouseEnter={() => setIsTreeHovered(true)}
@@ -102,12 +102,12 @@ const TreeItem = ({
       />
       {isExpanded && hasChildren && (
         <div className="relative ml-2">
-          {/* M3 Vertical connection line with subtle appearance */}
+          {/* Vertical connection line */}
           <div 
             className={`
-              absolute left-3 top-0 w-0.5 rounded-full bg-outline-variant
-              transition-all duration-medium-2 ease-standard
-              ${isTreeHovered ? 'opacity-60' : 'opacity-25'}
+              absolute left-3 top-0 w-px bg-border 
+              transition-opacity duration-200 
+              ${isTreeHovered ? 'opacity-100' : 'opacity-40'}
             `}
             style={{ 
               height: 'calc(100% - 8px)',
@@ -116,12 +116,12 @@ const TreeItem = ({
           />
           {item.children.map((child, index) => (
             <div key={child.id} className="relative">
-              {/* M3 Horizontal connection line */}
+              {/* Horizontal connection line */}
               <div 
                 className={`
-                  absolute top-3.5 h-0.5 rounded-full bg-outline-variant
-                  transition-all duration-medium-2 ease-standard
-                  ${isTreeHovered ? 'opacity-60' : 'opacity-25'}
+                  absolute top-3 h-px bg-border 
+                  transition-opacity duration-200 
+                  ${isTreeHovered ? 'opacity-100' : 'opacity-40'}
                 `}
                 style={{ 
                   left: `${12 + (level - 1) * 16}px`,

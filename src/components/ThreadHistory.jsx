@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { History, User, Bot, Loader2 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { M3IconButton } from '@/components/ui/m3-icon-button';
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOOLTIPS } from '@/config/labels';
 import {
   Dialog,
@@ -38,14 +39,21 @@ const ThreadHistory = ({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <M3IconButton size="small" tooltip={TOOLTIPS.threads.viewHistory}>
-          <History className="h-5 w-5" />
-        </M3IconButton>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] bg-surface-container-high border-outline-variant">
+      <TooltipProvider>
+        <Tooltip>
+          <DialogTrigger asChild>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
+                <History className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+          </DialogTrigger>
+          <TooltipContent>{TOOLTIPS.threads.viewHistory}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-headline-small text-on-surface">
+          <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
             Thread History
           </DialogTitle>
@@ -54,10 +62,10 @@ const ThreadHistory = ({
         <ScrollArea className="h-[60vh] pr-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-8 text-on-surface-variant text-body-medium">
+            <div className="text-center py-8 text-muted-foreground">
               No messages in this thread yet.
             </div>
           ) : (
@@ -66,34 +74,34 @@ const ThreadHistory = ({
                 <div
                   key={message.id || index}
                   className={`flex gap-3 ${
-                    message.role === 'assistant' ? 'bg-surface-container-highest' : ''
-                  } rounded-xl p-3 transition-colors duration-medium-1`}
+                    message.role === 'assistant' ? 'bg-muted/50' : ''
+                  } rounded-lg p-3`}
                 >
                   <div className="flex-shrink-0">
                     {message.role === 'user' ? (
-                      <div className="h-10 w-10 rounded-full bg-primary-container flex items-center justify-center">
-                        <User className="h-5 w-5 text-on-primary-container" />
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-4 w-4 text-primary" />
                       </div>
                     ) : (
-                      <div className="h-10 w-10 rounded-full bg-secondary-container flex items-center justify-center">
-                        <Bot className="h-5 w-5 text-on-secondary-container" />
+                      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
+                        <Bot className="h-4 w-4" />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-label-large font-medium text-on-surface">
+                      <span className="font-medium text-sm">
                         {message.role === 'user' ? 'You' : 'AI'}
                       </span>
                       {message.created_at && (
-                        <span className="text-label-small text-on-surface-variant">
+                        <span className="text-xs text-muted-foreground">
                           {typeof message.created_at === 'number' 
                             ? new Date(message.created_at * 1000).toLocaleString()
                             : new Date(message.created_at).toLocaleString()}
                         </span>
                       )}
                     </div>
-                    <div className="text-body-medium text-on-surface whitespace-pre-wrap">
+                    <div className="text-sm whitespace-pre-wrap">
                       {formatContent(message.content)}
                     </div>
                   </div>

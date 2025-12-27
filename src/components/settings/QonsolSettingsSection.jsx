@@ -56,11 +56,11 @@ export function QonsolSettingsSection({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
         {/* Default Model Selection */}
-        <div className="space-y-3 p-5 border border-outline-variant rounded-2xl bg-surface-container-low">
+        <div className="space-y-2 p-4 border rounded-lg">
           <div className="flex items-center justify-between">
-            <Label htmlFor="default_model" className="text-label-large font-medium text-on-surface">Default Model</Label>
+            <Label htmlFor="default_model">Default Model</Label>
             {editedValues['default_model'] !== undefined && 
              editedValues['default_model'] !== (settings['default_model']?.value || '') && (
               <Button
@@ -91,12 +91,12 @@ export function QonsolSettingsSection({
               ))}
             </SelectContent>
           </Select>
-          <p className="text-label-small text-on-surface-variant">Default model used for new prompts</p>
+          <p className="text-xs text-muted-foreground">Default model used for new prompts</p>
         </div>
 
         {/* Workbench Settings */}
-        <div className="space-y-5 p-5 border border-outline-variant rounded-2xl bg-surface-container-low">
-          <h3 className="text-title-small font-medium text-on-surface">Workbench Settings</h3>
+        <div className="space-y-4 p-4 border rounded-lg">
+          <h3 className="text-sm font-medium">Workbench Settings</h3>
           
           {/* Workbench Default Model */}
           <div className="space-y-2">

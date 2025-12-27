@@ -102,57 +102,55 @@ const Links = ({ isPopup = false, parentData = null, cascadeField = null, onUpda
   }
 
   return (
-    <div className={`container mx-auto bg-surface ${isPopup ? 'p-0' : 'p-4'}`}>
+    <div className={`container mx-auto ${isPopup ? 'p-0' : 'p-4'}`}>
       {isPopup && parentData && cascadeField && (
-        <div className="mb-4 p-4 bg-secondary-container rounded-2xl">
-          <h2 className="text-title-medium font-semibold text-on-secondary-container">Cascade Information</h2>
-          <p className="text-body-medium text-on-secondary-container"><strong>Selected Item:</strong> {parentData.prompt_name}</p>
-          <p className="text-body-medium text-on-secondary-container"><strong>Field:</strong> {cascadeField}</p>
+        <div className="mb-4 p-4 bg-blue-100 rounded-lg">
+          <h2 className="text-lg font-semibold">Cascade Information</h2>
+          <p><strong>Selected Item:</strong> {parentData.prompt_name}</p>
+          <p><strong>Field:</strong> {cascadeField}</p>
         </div>
       )}
-      <PanelGroup direction="horizontal" className="bg-surface-container rounded-3xl overflow-hidden shadow-elevation-1">
+      <PanelGroup direction="horizontal">
         <Panel defaultSize={30} minSize={20}>
-          <div className="border-r border-outline-variant p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)] bg-surface-container-low">
+          <div className="border rounded-lg p-4 overflow-x-auto overflow-y-auto h-[calc(100vh-8rem)]">
             <div className="overflow-x-auto whitespace-nowrap w-full">
-              {isLoading ? <div className="text-on-surface-variant">Loading...</div> : (
+              {isLoading ? <div>Loading...</div> : (
                 <Accordion
                   type="multiple"
                   value={expandedItems}
                   onValueChange={setExpandedItems}
                   className="w-full min-w-max"
                 >
-                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-on-surface-variant p-2">No prompts available</div>}
+                  {treeData.length > 0 ? renderTreeItems(treeData) : <div className="text-gray-500 p-2">No prompts available</div>}
                 </Accordion>
               )}
             </div>
           </div>
         </Panel>
-        <PanelResizeHandle className="w-1.5 bg-transparent hover:bg-primary/20 active:bg-primary/40 transition-all duration-short-4 ease-standard cursor-col-resize" />
+        <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-gray-300 transition-colors" />
         <Panel>
-          <div className="bg-surface-container">
-            {activeItem ? (
-              selectedItemData ? (
-                <ProjectPanels 
-                  selectedItemData={selectedItemData} 
-                  projectRowId={activeItem} 
-                  onUpdateField={handleUpdateField}
-                  isLinksPage={true}
-                  isReadOnly={true}
-                  onCascade={(fieldName) => handleCascade(fieldName, selectedItemData)}
-                  parentData={parentData}
-                  cascadeField={cascadeField}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-on-surface-variant">Loading prompt details...</p>
-                </div>
-              )
+          {activeItem ? (
+            selectedItemData ? (
+              <ProjectPanels 
+                selectedItemData={selectedItemData} 
+                projectRowId={activeItem} 
+                onUpdateField={handleUpdateField}
+                isLinksPage={true}
+                isReadOnly={true}
+                onCascade={(fieldName) => handleCascade(fieldName, selectedItemData)}
+                parentData={parentData}
+                cascadeField={cascadeField}
+              />
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-on-surface-variant">Select a prompt to view details</p>
+                <p className="text-gray-500">Loading prompt details...</p>
               </div>
-            )}
-          </div>
+            )
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500">Select a prompt to view details</p>
+            </div>
+          )}
         </Panel>
       </PanelGroup>
     </div>

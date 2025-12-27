@@ -90,14 +90,14 @@ const Workbench = () => {
 
   if (isLoadingThreads) {
     return (
-      <div className="h-full flex items-center justify-center bg-surface-container-lowest">
+      <div className="h-full flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col bg-surface-container-lowest">
+    <div className="h-[calc(100vh-4rem)] flex flex-col">
       <PanelGroup direction="horizontal" className="flex-1" autoSaveId="workbench-layout">
         {/* Threads Sidebar */}
         <Panel id="threads-panel" order={1} defaultSize={18} minSize={12} maxSize={25}>
@@ -111,9 +111,9 @@ const Workbench = () => {
           />
         </Panel>
 
-        <PanelResizeHandle className="w-1.5 bg-outline-variant hover:bg-primary/30 active:bg-primary/50 transition-colors duration-medium-1 cursor-col-resize group">
+        <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/30 active:bg-primary/50 transition-colors cursor-col-resize group">
           <div className="w-full h-full flex items-center justify-center">
-            <div className="w-0.5 h-8 bg-on-surface-variant/30 group-hover:bg-primary/50 rounded-full transition-colors duration-medium-1" />
+            <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
           </div>
         </PanelResizeHandle>
 
@@ -134,9 +134,9 @@ const Workbench = () => {
           />
         </Panel>
 
-        <PanelResizeHandle className="w-1.5 bg-outline-variant hover:bg-primary/30 active:bg-primary/50 transition-colors duration-medium-1 cursor-col-resize group">
+        <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/30 active:bg-primary/50 transition-colors cursor-col-resize group">
           <div className="w-full h-full flex items-center justify-center">
-            <div className="w-0.5 h-8 bg-on-surface-variant/30 group-hover:bg-primary/50 rounded-full transition-colors duration-medium-1" />
+            <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
           </div>
         </PanelResizeHandle>
 

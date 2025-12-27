@@ -21,22 +21,22 @@ export function ContextHeader({ breadcrumbs = [], actions }) {
   ];
 
   return (
-    <header className="sticky top-0 z-10 bg-surface-container/95 backdrop-blur supports-[backdrop-filter]:bg-surface-container/80 border-b border-outline-variant">
+    <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex flex-col gap-1">
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-1 text-label-medium">
+          <nav className="flex items-center gap-1 text-sm">
             {allBreadcrumbs.map((crumb, index) => (
               <React.Fragment key={index}>
                 {index > 0 && (
-                  <ChevronRight className="h-4 w-4 text-on-surface-variant" />
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 )}
-                <span className={`flex items-center gap-1.5 transition-colors duration-medium-1 ${
+                <span className={`flex items-center gap-1.5 ${
                   index === allBreadcrumbs.length - 1 
-                    ? 'text-on-surface font-medium' 
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'text-foreground font-medium' 
+                    : 'text-muted-foreground hover:text-foreground transition-colors'
                 }`}>
-                  {crumb.icon && <crumb.icon className="h-4 w-4" />}
+                  {crumb.icon && <crumb.icon className="h-3.5 w-3.5" />}
                   {crumb.label}
                 </span>
               </React.Fragment>
@@ -45,7 +45,7 @@ export function ContextHeader({ breadcrumbs = [], actions }) {
           
           {/* Description */}
           {currentRoute.description && breadcrumbs.length === 0 && (
-            <p className="text-body-small text-on-surface-variant">
+            <p className="text-xs text-muted-foreground">
               {currentRoute.description}
             </p>
           )}

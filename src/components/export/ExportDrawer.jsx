@@ -228,16 +228,16 @@ export const ExportDrawer = ({
       <SheetContent 
         side="right"
         hideCloseButton
-        className="w-full sm:max-w-[580px] p-0 flex flex-col gap-0 border-l border-outline-variant shadow-elevation-3 bg-surface-container"
+        className="w-full sm:max-w-[580px] p-0 flex flex-col gap-0 border-l border-border/50 shadow-2xl"
       >
         {/* Header */}
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-outline-variant space-y-4">
+        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border/50 space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-primary/12 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Upload className="h-5 w-5 text-primary" />
               </div>
-              <SheetTitle className="text-title-large font-semibold text-on-surface">Export Prompts</SheetTitle>
+              <SheetTitle className="text-xl font-semibold font-poppins">Export Prompts</SheetTitle>
             </div>
 
             <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ export const ExportDrawer = ({
                 />
               )}
 
-              <span className="text-label-medium text-on-surface-variant hidden sm:inline">
+              <span className="text-xs text-muted-foreground hidden sm:inline">
                 {getSummaryText()}
               </span>
 
@@ -258,7 +258,7 @@ export const ExportDrawer = ({
                 onClick={onGoBack}
                 disabled={currentStep === EXPORT_STEPS.SELECT_PROMPTS}
                 className={cn(
-                  "h-10 w-10 rounded-full inline-flex items-center justify-center text-on-surface-variant hover:bg-on-surface/8 transition-all duration-short-4 ease-standard disabled:opacity-40 disabled:cursor-not-allowed",
+                  "p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
                   currentStep === EXPORT_STEPS.SELECT_PROMPTS && "invisible"
                 )}
                 title="Back"
@@ -271,7 +271,7 @@ export const ExportDrawer = ({
                 <button
                   onClick={handleExport}
                   disabled={!canProceed || isExporting || (!confluenceExport.pageTitle && !confluenceExport.pageTitleSource) || !confluenceExport.selectedSpaceKey}
-                  className="h-10 w-10 rounded-full inline-flex items-center justify-center bg-primary text-on-primary shadow-elevation-1 hover:shadow-elevation-2 transition-all duration-short-4 ease-standard disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Export"
                   aria-label="Export"
                 >
@@ -285,7 +285,7 @@ export const ExportDrawer = ({
                 <button
                   onClick={onGoNext}
                   disabled={!canProceed}
-                  className="h-10 w-10 rounded-full inline-flex items-center justify-center bg-primary text-on-primary shadow-elevation-1 hover:shadow-elevation-2 transition-all duration-short-4 ease-standard disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Next"
                   aria-label="Next"
                 >
@@ -295,17 +295,17 @@ export const ExportDrawer = ({
 
               <button
                 onClick={onClose}
-                className="h-10 w-10 rounded-full inline-flex items-center justify-center text-on-surface-variant hover:bg-on-surface/8 transition-all duration-short-4 ease-standard"
+                className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                 title="Close"
                 aria-label="Close"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
           
-          {/* M3 Step Navigation Tabs */}
-          <div className="flex items-center gap-1 bg-surface-container-high p-1 rounded-2xl">
+          {/* Step Navigation Tabs */}
+          <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
             {STEPS.map((step, index) => {
               const Icon = step.icon;
               const isActive = currentStep === step.key;
@@ -318,19 +318,19 @@ export const ExportDrawer = ({
                   onClick={() => isClickable && onGoBack()}
                   disabled={!isClickable && !isActive}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-label-medium font-medium transition-all duration-short-4 ease-standard",
-                    isActive && "bg-secondary-container text-on-secondary-container shadow-elevation-1",
-                    isCompleted && "text-primary hover:bg-primary/8 cursor-pointer",
-                    !isActive && !isCompleted && "text-on-surface-variant cursor-default"
+                    "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-xs font-medium transition-all",
+                    isActive && "bg-background shadow-sm text-foreground",
+                    isCompleted && "text-primary hover:bg-background/50 cursor-pointer",
+                    !isActive && !isCompleted && "text-muted-foreground cursor-default"
                   )}
                 >
                   <div className={cn(
-                    "h-6 w-6 rounded-full flex items-center justify-center text-label-small font-bold",
-                    isActive && "bg-primary text-on-primary",
+                    "h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold",
+                    isActive && "bg-primary text-primary-foreground",
                     isCompleted && "bg-primary/20 text-primary",
-                    !isActive && !isCompleted && "bg-on-surface-variant/20 text-on-surface-variant"
+                    !isActive && !isCompleted && "bg-muted-foreground/20 text-muted-foreground"
                   )}>
-                    {isCompleted ? <Check className="h-3.5 w-3.5" /> : step.key}
+                    {isCompleted ? <Check className="h-3 w-3" /> : step.key}
                   </div>
                   <span className="hidden sm:inline">{step.label}</span>
                 </button>
@@ -340,7 +340,7 @@ export const ExportDrawer = ({
         </SheetHeader>
 
         {/* Content */}
-        <ScrollArea className="flex-1 px-6 py-6 bg-surface-container-low">
+        <ScrollArea className="flex-1 px-6 py-6">
           {renderStepContent()}
         </ScrollArea>
 

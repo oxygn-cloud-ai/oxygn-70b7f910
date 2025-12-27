@@ -240,10 +240,8 @@ const HealthCheck = () => {
   };
 
   return (
-    <div className="p-6 max-w-3xl bg-surface min-h-full">
-      <div className="bg-surface-container rounded-3xl p-6 shadow-elevation-1">
-        {renderActiveSection()}
-      </div>
+    <div className="p-6 max-w-3xl">
+      {renderActiveSection()}
     </div>
   );
 };

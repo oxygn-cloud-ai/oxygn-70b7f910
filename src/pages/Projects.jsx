@@ -287,15 +287,15 @@ const Projects = () => {
         STANDARD_FIELDS={exportState.STANDARD_FIELDS}
         confluenceExport={confluenceExport}
       />
-      <div className="w-full h-[calc(100vh-4rem)] bg-surface p-2">
+      <div className="w-full h-[calc(100vh-4rem)] bg-background">
         <PanelGroup 
           direction="horizontal" 
-          className="h-full bg-surface-container rounded-m3-2xl overflow-hidden shadow-m3-1"
+          className="h-full"
           autoSaveId={panelLayoutId}
         >
           {/* Tree Panel */}
           <Panel id="tree-panel" order={1} defaultSize={showChatPanel ? 22 : 28} minSize={18}>
-            <div className="h-full border-r border-outline-variant bg-surface-container-low">
+            <div className="h-full border-r border-border bg-card/50">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -322,15 +322,15 @@ const Projects = () => {
           </Panel>
 
           {/* Resize Handle */}
-          <PanelResizeHandle className="w-1.5 bg-transparent hover:bg-primary/20 active:bg-primary/40 transition-all duration-short-4 ease-standard cursor-col-resize group">
-            <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-short-3">
-              <div className="w-0.5 h-8 bg-outline-variant group-hover:bg-primary/60 rounded-full transition-colors duration-short-3" />
+          <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/30 active:bg-primary/50 transition-colors cursor-col-resize group">
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
             </div>
           </PanelResizeHandle>
 
           {/* Details Panel */}
           <Panel id="details-panel" order={2} defaultSize={showChatPanel ? 40 : 72} minSize={30}>
-            <div className="h-full overflow-y-auto bg-surface-container">
+            <div className="h-full overflow-y-auto bg-background">
               {activeItem ? (
                 selectedItemData ? (
                   <ProjectPanels 
@@ -361,13 +361,13 @@ const Projects = () => {
           {/* Chat Panel */}
           {showChatPanel && chatPanelPromptRowId && (
             <>
-              <PanelResizeHandle className="w-1.5 bg-transparent hover:bg-primary/20 active:bg-primary/40 transition-all duration-short-4 ease-standard cursor-col-resize group">
-                <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-short-3">
-                  <div className="w-0.5 h-8 bg-outline-variant group-hover:bg-primary/60 rounded-full transition-colors duration-short-3" />
+              <PanelResizeHandle className="w-1.5 bg-border hover:bg-primary/30 active:bg-primary/50 transition-colors cursor-col-resize group">
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-0.5 h-8 bg-muted-foreground/30 group-hover:bg-primary/50 rounded-full transition-colors" />
                 </div>
               </PanelResizeHandle>
               <Panel id="chat-panel" order={3} defaultSize={38} minSize={25}>
-                <div className="h-full border-l border-outline-variant bg-surface-container-high">
+                <div className="h-full border-l border-border">
                   <ConversationChatPanel
                     promptRowId={chatPanelPromptRowId}
                     promptName={chatPanelPromptName}
