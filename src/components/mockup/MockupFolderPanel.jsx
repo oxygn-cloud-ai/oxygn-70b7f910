@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { 
   Inbox, 
   MessageSquare, 
@@ -16,16 +16,19 @@ import {
   Link2,
   Upload,
   GripVertical,
-  Workflow
+  Workflow,
+  RefreshCw
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
 import { SkeletonListItem } from "./shared/MockupSkeletons";
+import { toast } from "@/components/ui/sonner";
 
 const ITEM_TYPE = "PROMPT_ITEM";
 
-const SmartFolder = ({ icon: Icon, label, count, isActive = false }) => (
+const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick }) => (
   <button
+    onClick={onClick}
     className={`
       w-full h-7 flex items-center gap-2 px-2.5 rounded-m3-sm
       transition-all duration-200 ease-emphasized group
@@ -97,32 +100,37 @@ const DropZone = ({ onDrop, isFirst = false }) => {
 };
 
 const TreeItem = ({ 
-  id,
-  icon: Icon, 
-  label, 
+  item,
   level = 0, 
-  hasChildren = false, 
   isExpanded = false, 
   onToggle, 
   isActive = false,
-  starred = false,
-  excludedFromCascade = false,
-  excludedFromExport = false,
-  owner = null,
   onMoveInto,
   onMoveBetween,
-  index,
-  isConversation = false
+  onSelect,
+  onAdd,
+  onDelete,
+  onDuplicate,
+  expandedFolders,
+  selectedPromptId
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 10;
   const depthIndicator = level > 4 ? `${level}` : null;
+  
+  const hasChildren = item.children && item.children.length > 0;
+  const starred = item.starred || false;
+  const excludedFromCascade = item.exclude_from_cascade || false;
+  const excludedFromExport = item.exclude_from_export || false;
+  const isConversation = item.is_assistant || false;
+  const label = item.name || item.prompt_name || 'Untitled';
+  const id = item.id || item.row_id;
 
   const [{ isDragging }, drag, preview] = useDrag({
     type: ITEM_TYPE,
-    item: { id, index, level },
+    item: { id, level },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -131,10 +139,10 @@ const TreeItem = ({
   // Drop on item to make it a child
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
-    canDrop: (item) => item.id !== id,
-    drop: (item, monitor) => {
-      if (!monitor.didDrop() && item.id !== id && onMoveInto) {
-        onMoveInto(item.id, id);
+    canDrop: (dragItem) => dragItem.id !== id,
+    drop: (dragItem, monitor) => {
+      if (!monitor.didDrop() && dragItem.id !== id && onMoveInto) {
+        onMoveInto(dragItem.id, id);
       }
     },
     collect: (monitor) => ({
@@ -145,17 +153,20 @@ const TreeItem = ({
 
   drag(drop(ref));
   
+  const Icon = isConversation ? MessageSquare : FileText;
+  const itemIsActive = selectedPromptId === id;
+  
   return (
     <>
       <div
         ref={ref}
-        onClick={onToggle}
+        onClick={() => onSelect?.(id)}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         className={`
           w-full h-6 flex items-center gap-1 pr-1.5 rounded-m3-sm cursor-grab
           transition-all duration-200 ease-emphasized group
-          ${isActive 
+          ${itemIsActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
             : "text-on-surface-variant hover:bg-on-surface/[0.08]"
           }
@@ -171,7 +182,7 @@ const TreeItem = ({
           <span className="text-[7px] text-on-surface-variant/50 w-2.5 flex-shrink-0">{depthIndicator}</span>
         )}
         {hasChildren && (
-          <span onClick={(e) => { e.stopPropagation(); onToggle?.(); }}>
+          <span onClick={(e) => { e.stopPropagation(); onToggle?.(id); }}>
             {isExpanded 
               ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
               : <ChevronRight className="h-3 w-3 flex-shrink-0" />
@@ -188,20 +199,22 @@ const TreeItem = ({
             <IconButton icon={Star} label="Star" className={starred ? "text-amber-500" : ""} />
             <IconButton icon={Sparkles} label="Run" />
             {hasChildren && <IconButton icon={Workflow} label="Run Cascade" />}
-            <IconButton icon={Link2} label="Copy Variable Reference" />
-            <IconButton icon={Plus} label="Add Child" />
-            <IconButton icon={Copy} label="Duplicate" />
+            <IconButton icon={Link2} label="Copy Variable Reference" onClick={() => {
+              navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
+              toast.success('Copied variable reference');
+            }} />
+            <IconButton icon={Plus} label="Add Child" onClick={() => onAdd?.(id)} />
+            <IconButton icon={Copy} label="Duplicate" onClick={() => onDuplicate?.(id)} />
             <IconButton icon={Upload} label="Export" />
             <IconButton icon={Ban} label="Exclude from Cascade" className={excludedFromCascade ? "text-muted-foreground" : ""} />
             <IconButton icon={FileX} label="Exclude from Export" className={excludedFromExport ? "text-warning" : ""} />
-            <IconButton icon={Trash2} label="Delete" />
+            <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id)} />
           </div>
         ) : (
           <div className="flex items-center gap-0.5">
             {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
             {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-muted-foreground" />}
             {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
-            {owner && <OwnerAvatar initials={owner.initials} color={owner.color} />}
           </div>
         )}
       </div>
@@ -212,35 +225,102 @@ const TreeItem = ({
           Drop to make child of "{label}"
         </div>
       )}
+      
+      {/* Render children recursively */}
+      {hasChildren && isExpanded && item.children.map((child, idx) => (
+        <React.Fragment key={child.id || child.row_id}>
+          <TreeItem
+            item={child}
+            level={level + 1}
+            isExpanded={expandedFolders[child.id || child.row_id]}
+            onToggle={onToggle}
+            onMoveInto={onMoveInto}
+            onMoveBetween={onMoveBetween}
+            onSelect={onSelect}
+            onAdd={onAdd}
+            onDelete={onDelete}
+            onDuplicate={onDuplicate}
+            expandedFolders={expandedFolders}
+            selectedPromptId={selectedPromptId}
+          />
+          <DropZone onDrop={onMoveBetween} />
+        </React.Fragment>
+      ))}
     </>
   );
 };
 
-const MockupFolderPanel = ({ selectedPrompt, onSelectPrompt }) => {
-  const [expandedFolders, setExpandedFolders] = useState({ 
-    "doc-processor": true,
-    "support-bot": true
-  });
+const MockupFolderPanel = ({ 
+  treeData = [], 
+  isLoading = false, 
+  selectedPromptId, 
+  onSelectPrompt,
+  onAddPrompt,
+  onDeletePrompt,
+  onDuplicatePrompt,
+  onMovePrompt,
+  onRefresh
+}) => {
+  const [expandedFolders, setExpandedFolders] = useState({});
+  const [activeSmartFolder, setActiveSmartFolder] = useState("all");
 
   const toggleFolder = (id) => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleMoveInto = (draggedId, targetId) => {
-    // In a real app, this would make draggedId a child of targetId
-    console.log(`Make ${draggedId} a child of ${targetId}`);
+  const handleMoveInto = async (draggedId, targetId) => {
+    if (onMovePrompt) {
+      await onMovePrompt(draggedId, targetId);
+    }
   };
 
   const handleMoveBetween = (draggedId, position) => {
-    // In a real app, this would insert draggedId at the specified position
+    // For now, just log - full implementation would calculate new position
     console.log(`Insert ${draggedId} at position`);
   };
 
-  const owners = {
-    jd: { initials: "JD", color: "bg-tertiary-container text-on-surface" },
-    am: { initials: "AM", color: "bg-secondary-container text-secondary-container-foreground" },
-    kl: { initials: "KL", color: "bg-surface-container-high text-on-surface" },
-  };
+  // Calculate smart folder counts
+  const counts = useMemo(() => {
+    const flatCount = (items) => {
+      let count = 0;
+      items.forEach(item => {
+        count += 1;
+        if (item.children) {
+          count += flatCount(item.children);
+        }
+      });
+      return count;
+    };
+    
+    const countWithConversations = (items) => {
+      let count = 0;
+      items.forEach(item => {
+        if (item.is_assistant) count += 1;
+        if (item.children) {
+          count += countWithConversations(item.children);
+        }
+      });
+      return count;
+    };
+    
+    const countStarred = (items) => {
+      let count = 0;
+      items.forEach(item => {
+        if (item.starred) count += 1;
+        if (item.children) {
+          count += countStarred(item.children);
+        }
+      });
+      return count;
+    };
+    
+    return {
+      all: flatCount(treeData),
+      conversations: countWithConversations(treeData),
+      starred: countStarred(treeData),
+      recent: Math.min(5, flatCount(treeData))
+    };
+  }, [treeData]);
 
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
@@ -250,10 +330,34 @@ const MockupFolderPanel = ({ selectedPrompt, onSelectPrompt }) => {
           Smart Folders
         </p>
         <div className="flex flex-col gap-0.5">
-          <SmartFolder icon={Inbox} label="All Prompts" count={24} isActive />
-          <SmartFolder icon={MessageSquare} label="Conversations" count={3} />
-          <SmartFolder icon={Star} label="Starred" count={7} />
-          <SmartFolder icon={Clock} label="Recent" count={5} />
+          <SmartFolder 
+            icon={Inbox} 
+            label="All Prompts" 
+            count={counts.all} 
+            isActive={activeSmartFolder === "all"}
+            onClick={() => setActiveSmartFolder("all")}
+          />
+          <SmartFolder 
+            icon={MessageSquare} 
+            label="Conversations" 
+            count={counts.conversations}
+            isActive={activeSmartFolder === "conversations"}
+            onClick={() => setActiveSmartFolder("conversations")}
+          />
+          <SmartFolder 
+            icon={Star} 
+            label="Starred" 
+            count={counts.starred}
+            isActive={activeSmartFolder === "starred"}
+            onClick={() => setActiveSmartFolder("starred")}
+          />
+          <SmartFolder 
+            icon={Clock} 
+            label="Recent" 
+            count={counts.recent}
+            isActive={activeSmartFolder === "recent"}
+            onClick={() => setActiveSmartFolder("recent")}
+          />
         </div>
       </div>
 
@@ -266,110 +370,85 @@ const MockupFolderPanel = ({ selectedPrompt, onSelectPrompt }) => {
           <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
             Prompts
           </p>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Create new prompt</TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-0.5">
+            {onRefresh && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={onRefresh}
+                    className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Refresh</TooltipContent>
+              </Tooltip>
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={() => onAddPrompt?.(null)}
+                  className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Create new prompt</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
+        
         <div className="flex flex-col">
-          {/* Drop zone at top */}
-          <DropZone onDrop={handleMoveBetween} isFirst />
-          
-          {/* Top-level prompt with deep child hierarchy */}
-          <TreeItem 
-            id="doc-processor"
-            icon={FileText} 
-            label="Document Processor" 
-            hasChildren 
-            isExpanded={expandedFolders["doc-processor"]}
-            onToggle={() => toggleFolder("doc-processor")}
-            starred
-            owner={owners.jd}
-            onMoveInto={handleMoveInto}
-            onMoveBetween={handleMoveBetween}
-            index={0}
-          />
-          <DropZone onDrop={handleMoveBetween} />
-          
-          {expandedFolders["doc-processor"] && (
+          {/* Loading state */}
+          {isLoading && (
             <>
-              <TreeItem id="parse-input" icon={FileText} label="1. Parse Input" level={1} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={1} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="extract-meta" icon={FileText} label="2. Extract Metadata" level={2} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={2} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="validate-schema" icon={FileText} label="3. Validate Schema" level={3} hasChildren isExpanded excludedFromCascade owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={3} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="transform-data" icon={FileText} label="4. Transform Data" level={4} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={4} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="enrich-content" icon={FileText} label="5. Enrich Content" level={5} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={5} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="apply-rules" icon={FileText} label="6. Apply Rules" level={6} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={6} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="gen-output" icon={FileText} label="7. Generate Output" level={7} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={7} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="format-response" icon={FileText} label="8. Format Response" level={8} hasChildren isExpanded owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={8} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="final-review" icon={FileText} label="9. Final Review" level={9} owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={9} />
-              <DropZone onDrop={handleMoveBetween} />
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
+              <SkeletonListItem />
             </>
           )}
-
-          {/* Conversation with children */}
-          <TreeItem 
-            id="support-bot"
-            icon={MessageSquare} 
-            label="Customer Support Bot" 
-            hasChildren 
-            isExpanded={expandedFolders["support-bot"]}
-            onToggle={() => toggleFolder("support-bot")}
-            isActive
-            starred
-            owner={owners.am}
-            onMoveInto={handleMoveInto}
-            onMoveBetween={handleMoveBetween}
-            index={10}
-            isConversation
-          />
-          <DropZone onDrop={handleMoveBetween} />
           
-          {expandedFolders["support-bot"] && (
+          {/* Empty state */}
+          {!isLoading && treeData.length === 0 && (
+            <div className="px-2 py-8 text-center">
+              <FileText className="h-8 w-8 mx-auto mb-2 text-on-surface-variant/40" />
+              <p className="text-[11px] text-on-surface-variant">No prompts yet</p>
+              <button 
+                onClick={() => onAddPrompt?.(null)}
+                className="mt-2 px-3 py-1 text-[10px] text-primary hover:bg-primary/10 rounded-m3-sm transition-colors"
+              >
+                Create your first prompt
+              </button>
+            </div>
+          )}
+          
+          {/* Real tree data */}
+          {!isLoading && treeData.length > 0 && (
             <>
-              <TreeItem id="greeting" icon={FileText} label="Greeting Handler" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={11} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="issue-classifier" icon={FileText} label="Issue Classifier" level={1} hasChildren isExpanded excludedFromExport owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={12} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="tech-issues" icon={FileText} label="Technical Issues" level={2} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={13} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="billing-issues" icon={FileText} label="Billing Issues" level={2} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={14} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="escalation" icon={FileText} label="Escalation Handler" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={15} />
-              <DropZone onDrop={handleMoveBetween} />
+              <DropZone onDrop={handleMoveBetween} isFirst />
+              {treeData.map((item, idx) => (
+                <React.Fragment key={item.id || item.row_id}>
+                  <TreeItem
+                    item={item}
+                    level={0}
+                    isExpanded={expandedFolders[item.id || item.row_id]}
+                    onToggle={toggleFolder}
+                    onMoveInto={handleMoveInto}
+                    onMoveBetween={handleMoveBetween}
+                    onSelect={onSelectPrompt}
+                    onAdd={onAddPrompt}
+                    onDelete={onDeletePrompt}
+                    onDuplicate={onDuplicatePrompt}
+                    expandedFolders={expandedFolders}
+                    selectedPromptId={selectedPromptId}
+                  />
+                  <DropZone onDrop={handleMoveBetween} />
+                </React.Fragment>
+              ))}
             </>
           )}
-
-          {/* Simple top-level prompts */}
-          <TreeItem id="api-docs" icon={FileText} label="API Documentation" owner={owners.kl} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={16} />
-          <DropZone onDrop={handleMoveBetween} />
-          <TreeItem id="summary-gen" icon={FileText} label="Summary Generator" starred owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={17} />
-          <DropZone onDrop={handleMoveBetween} />
-          <TreeItem id="email-templates" icon={FileText} label="Email Templates" hasChildren isExpanded={expandedFolders["email"]} onToggle={() => toggleFolder("email")} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={18} />
-          <DropZone onDrop={handleMoveBetween} />
-          {expandedFolders["email"] && (
-            <>
-              <TreeItem id="welcome-email" icon={FileText} label="Welcome Email" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={19} />
-              <DropZone onDrop={handleMoveBetween} />
-              <TreeItem id="followup-email" icon={FileText} label="Follow-up Email" level={1} owner={owners.am} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={20} />
-              <DropZone onDrop={handleMoveBetween} />
-            </>
-          )}
-          <TreeItem id="quick-notes" icon={FileText} label="Quick Notes" excludedFromCascade excludedFromExport owner={owners.kl} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={21} />
-          <DropZone onDrop={handleMoveBetween} />
-          <TreeItem id="code-review" icon={FileText} label="Code Review" owner={owners.jd} onMoveInto={handleMoveInto} onMoveBetween={handleMoveBetween} index={22} />
-          <DropZone onDrop={handleMoveBetween} />
         </div>
       </div>
     </div>
