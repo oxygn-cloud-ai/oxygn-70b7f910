@@ -234,22 +234,76 @@ const Mockup = () => {
 
   // Render the appropriate panel content
   const renderFolderPanelContent = () => {
-    // If hovering a nav with submenu, show that submenu
-    if (hoveredNav && hasSubmenu(hoveredNav)) {
-      return (
-        <div
-          ref={submenuRef}
-          onMouseEnter={handleSubmenuMouseEnter}
-          onMouseLeave={handleSubmenuMouseLeave}
-          className="h-full"
-        >
-          <MockupSubmenuPanel 
-            hoveredNav={hoveredNav}
-            activeSubItem={hoveredNav === activeNav ? activeSubItem : null}
-            onItemClick={(itemId) => handleSubmenuClick(hoveredNav, itemId)}
-          />
-        </div>
-      );
+    // If hovering a nav item different from active, show preview of that nav's content
+    if (hoveredNav && hoveredNav !== activeNav) {
+      // Show templates folder panel preview when hovering templates
+      if (hoveredNav === "templates") {
+        return (
+          <div
+            ref={submenuRef}
+            onMouseEnter={handleSubmenuMouseEnter}
+            onMouseLeave={handleSubmenuMouseLeave}
+            className="h-full"
+          >
+            <MockupTemplatesFolderPanel 
+              onSelectTemplate={handleSelectTemplate}
+              selectedTemplateId={selectedTemplate?.row_id || selectedTemplate?.id}
+              activeTemplateTab={activeTemplateTab}
+              onTemplateTabChange={setActiveTemplateTab}
+              templates={templatesHook.templates}
+              schemaTemplates={jsonSchemaTemplatesHook.templates}
+              isLoadingTemplates={templatesHook.isLoading}
+              isLoadingSchemas={jsonSchemaTemplatesHook.isLoading}
+              onCreateTemplate={templatesHook.createTemplate}
+              onDeleteTemplate={templatesHook.deleteTemplate}
+              onCreateSchema={jsonSchemaTemplatesHook.createTemplate}
+              onDeleteSchema={jsonSchemaTemplatesHook.deleteTemplate}
+            />
+          </div>
+        );
+      }
+      
+      // Show prompts folder panel preview when hovering prompts
+      if (hoveredNav === "prompts") {
+        return (
+          <div
+            ref={submenuRef}
+            onMouseEnter={handleSubmenuMouseEnter}
+            onMouseLeave={handleSubmenuMouseLeave}
+            className="h-full"
+          >
+            <MockupFolderPanel 
+              treeData={hierarchicalTreeData}
+              isLoading={isLoadingTree}
+              selectedPromptId={selectedPromptId}
+              onSelectPrompt={setSelectedPromptId}
+              onAddPrompt={handleAddItem}
+              onDeletePrompt={handleDeleteItem}
+              onDuplicatePrompt={handleDuplicateItem}
+              onMovePrompt={handleMoveItem}
+              onRefresh={refreshTreeData}
+            />
+          </div>
+        );
+      }
+      
+      // Show submenu for other nav items
+      if (hasSubmenu(hoveredNav)) {
+        return (
+          <div
+            ref={submenuRef}
+            onMouseEnter={handleSubmenuMouseEnter}
+            onMouseLeave={handleSubmenuMouseLeave}
+            className="h-full"
+          >
+            <MockupSubmenuPanel 
+              hoveredNav={hoveredNav}
+              activeSubItem={hoveredNav === activeNav ? activeSubItem : null}
+              onItemClick={(itemId) => handleSubmenuClick(hoveredNav, itemId)}
+            />
+          </div>
+        );
+      }
     }
 
     // Otherwise show the active nav's content
