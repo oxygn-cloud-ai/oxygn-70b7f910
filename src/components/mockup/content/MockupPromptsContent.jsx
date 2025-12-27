@@ -4,7 +4,9 @@ import {
   Download, MoreVertical, Star, Trash2, Share2, Link2, 
   Hash, List, Braces, ToggleLeft, Library, ChevronDown, 
   Search, Plus, PanelRightOpen, Workflow, Bot, Thermometer,
-  Zap, Code, Globe
+  Zap, Code, Globe, Edit3, Check, X, User, Sparkles,
+  Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
+  RefreshCw, ChevronRight, AlertCircle, Info
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -18,6 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { LabelPicker } from "@/components/ui/label-picker";
 import { LabelBadge } from "@/components/ui/label-badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
@@ -25,6 +28,7 @@ const VARIABLE_DEFINITIONS = {
   ticket_count: { name: "ticket_count", type: "number", description: "Number of previous support tickets", source: "Database", required: false, default: "0" },
   company_name: { name: "company_name", type: "text", description: "Name of the company", source: "Settings", required: true },
   support_email: { name: "support_email", type: "text", description: "Support contact email address", source: "Settings", required: true },
+  parent_output: { name: "parent.output", type: "reference", description: "Output from parent prompt", source: "Cascade", required: false },
 };
 
 const MOCK_MODELS = [
@@ -41,12 +45,12 @@ const MOCK_SCHEMAS = [
 ];
 
 const MOCK_VARIABLES = [
-  { name: "customer_message", value: "", required: true, type: "text" },
-  { name: "ticket_count", value: "3", required: false, type: "number" },
-  { name: "api_key", value: "••••••••", required: true, type: "text", isSecret: true },
-  { name: "base_url", value: "https://api.example.com", required: true, type: "text" },
-  { name: "context_ref", value: "{{parent.output}}", required: false, type: "reference" },
-  { name: "max_retries", value: "3", required: false, type: "number" },
+  { name: "customer_message", value: "", required: true, type: "text", source: "input", description: "The customer's original message" },
+  { name: "ticket_count", value: "3", required: false, type: "number", source: "database", description: "Previous support tickets" },
+  { name: "company_name", value: "Acme Corp", required: true, type: "text", source: "settings", description: "Company display name" },
+  { name: "support_email", value: "support@acme.com", required: true, type: "text", source: "settings", description: "Support email" },
+  { name: "api_key", value: "sk-••••••••", required: true, type: "text", source: "secret", isSecret: true, description: "API authentication key" },
+  { name: "parent.output", value: "", required: false, type: "reference", source: "cascade", description: "Output from parent prompt" },
 ];
 
 const LIBRARY_PROMPTS = [
@@ -56,9 +60,36 @@ const LIBRARY_PROMPTS = [
   { id: "4", name: "JSON Output Format", labels: ["Format", "Technical"] },
 ];
 
+const MOCK_CONVERSATION = [
+  { 
+    id: 1, 
+    role: "user", 
+    content: "I'm having trouble with my order #12345. It was supposed to arrive yesterday but I haven't received any updates.",
+    timestamp: "2:34 PM"
+  },
+  { 
+    id: 2, 
+    role: "assistant", 
+    content: "I understand your concern about order #12345. Let me look into this for you right away.\n\nI can see that your order experienced a slight delay at our distribution center. The good news is that it's now on its way and should arrive by tomorrow.\n\nWould you like me to:\n1. Send you the updated tracking information\n2. Expedite the shipping at no extra cost\n3. Arrange for a partial refund for the delay",
+    timestamp: "2:35 PM"
+  },
+  { 
+    id: 3, 
+    role: "user", 
+    content: "Yes, please send me the tracking info and I'd appreciate the expedited shipping.",
+    timestamp: "2:36 PM"
+  },
+  { 
+    id: 4, 
+    role: "assistant", 
+    content: "Done! I've upgraded your shipping to express delivery at no charge. Here's your tracking number: **TRK-789456123**\n\nYou can track your package here: [Track Order](https://tracking.example.com)\n\nIs there anything else I can help you with?",
+    timestamp: "2:37 PM"
+  },
+];
+
 // Component to render text with highlighted variables
 const HighlightedText = ({ text }) => {
-  const variablePattern = /\{\{(\w+)\}\}/g;
+  const variablePattern = /\{\{(\w+(?:\.\w+)?)\}\}/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -69,7 +100,7 @@ const HighlightedText = ({ text }) => {
     }
     
     const varName = match[1];
-    const varDef = VARIABLE_DEFINITIONS[varName];
+    const varDef = VARIABLE_DEFINITIONS[varName] || VARIABLE_DEFINITIONS[varName.replace('.', '_')];
     
     parts.push(
       <Tooltip key={`var-${match.index}`}>
@@ -86,6 +117,9 @@ const HighlightedText = ({ text }) => {
           </div>
           {varDef?.description && (
             <p className="text-[10px] text-on-surface-variant">{varDef.description}</p>
+          )}
+          {varDef?.source && (
+            <p className="text-[10px] text-on-surface-variant">Source: {varDef.source}</p>
           )}
         </TooltipContent>
       </Tooltip>
@@ -130,6 +164,19 @@ const VariableTypeIcon = ({ type }) => {
   };
   const Icon = icons[type] || Variable;
   return <Icon className="h-3.5 w-3.5 text-on-surface-variant" />;
+};
+
+const SourceIcon = ({ source }) => {
+  const icons = {
+    input: User,
+    database: Database,
+    settings: Settings,
+    secret: EyeOff,
+    cascade: ArrowRight,
+    api: Globe
+  };
+  const Icon = icons[source] || Variable;
+  return <Icon className="h-3 w-3" />;
 };
 
 const LibraryPickerDropdown = () => {
@@ -183,9 +230,51 @@ const LibraryPickerDropdown = () => {
   );
 };
 
+// Editable Text Area Component
+const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</label>
+        <div className="flex items-center gap-1">
+          {onLibraryPick && <LibraryPickerDropdown />}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => setIsEditing(!isEditing)}
+                className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
+                  isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+                }`}
+              >
+                {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+      {isEditing ? (
+        <textarea
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full ${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-none font-mono`}
+        />
+      ) : (
+        <div className={`${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap`}>
+          {value ? <HighlightedText text={value} /> : <span className="text-on-surface-variant opacity-50">{placeholder}</span>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Prompt Tab Content
 const PromptTabContent = () => {
-  const promptText = `You are a professional customer support agent for {{company_name}}.
+  const systemPrompt = `You are a professional customer support agent for {{company_name}}.
 
 Analyze the following customer message and provide a helpful response:
 {{customer_message}}
@@ -198,45 +287,88 @@ Guidelines:
 - Provide actionable solutions
 - Offer to escalate if needed`;
 
+  const userPrompt = `Please help me with the following request. Consider the context from {{parent.output}} if available.`;
+
+  const outputResponse = `Thank you for contacting Acme Corp support! I understand your concern about order #12345.
+
+I've checked our system and can see that your order is currently in transit. Here's what I found:
+
+**Order Status:** In Transit
+**Expected Delivery:** Tomorrow by 5 PM
+**Tracking Number:** TRK-789456123
+
+Would you like me to:
+1. Send you real-time tracking updates via SMS
+2. Arrange for expedited delivery
+3. Process a partial refund for the delay
+
+Please let me know how I can best assist you!`;
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* System Prompt */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">System Prompt</label>
-          <LibraryPickerDropdown />
-        </div>
-        <div className="min-h-40 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
-          <HighlightedText text={promptText} />
-        </div>
-      </div>
+      <EditablePromptArea 
+        label="System Prompt"
+        value={systemPrompt}
+        placeholder="Enter system prompt..."
+        minHeight="min-h-40"
+        onLibraryPick
+      />
 
       {/* User Prompt */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">User Prompt</label>
-          <LibraryPickerDropdown />
-        </div>
-        <div className="min-h-20 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface-variant">
-          <span className="opacity-50">Enter user prompt...</span>
-        </div>
-      </div>
+      <EditablePromptArea 
+        label="User Prompt"
+        value={userPrompt}
+        placeholder="Enter user prompt..."
+        minHeight="min-h-16"
+        onLibraryPick
+      />
 
       {/* Output */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Output</label>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Copy className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Copy Output</TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Output</label>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 flex items-center gap-1">
+              <Check className="h-2.5 w-2.5" />
+              Generated
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Regenerate</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Copy Output</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-        <div className="min-h-28 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface-variant italic">
-          Run the prompt to see output...
+        <div className="min-h-36 p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap">
+          {outputResponse}
+        </div>
+        
+        {/* Metadata */}
+        <div className="flex items-center gap-3 text-[10px] text-on-surface-variant">
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            1.2s
+          </span>
+          <span>•</span>
+          <span>GPT-4o</span>
+          <span>•</span>
+          <span>847 tokens</span>
+          <span>•</span>
+          <span>$0.0042</span>
         </div>
       </div>
     </div>
@@ -360,57 +492,241 @@ const SettingsTabContent = () => {
   );
 };
 
-// Variables Tab Content
-const VariablesTabContent = () => (
-  <div className="space-y-3">
-    <div className="flex items-center justify-between">
-      <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Detected Variables</label>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent className="text-[10px]">Add Variable</TooltipContent>
-      </Tooltip>
-    </div>
+// Enhanced Variables Tab Content
+const VariablesTabContent = () => {
+  const [showValues, setShowValues] = useState(true);
+  
+  // Group variables by source
+  const groupedVariables = MOCK_VARIABLES.reduce((acc, variable) => {
+    const source = variable.source || 'other';
+    if (!acc[source]) acc[source] = [];
+    acc[source].push(variable);
+    return acc;
+  }, {});
 
-    <div className="space-y-1.5">
-      {MOCK_VARIABLES.map((variable, i) => (
-        <div 
-          key={variable.name}
-          className="flex items-center gap-2.5 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant"
-        >
-          <VariableTypeIcon type={variable.type} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="text-body-sm text-on-surface font-medium font-mono">{variable.name}</span>
-              {variable.required && <span className="text-[10px] text-destructive">*</span>}
-              {variable.isSecret && <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600">secret</span>}
+  const sourceLabels = {
+    input: "User Input",
+    database: "Database",
+    settings: "Settings",
+    secret: "Secrets",
+    cascade: "Cascade",
+    api: "External API"
+  };
+
+  const sourceColors = {
+    input: "text-blue-500 bg-blue-500/10",
+    database: "text-purple-500 bg-purple-500/10",
+    settings: "text-green-500 bg-green-500/10",
+    secret: "text-amber-500 bg-amber-500/10",
+    cascade: "text-pink-500 bg-pink-500/10",
+    api: "text-cyan-500 bg-cyan-500/10"
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Variables</label>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">
+            {MOCK_VARIABLES.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => setShowValues(!showValues)}
+                className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                {showValues ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">{showValues ? "Hide Values" : "Show Values"}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Add Variable</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Variables by source */}
+      <div className="space-y-3">
+        {Object.entries(groupedVariables).map(([source, variables]) => (
+          <div key={source} className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <SourceIcon source={source} />
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+                {sourceLabels[source] || source}
+              </span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ${sourceColors[source] || 'bg-surface-container-high'}`}>
+                {variables.length}
+              </span>
+            </div>
+            <div className="space-y-1">
+              {variables.map((variable) => (
+                <div 
+                  key={variable.name}
+                  className="flex items-center gap-2.5 p-2 bg-surface-container rounded-m3-sm border border-outline-variant group"
+                >
+                  <VariableTypeIcon type={variable.type} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-body-sm text-on-surface font-medium font-mono">{variable.name}</span>
+                      {variable.required && <span className="text-[10px] text-destructive">*</span>}
+                      {variable.isSecret && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600">secret</span>
+                      )}
+                    </div>
+                    {variable.description && (
+                      <p className="text-[10px] text-on-surface-variant truncate">{variable.description}</p>
+                    )}
+                  </div>
+                  <div className="w-36 shrink-0">
+                    {showValues ? (
+                      <input
+                        type={variable.isSecret ? "password" : "text"}
+                        defaultValue={variable.value}
+                        placeholder="Enter value..."
+                        className="w-full h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                      />
+                    ) : (
+                      <div className="h-7 px-2 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
+                        ••••••
+                      </div>
+                    )}
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Delete</TooltipContent>
+                  </Tooltip>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="w-40">
-            <input
-              type={variable.isSecret ? "password" : "text"}
-              defaultValue={variable.value}
-              placeholder="Enter value..."
-              className="w-full h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+        ))}
+      </div>
+
+      {/* Missing Variables Warning */}
+      <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 rounded-m3-md border border-amber-500/20">
+        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-body-sm text-amber-700 font-medium">1 missing required variable</p>
+          <p className="text-[10px] text-amber-600">customer_message needs a value before running</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Conversation Tab Content with Messages
+const ConversationTabContent = ({ isAssistantEnabled = true }) => {
+  const [inputValue, setInputValue] = useState("");
+
+  if (!isAssistantEnabled) {
+    return (
+      <div className="flex flex-col items-center justify-center h-56 text-center">
+        <MessageSquare className="h-10 w-10 text-on-surface-variant/30 mb-2" />
+        <p className="text-body-sm text-on-surface-variant">Enable Assistant Mode</p>
+        <p className="text-[10px] text-on-surface-variant/70 mt-0.5">to use conversations</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-[400px] -m-4">
+      {/* Conversation Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-outline-variant shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-body-sm text-on-surface font-medium">Thread #1</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">New Thread</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Clear</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <ScrollArea className="flex-1">
+        <div className="p-3 space-y-3">
+          {MOCK_CONVERSATION.map((message) => (
+            <div 
+              key={message.id}
+              className={`flex gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              {message.role === 'assistant' && (
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                </div>
+              )}
+              <div className={`max-w-[80%] ${message.role === 'user' ? 'order-first' : ''}`}>
+                <div 
+                  className={`p-2.5 rounded-m3-md text-body-sm ${
+                    message.role === 'user' 
+                      ? 'bg-primary text-primary-foreground rounded-br-sm' 
+                      : 'bg-surface-container border border-outline-variant text-on-surface rounded-bl-sm'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+                <p className={`text-[10px] text-on-surface-variant mt-0.5 ${message.role === 'user' ? 'text-right' : ''}`}>
+                  {message.timestamp}
+                </p>
+              </div>
+              {message.role === 'user' && (
+                <div className="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center shrink-0">
+                  <User className="h-3 w-3 text-secondary-container-foreground" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+
+      {/* Input */}
+      <div className="p-3 border-t border-outline-variant shrink-0">
+        <div className="flex items-end gap-2">
+          <div className="flex-1 min-h-[36px] max-h-24 bg-surface-container rounded-m3-md border border-outline-variant">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Type a message..."
+              rows={1}
+              className="w-full h-full min-h-[36px] p-2 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none"
             />
           </div>
+          <button className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground shrink-0">
+            <Send className="h-4 w-4" />
+          </button>
         </div>
-      ))}
+      </div>
     </div>
-  </div>
-);
-
-// Conversation Tab Content
-const ConversationTabContent = () => (
-  <div className="flex flex-col items-center justify-center h-56 text-center">
-    <MessageSquare className="h-10 w-10 text-on-surface-variant/30 mb-2" />
-    <p className="text-body-sm text-on-surface-variant">Enable Assistant Mode</p>
-    <p className="text-[10px] text-on-surface-variant/70 mt-0.5">to use conversations</p>
-  </div>
-);
+  );
+};
 
 // Main Prompts Content Component
 const MockupPromptsContent = ({ 
@@ -421,6 +737,7 @@ const MockupPromptsContent = ({
   selectedPromptHasChildren = true 
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
+  const [isAssistantEnabled, setIsAssistantEnabled] = useState(true);
 
   const tabs = [
     { id: "prompt", icon: FileText, label: "Prompt" },
@@ -444,7 +761,7 @@ const MockupPromptsContent = ({
   return (
     <div className="flex-1 flex flex-col bg-surface overflow-hidden">
       {/* Header */}
-      <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant" style={{ height: "56px" }}>
+      <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="text-title-sm text-on-surface font-medium">Customer Support Agent</h2>
           <LabelPicker 
@@ -508,7 +825,7 @@ const MockupPromptsContent = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-outline-variant">
+      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-outline-variant shrink-0">
         {tabs.map(tab => (
           <TabButton 
             key={tab.id} 
@@ -526,7 +843,7 @@ const MockupPromptsContent = ({
           {activeTab === "prompt" && <PromptTabContent />}
           {activeTab === "settings" && <SettingsTabContent />}
           {activeTab === "variables" && <VariablesTabContent />}
-          {activeTab === "conversation" && <ConversationTabContent />}
+          {activeTab === "conversation" && <ConversationTabContent isAssistantEnabled={isAssistantEnabled} />}
         </div>
       </div>
     </div>
