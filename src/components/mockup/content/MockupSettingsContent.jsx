@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { 
   Settings, Database, Key, Palette, Bell, User, 
   Link2, DollarSign, CreditCard, MessageSquare, Sparkles,
-  Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy
+  Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
+  RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -386,17 +387,195 @@ const NewUISection = () => (
   </SettingCard>
 );
 
+// Database & Environment Section (matches actual app)
+const DatabaseEnvironmentSection = () => {
+  const MOCK_SETTINGS = [
+    { key: 'default_model', value: 'gpt-4o', description: 'Default AI model for new prompts' },
+    { key: 'max_tokens_default', value: '4096', description: 'Default max tokens setting' },
+  ];
+
+  const MOCK_ENV_VARS = [
+    { label: 'Supabase URL', key: 'VITE_SUPABASE_URL', value: 'https://xxx.supabase.co' },
+    { label: 'Supabase Key', key: 'VITE_SUPABASE_PUBLISHABLE_KEY', value: 'eyJ...' },
+  ];
+
+  const MOCK_SECRETS = [
+    { name: 'OPENAI_API_KEY', description: 'OpenAI API Key', configured: true },
+    { name: 'CONFLUENCE_API_TOKEN', description: 'Confluence API Token', configured: true },
+    { name: 'SLACK_BOT_TOKEN', description: 'Slack Bot Token', configured: false },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Database Settings */}
+      <SettingCard>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Database Settings</span>
+          <button className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+            <Plus className="h-4 w-4 text-on-surface-variant" />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {MOCK_SETTINGS.map((setting) => (
+            <div key={setting.key} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
+              <div>
+                <div className="text-body-sm text-on-surface">{setting.key}</div>
+                <div className="text-[10px] text-on-surface-variant">{setting.description}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-body-sm text-on-surface-variant font-mono">{setting.value}</span>
+                <button className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high">
+                  <X className="h-3 w-3 text-on-surface-variant" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingCard>
+
+      {/* Environment Variables */}
+      <SettingCard>
+        <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Environment Variables</span>
+        <div className="space-y-2 mt-3">
+          {MOCK_ENV_VARS.map((env) => (
+            <SettingRow key={env.key} label={env.label} description={env.key}>
+              <span className="text-body-sm text-on-surface-variant font-mono">••••••••</span>
+            </SettingRow>
+          ))}
+        </div>
+      </SettingCard>
+
+      {/* Secrets */}
+      <SettingCard>
+        <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Secrets</span>
+        <div className="space-y-2 mt-3">
+          {MOCK_SECRETS.map((secret) => (
+            <div key={secret.name} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
+              <div>
+                <div className="text-body-sm text-on-surface">{secret.name}</div>
+                <div className="text-[10px] text-on-surface-variant">{secret.description}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {secret.configured ? (
+                  <span className="text-[10px] text-green-500 bg-green-500/10 px-2 py-0.5 rounded-m3-full">Configured</span>
+                ) : (
+                  <span className="text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-m3-full">Not Set</span>
+                )}
+                <button className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high">
+                  <RefreshCw className="h-3 w-3 text-on-surface-variant" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
+
+// OpenAI Billing Section (matches actual app)
+const OpenAIBillingSection = () => {
+  const [showData, setShowData] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <SettingCard>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">OpenAI Billing</span>
+            <p className="text-[10px] text-on-surface-variant mt-1">View your OpenAI API usage and billing information</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+                  onClick={() => setShowData(!showData)}
+                >
+                  <RefreshCw className="h-4 w-4 text-on-surface-variant" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Fetch billing data</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                  <ExternalLink className="h-4 w-4 text-on-surface-variant" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Open OpenAI Dashboard</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {!showData ? (
+          <div className="text-center py-8">
+            <DollarSign className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+            <p className="text-body-sm text-on-surface-variant">Click refresh to fetch billing data</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Subscription */}
+            <div className="p-3 bg-surface-container rounded-m3-sm">
+              <span className="text-label-sm text-on-surface-variant uppercase">Subscription</span>
+              <div className="mt-2 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-body-sm text-on-surface-variant">Plan</span>
+                  <span className="text-body-sm text-on-surface">Pay As You Go</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-body-sm text-on-surface-variant">Hard Limit</span>
+                  <span className="text-body-sm text-on-surface">$120.00/month</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Credits */}
+            <div className="p-3 bg-surface-container rounded-m3-sm">
+              <span className="text-label-sm text-on-surface-variant uppercase">Credits</span>
+              <div className="mt-2 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-body-sm text-on-surface-variant">Available</span>
+                  <span className="text-body-sm text-green-500">$25.00</span>
+                </div>
+                <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full" style={{ width: '75%' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Usage */}
+            <div className="p-3 bg-surface-container rounded-m3-sm">
+              <span className="text-label-sm text-on-surface-variant uppercase">Last 30 Days</span>
+              <div className="mt-2">
+                <span className="text-title-sm text-on-surface">$47.23</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </SettingCard>
+    </div>
+  );
+};
+
+// Settings Sections Configuration (aligned with actual app + keeping Notifications/Profile)
 const SETTINGS_SECTIONS = {
-  general: { component: GeneralSection, icon: Settings, title: "General" },
-  "ai-models": { component: AIModelsSection, icon: Database, title: "AI Models" },
-  "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
-  theme: { component: ThemeSection, icon: Palette, title: "Theme" },
-  notifications: { component: NotificationsSection, icon: Bell, title: "Notifications" },
-  profile: { component: ProfileSection, icon: User, title: "Profile" },
-  confluence: { component: ConfluenceSection, icon: Link2, title: "Confluence" },
+  "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
+  "naming": { component: GeneralSection, icon: Type, title: "Prompt Naming" },
+  "models": { component: AIModelsSection, icon: Cpu, title: "AI Models" },
+  "database": { component: DatabaseEnvironmentSection, icon: Database, title: "Database & Environment" },
+  "assistants": { component: WorkbenchSettingsSection, icon: MessageSquare, title: "Conversation Defaults" },
+  "conversations": { component: WorkbenchSettingsSection, icon: MessageSquare, title: "Conversations" },
+  "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
   "cost-analytics": { component: CostAnalyticsSection, icon: DollarSign, title: "Cost Analytics" },
-  workbench: { component: WorkbenchSettingsSection, icon: MessageSquare, title: "Workbench" },
+  "openai-billing": { component: OpenAIBillingSection, icon: CreditCard, title: "OpenAI Billing" },
+  "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
+  "workbench": { component: WorkbenchSettingsSection, icon: Briefcase, title: "Workbench" },
   "new-ui": { component: NewUISection, icon: Sparkles, title: "New UI (Beta)" },
+  // Keeping these for future features
+  "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
+  "profile": { component: ProfileSection, icon: User, title: "Profile" },
+  "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
 };
 
 const MockupSettingsContent = ({ activeSubItem = "general" }) => {
