@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Settings, FileText, Bot, Database, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, HelpCircle, BookOpen } from 'lucide-react';
+import { Settings, FileText, Bot, Database, Folder, HeartPulse, LogOut, ChevronLeft, User, Settings2, Cpu, FileStack, Plus, LayoutTemplate, Palette, MessageCircle, MessageCircleOff, CreditCard, MessagesSquare, HelpCircle, BookOpen, Sparkles } from 'lucide-react';
 import { SlackIcon } from '@/components/icons/SlackIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTooltipSettings } from '@/contexts/TooltipContext';
@@ -50,6 +50,7 @@ const settingsSubItems = [
   { id: 'openai-billing', title: 'OpenAI Billing', icon: CreditCard },
   { id: 'database', title: 'Database & Env', icon: Database },
   { id: 'appearance', title: 'Appearance', icon: Palette },
+  { id: 'new-ui', title: 'New UI (Beta)', icon: Sparkles },
 ];
 
 const healthSubItems = [
