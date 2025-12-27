@@ -13,7 +13,8 @@ const MockupReadingPane = ({
   onExport, 
   activeNav = "prompts", 
   activeSubItem = null, 
-  selectedTemplate = null, 
+  selectedTemplate = null,
+  activeTemplateTab = "prompts",
   onToggleConversation, 
   conversationPanelOpen = true, 
   selectedPromptHasChildren = true 
@@ -35,7 +36,12 @@ const MockupReadingPane = ({
 
   // Templates mode - template editor
   if (activeNav === "templates") {
-    return <MockupTemplatesContent />;
+    return (
+      <MockupTemplatesContent 
+        selectedTemplate={selectedTemplate}
+        activeTemplateTab={activeTemplateTab}
+      />
+    );
   }
 
   // Prompts mode (default) - prompt editor
