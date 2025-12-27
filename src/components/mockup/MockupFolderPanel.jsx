@@ -17,7 +17,8 @@ import {
   Upload,
   GripVertical,
   Workflow,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
@@ -112,7 +113,15 @@ const TreeItem = ({
   onDelete,
   onDuplicate,
   expandedFolders,
-  selectedPromptId
+  selectedPromptId,
+  // Phase 1 handlers
+  onRunPrompt,
+  onRunCascade,
+  onToggleStar,
+  onToggleExcludeCascade,
+  onToggleExcludeExport,
+  isRunningPrompt,
+  isRunningCascade
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
@@ -224,9 +233,26 @@ const TreeItem = ({
         {/* Hover actions or status icons */}
         {isHovered ? (
           <div className="flex items-center gap-0.5">
-            <IconButton icon={Star} label="Star" className={starred ? "text-amber-500" : ""} />
-            <IconButton icon={Sparkles} label="Run" />
-            {hasChildren && <IconButton icon={Workflow} label="Run Cascade" />}
+            <IconButton 
+              icon={Star} 
+              label={starred ? "Unstar" : "Star"} 
+              className={starred ? "text-amber-500" : ""} 
+              onClick={() => onToggleStar?.(id)}
+            />
+            <IconButton 
+              icon={isRunningPrompt ? Loader2 : Sparkles} 
+              label="Run" 
+              onClick={() => onRunPrompt?.(id)}
+              className={isRunningPrompt ? "animate-spin" : ""}
+            />
+            {hasChildren && (
+              <IconButton 
+                icon={isRunningCascade ? Loader2 : Workflow} 
+                label="Run Cascade" 
+                onClick={() => onRunCascade?.(id)}
+                className={isRunningCascade ? "animate-spin" : ""}
+              />
+            )}
             <IconButton icon={Link2} label="Copy Variable Reference" onClick={() => {
               navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
               toast.success('Copied variable reference');
@@ -234,14 +260,24 @@ const TreeItem = ({
             <IconButton icon={Plus} label="Add Child" onClick={() => onAdd?.(id)} />
             <IconButton icon={Copy} label="Duplicate" onClick={() => onDuplicate?.(id)} />
             <IconButton icon={Upload} label="Export" />
-            <IconButton icon={Ban} label="Exclude from Cascade" className={excludedFromCascade ? "text-muted-foreground" : ""} />
-            <IconButton icon={FileX} label="Exclude from Export" className={excludedFromExport ? "text-warning" : ""} />
+            <IconButton 
+              icon={Ban} 
+              label={excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
+              className={excludedFromCascade ? "text-warning" : ""}
+              onClick={() => onToggleExcludeCascade?.(id)}
+            />
+            <IconButton 
+              icon={FileX} 
+              label={excludedFromExport ? "Include in Export" : "Exclude from Export"} 
+              className={excludedFromExport ? "text-warning" : ""}
+              onClick={() => onToggleExcludeExport?.(id)}
+            />
             <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id)} />
           </div>
         ) : (
           <div className="flex items-center gap-0.5">
             {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
-            {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-muted-foreground" />}
+            {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
             {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
           </div>
         )}
@@ -277,6 +313,13 @@ const TreeItem = ({
                 onDuplicate={onDuplicate}
                 expandedFolders={expandedFolders}
                 selectedPromptId={selectedPromptId}
+                onRunPrompt={onRunPrompt}
+                onRunCascade={onRunCascade}
+                onToggleStar={onToggleStar}
+                onToggleExcludeCascade={onToggleExcludeCascade}
+                onToggleExcludeExport={onToggleExcludeExport}
+                isRunningPrompt={isRunningPrompt}
+                isRunningCascade={isRunningCascade}
               />
               <DropZone onDrop={onMoveBetween} />
             </React.Fragment>
@@ -296,7 +339,15 @@ const MockupFolderPanel = ({
   onDeletePrompt,
   onDuplicatePrompt,
   onMovePrompt,
-  onRefresh
+  onRefresh,
+  // Phase 1 handlers
+  onRunPrompt,
+  onRunCascade,
+  onToggleStar,
+  onToggleExcludeCascade,
+  onToggleExcludeExport,
+  isRunningPrompt = false,
+  isRunningCascade = false
 }) => {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
@@ -480,6 +531,13 @@ const MockupFolderPanel = ({
                     onDuplicate={onDuplicatePrompt}
                     expandedFolders={expandedFolders}
                     selectedPromptId={selectedPromptId}
+                    onRunPrompt={onRunPrompt}
+                    onRunCascade={onRunCascade}
+                    onToggleStar={onToggleStar}
+                    onToggleExcludeCascade={onToggleExcludeCascade}
+                    onToggleExcludeExport={onToggleExcludeExport}
+                    isRunningPrompt={isRunningPrompt}
+                    isRunningCascade={isRunningCascade}
                   />
                   <DropZone onDrop={handleMoveBetween} />
                 </React.Fragment>

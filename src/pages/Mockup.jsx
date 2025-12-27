@@ -24,7 +24,9 @@ import { useWorkbenchMessages } from "@/hooks/useWorkbenchMessages";
 import { useWorkbenchFiles } from "@/hooks/useWorkbenchFiles";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useJsonSchemaTemplates } from "@/hooks/useJsonSchemaTemplates";
-
+import { useConversationRun } from "@/hooks/useConversationRun";
+import { useCascadeExecutor } from "@/hooks/useCascadeExecutor";
+import { toast } from "@/components/ui/sonner";
 
 const Mockup = () => {
   // Real data hooks
@@ -118,11 +120,131 @@ const Mockup = () => {
     return success;
   }, [selectedPromptId, updateField]);
   
+  // Phase 1: Run prompt and cascade hooks
+  const { runPrompt, isRunning: isRunningPrompt } = useConversationRun();
+  const { executeCascade, hasChildren: checkHasChildren } = useCascadeExecutor();
+  const [isRunningCascade, setIsRunningCascade] = useState(false);
+  
+  // Handler for running a single prompt
+  const handleRunPrompt = useCallback(async (promptId) => {
+    if (!promptId) return;
+    const result = await runPrompt(promptId);
+    if (result) {
+      // Refresh the prompt data if this is the selected prompt
+      if (promptId === selectedPromptId) {
+        const data = await fetchItemData(promptId);
+        setSelectedPromptData(data);
+      }
+      refreshTreeData();
+    }
+  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData]);
+  
+  // Handler for running a cascade
+  const handleRunCascade = useCallback(async (topLevelPromptId) => {
+    if (!topLevelPromptId) return;
+    
+    // Check if prompt has children
+    const hasKids = await checkHasChildren(topLevelPromptId);
+    if (!hasKids) {
+      toast.info("No children to cascade");
+      return;
+    }
+    
+    setIsRunningCascade(true);
+    try {
+      await executeCascade(topLevelPromptId, null);
+      toast.success("Cascade completed");
+      refreshTreeData();
+    } catch (error) {
+      console.error("Cascade error:", error);
+      toast.error("Cascade failed", { description: error.message });
+    } finally {
+      setIsRunningCascade(false);
+    }
+  }, [executeCascade, checkHasChildren, refreshTreeData]);
+  
+  // Handler for starring/unstarring a prompt
+  const handleToggleStar = useCallback(async (promptId) => {
+    if (!promptId) return;
+    
+    // Find the prompt to get current starred status
+    const findPrompt = (items, id) => {
+      for (const item of items) {
+        if ((item.row_id || item.id) === id) return item;
+        if (item.children) {
+          const found = findPrompt(item.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const prompt = findPrompt(hierarchicalTreeData, promptId);
+    const newStarred = !(prompt?.starred);
+    
+    const success = await updateField(promptId, 'starred', newStarred);
+    if (success) {
+      toast.success(newStarred ? "Starred" : "Unstarred");
+      refreshTreeData();
+    }
+  }, [hierarchicalTreeData, updateField, refreshTreeData]);
+  
+  // Handler for toggling exclude from cascade
+  const handleToggleExcludeCascade = useCallback(async (promptId) => {
+    if (!promptId) return;
+    
+    const findPrompt = (items, id) => {
+      for (const item of items) {
+        if ((item.row_id || item.id) === id) return item;
+        if (item.children) {
+          const found = findPrompt(item.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const prompt = findPrompt(hierarchicalTreeData, promptId);
+    const newExcluded = !(prompt?.exclude_from_cascade);
+    
+    const success = await updateField(promptId, 'exclude_from_cascade', newExcluded);
+    if (success) {
+      toast.success(newExcluded ? "Excluded from cascade" : "Included in cascade");
+      refreshTreeData();
+    }
+  }, [hierarchicalTreeData, updateField, refreshTreeData]);
+  
+  // Handler for toggling exclude from export
+  const handleToggleExcludeExport = useCallback(async (promptId) => {
+    if (!promptId) return;
+    
+    const findPrompt = (items, id) => {
+      for (const item of items) {
+        if ((item.row_id || item.id) === id) return item;
+        if (item.children) {
+          const found = findPrompt(item.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const prompt = findPrompt(hierarchicalTreeData, promptId);
+    const newExcluded = !(prompt?.exclude_from_export);
+    
+    const success = await updateField(promptId, 'exclude_from_export', newExcluded);
+    if (success) {
+      toast.success(newExcluded ? "Excluded from export" : "Included in export");
+      refreshTreeData();
+    }
+  }, [hierarchicalTreeData, updateField, refreshTreeData]);
+  
   // Check if selected prompt has children
   const selectedPromptHasChildren = React.useMemo(() => {
     if (!selectedPromptId || !treeData) return false;
     return treeData.some(p => p.parent_row_id === selectedPromptId);
   }, [selectedPromptId, treeData]);
+
 
   const [isDark, setIsDark] = useState(false);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
@@ -279,6 +401,13 @@ const Mockup = () => {
               onDuplicatePrompt={handleDuplicateItem}
               onMovePrompt={handleMoveItem}
               onRefresh={refreshTreeData}
+              onRunPrompt={handleRunPrompt}
+              onRunCascade={handleRunCascade}
+              onToggleStar={handleToggleStar}
+              onToggleExcludeCascade={handleToggleExcludeCascade}
+              onToggleExcludeExport={handleToggleExcludeExport}
+              isRunningPrompt={isRunningPrompt}
+              isRunningCascade={isRunningCascade}
             />
           </div>
         );
@@ -316,6 +445,13 @@ const Mockup = () => {
           onDuplicatePrompt={handleDuplicateItem}
           onMovePrompt={handleMoveItem}
           onRefresh={refreshTreeData}
+          onRunPrompt={handleRunPrompt}
+          onRunCascade={handleRunCascade}
+          onToggleStar={handleToggleStar}
+          onToggleExcludeCascade={handleToggleExcludeCascade}
+          onToggleExcludeExport={handleToggleExcludeExport}
+          isRunningPrompt={isRunningPrompt}
+          isRunningCascade={isRunningCascade}
         />
       );
     }
