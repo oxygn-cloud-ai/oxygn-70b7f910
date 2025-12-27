@@ -201,9 +201,9 @@ const PromptNamingSection = () => {
             <div className="space-y-2 text-[10px]">
               <p className="font-medium">Available Template Codes:</p>
               <div className="space-y-1">
-                <p><code className="bg-surface-container px-1 rounded">{"{{n}}"}</code> - Sequence number</p>
-                <p><code className="bg-surface-container px-1 rounded">{"{{date}}"}</code> - Current date</p>
-                <p><code className="bg-surface-container px-1 rounded">{"{{level}}"}</code> - Hierarchy level</p>
+                <p><code className="bg-surface-container px-1 rounded">{"{n}"}</code> - Sequence number</p>
+                <p><code className="bg-surface-container px-1 rounded">{"{date}"}</code> - Current date</p>
+                <p><code className="bg-surface-container px-1 rounded">{"{level}"}</code> - Hierarchy level</p>
               </div>
             </div>
           </TooltipContent>
