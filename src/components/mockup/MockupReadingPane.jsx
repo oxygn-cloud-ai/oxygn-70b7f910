@@ -34,10 +34,21 @@ const MockupReadingPane = ({
   models = [],
   isLoadingModels = false,
   onToggleModel,
+  // Workbench props - Phase 7
+  workbenchThreads,
+  workbenchMessages,
+  workbenchFiles,
 }) => {
-  // Workbench mode - full workbench with threads and chat
+  // Workbench mode - full workbench with threads and chat (now with real data)
   if (activeNav === "workbench") {
-    return <MockupWorkbenchContent activeSubItem={activeSubItem} />;
+    return (
+      <MockupWorkbenchContent 
+        activeSubItem={activeSubItem}
+        workbenchThreads={workbenchThreads}
+        workbenchMessages={workbenchMessages}
+        workbenchFiles={workbenchFiles}
+      />
+    );
   }
 
   // Settings mode - all settings sections (now with real data)
