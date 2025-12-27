@@ -3,7 +3,9 @@ import {
   Settings, Database, Key, Palette, Bell, User, 
   Link2, DollarSign, CreditCard, MessageSquare, Sparkles,
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
-  RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase
+  RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
+  HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
+  Code, Search, Globe, Zap, TrendingUp, Save
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -11,6 +13,7 @@ import { SettingCard } from "@/components/ui/setting-card";
 import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
 import { SettingInput } from "@/components/ui/setting-input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Mock data
 const MOCK_MODELS = [
@@ -33,6 +36,18 @@ const MOCK_COST_DATA = {
   avgCostPerPrompt: "0.08",
 };
 
+const MOCK_NAMING_LEVELS = [
+  { level: 0, name: "Prompt", prefix: "", suffix: "" },
+  { level: 1, name: "Sub-prompt", prefix: "", suffix: "" },
+  { level: 2, name: "Task", prefix: "", suffix: "" },
+];
+
+const MOCK_CONVERSATIONS = [
+  { id: "1", name: "Customer Support Bot", model: "gpt-4o", promptName: "Support Agent", createdAt: "Dec 20, 2024", isOrphaned: false },
+  { id: "2", name: "Code Assistant", model: "gpt-4-turbo", promptName: "Code Helper", createdAt: "Dec 18, 2024", isOrphaned: false },
+  { id: "3", name: "Old Chat Bot", model: "gpt-3.5-turbo", promptName: null, createdAt: "Nov 15, 2024", isOrphaned: true },
+];
+
 // General Settings Section
 const GeneralSection = () => (
   <div className="space-y-3">
@@ -51,20 +66,347 @@ const GeneralSection = () => (
         </SettingRow>
       </div>
     </SettingCard>
+  </div>
+);
 
-    <SettingCard label="Prompt Naming">
+// Prompt Naming Section (NEW - matching real PromptNamingSettings.jsx)
+const PromptNamingSection = () => {
+  const [levels, setLevels] = useState(MOCK_NAMING_LEVELS);
+  const [expandedSet, setExpandedSet] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      {/* Template Codes Help */}
+      <div className="flex items-center justify-between p-3 bg-surface-container-low rounded-m3-lg">
+        <p className="text-body-sm text-on-surface-variant">
+          Use template codes in prefix/suffix fields for dynamic naming.
+        </p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <HelpCircle className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs p-3">
+            <div className="space-y-2 text-[10px]">
+              <p className="font-medium">Available Template Codes:</p>
+              <div className="space-y-1">
+                <p><code className="bg-surface-container px-1 rounded">{"{{n}}"}</code> - Sequence number</p>
+                <p><code className="bg-surface-container px-1 rounded">{"{{date}}"}</code> - Current date</p>
+                <p><code className="bg-surface-container px-1 rounded">{"{{level}}"}</code> - Hierarchy level</p>
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* Default Naming Table */}
+      <SettingCard label="Default Naming (All Prompts)">
+        <div className="space-y-2">
+          {/* Table Header */}
+          <div className="grid grid-cols-[40px,1fr,1fr,1fr,100px,40px] gap-2 px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider">
+            <span>Level</span>
+            <span>Default Name</span>
+            <span>Prefix</span>
+            <span>Suffix</span>
+            <span>Preview</span>
+            <span></span>
+          </div>
+          
+          {/* Table Rows */}
+          {levels.map((level, index) => (
+            <div key={level.level} className="grid grid-cols-[40px,1fr,1fr,1fr,100px,40px] gap-2 items-center p-2 bg-surface-container rounded-m3-sm">
+              <span className="text-body-sm text-on-surface-variant">{index}</span>
+              <input 
+                type="text" 
+                defaultValue={level.name}
+                className="h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <input 
+                type="text" 
+                defaultValue={level.prefix}
+                placeholder="Prefix"
+                className="h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <input 
+                type="text" 
+                defaultValue={level.suffix}
+                placeholder="Suffix"
+                className="h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-[10px] text-on-surface-variant truncate">{level.prefix}{level.name}{level.suffix}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Remove Level</TooltipContent>
+              </Tooltip>
+            </div>
+          ))}
+          
+          {/* Add Level */}
+          <button className="flex items-center gap-1.5 px-2 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors">
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add Level</span>
+          </button>
+        </div>
+      </SettingCard>
+
+      {/* Top-Level Set Overrides */}
+      <SettingCard label="Top-Level Set Overrides">
+        <div className="space-y-3">
+          <p className="text-[10px] text-on-surface-variant">
+            Create custom naming patterns for specific top-level prompt sets.
+          </p>
+          
+          {/* Add new set */}
+          <div className="flex gap-2">
+            <input 
+              type="text"
+              placeholder="Top-level prompt name to match..."
+              className="flex-1 h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <button className="flex items-center gap-1.5 px-3 h-8 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors">
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Set</span>
+            </button>
+          </div>
+
+          {/* Existing set example */}
+          <div className="border border-outline-variant rounded-m3-md overflow-hidden">
+            <button 
+              onClick={() => setExpandedSet(!expandedSet)}
+              className="w-full flex items-center justify-between p-3 hover:bg-on-surface/[0.04] transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                {expandedSet ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <span className="text-body-sm text-on-surface font-medium">Customer Support</span>
+                <span className="text-[10px] text-on-surface-variant">(2 levels)</span>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Remove Set</TooltipContent>
+              </Tooltip>
+            </button>
+            {expandedSet && (
+              <div className="p-3 pt-0 border-t border-outline-variant">
+                <p className="text-[10px] text-on-surface-variant py-2">Custom levels for this set...</p>
+              </div>
+            )}
+          </div>
+
+          <p className="text-[10px] text-on-surface-variant/70 italic">
+            No other custom sets configured.
+          </p>
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
+
+// Conversation Defaults Section (NEW - matching real ConversationDefaultsSection.jsx)
+const ConversationDefaultsSection = () => (
+  <div className="space-y-4">
+    {/* Default Context Prompt */}
+    <SettingCard label="Default Context Prompt">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-on-surface-variant">Context/system prompt for new prompts</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Save className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Save</TooltipContent>
+          </Tooltip>
+        </div>
+        <textarea 
+          rows={4}
+          placeholder="Default context/system prompt for new prompts..."
+          className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+          defaultValue="You are a helpful AI assistant. Respond clearly and concisely."
+        />
+      </div>
+    </SettingCard>
+
+    {/* Default System Instructions */}
+    <SettingCard label="Default System Instructions">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-on-surface-variant">Instructions for new top-level conversations</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Save className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Save</TooltipContent>
+          </Tooltip>
+        </div>
+        <textarea 
+          rows={4}
+          placeholder="Default instructions for new top-level conversations..."
+          className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+        />
+      </div>
+    </SettingCard>
+
+    {/* Default Tools */}
+    <SettingCard label="Default Tools">
       <div className="space-y-3">
-        <SettingRow label="Auto-generate names" description="Use AI to generate prompt names">
-          <Switch defaultChecked />
-        </SettingRow>
-        <SettingDivider />
-        <SettingRow label="Naming template">
-          <SettingInput>{"{{category}}_{{action}}"}</SettingInput>
-        </SettingRow>
+        <p className="text-[10px] text-on-surface-variant">Default tools enabled for new conversations</p>
+        <div className="space-y-2">
+          {[
+            { icon: Code, label: "Code Interpreter", description: "Allows the AI to write and run Python code", enabled: false },
+            { icon: Search, label: "File Search", description: "Enables searching through uploaded files", enabled: true },
+            { icon: Zap, label: "Function Calling", description: "Allows defining custom functions for the AI", enabled: false },
+          ].map(tool => (
+            <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm">
+              <div className="flex items-center gap-2">
+                <tool.icon className="h-4 w-4 text-on-surface-variant" />
+                <div>
+                  <span className="text-body-sm text-on-surface">{tool.label}</span>
+                  <p className="text-[10px] text-on-surface-variant">{tool.description}</p>
+                </div>
+              </div>
+              <Switch defaultChecked={tool.enabled} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </SettingCard>
+
+    {/* Default Thread Mode */}
+    <SettingCard label="Default Thread Mode">
+      <div className="space-y-2">
+        <select className="w-full h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary">
+          <option value="new">New Thread - Create fresh conversation for each execution</option>
+          <option value="reuse">Reuse Thread - Maintain conversation history</option>
+        </select>
+        <p className="text-[10px] text-on-surface-variant">Default thread behavior for new child prompts</p>
+      </div>
+    </SettingCard>
+
+    {/* Empty Prompt Fallback */}
+    <SettingCard label="Empty Prompt Fallback Message">
+      <div className="space-y-2">
+        <input 
+          type="text"
+          defaultValue="Execute this prompt"
+          className="w-full h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <p className="text-[10px] text-on-surface-variant">Message sent to AI when a prompt has no user or admin content</p>
       </div>
     </SettingCard>
   </div>
 );
+
+// Conversations Section (NEW - matching real ConversationsSection.jsx)
+const ConversationsSection = () => {
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === MOCK_CONVERSATIONS.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(MOCK_CONVERSATIONS.map(c => c.id));
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SettingCard>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <span className="text-label-sm text-on-surface font-medium">Conversation Configurations</span>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">
+              These are all conversation configurations. Orphaned items have no linked prompt.
+            </p>
+          </div>
+          {selectedIds.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Delete {selectedIds.length} selected</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+
+        {/* Table Header */}
+        <div className="grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+          <div className="flex items-center justify-center">
+            <Checkbox 
+              checked={selectedIds.length === MOCK_CONVERSATIONS.length}
+              onCheckedChange={toggleSelectAll}
+              className="h-3.5 w-3.5"
+            />
+          </div>
+          <span>Name</span>
+          <span>Model</span>
+          <span>Linked Prompt</span>
+          <span>Created</span>
+        </div>
+
+        {/* Table Rows */}
+        <div className="divide-y divide-outline-variant">
+          {MOCK_CONVERSATIONS.map(conv => (
+            <div 
+              key={conv.id} 
+              className={`grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-2.5 items-center transition-colors ${
+                selectedIds.includes(conv.id) ? "bg-secondary-container/30" : ""
+              }`}
+            >
+              <div className="flex items-center justify-center">
+                <Checkbox 
+                  checked={selectedIds.includes(conv.id)}
+                  onCheckedChange={() => toggleSelect(conv.id)}
+                  className="h-3.5 w-3.5"
+                />
+              </div>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-body-sm text-on-surface font-medium truncate">{conv.name}</span>
+                {conv.isOrphaned && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 bg-destructive/10 text-destructive rounded-full shrink-0">
+                        <AlertCircle className="h-2.5 w-2.5" />
+                        Orphaned
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">No linked prompt in the system</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+              <span className="text-[11px] text-on-surface-variant truncate">{conv.model}</span>
+              <span className="text-[11px] text-on-surface-variant truncate">{conv.promptName || "-"}</span>
+              <span className="text-[11px] text-on-surface-variant">{conv.createdAt}</span>
+            </div>
+          ))}
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
 
 // AI Models Section
 const AIModelsSection = () => {
@@ -387,7 +729,7 @@ const NewUISection = () => (
   </SettingCard>
 );
 
-// Database & Environment Section (matches actual app)
+// Database & Environment Section
 const DatabaseEnvironmentSection = () => {
   const MOCK_SETTINGS = [
     { key: 'default_model', value: 'gpt-4o', description: 'Default AI model for new prompts' },
@@ -473,29 +815,39 @@ const DatabaseEnvironmentSection = () => {
   );
 };
 
-// OpenAI Billing Section (matches actual app)
+// OpenAI Billing Section (Enhanced to match real app)
 const OpenAIBillingSection = () => {
   const [showData, setShowData] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleRefresh = () => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setShowData(true);
+      setIsLoading(false);
+    }, 800);
+  };
 
   return (
     <div className="space-y-4">
       <SettingCard>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">OpenAI Billing</span>
-            <p className="text-[10px] text-on-surface-variant mt-1">View your OpenAI API usage and billing information</p>
+            <span className="text-label-sm text-on-surface font-medium">OpenAI Billing</span>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">Check your OpenAI API credits and usage</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
                   className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
-                  onClick={() => setShowData(!showData)}
+                  onClick={handleRefresh}
+                  disabled={isLoading}
                 >
-                  <RefreshCw className="h-4 w-4 text-on-surface-variant" />
+                  <RefreshCw className={`h-4 w-4 text-on-surface-variant ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Fetch billing data</TooltipContent>
+              <TooltipContent className="text-[10px]">{showData ? 'Refresh' : 'Check Balance'}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -503,54 +855,103 @@ const OpenAIBillingSection = () => {
                   <ExternalLink className="h-4 w-4 text-on-surface-variant" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Open OpenAI Dashboard</TooltipContent>
+              <TooltipContent className="text-[10px]">Open OpenAI Dashboard</TooltipContent>
             </Tooltip>
           </div>
         </div>
 
-        {!showData ? (
+        {!showData && !isLoading && (
           <div className="text-center py-8">
-            <DollarSign className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+            <DollarSign className="h-8 w-8 text-on-surface-variant/30 mx-auto mb-2" />
             <p className="text-body-sm text-on-surface-variant">Click refresh to fetch billing data</p>
+            <p className="text-[10px] text-on-surface-variant/70 mt-1">Note: Some endpoints require an Admin API key</p>
           </div>
-        ) : (
+        )}
+
+        {isLoading && (
+          <div className="text-center py-8">
+            <Loader2 className="h-6 w-6 text-on-surface-variant animate-spin mx-auto mb-2" />
+            <p className="text-body-sm text-on-surface-variant">Fetching billing data...</p>
+          </div>
+        )}
+
+        {showData && !isLoading && (
           <div className="space-y-4">
             {/* Subscription */}
-            <div className="p-3 bg-surface-container rounded-m3-sm">
-              <span className="text-label-sm text-on-surface-variant uppercase">Subscription</span>
-              <div className="mt-2 space-y-1">
+            <div className="p-3 bg-surface-container rounded-m3-md">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="h-4 w-4 text-on-surface-variant" />
+                <span className="text-label-sm text-on-surface-variant uppercase">Subscription</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-body-sm">
                 <div className="flex justify-between">
-                  <span className="text-body-sm text-on-surface-variant">Plan</span>
-                  <span className="text-body-sm text-on-surface">Pay As You Go</span>
+                  <span className="text-on-surface-variant">Plan:</span>
+                  <span className="text-on-surface font-medium">Pay As You Go</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-body-sm text-on-surface-variant">Hard Limit</span>
-                  <span className="text-body-sm text-on-surface">$120.00/month</span>
+                  <span className="text-on-surface-variant">Hard Limit:</span>
+                  <span className="text-on-surface font-medium">$120.00/mo</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-on-surface-variant">Soft Limit:</span>
+                  <span className="text-on-surface font-medium">$100.00/mo</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-on-surface-variant">Payment:</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-600 rounded-full flex items-center gap-0.5">
+                    <Check className="h-2.5 w-2.5" />
+                    Active
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Credits */}
-            <div className="p-3 bg-surface-container rounded-m3-sm">
-              <span className="text-label-sm text-on-surface-variant uppercase">Credits</span>
-              <div className="mt-2 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-body-sm text-on-surface-variant">Available</span>
-                  <span className="text-body-sm text-green-500">$25.00</span>
+            <div className="p-3 bg-surface-container rounded-m3-md">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-4 w-4 text-on-surface-variant" />
+                <span className="text-label-sm text-on-surface-variant uppercase">Credits</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Available:</span>
+                  <span className="text-green-600 font-semibold">$25.00</span>
                 </div>
-                <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-                  <div className="h-full bg-primary rounded-full" style={{ width: '75%' }} />
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Total Granted:</span>
+                  <span className="text-on-surface">$100.00</span>
+                </div>
+                <div className="flex justify-between text-body-sm">
+                  <span className="text-on-surface-variant">Total Used:</span>
+                  <span className="text-on-surface">$75.00</span>
+                </div>
+                <div className="pt-2">
+                  <div className="flex justify-between text-[10px] mb-1">
+                    <span className="text-on-surface-variant">Usage</span>
+                    <span className="text-on-surface-variant">75%</span>
+                  </div>
+                  <div className="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: '75%' }} />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Recent Usage */}
-            <div className="p-3 bg-surface-container rounded-m3-sm">
-              <span className="text-label-sm text-on-surface-variant uppercase">Last 30 Days</span>
-              <div className="mt-2">
-                <span className="text-title-sm text-on-surface">$47.23</span>
+            <div className="p-3 bg-surface-container rounded-m3-md">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-on-surface-variant" />
+                <span className="text-label-sm text-on-surface-variant uppercase">Last 30 Days</span>
+              </div>
+              <div className="flex justify-between text-body-sm">
+                <span className="text-on-surface-variant">Total Spend:</span>
+                <span className="text-on-surface font-semibold">$47.23</span>
               </div>
             </div>
+
+            <p className="text-[10px] text-on-surface-variant text-right">
+              Last checked: {new Date().toLocaleTimeString()}
+            </p>
           </div>
         )}
       </SettingCard>
@@ -558,28 +959,27 @@ const OpenAIBillingSection = () => {
   );
 };
 
-// Settings Sections Configuration (aligned with actual app + keeping Notifications/Profile)
+// Settings Sections Configuration
 const SETTINGS_SECTIONS = {
   "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
-  "naming": { component: GeneralSection, icon: Type, title: "Prompt Naming" },
+  "naming": { component: PromptNamingSection, icon: Type, title: "Prompt Naming" },
   "models": { component: AIModelsSection, icon: Cpu, title: "AI Models" },
   "database": { component: DatabaseEnvironmentSection, icon: Database, title: "Database & Environment" },
-  "assistants": { component: WorkbenchSettingsSection, icon: MessageSquare, title: "Conversation Defaults" },
-  "conversations": { component: WorkbenchSettingsSection, icon: MessageSquare, title: "Conversations" },
+  "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
+  "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
   "cost-analytics": { component: CostAnalyticsSection, icon: DollarSign, title: "Cost Analytics" },
   "openai-billing": { component: OpenAIBillingSection, icon: CreditCard, title: "OpenAI Billing" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "workbench": { component: WorkbenchSettingsSection, icon: Briefcase, title: "Workbench" },
   "new-ui": { component: NewUISection, icon: Sparkles, title: "New UI (Beta)" },
-  // Keeping these for future features
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
   "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
 };
 
-const MockupSettingsContent = ({ activeSubItem = "general" }) => {
-  const section = SETTINGS_SECTIONS[activeSubItem] || SETTINGS_SECTIONS.general;
+const MockupSettingsContent = ({ activeSubItem = "qonsol" }) => {
+  const section = SETTINGS_SECTIONS[activeSubItem] || SETTINGS_SECTIONS.qonsol;
   const SectionComponent = section.component;
   const Icon = section.icon;
 
