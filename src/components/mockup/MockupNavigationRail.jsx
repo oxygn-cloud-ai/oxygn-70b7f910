@@ -54,8 +54,8 @@ const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, 
   
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts" },
-    { id: "workbench", icon: MessageSquare, label: "Workbench" },
     { id: "templates", icon: LayoutTemplate, label: "Templates" },
+    { id: "workbench", icon: MessageSquare, label: "Workbench" },
     { id: "settings", icon: Settings, label: "Settings" },
     { id: "health", icon: Heart, label: "Health" },
   ];
@@ -104,7 +104,7 @@ const MockupNavigationRail = ({ activeNav = "prompts", onNavChange, onNavHover, 
       </DropdownMenu>
 
       {/* Nav Items */}
-      <div className="flex flex-col items-center gap-1 flex-1">
+      <div className="flex flex-col items-center gap-3 flex-1">
         {navItems.map((item) => (
           <NavItem
             key={item.id}
