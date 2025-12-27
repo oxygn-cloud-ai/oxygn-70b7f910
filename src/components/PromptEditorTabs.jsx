@@ -236,7 +236,7 @@ const PromptEditorTabs = ({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Quick access icons bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
         <div className="flex items-center gap-1">
@@ -346,9 +346,9 @@ const PromptEditorTabs = ({
       </div>
 
       {/* Tabs content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-auto">
-          <TabsContent value="prompt" className="h-full m-0 p-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden min-h-0">
+        <div className="flex-1 overflow-auto min-h-0">
+          <TabsContent value="prompt" className="m-0 p-0">
             <PromptFieldsTab
               selectedItemData={selectedItemData}
               projectRowId={projectRowId}

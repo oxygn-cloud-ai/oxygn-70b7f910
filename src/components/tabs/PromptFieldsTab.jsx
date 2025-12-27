@@ -124,7 +124,7 @@ const PromptFieldsTab = ({
   }, [supabase, projectRowId, onUpdateField]);
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-auto p-4">
+    <div className="flex flex-col gap-4 p-4">
       
       {/* Message Flow Info Card */}
       <Card className="border-muted bg-muted/30">
