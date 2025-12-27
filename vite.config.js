@@ -18,7 +18,8 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
-    dedupe: ["react", "react-dom"],
+    // Ensure a single React instance (prevents "Invalid hook call" / dispatcher null)
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
     alias: [
       {
         find: "@",
@@ -28,6 +29,18 @@ export default defineConfig(({ mode }) => ({
         find: "lib",
         replacement: resolve(projectRoot, "lib"),
       },
+      // Pin React to the same physical path for all imports
+      {
+        find: /^react$/,
+        replacement: resolve(projectRoot, "node_modules/react"),
+      },
+      {
+        find: /^react-dom$/,
+        replacement: resolve(projectRoot, "node_modules/react-dom"),
+      },
     ],
+  },
+  optimizeDeps: {
+    include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
   },
 }));
