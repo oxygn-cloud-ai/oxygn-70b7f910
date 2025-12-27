@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
+import { SettingCard } from "@/components/ui/setting-card";
+import { SettingRow } from "@/components/ui/setting-row";
+import { SettingDivider } from "@/components/ui/setting-divider";
+import { SettingInput } from "@/components/ui/setting-input";
 
 // Mock data
 const MOCK_MODELS = [
@@ -16,50 +20,19 @@ const MOCK_MODELS = [
   { id: "o1-mini", name: "O1 Mini", provider: "OpenAI", active: true, inputCost: 3.00, outputCost: 12.00 },
 ];
 
-const MOCK_API_KEYS = [
-  { id: "1", name: "OpenAI API Key", key: "sk-...XyZ7", status: "valid", lastUsed: "2 hours ago" },
-  { id: "2", name: "Confluence Token", key: "ATATT...9kLm", status: "valid", lastUsed: "1 day ago" },
-];
-
-const MOCK_COST_DATA = {
-  todayCost: 12.47,
-  monthCost: 234.89,
-  totalTokens: "1.2M",
-  avgCostPerPrompt: 0.023,
-};
-
-const SettingCard = ({ label, children, className = "" }) => (
-  <div className={`p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant ${className}`}>
-    {label && <span className="text-label-sm text-on-surface-variant mb-2 block">{label}</span>}
-    {children}
-  </div>
-);
-
-const SettingRow = ({ label, description, children }) => (
-  <div className="flex items-center justify-between gap-4">
-    <div className="flex-1 min-w-0">
-      <span className="text-body-sm text-on-surface">{label}</span>
-      {description && <p className="text-[10px] text-on-surface-variant mt-0.5">{description}</p>}
-    </div>
-    {children}
-  </div>
-);
-
 // General Settings Section
 const GeneralSection = () => (
   <div className="space-y-3">
     <SettingCard label="Application">
       <div className="space-y-3">
         <SettingRow label="Default Project" description="Project to open on startup">
-          <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-            <span className="text-body-sm text-on-surface">Customer Support</span>
-          </div>
+          <SettingInput>Customer Support</SettingInput>
         </SettingRow>
-        <div className="h-px bg-outline-variant" />
+        <SettingDivider />
         <SettingRow label="Auto-save" description="Automatically save changes">
           <Switch defaultChecked />
         </SettingRow>
-        <div className="h-px bg-outline-variant" />
+        <SettingDivider />
         <SettingRow label="Confirm before delete" description="Show confirmation dialogs">
           <Switch defaultChecked />
         </SettingRow>
@@ -71,11 +44,9 @@ const GeneralSection = () => (
         <SettingRow label="Auto-generate names" description="Use AI to generate prompt names">
           <Switch defaultChecked />
         </SettingRow>
-        <div className="h-px bg-outline-variant" />
+        <SettingDivider />
         <SettingRow label="Naming template">
-          <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-            <span className="text-body-sm text-on-surface">{"{{category}}_{{action}}"}</span>
-          </div>
+          <SettingInput>{"{{category}}_{{action}}"}</SettingInput>
         </SettingRow>
       </div>
     </SettingCard>
@@ -102,7 +73,7 @@ const AIModelsSection = () => {
           </div>
           {models.map((model, i) => (
             <div key={model.id}>
-              {i > 0 && <div className="h-px bg-outline-variant" />}
+              {i > 0 && <SettingDivider />}
               <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 items-center">
                 <div>
                   <span className="text-body-sm text-on-surface font-medium">{model.name}</span>
@@ -122,21 +93,15 @@ const AIModelsSection = () => {
       <SettingCard label="Default Model Settings">
         <div className="space-y-3">
           <SettingRow label="Default Model">
-            <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-44">
-              <span className="text-body-sm text-on-surface">GPT-4o</span>
-            </div>
+            <SettingInput>GPT-4o</SettingInput>
           </SettingRow>
-          <div className="h-px bg-outline-variant" />
+          <SettingDivider />
           <SettingRow label="Temperature" description="0.0 - 2.0">
-            <div className="h-8 w-16 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-              <span className="text-body-sm text-on-surface">0.7</span>
-            </div>
+            <SettingInput minWidth="w-16">0.7</SettingInput>
           </SettingRow>
-          <div className="h-px bg-outline-variant" />
+          <SettingDivider />
           <SettingRow label="Max Tokens">
-            <div className="h-8 w-20 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-              <span className="text-body-sm text-on-surface">4096</span>
-            </div>
+            <SettingInput minWidth="w-20">4096</SettingInput>
           </SettingRow>
         </div>
       </SettingCard>
@@ -154,7 +119,7 @@ const APIKeysSection = () => {
         <div className="space-y-2">
           {MOCK_API_KEYS.map((apiKey, i) => (
             <div key={apiKey.id}>
-              {i > 0 && <div className="h-px bg-outline-variant my-2" />}
+              {i > 0 && <SettingDivider className="my-2" />}
               <div className="flex items-center justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -271,15 +236,15 @@ const NotificationsSection = () => (
       <SettingRow label="Email notifications" description="Receive updates via email">
         <Switch defaultChecked />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Cascade completion" description="Notify when cascades finish">
         <Switch defaultChecked />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Error alerts" description="Get notified about failures">
         <Switch defaultChecked />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Usage warnings" description="Alert when approaching limits">
         <Switch />
       </SettingRow>
@@ -302,15 +267,11 @@ const ProfileSection = () => (
     <div className="space-y-3">
       <div className="space-y-1">
         <label className="text-[10px] text-on-surface-variant">Display Name</label>
-        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-          <span className="text-body-sm text-on-surface">John Doe</span>
-        </div>
+        <SettingInput minWidth="w-full">John Doe</SettingInput>
       </div>
       <div className="space-y-1">
         <label className="text-[10px] text-on-surface-variant">Email</label>
-        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant">
-          <span className="text-body-sm text-on-surface">john.doe@company.com</span>
-        </div>
+        <SettingInput minWidth="w-full">john.doe@company.com</SettingInput>
       </div>
     </div>
   </SettingCard>
@@ -331,11 +292,9 @@ const ConfluenceSection = () => (
       <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
         <Switch defaultChecked />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Default space">
-        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-36">
-          <span className="text-body-sm text-on-surface">Engineering</span>
-        </div>
+        <SettingInput minWidth="min-w-36">Engineering</SettingInput>
       </SettingRow>
     </div>
   </SettingCard>
@@ -378,19 +337,17 @@ const WorkbenchSettingsSection = () => (
   <SettingCard>
     <div className="space-y-3">
       <SettingRow label="Default model" description="Model used for new conversations">
-        <div className="h-8 px-3 flex items-center bg-surface-container rounded-m3-sm border border-outline-variant min-w-36">
-          <span className="text-body-sm text-on-surface">GPT-4o</span>
-        </div>
+        <SettingInput minWidth="min-w-36">GPT-4o</SettingInput>
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Enable file search" description="Allow searching uploaded files">
         <Switch defaultChecked />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Enable code interpreter" description="Allow code execution">
         <Switch />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Auto-save threads" description="Save conversation history">
         <Switch defaultChecked />
       </SettingRow>
@@ -409,7 +366,7 @@ const NewUISection = () => (
       <SettingRow label="Enable New UI" description="Switch to the experimental interface">
         <Switch defaultChecked />
       </SettingRow>
-      <div className="h-px bg-outline-variant" />
+      <SettingDivider />
       <SettingRow label="Show onboarding tips" description="Display helpful hints for new features">
         <Switch defaultChecked />
       </SettingRow>
