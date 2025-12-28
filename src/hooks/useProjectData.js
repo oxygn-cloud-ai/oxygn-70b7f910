@@ -17,19 +17,26 @@ export const useProjectData = (initialData, projectRowId) => {
     setUnsavedChanges(prev => ({ ...prev, [fieldName]: true }));
   };
 
-  const handleSave = async (fieldName) => {
+  const handleSave = async (fieldName, valueOverride) => {
     if (!supabase || !projectRowId) return;
+
+    // Use provided value if given, otherwise fall back to localData
+    const valueToSave = valueOverride !== undefined ? valueOverride : localData[fieldName];
 
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
-        .update({ [fieldName]: localData[fieldName] })
+        .update({ [fieldName]: valueToSave })
         .eq('row_id', projectRowId);
 
       if (error) throw error;
 
+      // Also update localData to stay in sync when using override
+      if (valueOverride !== undefined) {
+        setLocalData(prev => ({ ...prev, [fieldName]: valueOverride }));
+      }
+
       setUnsavedChanges(prev => ({ ...prev, [fieldName]: false }));
-      toast.success(`${fieldName} saved successfully`);
     } catch (error) {
       console.error(`Error saving ${fieldName}:`, error);
       toast.error(`Failed to save ${fieldName}: ${error.message}`);
