@@ -285,6 +285,10 @@ const TreeItem = ({
                 className={isRunningCascade ? "animate-spin" : ""}
               />
             )}
+            <IconButton icon={Braces} label="Copy Variable Reference" onClick={() => {
+              navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
+              toast.success('Copied variable reference');
+            }} />
             <IconButton icon={Plus} label="Add Child" onClick={() => onAdd?.(id)} />
             <IconButton icon={Copy} label="Duplicate" onClick={() => onDuplicate?.(id)} />
             <IconButton icon={Upload} label="Export" onClick={() => onExport?.(id)} />
