@@ -1001,7 +1001,7 @@ const PromptsContent = ({
   const tabs = [
     { id: "prompt", icon: FileText, label: "Prompt" },
     { id: "settings", icon: Sliders, label: "Settings" },
-    { id: "variables", icon: Variable, label: "Variables" },
+    { id: "variables", icon: Braces, label: "Variables" },
   ];
 
   if (!hasSelection) {
