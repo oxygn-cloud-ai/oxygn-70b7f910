@@ -702,7 +702,7 @@ const VariablesTabContent = ({ promptData, promptVariables = [] }) => {
   const [showValues, setShowValues] = useState(true);
   
   // Use real extracted_variables from promptData, fallback to promptVariables, then mock
-  const variables = React.useMemo(() => {
+  const variables = useMemo(() => {
     // First try extracted_variables from the prompt
     if (promptData?.extracted_variables && Array.isArray(promptData.extracted_variables) && promptData.extracted_variables.length > 0) {
       return promptData.extracted_variables.map(v => ({
@@ -999,7 +999,7 @@ const PromptsContent = ({
   const formattedTime = useTimer(isRunningPrompt);
 
   // Update isAssistantEnabled when promptData changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (promptData) {
       setIsAssistantEnabled(promptData.is_assistant || false);
     }

@@ -31,7 +31,7 @@ export function ToastHistoryProvider({ children }) {
   }, []);
 
   // Set up global notify function
-  React.useEffect(() => {
+  useEffect(() => {
     globalNotify = addToHistory;
     return () => { globalNotify = null; };
   }, [addToHistory]);
