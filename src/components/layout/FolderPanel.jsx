@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { icons } from "lucide-react";
 import { 
   Inbox, 
   MessageSquare, 
@@ -25,7 +26,8 @@ import {
   LayoutTemplate,
   CheckSquare,
   Square,
-  X
+  X,
+  Palette
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,6 +35,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useDrag, useDrop } from "react-dnd";
 import { SkeletonListItem } from "@/components/shared/Skeletons";
 import { toast } from "@/components/ui/sonner";
+import { IconPicker } from "@/components/IconPicker";
+import { updatePromptIcon } from "@/services/promptMutations";
+import { useSupabase } from "@/hooks/useSupabase";
 
 const ITEM_TYPE = "PROMPT_ITEM";
 
@@ -164,10 +169,17 @@ const TreeItem = ({
   onToggleSelect,
   lastSelectedId,
   allFlatItems,
-  onRangeSelect
+  onRangeSelect,
+  // Icon editing
+  onIconChange,
+  onRefresh
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const ref = useRef(null);
+  const visualLevel = Math.min(level, 4);
+  const paddingLeft = 10 + visualLevel * 12;
+  const depthIndicator = level > 4 ? `${level}` : null;
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 12;
   const depthIndicator = level > 4 ? `${level}` : null;
@@ -205,8 +217,26 @@ const TreeItem = ({
 
   drag(drop(ref));
   
-  const Icon = isConversation ? MessageSquare : FileText;
+  // Get custom icon or fallback to default
+  const customIconName = item.icon_name;
+  const CustomIcon = customIconName && icons[customIconName] ? icons[customIconName] : null;
+  const DefaultIcon = isConversation ? MessageSquare : FileText;
+  const DisplayIcon = CustomIcon || DefaultIcon;
+  
   const itemIsActive = selectedPromptId === id;
+  
+  // Handle icon click to open picker
+  const handleIconClick = (e) => {
+    e.stopPropagation();
+    setIconPickerOpen(true);
+  };
+  
+  // Handle icon selection
+  const handleIconSelect = async (iconName) => {
+    if (onIconChange) {
+      await onIconChange(id, iconName);
+    }
+  };
   
   // Handle toggle click
   const handleToggleClick = (e) => {
@@ -292,13 +322,37 @@ const TreeItem = ({
           }
         </button>
         
-        <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+        {/* Clickable icon to open picker */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button 
+              onClick={handleIconClick}
+              className="h-3.5 w-3.5 flex-shrink-0 hover:text-primary transition-colors"
+            >
+              <DisplayIcon className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Click to change icon</TooltipContent>
+        </Tooltip>
+        
         <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
         
+        {/* Icon Picker Dialog */}
+        <IconPicker 
+          open={iconPickerOpen}
+          onOpenChange={setIconPickerOpen}
+          currentIcon={customIconName}
+          onIconSelect={handleIconSelect}
+        />
         
         {/* Hover actions or status icons - hidden in multi-select mode */}
         {!isMultiSelectMode && isHovered ? (
           <div className="flex items-center gap-0.5">
+            <IconButton 
+              icon={Palette} 
+              label="Change Icon" 
+              onClick={handleIconClick}
+            />
             <IconButton 
               icon={Star} 
               label={starred ? "Unstar" : "Star"} 
@@ -398,6 +452,9 @@ const TreeItem = ({
                 lastSelectedId={lastSelectedId}
                 allFlatItems={allFlatItems}
                 onRangeSelect={onRangeSelect}
+                // Icon editing
+                onIconChange={onIconChange}
+                onRefresh={onRefresh}
               />
               <DropZone onDrop={onMoveBetween} />
             </React.Fragment>
@@ -435,6 +492,7 @@ const FolderPanel = ({
   onBatchToggleExcludeCascade,
   onBatchToggleExcludeExport
 }) => {
+  const supabase = useSupabase();
   const [expandedFolders, setExpandedFolders] = useState({});
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -444,6 +502,18 @@ const FolderPanel = ({
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [lastSelectedId, setLastSelectedId] = useState(null);
   const isMultiSelectMode = selectedItems.size > 0;
+
+  // Handle icon change
+  const handleIconChange = useCallback(async (promptId, iconName) => {
+    try {
+      await updatePromptIcon(supabase, promptId, iconName);
+      toast.success(iconName ? 'Icon updated' : 'Icon reset');
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating icon:', error);
+      toast.error('Failed to update icon');
+    }
+  }, [supabase, onRefresh]);
 
   const toggleFolder = (id) => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
@@ -954,6 +1024,9 @@ const FolderPanel = ({
                     lastSelectedId={lastSelectedId}
                     allFlatItems={allFlatItems}
                     onRangeSelect={handleRangeSelect}
+                    // Icon editing
+                    onIconChange={handleIconChange}
+                    onRefresh={onRefresh}
                   />
                   <DropZone onDrop={handleMoveBetween} />
                 </React.Fragment>
