@@ -147,19 +147,29 @@ export const useExport = () => {
   // Fetch variables for selected prompts
   // IMPORTANT: This must be defined BEFORE openExport which uses it
   const fetchVariablesData = useCallback(async (promptIds) => {
+    console.log('[useExport] fetchVariablesData called with promptIds:', promptIds);
     if (!promptIds.length) {
+      console.log('[useExport] No prompt IDs provided, clearing variables');
       setVariablesData({});
       return {};
     }
 
     setIsLoadingVariables(true);
     try {
+      const tableName = import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_variables';
+      console.log('[useExport] Querying table:', tableName, 'for', promptIds.length, 'prompts');
+      
       const { data, error } = await supabase
-        .from('q_prompt_variables')
+        .from(tableName)
         .select('prompt_row_id, variable_name, variable_value, default_value')
         .in('prompt_row_id', promptIds);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useExport] Supabase error fetching variables:', error);
+        throw error;
+      }
+
+      console.log('[useExport] Raw variables data:', data?.length || 0, 'variables found');
 
       const grouped = (data || []).reduce((acc, variable) => {
         const promptId = variable.prompt_row_id;
@@ -170,10 +180,11 @@ export const useExport = () => {
         return acc;
       }, {});
 
+      console.log('[useExport] Grouped variables:', Object.keys(grouped).length, 'prompts have variables');
       setVariablesData(grouped);
       return grouped;
     } catch (error) {
-      console.error('Error fetching variables:', error);
+      console.error('[useExport] Error fetching variables:', error);
       return {};
     } finally {
       setIsLoadingVariables(false);
