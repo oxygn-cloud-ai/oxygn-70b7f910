@@ -1,8 +1,10 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun } from "lucide-react";
+import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 
 const TopBar = ({ 
   tooltipsEnabled = true, 
@@ -12,6 +14,23 @@ const TopBar = ({
   onOpenSearch,
   hasNotifications = true 
 }) => {
+  const { user, userProfile, signOut, isAdmin } = useAuth();
+  
+  // Get user display info
+  const displayName = userProfile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const avatarUrl = userProfile?.avatar_url || user?.user_metadata?.avatar_url;
+  const email = userProfile?.email || user?.email;
+  const initials = displayName
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   return (
     <motion.header 
       initial={{ y: -56, opacity: 0 }}
@@ -154,23 +173,41 @@ const TopBar = ({
           </TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              className="cursor-pointer"
             >
-              <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-transparent hover:ring-primary/30 transition-all duration-200">
+              <Avatar className="h-8 w-8 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-200">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
                 <AvatarFallback className="bg-tertiary-container text-on-surface text-[11px]">
-                  JD
+                  {initials}
                 </AvatarFallback>
               </Avatar>
             </motion.div>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">
-            John Doe
-          </TooltipContent>
-        </Tooltip>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-surface-container-high border-outline-variant">
+            <div className="px-3 py-2">
+              <p className="text-body-sm font-medium text-on-surface">{displayName}</p>
+              <p className="text-[10px] text-on-surface-variant">{email}</p>
+              {isAdmin && (
+                <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-medium bg-primary/10 text-primary rounded-m3-sm">
+                  ADMIN
+                </span>
+              )}
+            </div>
+            <DropdownMenuSeparator className="bg-outline-variant" />
+            <DropdownMenuItem 
+              onClick={handleSignOut}
+              className="text-body-sm text-on-surface cursor-pointer"
+            >
+              <LogOut className="h-4 w-4 mr-2 text-on-surface-variant" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </motion.div>
     </motion.header>
   );
