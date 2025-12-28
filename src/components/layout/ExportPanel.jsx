@@ -16,7 +16,8 @@ import {
   Variable,
   Edit3,
   Layers,
-  Settings
+  Settings,
+  LayoutTemplate
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useConfluenceExport } from "@/hooks/useConfluenceExport";
+import { useExportTemplates } from "@/hooks/useExportTemplates";
 import { ConfluenceConfig } from "@/components/export/types/confluence/ConfluenceConfig";
 
 // Step definitions
@@ -208,11 +210,78 @@ const ExportPanel = ({
   // Real Confluence export hook
   const confluenceExport = useConfluenceExport();
   
+  // Export templates hook
+  const { 
+    templates, 
+    isLoading: isLoadingTemplates, 
+    isSaving: isSavingTemplate, 
+    fetchTemplates, 
+    saveTemplate 
+  } = useExportTemplates();
+  
   // Local state for configuration step
   const [isExporting, setIsExporting] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [showLoadTemplate, setShowLoadTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  
+  // Fetch templates when load dialog opens
+  useEffect(() => {
+    if (showLoadTemplate) {
+      fetchTemplates(exportType);
+    }
+  }, [showLoadTemplate, exportType, fetchTemplates]);
+  
+  // Handle save template
+  const handleSaveTemplate = async () => {
+    if (!newTemplateName.trim()) return;
+    
+    try {
+      await saveTemplate({
+        templateName: newTemplateName.trim(),
+        exportType,
+        selectedFields,
+        selectedVariables,
+        confluenceConfig: confluenceExport.config || {}
+      });
+      setShowSaveTemplate(false);
+      setNewTemplateName("");
+    } catch (error) {
+      // Error handled in hook
+    }
+  };
+  
+  // Handle load template
+  const handleLoadTemplate = (templateId) => {
+    const template = templates.find(t => t.row_id === templateId);
+    if (template && exportState) {
+      // Load selected fields
+      if (template.selected_fields) {
+        template.selected_fields.forEach(fieldId => {
+          if (!selectedFields.includes(fieldId)) {
+            toggleFieldSelection?.(fieldId);
+          }
+        });
+      }
+      // Load selected variables
+      if (template.selected_variables) {
+        Object.entries(template.selected_variables).forEach(([promptId, varNames]) => {
+          varNames.forEach(varName => {
+            if (!selectedVariables[promptId]?.includes(varName)) {
+              toggleVariableSelection?.(promptId, varName);
+            }
+          });
+        });
+      }
+      // Load confluence config
+      if (template.confluence_config && confluenceExport.setConfig) {
+        confluenceExport.setConfig(template.confluence_config);
+      }
+      setShowLoadTemplate(false);
+      setSelectedTemplateId("");
+    }
+  };
   
   // Get all prompt IDs from tree for select all
   const allPromptIds = useMemo(() => {
@@ -364,8 +433,19 @@ const ExportPanel = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
+                onClick={() => setShowLoadTemplate(!showLoadTemplate)}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${showLoadTemplate ? 'text-primary' : 'text-on-surface-variant'}`}
+              >
+                <LayoutTemplate className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Use Template</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
                 onClick={() => setShowSaveTemplate(!showSaveTemplate)}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${showSaveTemplate ? 'text-primary' : 'text-on-surface-variant'}`}
               >
                 <Save className="h-4 w-4" />
               </button>
@@ -389,6 +469,55 @@ const ExportPanel = ({
       {/* Step Navigation */}
       <StepNavigation currentStep={currentStep} onStepClick={goToStep} />
 
+      {/* Load Template Picker */}
+      {showLoadTemplate && (
+        <div className="px-4 py-2 border-b border-outline-variant bg-surface-container-low space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-label-sm text-on-surface-variant uppercase">Use Template</span>
+            <button 
+              onClick={() => setShowLoadTemplate(false)}
+              className="w-5 h-5 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          {isLoadingTemplates ? (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+            </div>
+          ) : templates.length === 0 ? (
+            <p className="text-[10px] text-on-surface-variant py-2">No saved templates</p>
+          ) : (
+            <div className="flex gap-2">
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger className="flex-1 h-8 bg-surface-container-high border-outline-variant text-body-sm">
+                  <SelectValue placeholder="Select a template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map(template => (
+                    <SelectItem key={template.row_id} value={template.row_id}>
+                      {template.template_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => handleLoadTemplate(selectedTemplateId)}
+                    disabled={!selectedTemplateId}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-primary text-primary-foreground disabled:opacity-50"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Apply Template</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Save Template Input */}
       {showSaveTemplate && (
         <div className="flex gap-2 px-4 py-2 border-b border-outline-variant bg-surface-container-low">
@@ -398,11 +527,16 @@ const ExportPanel = ({
             onChange={(e) => setNewTemplateName(e.target.value)}
             placeholder="Template name..."
             className="flex-1 h-8 px-3 bg-surface-container-high border border-outline-variant rounded-m3-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary"
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
           />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-primary text-primary-foreground">
-                <Check className="h-4 w-4" />
+              <button 
+                onClick={handleSaveTemplate}
+                disabled={!newTemplateName.trim() || isSavingTemplate}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-primary text-primary-foreground disabled:opacity-50"
+              >
+                {isSavingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Save</TooltipContent>
