@@ -33,8 +33,8 @@ import {
   getDefaultActionConfig,
   ACTION_CATEGORIES,
 } from '@/config/actionTypes';
-import { DEFAULT_SCHEMAS, getDefaultSchemaById, getFullTemplateSchemas } from '@/config/defaultSchemas';
-import { applyTemplateToPrompt, isFullTemplate } from '@/services/templateService';
+import { applyTemplateToPrompt } from '@/services/templateService';
+import { isFullTemplate } from '@/utils/schemaUtils';
 import ActionConfigRenderer from './ActionConfigRenderer';
 import { useJsonSchemaTemplates } from '@/hooks/useJsonSchemaTemplates';
 
@@ -61,7 +61,7 @@ const ActionNodeSettings = ({
   const [schemaError, setSchemaError] = useState('');
   const [isSchemaOpen, setIsSchemaOpen] = useState(true);
   
-  const { templates, isLoading: templatesLoading } = useJsonSchemaTemplates(supabase);
+  const { templates, isLoading: templatesLoading } = useJsonSchemaTemplates();
 
   // Parse current response_format to get the actual schema object
   const currentSchemaObject = useMemo(() => {
@@ -76,11 +76,14 @@ const ActionNodeSettings = ({
     }
   }, [localData.response_format]);
 
-  // Separate full templates from schema-only templates
-  const fullTemplates = useMemo(() => getFullTemplateSchemas(), []);
+  // Separate full templates from schema-only templates (from DB)
+  const fullTemplates = useMemo(() => 
+    templates.filter(t => t.node_config && t.action_config), 
+    [templates]
+  );
   const schemaOnlyTemplates = useMemo(() => 
-    DEFAULT_SCHEMAS.filter(s => !s.nodeConfig || !s.actionConfig), 
-    []
+    templates.filter(t => !t.node_config || !t.action_config), 
+    [templates]
   );
 
   // Parse current response_format to determine source
@@ -104,13 +107,7 @@ const ActionNodeSettings = ({
           if (matchingTemplate) {
             setSchemaSource('template');
           } else {
-            // Check default schemas
-            const matchingDefault = DEFAULT_SCHEMAS.find(d =>
-              JSON.stringify(d.schema) === JSON.stringify(format.json_schema.schema)
-            );
-            if (!matchingDefault) {
-              setSchemaSource('custom');
-            }
+            setSchemaSource('custom');
           }
         }
       } catch {
@@ -160,47 +157,14 @@ const ActionNodeSettings = ({
     setSchemaSource('template');
     setSchemaError('');
 
-    // Check default schemas first (including full templates)
-    const defaultSchema = DEFAULT_SCHEMAS.find(d => d.id === templateId);
-    
-    if (defaultSchema) {
-      // Check if this is a full template with auto-configuration
-      if (isFullTemplate(defaultSchema)) {
-        // Apply full template configuration
-        const updates = applyTemplateToPrompt(defaultSchema, localData);
-        
-        // Apply all updates
-        Object.entries(updates).forEach(([key, value]) => {
-          handleChange(key, value);
-          handleSave(key, value);
-        });
-        
-        setCustomSchema(JSON.stringify(defaultSchema.schema, null, 2));
-        return;
-      }
-      
-      // Regular schema-only template
-      const responseFormat = {
-        type: 'json_schema',
-        json_schema: {
-          name: defaultSchema.id,
-          schema: defaultSchema.schema,
-          strict: true,
-        },
-      };
-
-      handleChange('response_format', JSON.stringify(responseFormat));
-      handleSave('response_format', JSON.stringify(responseFormat));
-      setCustomSchema(JSON.stringify(defaultSchema.schema, null, 2));
-      return;
-    }
-
-    // Check saved templates
+    // Find template from database
     const template = templates.find(t => t.row_id === templateId);
     if (template) {
-      // Check if saved template has full configuration
-      if (template.model_config || template.node_config || template.action_config) {
+      // Check if this is a full template with auto-configuration
+      if (isFullTemplate(template)) {
+        // Convert DB template format to applyTemplateToPrompt format
         const fullTemplate = {
+          id: template.row_id,
           schema: template.json_schema,
           modelConfig: template.model_config,
           nodeConfig: template.node_config,
@@ -209,7 +173,10 @@ const ActionNodeSettings = ({
           systemPromptTemplate: template.system_prompt_template,
         };
         
+        // Apply full template configuration
         const updates = applyTemplateToPrompt(fullTemplate, localData);
+        
+        // Apply all updates
         Object.entries(updates).forEach(([key, value]) => {
           handleChange(key, value);
           handleSave(key, value);
@@ -218,8 +185,8 @@ const ActionNodeSettings = ({
         setCustomSchema(JSON.stringify(template.json_schema, null, 2));
         return;
       }
-
-      // Regular saved schema template
+      
+      // Regular schema-only template
       const schemaName = template.schema_name.toLowerCase().replace(/\s+/g, '_');
       const responseFormat = {
         type: 'json_schema',
@@ -273,12 +240,6 @@ const ActionNodeSettings = ({
         : localData.response_format;
       
       if (format?.json_schema?.schema) {
-        // Check default schemas
-        const matchingDefault = DEFAULT_SCHEMAS.find(d =>
-          JSON.stringify(d.schema) === JSON.stringify(format.json_schema.schema)
-        );
-        if (matchingDefault) return matchingDefault.id;
-
         // Check saved templates
         const matchingTemplate = templates.find(t =>
           JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
@@ -319,11 +280,18 @@ const ActionNodeSettings = ({
                 <Select
                   value={getCurrentTemplateId()}
                   onValueChange={handleSchemaTemplateChange}
+                  disabled={templatesLoading}
                 >
                   <SelectTrigger className="h-8 text-body-sm">
-                    <SelectValue placeholder="Select a schema..." />
+                    <SelectValue placeholder={templatesLoading ? "Loading..." : "Select a schema..."} />
                   </SelectTrigger>
                   <SelectContent>
+                    {templates.length === 0 && !templatesLoading && (
+                      <div className="px-2 py-4 text-center text-on-surface-variant text-body-sm">
+                        No schemas available
+                      </div>
+                    )}
+
                     {/* Full Templates (with auto-config) */}
                     {fullTemplates.length > 0 && (
                       <>
@@ -331,13 +299,13 @@ const ActionNodeSettings = ({
                           <Settings2 className="h-3 w-3" />
                           Full Templates (Auto-Configure)
                         </div>
-                        {fullTemplates.map((schema) => (
-                          <SelectItem key={schema.id} value={schema.id}>
+                        {fullTemplates.map((template) => (
+                          <SelectItem key={template.row_id} value={template.row_id}>
                             <div className="flex items-center gap-2">
                               <Sparkles className="h-3 w-3 text-primary" />
-                              <span>{schema.name}</span>
+                              <span>{template.schema_name}</span>
                               <Badge variant="outline" className="text-[9px] px-1">
-                                {schema.nodeConfig?.post_action?.replace('create_children_', '')}
+                                {template.node_config?.post_action?.replace('create_children_', '')}
                               </Badge>
                             </div>
                           </SelectItem>
@@ -345,32 +313,21 @@ const ActionNodeSettings = ({
                       </>
                     )}
 
-                    {/* Schema-Only Defaults */}
-                    <div className="px-2 py-1.5 text-label-sm font-semibold text-on-surface-variant mt-1">
-                      Built-in Schemas
-                    </div>
-                    {schemaOnlyTemplates.map((schema) => (
-                      <SelectItem key={schema.id} value={schema.id}>
-                        <div className="flex items-center gap-2">
-                          <Braces className="h-3 w-3 text-on-surface-variant" />
-                          <span>{schema.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-
-                    {/* Saved Templates */}
-                    {templates.length > 0 && (
+                    {/* Schema-Only Templates */}
+                    {schemaOnlyTemplates.length > 0 && (
                       <>
                         <div className="px-2 py-1.5 text-label-sm font-semibold text-on-surface-variant mt-1">
-                          Saved Templates
+                          Schema Templates
                         </div>
-                        {templates.map((template) => (
+                        {schemaOnlyTemplates.map((template) => (
                           <SelectItem key={template.row_id} value={template.row_id}>
                             <div className="flex items-center gap-2">
-                              <LayoutTemplate className="h-3 w-3" />
+                              <Braces className="h-3 w-3 text-on-surface-variant" />
                               <span>{template.schema_name}</span>
-                              {(template.model_config || template.action_config) && (
-                                <Badge variant="outline" className="text-[9px] px-1">full</Badge>
+                              {template.category && (
+                                <Badge variant="outline" className="text-[9px] px-1">
+                                  {template.category}
+                                </Badge>
                               )}
                             </div>
                           </SelectItem>
@@ -449,11 +406,11 @@ const ActionNodeSettings = ({
               </SelectItem>
               
               {Object.entries(groupedActions).map(([categoryId, actions]) => {
-                const category = ACTION_CATEGORIES[categoryId];
+                const category = ACTION_CATEGORIES.find(c => c.id === categoryId);
                 return (
                   <React.Fragment key={categoryId}>
                     <div className="px-2 py-1.5 text-label-sm font-semibold text-on-surface-variant">
-                      {category?.name || categoryId}
+                      {category?.label || categoryId}
                     </div>
                     {actions.map((action) => (
                       <SelectItem key={action.id} value={action.id}>
@@ -470,20 +427,22 @@ const ActionNodeSettings = ({
           </Select>
 
           {selectedAction && (
-            <p className="text-[10px] text-on-surface-variant">
-              {selectedAction.description}
-            </p>
+            <div className="p-2 bg-surface-container rounded-m3-sm">
+              <p className="text-[10px] text-on-surface-variant">
+                {selectedAction.description}
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Action Configuration */}
-      {selectedAction && selectedAction.configSchema?.length > 0 && (
+      {selectedAction?.configSchema && (
         <Card className="bg-surface-container-low border-outline-variant">
           <CardHeader className="pb-3">
             <CardTitle className="text-title-sm flex items-center gap-2 text-on-surface">
-              {renderActionIcon(selectedAction.icon)}
-              {selectedAction.name} Configuration
+              <Settings2 className="h-4 w-4 text-on-surface-variant" />
+              Action Configuration
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -497,46 +456,41 @@ const ActionNodeSettings = ({
         </Card>
       )}
 
-      {/* Extracted Variables Display (Read-only) */}
+      {/* Extracted Variables Display */}
       {localData.extracted_variables && Object.keys(localData.extracted_variables).length > 0 && (
         <Card className="bg-surface-container-low border-outline-variant">
           <CardHeader className="pb-3">
             <CardTitle className="text-title-sm flex items-center gap-2 text-on-surface">
-              <Braces className="h-4 w-4 text-on-surface-variant" />
+              <Info className="h-4 w-4 text-on-surface-variant" />
               Extracted Variables
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-3 w-3 text-on-surface-variant" />
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px] max-w-xs">
+                  Variables extracted from the last AI response that can be used by child prompts.
+                </TooltipContent>
+              </Tooltip>
             </CardTitle>
-            <CardDescription className="text-[10px] text-on-surface-variant">
-              Variables from the last AI response. Access with{' '}
-              <code className="bg-surface-container px-1 py-0.5 rounded text-[10px]">
-                {'{{q.nodename.key}}'}
-              </code>
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="flex flex-wrap gap-1">
               {Object.entries(localData.extracted_variables).map(([key, value]) => (
-                <div key={key} className="flex items-start gap-2 text-body-sm">
-                  <Badge variant="outline" className="font-mono shrink-0 text-[10px]">
-                    {key}
-                  </Badge>
-                  <span className="text-on-surface-variant truncate text-[10px]">
-                    {typeof value === 'object' 
-                      ? JSON.stringify(value).substring(0, 50) + '...' 
-                      : String(value).substring(0, 50)}
-                  </span>
-                </div>
+                <Badge key={key} variant="outline" className="text-[10px]">
+                  {key}: {typeof value === 'object' ? JSON.stringify(value).slice(0, 30) : String(value).slice(0, 30)}
+                </Badge>
               ))}
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Info about JSON mode */}
-      <div className="flex items-start gap-2 p-3 rounded-m3-sm bg-surface-container text-[10px] text-on-surface-variant">
-        <Info className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>
-          Action nodes use structured outputs to ensure the AI returns valid JSON matching your schema.
-          Full templates auto-configure both schema and action settings.
+      {/* Info about Action Nodes */}
+      <div className="p-3 bg-surface-container-low rounded-m3-md border border-outline-variant">
+        <p className="text-[10px] text-on-surface-variant leading-relaxed">
+          <strong>Action nodes</strong> expect JSON responses from the AI. When a JSON schema is defined, 
+          the AI is constrained to output valid JSON matching that structure. The post-action then 
+          processes this JSON to perform operations like creating child prompts.
         </p>
       </div>
     </div>

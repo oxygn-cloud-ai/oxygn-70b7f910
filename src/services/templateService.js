@@ -5,7 +5,6 @@
  * including model settings, action configs, and child creation metadata.
  */
 
-import { getDefaultSchemaById } from '@/config/defaultSchemas';
 import { getActionType, getDefaultActionConfig } from '@/config/actionTypes';
 
 /**
@@ -23,7 +22,9 @@ export const applyTemplateToPrompt = (template, currentData = {}) => {
     updates.response_format = JSON.stringify({
       type: 'json_schema',
       json_schema: {
-        name: schemaName.toLowerCase().replace(/\s+/g, '_'),
+        name: typeof schemaName === 'string' 
+          ? schemaName.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_')
+          : 'custom_response',
         schema: template.schema,
         strict: true,
       },
@@ -203,15 +204,29 @@ export const extractTemplateFromPrompt = (promptData) => {
     }
   }
 
-  // Extract tools
-  const tools = {};
-  if (promptData.web_search_on !== undefined) tools.web_search = promptData.web_search_on;
-  if (promptData.confluence_enabled !== undefined) tools.confluence = promptData.confluence_enabled;
-  if (promptData.code_interpreter_on !== undefined) tools.code_interpreter = promptData.code_interpreter_on;
-  if (promptData.file_search_on !== undefined) tools.file_search = promptData.file_search_on;
+  // Tool settings
+  const toolSettings = {};
+  let hasTools = false;
+  
+  if (promptData.web_search_on !== undefined) {
+    toolSettings.web_search = promptData.web_search_on;
+    hasTools = true;
+  }
+  if (promptData.confluence_enabled !== undefined) {
+    toolSettings.confluence = promptData.confluence_enabled;
+    hasTools = true;
+  }
+  if (promptData.code_interpreter_on !== undefined) {
+    toolSettings.code_interpreter = promptData.code_interpreter_on;
+    hasTools = true;
+  }
+  if (promptData.file_search_on !== undefined) {
+    toolSettings.file_search = promptData.file_search_on;
+    hasTools = true;
+  }
 
-  if (Object.keys(tools).length > 0) {
-    modelSettings.tools = tools;
+  if (hasTools) {
+    modelSettings.tools = toolSettings;
     hasModelConfig = true;
   }
 
@@ -219,7 +234,7 @@ export const extractTemplateFromPrompt = (promptData) => {
     template.modelConfig = modelSettings;
   }
 
-  // 5. Extract system prompt template
+  // 5. Extract system prompt as template
   if (promptData.input_admin_prompt) {
     template.systemPromptTemplate = promptData.input_admin_prompt;
   }
@@ -228,58 +243,31 @@ export const extractTemplateFromPrompt = (promptData) => {
 };
 
 /**
- * Validate template compatibility with target prompt
+ * Check if a template is a "full template" (has node + action config)
+ * @param {Object} template - Template object
+ * @returns {boolean} True if full template
  */
-export const validateTemplateCompatibility = (template, targetPrompt) => {
-  const warnings = [];
-  const errors = [];
-
-  // Check if action is available
-  if (template.nodeConfig?.post_action) {
-    const actionType = getActionType(template.nodeConfig.post_action);
-    if (!actionType) {
-      errors.push(`Action "${template.nodeConfig.post_action}" is not available`);
-    } else if (!actionType.enabled) {
-      warnings.push(`Action "${actionType.name}" is currently disabled`);
-    }
-  }
-
-  // Check if model exists (would need model list to validate)
-  if (template.modelConfig?.model) {
-    warnings.push('Model will be applied if available');
-  }
-
-  return {
-    compatible: errors.length === 0,
-    warnings,
-    errors,
-  };
+export const isFullTemplate = (template) => {
+  return !!(template?.nodeConfig && template?.actionConfig);
 };
 
 /**
- * Get suggested action from schema's childCreation metadata
+ * Get template summary for display
+ * @param {Object} template - Template object
+ * @returns {Object} Summary with features list
  */
-export const getSuggestedActionFromSchema = (schemaId) => {
-  const schema = getDefaultSchemaById(schemaId);
-  if (!schema?.childCreation?.enabled) return null;
-
-  // Determine best action based on childCreation structure
-  if (schema.childCreation.keyPattern) {
-    return 'create_children_sections';
-  } else if (schema.childCreation.keyPath) {
-    return 'create_children_json';
-  }
-
-  return null;
-};
-
-/**
- * Check if a schema has full template configuration
- */
-export const isFullTemplate = (schemaOrId) => {
-  const schema = typeof schemaOrId === 'string' 
-    ? getDefaultSchemaById(schemaOrId) 
-    : schemaOrId;
+export const getTemplateSummary = (template) => {
+  const features = [];
   
-  return !!(schema?.nodeConfig && schema?.actionConfig);
+  if (template.schema) features.push('JSON Schema');
+  if (template.nodeConfig) features.push('Node Type');
+  if (template.actionConfig) features.push('Action Config');
+  if (template.modelConfig) features.push('Model Settings');
+  if (template.systemPromptTemplate) features.push('System Prompt');
+  
+  return {
+    features,
+    isFullTemplate: isFullTemplate(template),
+    hasChildCreation: template.childCreation?.enabled,
+  };
 };
