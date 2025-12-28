@@ -7,6 +7,7 @@
 
 import { executeCreateChildrenText } from './createChildrenText';
 import { executeCreateChildrenJson } from './createChildrenJson';
+import { executeCreateChildrenSections } from './createChildrenSections';
 import { executeCreateTemplate } from './createTemplate';
 
 /**
@@ -16,6 +17,7 @@ import { executeCreateTemplate } from './createTemplate';
 const executors = {
   create_children_text: executeCreateChildrenText,
   create_children_json: executeCreateChildrenJson,
+  create_children_sections: executeCreateChildrenSections,
   create_template: executeCreateTemplate,
 };
 
