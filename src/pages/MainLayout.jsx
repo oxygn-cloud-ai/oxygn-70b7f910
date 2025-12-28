@@ -73,7 +73,7 @@ const MainLayout = () => {
   const supabase = useSupabase();
   const { user: currentUser } = useAuth();
   const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
-  const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
+  const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleRestoreDeleted, handleRestoreMove } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
   
   // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
@@ -439,20 +439,20 @@ const MainLayout = () => {
     const lastAction = undoStack[undoStack.length - 1];
     
     if (lastAction.type === 'delete') {
-      await treeOps.handleRestoreDeleted(lastAction.id, lastAction.itemId, lastAction.itemName);
+      await handleRestoreDeleted(lastAction.id, lastAction.itemId, lastAction.itemName);
     } else if (lastAction.type === 'move') {
-      await treeOps.handleRestoreMove(lastAction.id, lastAction.itemId, lastAction.originalParentId, lastAction.itemName);
+      await handleRestoreMove(lastAction.id, lastAction.itemId, lastAction.originalParentId, lastAction.itemName);
     }
-  }, [undoStack, treeOps]);
+  }, [undoStack, handleRestoreDeleted, handleRestoreMove]);
 
   // Handle undo for a specific action (from undo history panel)
   const handleUndoAction = useCallback(async (action) => {
     if (action.type === 'delete') {
-      await treeOps.handleRestoreDeleted(action.id, action.itemId, action.itemName);
+      await handleRestoreDeleted(action.id, action.itemId, action.itemName);
     } else if (action.type === 'move') {
-      await treeOps.handleRestoreMove(action.id, action.itemId, action.originalParentId, action.itemName);
+      await handleRestoreMove(action.id, action.itemId, action.originalParentId, action.itemName);
     }
-  }, [treeOps]);
+  }, [handleRestoreDeleted, handleRestoreMove]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
