@@ -650,20 +650,6 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
         </div>
       )}
 
-      {/* Cascade Toggle */}
-      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Workflow className="h-4 w-4 text-on-surface-variant" />
-            <div>
-              <span className="text-body-sm text-on-surface font-medium">Include in Cascade</span>
-              <p className="text-[10px] text-on-surface-variant">Run this prompt during cascade execution</p>
-            </div>
-          </div>
-          <Switch checked={includeInCascade} onCheckedChange={setIncludeInCascade} />
-        </div>
-      </div>
-
       {/* Action Preview */}
       {actionType !== "none" && (
         <div className="p-2 bg-secondary-container/30 rounded-m3-md border border-outline-variant">
