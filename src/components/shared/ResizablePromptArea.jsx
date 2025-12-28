@@ -498,13 +498,13 @@ const ResizablePromptArea = ({
               onMouseUp={handleResize}
               placeholder={placeholder}
               style={{ height: `${currentHeight}px` }}
-              className="w-full p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize font-mono overflow-auto"
+              className="w-full p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y font-mono overflow-auto"
             />
           ) : (
             <div 
               ref={contentRef}
               style={{ height: `${currentHeight}px` }}
-              className="p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize"
+              className="p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y"
               onMouseUp={handleResize}
             >
               {editValue ? (
