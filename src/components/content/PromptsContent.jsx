@@ -191,7 +191,7 @@ import ResizablePromptArea from "../shared/ResizablePromptArea";
 import ResizableOutputArea from "../shared/ResizableOutputArea";
 
 // Prompt Tab Content
-const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt }) => {
+const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, variables = [] }) => {
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
@@ -208,6 +208,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         defaultHeight={160}
         onLibraryPick
         onChange={(value) => onUpdateField?.('input_admin_prompt', value)}
+        variables={variables}
       />
 
       {/* User Prompt */}
@@ -218,8 +219,22 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         defaultHeight={64}
         onLibraryPick
         onChange={(value) => onUpdateField?.('input_user_prompt', value)}
+        variables={variables}
       />
 
+      {/* Output */}
+      <ResizableOutputArea
+        label="Output"
+        value={outputResponse}
+        placeholder="No output yet. Run the prompt to generate a response."
+        metadata={metadata}
+        defaultHeight={144}
+        onRegenerate={() => onRunPrompt?.(selectedPromptId)}
+        isRegenerating={isRunningPrompt}
+      />
+    </div>
+  );
+};
       {/* Output */}
       <ResizableOutputArea
         label="Output"
@@ -1063,12 +1078,14 @@ const PromptsContent = ({
               onRunPrompt={onRunPrompt}
               selectedPromptId={selectedPromptId}
               isRunningPrompt={isRunningPrompt}
+              variables={variables}
             />
           )}
           {activeTab === "settings" && (
             <SettingsTabContent 
               promptData={promptData}
               onUpdateField={onUpdateField}
+              models={models}
             />
           )}
           {activeTab === "variables" && (

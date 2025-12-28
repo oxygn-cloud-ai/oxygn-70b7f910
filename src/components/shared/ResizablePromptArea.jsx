@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Edit3, Check, Library, Search, Variable 
+  Edit3, Check, Library, Search
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LabelBadge } from "@/components/ui/label-badge";
+import { VariablePicker } from "./VariablePicker";
 
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
@@ -74,51 +75,6 @@ const HighlightedText = ({ text, variableDefinitions = {} }) => {
   return <>{parts}</>;
 };
 
-// Variable Picker Dropdown
-const VariablePickerDropdown = ({ onInsert, variables = [] }) => {
-  // Transform variables to expected format
-  const displayVars = useMemo(() => {
-    if (variables.length === 0) {
-      // Fallback to common variables if none provided
-      return [
-        { name: "customer_message" },
-        { name: "company_name" },
-        { name: "parent.output" },
-      ];
-    }
-    return variables.map(v => ({
-      name: v.variable_name || v.name
-    }));
-  }, [variables]);
-
-  return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <Variable className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent className="text-[10px]">Insert Variable</TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent className="w-44 bg-surface-container-high border-outline-variant">
-        <div className="px-2 py-1 text-[10px] text-on-surface-variant uppercase tracking-wider">Variables</div>
-        <DropdownMenuSeparator className="bg-outline-variant" />
-        {displayVars.map(v => (
-          <DropdownMenuItem 
-            key={v.name} 
-            onClick={() => onInsert(v.name)}
-            className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer font-mono"
-          >
-            {`{{${v.name}}}`}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
 
 // Library Picker Dropdown
 const LibraryPickerDropdown = ({ libraryItems = [] }) => {
@@ -207,6 +163,7 @@ const ResizablePromptArea = ({
   onChange,
   defaultHeight = MIN_HEIGHT,
   variables = [],
+  promptReferences = [],
   libraryItems = []
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -233,8 +190,9 @@ const ResizablePromptArea = ({
     }
   }, [editValue, value, isEditing, defaultHeight]);
 
-  const handleInsertVariable = (variable) => {
-    const insertion = `{{${variable}}}`;
+  const handleInsertVariable = (variableText) => {
+    // variableText may already include {{ }} from VariablePicker
+    const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
     setEditValue(prev => prev + insertion);
   };
 
@@ -328,7 +286,7 @@ const ResizablePromptArea = ({
         
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
-          <VariablePickerDropdown onInsert={handleInsertVariable} variables={variables} />
+          <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} />
           {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
           <Tooltip>
             <TooltipTrigger asChild>
