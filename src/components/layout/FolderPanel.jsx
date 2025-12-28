@@ -294,7 +294,7 @@ const TreeItem = ({
               className={excludedFromExport ? "text-warning" : ""}
               onClick={() => onToggleExcludeExport?.(id)}
             />
-            <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id)} />
+            <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id, label)} />
           </div>
         ) : (
           <div className="flex items-center gap-0.5">

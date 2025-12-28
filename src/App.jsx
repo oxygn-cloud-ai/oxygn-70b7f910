@@ -14,6 +14,7 @@ import { TooltipSettingsProvider } from "@/contexts/TooltipContext";
 import { ToastHistoryProvider } from "@/contexts/ToastHistoryContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { CascadeRunProvider } from "@/contexts/CascadeRunContext";
+import { UndoProvider } from "@/contexts/UndoContext";
 
 const queryClient = new QueryClient();
 
@@ -21,35 +22,37 @@ const App = () => (
   <ErrorBoundary message="The application encountered an error. Please refresh the page.">
     <QueryClientProvider client={queryClient}>
       <ToastHistoryProvider>
-        <CreatePromptProvider>
-          <TooltipSettingsProvider>
-            <TooltipProvider>
-              <CascadeRunProvider>
-                <BrowserRouter>
-                  <ApiCallProvider>
-                    <AuthProvider>
-                      <NavigationGuard />
-                      <BackgroundCallsIndicator />
-                      <ErrorBoundary message="This page encountered an error.">
-                        <Routes>
-                          <Route path="/auth" element={<Auth />} />
-                          <Route
-                            path="/*"
-                            element={
-                              <ProtectedRoute>
-                                <MainLayout />
-                              </ProtectedRoute>
-                            }
-                          />
-                        </Routes>
-                      </ErrorBoundary>
-                    </AuthProvider>
-                  </ApiCallProvider>
-                </BrowserRouter>
-              </CascadeRunProvider>
-            </TooltipProvider>
-          </TooltipSettingsProvider>
-        </CreatePromptProvider>
+        <UndoProvider>
+          <CreatePromptProvider>
+            <TooltipSettingsProvider>
+              <TooltipProvider>
+                <CascadeRunProvider>
+                  <BrowserRouter>
+                    <ApiCallProvider>
+                      <AuthProvider>
+                        <NavigationGuard />
+                        <BackgroundCallsIndicator />
+                        <ErrorBoundary message="This page encountered an error.">
+                          <Routes>
+                            <Route path="/auth" element={<Auth />} />
+                            <Route
+                              path="/*"
+                              element={
+                                <ProtectedRoute>
+                                  <MainLayout />
+                                </ProtectedRoute>
+                              }
+                            />
+                          </Routes>
+                        </ErrorBoundary>
+                      </AuthProvider>
+                    </ApiCallProvider>
+                  </BrowserRouter>
+                </CascadeRunProvider>
+              </TooltipProvider>
+            </TooltipSettingsProvider>
+          </CreatePromptProvider>
+        </UndoProvider>
       </ToastHistoryProvider>
     </QueryClientProvider>
   </ErrorBoundary>
