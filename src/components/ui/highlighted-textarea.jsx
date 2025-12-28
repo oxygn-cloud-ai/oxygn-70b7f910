@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useCallback, useState, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -47,10 +47,10 @@ const HighlightedTextarea = React.forwardRef(({
   const [triggerStart, setTriggerStart] = useState(-1);
 
   // Forward ref to editor
-  React.useImperativeHandle(ref, () => editorRef.current);
+  useImperativeHandle(ref, () => editorRef.current);
 
   // Build list of all available variables
-  const allVariables = React.useMemo(() => {
+  const allVariables = useMemo(() => {
     const systemVars = getSystemVariableNames().map(name => ({
       name,
       label: SYSTEM_VARIABLES[name]?.label || name,
@@ -71,7 +71,7 @@ const HighlightedTextarea = React.forwardRef(({
   }, [userVariables]);
 
   // Filter variables based on query
-  const filteredVariables = React.useMemo(() => {
+  const filteredVariables = useMemo(() => {
     if (!autocompleteQuery) return allVariables.slice(0, 10);
     const query = autocompleteQuery.toLowerCase();
     return allVariables

@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Menu,
@@ -100,7 +100,7 @@ const NavigationRail = ({
     { id: "health", icon: Heart, label: "Health", shortcut: "5" },
   ];
 
-  const [hoveredId, setHoveredId] = React.useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
 
   const handleMouseEnter = (id) => {
     setHoveredId(id);

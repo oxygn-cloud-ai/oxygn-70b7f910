@@ -1,4 +1,4 @@
-import * as React from "react";
+import React from "react";
 import { FileText, LayoutTemplate, PanelRightOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
