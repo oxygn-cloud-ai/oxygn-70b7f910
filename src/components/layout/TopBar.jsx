@@ -5,14 +5,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import ToastHistoryPopover from "@/components/ToastHistoryPopover";
 
 const TopBar = ({ 
   tooltipsEnabled = true, 
   onToggleTooltips, 
   isDark = false, 
   onToggleDark,
-  onOpenSearch,
-  hasNotifications = true 
+  onOpenSearch
 }) => {
   const { user, userProfile, signOut, isAdmin } = useAuth();
   
@@ -142,36 +142,7 @@ const TopBar = ({
           </TooltipContent>
         </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <motion.button 
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200 relative"
-            >
-              <Bell className="h-4 w-4" />
-              <AnimatePresence>
-                {hasNotifications && (
-                  <motion.span 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full"
-                  >
-                    <motion.span
-                      animate={{ scale: [1, 1.5, 1], opacity: [1, 0, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="absolute inset-0 w-full h-full bg-primary rounded-full"
-                    />
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">
-            Notifications
-          </TooltipContent>
-        </Tooltip>
+        <ToastHistoryPopover />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
