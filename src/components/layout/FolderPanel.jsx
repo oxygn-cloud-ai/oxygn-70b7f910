@@ -537,12 +537,12 @@ const FolderPanel = ({
   
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
-      {/* Smart Folders */}
+      {/* Quick View */}
       <div className="p-1.5">
         <div className="flex items-center justify-between px-2 py-1">
           <p className="text-[9px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
             <FolderOpen className="h-3 w-3" />
-            Smart Folders
+            Quick View
           </p>
           {activeSmartFolder !== "all" && (
             <Tooltip>
