@@ -262,6 +262,7 @@ export const executeCreateChildrenSections = async ({
       input_admin_prompt: libraryPrompt?.content || content || actionPromptSettings.input_admin_prompt || defaults.def_admin_prompt || '',
       input_user_prompt: content ? '' : (typeof sectionValue === 'string' ? sectionValue : ''),
       position: nextPosition++,
+      is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard', // Use configured node type
       // Store section data for reference

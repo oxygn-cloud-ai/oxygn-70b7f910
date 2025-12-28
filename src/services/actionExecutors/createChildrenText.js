@@ -132,6 +132,7 @@ export const executeCreateChildrenText = async ({
       input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
       input_user_prompt: defaults.default_user_prompt || '',
       position: nextPosition++,
+      is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: 'standard',
       // Apply model defaults
