@@ -36,6 +36,8 @@ import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "@/components/ui/sonner";
 import { Loader2 } from "lucide-react";
+import { executePostAction } from "@/services/actionExecutors";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -68,6 +70,7 @@ const LoadingScreen = () => (
 const MainLayout = () => {
   // Real data hooks
   const supabase = useSupabase();
+  const { user: currentUser } = useAuth();
   const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
   const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
@@ -174,8 +177,44 @@ const MainLayout = () => {
   // Handler for running a single prompt
   const handleRunPrompt = useCallback(async (promptId) => {
     if (!promptId) return;
+    
+    // Fetch prompt data to check if it's an action node
+    const promptData = await fetchItemData(promptId);
+    
     const result = await runPrompt(promptId);
     if (result) {
+      // Handle action node post-actions
+      if (promptData?.node_type === 'action' && result.response && promptData.post_action) {
+        try {
+          const jsonResponse = JSON.parse(result.response);
+          
+          // Update extracted_variables in DB
+          await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .update({ extracted_variables: jsonResponse })
+            .eq('row_id', promptId);
+          
+          // Execute post-action
+          const actionResult = await executePostAction({
+            supabase,
+            prompt: promptData,
+            jsonResponse,
+            actionId: promptData.post_action,
+            config: promptData.post_action_config,
+            context: { userId: currentUser?.id },
+          });
+          
+          if (actionResult.success) {
+            toast.success(`Action completed: ${actionResult.message || 'Success'}`);
+          } else {
+            toast.warning(`Action failed: ${actionResult.error}`);
+          }
+        } catch (jsonError) {
+          console.warn('Action node response not valid JSON:', jsonError);
+          toast.warning('Action node response not valid JSON');
+        }
+      }
+      
       // Refresh the prompt data if this is the selected prompt
       if (promptId === selectedPromptId) {
         const data = await fetchItemData(promptId);
@@ -183,7 +222,7 @@ const MainLayout = () => {
       }
       refreshTreeData();
     }
-  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData]);
+  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {
