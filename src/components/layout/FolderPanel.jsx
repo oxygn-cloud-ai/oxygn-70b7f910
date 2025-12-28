@@ -14,7 +14,7 @@ import {
   Ban,
   FileX,
   Play,
-  Link2,
+  Braces,
   Upload,
   GripVertical,
   Workflow,
@@ -285,7 +285,7 @@ const TreeItem = ({
                 className={isRunningCascade ? "animate-spin" : ""}
               />
             )}
-            <IconButton icon={Link2} label="Copy Variable Reference" onClick={() => {
+            <IconButton icon={Braces} label="Copy Variable Reference" onClick={() => {
               navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
               toast.success('Copied variable reference');
             }} />

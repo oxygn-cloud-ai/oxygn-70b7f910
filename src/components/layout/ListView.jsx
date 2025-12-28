@@ -6,8 +6,8 @@ import {
   Copy, 
   Trash2, 
   Download,
-  Sparkles,
-  Link2,
+  Play,
+  Braces,
   Plus,
   Upload,
   Ban,
@@ -126,8 +126,8 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar
               className={prompt.starred ? "text-primary" : ""}
               onClick={() => onToggleStar?.(prompt.row_id)}
             />
-            <IconButton icon={Sparkles} label="Run" />
-            <IconButton icon={Link2} label="Copy Variable Reference" />
+            <IconButton icon={Play} label="Play" />
+            <IconButton icon={Braces} label="Copy Variable Reference" />
             <IconButton icon={Plus} label="Add Child" />
             <IconButton icon={Copy} label="Duplicate" />
             <IconButton icon={Upload} label="Export" />
