@@ -183,7 +183,7 @@ import ResizablePromptArea from "../shared/ResizablePromptArea";
 import ResizableOutputArea from "../shared/ResizableOutputArea";
 
 // Prompt Tab Content
-const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, variables = [] }) => {
+const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [] }) => {
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
@@ -223,6 +223,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         defaultHeight={144}
         onRegenerate={() => onRunPrompt?.(selectedPromptId)}
         isRegenerating={isRunningPrompt}
+        runTime={formattedTime}
       />
     </div>
   );
@@ -1162,6 +1163,7 @@ const PromptsContent = ({
               onRunPrompt={onRunPrompt}
               selectedPromptId={selectedPromptId}
               isRunningPrompt={isRunningPrompt}
+              formattedTime={formattedTime}
               variables={variables}
             />
           )}

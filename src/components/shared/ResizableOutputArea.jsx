@@ -36,6 +36,7 @@ const ResizableOutputArea = ({
   metadata,
   onRegenerate,
   isRegenerating = false,
+  runTime,
   defaultHeight = MIN_HEIGHT 
 }) => {
   const [expandState, setExpandState] = useState('min'); // 'collapsed' | 'min' | 'full'
@@ -150,18 +151,25 @@ const ResizableOutputArea = ({
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
           {onRegenerate && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={onRegenerate}
-                  disabled={isRegenerating}
-                  className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${isRegenerating ? 'text-primary' : 'text-on-surface-variant'}`}
-                >
-                  {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">{isRegenerating ? 'Running...' : 'Play'}</TooltipContent>
-            </Tooltip>
+            <>
+              {isRegenerating && runTime && (
+                <span className="text-[10px] text-primary font-medium tabular-nums">
+                  {runTime}
+                </span>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={onRegenerate}
+                    disabled={isRegenerating}
+                    className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${isRegenerating ? 'text-primary' : 'text-on-surface-variant'}`}
+                  >
+                    {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">{isRegenerating ? 'Running...' : 'Play'}</TooltipContent>
+              </Tooltip>
+            </>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
