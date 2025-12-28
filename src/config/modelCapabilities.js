@@ -1,5 +1,57 @@
-// Model capabilities configuration - v2
-// Defines which settings and tools each model/provider supports
+// Model capabilities configuration - v3
+// Defines which settings, tools, and limits each model/provider supports
+
+// Model-specific configurations including max tokens and parameter names
+export const MODEL_CONFIG = {
+  // GPT-4 series
+  'gpt-4': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'gpt-4-turbo': { maxTokens: 128000, tokenParam: 'max_tokens', supportsTemperature: true },
+  'gpt-4o': { maxTokens: 128000, tokenParam: 'max_tokens', supportsTemperature: true },
+  'gpt-4o-mini': { maxTokens: 128000, tokenParam: 'max_tokens', supportsTemperature: true },
+  // GPT-5 series - uses max_completion_tokens, no temperature
+  'gpt-5': { maxTokens: 32768, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'gpt-5-mini': { maxTokens: 32768, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'gpt-5-nano': { maxTokens: 16384, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'gpt-5.2': { maxTokens: 32768, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'gpt-5.2-pro': { maxTokens: 65536, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  // O-series reasoning models
+  'o1': { maxTokens: 100000, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'o1-preview': { maxTokens: 32768, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'o1-mini': { maxTokens: 65536, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'o3': { maxTokens: 100000, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'o3-mini': { maxTokens: 100000, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  'o4-mini': { maxTokens: 100000, tokenParam: 'max_completion_tokens', supportsTemperature: false },
+  // Claude models
+  'claude-sonnet-4-5': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'claude-opus-4-1': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'claude-3-5-sonnet': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'claude-3-5-haiku': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  // Gemini models
+  'gemini-2.5-pro': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'gemini-2.5-flash': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'gemini-2.5-flash-lite': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+  'gemini-3-pro-preview': { maxTokens: 8192, tokenParam: 'max_tokens', supportsTemperature: true },
+};
+
+// Get model config with fallback defaults
+export const getModelConfig = (modelId) => {
+  if (!modelId) return { maxTokens: 4096, tokenParam: 'max_tokens', supportsTemperature: true };
+  
+  const lowerModelId = modelId.toLowerCase();
+  
+  // Try exact match first
+  if (MODEL_CONFIG[lowerModelId]) return MODEL_CONFIG[lowerModelId];
+  
+  // Try partial match
+  for (const [key, config] of Object.entries(MODEL_CONFIG)) {
+    if (lowerModelId.includes(key) || key.includes(lowerModelId)) {
+      return config;
+    }
+  }
+  
+  // Default fallback
+  return { maxTokens: 4096, tokenParam: 'max_tokens', supportsTemperature: true };
+};
 
 // Settings that each model supports
 export const MODEL_CAPABILITIES = {
@@ -9,12 +61,17 @@ export const MODEL_CAPABILITIES = {
     'gpt-4': ['temperature', 'max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'response_format'],
     'gpt-4o': ['temperature', 'max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'response_format'],
     'gpt-4o-mini': ['temperature', 'max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'response_format'],
-    'gpt-5': ['max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
-    'gpt-5-mini': ['max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
-    'gpt-5.2': ['max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
-    'gpt-5.2-pro': ['max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
-    'o3': ['max_tokens', 'reasoning_effort', 'response_format'],
-    'o4-mini': ['max_tokens', 'reasoning_effort', 'response_format'],
+    'gpt-5': ['max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
+    'gpt-5-mini': ['max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
+    'gpt-5-nano': ['max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'response_format'],
+    'gpt-5.2': ['max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
+    'gpt-5.2-pro': ['max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort', 'response_format'],
+    'o1': ['max_completion_tokens', 'reasoning_effort', 'response_format'],
+    'o1-preview': ['max_completion_tokens', 'reasoning_effort', 'response_format'],
+    'o1-mini': ['max_completion_tokens', 'reasoning_effort', 'response_format'],
+    'o3': ['max_completion_tokens', 'reasoning_effort', 'response_format'],
+    'o3-mini': ['max_completion_tokens', 'reasoning_effort', 'response_format'],
+    'o4-mini': ['max_completion_tokens', 'reasoning_effort', 'response_format'],
   },
   
   // Anthropic models
@@ -32,6 +89,7 @@ export const MODEL_CAPABILITIES = {
     'gemini-2.5-pro': ['temperature', 'max_tokens'],
     'gemini-2.5-flash': ['temperature', 'max_tokens'],
     'gemini-2.5-flash-lite': ['temperature', 'max_tokens'],
+    'gemini-3-pro-preview': ['temperature', 'max_tokens'],
   },
   
   // Other/custom models - allow common settings
@@ -70,7 +128,7 @@ export const ALL_SETTINGS = {
     description: 'Controls randomness (0-2)',
     details: 'Higher values like 0.8 make output more random, while lower values like 0.2 make it more focused and deterministic.',
     docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-temperature',
-    type: 'number',
+    type: 'slider',
     min: 0,
     max: 2,
     step: 0.1,
@@ -85,6 +143,18 @@ export const ALL_SETTINGS = {
     type: 'number',
     min: 1,
     max: 128000,
+    step: 1,
+    defaultValue: '4096'
+  },
+  max_completion_tokens: { 
+    label: 'Max Completion Tokens', 
+    shortLabel: 'Max Comp',
+    description: 'Maximum response length (GPT-5/O-series)',
+    details: 'The maximum number of tokens to generate. Used by GPT-5 and O-series models instead of max_tokens.',
+    docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-max_completion_tokens',
+    type: 'number',
+    min: 1,
+    max: 100000,
     step: 1,
     defaultValue: '4096'
   },
