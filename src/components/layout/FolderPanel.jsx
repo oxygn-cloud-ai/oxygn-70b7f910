@@ -251,12 +251,6 @@ const TreeItem = ({
         <Icon className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
         
-        {/* Child count badge when collapsed */}
-        {hasChildren && !isExpanded && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-on-surface/[0.08] text-on-surface-variant">
-            {item.children.length}
-          </span>
-        )}
         
         {/* Hover actions or status icons */}
         {isHovered ? (
