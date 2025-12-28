@@ -235,19 +235,6 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
     </div>
   );
 };
-      {/* Output */}
-      <ResizableOutputArea
-        label="Output"
-        value={outputResponse}
-        placeholder="No output yet. Run the prompt to generate a response."
-        metadata={metadata}
-        defaultHeight={144}
-        onRegenerate={() => onRunPrompt?.(selectedPromptId)}
-        isRegenerating={isRunningPrompt}
-      />
-    </div>
-  );
-};
 
 // Settings Tab Content
 const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
@@ -1070,7 +1057,7 @@ const PromptsContent = ({
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        <div className="max-w-3xl">
+        <div className="w-full">
           {activeTab === "prompt" && (
             <PromptTabContent 
               promptData={promptData}
