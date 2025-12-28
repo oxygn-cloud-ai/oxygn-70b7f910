@@ -1,13 +1,34 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { DEFAULT_SCHEMAS } from '@/config/defaultSchemas';
 
 export const useJsonSchemaTemplates = () => {
-  const [templates, setTemplates] = useState([]);
+  const [savedTemplates, setSavedTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch all JSON schema templates for the current user
+  // Combine built-in schemas with saved templates
+  const templates = useMemo(() => {
+    // Convert DEFAULT_SCHEMAS to match saved template format
+    const builtInTemplates = DEFAULT_SCHEMAS.map(schema => ({
+      row_id: `builtin_${schema.id}`,
+      schema_name: schema.name,
+      schema_description: schema.description,
+      category: schema.category || 'general',
+      json_schema: schema.schema,
+      node_config: schema.nodeConfig || null,
+      child_creation: schema.childCreation || null,
+      action_config: schema.actionConfig || null,
+      model_config: schema.modelConfig || null,
+      system_prompt_template: schema.systemPromptTemplate || null,
+      is_builtin: true,
+    }));
+    
+    return [...builtInTemplates, ...savedTemplates];
+  }, [savedTemplates]);
+
+  // Fetch saved JSON schema templates from database
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -19,7 +40,7 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(data || []);
+      setSavedTemplates(data || []);
       return data || [];
     } catch (error) {
       console.error('Error fetching JSON schema templates:', error);
@@ -56,7 +77,7 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(prev => [data, ...prev]);
+      setSavedTemplates(prev => [data, ...prev]);
       toast.success('Schema template saved');
       return data;
     } catch (error) {
@@ -84,7 +105,7 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
+      setSavedTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
       toast.success('Schema template updated');
       return data;
     } catch (error) {
@@ -106,7 +127,7 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(prev => prev.filter(t => t.row_id !== rowId));
+      setSavedTemplates(prev => prev.filter(t => t.row_id !== rowId));
       toast.success('Schema template deleted');
     } catch (error) {
       console.error('Error deleting schema template:', error);
@@ -148,7 +169,8 @@ export const useJsonSchemaTemplates = () => {
   }, [fetchTemplates]);
 
   return {
-    templates,
+    templates,          // Combined: built-in + saved
+    savedTemplates,     // Only user-saved templates from database
     isLoading,
     isSaving,
     fetchTemplates,
