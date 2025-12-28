@@ -12,13 +12,10 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  plugins: [
-    react(),
-    mode === "development" && componentTagger(),
-  ].filter(Boolean),
+  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     // Ensure a single React instance
-    dedupe: ["react", "react-dom"],
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
     alias: [
       {
         find: "@",
@@ -28,18 +25,11 @@ export default defineConfig(({ mode }) => ({
         find: "lib",
         replacement: resolve(projectRoot, "lib"),
       },
-      {
-        find: "react",
-        replacement: resolve(projectRoot, "node_modules/react"),
-      },
-      {
-        find: "react-dom",
-        replacement: resolve(projectRoot, "node_modules/react-dom"),
-      },
     ],
   },
   optimizeDeps: {
-    include: ["react", "react-dom"],
+    include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    force: true,
   },
 }));
 
