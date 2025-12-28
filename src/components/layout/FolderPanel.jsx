@@ -22,10 +22,14 @@ import {
   Loader2,
   FolderOpen,
   Filter,
-  LayoutTemplate
+  LayoutTemplate,
+  CheckSquare,
+  Square,
+  X
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useDrag, useDrop } from "react-dnd";
 import { SkeletonListItem } from "@/components/shared/Skeletons";
 import { toast } from "@/components/ui/sonner";
@@ -153,7 +157,14 @@ const TreeItem = ({
   onToggleExcludeCascade,
   onToggleExcludeExport,
   isRunningPrompt,
-  isRunningCascade
+  isRunningCascade,
+  // Multi-select
+  isMultiSelectMode,
+  isSelected,
+  onToggleSelect,
+  lastSelectedId,
+  allFlatItems,
+  onRangeSelect
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
@@ -203,12 +214,32 @@ const TreeItem = ({
     onToggle?.(id);
   };
   
-  // Handle row click - if has children, toggle; otherwise select
-  const handleRowClick = () => {
-    if (hasChildren) {
-      onToggle?.(id);
+  // Handle row click - support multi-select with shift
+  const handleRowClick = (e) => {
+    if (isMultiSelectMode) {
+      if (e.shiftKey && lastSelectedId && allFlatItems && onRangeSelect) {
+        // Shift+click: range select
+        onRangeSelect(lastSelectedId, id, allFlatItems);
+      } else {
+        // Normal click in multi-select mode: toggle this item
+        onToggleSelect?.(id);
+      }
+    } else {
+      if (hasChildren) {
+        onToggle?.(id);
+      }
+      onSelect?.(id);
     }
-    onSelect?.(id);
+  };
+
+  // Handle checkbox click
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+    if (e.shiftKey && lastSelectedId && allFlatItems && onRangeSelect) {
+      onRangeSelect(lastSelectedId, id, allFlatItems);
+    } else {
+      onToggleSelect?.(id);
+    }
   };
   
   return (
@@ -230,8 +261,20 @@ const TreeItem = ({
         `}
         style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
       >
-        {/* Drag handle - only on hover */}
-        <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
+        {/* Multi-select checkbox - shown only in multi-select mode */}
+        {isMultiSelectMode && (
+          <div onClick={handleCheckboxClick} className="flex-shrink-0">
+            <Checkbox
+              checked={isSelected}
+              className="h-3.5 w-3.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+          </div>
+        )}
+        
+        {/* Drag handle - only on hover (hidden in multi-select mode) */}
+        {!isMultiSelectMode && (
+          <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
+        )}
         
         {/* Expand/collapse chevron - show for all items, greyed out when no children */}
         <button 
@@ -253,8 +296,8 @@ const TreeItem = ({
         <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
         
         
-        {/* Hover actions or status icons */}
-        {isHovered ? (
+        {/* Hover actions or status icons - hidden in multi-select mode */}
+        {!isMultiSelectMode && isHovered ? (
           <div className="flex items-center gap-0.5">
             <IconButton 
               icon={Star} 
@@ -297,13 +340,17 @@ const TreeItem = ({
             />
             <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id, label)} />
           </div>
-        ) : (
+        ) : !isMultiSelectMode ? (
           <div className="flex items-center gap-0.5">
             {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
             {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
             {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
           </div>
-        )}
+        ) : isSelected ? (
+          <div className="flex items-center">
+            <CheckSquare className="h-3 w-3 text-primary" />
+          </div>
+        ) : null}
       </div>
       
       {/* Drop indicator when hovering - shows "drop to make child" hint */}
@@ -344,8 +391,17 @@ const TreeItem = ({
                 onToggleExcludeExport={onToggleExcludeExport}
                 isRunningPrompt={isRunningPrompt}
                 isRunningCascade={isRunningCascade}
+                // Multi-select props
+                isMultiSelectMode={isMultiSelectMode}
+                isSelected={isSelected}
+                onToggleSelect={onToggleSelect}
+                lastSelectedId={lastSelectedId}
+                allFlatItems={allFlatItems}
+                onRangeSelect={onRangeSelect}
               />
               <DropZone onDrop={onMoveBetween} />
+            </React.Fragment>
+          ))}
             </React.Fragment>
           ))}
         </div>
@@ -373,12 +429,23 @@ const FolderPanel = ({
   onToggleExcludeCascade,
   onToggleExcludeExport,
   isRunningPrompt = false,
-  isRunningCascade = false
+  isRunningCascade = false,
+  // Batch operation handlers
+  onBatchDelete,
+  onBatchDuplicate,
+  onBatchStar,
+  onBatchToggleExcludeCascade,
+  onBatchToggleExcludeExport
 }) => {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const longPressTimerRef = useRef(null);
+  
+  // Multi-select state
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState(null);
+  const isMultiSelectMode = selectedItems.size > 0;
 
   const toggleFolder = (id) => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
@@ -414,6 +481,102 @@ const FolderPanel = ({
     // For now, just log - full implementation would calculate new position
     console.log(`Insert ${draggedId} at position`);
   };
+
+  // Flatten tree to get all items (for range selection)
+  const allFlatItems = useMemo(() => {
+    const flatten = (items, acc = []) => {
+      items.forEach(item => {
+        acc.push({ id: item.id || item.row_id, item });
+        if (item.children) {
+          flatten(item.children, acc);
+        }
+      });
+      return acc;
+    };
+    return flatten(treeData);
+  }, [treeData]);
+
+  // Multi-select handlers
+  const handleToggleSelect = useCallback((id) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    setLastSelectedId(id);
+  }, []);
+
+  const handleRangeSelect = useCallback((fromId, toId, flatItems) => {
+    const fromIdx = flatItems.findIndex(x => x.id === fromId);
+    const toIdx = flatItems.findIndex(x => x.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    
+    const start = Math.min(fromIdx, toIdx);
+    const end = Math.max(fromIdx, toIdx);
+    
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      for (let i = start; i <= end; i++) {
+        next.add(flatItems[i].id);
+      }
+      return next;
+    });
+    setLastSelectedId(toId);
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedItems(new Set());
+    setLastSelectedId(null);
+  }, []);
+
+  const selectAll = useCallback(() => {
+    setSelectedItems(new Set(allFlatItems.map(x => x.id)));
+  }, [allFlatItems]);
+
+  // Batch action handlers
+  const handleBatchDeleteClick = useCallback(async () => {
+    const ids = Array.from(selectedItems);
+    if (onBatchDelete) {
+      await onBatchDelete(ids);
+      clearSelection();
+    }
+  }, [selectedItems, onBatchDelete, clearSelection]);
+
+  const handleBatchDuplicateClick = useCallback(async () => {
+    const ids = Array.from(selectedItems);
+    if (onBatchDuplicate) {
+      await onBatchDuplicate(ids);
+      clearSelection();
+    }
+  }, [selectedItems, onBatchDuplicate, clearSelection]);
+
+  const handleBatchStarClick = useCallback(async (starred) => {
+    const ids = Array.from(selectedItems);
+    if (onBatchStar) {
+      await onBatchStar(ids, starred);
+      clearSelection();
+    }
+  }, [selectedItems, onBatchStar, clearSelection]);
+
+  const handleBatchExcludeCascadeClick = useCallback(async (exclude) => {
+    const ids = Array.from(selectedItems);
+    if (onBatchToggleExcludeCascade) {
+      await onBatchToggleExcludeCascade(ids, exclude);
+      clearSelection();
+    }
+  }, [selectedItems, onBatchToggleExcludeCascade, clearSelection]);
+
+  const handleBatchExcludeExportClick = useCallback(async (exclude) => {
+    const ids = Array.from(selectedItems);
+    if (onBatchToggleExcludeExport) {
+      await onBatchToggleExcludeExport(ids, exclude);
+      clearSelection();
+    }
+  }, [selectedItems, onBatchToggleExcludeExport, clearSelection]);
 
   // Calculate smart folder counts
   const counts = useMemo(() => {
@@ -786,6 +949,13 @@ const FolderPanel = ({
                     onToggleExcludeExport={onToggleExcludeExport}
                     isRunningPrompt={isRunningPrompt}
                     isRunningCascade={isRunningCascade}
+                    // Multi-select props
+                    isMultiSelectMode={isMultiSelectMode}
+                    isSelected={selectedItems.has(item.id || item.row_id)}
+                    onToggleSelect={handleToggleSelect}
+                    lastSelectedId={lastSelectedId}
+                    allFlatItems={allFlatItems}
+                    onRangeSelect={handleRangeSelect}
                   />
                   <DropZone onDrop={handleMoveBetween} />
                 </React.Fragment>
@@ -794,6 +964,83 @@ const FolderPanel = ({
           )}
         </div>
       </div>
+      
+      {/* Batch Action Bar - shown when items are selected */}
+      <AnimatePresence>
+        {isMultiSelectMode && (
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            className="absolute bottom-2 left-2 right-2 bg-surface-container-high border border-outline-variant rounded-m3-md shadow-lg p-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-on-surface-variant font-medium px-1">
+                  {selectedItems.size} selected
+                </span>
+                <button
+                  onClick={selectAll}
+                  className="text-[9px] text-primary hover:underline px-1"
+                >
+                  Select all
+                </button>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={() => handleBatchStarClick(true)} className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                      <Star className="h-3.5 w-3.5 text-on-surface-variant" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Star selected</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={handleBatchDuplicateClick} className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                      <Copy className="h-3.5 w-3.5 text-on-surface-variant" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Duplicate selected</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={() => handleBatchExcludeCascadeClick(true)} className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                      <Ban className="h-3.5 w-3.5 text-on-surface-variant" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Exclude from cascade</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={() => handleBatchExcludeExportClick(true)} className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                      <FileX className="h-3.5 w-3.5 text-on-surface-variant" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Exclude from export</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={handleBatchDeleteClick} className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Delete selected</TooltipContent>
+                </Tooltip>
+                <div className="w-px h-4 bg-outline-variant mx-1" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={clearSelection} className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                      <X className="h-3.5 w-3.5 text-on-surface-variant" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Clear selection</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
