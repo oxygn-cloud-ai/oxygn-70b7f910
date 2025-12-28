@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   MessageSquare, Plus, Clock, Star, Search, Send, Paperclip, 
   Mic, MoreVertical, PanelRightClose, PanelRightOpen, 

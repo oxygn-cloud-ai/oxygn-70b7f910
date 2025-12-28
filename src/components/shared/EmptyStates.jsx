@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { 
   MessageSquare, FileText, LayoutTemplate, FolderOpen, 
   Search, Inbox, Star, Clock, Settings, Variable,

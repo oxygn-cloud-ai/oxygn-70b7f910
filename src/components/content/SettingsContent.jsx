@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Settings, Database, Key, Palette, Bell, User, 
   Link2, DollarSign, CreditCard, MessageSquare, Sparkles,

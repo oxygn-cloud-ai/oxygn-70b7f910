@@ -1,10 +1,10 @@
-import React from 'react';
+import { Component } from 'react';
 
 /**
  * Error Boundary component to catch React rendering errors.
  * Prevents the entire app from crashing when a component fails.
  */
-class ErrorBoundary extends React.Component {
+class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };

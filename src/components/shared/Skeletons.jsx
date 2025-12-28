@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 
 // Base skeleton component with shimmer animation
 export const Skeleton = ({ className = "", animate = true }) => (
