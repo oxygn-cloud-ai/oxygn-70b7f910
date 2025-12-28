@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { Plus, Trash2, ChevronRight, ChevronDown, Save, Loader2, Code, Eye, Sparkles, AlertCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
-import { DEFAULT_SCHEMAS, formatSchemaForPrompt } from '@/config/defaultSchemas';
+import { formatSchemaForPrompt } from '@/utils/schemaUtils';
 
 const PROPERTY_TYPES = [
   { value: 'string', label: 'String' },
@@ -458,20 +458,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
               </TabsList>
             </Tabs>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Presets:</span>
-              {DEFAULT_SCHEMAS.slice(0, 3).map(preset => (
-                <Button
-                  key={preset.name}
-                  variant="outline"
-                  size="sm"
-                  className="h-6 text-[10px]"
-                  onClick={() => applyPreset(preset)}
-                >
-                  {preset.name}
-                </Button>
-              ))}
-            </div>
+            {/* Presets removed - use template picker instead */}
           </div>
         </div>
 
