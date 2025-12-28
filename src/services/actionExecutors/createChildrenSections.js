@@ -1,9 +1,10 @@
 /**
  * Create Children (Sections) Action Executor
  * 
- * Creates child nodes from JSON keys matching a "section nn" pattern.
+ * Creates child nodes from JSON keys matching a pattern or explicit key list.
  * Each matching key becomes a child node with the value as the name.
  * Optionally looks for corresponding content keys (e.g., "section 01 system prompt").
+ * Supports creating either standard or action node children.
  */
 
 const PROMPTS_TABLE = 'q_prompts';
@@ -66,7 +67,7 @@ const getPromptSettings = async (supabase, promptRowId) => {
       model, model_on, web_search_on, confluence_enabled, thread_mode, 
       child_thread_strategy, temperature, temperature_on, max_tokens, max_tokens_on,
       top_p, top_p_on, frequency_penalty, frequency_penalty_on, presence_penalty, 
-      presence_penalty_on, input_admin_prompt
+      presence_penalty_on, input_admin_prompt, response_format, response_format_on
     `)
     .eq('row_id', promptRowId)
     .single();
@@ -90,20 +91,6 @@ const getLibraryPrompt = async (supabase, libraryPromptId) => {
 };
 
 /**
- * Get the next position for new prompts based on placement
- */
-const getNextPosition = async (supabase, parentRowId) => {
-  const { data: siblings } = await supabase
-    .from(PROMPTS_TABLE)
-    .select('position')
-    .eq(parentRowId ? 'parent_row_id' : 'parent_row_id', parentRowId)
-    .order('position', { ascending: false })
-    .limit(1);
-
-  return (siblings?.[0]?.position ?? -1) + 1;
-};
-
-/**
  * Execute the create children sections action
  */
 export const executeCreateChildrenSections = async ({
@@ -114,38 +101,53 @@ export const executeCreateChildrenSections = async ({
   context,
 }) => {
   const {
+    target_keys = [],           // NEW: Explicit keys to convert (takes priority)
     section_pattern = '^section\\s*\\d+',
     name_source = 'key_value',
     content_key_suffix = 'system prompt',
     placement = 'children',
+    child_node_type = 'standard', // NEW: 'standard' or 'action'
     copy_library_prompt_id,
   } = config || {};
 
-  // Create regex from pattern
-  let sectionRegex;
-  try {
-    sectionRegex = new RegExp(section_pattern, 'i');
-  } catch (e) {
-    throw new Error(`Invalid regex pattern: ${section_pattern}`);
-  }
-
-  // Find all keys matching the section pattern (excluding content keys)
-  const contentSuffixLower = content_key_suffix?.toLowerCase()?.trim() || '';
-  const sectionKeys = Object.keys(jsonResponse).filter(key => {
-    const keyLower = key.toLowerCase();
-    // Match section pattern but exclude content keys
-    if (contentSuffixLower && keyLower.endsWith(contentSuffixLower)) {
-      return false;
+  // Determine which keys to process
+  let sectionKeys = [];
+  
+  if (Array.isArray(target_keys) && target_keys.length > 0) {
+    // Use explicit target_keys (exact matching)
+    sectionKeys = target_keys.filter(key => key in jsonResponse);
+  } else if (typeof target_keys === 'string' && target_keys) {
+    // Single key as string
+    if (target_keys in jsonResponse) {
+      sectionKeys = [target_keys];
     }
-    return sectionRegex.test(key);
-  });
+  } else {
+    // Fall back to regex pattern matching
+    let sectionRegex;
+    try {
+      sectionRegex = new RegExp(section_pattern, 'i');
+    } catch (e) {
+      throw new Error(`Invalid regex pattern: ${section_pattern}`);
+    }
+
+    // Find all keys matching the section pattern (excluding content keys)
+    const contentSuffixLower = content_key_suffix?.toLowerCase()?.trim() || '';
+    sectionKeys = Object.keys(jsonResponse).filter(key => {
+      const keyLower = key.toLowerCase();
+      // Match section pattern but exclude content keys
+      if (contentSuffixLower && keyLower.endsWith(contentSuffixLower)) {
+        return false;
+      }
+      return sectionRegex.test(key);
+    });
+  }
 
   if (sectionKeys.length === 0) {
     return {
       action: 'create_children_sections',
       createdCount: 0,
       children: [],
-      message: 'No keys matching section pattern found in JSON response',
+      message: 'No keys matching criteria found in JSON response',
     };
   }
 
@@ -205,6 +207,7 @@ export const executeCreateChildrenSections = async ({
     nextPosition = (topLevel?.[0]?.position ?? -1) + 1;
   }
 
+  const contentSuffixLower = content_key_suffix?.toLowerCase()?.trim() || '';
   const createdChildren = [];
 
   for (const sectionKey of sectionKeys) {
@@ -239,6 +242,19 @@ export const executeCreateChildrenSections = async ({
       }
     }
 
+    // Also check for underscore suffix pattern (e.g., section_01_system_prompt)
+    if (!content && contentSuffixLower) {
+      const underscoreSuffix = contentSuffixLower.replace(/\s+/g, '_');
+      const contentKey = `${sectionKey}_${underscoreSuffix}`;
+      const matchingKey = Object.keys(jsonResponse).find(
+        k => k.toLowerCase() === contentKey.toLowerCase()
+      );
+      if (matchingKey) {
+        const contentValue = jsonResponse[matchingKey];
+        content = typeof contentValue === 'string' ? contentValue : JSON.stringify(contentValue, null, 2);
+      }
+    }
+
     // Build child data with proper inheritance from action prompt settings
     const childData = {
       parent_row_id: targetParentRowId,
@@ -247,7 +263,7 @@ export const executeCreateChildrenSections = async ({
       input_user_prompt: content ? '' : (typeof sectionValue === 'string' ? sectionValue : ''),
       position: nextPosition++,
       owner_id: context.userId || prompt.owner_id,
-      node_type: 'standard',
+      node_type: child_node_type || 'standard', // Use configured node type
       // Store section data for reference
       extracted_variables: { 
         section_key: sectionKey, 
@@ -266,6 +282,12 @@ export const executeCreateChildrenSections = async ({
       thread_mode: actionPromptSettings.thread_mode,
       child_thread_strategy: actionPromptSettings.child_thread_strategy,
     };
+
+    // If creating action nodes, inherit response_format for structured output
+    if (child_node_type === 'action' && actionPromptSettings.response_format_on) {
+      childData.response_format = actionPromptSettings.response_format;
+      childData.response_format_on = true;
+    }
 
     if (copy_library_prompt_id) {
       childData.library_prompt_id = copy_library_prompt_id;
@@ -291,12 +313,15 @@ export const executeCreateChildrenSections = async ({
     top_level: 'as top-level prompts',
   };
 
+  const nodeTypeText = child_node_type === 'action' ? ' action' : '';
+
   return {
     action: 'create_children_sections',
     createdCount: createdChildren.length,
     children: createdChildren,
     placement,
+    childNodeType: child_node_type,
     sectionKeys,
-    message: `Created ${createdChildren.length} prompt(s) ${placementText[placement]} from section keys`,
+    message: `Created ${createdChildren.length}${nodeTypeText} prompt(s) ${placementText[placement]} from section keys`,
   };
 };
