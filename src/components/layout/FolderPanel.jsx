@@ -346,11 +346,6 @@ const TreeItem = ({
         {!isMultiSelectMode && isHovered ? (
           <div className="flex items-center gap-0.5">
             <IconButton 
-              icon={Palette} 
-              label="Change Icon" 
-              onClick={handleIconClick}
-            />
-            <IconButton 
               icon={Star} 
               label={starred ? "Unstar" : "Star"} 
               className={starred ? "text-amber-500" : ""} 
