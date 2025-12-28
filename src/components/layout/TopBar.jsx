@@ -6,12 +6,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
+import { UndoHistoryPopover } from "@/components/UndoHistoryPopover";
 import { useTooltipSettings } from "@/contexts/TooltipContext";
 
 const TopBar = ({ 
   isDark = false, 
   onToggleDark,
-  onOpenSearch
+  onOpenSearch,
+  onUndoAction
 }) => {
   const { tooltipsEnabled, toggleTooltips } = useTooltipSettings();
   const { user, userProfile, signOut, isAdmin } = useAuth();
@@ -141,6 +143,8 @@ const TopBar = ({
             {isDark ? "Light mode" : "Dark mode"}
           </TooltipContent>
         </Tooltip>
+
+        <UndoHistoryPopover onUndo={onUndoAction} />
 
         <ToastHistoryPopover />
 
