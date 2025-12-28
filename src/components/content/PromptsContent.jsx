@@ -444,30 +444,6 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         </div>
       )}
 
-      {/* JSON Schema */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
-              <span>Select a schema...</span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {schemas.length === 0 ? (
-              <DropdownMenuItem className="text-body-sm text-on-surface-variant">
-                No schemas available
-              </DropdownMenuItem>
-            ) : schemas.map(schema => (
-              <DropdownMenuItem key={schema.row_id || schema.id} className="text-body-sm text-on-surface">
-                {schema.schema_name || schema.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
       {/* Assistant Mode Toggle */}
       <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
         <div className="flex items-center justify-between">
@@ -509,7 +485,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
       </div>
 
       {/* Actions & Cascade Section */}
-      <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} />
+      <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} schemas={schemas} />
     </div>
   );
 };
@@ -521,7 +497,7 @@ const ACTION_TYPES = [
   { id: "create_template", label: "Create Template", description: "Generate a template from the output" },
 ];
 
-const ActionConfigSection = () => {
+const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
   const [actionType, setActionType] = useState("create_children_json");
   const [includeInCascade, setIncludeInCascade] = useState(true);
 
@@ -600,6 +576,30 @@ const ActionConfigSection = () => {
                   placeholder="content"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
+              </div>
+
+              {/* JSON Schema */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
+                      <span>Select a schema...</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+                    {schemas.length === 0 ? (
+                      <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+                        No schemas available
+                      </DropdownMenuItem>
+                    ) : schemas.map(schema => (
+                      <DropdownMenuItem key={schema.row_id || schema.id} className="text-body-sm text-on-surface">
+                        {schema.schema_name || schema.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </>
           )}
