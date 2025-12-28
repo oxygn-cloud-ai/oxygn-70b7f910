@@ -1137,20 +1137,18 @@ const PromptsContent = ({
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Run Prompt'}</TooltipContent>
           </Tooltip>
-          {selectedPromptHasChildren && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={() => onRunCascade?.(selectedPromptId)}
-                  disabled={isRunningCascade}
-                  className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${isRunningCascade ? 'text-primary' : 'text-on-surface-variant'}`}
-                >
-                  {isRunningCascade ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">{isRunningCascade ? 'Running Cascade...' : 'Run Cascade'}</TooltipContent>
-            </Tooltip>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => onRunCascade?.(selectedPromptId)}
+                disabled={isRunningCascade || !selectedPromptHasChildren}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${isRunningCascade ? 'text-primary' : !selectedPromptHasChildren ? 'text-on-surface-variant/40' : 'text-on-surface-variant'}`}
+              >
+                {isRunningCascade ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">{isRunningCascade ? 'Running Cascade...' : !selectedPromptHasChildren ? 'No children to cascade' : 'Run Cascade'}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <button onClick={onExport} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
