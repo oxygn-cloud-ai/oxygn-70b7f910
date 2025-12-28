@@ -1,21 +1,14 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Mic, MoreVertical, PanelRightClose, Plus, Trash2, Loader2, MessageSquare } from "lucide-react";
+import { Send, Paperclip, Mic, MoreVertical, PanelRightClose, Loader2, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SkeletonListItem, SkeletonChat } from "@/components/shared/Skeletons";
+import { SkeletonChat } from "@/components/shared/Skeletons";
 
 const ConversationPanel = ({ 
   onClose,
-  threads = [],
-  activeThread,
-  onSelectThread,
   messages = [],
-  isLoadingThreads = false,
   isLoadingMessages = false,
   isSending = false,
-  onCreateThread,
-  onDeleteThread,
-  onRenameThread,
   onSendMessage,
   promptName = "Prompt"
 }) => {
@@ -62,17 +55,6 @@ const ConversationPanel = ({
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button 
-                onClick={() => onCreateThread?.("New Thread")}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">New Thread</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
               <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <MoreVertical className="h-4 w-4" />
               </button>
@@ -94,25 +76,6 @@ const ConversationPanel = ({
           )}
         </div>
       </div>
-
-      {/* Thread tabs if multiple threads */}
-      {threads.length > 1 && (
-        <div className="px-2 py-1 border-b border-outline-variant overflow-x-auto flex gap-1">
-          {threads.map((thread) => (
-            <button
-              key={thread.row_id}
-              onClick={() => onSelectThread?.(thread)}
-              className={`px-2 py-1 text-[10px] rounded-m3-sm whitespace-nowrap transition-colors ${
-                activeThread?.row_id === thread.row_id
-                  ? "bg-secondary-container text-secondary-container-foreground"
-                  : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-              }`}
-            >
-              {thread.name || "Thread"}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-2.5" ref={scrollRef}>
