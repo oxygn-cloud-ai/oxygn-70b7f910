@@ -149,6 +149,7 @@ const TemplatesFolderPanel = ({
   // Real data props - Phase 8-9
   templates = [],
   schemaTemplates = [],
+  mappingTemplates = [],
   isLoadingTemplates = false,
   isLoadingSchemas = false,
   onCreateTemplate,
