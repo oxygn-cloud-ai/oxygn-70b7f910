@@ -200,15 +200,26 @@ export const executeCreateChildrenJson = async ({
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     
-    // Determine child name
+    // Determine child name with smart auto-detection
     let childName;
     if (typeof item === 'string') {
-      childName = item.substring(0, 50) || `Item ${i + 1}`;
+      childName = item.substring(0, 100) || `Item ${i + 1}`;
     } else if (typeof item === 'object' && item !== null) {
-      childName = getNestedValue(item, name_field) || 
-                  item.title || 
-                  item.label || 
-                  `Item ${i + 1}`;
+      // If name_field is specified, try that first
+      if (name_field) {
+        childName = getNestedValue(item, name_field);
+      }
+      // Auto-detect from common name fields if not found
+      if (!childName) {
+        childName = item.name || item.title || item.heading || item.label || 
+                    item.section_name || item.section_title || item.topic ||
+                    item.subject || item.key || item.id;
+      }
+      // If still nothing, use first string value in the object
+      if (!childName) {
+        const firstStringValue = Object.values(item).find(v => typeof v === 'string' && v.length > 0 && v.length < 150);
+        childName = firstStringValue || `Item ${i + 1}`;
+      }
     } else {
       childName = `Item ${i + 1}`;
     }
