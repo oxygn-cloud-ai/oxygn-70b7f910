@@ -1,34 +1,13 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { DEFAULT_SCHEMAS } from '@/config/defaultSchemas';
 
 export const useJsonSchemaTemplates = () => {
-  const [savedTemplates, setSavedTemplates] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Combine built-in schemas with saved templates
-  const templates = useMemo(() => {
-    // Convert DEFAULT_SCHEMAS to match saved template format
-    const builtInTemplates = DEFAULT_SCHEMAS.map(schema => ({
-      row_id: `builtin_${schema.id}`,
-      schema_name: schema.name,
-      schema_description: schema.description,
-      category: schema.category || 'general',
-      json_schema: schema.schema,
-      node_config: schema.nodeConfig || null,
-      child_creation: schema.childCreation || null,
-      action_config: schema.actionConfig || null,
-      model_config: schema.modelConfig || null,
-      system_prompt_template: schema.systemPromptTemplate || null,
-      is_builtin: true,
-    }));
-    
-    return [...builtInTemplates, ...savedTemplates];
-  }, [savedTemplates]);
-
-  // Fetch saved JSON schema templates from database
+  // Fetch all JSON schema templates from database
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -36,11 +15,12 @@ export const useJsonSchemaTemplates = () => {
         .from('q_json_schema_templates')
         .select('*')
         .eq('is_deleted', false)
-        .order('updated_at', { ascending: false });
+        .order('category', { ascending: true })
+        .order('schema_name', { ascending: true });
 
       if (error) throw error;
 
-      setSavedTemplates(data || []);
+      setTemplates(data || []);
       return data || [];
     } catch (error) {
       console.error('Error fetching JSON schema templates:', error);
@@ -56,7 +36,12 @@ export const useJsonSchemaTemplates = () => {
     schemaName,
     schemaDescription,
     category,
-    jsonSchema
+    jsonSchema,
+    nodeConfig,
+    childCreation,
+    actionConfig,
+    modelConfig,
+    systemPromptTemplate
   }) => {
     setIsSaving(true);
     try {
@@ -70,14 +55,21 @@ export const useJsonSchemaTemplates = () => {
           schema_name: schemaName,
           schema_description: schemaDescription,
           category: category || 'general',
-          json_schema: jsonSchema
+          json_schema: jsonSchema,
+          node_config: nodeConfig || null,
+          child_creation: childCreation || null,
+          action_config: actionConfig || null,
+          model_config: modelConfig || null,
+          system_prompt_template: systemPromptTemplate || null
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      setSavedTemplates(prev => [data, ...prev]);
+      setTemplates(prev => [...prev, data].sort((a, b) => 
+        a.schema_name.localeCompare(b.schema_name)
+      ));
       toast.success('Schema template saved');
       return data;
     } catch (error) {
@@ -105,7 +97,7 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setSavedTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
+      setTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
       toast.success('Schema template updated');
       return data;
     } catch (error) {
@@ -127,7 +119,7 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setSavedTemplates(prev => prev.filter(t => t.row_id !== rowId));
+      setTemplates(prev => prev.filter(t => t.row_id !== rowId));
       toast.success('Schema template deleted');
     } catch (error) {
       console.error('Error deleting schema template:', error);
@@ -142,7 +134,12 @@ export const useJsonSchemaTemplates = () => {
       schemaName: `${template.schema_name} (copy)`,
       schemaDescription: template.schema_description,
       category: template.category,
-      jsonSchema: template.json_schema
+      jsonSchema: template.json_schema,
+      nodeConfig: template.node_config,
+      childCreation: template.child_creation,
+      actionConfig: template.action_config,
+      modelConfig: template.model_config,
+      systemPromptTemplate: template.system_prompt_template
     });
   }, [createTemplate]);
 
@@ -169,8 +166,7 @@ export const useJsonSchemaTemplates = () => {
   }, [fetchTemplates]);
 
   return {
-    templates,          // Combined: built-in + saved
-    savedTemplates,     // Only user-saved templates from database
+    templates,
     isLoading,
     isSaving,
     fetchTemplates,
