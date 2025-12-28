@@ -207,7 +207,13 @@ const MainLayout = () => {
       // Handle action node post-actions
       if (promptData?.node_type === 'action' && result.response && promptData.post_action) {
         try {
-          const jsonResponse = JSON.parse(result.response);
+          // Extract JSON from markdown code blocks if present
+          let jsonString = result.response.trim();
+          const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (codeBlockMatch) {
+            jsonString = codeBlockMatch[1].trim();
+          }
+          const jsonResponse = JSON.parse(jsonString);
           
           // Update extracted_variables in DB
           await supabase
