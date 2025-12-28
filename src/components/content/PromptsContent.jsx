@@ -387,7 +387,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-              {['low', 'medium', 'high'].map(level => (
+              {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map(level => (
                 <DropdownMenuItem 
                   key={level}
                   onClick={() => onUpdateField?.('reasoning_effort', level)}

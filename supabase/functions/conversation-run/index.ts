@@ -223,8 +223,9 @@ async function runResponsesAPI(
     requestBody.seed = options.seed;
   }
 
-  // Add reasoning effort for o1/o3 models
-  if (options.reasoningEffort && ['low', 'medium', 'high'].includes(options.reasoningEffort)) {
+  // Add reasoning effort for o1/o3/o4 models (none means omit the parameter)
+  const validReasoningEfforts = ['minimal', 'low', 'medium', 'high', 'xhigh'];
+  if (options.reasoningEffort && validReasoningEfforts.includes(options.reasoningEffort)) {
     requestBody.reasoning = { effort: options.reasoningEffort };
   }
 
