@@ -3,6 +3,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
   Edit3, Check, Library, Search, Play, Loader2, ChevronRight, Copy
 } from "lucide-react";
+import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -487,18 +488,18 @@ const ResizablePromptArea = ({
       {/* Content area */}
       {!isCollapsed && (
         <>
-          {isEditing ? (
-            <textarea
+        {isEditing ? (
+            <HighlightedTextarea
               ref={textareaRef}
               value={editValue}
               onChange={handleTextareaChange}
               onSelect={handleTextareaSelect}
               onClick={handleTextareaClick}
               onKeyUp={handleTextareaKeyUp}
-              onMouseUp={handleResize}
               placeholder={placeholder}
+              userVariables={transformedUserVars}
               style={{ height: `${currentHeight}px` }}
-              className="w-full p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y font-mono overflow-auto"
+              className="w-full p-2.5 bg-surface-container rounded-m3-md border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y overflow-auto"
             />
           ) : (
             <div 
