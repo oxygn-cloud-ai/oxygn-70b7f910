@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Edit3, Check, Library, Search, Play, Loader2, ChevronRight
+  Edit3, Check, Library, Search, Play, Loader2, ChevronRight, Copy
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "@/components/ui/sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -437,6 +438,22 @@ const ResizablePromptArea = ({
         <div className="flex items-center gap-1">
           <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} />
           {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={async () => {
+                  if (value) {
+                    await navigator.clipboard.writeText(value);
+                    toast.success('Copied to clipboard');
+                  }
+                }}
+                className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Copy</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
