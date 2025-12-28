@@ -1,6 +1,205 @@
 // Default JSON schema templates for action nodes
+// Extended with modelConfig, nodeConfig, childCreation, actionConfig metadata
 
 export const DEFAULT_SCHEMAS = [
+  // ==================== ACTION TEMPLATES (with full config) ====================
+  {
+    id: 'sections_to_children',
+    name: 'Sections → Children',
+    description: 'Generate numbered sections that automatically create child prompts',
+    category: 'action',
+    schema: {
+      type: 'object',
+      properties: {
+        section_01: { type: 'string', description: 'Title/name for section 1' },
+        section_01_system_prompt: { type: 'string', description: 'System prompt content for section 1' },
+        section_02: { type: 'string', description: 'Title/name for section 2' },
+        section_02_system_prompt: { type: 'string', description: 'System prompt content for section 2' },
+        section_03: { type: 'string', description: 'Title/name for section 3' },
+        section_03_system_prompt: { type: 'string', description: 'System prompt content for section 3' },
+      },
+      required: ['section_01'],
+      additionalProperties: true,
+    },
+    nodeConfig: {
+      node_type: 'action',
+      post_action: 'create_children_sections',
+    },
+    childCreation: {
+      enabled: true,
+      keyPattern: '^section_\\d+$',
+      nameSource: 'key_value',
+      contentKeySuffix: '_system_prompt',
+      placement: 'children',
+      inheritModel: true,
+      childNodeType: 'standard',
+    },
+    actionConfig: {
+      section_pattern: '^section_\\d+$',
+      name_source: 'key_value',
+      content_key_suffix: '_system_prompt',
+      placement: 'children',
+    },
+    modelConfig: {
+      model: null, // null = use default
+      temperature: { enabled: true, value: '0.7' },
+      max_tokens: { enabled: false },
+    },
+    systemPromptTemplate: 'Generate numbered sections for {{topic}}. Create section_01, section_02, etc. with corresponding system prompts.',
+  },
+  {
+    id: 'goals_to_children',
+    name: 'Goals → Child Prompts',
+    description: 'SMART goals array that creates child prompts per goal',
+    category: 'action',
+    schema: {
+      type: 'object',
+      properties: {
+        goals: {
+          type: 'array',
+          description: 'SMART goals to create as child prompts',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Goal title (becomes prompt name)' },
+              description: { type: 'string', description: 'Goal description (becomes system prompt)' },
+              success_criteria: { type: 'string', description: 'How to measure success' },
+              deadline: { type: 'string', description: 'Target completion date' },
+            },
+            required: ['title', 'description'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['goals'],
+      additionalProperties: false,
+    },
+    nodeConfig: {
+      node_type: 'action',
+      post_action: 'create_children_json',
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'goals',
+      nameField: 'title',
+      contentField: 'description',
+      placement: 'children',
+      inheritModel: true,
+      childNodeType: 'standard',
+    },
+    actionConfig: {
+      json_path: 'goals',
+      name_field: 'title',
+      content_field: 'description',
+    },
+    modelConfig: {
+      model: null,
+      temperature: { enabled: true, value: '0.5' },
+    },
+    systemPromptTemplate: 'Generate SMART goals for {{topic}}. Each goal needs a clear title and description.',
+  },
+  {
+    id: 'tasks_to_action_children',
+    name: 'Tasks → Action Prompts',
+    description: 'Generate tasks that become action node children',
+    category: 'action',
+    schema: {
+      type: 'object',
+      properties: {
+        tasks: {
+          type: 'array',
+          description: 'Tasks to create as action node children',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Task name' },
+              system_prompt: { type: 'string', description: 'System prompt for the action' },
+              expected_output_schema: { type: 'string', description: 'Brief description of expected JSON output' },
+            },
+            required: ['name', 'system_prompt'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['tasks'],
+      additionalProperties: false,
+    },
+    nodeConfig: {
+      node_type: 'action',
+      post_action: 'create_children_json',
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'tasks',
+      nameField: 'name',
+      contentField: 'system_prompt',
+      placement: 'children',
+      inheritModel: true,
+      childNodeType: 'action',
+    },
+    actionConfig: {
+      json_path: 'tasks',
+      name_field: 'name',
+      content_field: 'system_prompt',
+      child_node_type: 'action',
+    },
+    modelConfig: {
+      model: null,
+      temperature: { enabled: true, value: '0.3' },
+    },
+  },
+  {
+    id: 'research_topics_siblings',
+    name: 'Research Topics → Siblings',
+    description: 'Generate research topics as sibling prompts for parallel execution',
+    category: 'action',
+    schema: {
+      type: 'object',
+      properties: {
+        topics: {
+          type: 'array',
+          description: 'Research topics to explore in parallel',
+          items: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Topic title' },
+              focus_areas: { type: 'string', description: 'Key areas to research' },
+              questions: { type: 'array', items: { type: 'string' }, description: 'Key questions to answer' },
+            },
+            required: ['title', 'focus_areas'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['topics'],
+      additionalProperties: false,
+    },
+    nodeConfig: {
+      node_type: 'action',
+      post_action: 'create_children_sections',
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'topics',
+      nameField: 'title',
+      contentField: 'focus_areas',
+      placement: 'siblings',
+      inheritModel: true,
+      childNodeType: 'standard',
+    },
+    actionConfig: {
+      json_path: 'topics',
+      name_field: 'title',
+      content_field: 'focus_areas',
+      placement: 'siblings',
+    },
+    modelConfig: {
+      model: null,
+      temperature: { enabled: true, value: '0.8' },
+    },
+  },
+
+  // ==================== STANDARD TEMPLATES (schema only) ====================
   {
     id: 'create_children',
     name: 'Create Children',
@@ -25,7 +224,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['items'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'items',
+      nameField: 'name',
+      contentField: 'content',
+    },
   },
   {
     id: 'goal_setting',
@@ -80,7 +285,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['goals'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'goals',
+      nameField: 'title',
+      contentField: 'description',
+    },
   },
   {
     id: 'okr',
@@ -120,7 +331,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['objectives'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'objectives',
+      nameField: 'objective',
+      contentField: null,
+    },
   },
   {
     id: 'swot_analysis',
@@ -279,7 +496,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['summary', 'action_items'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'action_items',
+      nameField: 'task',
+      contentField: null,
+    },
   },
   {
     id: 'project_plan',
@@ -339,7 +562,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['project_name', 'phases'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'phases',
+      nameField: 'name',
+      contentField: 'description',
+    },
   },
   {
     id: 'key_value_pairs',
@@ -365,7 +594,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['data'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'data',
+      nameField: 'key',
+      contentField: 'value',
+    },
   },
   {
     id: 'structured_analysis',
@@ -398,7 +633,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['summary', 'findings', 'recommendations'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'findings',
+      nameField: 'title',
+      contentField: 'description',
+    },
   },
   {
     id: 'task_list',
@@ -426,7 +667,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['tasks'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'tasks',
+      nameField: 'title',
+      contentField: 'description',
+    },
   },
   {
     id: 'decision_matrix',
@@ -481,7 +728,13 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['decision', 'criteria', 'options'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'options',
+      nameField: 'name',
+      contentField: null,
+    },
   },
   {
     id: 'simple_list',
@@ -499,46 +752,89 @@ export const DEFAULT_SCHEMAS = [
       },
       required: ['items'],
       additionalProperties: false
-    }
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'items',
+      nameField: null,
+      contentField: null,
+    },
   }
 ];
 
-// Generate schema description for the system prompt
+/**
+ * Get a default schema by ID
+ */
+export const getDefaultSchemaById = (id) => {
+  return DEFAULT_SCHEMAS.find(s => s.id === id);
+};
+
+/**
+ * Get schemas that have child creation enabled
+ */
+export const getSchemasWithChildCreation = () => {
+  return DEFAULT_SCHEMAS.filter(s => s.childCreation?.enabled);
+};
+
+/**
+ * Get schemas with full template configuration (nodeConfig + actionConfig)
+ */
+export const getFullTemplateSchemas = () => {
+  return DEFAULT_SCHEMAS.filter(s => s.nodeConfig && s.actionConfig);
+};
+
+/**
+ * Format a schema for use in AI prompts
+ */
 export const formatSchemaForPrompt = (schema) => {
-  if (!schema) return '';
+  if (!schema || typeof schema !== 'object') return '';
+
+  const lines = ['Expected JSON structure:'];
   
-  const lines = ['The response must match this JSON structure:'];
-  
-  const formatProperties = (props, required = [], indent = 0) => {
-    const pad = '  '.repeat(indent);
-    for (const [key, value] of Object.entries(props)) {
-      const isRequired = required.includes(key);
-      const reqLabel = isRequired ? ' (required)' : ' (optional)';
+  const formatProperties = (props, indent = '  ') => {
+    if (!props) return;
+    
+    Object.entries(props).forEach(([key, value]) => {
+      const type = value.type || 'any';
+      const desc = value.description ? ` - ${value.description}` : '';
+      const required = schema.required?.includes(key) ? ' (required)' : '';
       
-      if (value.type === 'array') {
-        if (value.items?.type === 'object') {
-          lines.push(`${pad}- ${key}${reqLabel}: array of objects with:`);
-          formatProperties(value.items.properties, value.items.required || [], indent + 1);
-        } else {
-          lines.push(`${pad}- ${key}${reqLabel}: array of ${value.items?.type || 'any'}`);
+      if (type === 'array' && value.items?.type === 'object') {
+        lines.push(`${indent}${key}: Array of objects${required}${desc}`);
+        if (value.items.properties) {
+          formatProperties(value.items.properties, indent + '    ');
         }
-      } else if (value.type === 'object' && value.properties) {
-        lines.push(`${pad}- ${key}${reqLabel}: object with:`);
-        formatProperties(value.properties, value.required || [], indent + 1);
+      } else if (type === 'object' && value.properties) {
+        lines.push(`${indent}${key}: Object${required}${desc}`);
+        formatProperties(value.properties, indent + '  ');
       } else {
-        const enumStr = value.enum ? ` [${value.enum.join(', ')}]` : '';
-        const desc = value.description ? ` - ${value.description}` : '';
-        lines.push(`${pad}- ${key} (${value.type}${enumStr})${reqLabel}${desc}`);
+        lines.push(`${indent}${key}: ${type}${required}${desc}`);
       }
-    }
+    });
   };
-  
-  if (schema.properties) {
-    formatProperties(schema.properties, schema.required || []);
-  }
-  
+
+  formatProperties(schema.properties);
   return lines.join('\n');
 };
 
-// Get the default schema for action nodes
-export const getDefaultActionSchema = () => DEFAULT_SCHEMAS[0].schema;
+/**
+ * Get the default action schema for backward compatibility
+ */
+export const getDefaultActionSchema = () => {
+  return getDefaultSchemaById('create_children');
+};
+
+/**
+ * Extract top-level keys from a schema for visual key picker
+ */
+export const extractSchemaKeys = (schema) => {
+  if (!schema?.properties) return [];
+  
+  return Object.entries(schema.properties).map(([key, value]) => ({
+    key,
+    type: value.type || 'any',
+    description: value.description || '',
+    isArray: value.type === 'array',
+    hasItems: !!value.items,
+  }));
+};

@@ -482,39 +482,54 @@ export type Database = {
       }
       q_json_schema_templates: {
         Row: {
+          action_config: Json | null
           category: string | null
+          child_creation: Json | null
           created_at: string | null
           is_deleted: boolean | null
           is_private: boolean | null
           json_schema: Json
+          model_config: Json | null
+          node_config: Json | null
           owner_id: string | null
           row_id: string
           schema_description: string | null
           schema_name: string
+          system_prompt_template: string | null
           updated_at: string | null
         }
         Insert: {
+          action_config?: Json | null
           category?: string | null
+          child_creation?: Json | null
           created_at?: string | null
           is_deleted?: boolean | null
           is_private?: boolean | null
           json_schema: Json
+          model_config?: Json | null
+          node_config?: Json | null
           owner_id?: string | null
           row_id?: string
           schema_description?: string | null
           schema_name: string
+          system_prompt_template?: string | null
           updated_at?: string | null
         }
         Update: {
+          action_config?: Json | null
           category?: string | null
+          child_creation?: Json | null
           created_at?: string | null
           is_deleted?: boolean | null
           is_private?: boolean | null
           json_schema?: Json
+          model_config?: Json | null
+          node_config?: Json | null
           owner_id?: string | null
           row_id?: string
           schema_description?: string | null
           schema_name?: string
+          system_prompt_template?: string | null
           updated_at?: string | null
         }
         Relationships: []
