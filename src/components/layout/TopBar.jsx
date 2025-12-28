@@ -1,19 +1,19 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
+import { Search, Command, MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
-import ToastHistoryPopover from "@/components/ToastHistoryPopover";
+import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
+import { useTooltipSettings } from "@/contexts/TooltipContext";
 
 const TopBar = ({ 
-  tooltipsEnabled = true, 
-  onToggleTooltips, 
   isDark = false, 
   onToggleDark,
   onOpenSearch
 }) => {
+  const { tooltipsEnabled, toggleTooltips } = useTooltipSettings();
   const { user, userProfile, signOut, isAdmin } = useAuth();
   
   // Get user display info
@@ -91,7 +91,7 @@ const TopBar = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <motion.button 
-              onClick={onToggleTooltips}
+              onClick={toggleTooltips}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200"
