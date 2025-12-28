@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { getModelConfig, getModelCapabilities } from '@/config/modelCapabilities';
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
   LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
@@ -151,7 +152,7 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
-  React.useEffect(() => {
+  useEffect(() => {
     setEditValue(value || '');
   }, [value]);
 
@@ -271,10 +272,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
 
 // Settings Tab Content (for Prompt Templates) - with dynamic model-aware parameters
 const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }) => {
-  // Import model capabilities
-  const { getModelConfig, getModelCapabilities } = React.useMemo(() => {
-    return require('@/config/modelCapabilities');
-  }, []);
+  // Model capabilities imported at top level
 
   const currentModel = templateData?.structure?.model || 'gpt-4o';
   const currentProvider = models.find(m => m.model_id === currentModel)?.provider || 'openai';
@@ -285,7 +283,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
   const [maxTokens, setMaxTokens] = useState(templateData?.structure?.max_tokens || String(modelConfig.maxTokens));
 
   // Update max tokens when model changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (!templateData?.structure?.max_tokens) {
       setMaxTokens(String(modelConfig.maxTokens));
     }

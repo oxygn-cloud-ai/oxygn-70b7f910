@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTimer } from "@/hooks/useTimer";
 import { 
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 
@@ -236,11 +236,12 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
   );
 };
 
+// Import model capabilities at top level (ESM)
+import { getModelConfig, getModelCapabilities, ALL_SETTINGS } from '@/config/modelCapabilities';
+
 // Settings Tab Content with dynamic model-aware parameters
 const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
-  // Import model capabilities
-  const { getModelConfig, getModelCapabilities, ALL_SETTINGS } = React.useMemo(() => {
-    return require('@/config/modelCapabilities');
+  // Model capabilities imported at top level
   }, []);
 
   // Use real data from promptData
@@ -257,13 +258,13 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   const [maxTokens, setMaxTokens] = useState(currentMaxTokens);
 
   // Sync state when promptData or model changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (promptData?.temperature) {
       setTemperature([parseFloat(promptData.temperature)]);
     }
   }, [promptData?.temperature]);
   
-  React.useEffect(() => {
+  useEffect(() => {
     const tokenValue = promptData?.max_tokens || promptData?.max_completion_tokens;
     if (tokenValue) {
       setMaxTokens(tokenValue);

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +22,8 @@ const TemplatePreviewTab = ({ template }) => {
   const variableDefinitions = template.variable_definitions || [];
   const structure = template.structure || {};
 
-  // Initialize variable values from defaults
-  useMemo(() => {
+  // Initialize variable values from defaults - use useEffect for side effects
+  useEffect(() => {
     const defaults = {};
     variableDefinitions.forEach(v => {
       if (v.default && !variableValues[v.name]) {

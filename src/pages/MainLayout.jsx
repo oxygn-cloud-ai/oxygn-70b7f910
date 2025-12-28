@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { motion, AnimatePresence } from "framer-motion";
@@ -320,7 +320,7 @@ const MainLayout = () => {
   }, [selectedPromptId, activeThread, createThread, runConversation, selectedPromptData, fetchMessages]);
   
   // Check if selected prompt has children
-  const selectedPromptHasChildren = React.useMemo(() => {
+  const selectedPromptHasChildren = useMemo(() => {
     if (!selectedPromptId || !treeData) return false;
     return treeData.some(p => p.parent_row_id === selectedPromptId);
   }, [selectedPromptId, treeData]);

@@ -1,4 +1,3 @@
-// Cache invalidation: 2025-12-26T12:00:00Z
 import { fileURLToPath, URL } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -18,8 +17,8 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
-    // Ensure a single React instance (prevents "Invalid hook call" / dispatcher null)
-    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    // Ensure a single React instance
+    dedupe: ["react", "react-dom"],
     alias: [
       {
         find: "@",
@@ -29,18 +28,9 @@ export default defineConfig(({ mode }) => ({
         find: "lib",
         replacement: resolve(projectRoot, "lib"),
       },
-      // Pin React to the same physical path for all imports
-      {
-        find: /^react$/,
-        replacement: resolve(projectRoot, "node_modules/react"),
-      },
-      {
-        find: /^react-dom$/,
-        replacement: resolve(projectRoot, "node_modules/react-dom"),
-      },
     ],
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    include: ["react", "react-dom"],
   },
 }));
