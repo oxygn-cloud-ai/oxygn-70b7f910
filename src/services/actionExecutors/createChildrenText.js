@@ -95,6 +95,8 @@ export const executeCreateChildrenText = async ({
   const {
     children_count = 3,
     name_prefix = 'Child',
+    placement = 'children',
+    child_node_type = 'standard',
     copy_library_prompt_id,
   } = config || {};
 
@@ -110,15 +112,41 @@ export const executeCreateChildrenText = async ({
   // Get library prompt if specified
   const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id);
 
-  // Get current max position among siblings
-  const { data: siblings } = await supabase
-    .from(PROMPTS_TABLE)
-    .select('position')
-    .eq('parent_row_id', prompt.row_id)
-    .order('position', { ascending: false })
-    .limit(1);
+  // Determine parent_row_id based on placement
+  let targetParentRowId;
+  switch (placement) {
+    case 'children':
+      targetParentRowId = prompt.row_id;
+      break;
+    case 'siblings':
+      targetParentRowId = prompt.parent_row_id;
+      break;
+    case 'top_level':
+      targetParentRowId = null;
+      break;
+    default:
+      targetParentRowId = prompt.row_id;
+  }
 
-  let nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+  // Get current max position among target siblings
+  let nextPosition;
+  if (placement === 'top_level') {
+    const { data: topLevel } = await supabase
+      .from(PROMPTS_TABLE)
+      .select('position')
+      .is('parent_row_id', null)
+      .order('position', { ascending: false })
+      .limit(1);
+    nextPosition = (topLevel?.[0]?.position ?? -1) + 1;
+  } else {
+    const { data: siblings } = await supabase
+      .from(PROMPTS_TABLE)
+      .select('position')
+      .eq('parent_row_id', targetParentRowId)
+      .order('position', { ascending: false })
+      .limit(1);
+    nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+  }
 
   const createdChildren = [];
 
@@ -127,14 +155,14 @@ export const executeCreateChildrenText = async ({
     
     // Build child data with proper inheritance
     const childData = {
-      parent_row_id: prompt.row_id,
+      parent_row_id: targetParentRowId,
       prompt_name: childName,
       input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
       input_user_prompt: defaults.default_user_prompt || '',
       position: nextPosition++,
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
-      node_type: 'standard',
+      node_type: child_node_type || 'standard',
       // Apply model defaults
       ...modelDefaults,
       // Inherit settings from parent
@@ -162,10 +190,19 @@ export const executeCreateChildrenText = async ({
     createdChildren.push(data);
   }
 
+  const placementText = {
+    children: 'as children',
+    siblings: 'as siblings',
+    top_level: 'as top-level prompts',
+  };
+
+  const nodeTypeText = child_node_type === 'action' ? ' action' : '';
+
   return {
     action: 'create_children_text',
     createdCount: createdChildren.length,
     children: createdChildren,
-    message: `Created ${createdChildren.length} child node(s)`,
+    placement,
+    message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement] || ''}`,
   };
 };

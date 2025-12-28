@@ -81,6 +81,15 @@ export const ACTION_TYPES = {
         helpText: 'Prefix for child node names (e.g., "Child 1", "Child 2")',
       },
       {
+        key: 'placement',
+        label: 'Prompt Placement',
+        type: CONFIG_FIELD_TYPES.SELECT,
+        options: ['children', 'siblings', 'top_level'],
+        defaultValue: 'children',
+        required: true,
+        helpText: 'Where to create prompts: as children of this prompt, as siblings, or as top-level prompts',
+      },
+      {
         key: 'child_node_type',
         label: 'Child Node Type',
         type: CONFIG_FIELD_TYPES.SELECT,
@@ -121,9 +130,9 @@ export const ACTION_TYPES = {
         key: 'name_field',
         label: 'Name Field',
         type: CONFIG_FIELD_TYPES.TEXT,
-        defaultValue: 'name',
+        defaultValue: '',
         required: false,
-        helpText: 'Field in each item to use as node name (e.g., "name", "title")',
+        helpText: 'JSON path to the field to use as node name (e.g., "name", "title", "heading"). Leave empty for auto-detection.',
       },
       {
         key: 'content_field',
@@ -132,6 +141,15 @@ export const ACTION_TYPES = {
         defaultValue: '',
         required: false,
         helpText: 'Field to use as user prompt content (leave empty to use entire item)',
+      },
+      {
+        key: 'placement',
+        label: 'Prompt Placement',
+        type: CONFIG_FIELD_TYPES.SELECT,
+        options: ['children', 'siblings', 'top_level'],
+        defaultValue: 'children',
+        required: true,
+        helpText: 'Where to create prompts: as children of this prompt, as siblings, or as top-level prompts',
       },
       {
         key: 'child_node_type',
