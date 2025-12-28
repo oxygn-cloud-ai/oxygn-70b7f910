@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useTimer } from "@/hooks/useTimer";
 import { 
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 
@@ -7,8 +7,12 @@ import {
   Search, Plus, PanelRightOpen, Workflow, Bot, Thermometer,
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
-  RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch
+  RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
+  Paperclip, Upload
 } from "lucide-react";
+import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
+import { useConversationFiles } from "@/hooks/useConversationFiles";
+import { useConfluencePages } from "@/hooks/useConfluencePages";
 import VariablesTabContent from "./VariablesTabContent";
 import { VariablePicker } from "@/components/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -806,7 +810,34 @@ const PromptsContent = ({
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
+  const [confluenceModalOpen, setConfluenceModalOpen] = useState(false);
+  const fileInputRef = useRef(null);
   const formattedTime = useTimer(isRunningPrompt);
+
+  // Get assistant row id from promptData if it's an assistant
+  const assistantRowId = promptData?.is_assistant ? promptData?.assistant_row_id : null;
+  const promptRowId = promptData?.row_id;
+
+  // File and Confluence hooks
+  const {
+    files,
+    isUploading,
+    uploadFile,
+  } = useConversationFiles(assistantRowId);
+
+  const {
+    pages: confluencePages,
+    fetchAttachedPages,
+  } = useConfluencePages(assistantRowId, promptRowId);
+
+  // Handle file upload
+  const handleFileUpload = async (e) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles?.length > 0) {
+      await uploadFile(Array.from(selectedFiles));
+    }
+    e.target.value = '';
+  };
 
   // Update isAssistantEnabled when promptData changes
   useEffect(() => {
@@ -889,6 +920,49 @@ const PromptsContent = ({
           />
         </div>
         <div className="flex items-center gap-0.5">
+          {/* Attachments Menu */}
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                  </button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Attachments</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-48 bg-surface-container-high border-outline-variant">
+              <DropdownMenuItem 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading || !assistantRowId}
+                className="text-body-sm"
+              >
+                <Upload className="h-4 w-4 mr-2 text-on-surface-variant" />
+                Add Files
+                {files.length > 0 && <span className="ml-auto text-[10px] text-on-surface-variant">({files.length})</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setConfluenceModalOpen(true)}
+                className="text-body-sm"
+              >
+                <FileText className="h-4 w-4 mr-2 text-on-surface-variant" />
+                Connect Confluence
+                {confluencePages.length > 0 && <span className="ml-auto text-[10px] text-on-surface-variant">({confluencePages.length})</span>}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Hidden file input */}
+          <input 
+            ref={fileInputRef}
+            type="file" 
+            multiple 
+            className="hidden" 
+            onChange={handleFileUpload} 
+            disabled={isUploading} 
+          />
+          
           {!conversationPanelOpen && onToggleConversation && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -988,6 +1062,15 @@ const PromptsContent = ({
           )}
         </div>
       </div>
+
+      {/* Confluence Search Modal */}
+      <ConfluenceSearchModal
+        open={confluenceModalOpen}
+        onOpenChange={setConfluenceModalOpen}
+        assistantRowId={assistantRowId}
+        promptRowId={promptRowId}
+        onPageAttached={fetchAttachedPages}
+      />
     </div>
   );
 };
