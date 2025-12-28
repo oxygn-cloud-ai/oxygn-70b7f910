@@ -429,7 +429,7 @@ const MainLayout = () => {
   // Get undo context for keyboard shortcut
   const { undoStack, clearUndo } = useUndo();
 
-  // Handle undo via keyboard shortcut
+  // Handle undo via keyboard shortcut (undoes last action)
   const handleUndo = useCallback(async () => {
     if (undoStack.length === 0) {
       toast.info('Nothing to undo');
@@ -444,6 +444,15 @@ const MainLayout = () => {
       await treeOps.handleRestoreMove(lastAction.id, lastAction.itemId, lastAction.originalParentId, lastAction.itemName);
     }
   }, [undoStack, treeOps]);
+
+  // Handle undo for a specific action (from undo history panel)
+  const handleUndoAction = useCallback(async (action) => {
+    if (action.type === 'delete') {
+      await treeOps.handleRestoreDeleted(action.id, action.itemId, action.itemName);
+    } else if (action.type === 'move') {
+      await treeOps.handleRestoreMove(action.id, action.itemId, action.originalParentId, action.itemName);
+    }
+  }, [treeOps]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -768,6 +777,7 @@ const MainLayout = () => {
               isDark={isDark}
               onToggleDark={() => setIsDark(!isDark)}
               onOpenSearch={() => setSearchOpen(true)}
+              onUndoAction={handleUndoAction}
             />
 
             {/* Main Content with Resizable Panels */}
