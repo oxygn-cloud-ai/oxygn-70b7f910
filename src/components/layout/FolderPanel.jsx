@@ -589,7 +589,7 @@ const FolderPanel = ({
       <div className="mx-2 h-px bg-outline-variant" />
 
       {/* Prompts Tree */}
-      <div className="flex-1 overflow-auto p-1.5 scrollbar-thin">
+      <div className="flex-1 overflow-x-auto overflow-y-auto p-1.5 scrollbar-thin">
         <div className="flex items-center justify-between px-2 py-1">
           <div className="flex items-center gap-1.5">
             <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
