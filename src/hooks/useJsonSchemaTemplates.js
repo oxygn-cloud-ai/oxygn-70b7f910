@@ -11,6 +11,7 @@ export const useJsonSchemaTemplates = () => {
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Query all non-deleted templates - RLS handles visibility
       const { data, error } = await supabase
         .from('q_json_schema_templates')
         .select('*')
@@ -18,12 +19,16 @@ export const useJsonSchemaTemplates = () => {
         .order('category', { ascending: true })
         .order('schema_name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useJsonSchemaTemplates] Query error:', error);
+        throw error;
+      }
 
+      console.log('[useJsonSchemaTemplates] Fetched templates:', data?.length || 0);
       setTemplates(data || []);
       return data || [];
     } catch (error) {
-      console.error('Error fetching JSON schema templates:', error);
+      console.error('[useJsonSchemaTemplates] Fetch error:', error);
       toast.error('Failed to load schema templates');
       return [];
     } finally {
