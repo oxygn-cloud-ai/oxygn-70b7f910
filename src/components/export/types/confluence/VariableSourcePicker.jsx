@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FileText, Variable, Search, ChevronDown } from 'lucide-react';
+import { FileText, Variable, Search, ChevronDown, Lock, Calendar, User, Briefcase } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -11,6 +11,35 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { SYSTEM_VARIABLES, SYSTEM_VARIABLE_TYPES } from '@/config/systemVariables';
+
+// System variable groups for display
+const SYSTEM_VAR_GROUPS = [
+  {
+    id: 'datetime',
+    label: 'Date & Time',
+    icon: Calendar,
+    variables: ['q.today', 'q.now', 'q.year', 'q.month'],
+  },
+  {
+    id: 'user',
+    label: 'User',
+    icon: User,
+    variables: ['q.user.name', 'q.user.email'],
+  },
+  {
+    id: 'prompt',
+    label: 'Prompt Context',
+    icon: FileText,
+    variables: ['q.toplevel.prompt.name', 'q.parent.prompt.name'],
+  },
+  {
+    id: 'policy',
+    label: 'Policy',
+    icon: Briefcase,
+    variables: ['q.policy.name', 'q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.client.name', 'q.jurisdiction', 'q.topic'],
+  },
+];
 
 /**
  * Unified dropdown for selecting a data source (field or variable) from any prompt.
@@ -25,23 +54,60 @@ export const VariableSourcePicker = ({
   selectedFields = [],
   selectedVariables = {},
   STANDARD_FIELDS = [],
-  placeholder = 'Select source...',
+  placeholder = 'Select data source...',
   className,
   includeFields = true,
   includeVariables = true,
+  includeSystemVariables = true,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Build system variables as a special group
+  const systemVariablesGroup = useMemo(() => {
+    if (!includeSystemVariables) return null;
+    
+    const sources = [];
+    SYSTEM_VAR_GROUPS.forEach(group => {
+      group.variables.forEach(varName => {
+        const def = SYSTEM_VARIABLES[varName];
+        if (def) {
+          sources.push({
+            type: 'system',
+            id: varName,
+            label: `{{${varName}}}`,
+            description: def.description || '',
+            isStatic: def.type === SYSTEM_VARIABLE_TYPES.STATIC,
+            groupLabel: group.label,
+          });
+        }
+      });
+    });
+    
+    return {
+      promptId: '__system__',
+      promptName: 'System Variables',
+      isSystem: true,
+      sources,
+    };
+  }, [includeSystemVariables]);
+
   // Build grouped options: { promptId, promptName, isTopLevel, sources: [{ type, id, label }] }
   const groupedOptions = useMemo(() => {
-    if (!promptsData || promptsData.length === 0) return [];
+    const groups = [];
+    
+    // Add system variables group first
+    if (systemVariablesGroup && systemVariablesGroup.sources.length > 0) {
+      groups.push(systemVariablesGroup);
+    }
+
+    if (!promptsData || promptsData.length === 0) return groups;
 
     // Determine top-level prompts (those without parent or first in list)
     const topLevelIds = new Set(
       promptsData.filter(p => !p.parent_row_id).map(p => p.row_id)
     );
 
-    return promptsData.map(prompt => {
+    promptsData.forEach(prompt => {
       const sources = [];
       const promptId = prompt.row_id;
       const isTopLevel = topLevelIds.has(promptId);
@@ -77,14 +143,18 @@ export const VariableSourcePicker = ({
         });
       }
 
-      return {
-        promptId,
-        promptName: prompt.prompt_name || 'Untitled Prompt',
-        isTopLevel,
-        sources,
-      };
-    }).filter(group => group.sources.length > 0);
-  }, [promptsData, variablesData, selectedFields, selectedVariables, STANDARD_FIELDS, includeFields, includeVariables]);
+      if (sources.length > 0) {
+        groups.push({
+          promptId,
+          promptName: prompt.prompt_name || 'Untitled Prompt',
+          isTopLevel,
+          sources,
+        });
+      }
+    });
+    
+    return groups;
+  }, [promptsData, variablesData, selectedFields, selectedVariables, STANDARD_FIELDS, includeFields, includeVariables, systemVariablesGroup]);
 
   // Filter groups by search query
   const filteredGroups = useMemo(() => {
@@ -102,9 +172,13 @@ export const VariableSourcePicker = ({
       .filter(group => group.sources.length > 0 || group.promptName.toLowerCase().includes(query));
   }, [groupedOptions, searchQuery]);
 
-  // Sort: top-level first, then children
+  // Sort: system first, then top-level, then children
   const sortedGroups = useMemo(() => {
     return [...filteredGroups].sort((a, b) => {
+      // System variables always first
+      if (a.isSystem && !b.isSystem) return -1;
+      if (!a.isSystem && b.isSystem) return 1;
+      // Then top-level prompts
       if (a.isTopLevel && !b.isTopLevel) return -1;
       if (!a.isTopLevel && b.isTopLevel) return 1;
       return 0;
@@ -188,9 +262,13 @@ export const VariableSourcePicker = ({
               <SelectLabel className="flex items-center gap-1.5 text-xs text-muted-foreground py-2 px-2 bg-muted/30">
                 <span className={cn(
                   "px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0",
-                  group.isTopLevel ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                  group.isSystem 
+                    ? "bg-green-500/10 text-green-600" 
+                    : group.isTopLevel 
+                      ? "bg-primary/10 text-primary" 
+                      : "bg-muted text-muted-foreground"
                 )}>
-                  {group.isTopLevel ? 'Root' : 'Child'}
+                  {group.isSystem ? 'System' : group.isTopLevel ? 'Root' : 'Child'}
                 </span>
                 <span className="truncate font-medium text-foreground">{group.promptName}</span>
               </SelectLabel>
@@ -201,13 +279,18 @@ export const VariableSourcePicker = ({
                   className="pl-4"
                 >
                   <div className="flex items-center gap-2">
-                    {source.type === 'field' ? (
+                    {source.type === 'system' ? (
+                      <Lock className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    ) : source.type === 'field' ? (
                       <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                     ) : (
                       <Variable className="h-3.5 w-3.5 text-purple-500 shrink-0" />
                     )}
                     <div className="flex flex-col min-w-0">
                       <span className="truncate text-sm">{source.label}</span>
+                      {source.isStatic && (
+                        <span className="text-[10px] text-green-600">auto-populated</span>
+                      )}
                     </div>
                   </div>
                 </SelectItem>
