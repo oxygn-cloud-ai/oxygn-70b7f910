@@ -53,14 +53,6 @@ const ConversationPanel = ({
           </p>
         </div>
         <div className="flex items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Options</TooltipContent>
-          </Tooltip>
           {onClose && (
             <Tooltip>
               <TooltipTrigger asChild>
