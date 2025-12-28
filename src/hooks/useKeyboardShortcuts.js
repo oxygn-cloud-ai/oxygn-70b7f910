@@ -10,6 +10,7 @@ import { useEffect, useCallback } from 'react';
  * @param {Function} config.onSave - Cmd+S - Save current item
  * @param {Function} config.onRun - Cmd+Enter - Run prompt
  * @param {Function} config.onEscape - Escape - Close modals/panels
+ * @param {Function} config.onUndo - Cmd+Z - Undo last action
  * @param {boolean} config.enabled - Whether shortcuts are enabled
  */
 export const useKeyboardShortcuts = ({
@@ -19,6 +20,7 @@ export const useKeyboardShortcuts = ({
   onSave,
   onRun,
   onEscape,
+  onUndo,
   enabled = true,
 }) => {
   const handleKeyDown = useCallback((e) => {
@@ -69,7 +71,14 @@ export const useKeyboardShortcuts = ({
       onEscape?.();
       return;
     }
-  }, [enabled, onSearch, onToggleFolderPanel, onToggleConversationPanel, onSave, onRun, onEscape]);
+
+    // Cmd/Ctrl + Z - Undo (works even when typing)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      onUndo?.();
+      return;
+    }
+  }, [enabled, onSearch, onToggleFolderPanel, onToggleConversationPanel, onSave, onRun, onEscape, onUndo]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

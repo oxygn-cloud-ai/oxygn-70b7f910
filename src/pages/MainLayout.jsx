@@ -38,6 +38,7 @@ import { toast } from "@/components/ui/sonner";
 import { Loader2 } from "lucide-react";
 import { executePostAction } from "@/services/actionExecutors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUndo } from "@/contexts/UndoContext";
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -425,6 +426,25 @@ const MainLayout = () => {
     }
   }, [isLoadingTree, isLoadingSettings]);
   
+  // Get undo context for keyboard shortcut
+  const { undoStack, clearUndo } = useUndo();
+
+  // Handle undo via keyboard shortcut
+  const handleUndo = useCallback(async () => {
+    if (undoStack.length === 0) {
+      toast.info('Nothing to undo');
+      return;
+    }
+    
+    const lastAction = undoStack[undoStack.length - 1];
+    
+    if (lastAction.type === 'delete') {
+      await treeOps.handleRestoreDeleted(lastAction.id, lastAction.itemId, lastAction.itemName);
+    } else if (lastAction.type === 'move') {
+      await treeOps.handleRestoreMove(lastAction.id, lastAction.itemId, lastAction.originalParentId, lastAction.itemName);
+    }
+  }, [undoStack, treeOps]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onSearch: () => setSearchOpen(true),
@@ -450,6 +470,7 @@ const MainLayout = () => {
         exportState.closeExport();
       }
     },
+    onUndo: handleUndo,
     enabled: true,
   });
   
