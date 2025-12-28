@@ -246,6 +246,8 @@ const MainLayout = () => {
           
           if (actionResult.success) {
             toast.success(`Action completed: ${actionResult.message || 'Success'}`);
+            // Immediately refresh tree to show newly created children
+            await refreshTreeData();
           } else {
             toast.warning(`Action failed: ${actionResult.error}`);
           }
