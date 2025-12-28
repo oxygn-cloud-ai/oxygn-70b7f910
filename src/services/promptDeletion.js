@@ -71,3 +71,36 @@ export const deletePrompt = async (supabase, id) => {
     handleSupabaseError(error, 'deleting prompt');
   }
 };
+
+// Restore a soft-deleted prompt and its children
+export const restorePrompt = async (supabase, id) => {
+  try {
+    // Restore the prompt and all its children recursively
+    const markAsRestored = async (itemId) => {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ is_deleted: false })
+        .eq('row_id', itemId);
+      
+      if (error) throw error;
+
+      // Find children that were deleted (they would have is_deleted = true)
+      const { data: children, error: childrenError } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id')
+        .eq('parent_row_id', itemId)
+        .eq('is_deleted', true);
+      
+      if (childrenError) throw childrenError;
+
+      for (const child of children || []) {
+        await markAsRestored(child.row_id);
+      }
+    };
+
+    await markAsRestored(id);
+  } catch (error) {
+    handleSupabaseError(error, 'restoring prompt');
+    throw error;
+  }
+};
