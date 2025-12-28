@@ -73,7 +73,20 @@ const MainLayout = () => {
   const supabase = useSupabase();
   const { user: currentUser } = useAuth();
   const { treeData, isLoading: isLoadingTree, refreshTreeData } = useTreeData(supabase);
-  const { handleAddItem, handleDeleteItem, handleDuplicateItem, handleMoveItem, handleRestoreDeleted, handleRestoreMove } = useTreeOperations(supabase, refreshTreeData);
+  const { 
+    handleAddItem, 
+    handleDeleteItem, 
+    handleDuplicateItem, 
+    handleMoveItem, 
+    handleRestoreDeleted, 
+    handleRestoreMove,
+    // Batch operations
+    handleBatchDelete,
+    handleBatchDuplicate,
+    handleBatchStar,
+    handleBatchToggleExcludeCascade,
+    handleBatchToggleExcludeExport
+  } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
   
   // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
@@ -700,6 +713,11 @@ const MainLayout = () => {
           onToggleExcludeExport={handleToggleExcludeExport}
           isRunningPrompt={isRunningPrompt}
           isRunningCascade={isRunningCascade}
+          onBatchDelete={handleBatchDelete}
+          onBatchDuplicate={handleBatchDuplicate}
+          onBatchStar={handleBatchStar}
+          onBatchToggleExcludeCascade={handleBatchToggleExcludeCascade}
+          onBatchToggleExcludeExport={handleBatchToggleExcludeExport}
         />
       );
     }
