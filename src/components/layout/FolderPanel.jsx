@@ -402,8 +402,6 @@ const TreeItem = ({
               <DropZone onDrop={onMoveBetween} />
             </React.Fragment>
           ))}
-            </React.Fragment>
-          ))}
         </div>
       )}
     </>
