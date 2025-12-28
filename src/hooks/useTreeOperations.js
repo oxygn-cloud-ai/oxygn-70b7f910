@@ -185,12 +185,115 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData, pushUndo, handleRestoreMove]);
 
+  // ============ BATCH OPERATIONS ============
+  
+  const handleBatchDelete = useCallback(async (itemIds) => {
+    if (!supabase || !itemIds?.length) return false;
+    try {
+      // Delete all items at once
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ is_deleted: true })
+        .in('row_id', itemIds);
+
+      if (error) throw error;
+      await refreshTreeData();
+      toast.success(`${itemIds.length} prompt(s) deleted`);
+      return true;
+    } catch (error) {
+      console.error('Error batch deleting prompts:', error);
+      toast.error('Failed to delete prompts');
+      return false;
+    }
+  }, [supabase, refreshTreeData]);
+
+  const handleBatchDuplicate = useCallback(async (itemIds) => {
+    if (!supabase || !itemIds?.length) return false;
+    try {
+      let successCount = 0;
+      for (const itemId of itemIds) {
+        const newItemId = await duplicatePrompt(supabase, itemId);
+        if (newItemId) successCount++;
+      }
+      await refreshTreeData();
+      toast.success(`${successCount} prompt(s) duplicated`);
+      return true;
+    } catch (error) {
+      console.error('Error batch duplicating prompts:', error);
+      toast.error('Failed to duplicate prompts');
+      return false;
+    }
+  }, [supabase, refreshTreeData]);
+
+  const handleBatchStar = useCallback(async (itemIds, starred = true) => {
+    if (!supabase || !itemIds?.length) return false;
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ starred })
+        .in('row_id', itemIds);
+
+      if (error) throw error;
+      await refreshTreeData();
+      toast.success(`${itemIds.length} prompt(s) ${starred ? 'starred' : 'unstarred'}`);
+      return true;
+    } catch (error) {
+      console.error('Error batch starring prompts:', error);
+      toast.error('Failed to update prompts');
+      return false;
+    }
+  }, [supabase, refreshTreeData]);
+
+  const handleBatchToggleExcludeCascade = useCallback(async (itemIds, exclude = true) => {
+    if (!supabase || !itemIds?.length) return false;
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ exclude_from_cascade: exclude })
+        .in('row_id', itemIds);
+
+      if (error) throw error;
+      await refreshTreeData();
+      toast.success(`${itemIds.length} prompt(s) ${exclude ? 'excluded from' : 'included in'} cascade`);
+      return true;
+    } catch (error) {
+      console.error('Error batch toggling cascade exclusion:', error);
+      toast.error('Failed to update prompts');
+      return false;
+    }
+  }, [supabase, refreshTreeData]);
+
+  const handleBatchToggleExcludeExport = useCallback(async (itemIds, exclude = true) => {
+    if (!supabase || !itemIds?.length) return false;
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ exclude_from_export: exclude })
+        .in('row_id', itemIds);
+
+      if (error) throw error;
+      await refreshTreeData();
+      toast.success(`${itemIds.length} prompt(s) ${exclude ? 'excluded from' : 'included in'} export`);
+      return true;
+    } catch (error) {
+      console.error('Error batch toggling export exclusion:', error);
+      toast.error('Failed to update prompts');
+      return false;
+    }
+  }, [supabase, refreshTreeData]);
+
   return {
     handleAddItem,
     handleDeleteItem,
     handleDuplicateItem,
     handleMoveItem,
     handleRestoreDeleted,
-    handleRestoreMove
+    handleRestoreMove,
+    // Batch operations
+    handleBatchDelete,
+    handleBatchDuplicate,
+    handleBatchStar,
+    handleBatchToggleExcludeCascade,
+    handleBatchToggleExcludeExport
   };
 };
