@@ -9,6 +9,7 @@ import {
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch
 } from "lucide-react";
+import VariablesTabContent from "./VariablesTabContent";
 import { VariablePicker } from "@/components/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -690,169 +691,7 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
   );
 };
 
-// Enhanced Variables Tab Content
-const VariablesTabContent = ({ promptData, promptVariables = [] }) => {
-  const [showValues, setShowValues] = useState(true);
-  
-  // Use real extracted_variables from promptData, fallback to promptVariables, then mock
-  const variables = useMemo(() => {
-    // First try extracted_variables from the prompt
-    if (promptData?.extracted_variables && Array.isArray(promptData.extracted_variables) && promptData.extracted_variables.length > 0) {
-      return promptData.extracted_variables.map(v => ({
-        name: v.name || v,
-        value: v.value || '',
-        type: v.type || 'text',
-        source: v.source || 'input',
-        required: v.required ?? true,
-        description: v.description || '',
-      }));
-    }
-    // Then try promptVariables from the hook
-    if (promptVariables.length > 0) {
-      return promptVariables.map(v => ({
-        name: v.variable_name,
-        value: v.variable_value || v.default_value || '',
-        type: 'text',
-        source: 'input',
-        required: v.is_required ?? true,
-        description: v.variable_description || '',
-      }));
-    }
-    // No fallback - return empty array
-    return [];
-  }, [promptData?.extracted_variables, promptVariables]);
-  
-  // Group variables by source
-  const groupedVariables = variables.reduce((acc, variable) => {
-    const source = variable.source || 'other';
-    if (!acc[source]) acc[source] = [];
-    acc[source].push(variable);
-    return acc;
-  }, {});
-
-  const sourceLabels = {
-    input: "User Input",
-    database: "Database",
-    settings: "Settings",
-    secret: "Secrets",
-    cascade: "Cascade",
-    api: "External API"
-  };
-
-  const sourceColors = {
-    input: "text-blue-500 bg-blue-500/10",
-    database: "text-purple-500 bg-purple-500/10",
-    settings: "text-green-500 bg-green-500/10",
-    secret: "text-amber-500 bg-amber-500/10",
-    cascade: "text-pink-500 bg-pink-500/10",
-    api: "text-cyan-500 bg-cyan-500/10"
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Variables</label>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">
-            {variables.length}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={() => setShowValues(!showValues)}
-                className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
-              >
-                {showValues ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{showValues ? "Hide Values" : "Show Values"}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Add Variable</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-
-      {/* Variables by source */}
-      <div className="space-y-3">
-        {Object.entries(groupedVariables).map(([source, variables]) => (
-          <div key={source} className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <SourceIcon source={source} />
-              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-                {sourceLabels[source] || source}
-              </span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded ${sourceColors[source] || 'bg-surface-container-high'}`}>
-                {variables.length}
-              </span>
-            </div>
-            <div className="space-y-1">
-              {variables.map((variable) => (
-                <div 
-                  key={variable.name}
-                  className="flex items-center gap-2.5 p-2 bg-surface-container rounded-m3-sm border border-outline-variant group"
-                >
-                  <VariableTypeIcon type={variable.type} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-body-sm text-on-surface font-medium font-mono">{variable.name}</span>
-                      {variable.required && <span className="text-[10px] text-destructive">*</span>}
-                      {variable.isSecret && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600">secret</span>
-                      )}
-                    </div>
-                    {variable.description && (
-                      <p className="text-[10px] text-on-surface-variant truncate">{variable.description}</p>
-                    )}
-                  </div>
-                  <div className="w-36 shrink-0">
-                    {showValues ? (
-                      <input
-                        type={variable.isSecret ? "password" : "text"}
-                        defaultValue={variable.value}
-                        placeholder="Enter value..."
-                        className="w-full h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-                      />
-                    ) : (
-                      <div className="h-7 px-2 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
-                        ••••••
-                      </div>
-                    )}
-                  </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08] opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">Delete</TooltipContent>
-                  </Tooltip>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Missing Variables Warning */}
-      <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 rounded-m3-md border border-amber-500/20">
-        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-body-sm text-amber-700 font-medium">1 missing required variable</p>
-          <p className="text-[10px] text-amber-600">customer_message needs a value before running</p>
-        </div>
-      </div>
-    </div>
-  );
-};
+// VariablesTabContent is now imported from ./VariablesTabContent.jsx
 
 // Conversation Tab Content with Messages
 const ConversationTabContent = ({ isAssistantEnabled = true, messages = [] }) => {
@@ -1163,7 +1002,10 @@ const PromptsContent = ({
           {activeTab === "variables" && (
             <VariablesTabContent 
               promptData={promptData}
-              promptVariables={variables}
+              promptRowId={promptData?.row_id}
+              parentData={null}
+              childrenData={[]}
+              siblingsData={[]}
             />
           )}
         </div>
