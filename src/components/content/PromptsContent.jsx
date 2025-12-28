@@ -236,29 +236,42 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
   );
 };
 
-// Settings Tab Content
+// Settings Tab Content with dynamic model-aware parameters
 const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
-  // Filter to only show active models
-  const activeModels = models.filter(m => m.is_active !== false);
-  
+  // Import model capabilities
+  const { getModelConfig, getModelCapabilities, ALL_SETTINGS } = React.useMemo(() => {
+    return require('@/config/modelCapabilities');
+  }, []);
+
   // Use real data from promptData
   const currentModel = promptData?.model || 'gpt-4o';
+  const currentProvider = models.find(m => m.model_id === currentModel)?.provider || 'openai';
+  const modelConfig = getModelConfig(currentModel);
+  const modelCapabilities = getModelCapabilities(currentModel, currentProvider);
+  
   const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
-  const currentMaxTokens = promptData?.max_tokens || '4096';
+  const currentMaxTokens = promptData?.max_tokens || promptData?.max_completion_tokens || String(modelConfig.maxTokens);
   const isAssistant = promptData?.is_assistant || false;
 
   const [temperature, setTemperature] = useState([currentTemp]);
   const [maxTokens, setMaxTokens] = useState(currentMaxTokens);
 
-  // Sync state when promptData changes
+  // Sync state when promptData or model changes
   React.useEffect(() => {
     if (promptData?.temperature) {
       setTemperature([parseFloat(promptData.temperature)]);
     }
-    if (promptData?.max_tokens) {
-      setMaxTokens(promptData.max_tokens);
+  }, [promptData?.temperature]);
+  
+  React.useEffect(() => {
+    const tokenValue = promptData?.max_tokens || promptData?.max_completion_tokens;
+    if (tokenValue) {
+      setMaxTokens(tokenValue);
+    } else {
+      // Set to model's max when no value exists
+      setMaxTokens(String(modelConfig.maxTokens));
     }
-  }, [promptData?.temperature, promptData?.max_tokens]);
+  }, [promptData?.max_tokens, promptData?.max_completion_tokens, modelConfig.maxTokens]);
 
   const handleTemperatureChange = (value) => {
     setTemperature(value);
@@ -266,78 +279,171 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   };
 
   const handleMaxTokensChange = (e) => {
-    setMaxTokens(e.target.value);
-    onUpdateField?.('max_tokens', e.target.value);
+    const value = e.target.value;
+    setMaxTokens(value);
+    // Use the correct parameter name based on model
+    onUpdateField?.(modelConfig.tokenParam, value);
   };
 
   const handleModelChange = (modelId) => {
     onUpdateField?.('model', modelId);
+    // Update max tokens to new model's max
+    const newConfig = getModelConfig(modelId);
+    setMaxTokens(String(newConfig.maxTokens));
+    onUpdateField?.(newConfig.tokenParam, String(newConfig.maxTokens));
   };
 
   const handleAssistantToggle = (checked) => {
     onUpdateField?.('is_assistant', checked);
   };
 
+  // Get display name for current model
+  const currentModelDisplay = models.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel;
+
   return (
     <div className="space-y-4">
-      {/* Model Selection */}
+      {/* Model Selection - shows all models, inactive ones greyed out */}
       <div className="space-y-1.5">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model</label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span>{activeModels.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel}</span>
+              <span>{currentModelDisplay}</span>
               <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {activeModels.length === 0 ? (
+          <DropdownMenuContent className="w-full max-h-64 overflow-auto bg-surface-container-high border-outline-variant">
+            {models.length === 0 ? (
               <DropdownMenuItem className="text-body-sm text-on-surface-variant">
                 No models available
               </DropdownMenuItem>
-            ) : activeModels.map(model => (
-              <DropdownMenuItem 
-                key={model.row_id || model.id || model.model_id} 
-                onClick={() => handleModelChange(model.model_id || model.id)}
-                className="text-body-sm text-on-surface"
-              >
-                <span className="flex-1">{model.model_name || model.name}</span>
-                <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
-              </DropdownMenuItem>
-            ))}
+            ) : models.map(model => {
+              const isActive = model.is_active !== false;
+              return (
+                <Tooltip key={model.row_id || model.id || model.model_id}>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem 
+                      onClick={() => isActive && handleModelChange(model.model_id || model.id)}
+                      className={`text-body-sm ${isActive ? 'text-on-surface cursor-pointer' : 'text-on-surface-variant/50 cursor-not-allowed opacity-60'}`}
+                      disabled={!isActive}
+                    >
+                      <span className="flex-1">{model.model_name || model.name}</span>
+                      <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  {!isActive && (
+                    <TooltipContent side="right" className="text-[10px]">
+                      Activate in Settings → AI Models
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      {/* Temperature */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
-          <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+      {/* Temperature - only show if model supports it */}
+      {modelConfig.supportsTemperature && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
+            <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+          </div>
+          <Slider
+            value={temperature}
+            onValueChange={handleTemperatureChange}
+            max={2}
+            step={0.1}
+            className="w-full"
+          />
+          <div className="flex justify-between text-[10px] text-on-surface-variant">
+            <span>Precise</span>
+            <span>Creative</span>
+          </div>
         </div>
-        <Slider
-          value={temperature}
-          onValueChange={handleTemperatureChange}
-          max={2}
-          step={0.1}
-          className="w-full"
-        />
-        <div className="flex justify-between text-[10px] text-on-surface-variant">
-          <span>Precise</span>
-          <span>Creative</span>
-        </div>
-      </div>
+      )}
 
-      {/* Max Tokens */}
+      {/* Max Tokens / Max Completion Tokens - dynamic label based on model */}
       <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Max Tokens</label>
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+            {modelConfig.tokenParam === 'max_completion_tokens' ? 'Max Completion Tokens' : 'Max Tokens'}
+          </label>
+          <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens.toLocaleString()}</span>
+        </div>
         <input
           type="number"
           value={maxTokens}
           onChange={handleMaxTokensChange}
+          max={modelConfig.maxTokens}
+          min={1}
           className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
+
+      {/* Reasoning Effort - only for GPT-5 and O-series */}
+      {modelCapabilities.includes('reasoning_effort') && (
+        <div className="space-y-1.5">
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                <span className="capitalize">{promptData?.reasoning_effort || 'medium'}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+              {['low', 'medium', 'high'].map(level => (
+                <DropdownMenuItem 
+                  key={level}
+                  onClick={() => onUpdateField?.('reasoning_effort', level)}
+                  className="text-body-sm text-on-surface capitalize"
+                >
+                  {level}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <p className="text-[10px] text-on-surface-variant">Higher = better reasoning, but slower & more expensive</p>
+        </div>
+      )}
+
+      {/* Frequency Penalty - only if supported */}
+      {modelCapabilities.includes('frequency_penalty') && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Frequency Penalty</label>
+            <span className="text-body-sm text-on-surface font-mono">{promptData?.frequency_penalty || '0'}</span>
+          </div>
+          <Slider
+            value={[parseFloat(promptData?.frequency_penalty || '0')]}
+            onValueChange={(v) => onUpdateField?.('frequency_penalty', String(v[0]))}
+            min={-2}
+            max={2}
+            step={0.1}
+            className="w-full"
+          />
+        </div>
+      )}
+
+      {/* Presence Penalty - only if supported */}
+      {modelCapabilities.includes('presence_penalty') && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Presence Penalty</label>
+            <span className="text-body-sm text-on-surface font-mono">{promptData?.presence_penalty || '0'}</span>
+          </div>
+          <Slider
+            value={[parseFloat(promptData?.presence_penalty || '0')]}
+            onValueChange={(v) => onUpdateField?.('presence_penalty', String(v[0]))}
+            min={-2}
+            max={2}
+            step={0.1}
+            className="w-full"
+          />
+        </div>
+      )}
 
       {/* JSON Schema */}
       <div className="space-y-1.5">
@@ -408,7 +514,6 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
     </div>
   );
 };
-
 // Action Configuration Section
 const ACTION_TYPES = [
   { id: "none", label: "None", description: "No post-action" },

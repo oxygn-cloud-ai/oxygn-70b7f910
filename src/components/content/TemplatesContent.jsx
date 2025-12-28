@@ -269,14 +269,37 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
   );
 };
 
-// Settings Tab Content (for Prompt Templates)
+// Settings Tab Content (for Prompt Templates) - with dynamic model-aware parameters
 const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }) => {
-  const [temperature, setTemperature] = useState([0.7]);
-  const [maxTokens, setMaxTokens] = useState("4096");
+  // Import model capabilities
+  const { getModelConfig, getModelCapabilities } = React.useMemo(() => {
+    return require('@/config/modelCapabilities');
+  }, []);
+
   const currentModel = templateData?.structure?.model || 'gpt-4o';
-  
-  // Filter to only show active models
-  const activeModels = models.filter(m => m.is_active !== false);
+  const currentProvider = models.find(m => m.model_id === currentModel)?.provider || 'openai';
+  const modelConfig = getModelConfig(currentModel);
+  const modelCapabilities = getModelCapabilities(currentModel, currentProvider);
+
+  const [temperature, setTemperature] = useState([templateData?.structure?.temperature || 0.7]);
+  const [maxTokens, setMaxTokens] = useState(templateData?.structure?.max_tokens || String(modelConfig.maxTokens));
+
+  // Update max tokens when model changes
+  React.useEffect(() => {
+    if (!templateData?.structure?.max_tokens) {
+      setMaxTokens(String(modelConfig.maxTokens));
+    }
+  }, [modelConfig.maxTokens, templateData?.structure?.max_tokens]);
+
+  const handleModelChange = (modelId) => {
+    onUpdateField?.('structure.model', modelId);
+    const newConfig = getModelConfig(modelId);
+    setMaxTokens(String(newConfig.maxTokens));
+    onUpdateField?.(`structure.${newConfig.tokenParam}`, String(newConfig.maxTokens));
+  };
+
+  // Get display name for current model
+  const currentModelDisplay = models.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel;
 
   return (
     <div className="space-y-4">
@@ -285,56 +308,111 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span>{activeModels.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel}</span>
+              <span>{currentModelDisplay}</span>
               <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {activeModels.length === 0 ? (
+          <DropdownMenuContent className="w-full max-h-64 overflow-auto bg-surface-container-high border-outline-variant">
+            {models.length === 0 ? (
               <DropdownMenuItem className="text-body-sm text-on-surface-variant">
                 No models available
               </DropdownMenuItem>
-            ) : activeModels.map(model => (
-              <DropdownMenuItem 
-                key={model.row_id || model.id || model.model_id} 
-                onClick={() => onUpdateField?.('structure.model', model.model_id || model.id)}
-                className="text-body-sm text-on-surface"
-              >
-                <span className="flex-1">{model.model_name || model.name}</span>
-                <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
-              </DropdownMenuItem>
-            ))}
+            ) : models.map(model => {
+              const isActive = model.is_active !== false;
+              return (
+                <Tooltip key={model.row_id || model.id || model.model_id}>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem 
+                      onClick={() => isActive && handleModelChange(model.model_id || model.id)}
+                      className={`text-body-sm ${isActive ? 'text-on-surface cursor-pointer' : 'text-on-surface-variant/50 cursor-not-allowed opacity-60'}`}
+                      disabled={!isActive}
+                    >
+                      <span className="flex-1">{model.model_name || model.name}</span>
+                      <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  {!isActive && (
+                    <TooltipContent side="right" className="text-[10px]">
+                      Activate in Settings → AI Models
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
-          <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+      {/* Temperature - only show if model supports it */}
+      {modelConfig.supportsTemperature && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
+            <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+          </div>
+          <Slider
+            value={temperature}
+            onValueChange={(v) => {
+              setTemperature(v);
+              onUpdateField?.('structure.temperature', v[0]);
+            }}
+            max={2}
+            step={0.1}
+            className="w-full"
+          />
+          <div className="flex justify-between text-[10px] text-on-surface-variant">
+            <span>Precise</span>
+            <span>Creative</span>
+          </div>
         </div>
-        <Slider
-          value={temperature}
-          onValueChange={setTemperature}
-          max={2}
-          step={0.1}
-          className="w-full"
-        />
-        <div className="flex justify-between text-[10px] text-on-surface-variant">
-          <span>Precise</span>
-          <span>Creative</span>
-        </div>
-      </div>
+      )}
 
+      {/* Max Tokens - dynamic label based on model */}
       <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Max Tokens</label>
+        <div className="flex items-center justify-between">
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+            {modelConfig.tokenParam === 'max_completion_tokens' ? 'Max Completion Tokens' : 'Max Tokens'}
+          </label>
+          <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens.toLocaleString()}</span>
+        </div>
         <input
           type="number"
           value={maxTokens}
-          onChange={(e) => setMaxTokens(e.target.value)}
+          onChange={(e) => {
+            setMaxTokens(e.target.value);
+            onUpdateField?.(`structure.${modelConfig.tokenParam}`, e.target.value);
+          }}
+          max={modelConfig.maxTokens}
+          min={1}
           className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
+
+      {/* Reasoning Effort - only for GPT-5 and O-series */}
+      {modelCapabilities.includes('reasoning_effort') && (
+        <div className="space-y-1.5">
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                <span className="capitalize">{templateData?.structure?.reasoning_effort || 'medium'}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+              {['low', 'medium', 'high'].map(level => (
+                <DropdownMenuItem 
+                  key={level}
+                  onClick={() => onUpdateField?.('structure.reasoning_effort', level)}
+                  className="text-body-sm text-on-surface capitalize"
+                >
+                  {level}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
@@ -362,7 +440,10 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
               <p className="text-[10px] text-on-surface-variant">Enable conversational memory</p>
             </div>
           </div>
-          <Switch />
+          <Switch 
+            checked={templateData?.structure?.is_assistant || false}
+            onCheckedChange={(checked) => onUpdateField?.('structure.is_assistant', checked)}
+          />
         </div>
       </div>
 
@@ -370,19 +451,22 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tools</label>
         <div className="grid grid-cols-2 gap-2">
           {[
-            { icon: Code, label: "Code Interpreter" },
-            { icon: Search, label: "File Search" },
-            { icon: Globe, label: "Web Search" },
-            { icon: Zap, label: "Functions" },
-            { icon: FileText, label: "Confluence" },
-            { icon: Briefcase, label: "Jira" },
+            { key: "code_interpreter_on", icon: Code, label: "Code Interpreter" },
+            { key: "file_search_on", icon: Search, label: "File Search" },
+            { key: "web_search_on", icon: Globe, label: "Web Search" },
+            { key: "function_calling_on", icon: Zap, label: "Functions" },
+            { key: "confluence_enabled", icon: FileText, label: "Confluence" },
+            { key: "jira_enabled", icon: Briefcase, label: "Jira" },
           ].map(tool => (
             <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
               <div className="flex items-center gap-1.5">
                 <tool.icon className="h-3.5 w-3.5 text-on-surface-variant" />
                 <span className="text-[11px] text-on-surface">{tool.label}</span>
               </div>
-              <Switch />
+              <Switch 
+                checked={templateData?.structure?.[tool.key] || false}
+                onCheckedChange={(checked) => onUpdateField?.(`structure.${tool.key}`, checked)}
+              />
             </div>
           ))}
         </div>
