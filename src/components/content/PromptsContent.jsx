@@ -1135,7 +1135,7 @@ const PromptsContent = ({
                 {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Run Prompt'}</TooltipContent>
+            <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Play'}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>

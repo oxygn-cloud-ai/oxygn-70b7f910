@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  RefreshCw, Copy, Check, Clock, Loader2
+  Play, Copy, Check, Clock, Loader2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -157,10 +157,10 @@ const ResizableOutputArea = ({
                   disabled={isRegenerating}
                   className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${isRegenerating ? 'text-primary' : 'text-on-surface-variant'}`}
                 >
-                  {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">{isRegenerating ? 'Running...' : 'Regenerate'}</TooltipContent>
+              <TooltipContent className="text-[10px]">{isRegenerating ? 'Running...' : 'Play'}</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>

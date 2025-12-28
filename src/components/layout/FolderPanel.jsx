@@ -13,7 +13,7 @@ import {
   Trash2,
   Ban,
   FileX,
-  Sparkles,
+  Play,
   Link2,
   Upload,
   GripVertical,
@@ -272,8 +272,8 @@ const TreeItem = ({
               onClick={() => onToggleStar?.(id)}
             />
             <IconButton 
-              icon={isRunningPrompt ? Loader2 : Sparkles} 
-              label="Run" 
+              icon={isRunningPrompt ? Loader2 : Play} 
+              label="Play" 
               onClick={() => onRunPrompt?.(id)}
               className={isRunningPrompt ? "animate-spin" : ""}
             />
