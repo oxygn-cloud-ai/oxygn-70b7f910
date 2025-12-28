@@ -95,6 +95,28 @@ const HighlightedText = ({ text }) => {
   return <>{parts}</>;
 };
 
+// Tab Button for editor tabs
+const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <button
+        onClick={onClick}
+        className={`h-8 w-9 flex items-center justify-center rounded-m3-sm transition-all duration-200 relative ${
+          isActive 
+            ? "bg-secondary-container text-secondary-container-foreground" 
+            : "text-on-surface-variant hover:bg-on-surface/[0.08] hover:scale-105"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+        {badge && (
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full animate-pulse" />
+        )}
+      </button>
+    </TooltipTrigger>
+    <TooltipContent className="text-[10px]">{label}</TooltipContent>
+  </Tooltip>
+);
+
 // Library Picker Dropdown
 const LibraryPickerDropdown = () => {
   const [searchQuery, setSearchQuery] = useState("");
