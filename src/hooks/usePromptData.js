@@ -1,14 +1,11 @@
+import { useCallback } from "react";
 import { toast } from "@/components/ui/sonner";
 
 /**
- * Prompt data helpers.
- *
- * NOTE: This intentionally does NOT use React hooks (useCallback, etc.).
- * We previously hit a runtime "useCallback" dispatcher error which is often
- * caused by React instance mismatches. Keeping this hook-hookless avoids that.
+ * Prompt data helpers with memoized functions to prevent infinite re-renders.
  */
 export const usePromptData = (supabase) => {
-  const updateField = async (rowId, fieldName, value) => {
+  const updateField = useCallback(async (rowId, fieldName, value) => {
     if (!supabase || !rowId) return false;
 
     try {
@@ -26,9 +23,9 @@ export const usePromptData = (supabase) => {
       toast.error(`Failed to update ${fieldName}: ${error?.message || "Unknown error"}`);
       return false;
     }
-  };
+  }, [supabase]);
 
-  const fetchItemData = async (rowId) => {
+  const fetchItemData = useCallback(async (rowId) => {
     if (!supabase || !rowId) return null;
 
     try {
@@ -46,7 +43,7 @@ export const usePromptData = (supabase) => {
       toast.error(`Failed to fetch prompt data: ${error?.message || "Unknown error"}`);
       return null;
     }
-  };
+  }, [supabase]);
 
   return { updateField, fetchItemData };
 };
