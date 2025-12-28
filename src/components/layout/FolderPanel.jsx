@@ -692,7 +692,7 @@ const FolderPanel = ({
           )}
         </AnimatePresence>
         
-        <div className="flex flex-col">
+        <div className="flex flex-col min-w-max">
           {/* Loading state */}
           {isLoading && (
             <>
