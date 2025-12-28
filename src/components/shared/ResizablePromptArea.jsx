@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Edit3, Check, Library, Search
+  Edit3, Check, Library, Search, Play, Loader2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -161,6 +161,8 @@ const ResizablePromptArea = ({
   placeholder, 
   onLibraryPick, 
   onChange,
+  onPlay,
+  isPlaying = false,
   defaultHeight = MIN_HEIGHT,
   variables = [],
   promptReferences = [],
@@ -301,6 +303,20 @@ const ResizablePromptArea = ({
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
           </Tooltip>
+          {onPlay && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={onPlay}
+                  disabled={isPlaying}
+                  className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${isPlaying ? 'text-primary' : 'text-on-surface-variant'}`}
+                >
+                  {isPlaying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">{isPlaying ? 'Running...' : 'Play'}</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
