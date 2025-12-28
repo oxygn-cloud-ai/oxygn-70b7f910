@@ -141,6 +141,7 @@ const TreeItem = ({
   onAdd,
   onDelete,
   onDuplicate,
+  onExport,
   expandedFolders,
   selectedPromptId,
   // Phase 1 handlers
@@ -288,7 +289,7 @@ const TreeItem = ({
             }} />
             <IconButton icon={Plus} label="Add Child" onClick={() => onAdd?.(id)} />
             <IconButton icon={Copy} label="Duplicate" onClick={() => onDuplicate?.(id)} />
-            <IconButton icon={Upload} label="Export" />
+            <IconButton icon={Upload} label="Export" onClick={() => onExport?.(id)} />
             <IconButton 
               icon={Ban} 
               label={excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
@@ -340,6 +341,7 @@ const TreeItem = ({
                 onAdd={onAdd}
                 onDelete={onDelete}
                 onDuplicate={onDuplicate}
+                onExport={onExport}
                 expandedFolders={expandedFolders}
                 selectedPromptId={selectedPromptId}
                 onRunPrompt={onRunPrompt}
@@ -367,6 +369,7 @@ const FolderPanel = ({
   onAddPrompt,
   onDeletePrompt,
   onDuplicatePrompt,
+  onExportPrompt,
   onMovePrompt,
   onRefresh,
   // Phase 1 handlers
@@ -730,6 +733,7 @@ const FolderPanel = ({
                     onAdd={onAddPrompt}
                     onDelete={onDeletePrompt}
                     onDuplicate={onDuplicatePrompt}
+                    onExport={onExportPrompt}
                     expandedFolders={expandedFolders}
                     selectedPromptId={selectedPromptId}
                     onRunPrompt={onRunPrompt}
