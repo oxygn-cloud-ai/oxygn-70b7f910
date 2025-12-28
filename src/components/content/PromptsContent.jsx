@@ -241,8 +241,6 @@ import { getModelConfig, getModelCapabilities, ALL_SETTINGS } from '@/config/mod
 
 // Settings Tab Content with dynamic model-aware parameters
 const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
-  // Model capabilities imported at top level
-  }, []);
 
   // Use real data from promptData
   const currentModel = promptData?.model || 'gpt-4o';
