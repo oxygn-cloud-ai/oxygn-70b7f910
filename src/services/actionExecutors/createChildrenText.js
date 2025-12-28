@@ -124,6 +124,9 @@ export const executeCreateChildrenText = async ({
     case 'top_level':
       targetParentRowId = null;
       break;
+    case 'specific_prompt':
+      targetParentRowId = config.target_prompt_id || prompt.row_id;
+      break;
     default:
       targetParentRowId = prompt.row_id;
   }

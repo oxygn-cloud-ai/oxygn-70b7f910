@@ -39,6 +39,7 @@ export const CONFIG_FIELD_TYPES = {
   SCHEMA_KEYS: 'schema_keys',     // Visual key picker from current schema
   MODEL_SELECT: 'model_select',   // Model dropdown
   NODE_TYPE: 'node_type',         // standard vs action
+  PROMPT_PICKER: 'prompt_picker', // Pick any existing prompt as target
 };
 
 /**
@@ -84,10 +85,18 @@ export const ACTION_TYPES = {
         key: 'placement',
         label: 'Prompt Placement',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['children', 'siblings', 'top_level'],
+        options: ['children', 'siblings', 'top_level', 'specific_prompt'],
         defaultValue: 'children',
         required: true,
-        helpText: 'Where to create prompts: as children of this prompt, as siblings, or as top-level prompts',
+        helpText: 'Where to create prompts: as children of this prompt, as siblings, top-level, or under a specific prompt',
+      },
+      {
+        key: 'target_prompt_id',
+        label: 'Target Prompt',
+        type: CONFIG_FIELD_TYPES.PROMPT_PICKER,
+        required: false,
+        helpText: 'Select an existing prompt to create children under (only used when placement is "specific_prompt")',
+        dependsOn: { key: 'placement', value: 'specific_prompt' },
       },
       {
         key: 'child_node_type',
@@ -146,10 +155,18 @@ export const ACTION_TYPES = {
         key: 'placement',
         label: 'Prompt Placement',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['children', 'siblings', 'top_level'],
+        options: ['children', 'siblings', 'top_level', 'specific_prompt'],
         defaultValue: 'children',
         required: true,
-        helpText: 'Where to create prompts: as children of this prompt, as siblings, or as top-level prompts',
+        helpText: 'Where to create prompts: as children of this prompt, as siblings, top-level, or under a specific prompt',
+      },
+      {
+        key: 'target_prompt_id',
+        label: 'Target Prompt',
+        type: CONFIG_FIELD_TYPES.PROMPT_PICKER,
+        required: false,
+        helpText: 'Select an existing prompt to create children under (only used when placement is "specific_prompt")',
+        dependsOn: { key: 'placement', value: 'specific_prompt' },
       },
       {
         key: 'child_node_type',
@@ -217,10 +234,18 @@ export const ACTION_TYPES = {
         key: 'placement',
         label: 'Prompt Placement',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['children', 'siblings', 'top_level'],
+        options: ['children', 'siblings', 'top_level', 'specific_prompt'],
         defaultValue: 'children',
         required: true,
-        helpText: 'Where to create the new prompts: as children of this prompt, at the same level, or as top-level prompts',
+        helpText: 'Where to create prompts: as children of this prompt, as siblings, top-level, or under a specific prompt',
+      },
+      {
+        key: 'target_prompt_id',
+        label: 'Target Prompt',
+        type: CONFIG_FIELD_TYPES.PROMPT_PICKER,
+        required: false,
+        helpText: 'Select an existing prompt to create children under (only used when placement is "specific_prompt")',
+        dependsOn: { key: 'placement', value: 'specific_prompt' },
       },
       {
         key: 'child_node_type',

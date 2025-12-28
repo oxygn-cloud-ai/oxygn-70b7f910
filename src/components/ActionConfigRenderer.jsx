@@ -2,7 +2,7 @@
  * ActionConfigRenderer
  * 
  * Dynamically renders configuration fields based on action type schema.
- * Supports text, number, select, textarea, boolean, json_path, and schema_keys field types.
+ * Supports text, number, select, textarea, boolean, json_path, schema_keys, and prompt_picker field types.
  */
 
 import React from 'react';
@@ -13,9 +13,13 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { FileText, ChevronRight, Folder } from 'lucide-react';
 import { CONFIG_FIELD_TYPES } from '@/config/actionTypes';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { extractSchemaKeys } from '@/config/defaultSchemas';
+import useTreeData from '@/hooks/useTreeData';
+import { useSupabase } from '@/hooks/useSupabase';
 
 const ActionConfigRenderer = ({ 
   schema = [], 
@@ -24,7 +28,9 @@ const ActionConfigRenderer = ({
   disabled = false,
   currentSchema = null, // The current JSON schema for SCHEMA_KEYS field type
 }) => {
+  const supabase = useSupabase();
   const { items: libraryItems, isLoading: libraryLoading } = usePromptLibrary();
+  const { treeData, isLoading: treeLoading } = useTreeData(supabase);
 
   const handleFieldChange = (key, value) => {
     onChange?.({
@@ -130,11 +136,122 @@ const ActionConfigRenderer = ({
     );
   };
 
+  // Flatten tree for prompt picker
+  const flattenTree = React.useCallback((nodes, depth = 0) => {
+    const result = [];
+    for (const node of nodes || []) {
+      result.push({ ...node, depth });
+      if (node.children?.length) {
+        result.push(...flattenTree(node.children, depth + 1));
+      }
+    }
+    return result;
+  }, []);
+
+  const flatPrompts = React.useMemo(() => flattenTree(treeData), [treeData, flattenTree]);
+
+  const renderPromptPickerField = (field) => {
+    const selectedId = config[field.key] || '';
+    const fieldId = `action-config-${field.key}`;
+    const selectedPrompt = flatPrompts.find(p => (p.row_id || p.id) === selectedId);
+
+    return (
+      <div key={field.key} className="space-y-2">
+        <Label htmlFor={fieldId} className="text-body-sm font-medium text-on-surface">
+          {field.label}
+          {field.required && <span className="text-red-500 ml-1">*</span>}
+        </Label>
+        
+        {treeLoading ? (
+          <div className="text-body-sm text-on-surface-variant">Loading prompts...</div>
+        ) : (
+          <div className="space-y-2">
+            {/* Current selection display */}
+            {selectedPrompt && (
+              <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-m3-sm border border-primary/20">
+                <FileText className="h-3 w-3 text-primary" />
+                <span className="text-body-sm text-on-surface flex-1 truncate">
+                  {selectedPrompt.prompt_name || selectedPrompt.label || 'Unnamed'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleFieldChange(field.key, null)}
+                  className="text-[10px] text-on-surface-variant hover:text-on-surface"
+                  disabled={disabled}
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+            
+            {/* Prompt tree picker */}
+            <ScrollArea className="h-40 border border-outline-variant rounded-m3-sm">
+              <div className="p-1">
+                {flatPrompts.map((prompt) => {
+                  const id = prompt.row_id || prompt.id;
+                  const isSelected = id === selectedId;
+                  const hasChildren = prompt.children?.length > 0;
+                  
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => handleFieldChange(field.key, id)}
+                      disabled={disabled}
+                      className={`w-full text-left px-2 py-1.5 rounded-m3-sm flex items-center gap-1.5 text-body-sm transition-colors ${
+                        isSelected 
+                          ? 'bg-primary/10 text-primary' 
+                          : 'hover:bg-surface-container text-on-surface'
+                      }`}
+                      style={{ paddingLeft: `${8 + prompt.depth * 16}px` }}
+                    >
+                      {hasChildren ? (
+                        <Folder className="h-3 w-3 text-on-surface-variant shrink-0" />
+                      ) : (
+                        <FileText className="h-3 w-3 text-on-surface-variant shrink-0" />
+                      )}
+                      <span className="truncate flex-1">
+                        {prompt.prompt_name || prompt.label || 'Unnamed'}
+                      </span>
+                      {isSelected && (
+                        <ChevronRight className="h-3 w-3 text-primary shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+                {flatPrompts.length === 0 && (
+                  <div className="p-2 text-body-sm text-on-surface-variant italic">
+                    No prompts available
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+        
+        {field.helpText && (
+          <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
+        )}
+      </div>
+    );
+  };
+
   const renderField = (field) => {
+    // Check dependsOn condition
+    if (field.dependsOn) {
+      const dependencyValue = config[field.dependsOn.key];
+      if (dependencyValue !== field.dependsOn.value) {
+        return null; // Hide field if dependency not met
+      }
+    }
+
     const value = config[field.key] ?? field.defaultValue ?? '';
     const fieldId = `action-config-${field.key}`;
 
     switch (field.type) {
+      case CONFIG_FIELD_TYPES.PROMPT_PICKER:
+        return renderPromptPickerField(field);
+
       case CONFIG_FIELD_TYPES.SCHEMA_KEYS:
         return renderSchemaKeysField(field);
 
