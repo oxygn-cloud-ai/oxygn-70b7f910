@@ -359,10 +359,26 @@ const MainLayout = () => {
     }
   }, [selectedPromptId, activeThread, createThread, runConversation, selectedPromptData, fetchMessages]);
   
-  // Check if selected prompt has children
+  // Check if selected prompt has children (recursively search tree)
   const selectedPromptHasChildren = useMemo(() => {
     if (!selectedPromptId || !treeData) return false;
-    return treeData.some(p => p.parent_row_id === selectedPromptId);
+    
+    // Recursive function to find a node by ID and check if it has children
+    const findNodeAndCheckChildren = (nodes, targetId) => {
+      for (const node of nodes) {
+        if (node.row_id === targetId) {
+          return node.children && node.children.length > 0;
+        }
+        if (node.children && node.children.length > 0) {
+          const result = findNodeAndCheckChildren(node.children, targetId);
+          if (result !== null) return result;
+        }
+      }
+      return null; // Node not found in this branch
+    };
+    
+    const hasChildren = findNodeAndCheckChildren(treeData, selectedPromptId);
+    return hasChildren === true;
   }, [selectedPromptId, treeData]);
 
 
