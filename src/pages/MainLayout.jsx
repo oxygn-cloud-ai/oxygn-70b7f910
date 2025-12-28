@@ -12,6 +12,7 @@ import ReadingPane from "@/components/layout/ReadingPane";
 import ConversationPanel from "@/components/layout/ConversationPanel";
 import ExportPanel from "@/components/layout/ExportPanel";
 import SearchModal from "@/components/layout/SearchModal";
+import NewPromptChoiceDialog from "@/components/NewPromptChoiceDialog";
 import { useSupabase } from "@/hooks/useSupabase";
 import useTreeData from "@/hooks/useTreeData";
 import { useTreeOperations } from "@/hooks/useTreeOperations";
@@ -338,6 +339,7 @@ const MainLayout = () => {
   // exportPanelOpen is now driven by exportState.isOpen from useExport hook
   const [searchOpen, setSearchOpen] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   
   // Initial load state
   useEffect(() => {
@@ -524,6 +526,7 @@ const MainLayout = () => {
               selectedPromptId={selectedPromptId}
               onSelectPrompt={setSelectedPromptId}
               onAddPrompt={handleAddItem}
+              onAddFromTemplate={() => setTemplateDialogOpen(true)}
               onDeletePrompt={handleDeleteItem}
               onDuplicatePrompt={handleDuplicateItem}
               onExportPrompt={(id) => { setSelectedPromptId(id); exportState.openExport([id]); }}
@@ -573,6 +576,7 @@ const MainLayout = () => {
           selectedPromptId={selectedPromptId}
           onSelectPrompt={setSelectedPromptId}
           onAddPrompt={handleAddItem}
+          onAddFromTemplate={() => setTemplateDialogOpen(true)}
           onDeletePrompt={handleDeleteItem}
           onDuplicatePrompt={handleDuplicateItem}
           onExportPrompt={(id) => { setSelectedPromptId(id); setExportPanelOpen(true); }}
@@ -823,6 +827,23 @@ const MainLayout = () => {
         </div>
       </div>
     </DndProvider>
+    
+    {/* Template Dialog for creating prompt from template */}
+    <NewPromptChoiceDialog
+      isOpen={templateDialogOpen}
+      onClose={() => setTemplateDialogOpen(false)}
+      onCreatePlain={() => {
+        setTemplateDialogOpen(false);
+        handleAddItem(null);
+      }}
+      onPromptCreated={(newPromptId) => {
+        setTemplateDialogOpen(false);
+        if (newPromptId) {
+          setSelectedPromptId(newPromptId);
+        }
+        refreshTreeData();
+      }}
+    />
   );
 };
 

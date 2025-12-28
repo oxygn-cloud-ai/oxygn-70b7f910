@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Inbox, 
@@ -21,9 +21,11 @@ import {
   RefreshCw,
   Loader2,
   FolderOpen,
-  Filter
+  Filter,
+  LayoutTemplate
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useDrag, useDrop } from "react-dnd";
 import { SkeletonListItem } from "@/components/shared/Skeletons";
 import { toast } from "@/components/ui/sonner";
@@ -367,6 +369,7 @@ const FolderPanel = ({
   selectedPromptId, 
   onSelectPrompt,
   onAddPrompt,
+  onAddFromTemplate,
   onDeletePrompt,
   onDuplicatePrompt,
   onExportPrompt,
@@ -383,10 +386,32 @@ const FolderPanel = ({
 }) => {
   const [expandedFolders, setExpandedFolders] = useState({});
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const longPressTimerRef = useRef(null);
 
   const toggleFolder = (id) => {
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   };
+
+  const handleAddMouseDown = useCallback(() => {
+    longPressTimerRef.current = setTimeout(() => {
+      setAddMenuOpen(true);
+    }, 500); // 500ms long press
+  }, []);
+
+  const handleAddMouseUp = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handleAddClick = useCallback(() => {
+    // Only trigger if not a long press (menu not open)
+    if (!addMenuOpen) {
+      onAddPrompt?.(null);
+    }
+  }, [addMenuOpen, onAddPrompt]);
 
   const handleMoveInto = async (draggedId, targetId) => {
     if (onMovePrompt) {
@@ -605,17 +630,52 @@ const FolderPanel = ({
                 <TooltipContent className="text-[10px]">Refresh</TooltipContent>
               </Tooltip>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={() => onAddPrompt?.(null)}
-                  className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors"
+            <Popover open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <button 
+                      onClick={handleAddClick}
+                      onMouseDown={handleAddMouseDown}
+                      onMouseUp={handleAddMouseUp}
+                      onMouseLeave={handleAddMouseUp}
+                      onTouchStart={handleAddMouseDown}
+                      onTouchEnd={handleAddMouseUp}
+                      className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:text-on-surface transition-colors"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Click to add • Hold for options</TooltipContent>
+              </Tooltip>
+              <PopoverContent 
+                align="start" 
+                sideOffset={4}
+                className="w-44 p-1 bg-surface-container border-outline-variant"
+              >
+                <button
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    onAddPrompt?.(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm text-body-sm text-on-surface hover:bg-on-surface/[0.08] transition-colors"
                 >
-                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-4 w-4 text-on-surface-variant" />
+                  New Prompt
                 </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Create new prompt</TooltipContent>
-            </Tooltip>
+                <button
+                  onClick={() => {
+                    setAddMenuOpen(false);
+                    onAddFromTemplate?.();
+                  }}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm text-body-sm text-on-surface hover:bg-on-surface/[0.08] transition-colors"
+                >
+                  <LayoutTemplate className="h-4 w-4 text-on-surface-variant" />
+                  From Template
+                </button>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         
