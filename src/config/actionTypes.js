@@ -36,6 +36,9 @@ export const CONFIG_FIELD_TYPES = {
   TEXTAREA: 'textarea',
   BOOLEAN: 'boolean',
   JSON_PATH: 'json_path',
+  SCHEMA_KEYS: 'schema_keys',     // Visual key picker from current schema
+  MODEL_SELECT: 'model_select',   // Model dropdown
+  NODE_TYPE: 'node_type',         // standard vs action
 };
 
 /**
@@ -78,6 +81,15 @@ export const ACTION_TYPES = {
         helpText: 'Prefix for child node names (e.g., "Child 1", "Child 2")',
       },
       {
+        key: 'child_node_type',
+        label: 'Child Node Type',
+        type: CONFIG_FIELD_TYPES.SELECT,
+        options: ['standard', 'action'],
+        defaultValue: 'standard',
+        required: false,
+        helpText: 'Create standard prompts or action nodes',
+      },
+      {
         key: 'copy_library_prompt_id',
         label: 'Apply Library Prompt',
         type: CONFIG_FIELD_TYPES.SELECT,
@@ -99,10 +111,11 @@ export const ACTION_TYPES = {
       {
         key: 'json_path',
         label: 'JSON Array Path',
-        type: CONFIG_FIELD_TYPES.JSON_PATH,
+        type: CONFIG_FIELD_TYPES.SCHEMA_KEYS,
         defaultValue: 'items',
         required: true,
-        helpText: 'Path to the array in the JSON response (e.g., "items" or "data.results")',
+        helpText: 'Select which array in the JSON response to use for creating children',
+        fallbackType: CONFIG_FIELD_TYPES.JSON_PATH,
       },
       {
         key: 'name_field',
@@ -119,6 +132,15 @@ export const ACTION_TYPES = {
         defaultValue: '',
         required: false,
         helpText: 'Field to use as user prompt content (leave empty to use entire item)',
+      },
+      {
+        key: 'child_node_type',
+        label: 'Child Node Type',
+        type: CONFIG_FIELD_TYPES.SELECT,
+        options: ['standard', 'action'],
+        defaultValue: 'standard',
+        required: false,
+        helpText: 'Create standard prompts or action nodes',
       },
       {
         key: 'copy_library_prompt_id',
@@ -140,12 +162,21 @@ export const ACTION_TYPES = {
     enabled: true,
     configSchema: [
       {
+        key: 'target_keys',
+        label: 'Keys to Convert',
+        type: CONFIG_FIELD_TYPES.SCHEMA_KEYS,
+        defaultValue: [],
+        required: false,
+        helpText: 'Select which JSON keys should become child prompts (leave empty to use pattern)',
+        fallbackPattern: '^section\\s*\\d+',
+      },
+      {
         key: 'section_pattern',
-        label: 'Section Key Pattern',
+        label: 'Section Key Pattern (fallback)',
         type: CONFIG_FIELD_TYPES.TEXT,
         defaultValue: '^section\\s*\\d+',
         required: false,
-        helpText: 'Regex pattern to match section keys (default: "section 01", "section 02", etc.)',
+        helpText: 'Regex pattern to match section keys when no keys are selected above',
       },
       {
         key: 'name_source',
@@ -172,6 +203,15 @@ export const ACTION_TYPES = {
         defaultValue: 'children',
         required: true,
         helpText: 'Where to create the new prompts: as children of this prompt, at the same level, or as top-level prompts',
+      },
+      {
+        key: 'child_node_type',
+        label: 'Child Node Type',
+        type: CONFIG_FIELD_TYPES.SELECT,
+        options: ['standard', 'action'],
+        defaultValue: 'standard',
+        required: false,
+        helpText: 'Create standard prompts or action nodes',
       },
       {
         key: 'copy_library_prompt_id',
