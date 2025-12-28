@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTimer } from "@/hooks/useTimer";
 import { 
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 
   Download, MoreVertical, Star, Trash2, Share2, Link2, 
@@ -886,6 +887,7 @@ const PromptsContent = ({
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
+  const formattedTime = useTimer(isRunningPrompt);
 
   // Update isAssistantEnabled when promptData changes
   React.useEffect(() => {
@@ -1009,6 +1011,11 @@ const PromptsContent = ({
           ))}
         </div>
         <div className="flex items-center gap-0.5">
+          {isRunningPrompt && (
+            <span className="text-[10px] text-primary font-medium tabular-nums mr-1">
+              {formattedTime}
+            </span>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
