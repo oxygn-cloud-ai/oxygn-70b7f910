@@ -5,7 +5,7 @@ import {
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, TrendingUp, Save, XCircle
+  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { getThemePreference, setThemePreference } from '@/components/ui/sonner';
 import { useSupabase } from "@/hooks/useSupabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUndo } from "@/contexts/UndoContext";
 import { toast } from "@/components/ui/sonner";
 
 // Mock data for fallback
@@ -38,6 +39,13 @@ const DEFAULT_NAMING_LEVELS = [
 const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoadingSettings }) => {
   const [editedValues, setEditedValues] = useState({});
   const [isSaving, setIsSaving] = useState(false);
+  const { retentionMinutes, updateRetention, undoStack, clearAllUndo } = useUndo();
+  const [localRetention, setLocalRetention] = useState(retentionMinutes);
+
+  // Sync local retention with context
+  useEffect(() => {
+    setLocalRetention(retentionMinutes);
+  }, [retentionMinutes]);
 
   const handleValueChange = (key, value) => {
     setEditedValues(prev => ({ ...prev, [key]: value }));
@@ -58,6 +66,16 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
     }
   };
 
+  const handleRetentionChange = (value) => {
+    const numValue = parseInt(value) || 30;
+    setLocalRetention(numValue);
+  };
+
+  const handleRetentionSave = () => {
+    updateRetention(localRetention);
+    toast.success(`Undo history retention set to ${localRetention} minutes`);
+  };
+
   const getValue = (key, fallback = '') => {
     if (editedValues[key] !== undefined) return editedValues[key];
     return settings[key]?.value || fallback;
@@ -66,6 +84,8 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   const hasChanges = (key) => {
     return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
   };
+
+  const hasRetentionChanges = localRetention !== retentionMinutes;
 
   return (
     <div className="space-y-4">
@@ -157,6 +177,69 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
                   <TooltipContent className="text-[10px]">Save</TooltipContent>
                 </Tooltip>
               )}
+            </div>
+          </SettingRow>
+        </div>
+      </SettingCard>
+
+      {/* Undo History Settings */}
+      <SettingCard label="Undo History">
+        <div className="space-y-3">
+          <SettingRow 
+            label="Auto-cleanup after" 
+            description="Undo actions older than this will be automatically removed"
+          >
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="1"
+                max="1440"
+                value={localRetention}
+                onChange={(e) => handleRetentionChange(e.target.value)}
+                className="h-8 w-20 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-body-sm text-on-surface-variant">minutes</span>
+              {hasRetentionChanges && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleRetentionSave}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow 
+            label="Current history" 
+            description={`${undoStack.length} action${undoStack.length !== 1 ? 's' : ''} in undo history`}
+          >
+            <div className="flex items-center gap-2">
+              {undoStack.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => {
+                        clearAllUndo();
+                        toast.success('Undo history cleared');
+                      }}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Clear all history</TooltipContent>
+                </Tooltip>
+              )}
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-surface-container rounded-m3-sm">
+                <History className="h-3.5 w-3.5 text-on-surface-variant" />
+                <span className="text-body-sm text-on-surface">{undoStack.length}</span>
+              </div>
             </div>
           </SettingRow>
         </div>

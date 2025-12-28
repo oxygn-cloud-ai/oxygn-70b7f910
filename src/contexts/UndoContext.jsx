@@ -1,6 +1,9 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 
 const UndoContext = createContext(null);
+
+// Default retention period in minutes
+const DEFAULT_RETENTION_MINUTES = 30;
 
 export const useUndo = () => {
   const context = useContext(UndoContext);
@@ -12,6 +15,37 @@ export const useUndo = () => {
 
 export const UndoProvider = ({ children }) => {
   const [undoStack, setUndoStack] = useState([]);
+  const [retentionMinutes, setRetentionMinutes] = useState(DEFAULT_RETENTION_MINUTES);
+  const cleanupIntervalRef = useRef(null);
+
+  // Cleanup expired entries
+  const cleanupExpired = useCallback(() => {
+    const now = Date.now();
+    const retentionMs = retentionMinutes * 60 * 1000;
+    
+    setUndoStack(prev => {
+      const filtered = prev.filter(action => {
+        const age = now - action.timestamp;
+        return age < retentionMs;
+      });
+      return filtered.length !== prev.length ? filtered : prev;
+    });
+  }, [retentionMinutes]);
+
+  // Set up cleanup interval
+  useEffect(() => {
+    // Run cleanup every minute
+    cleanupIntervalRef.current = setInterval(cleanupExpired, 60 * 1000);
+    
+    // Also run immediately when retention changes
+    cleanupExpired();
+    
+    return () => {
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
+    };
+  }, [cleanupExpired]);
 
   // Push an action to the undo stack
   const pushUndo = useCallback((action) => {
@@ -41,6 +75,12 @@ export const UndoProvider = ({ children }) => {
     setUndoStack([]);
   }, []);
 
+  // Update retention period (in minutes)
+  const updateRetention = useCallback((minutes) => {
+    const value = Math.max(1, Math.min(1440, parseInt(minutes) || DEFAULT_RETENTION_MINUTES));
+    setRetentionMinutes(value);
+  }, []);
+
   return (
     <UndoContext.Provider value={{
       undoStack,
@@ -49,7 +89,9 @@ export const UndoProvider = ({ children }) => {
       peekUndo,
       clearUndo,
       clearAllUndo,
-      hasUndo: undoStack.length > 0
+      hasUndo: undoStack.length > 0,
+      retentionMinutes,
+      updateRetention
     }}>
       {children}
     </UndoContext.Provider>
