@@ -443,6 +443,7 @@ export type Database = {
           confluence_config: Json | null
           created_at: string | null
           export_type: string
+          is_deleted: boolean | null
           is_private: boolean | null
           owner_id: string | null
           row_id: string
@@ -455,6 +456,7 @@ export type Database = {
           confluence_config?: Json | null
           created_at?: string | null
           export_type?: string
+          is_deleted?: boolean | null
           is_private?: boolean | null
           owner_id?: string | null
           row_id?: string
@@ -467,6 +469,7 @@ export type Database = {
           confluence_config?: Json | null
           created_at?: string | null
           export_type?: string
+          is_deleted?: boolean | null
           is_private?: boolean | null
           owner_id?: string | null
           row_id?: string

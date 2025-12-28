@@ -7,6 +7,7 @@ import {
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
   Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History
 } from "lucide-react";
+import DeletedItemsContent from './DeletedItemsContent';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { SettingCard } from "@/components/ui/setting-card";
@@ -1791,6 +1792,11 @@ const SettingsContent = ({
   costTracking,
   conversationToolDefaults,
 }) => {
+  // Special case: Trash has its own full-page component
+  if (activeSubItem === 'trash') {
+    return <DeletedItemsContent />;
+  }
+
   const section = SETTINGS_SECTIONS[activeSubItem] || SETTINGS_SECTIONS.qonsol;
   const SectionComponent = section.component;
   const Icon = section.icon;
