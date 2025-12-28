@@ -335,7 +335,7 @@ const MainLayout = () => {
   const [hoveredNav, setHoveredNav] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [activeTemplateTab, setActiveTemplateTab] = useState("prompts");
-  const [exportPanelOpen, setExportPanelOpen] = useState(false);
+  // exportPanelOpen is now driven by exportState.isOpen from useExport hook
   const [searchOpen, setSearchOpen] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
@@ -369,8 +369,8 @@ const MainLayout = () => {
     onEscape: () => {
       if (searchOpen) {
         setSearchOpen(false);
-      } else if (exportPanelOpen) {
-        setExportPanelOpen(false);
+      } else if (exportState.isOpen) {
+        exportState.closeExport();
       }
     },
     enabled: true,
@@ -526,7 +526,7 @@ const MainLayout = () => {
               onAddPrompt={handleAddItem}
               onDeletePrompt={handleDeleteItem}
               onDuplicatePrompt={handleDuplicateItem}
-              onExportPrompt={(id) => { setSelectedPromptId(id); setExportPanelOpen(true); }}
+              onExportPrompt={(id) => { setSelectedPromptId(id); exportState.openExport([id]); }}
               onMovePrompt={handleMoveItem}
               onRefresh={refreshTreeData}
               onRunPrompt={handleRunPrompt}
@@ -717,7 +717,7 @@ const MainLayout = () => {
                       onUpdateVariable={updateVariable}
                       onDeleteVariable={deleteVariable}
                       selectedPromptHasChildren={selectedPromptHasChildren}
-                      onExport={() => setExportPanelOpen(true)}
+                      onExport={() => exportState.openExport(selectedPromptId ? [selectedPromptId] : [])}
                       activeNav={activeNav}
                       activeSubItem={activeSubItem}
                       selectedTemplate={selectedTemplate}
@@ -792,7 +792,7 @@ const MainLayout = () => {
 
                 {/* Export Panel - toggleable, now connected to useExport */}
                 <AnimatePresence mode="wait">
-                  {exportPanelOpen && (
+                {exportState.isOpen && (
                     <>
                       <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
                       <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
@@ -806,7 +806,6 @@ const MainLayout = () => {
                           <ExportPanel 
                             isOpen={true} 
                             onClose={() => {
-                              setExportPanelOpen(false);
                               exportState.closeExport();
                             }}
                             exportState={exportState}
