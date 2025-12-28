@@ -438,13 +438,10 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         </div>
       )}
 
-      {/* Assistant Mode Toggle */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Assistant Mode</label>
-          <Switch checked={isAssistant} onCheckedChange={handleAssistantToggle} />
-        </div>
-        <p className="text-[10px] text-on-surface-variant">Enable conversational memory</p>
+      {/* Conversational Memory Toggle */}
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Conversational Memory</label>
+        <Switch checked={isAssistant} onCheckedChange={handleAssistantToggle} />
       </div>
 
       {/* Tools Section */}
