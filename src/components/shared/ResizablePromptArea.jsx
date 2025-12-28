@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Edit3, Check, Library, Search, Play, Loader2
+  Edit3, Check, Library, Search, Play, Loader2, ChevronRight
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -11,6 +11,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { VariablePicker } from "./VariablePicker";
 
@@ -26,8 +31,108 @@ const VARIABLE_DEFINITIONS = {
   parent_output: { name: "parent.output", type: "reference", description: "Output from parent prompt", source: "Cascade", required: false },
 };
 
-// Highlighted text component
-const HighlightedText = ({ text, variableDefinitions = {} }) => {
+// System variable groups for the variable picker
+const SYSTEM_VARIABLE_GROUPS = [
+  {
+    id: "datetime",
+    label: "Date & Time",
+    variables: [
+      { name: "current_date", label: "Current Date" },
+      { name: "current_time", label: "Current Time" },
+      { name: "current_datetime", label: "Current DateTime" },
+      { name: "timestamp", label: "Unix Timestamp" },
+    ]
+  },
+  {
+    id: "user",
+    label: "User",
+    variables: [
+      { name: "user_email", label: "User Email" },
+      { name: "user_name", label: "User Name" },
+      { name: "user_id", label: "User ID" },
+    ]
+  },
+  {
+    id: "prompt",
+    label: "Prompt Context",
+    variables: [
+      { name: "prompt_name", label: "Prompt Name" },
+      { name: "prompt_id", label: "Prompt ID" },
+      { name: "parent_output", label: "Parent Output" },
+      { name: "parent_name", label: "Parent Name" },
+    ]
+  },
+];
+
+// Clickable variable span with popover to change variable
+const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], onReplace }) => {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (newVarName) => {
+    onReplace(matchStart, matchEnd, `{{${newVarName}}}`);
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <span 
+          className="text-primary font-medium cursor-pointer bg-primary/10 px-0.5 rounded hover:bg-primary/20 transition-colors"
+        >
+          {`{{${varName}}}`}
+        </span>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-56 p-0 bg-surface-container-high border-outline-variant" 
+        align="start"
+        side="bottom"
+      >
+        <div className="p-2 border-b border-outline-variant">
+          <span className="text-label-sm text-on-surface-variant">Replace with:</span>
+        </div>
+        <div className="max-h-48 overflow-auto">
+          {/* System Variables */}
+          {SYSTEM_VARIABLE_GROUPS.map(group => (
+            <div key={group.id}>
+              <div className="px-3 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
+                {group.label}
+              </div>
+              {group.variables.map(v => (
+                <button
+                  key={v.name}
+                  onClick={() => handleSelect(v.name)}
+                  className={`w-full flex items-center px-3 py-1.5 text-body-sm hover:bg-on-surface/[0.08] ${v.name === varName ? 'text-primary' : 'text-on-surface'}`}
+                >
+                  <code className="font-mono text-[11px]">{v.name}</code>
+                </button>
+              ))}
+            </div>
+          ))}
+          {/* User Variables */}
+          {allVariables.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
+                User Variables
+              </div>
+              {allVariables.map(v => (
+                <button
+                  key={v.name}
+                  onClick={() => handleSelect(v.name)}
+                  className={`w-full flex items-center px-3 py-1.5 text-body-sm hover:bg-on-surface/[0.08] ${v.name === varName ? 'text-primary' : 'text-on-surface'}`}
+                >
+                  <code className="font-mono text-[11px]">{v.name}</code>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// Highlighted text component with clickable variables
+const HighlightedText = ({ text, variableDefinitions = {}, allVariables = [], onReplaceVariable }) => {
   const allDefs = { ...VARIABLE_DEFINITIONS, ...variableDefinitions };
   const variablePattern = /\{\{(\w+(?:\.\w+)?)\}\}/g;
   const parts = [];
@@ -40,32 +145,21 @@ const HighlightedText = ({ text, variableDefinitions = {} }) => {
     }
     
     const varName = match[1];
-    const varDef = allDefs[varName] || allDefs[varName.replace('.', '_')];
+    const matchStart = match.index;
+    const matchEnd = match.index + match[0].length;
     
     parts.push(
-      <Tooltip key={`var-${match.index}`}>
-        <TooltipTrigger asChild>
-          <span className="text-primary font-medium cursor-help bg-primary/10 px-0.5 rounded">
-            {`{{${varName}}}`}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs p-2 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-label-sm font-medium text-on-surface">{varName}</span>
-            <span className="text-[10px] px-1 py-0.5 rounded bg-secondary-container text-secondary-container-foreground">{varDef?.type || "text"}</span>
-            {varDef?.required && <span className="text-[10px] text-destructive">*required</span>}
-          </div>
-          {varDef?.description && (
-            <p className="text-[10px] text-on-surface-variant">{varDef.description}</p>
-          )}
-          {varDef?.source && (
-            <p className="text-[10px] text-on-surface-variant">Source: {varDef.source}</p>
-          )}
-        </TooltipContent>
-      </Tooltip>
+      <ClickableVariable
+        key={`var-${match.index}`}
+        varName={varName}
+        matchStart={matchStart}
+        matchEnd={matchEnd}
+        allVariables={allVariables}
+        onReplace={onReplaceVariable}
+      />
     );
     
-    lastIndex = match.index + match[0].length;
+    lastIndex = matchEnd;
   }
   
   if (lastIndex < text.length) {
@@ -175,6 +269,16 @@ const ResizablePromptArea = ({
   const textareaRef = useRef(null);
   const contentRef = useRef(null);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
+  const [cursorPosition, setCursorPosition] = useState(null);
+
+  // Transform user variables for the picker
+  const transformedUserVars = useMemo(() => {
+    return variables.map(v => ({
+      name: v.variable_name || v.name,
+      type: v.type || "text",
+      value: v.variable_value || v.value || v.default_value
+    }));
+  }, [variables]);
 
   // Sync editValue when value prop changes
   useEffect(() => {
@@ -192,11 +296,54 @@ const ResizablePromptArea = ({
     }
   }, [editValue, value, isEditing, defaultHeight]);
 
-  const handleInsertVariable = (variableText) => {
+  // Track cursor position when textarea changes or user clicks/selects
+  const handleTextareaChange = (e) => {
+    setEditValue(e.target.value);
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleTextareaSelect = (e) => {
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleTextareaClick = (e) => {
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleTextareaKeyUp = (e) => {
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleInsertVariable = useCallback((variableText) => {
     // variableText may already include {{ }} from VariablePicker
     const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
-    setEditValue(prev => prev + insertion);
-  };
+    
+    // Insert at cursor position if available, otherwise at end
+    const insertPos = cursorPosition !== null ? cursorPosition : editValue.length;
+    const newValue = editValue.slice(0, insertPos) + insertion + editValue.slice(insertPos);
+    setEditValue(newValue);
+    
+    // Update cursor position to after the inserted variable
+    const newCursorPos = insertPos + insertion.length;
+    setCursorPosition(newCursorPos);
+    
+    // If editing, focus textarea and set cursor
+    if (textareaRef.current && isEditing) {
+      setTimeout(() => {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+  }, [cursorPosition, editValue, isEditing]);
+
+  // Handle replacing a variable in the text (used by ClickableVariable)
+  const handleReplaceVariable = useCallback((start, end, newText) => {
+    const newValue = editValue.slice(0, start) + newText + editValue.slice(end);
+    setEditValue(newValue);
+    if (onChange) {
+      onChange(newValue);
+    }
+  }, [editValue, onChange]);
 
   const handleDoneEditing = () => {
     setIsEditing(false);
@@ -327,7 +474,10 @@ const ResizablePromptArea = ({
             <textarea
               ref={textareaRef}
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={handleTextareaChange}
+              onSelect={handleTextareaSelect}
+              onClick={handleTextareaClick}
+              onKeyUp={handleTextareaKeyUp}
               onMouseUp={handleResize}
               placeholder={placeholder}
               style={{ height: `${currentHeight}px` }}
@@ -340,7 +490,15 @@ const ResizablePromptArea = ({
               className="p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize"
               onMouseUp={handleResize}
             >
-              {value ? <HighlightedText text={value} /> : <span className="text-on-surface-variant opacity-50">{placeholder}</span>}
+              {editValue ? (
+                <HighlightedText 
+                  text={editValue} 
+                  allVariables={transformedUserVars}
+                  onReplaceVariable={handleReplaceVariable}
+                />
+              ) : (
+                <span className="text-on-surface-variant opacity-50">{placeholder}</span>
+              )}
             </div>
           )}
 
