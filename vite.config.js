@@ -28,11 +28,18 @@ export default defineConfig(({ mode }) => ({
         find: "lib",
         replacement: resolve(projectRoot, "lib"),
       },
+      {
+        find: "react",
+        replacement: resolve(projectRoot, "node_modules/react"),
+      },
+      {
+        find: "react-dom",
+        replacement: resolve(projectRoot, "node_modules/react-dom"),
+      },
     ],
   },
   optimizeDeps: {
-    include: ["react", "react-dom", "react/jsx-runtime"],
-    force: true,
+    include: ["react", "react-dom"],
   },
 }));
 
