@@ -233,10 +233,6 @@ const TreeItem = ({
         {/* Drag handle - only on hover */}
         <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
         
-        {depthIndicator && (
-          <span className="text-[7px] text-on-surface-variant/50 w-2.5 flex-shrink-0">{depthIndicator}</span>
-        )}
-        
         {/* Expand/collapse chevron - always show for items with children */}
         {hasChildren ? (
           <button 
