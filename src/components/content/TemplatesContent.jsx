@@ -274,6 +274,9 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState("4096");
   const currentModel = templateData?.structure?.model || 'gpt-4o';
+  
+  // Filter to only show active models
+  const activeModels = models.filter(m => m.is_active !== false);
 
   return (
     <div className="space-y-4">
@@ -282,16 +285,16 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span>{currentModel}</span>
+              <span>{activeModels.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel}</span>
               <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            {models.length === 0 ? (
+            {activeModels.length === 0 ? (
               <DropdownMenuItem className="text-body-sm text-on-surface-variant">
                 No models available
               </DropdownMenuItem>
-            ) : models.map(model => (
+            ) : activeModels.map(model => (
               <DropdownMenuItem 
                 key={model.row_id || model.id || model.model_id} 
                 onClick={() => onUpdateField?.('structure.model', model.model_id || model.id)}
