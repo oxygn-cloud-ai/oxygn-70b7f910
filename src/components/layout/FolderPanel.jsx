@@ -568,13 +568,6 @@ const FolderPanel = ({
             onClick={() => setActiveSmartFolder("all")}
           />
           <SmartFolder 
-            icon={MessageSquare} 
-            label="Conversations" 
-            count={counts.conversations}
-            isActive={activeSmartFolder === "conversations"}
-            onClick={() => setActiveSmartFolder("conversations")}
-          />
-          <SmartFolder 
             icon={Star} 
             label="Starred" 
             count={counts.starred}
@@ -602,7 +595,6 @@ const FolderPanel = ({
             <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
               {activeSmartFolder === "all" ? "Prompts" : 
                activeSmartFolder === "starred" ? "Starred" :
-               activeSmartFolder === "conversations" ? "Conversations" :
                "Recent"}
             </p>
             {/* Filter indicator badge */}
