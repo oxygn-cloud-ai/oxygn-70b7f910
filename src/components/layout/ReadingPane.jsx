@@ -97,6 +97,7 @@ const ReadingPane = ({
         activeTemplateTab={activeTemplateTab}
         templatesHook={templatesHook}
         jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+        models={models}
         onTemplateChange={(template) => {
           // Refresh templates list when template changes
           if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
@@ -150,6 +151,7 @@ const ReadingPane = ({
       onExport={onExport}
       onToggleConversation={onToggleConversation}
       conversationPanelOpen={conversationPanelOpen}
+      models={models}
       onRunPrompt={onRunPrompt}
       onRunCascade={onRunCascade}
       isRunningPrompt={isRunningPrompt}
