@@ -200,9 +200,62 @@ export const DEFAULT_SCHEMAS = [
   },
 
   // ==================== STANDARD TEMPLATES (schema only) ====================
+  
+  // DEFAULT CHILD CREATION TEMPLATE - Use this as the base for action nodes
+  {
+    id: 'default_child_creation',
+    name: 'Default Child Creation',
+    description: 'Standard template for creating child prompts from JSON output. Use prompt_name for naming and input_admin_prompt for content.',
+    category: 'action',
+    schema: {
+      type: 'object',
+      properties: {
+        children: {
+          type: 'array',
+          description: 'Array of child prompts to create',
+          items: {
+            type: 'object',
+            properties: {
+              prompt_name: { type: 'string', description: 'Name for the child prompt (becomes the prompt title)' },
+              input_admin_prompt: { type: 'string', description: 'System prompt content for the child (becomes the admin/system prompt)' },
+              input_user_prompt: { type: 'string', description: 'Optional user prompt content for the child' }
+            },
+            required: ['prompt_name', 'input_admin_prompt'],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ['children'],
+      additionalProperties: false
+    },
+    nodeConfig: {
+      node_type: 'action',
+      post_action: 'create_children_json',
+    },
+    childCreation: {
+      enabled: true,
+      keyPath: 'children',
+      nameField: 'prompt_name',
+      contentField: 'input_admin_prompt',
+      placement: 'children',
+      inheritModel: true,
+      childNodeType: 'standard',
+    },
+    actionConfig: {
+      json_path: 'children',
+      name_field: 'prompt_name',
+      content_field: 'input_admin_prompt',
+      placement: 'children',
+    },
+    modelConfig: {
+      model: null,
+      temperature: { enabled: true, value: '0.7' },
+    },
+    systemPromptTemplate: 'Generate child prompts for {{topic}}. Each child needs a prompt_name (title) and input_admin_prompt (system instructions).',
+  },
   {
     id: 'create_children',
-    name: 'Create Children',
+    name: 'Create Children (Simple)',
     description: 'Schema for creating child nodes with name and content',
     category: 'action',
     schema: {
