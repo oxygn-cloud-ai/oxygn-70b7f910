@@ -110,16 +110,8 @@ const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
 );
 
 const VariableTypeIcon = ({ type }) => {
-  const icons = {
-    text: Variable,
-    reference: Link2,
-    number: Hash,
-    list: List,
-    json: Braces,
-    enum: ToggleLeft
-  };
-  const Icon = icons[type] || Variable;
-  return <Icon className="h-3.5 w-3.5 text-on-surface-variant" />;
+  // All variable types use the Braces icon for consistency
+  return <Braces className="h-3.5 w-3.5 text-on-surface-variant" />;
 };
 
 const SourceIcon = ({ source }) => {
