@@ -17,6 +17,13 @@ const FIELD_LABELS = {
   prompt_name: 'Name',
 };
 
+// Variable type labels
+const VARIABLE_TYPE_LABELS = {
+  [SYSTEM_VARIABLE_TYPES.STATIC]: 'Auto-filled',
+  [SYSTEM_VARIABLE_TYPES.INPUT]: 'User Input',
+  [SYSTEM_VARIABLE_TYPES.SELECT]: 'Selection',
+};
+
 /**
  * A textarea with syntax highlighting for {{variables}} and autocomplete
  * Uses contenteditable for direct styling of variables
@@ -46,6 +53,13 @@ const HighlightedTextarea = React.forwardRef(({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [triggerStart, setTriggerStart] = useState(-1);
 
+  // Variable hover/click popover state
+  const [hoveredVar, setHoveredVar] = useState(null);
+  const [hoverPosition, setHoverPosition] = useState({ top: 0, left: 0 });
+  const [showVarPopover, setShowVarPopover] = useState(false);
+  const [clickedVarInfo, setClickedVarInfo] = useState(null); // { name, start, end, element }
+  const hoverTimeoutRef = useRef(null);
+
   // Forward ref to editor
   useImperativeHandle(ref, () => editorRef.current);
 
@@ -55,6 +69,7 @@ const HighlightedTextarea = React.forwardRef(({
       name,
       label: SYSTEM_VARIABLES[name]?.label || name,
       description: SYSTEM_VARIABLES[name]?.description || '',
+      type: VARIABLE_TYPE_LABELS[SYSTEM_VARIABLES[name]?.type] || 'System',
       isSystem: true,
       isStatic: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.STATIC,
     }));
@@ -63,12 +78,21 @@ const HighlightedTextarea = React.forwardRef(({
       name: typeof v === 'string' ? v : v.name,
       label: typeof v === 'string' ? v : v.name,
       description: typeof v === 'string' ? '' : (v.description || ''),
+      type: 'User Variable',
       isSystem: false,
       isStatic: false,
+      value: typeof v === 'string' ? '' : (v.value || ''),
     }));
     
     return [...systemVars, ...userVars];
   }, [userVariables]);
+
+  // Build a lookup map for variable info
+  const variableMap = useMemo(() => {
+    const map = new Map();
+    allVariables.forEach(v => map.set(v.name, v));
+    return map;
+  }, [allVariables]);
 
   // Filter variables based on query
   const filteredVariables = useMemo(() => {
@@ -202,13 +226,14 @@ const HighlightedTextarea = React.forwardRef(({
       return `<span class="var-highlight var-ref" data-uuid="${uuid}" data-field="${field}" title="${promptName} → ${fieldLabel}">{{📄 ${promptName} → ${fieldLabel}}}</span>`;
     });
 
-    // Then highlight remaining variables with pink color
+    // Then highlight remaining variables with pink color and add data attributes
     highlighted = highlighted.replace(
-      /(\{\{[^}]+\}\})/g,
-      (match) => {
+      /\{\{([^}]+)\}\}/g,
+      (match, varName) => {
         // Skip if already wrapped (check for var-highlight)
         if (match.includes('var-highlight')) return match;
-        return `<span class="var-highlight">${match}</span>`;
+        // Add data-varname for hover lookup
+        return `<span class="var-highlight var-clickable" data-varname="${varName}">${match}</span>`;
       }
     );
 
@@ -374,7 +399,7 @@ const HighlightedTextarea = React.forwardRef(({
   }, [triggerStart, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, promptNameMap]);
 
   const handleBlur = useCallback(() => {
-    // Delay hiding to allow click on autocomplete item
+    // Delay hiding to allow click on autocomplete/popover items
     setTimeout(() => {
       setShowAutocomplete(false);
     }, 150);
@@ -382,7 +407,137 @@ const HighlightedTextarea = React.forwardRef(({
 
   const handleScroll = useCallback(() => {
     setShowAutocomplete(false);
+    setShowVarPopover(false);
+    setHoveredVar(null);
   }, []);
+
+  // Handle mouseover on variables
+  const handleMouseOver = useCallback((e) => {
+    const target = e.target;
+    if (target.classList?.contains('var-clickable') && target.dataset.varname) {
+      const varName = target.dataset.varname;
+      const varInfo = variableMap.get(varName);
+      
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      
+      hoverTimeoutRef.current = setTimeout(() => {
+        const rect = target.getBoundingClientRect();
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        if (containerRect) {
+          setHoverPosition({
+            top: rect.bottom - containerRect.top + 4,
+            left: rect.left - containerRect.left,
+          });
+          setHoveredVar(varInfo || { name: varName, label: varName, description: '', type: 'Unknown' });
+        }
+      }, 300);
+    }
+  }, [variableMap]);
+
+  const handleMouseOut = useCallback((e) => {
+    const target = e.target;
+    if (target.classList?.contains('var-clickable')) {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      // Delay hiding to allow moving to popover
+      setTimeout(() => {
+        setHoveredVar(null);
+      }, 100);
+    }
+  }, []);
+
+  // Handle click on variables to show change picker
+  const handleEditorClick = useCallback((e) => {
+    const target = e.target;
+    if (target.classList?.contains('var-clickable') && target.dataset.varname) {
+      e.stopPropagation();
+      const varName = target.dataset.varname;
+      const varInfo = variableMap.get(varName);
+      
+      // Find the position of this variable in the text
+      const editor = editorRef.current;
+      const plainText = getPlainText(editor);
+      const fullVar = `{{${varName}}}`;
+      
+      // Find the occurrence by walking through the text
+      let start = -1;
+      let searchPos = 0;
+      const spans = editor.querySelectorAll('.var-clickable');
+      for (let i = 0; i < spans.length; i++) {
+        const span = spans[i];
+        const spanVarName = span.dataset.varname;
+        const idx = plainText.indexOf(`{{${spanVarName}}}`, searchPos);
+        if (idx !== -1) {
+          if (span === target) {
+            start = idx;
+            break;
+          }
+          searchPos = idx + `{{${spanVarName}}}`.length;
+        }
+      }
+      
+      if (start === -1) {
+        start = plainText.indexOf(fullVar);
+      }
+      
+      const rect = target.getBoundingClientRect();
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      if (containerRect && start !== -1) {
+        setHoverPosition({
+          top: rect.bottom - containerRect.top + 4,
+          left: rect.left - containerRect.left,
+        });
+        setClickedVarInfo({
+          name: varName,
+          info: varInfo || { name: varName, label: varName, description: '', type: 'Unknown' },
+          start,
+          end: start + fullVar.length,
+        });
+        setShowVarPopover(true);
+        setHoveredVar(null);
+      }
+    } else {
+      // Close popover if clicking elsewhere
+      setShowVarPopover(false);
+      setClickedVarInfo(null);
+    }
+    
+    // Call original onClick
+    onClick?.(e);
+  }, [variableMap, getPlainText, onClick]);
+
+  // Replace variable with another
+  const handleReplaceVariable = useCallback((newVarName) => {
+    if (!clickedVarInfo) return;
+    
+    const editor = editorRef.current;
+    if (!editor) return;
+    
+    const plainText = getPlainText(editor);
+    const newVar = `{{${newVarName}}}`;
+    const newValue = plainText.slice(0, clickedVarInfo.start) + newVar + plainText.slice(clickedVarInfo.end);
+    const newCursorPos = clickedVarInfo.start + newVar.length;
+    
+    // Update content
+    editor.innerHTML = getHighlightedHtml(newValue, promptNameMap) || '<br>';
+    setCursorPosition(newCursorPos);
+    
+    // Create synthetic event
+    const syntheticEvent = {
+      target: {
+        value: newValue,
+        selectionStart: newCursorPos,
+        selectionEnd: newCursorPos,
+      },
+    };
+    
+    onChange?.(syntheticEvent);
+    setShowVarPopover(false);
+    setClickedVarInfo(null);
+  }, [clickedVarInfo, getPlainText, getHighlightedHtml, setCursorPosition, onChange, promptNameMap]);
 
   // Calculate min-height based on rows
   const minHeight = `${rows * 1.625}rem`;
@@ -395,6 +550,15 @@ const HighlightedTextarea = React.forwardRef(({
       <style>{`
         .highlighted-textarea-container .var-highlight {
           color: hsl(var(--primary));
+        }
+        .highlighted-textarea-container .var-clickable {
+          background: hsl(var(--primary) / 0.1);
+          border-radius: 3px;
+          padding: 0 2px;
+          cursor: pointer;
+        }
+        .highlighted-textarea-container .var-clickable:hover {
+          background: hsl(var(--primary) / 0.2);
         }
         .highlighted-textarea-container .var-ref {
           background: hsl(var(--primary) / 0.1);
@@ -434,7 +598,9 @@ const HighlightedTextarea = React.forwardRef(({
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onKeyUp={onKeyUp}
-        onClick={onClick}
+        onClick={handleEditorClick}
+        onMouseOver={handleMouseOver}
+        onMouseOut={handleMouseOut}
         onBlur={handleBlur}
         onScroll={handleScroll}
         className={cn(
@@ -450,6 +616,102 @@ const HighlightedTextarea = React.forwardRef(({
         suppressContentEditableWarning
         {...props}
       />
+
+      {/* Variable hover tooltip */}
+      {hoveredVar && !showVarPopover && (
+        <div
+          className="absolute z-50 bg-surface-container-high border border-outline-variant rounded-m3-sm shadow-lg p-2 pointer-events-none"
+          style={{
+            top: hoverPosition.top,
+            left: Math.min(hoverPosition.left, 200),
+            maxWidth: '280px',
+          }}
+        >
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] text-primary bg-primary/10 px-1 rounded">
+                {`{{${hoveredVar.name}}}`}
+              </span>
+              <span className="text-[10px] text-on-surface-variant">{hoveredVar.type}</span>
+            </div>
+            {hoveredVar.description && (
+              <p className="text-[11px] text-on-surface-variant">{hoveredVar.description}</p>
+            )}
+            {hoveredVar.value && (
+              <p className="text-[10px] text-on-surface-variant/70">Value: {hoveredVar.value}</p>
+            )}
+            <p className="text-[10px] text-on-surface-variant/50 italic">Click to change</p>
+          </div>
+        </div>
+      )}
+
+      {/* Variable change popover */}
+      {showVarPopover && clickedVarInfo && (
+        <div
+          className="absolute z-50 bg-surface-container-high border border-outline-variant rounded-m3-md shadow-lg overflow-hidden"
+          style={{
+            top: hoverPosition.top,
+            left: Math.min(hoverPosition.left, 200),
+            minWidth: '240px',
+            maxWidth: '320px',
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {/* Current variable info */}
+          <div className="p-2 border-b border-outline-variant bg-surface-container-low">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-[11px] text-primary bg-primary/10 px-1 rounded">
+                {`{{${clickedVarInfo.name}}}`}
+              </span>
+              <span className="text-[10px] text-on-surface-variant">{clickedVarInfo.info?.type}</span>
+            </div>
+            {clickedVarInfo.info?.description && (
+              <p className="text-[10px] text-on-surface-variant">{clickedVarInfo.info.description}</p>
+            )}
+          </div>
+          
+          {/* Replace with section */}
+          <div className="p-1.5 border-b border-outline-variant">
+            <span className="text-[10px] text-on-surface-variant uppercase tracking-wider px-1">Replace with</span>
+          </div>
+          
+          <ScrollArea className="max-h-[200px]">
+            <div className="py-1">
+              {allVariables.filter(v => v.name !== clickedVarInfo.name).map((variable) => (
+                <button
+                  key={variable.name}
+                  className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-on-surface/[0.08] transition-colors"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleReplaceVariable(variable.name);
+                  }}
+                >
+                  <span className={cn(
+                    "font-mono text-[11px] px-1 rounded",
+                    variable.isSystem ? "bg-primary/20 text-primary" : "bg-secondary text-secondary-foreground"
+                  )}>
+                    {variable.name}
+                  </span>
+                  <span className="text-[10px] text-on-surface-variant truncate flex-1">{variable.type}</span>
+                </button>
+              ))}
+            </div>
+          </ScrollArea>
+          
+          <div className="px-2 py-1 border-t border-outline-variant">
+            <button
+              className="text-[10px] text-on-surface-variant hover:text-on-surface"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setShowVarPopover(false);
+                setClickedVarInfo(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && filteredVariables.length > 0 && (
