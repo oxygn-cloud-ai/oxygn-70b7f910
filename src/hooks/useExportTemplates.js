@@ -7,13 +7,14 @@ export const useExportTemplates = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch all export templates for the current user
+  // Fetch all export templates for the current user (excluding deleted)
   const fetchTemplates = useCallback(async (exportType = null) => {
     setIsLoading(true);
     try {
       let query = supabase
         .from('q_export_templates')
         .select('*')
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('updated_at', { ascending: false });
 
       if (exportType) {
@@ -98,12 +99,12 @@ export const useExportTemplates = () => {
     }
   }, []);
 
-  // Delete a template
+  // Delete a template (soft delete)
   const deleteTemplate = useCallback(async (rowId) => {
     try {
       const { error } = await supabase
         .from('q_export_templates')
-        .delete()
+        .update({ is_deleted: true })
         .eq('row_id', rowId);
 
       if (error) throw error;

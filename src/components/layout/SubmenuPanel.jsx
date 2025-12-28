@@ -22,7 +22,8 @@ import {
   DollarSign,
   CreditCard,
   Briefcase,
-  FileText
+  FileText,
+  Trash2
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -220,6 +221,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Credentials & tokens"
         isActive={activeSubItem === "api-keys"}
         onClick={() => onItemClick?.("api-keys")}
+      />
+      <SubmenuItem 
+        icon={Trash2} 
+        label="Trash" 
+        description="Deleted items"
+        isActive={activeSubItem === "trash"}
+        onClick={() => onItemClick?.("trash")}
       />
     </div>
   </div>
