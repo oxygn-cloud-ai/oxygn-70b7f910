@@ -180,9 +180,6 @@ const TreeItem = ({
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 12;
   const depthIndicator = level > 4 ? `${level}` : null;
-  const visualLevel = Math.min(level, 4);
-  const paddingLeft = 10 + visualLevel * 12;
-  const depthIndicator = level > 4 ? `${level}` : null;
   
   const hasChildren = item.children && item.children.length > 0;
   const starred = item.starred || false;
