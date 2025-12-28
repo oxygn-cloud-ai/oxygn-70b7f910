@@ -526,6 +526,7 @@ const MainLayout = () => {
               onAddPrompt={handleAddItem}
               onDeletePrompt={handleDeleteItem}
               onDuplicatePrompt={handleDuplicateItem}
+              onExportPrompt={(id) => { setSelectedPromptId(id); setExportPanelOpen(true); }}
               onMovePrompt={handleMoveItem}
               onRefresh={refreshTreeData}
               onRunPrompt={handleRunPrompt}
@@ -574,6 +575,7 @@ const MainLayout = () => {
           onAddPrompt={handleAddItem}
           onDeletePrompt={handleDeleteItem}
           onDuplicatePrompt={handleDuplicateItem}
+          onExportPrompt={(id) => { setSelectedPromptId(id); setExportPanelOpen(true); }}
           onMovePrompt={handleMoveItem}
           onRefresh={refreshTreeData}
           onRunPrompt={handleRunPrompt}
