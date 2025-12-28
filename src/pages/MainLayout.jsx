@@ -628,7 +628,7 @@ const MainLayout = () => {
     return <LoadingScreen />;
   }
 
-  return (
+  return (<>
     <DndProvider backend={HTML5Backend}>
       <div className="h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0">
         {/* Search Modal */}
@@ -844,7 +844,7 @@ const MainLayout = () => {
         refreshTreeData();
       }}
     />
-  );
+  </>);
 };
 
 export default MainLayout;
