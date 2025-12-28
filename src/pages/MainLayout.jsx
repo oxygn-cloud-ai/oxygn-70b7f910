@@ -761,9 +761,9 @@ const MainLayout = () => {
                 <AnimatePresence mode="wait">
                   {folderPanelOpen && (
                     <>
-                      <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+                      <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
                         <motion.div 
-                          className="h-full min-h-0 overflow-hidden"
+                          className="h-full min-h-0 overflow-x-auto overflow-y-hidden"
                           initial={{ opacity: 0, width: 0 }}
                           animate={{ opacity: 1, width: "auto" }}
                           exit={{ opacity: 0, width: 0 }}
