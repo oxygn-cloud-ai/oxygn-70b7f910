@@ -1107,7 +1107,7 @@ const PromptsContent = ({
       </div>
 
       {/* Tabs with Actions */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant shrink-0">
+      <div className="flex items-center px-3 py-1.5 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-0.5">
           {tabs.map(tab => (
             <TabButton 
@@ -1119,7 +1119,7 @@ const PromptsContent = ({
             />
           ))}
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 ml-2">
           {isRunningPrompt && (
             <span className="text-[10px] text-primary font-medium tabular-nums mr-1">
               {formattedTime}
