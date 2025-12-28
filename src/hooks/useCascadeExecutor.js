@@ -498,7 +498,13 @@ export const useCascadeExecutor = () => {
                 // Handle action nodes: parse JSON response and execute post-action
                 if (prompt.node_type === 'action' && result.response) {
                   try {
-                    const jsonResponse = JSON.parse(result.response);
+                    // Extract JSON from markdown code blocks if present
+                    let jsonString = result.response.trim();
+                    const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
+                    if (codeBlockMatch) {
+                      jsonString = codeBlockMatch[1].trim();
+                    }
+                    const jsonResponse = JSON.parse(jsonString);
                     updateData.extracted_variables = jsonResponse;
 
                     // Execute post-action if configured
