@@ -180,9 +180,29 @@ const MainLayout = () => {
     
     // Fetch prompt data to check if it's an action node
     const promptData = await fetchItemData(promptId);
+    const startTime = Date.now();
     
     const result = await runPrompt(promptId);
     if (result) {
+      const latencyMs = Date.now() - startTime;
+      
+      // Record cost and update metadata with USD costs
+      if (result.usage && result.model) {
+        try {
+          await costTracking.recordCost({
+            promptRowId: promptId,
+            model: result.model,
+            usage: result.usage,
+            responseId: result.response_id,
+            finishReason: result.finish_reason || 'stop',
+            latencyMs,
+            promptName: promptData?.prompt_name,
+          });
+        } catch (costError) {
+          console.error('Error recording cost:', costError);
+        }
+      }
+      
       // Handle action node post-actions
       if (promptData?.node_type === 'action' && result.response && promptData.post_action) {
         try {
@@ -222,7 +242,7 @@ const MainLayout = () => {
       }
       refreshTreeData();
     }
-  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id]);
+  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {
