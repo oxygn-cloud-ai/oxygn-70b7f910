@@ -209,7 +209,7 @@ const TemplatesFolderPanel = ({
           starred: false,
         }));
     }
-  }, [activeType, templates, schemaTemplates]);
+  }, [activeType, templates, schemaTemplates, mappingTemplates]);
 
   const getIcon = () => {
     switch (activeType) {
