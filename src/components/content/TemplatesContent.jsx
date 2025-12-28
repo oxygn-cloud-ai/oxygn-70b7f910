@@ -270,7 +270,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
 };
 
 // Settings Tab Content (for Prompt Templates)
-const TemplateSettingsTabContent = ({ templateData, onUpdateField }) => {
+const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }) => {
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState("4096");
   const currentModel = templateData?.structure?.model || 'gpt-4o';
@@ -287,9 +287,20 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField }) => {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            <DropdownMenuItem className="text-body-sm text-on-surface">
-              {currentModel}
-            </DropdownMenuItem>
+            {models.length === 0 ? (
+              <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+                No models available
+              </DropdownMenuItem>
+            ) : models.map(model => (
+              <DropdownMenuItem 
+                key={model.row_id || model.id || model.model_id} 
+                onClick={() => onUpdateField?.('structure.model', model.model_id || model.id)}
+                className="text-body-sm text-on-surface"
+              >
+                <span className="flex-1">{model.model_name || model.name}</span>
+                <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -795,6 +806,7 @@ const TemplatesContent = ({
   templatesHook,
   jsonSchemaTemplatesHook,
   onTemplateChange,
+  models = [],
 }) => {
   const [activeEditorTab, setActiveEditorTab] = useState("prompt");
   const [editedTemplate, setEditedTemplate] = useState(null);
@@ -1066,6 +1078,7 @@ const TemplatesContent = ({
             <TemplateSettingsTabContent 
               templateData={editedTemplate}
               onUpdateField={handleUpdateField}
+              models={models}
             />
           )}
 
