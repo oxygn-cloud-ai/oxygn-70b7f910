@@ -3,6 +3,7 @@
  * 
  * Creates child nodes from a JSON array in the AI response.
  * Each item in the array becomes a child node.
+ * Supports creating either standard or action node children.
  */
 
 const PROMPTS_TABLE = 'q_prompts';
@@ -85,7 +86,11 @@ const getParentSettings = async (supabase, parentRowId) => {
 
   const { data } = await supabase
     .from(PROMPTS_TABLE)
-    .select('model, model_on, web_search_on, confluence_enabled, thread_mode, child_thread_strategy')
+    .select(`
+      model, model_on, web_search_on, confluence_enabled, thread_mode, 
+      child_thread_strategy, response_format, response_format_on,
+      temperature, temperature_on, max_tokens, max_tokens_on
+    `)
     .eq('row_id', parentRowId)
     .single();
 
@@ -121,6 +126,8 @@ export const executeCreateChildrenJson = async ({
     json_path = 'items',
     name_field = 'name',
     content_field = '',
+    child_node_type = 'standard', // NEW: 'standard' or 'action'
+    placement = 'children',       // NEW: Support placement option
     copy_library_prompt_id,
   } = config || {};
 
@@ -152,15 +159,41 @@ export const executeCreateChildrenJson = async ({
   // Get library prompt if specified
   const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id);
 
-  // Get current max position among siblings
-  const { data: siblings } = await supabase
-    .from(PROMPTS_TABLE)
-    .select('position')
-    .eq('parent_row_id', prompt.row_id)
-    .order('position', { ascending: false })
-    .limit(1);
+  // Determine parent_row_id based on placement
+  let targetParentRowId;
+  switch (placement) {
+    case 'children':
+      targetParentRowId = prompt.row_id;
+      break;
+    case 'siblings':
+      targetParentRowId = prompt.parent_row_id;
+      break;
+    case 'top_level':
+      targetParentRowId = null;
+      break;
+    default:
+      targetParentRowId = prompt.row_id;
+  }
 
-  let nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+  // Get current max position among siblings
+  let nextPosition;
+  if (placement === 'top_level') {
+    const { data: topLevel } = await supabase
+      .from(PROMPTS_TABLE)
+      .select('position')
+      .is('parent_row_id', null)
+      .order('position', { ascending: false })
+      .limit(1);
+    nextPosition = (topLevel?.[0]?.position ?? -1) + 1;
+  } else {
+    const { data: siblings } = await supabase
+      .from(PROMPTS_TABLE)
+      .select('position')
+      .eq('parent_row_id', targetParentRowId)
+      .order('position', { ascending: false })
+      .limit(1);
+    nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+  }
 
   const createdChildren = [];
 
@@ -195,13 +228,13 @@ export const executeCreateChildrenJson = async ({
 
     // Build child data with proper inheritance
     const childData = {
-      parent_row_id: prompt.row_id,
+      parent_row_id: targetParentRowId,
       prompt_name: String(childName).substring(0, 100),
       input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
       input_user_prompt: content || '',
       position: nextPosition++,
       owner_id: context.userId || prompt.owner_id,
-      node_type: 'standard',
+      node_type: child_node_type || 'standard', // Use configured node type
       // Store the original item data for reference
       extracted_variables: typeof item === 'object' ? item : { value: item },
       // Apply model defaults
@@ -212,6 +245,12 @@ export const executeCreateChildrenJson = async ({
       thread_mode: parentSettings.thread_mode,
       child_thread_strategy: parentSettings.child_thread_strategy,
     };
+
+    // If creating action nodes, inherit response_format for structured output
+    if (child_node_type === 'action' && parentSettings.response_format_on) {
+      childData.response_format = parentSettings.response_format;
+      childData.response_format_on = true;
+    }
 
     if (copy_library_prompt_id) {
       childData.library_prompt_id = copy_library_prompt_id;
@@ -231,11 +270,21 @@ export const executeCreateChildrenJson = async ({
     createdChildren.push(data);
   }
 
+  const placementText = {
+    children: 'as children',
+    siblings: 'as siblings',
+    top_level: 'as top-level prompts',
+  };
+
+  const nodeTypeText = child_node_type === 'action' ? ' action' : '';
+
   return {
     action: 'create_children_json',
     createdCount: createdChildren.length,
     children: createdChildren,
+    childNodeType: child_node_type,
+    placement,
     jsonPath: json_path,
-    message: `Created ${createdChildren.length} child node(s) from JSON array`,
+    message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement] || ''} from JSON array`,
   };
 };
