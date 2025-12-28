@@ -423,7 +423,19 @@ const ExportPanel = ({
         className="h-14 flex items-center justify-between px-4 border-b border-outline-variant"
         style={{ height: "56px" }}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => goBack?.()}
+                disabled={currentStep === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Back</TooltipContent>
+          </Tooltip>
           <span className="text-title-sm text-on-surface font-medium">Export</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
             {selectedPromptsCount} prompts • {selectedFieldsCount} fields
@@ -506,7 +518,7 @@ const ExportPanel = ({
                   <button 
                     onClick={() => handleLoadTemplate(selectedTemplateId)}
                     disabled={!selectedTemplateId}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-primary text-primary-foreground disabled:opacity-50"
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed text-on-surface-variant"
                   >
                     <Check className="h-4 w-4" />
                   </button>
@@ -534,7 +546,7 @@ const ExportPanel = ({
               <button 
                 onClick={handleSaveTemplate}
                 disabled={!newTemplateName.trim() || isSavingTemplate}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-sm bg-primary text-primary-foreground disabled:opacity-50"
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed text-on-surface-variant"
               >
                 {isSavingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               </button>
@@ -761,27 +773,14 @@ const ExportPanel = ({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-outline-variant flex items-center justify-between">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button 
-              onClick={() => goBack?.()}
-              disabled={currentStep === 1}
-              className="w-9 h-9 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Back</TooltipContent>
-        </Tooltip>
-
+      <div className="p-4 border-t border-outline-variant flex items-center justify-end">
         {currentStep < 4 ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
                 onClick={() => goNext?.()}
                 disabled={!canProceedLocal()}
-                className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed text-on-surface-variant"
               >
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -794,7 +793,7 @@ const ExportPanel = ({
               <button 
                 onClick={handleExport}
                 disabled={!canProceedLocal() || isExporting || confluenceExport.isCreatingPage}
-                className="w-9 h-9 flex items-center justify-center rounded-m3-full bg-primary text-primary-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] disabled:opacity-30 disabled:cursor-not-allowed text-on-surface-variant"
               >
                 {(isExporting || confluenceExport.isCreatingPage) ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
