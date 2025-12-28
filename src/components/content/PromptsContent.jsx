@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useTimer } from "@/hooks/useTimer";
 import { 
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 

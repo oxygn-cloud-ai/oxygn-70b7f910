@@ -1,4 +1,4 @@
-import React from "react";
+import * as React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Bell, Command, MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
