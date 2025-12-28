@@ -298,30 +298,72 @@ const ResizablePromptArea = ({
     }
   }, [editValue, value, isEditing, defaultHeight]);
 
+  // Helper to get cursor position from contenteditable
+  const getCursorPositionFromEditor = useCallback(() => {
+    const editor = textareaRef.current;
+    if (!editor) return editValue.length;
+    
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return editValue.length;
+    
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(editor);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    
+    // Create a temporary div to get the text
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(preCaretRange.cloneContents());
+    
+    // Handle br tags as newlines
+    const brs = tempDiv.querySelectorAll('br');
+    brs.forEach(br => br.replaceWith('\n'));
+    
+    return tempDiv.textContent?.length || 0;
+  }, [editValue.length]);
+
   // Track cursor position when textarea changes or user clicks/selects
   const handleTextareaChange = (e) => {
     setEditValue(e.target.value);
-    setCursorPosition(e.target.selectionStart);
+    // HighlightedTextarea provides selectionStart in synthetic event
+    if (e.target.selectionStart !== undefined) {
+      setCursorPosition(e.target.selectionStart);
+    }
   };
 
-  const handleTextareaSelect = (e) => {
-    setCursorPosition(e.target.selectionStart);
-  };
+  const handleTextareaSelect = useCallback(() => {
+    // Get cursor from contenteditable
+    const pos = getCursorPositionFromEditor();
+    setCursorPosition(pos);
+  }, [getCursorPositionFromEditor]);
 
-  const handleTextareaClick = (e) => {
-    setCursorPosition(e.target.selectionStart);
-  };
+  const handleTextareaClick = useCallback(() => {
+    // Get cursor from contenteditable
+    setTimeout(() => {
+      const pos = getCursorPositionFromEditor();
+      setCursorPosition(pos);
+    }, 0);
+  }, [getCursorPositionFromEditor]);
 
-  const handleTextareaKeyUp = (e) => {
-    setCursorPosition(e.target.selectionStart);
-  };
+  const handleTextareaKeyUp = useCallback(() => {
+    // Get cursor from contenteditable
+    const pos = getCursorPositionFromEditor();
+    setCursorPosition(pos);
+  }, [getCursorPositionFromEditor]);
 
   const handleInsertVariable = useCallback((variableText) => {
     // variableText may already include {{ }} from VariablePicker
     const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
     
-    // Insert at cursor position if available, otherwise at end
-    const insertPos = cursorPosition !== null ? cursorPosition : editValue.length;
+    // Get current cursor position from editor if available
+    let insertPos = cursorPosition;
+    if (insertPos === null && textareaRef.current && isEditing) {
+      insertPos = getCursorPositionFromEditor();
+    }
+    if (insertPos === null) {
+      insertPos = editValue.length;
+    }
+    
     const newValue = editValue.slice(0, insertPos) + insertion + editValue.slice(insertPos);
     setEditValue(newValue);
     
@@ -329,14 +371,11 @@ const ResizablePromptArea = ({
     const newCursorPos = insertPos + insertion.length;
     setCursorPosition(newCursorPos);
     
-    // If editing, focus textarea and set cursor
-    if (textareaRef.current && isEditing) {
-      setTimeout(() => {
-        textareaRef.current.focus();
-        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
-      }, 0);
+    // Notify parent of change
+    if (onChange) {
+      onChange(newValue);
     }
-  }, [cursorPosition, editValue, isEditing]);
+  }, [cursorPosition, editValue, isEditing, getCursorPositionFromEditor, onChange]);
 
   // Handle replacing a variable in the text (used by ClickableVariable)
   const handleReplaceVariable = useCallback((start, end, newText) => {
