@@ -233,20 +233,21 @@ const TreeItem = ({
         {/* Drag handle - only on hover */}
         <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
         
-        {/* Expand/collapse chevron - always show for items with children */}
-        {hasChildren ? (
-          <button 
-            onClick={handleToggleClick}
-            className="w-5 h-5 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.12] transition-all flex-shrink-0"
-          >
-            {isExpanded 
-              ? <ChevronDown className="h-3.5 w-3.5" />
-              : <ChevronRight className="h-3.5 w-3.5" />
-            }
-          </button>
-        ) : (
-          <span className="w-5 flex-shrink-0" />
-        )}
+        {/* Expand/collapse chevron - show for all items, greyed out when no children */}
+        <button 
+          onClick={handleToggleClick}
+          className={`w-5 h-5 flex items-center justify-center rounded-sm transition-all flex-shrink-0 ${
+            hasChildren 
+              ? 'hover:bg-on-surface/[0.12] cursor-pointer' 
+              : 'cursor-default opacity-0'
+          }`}
+          disabled={!hasChildren}
+        >
+          {isExpanded 
+            ? <ChevronDown className="h-3.5 w-3.5" />
+            : <ChevronRight className="h-3.5 w-3.5" />
+          }
+        </button>
         
         <Icon className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
