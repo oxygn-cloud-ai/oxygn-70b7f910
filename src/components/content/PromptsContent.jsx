@@ -245,10 +245,11 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   // Use real data from promptData
   const currentModel = promptData?.model || models.find(m => m.is_active)?.model_id || '';
   const modelConfig = getModelConfig(currentModel);
-  const supportedSettings = modelConfig.supportedSettings || [];
+  const currentModelData = models.find(m => m.model_id === currentModel);
+  const supportedSettings = currentModelData?.supported_settings || modelConfig.supportedSettings || [];
   
   const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
-  const currentMaxTokens = promptData?.max_tokens || promptData?.max_completion_tokens || String(modelConfig.maxTokens);
+  const currentMaxTokens = promptData?.max_tokens || promptData?.max_completion_tokens || String(modelConfig.maxTokens || 4096);
   const isAssistant = promptData?.is_assistant || false;
 
   const [temperature, setTemperature] = useState([currentTemp]);
@@ -265,8 +266,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
     const tokenValue = promptData?.max_tokens || promptData?.max_completion_tokens;
     if (tokenValue) {
       setMaxTokens(tokenValue);
-    } else {
-      // Set to model's max when no value exists
+    } else if (modelConfig.maxTokens) {
       setMaxTokens(String(modelConfig.maxTokens));
     }
   }, [promptData?.max_tokens, promptData?.max_completion_tokens, modelConfig.maxTokens]);
@@ -279,20 +279,30 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   const handleMaxTokensChange = (e) => {
     const value = e.target.value;
     setMaxTokens(value);
-    // Use the correct parameter name based on model
-    onUpdateField?.(modelConfig.tokenParam, value);
+    const tokenParam = supportedSettings.includes('max_completion_tokens') ? 'max_completion_tokens' : 'max_tokens';
+    onUpdateField?.(tokenParam, value);
   };
 
   const handleModelChange = (modelId) => {
     onUpdateField?.('model', modelId);
-    // Update max tokens to new model's max
     const newConfig = getModelConfig(modelId);
-    setMaxTokens(String(newConfig.maxTokens));
-    onUpdateField?.(newConfig.tokenParam, String(newConfig.maxTokens));
+    if (newConfig.maxTokens) {
+      setMaxTokens(String(newConfig.maxTokens));
+      const newModelData = models.find(m => m.model_id === modelId);
+      const tokenParam = newModelData?.supported_settings?.includes('max_completion_tokens') ? 'max_completion_tokens' : 'max_tokens';
+      onUpdateField?.(tokenParam, String(newConfig.maxTokens));
+    }
   };
 
   // Get display name for current model
   const currentModelDisplay = models.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel;
+
+  // Helper to check if a setting is supported
+  const hasSetting = (setting) => supportedSettings.includes(setting);
+
+  // Determine token parameter type
+  const tokenParamLabel = hasSetting('max_completion_tokens') ? 'Max Completion Tokens' : 'Max Tokens';
+  const hasTokenSetting = hasSetting('max_tokens') || hasSetting('max_completion_tokens');
 
   return (
     <div className="space-y-4">
@@ -335,109 +345,232 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
             })}
           </DropdownMenuContent>
         </DropdownMenu>
+        
+        {/* Show supported settings info */}
+        {supportedSettings.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {supportedSettings.map(setting => (
+              <span key={setting} className="text-[9px] px-1.5 py-0.5 bg-surface-container rounded text-on-surface-variant">
+                {setting.replace(/_/g, ' ')}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Temperature - only show if model supports it */}
-      {modelConfig.supportsTemperature && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
-            <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
-          </div>
-          <Slider
-            value={temperature}
-            onValueChange={handleTemperatureChange}
-            max={2}
-            step={0.1}
-            className="w-full"
-          />
-          <div className="flex justify-between text-[10px] text-on-surface-variant">
-            <span>Precise</span>
-            <span>Creative</span>
-          </div>
+      {/* Dynamic Model Settings Section */}
+      <div className="p-3 bg-surface-container-low rounded-m3-md space-y-3">
+        <div className="flex items-center gap-2">
+          <Sliders className="h-4 w-4 text-on-surface-variant" />
+          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model Parameters</span>
         </div>
-      )}
 
-      {/* Max Tokens / Max Completion Tokens - dynamic label based on model */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-            {modelConfig.tokenParam === 'max_completion_tokens' ? 'Max Completion Tokens' : 'Max Tokens'}
-          </label>
-          <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
-        </div>
-        <input
-          type="number"
-          value={maxTokens}
-          onChange={handleMaxTokensChange}
-          max={modelConfig.maxTokens}
-          min={1}
-          className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-        />
+        {/* Temperature - only show if model supports it */}
+        {hasSetting('temperature') && currentModelData?.supports_temperature !== false && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
+              <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+            </div>
+            <Slider
+              value={temperature}
+              onValueChange={handleTemperatureChange}
+              max={2}
+              step={0.1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-[10px] text-on-surface-variant">
+              <span>Precise</span>
+              <span>Creative</span>
+            </div>
+          </div>
+        )}
+
+        {/* Max Tokens / Max Completion Tokens */}
+        {hasTokenSetting && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{tokenParamLabel}</label>
+              <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
+            </div>
+            <input
+              type="number"
+              value={maxTokens}
+              onChange={handleMaxTokensChange}
+              max={modelConfig.maxTokens}
+              min={1}
+              className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        )}
+
+        {/* Reasoning Effort - only for models that support it */}
+        {hasSetting('reasoning_effort') && (
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                  <span className="capitalize">{promptData?.reasoning_effort || 'medium'}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+                {(currentModelData?.reasoning_effort_levels || modelConfig.reasoningEffortLevels || ['low', 'medium', 'high']).map(level => (
+                  <DropdownMenuItem 
+                    key={level}
+                    onClick={() => onUpdateField?.('reasoning_effort', level)}
+                    className="text-body-sm text-on-surface capitalize"
+                  >
+                    {level}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="text-[10px] text-on-surface-variant">Higher = better reasoning, but slower & more expensive</p>
+          </div>
+        )}
+
+        {/* Frequency Penalty */}
+        {hasSetting('frequency_penalty') && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Frequency Penalty</label>
+              <span className="text-body-sm text-on-surface font-mono">{promptData?.frequency_penalty || '0'}</span>
+            </div>
+            <Slider
+              value={[parseFloat(promptData?.frequency_penalty || '0')]}
+              onValueChange={(v) => onUpdateField?.('frequency_penalty', String(v[0]))}
+              min={-2}
+              max={2}
+              step={0.1}
+              className="w-full"
+            />
+            <p className="text-[10px] text-on-surface-variant">Reduce repetition of token sequences</p>
+          </div>
+        )}
+
+        {/* Presence Penalty */}
+        {hasSetting('presence_penalty') && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Presence Penalty</label>
+              <span className="text-body-sm text-on-surface font-mono">{promptData?.presence_penalty || '0'}</span>
+            </div>
+            <Slider
+              value={[parseFloat(promptData?.presence_penalty || '0')]}
+              onValueChange={(v) => onUpdateField?.('presence_penalty', String(v[0]))}
+              min={-2}
+              max={2}
+              step={0.1}
+              className="w-full"
+            />
+            <p className="text-[10px] text-on-surface-variant">Encourage new topics</p>
+          </div>
+        )}
+
+        {/* Top P */}
+        {hasSetting('top_p') && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Top P</label>
+              <span className="text-body-sm text-on-surface font-mono">{promptData?.top_p || '1'}</span>
+            </div>
+            <Slider
+              value={[parseFloat(promptData?.top_p || '1')]}
+              onValueChange={(v) => onUpdateField?.('top_p', String(v[0]))}
+              min={0}
+              max={1}
+              step={0.05}
+              className="w-full"
+            />
+            <p className="text-[10px] text-on-surface-variant">Nucleus sampling threshold</p>
+          </div>
+        )}
+
+        {/* Seed */}
+        {hasSetting('seed') && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Seed</label>
+              <Switch 
+                checked={promptData?.seed_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('seed_on', checked)} 
+              />
+            </div>
+            {promptData?.seed_on && (
+              <input
+                type="number"
+                value={promptData?.seed || ''}
+                onChange={(e) => onUpdateField?.('seed', e.target.value)}
+                placeholder="Enter seed value"
+                className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            )}
+            <p className="text-[10px] text-on-surface-variant">Fixed seed for reproducible outputs</p>
+          </div>
+        )}
+
+        {/* Response Format */}
+        {hasSetting('response_format') && (
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Response Format</label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                  <span>{promptData?.response_format || 'text'}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+                {['text', 'json_object', 'json_schema'].map(format => (
+                  <DropdownMenuItem 
+                    key={format}
+                    onClick={() => onUpdateField?.('response_format', format)}
+                    className="text-body-sm text-on-surface"
+                  >
+                    {format.replace(/_/g, ' ')}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
+        {/* Tool Choice - only if supported */}
+        {hasSetting('tool_choice') && (
+          <div className="space-y-1.5">
+            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tool Choice</label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                  <span>{promptData?.tool_choice || 'auto'}</span>
+                  <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+                {['auto', 'none', 'required'].map(choice => (
+                  <DropdownMenuItem 
+                    key={choice}
+                    onClick={() => onUpdateField?.('tool_choice', choice)}
+                    className="text-body-sm text-on-surface capitalize"
+                  >
+                    {choice}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="text-[10px] text-on-surface-variant">Controls when the model uses tools</p>
+          </div>
+        )}
+
+        {/* No settings available message */}
+        {supportedSettings.length === 0 && (
+          <p className="text-body-sm text-on-surface-variant text-center py-2">
+            No configurable settings for this model
+          </p>
+        )}
       </div>
-
-      {/* Reasoning Effort - only for models that support it */}
-      {supportedSettings.includes('reasoning_effort') && (
-        <div className="space-y-1.5">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                <span className="capitalize">{promptData?.reasoning_effort || 'medium'}</span>
-                <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-              {(modelConfig.reasoningEffortLevels || ['low', 'medium', 'high']).map(level => (
-                <DropdownMenuItem 
-                  key={level}
-                  onClick={() => onUpdateField?.('reasoning_effort', level)}
-                  className="text-body-sm text-on-surface capitalize"
-                >
-                  {level}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <p className="text-[10px] text-on-surface-variant">Higher = better reasoning, but slower & more expensive</p>
-        </div>
-      )}
-
-      {/* Frequency Penalty - only if supported */}
-      {supportedSettings.includes('frequency_penalty') && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Frequency Penalty</label>
-            <span className="text-body-sm text-on-surface font-mono">{promptData?.frequency_penalty || '0'}</span>
-          </div>
-          <Slider
-            value={[parseFloat(promptData?.frequency_penalty || '0')]}
-            onValueChange={(v) => onUpdateField?.('frequency_penalty', String(v[0]))}
-            min={-2}
-            max={2}
-            step={0.1}
-            className="w-full"
-          />
-        </div>
-      )}
-
-      {/* Presence Penalty - only if supported */}
-      {supportedSettings.includes('presence_penalty') && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Presence Penalty</label>
-            <span className="text-body-sm text-on-surface font-mono">{promptData?.presence_penalty || '0'}</span>
-          </div>
-          <Slider
-            value={[parseFloat(promptData?.presence_penalty || '0')]}
-            onValueChange={(v) => onUpdateField?.('presence_penalty', String(v[0]))}
-            min={-2}
-            max={2}
-            step={0.1}
-            className="w-full"
-          />
-        </div>
-      )}
 
       {/* Conversational Memory Toggle */}
       <div className="flex items-center justify-between">
