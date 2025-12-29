@@ -6,9 +6,13 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
       throw new Error('VITE_PROMPTS_TBL environment variable is not set');
     }
 
+    // Fetch prompts with related assistant records
     const { data, error } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('*')
+      .select(`
+        *,
+        ${import.meta.env.VITE_ASSISTANTS_TBL}!${import.meta.env.VITE_ASSISTANTS_TBL}_prompt_row_id_fkey(row_id)
+      `)
       .eq('is_deleted', false)
       .order('position');
 
@@ -39,18 +43,28 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
       }
     }
 
-    // Add owner display info to all top-level prompts
+    // Add owner display info and extract assistant_row_id
     const promptsWithOwnerInfo = (data || []).map(prompt => {
-      if (!prompt.parent_row_id && prompt.owner_id) {
-        const ownerInfo = ownerProfiles.get(prompt.owner_id) || { display: prompt.owner_id.substring(0, 8), avatar: null };
+      // Extract assistant_row_id from the joined data
+      const assistantData = prompt[import.meta.env.VITE_ASSISTANTS_TBL];
+      const assistant_row_id = Array.isArray(assistantData) 
+        ? assistantData[0]?.row_id 
+        : assistantData?.row_id;
+      
+      // Remove the nested assistant object
+      const { [import.meta.env.VITE_ASSISTANTS_TBL]: _, ...promptData } = prompt;
+      
+      if (!promptData.parent_row_id && promptData.owner_id) {
+        const ownerInfo = ownerProfiles.get(promptData.owner_id) || { display: promptData.owner_id.substring(0, 8), avatar: null };
         return {
-          ...prompt,
+          ...promptData,
+          assistant_row_id,
           showOwner: true,
           ownerDisplay: ownerInfo.display,
           ownerAvatar: ownerInfo.avatar
         };
       }
-      return prompt;
+      return { ...promptData, assistant_row_id };
     });
 
     return buildTree(promptsWithOwnerInfo);
