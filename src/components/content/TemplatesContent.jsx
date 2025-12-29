@@ -26,7 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
 import { VariablePicker } from "@/components/shared";
 
 // Source options for variable mappings
@@ -323,35 +323,12 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model</label>
-        <Select 
-          value={templateData?.structure?.model || currentModel} 
-          onValueChange={(value) => handleModelChange(value)}
-        >
-          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-            <SelectValue placeholder="Select model">{currentModelDisplay}</SelectValue>
-          </SelectTrigger>
-          <SelectContent className="max-h-64 bg-surface-container-high border-outline-variant z-50">
-            {models.length === 0 ? (
-              <SelectItem value="none" disabled className="text-body-sm text-on-surface-variant">
-                No models available
-              </SelectItem>
-            ) : models.filter(m => m.is_active !== false).map(model => (
-              <SelectItem 
-                key={model.row_id || model.id || model.model_id}
-                value={model.model_id || model.id}
-                className="text-body-sm text-on-surface"
-              >
-                <span className="flex items-center justify-between w-full gap-2">
-                  <span>{model.model_name || model.name}</span>
-                  <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SettingModelSelect
+        value={templateData?.structure?.model || currentModel}
+        onValueChange={handleModelChange}
+        models={models}
+        label="Model"
+      />
 
       {/* Temperature - only show if model supports it */}
       {modelConfig.supportsTemperature && (
@@ -400,43 +377,28 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
 
       {/* Reasoning Effort - only for GPT-5 and O-series */}
       {supportedSettings.includes('reasoning_effort') && (
-        <div className="space-y-1.5">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
-          <Select 
-            value={templateData?.structure?.reasoning_effort || 'medium'} 
-            onValueChange={(value) => onUpdateField?.('structure.reasoning_effort', value)}
-          >
-            <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <SelectValue placeholder="Select effort level" />
-            </SelectTrigger>
-            <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-              {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map(level => (
-                <SelectItem 
-                  key={level}
-                  value={level}
-                  className="text-body-sm text-on-surface"
-                >
-                  {level}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <SettingSelect
+          value={templateData?.structure?.reasoning_effort || 'medium'}
+          onValueChange={(value) => onUpdateField?.('structure.reasoning_effort', value)}
+          options={[
+            { value: 'none', label: 'none' },
+            { value: 'minimal', label: 'minimal' },
+            { value: 'low', label: 'low' },
+            { value: 'medium', label: 'medium' },
+            { value: 'high', label: 'high' },
+            { value: 'xhigh', label: 'xhigh' },
+          ]}
+          label="Reasoning Effort"
+        />
       )}
 
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
-        <Select value="" onValueChange={() => {}}>
-          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
-            <SelectValue placeholder="Select a schema..." />
-          </SelectTrigger>
-          <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-            <SelectItem value="none" disabled className="text-body-sm text-on-surface-variant">
-              No schemas available
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <SettingSelect
+        value=""
+        onValueChange={() => {}}
+        options={[]}
+        label="JSON Schema (Optional)"
+        placeholder="Select a schema..."
+      />
 
       <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
         <div className="flex items-center justify-between">
