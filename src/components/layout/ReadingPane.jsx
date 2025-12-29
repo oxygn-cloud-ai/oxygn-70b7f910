@@ -34,6 +34,7 @@ const ReadingPane = ({
   isRunningPrompt = false,
   isRunningCascade = false,
   onCancelRun,
+  runProgress,
   // Settings props - Phase 6
   settings = {},
   isLoadingSettings = false,
@@ -164,6 +165,7 @@ const ReadingPane = ({
       isRunningPrompt={isRunningPrompt}
       isRunningCascade={isRunningCascade}
       onCancelRun={onCancelRun}
+      runProgress={runProgress}
     />
   );
 };

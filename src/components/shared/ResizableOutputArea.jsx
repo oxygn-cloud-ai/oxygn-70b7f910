@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Play, Copy, Check, Clock, Loader2
+  Play, Copy, Check, Clock, Loader2, Square, Bot, CheckCircle2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
@@ -24,9 +25,42 @@ const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
   </Tooltip>
 );
 
+// Map progress stages to display text
+const getStageDisplay = (progress) => {
+  if (!progress) return { text: 'Starting...', icon: null };
+  
+  switch (progress.stage || progress.type) {
+    case 'started':
+      return { text: 'Starting...', icon: null };
+    case 'prompt_loaded':
+      return { text: `Loaded: ${progress.prompt_name || 'prompt'}`, icon: null };
+    case 'loading_context':
+      return { text: 'Loading files and pages...', icon: <Loader2 className="h-3 w-3 animate-spin" /> };
+    case 'context_ready':
+      if (progress.cached) {
+        return { text: 'Using cached context', icon: <CheckCircle2 className="h-3 w-3 text-green-500" /> };
+      }
+      const parts = [];
+      if (progress.files_count > 0) parts.push(`${progress.files_count} file${progress.files_count > 1 ? 's' : ''}`);
+      if (progress.pages_count > 0) parts.push(`${progress.pages_count} page${progress.pages_count > 1 ? 's' : ''}`);
+      const contextText = parts.length > 0 ? `Context loaded (${parts.join(', ')})` : 'Context ready';
+      return { text: contextText, icon: <CheckCircle2 className="h-3 w-3 text-green-500" /> };
+    case 'calling_api':
+      return { text: `Calling ${progress.model || 'AI'}...`, icon: <Loader2 className="h-3 w-3 animate-spin" /> };
+    case 'heartbeat':
+      return { text: 'Still working...', icon: null };
+    case 'complete':
+      return { text: 'Complete!', icon: <CheckCircle2 className="h-3 w-3 text-green-500" /> };
+    case 'error':
+      return { text: 'Error occurred', icon: null };
+    default:
+      return { text: 'Processing...', icon: null };
+  }
+};
+
 /**
  * ResizableOutputArea - Read-only output field with dual resize methods:
- * 1. Drag handle (bottom-right corner via CSS resize)
+ * 1. Drag handle (bottom edge via CSS resize-y for vertical only)
  * 2. Chevron buttons to jump between collapsed/min/full states
  */
 const ResizableOutputArea = ({ 
@@ -35,8 +69,10 @@ const ResizableOutputArea = ({
   placeholder = "No output yet. Run the prompt to generate a response.",
   metadata,
   onRegenerate,
+  onCancel,
   isRegenerating = false,
   runTime,
+  progress,
   defaultHeight = MIN_HEIGHT 
 }) => {
   const [expandState, setExpandState] = useState('min'); // 'collapsed' | 'min' | 'full'
@@ -104,6 +140,7 @@ const ResizableOutputArea = ({
 
   const isCollapsed = expandState === 'collapsed' && manualHeight === null;
   const currentHeight = getHeight();
+  const stageDisplay = getStageDisplay(progress);
 
   return (
     <div className="space-y-1.5">
@@ -140,7 +177,7 @@ const ResizableOutputArea = ({
           
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-1">{label}</label>
           
-          {value && (
+          {value && !isRegenerating && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 flex items-center gap-1">
               <Check className="h-2.5 w-2.5" />
               Generated
@@ -156,6 +193,19 @@ const ResizableOutputArea = ({
                 <span className="text-[10px] text-primary font-medium tabular-nums">
                   {runTime}
                 </span>
+              )}
+              {isRegenerating && onCancel && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={onCancel}
+                      className="w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] text-on-surface-variant hover:text-primary"
+                    >
+                      <Square className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Stop</TooltipContent>
+                </Tooltip>
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -185,13 +235,64 @@ const ResizableOutputArea = ({
         </div>
       </div>
 
-      {/* Content area */}
+      {/* Progress indicator when running */}
+      <AnimatePresence>
+        {isRegenerating && progress && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-primary/5 rounded-m3-sm border border-primary/10">
+              <Bot className="h-3.5 w-3.5 text-primary" />
+              <motion.div
+                key={stageDisplay.text}
+                initial={{ opacity: 0, x: -5 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-1.5 text-[10px] text-on-surface-variant"
+              >
+                {stageDisplay.icon || (
+                  <motion.span
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="w-1.5 h-1.5 rounded-full bg-primary"
+                  />
+                )}
+                <span>{stageDisplay.text}</span>
+              </motion.div>
+              {/* Progress stages indicator */}
+              {progress?.stage && (
+                <div className="flex items-center gap-0.5 ml-auto">
+                  {['prompt_loaded', 'context_ready', 'calling_api'].map((stage) => {
+                    const stages = ['prompt_loaded', 'loading_context', 'context_ready', 'calling_api'];
+                    const currentIdx = stages.indexOf(progress.stage);
+                    const stageIdx = stages.indexOf(stage);
+                    const isComplete = currentIdx >= stageIdx;
+                    
+                    return (
+                      <div
+                        key={stage}
+                        className={`h-1 w-4 rounded-full transition-all duration-300 ${
+                          isComplete ? "bg-primary" : "bg-outline-variant"
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Content area - resize-y for vertical only */}
       {!isCollapsed && (
         <>
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize"
+            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y"
             onMouseUp={handleResize}
           >
             {value || <span className="text-on-surface-variant opacity-50">{placeholder}</span>}
