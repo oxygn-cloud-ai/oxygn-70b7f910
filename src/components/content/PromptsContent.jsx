@@ -1061,35 +1061,17 @@ const PromptsContent = ({
           />
         </div>
         <div className="flex items-center gap-0.5 ml-2">
-          {isRunningPrompt && (
-            <>
-              <span className="text-[10px] text-primary font-medium tabular-nums mr-1">
-                {formattedTime}
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={() => onCancelRun?.()}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container text-on-surface-variant hover:text-primary"
-                  >
-                    <Square className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">Stop</TooltipContent>
-              </Tooltip>
-            </>
-          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
                 onClick={() => onRunPrompt?.(selectedPromptId)}
                 disabled={isRunningPrompt}
-                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${isRunningPrompt ? 'text-primary' : 'text-on-surface-variant'}`}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container text-on-surface-variant"
               >
-                {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                <Play className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Play'}</TooltipContent>
+            <TooltipContent className="text-[10px]">Play</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
