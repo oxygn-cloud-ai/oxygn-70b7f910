@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { getModelConfig, getModelCapabilities } from '@/config/modelCapabilities';
+import { useModels } from '@/hooks/useModels';
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
   LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
@@ -294,12 +294,10 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
 
 // Settings Tab Content (for Prompt Templates) - with dynamic model-aware parameters
 const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }) => {
-  // Model capabilities imported at top level
+  const { getModelConfig } = useModels();
 
-  const currentModel = templateData?.structure?.model || 'gpt-4o';
-  const currentProvider = models.find(m => m.model_id === currentModel)?.provider || 'openai';
+  const currentModel = templateData?.structure?.model || models.find(m => m.is_active)?.model_id || '';
   const modelConfig = getModelConfig(currentModel);
-  const modelCapabilities = getModelCapabilities(currentModel, currentProvider);
 
   const [temperature, setTemperature] = useState([templateData?.structure?.temperature || 0.7]);
   const [maxTokens, setMaxTokens] = useState(templateData?.structure?.max_tokens || String(modelConfig.maxTokens));

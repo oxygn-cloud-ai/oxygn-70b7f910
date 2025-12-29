@@ -9,15 +9,9 @@ import { Info, Globe, FileText, Code, Search, ExternalLink } from 'lucide-react'
 import { cn } from "@/lib/utils";
 import { useSupabase } from '../hooks/useSupabase';
 import { useSettings } from '../hooks/useSettings';
+import { useModels } from '../hooks/useModels';
 import { toast } from '@/components/ui/sonner';
-import { 
-  ALL_SETTINGS, 
-  ALL_TOOLS, 
-  getModelCapabilities, 
-  getModelTools,
-  isSettingSupported, 
-  isToolSupported 
-} from '@/config/modelCapabilities';
+import { ALL_SETTINGS, ALL_TOOLS } from '@/config/modelCapabilities';
 
 const TOOL_ICONS = {
   web_search: Globe,
@@ -37,6 +31,7 @@ const SettingsPanel = ({
 }) => {
   const supabase = useSupabase();
   const { settings, isLoading: settingsLoading } = useSettings(supabase);
+  const { isSettingSupported, isToolSupported } = useModels();
 
   // Get default model from global settings
   const defaultModel = useMemo(() => {
@@ -46,7 +41,6 @@ const SettingsPanel = ({
   // Get the currently selected model (prompt's model or default)
   const currentModel = localData.model || defaultModel;
   const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
-  const currentProvider = currentModelData?.provider || 'openai';
 
   // Settings to display (excluding hidden ones like response_format)
   const visibleSettings = ['temperature', 'max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
@@ -172,10 +166,10 @@ const SettingsPanel = ({
             const tool = ALL_TOOLS[toolKey];
             const IconComponent = TOOL_ICONS[toolKey];
             const isEnabled = localData[`${toolKey}_on`] || false;
-            const isSupported = isToolSupported(toolKey, currentModel, currentProvider);
+            const supported = isToolSupported(toolKey, currentModel);
             
             // Special case: confluence is always supported (it's not model-dependent)
-            const actuallySupported = toolKey === 'confluence' ? true : isSupported;
+            const actuallySupported = toolKey === 'confluence' ? true : supported;
             
             return (
               <Tooltip key={toolKey}>
@@ -208,9 +202,9 @@ const SettingsPanel = ({
 
         {/* Settings Grid - 2 columns */}
         <div className="grid grid-cols-2 gap-2">
-          {visibleSettings.map(settingKey => {
+        {visibleSettings.map(settingKey => {
             const setting = ALL_SETTINGS[settingKey];
-            const isSupported = isSettingSupported(settingKey, currentModel, currentProvider);
+            const supported = isSettingSupported(settingKey, currentModel);
             const isEnabled = localData[`${settingKey}_on`] || false;
             const value = localData[settingKey] || '';
             
@@ -219,24 +213,24 @@ const SettingsPanel = ({
                 key={settingKey}
                 className={cn(
                   "flex items-center gap-1.5 p-1.5 rounded border transition-colors",
-                  isSupported 
+                  supported 
                     ? "bg-background border-border/50" 
                     : "bg-muted/30 border-muted opacity-50"
                 )}
               >
                 <Switch
                   checked={isEnabled}
-                  onCheckedChange={(checked) => isSupported && handleToggleChange(settingKey, checked)}
-                  disabled={!isSupported}
+                  onCheckedChange={(checked) => supported && handleToggleChange(settingKey, checked)}
+                  disabled={!supported}
                   className="h-4 w-7 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"
                 />
                 
                 <div className="flex-1 min-w-0">
-                  {setting.type === 'select' ? (
+                {setting.type === 'select' ? (
                     <Select
                       value={value || setting.defaultValue}
                       onValueChange={(v) => handleValueChange(settingKey, v)}
-                      disabled={!isEnabled || !isSupported}
+                      disabled={!isEnabled || !supported}
                     >
                       <SelectTrigger className="h-6 text-[10px] px-1.5 border-0 bg-transparent">
                         <SelectValue />
@@ -255,7 +249,7 @@ const SettingsPanel = ({
                       value={value}
                       onChange={(e) => handleValueChange(settingKey, e.target.value)}
                       onBlur={() => handleValueBlur(settingKey)}
-                      disabled={!isEnabled || !isSupported}
+                      disabled={!isEnabled || !supported}
                       placeholder={setting.shortLabel}
                       className="h-6 text-[10px] px-1.5 border-0 bg-transparent"
                       min={setting.min}
@@ -290,7 +284,7 @@ const SettingsPanel = ({
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
-                      {!isSupported && (
+                      {!supported && (
                         <p className="text-xs text-destructive">Not supported by {currentModel}</p>
                       )}
                     </div>

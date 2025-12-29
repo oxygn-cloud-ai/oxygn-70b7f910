@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ALL_SETTINGS, isSettingSupported } from '@/config/modelCapabilities';
+import { ALL_SETTINGS } from '@/config/modelCapabilities';
+import { useModels } from '@/hooks/useModels';
 import {
   Popover,
   PopoverContent,
@@ -21,6 +22,7 @@ const ModelDefaultsSection = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const modelDefaults = defaults || {};
+  const { isSettingSupported } = useModels();
 
   const handleCheckChange = useCallback(async (field, checked) => {
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
@@ -77,7 +79,7 @@ const ModelDefaultsSection = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {settingKeys.map(field => {
                 const settingInfo = ALL_SETTINGS[field];
-                const isSupported = isSettingSupported(field, model.model_id, model.provider);
+                const supported = isSettingSupported(field, model.model_id);
                 const isEnabled = modelDefaults[`${field}_on`] || false;
                 const value = modelDefaults[field] || '';
 
@@ -86,7 +88,7 @@ const ModelDefaultsSection = ({
                     key={field}
                     className={cn(
                       "p-3 rounded-lg border transition-all",
-                      !isSupported 
+                      !supported 
                         ? "bg-muted/50 border-muted opacity-50" 
                         : "bg-background border-border"
                     )}
@@ -96,13 +98,13 @@ const ModelDefaultsSection = ({
                         id={`${model.model_id}-${field}-checkbox`}
                         checked={isEnabled}
                         onCheckedChange={(checked) => handleCheckChange(field, checked)}
-                        disabled={!isSupported}
+                        disabled={!supported}
                       />
                       <label 
                         htmlFor={`${model.model_id}-${field}`}
                         className={cn(
                           "text-sm font-medium flex-grow",
-                          !isSupported ? "text-muted-foreground" : "text-foreground"
+                          !supported ? "text-muted-foreground" : "text-foreground"
                         )}
                       >
                         {settingInfo.label}
@@ -139,9 +141,9 @@ const ModelDefaultsSection = ({
                       id={`${model.model_id}-${field}`}
                       value={value}
                       onChange={(e) => handleValueChange(field, e.target.value)}
-                      disabled={!isEnabled || !isSupported}
+                      disabled={!isEnabled || !supported}
                       className="w-full text-sm"
-                      placeholder={!isSupported ? "Not supported" : settingInfo.description}
+                      placeholder={!supported ? "Not supported" : settingInfo.description}
                     />
                   </div>
                 );
