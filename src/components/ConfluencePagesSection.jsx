@@ -277,7 +277,7 @@ const ConfluencePagesSection = ({
       <ConfluenceSearchModal
         open={searchModalOpen}
         onOpenChange={setSearchModalOpen}
-        assistantRowId={assistantRowId}
+        assistantRowId={conversationRowId}
         promptRowId={promptRowId}
         onPageAttached={fetchAttachedPages}
       />
