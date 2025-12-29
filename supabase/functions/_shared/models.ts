@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+// deno-lint-ignore-file no-explicit-any
 
 export interface ModelConfig {
   modelId: string;
@@ -71,7 +71,7 @@ function rowToConfig(row: ModelRow): ModelConfig {
  * Fetch model configuration from the database
  */
 export async function fetchModelConfig(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   modelId: string
 ): Promise<ModelConfig | null> {
   const { data, error } = await supabase
@@ -92,7 +92,7 @@ export async function fetchModelConfig(
  * Resolve a model ID to its actual API model ID
  */
 export async function resolveApiModelId(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   modelId: string
 ): Promise<string> {
   const config = await fetchModelConfig(supabase, modelId);
@@ -103,7 +103,7 @@ export async function resolveApiModelId(
  * Check if a model supports temperature parameter
  */
 export async function supportsTemperature(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   modelId: string
 ): Promise<boolean> {
   const config = await fetchModelConfig(supabase, modelId);
@@ -114,7 +114,7 @@ export async function supportsTemperature(
  * Get the token parameter name for a model
  */
 export async function getTokenParam(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   modelId: string
 ): Promise<string> {
   const config = await fetchModelConfig(supabase, modelId);
@@ -125,7 +125,7 @@ export async function getTokenParam(
  * Fetch all active models from the database
  */
 export async function fetchActiveModels(
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<ModelConfig[]> {
   const { data, error } = await supabase
     .from('q_models')

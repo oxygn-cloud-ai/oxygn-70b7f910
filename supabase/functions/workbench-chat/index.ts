@@ -10,10 +10,13 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Get default model from DB
+// Get default model from DB (first active model, or throw if none)
 async function getDefaultModel(supabase: any): Promise<string> {
   const models = await fetchActiveModels(supabase);
-  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
+  if (models.length === 0) {
+    throw new Error('No active models configured in database');
+  }
+  return models[0].modelId;
 }
 
 function isAllowedDomain(email: string | undefined): boolean {
@@ -499,7 +502,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get default model from settings if not provided
+    // Get default model from settings or DB
     let selectedModel = model;
     if (!selectedModel) {
       const { data: modelSetting } = await supabase
@@ -507,7 +510,12 @@ serve(async (req) => {
         .select('setting_value')
         .eq('setting_key', 'workbench_default_model')
         .single();
-      selectedModel = modelSetting?.setting_value || 'google/gemini-2.5-flash';
+      if (modelSetting?.setting_value) {
+        selectedModel = modelSetting.setting_value;
+      } else {
+        // Fall back to first active model from DB
+        selectedModel = await getDefaultModel(supabase);
+      }
     }
 
     // Get system prompt from settings if not provided

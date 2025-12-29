@@ -298,6 +298,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
 
   const currentModel = templateData?.structure?.model || models.find(m => m.is_active)?.model_id || '';
   const modelConfig = getModelConfig(currentModel);
+  const supportedSettings = modelConfig.supportedSettings || [];
 
   const [temperature, setTemperature] = useState([templateData?.structure?.temperature || 0.7]);
   const [maxTokens, setMaxTokens] = useState(templateData?.structure?.max_tokens || String(modelConfig.maxTokens));
@@ -407,7 +408,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
       </div>
 
       {/* Reasoning Effort - only for GPT-5 and O-series */}
-      {modelCapabilities.includes('reasoning_effort') && (
+      {supportedSettings.includes('reasoning_effort') && (
         <div className="space-y-1.5">
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
           <DropdownMenu>
@@ -418,8 +419,8 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-              {['low', 'medium', 'high'].map(level => (
-                <DropdownMenuItem 
+              {(modelConfig.reasoningEffortLevels || ['low', 'medium', 'high']).map(level => (
+                <DropdownMenuItem
                   key={level}
                   onClick={() => onUpdateField?.('structure.reasoning_effort', level)}
                   className="text-body-sm text-on-surface capitalize"

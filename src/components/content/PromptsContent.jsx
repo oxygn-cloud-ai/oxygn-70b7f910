@@ -404,7 +404,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
       )}
 
       {/* Frequency Penalty - only if supported */}
-      {modelCapabilities.includes('frequency_penalty') && (
+      {supportedSettings.includes('frequency_penalty') && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Frequency Penalty</label>

@@ -11,10 +11,13 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Get default model from DB (first active model)
+// Get default model from DB (first active model, or throw if none)
 async function getDefaultModel(supabase: any): Promise<string> {
   const models = await fetchActiveModels(supabase);
-  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
+  if (models.length === 0) {
+    throw new Error('No active models configured in database');
+  }
+  return models[0].modelId;
 }
 
 // Resolve model using DB
