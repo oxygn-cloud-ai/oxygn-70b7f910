@@ -75,11 +75,11 @@ export const ACTION_TYPES = {
       },
       {
         key: 'name_prefix',
-        label: 'Name Prefix',
+        label: 'Name Template',
         type: CONFIG_FIELD_TYPES.TEXT,
         defaultValue: 'Child',
         required: false,
-        helpText: 'Prefix for child node names (e.g., "Child 1", "Child 2")',
+        helpText: 'Name template with optional codes: {{n}} (1,2,3), {{nn}} (01,02), {{A}} (A,B,C). E.g., "Chapter {{nn}}" → "Chapter 01"',
       },
       {
         key: 'placement',
