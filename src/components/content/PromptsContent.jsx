@@ -682,10 +682,10 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
 
               {/* JSON Schema */}
               <SettingSelect
-                value={selectedSchemaId || ''}
-                onValueChange={(value) => onUpdateField?.('json_schema_template_id', value || null)}
+                value={selectedSchemaId || 'none'}
+                onValueChange={(value) => onUpdateField?.('json_schema_template_id', value === 'none' ? null : value)}
                 options={[
-                  { value: '', label: 'None' },
+                  { value: 'none', label: 'None' },
                   ...schemas.map(s => ({ value: s.row_id || s.id, label: s.schema_name || s.name }))
                 ]}
                 label="JSON Schema (Optional)"
