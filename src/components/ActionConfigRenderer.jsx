@@ -45,6 +45,7 @@ const ActionConfigRenderer = ({
     return extractSchemaKeys(currentSchema);
   }, [currentSchema]);
 
+  // Multi-select schema keys (for selecting multiple keys)
   const renderSchemaKeysField = (field) => {
     const selectedKeys = config[field.key] || [];
     const fieldId = `action-config-${field.key}`;
@@ -55,8 +56,8 @@ const ActionConfigRenderer = ({
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </Label>
-        {field.description && (
-          <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+        {field.helpText && (
+          <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
         )}
         
         {schemaKeys.length === 0 ? (
@@ -89,6 +90,79 @@ const ActionConfigRenderer = ({
             ))}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Single-select schema key (for picking ONE key like json_path)
+  const renderSingleSchemaKeyField = (field) => {
+    // Handle value as string or first element of array
+    const rawValue = config[field.key];
+    const selectedKey = Array.isArray(rawValue) ? rawValue[0] : (rawValue || '');
+    const fieldId = `action-config-${field.key}`;
+    
+    // Filter to only array types for json_path
+    const arrayKeys = schemaKeys.filter(k => k.isArray);
+    const displayKeys = arrayKeys.length > 0 ? arrayKeys : schemaKeys;
+
+    // If no schema keys, show fallback text input
+    if (schemaKeys.length === 0) {
+      return (
+        <div key={field.key} className="space-y-2">
+          <Label htmlFor={fieldId} className="text-label-sm text-on-surface-variant">
+            {field.label}
+            {field.required && <span className="text-red-500 ml-1">*</span>}
+          </Label>
+          {field.helpText && (
+            <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
+          )}
+          <Input
+            id={fieldId}
+            value={selectedKey}
+            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+            placeholder={field.placeholder || "e.g., sections or items"}
+            disabled={disabled}
+            className="h-8 text-body-sm font-mono"
+          />
+          <p className="text-[10px] text-on-surface-variant italic">
+            No schema defined. Enter the array path manually.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.key} className="space-y-2">
+        <Label htmlFor={fieldId} className="text-label-sm text-on-surface-variant">
+          {field.label}
+          {field.required && <span className="text-red-500 ml-1">*</span>}
+        </Label>
+        {field.helpText && (
+          <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
+        )}
+        
+        <Select
+          value={selectedKey}
+          onValueChange={(value) => handleFieldChange(field.key, value)}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-8 text-body-sm">
+            <SelectValue placeholder="Select array field..." />
+          </SelectTrigger>
+          <SelectContent>
+            {displayKeys.map((schemaKey) => (
+              <SelectItem key={schemaKey.key} value={schemaKey.key}>
+                <div className="flex items-center gap-2">
+                  <span>{schemaKey.key}</span>
+                  <Badge variant="outline" className="text-[9px]">{schemaKey.type}</Badge>
+                  {schemaKey.isArray && (
+                    <Badge variant="secondary" className="text-[9px]">array</Badge>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     );
   };
@@ -197,11 +271,14 @@ const ActionConfigRenderer = ({
 
   const renderField = (field) => {
     const fieldId = `action-config-${field.key}`;
-    const value = config[field.key] ?? field.default ?? '';
+    const value = config[field.key] ?? field.defaultValue ?? '';
 
     switch (field.type) {
       case CONFIG_FIELD_TYPES.SCHEMA_KEYS:
         return renderSchemaKeysField(field);
+
+      case CONFIG_FIELD_TYPES.SCHEMA_KEY:
+        return renderSingleSchemaKeyField(field);
 
       case CONFIG_FIELD_TYPES.PROMPT_PICKER:
         return renderPromptPickerField(field);
@@ -209,15 +286,20 @@ const ActionConfigRenderer = ({
       case CONFIG_FIELD_TYPES.LIBRARY_PICKER:
         return renderLibraryPickerField(field);
 
-      case CONFIG_FIELD_TYPES.SELECT:
+      case CONFIG_FIELD_TYPES.SELECT: {
+        // Normalize options: support both string arrays AND {value, label} objects
+        const normalizedOptions = (field.options || []).map(opt => 
+          typeof opt === 'string' ? { value: opt, label: opt } : opt
+        );
+
         return (
           <div key={field.key} className="space-y-2">
             <Label htmlFor={fieldId} className="text-label-sm text-on-surface-variant">
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+            {field.helpText && (
+              <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Select
               value={value}
@@ -228,7 +310,7 @@ const ActionConfigRenderer = ({
                 <SelectValue placeholder={`Select ${field.label.toLowerCase()}...`} />
               </SelectTrigger>
               <SelectContent>
-                {field.options?.map((option) => (
+                {normalizedOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -237,6 +319,7 @@ const ActionConfigRenderer = ({
             </Select>
           </div>
         );
+      }
 
       case CONFIG_FIELD_TYPES.BOOLEAN:
         return (
@@ -245,8 +328,8 @@ const ActionConfigRenderer = ({
               <Label htmlFor={fieldId} className="text-body-sm text-on-surface">
                 {field.label}
               </Label>
-              {field.description && (
-                <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+              {field.helpText && (
+                <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
               )}
             </div>
             <Switch
@@ -265,8 +348,8 @@ const ActionConfigRenderer = ({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+            {field.helpText && (
+              <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Input
               id={fieldId}
@@ -288,8 +371,8 @@ const ActionConfigRenderer = ({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+            {field.helpText && (
+              <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Textarea
               id={fieldId}
@@ -309,19 +392,19 @@ const ActionConfigRenderer = ({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+            {field.helpText && (
+              <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Input
               id={fieldId}
               value={value}
               onChange={(e) => handleFieldChange(field.key, e.target.value)}
-              placeholder={field.placeholder || "e.g., items or data.results"}
+              placeholder={field.placeholder || "e.g., sections or items"}
               disabled={disabled}
               className="h-8 text-body-sm font-mono"
             />
             <p className="text-[10px] text-on-surface-variant">
-              Use dot notation for nested paths (e.g., <code>response.items</code>)
+              Use dot notation for nested paths (e.g., <code>response.sections</code>)
             </p>
           </div>
         );
@@ -334,8 +417,8 @@ const ActionConfigRenderer = ({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </Label>
-            {field.description && (
-              <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+            {field.helpText && (
+              <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Input
               id={fieldId}

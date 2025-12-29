@@ -36,10 +36,12 @@ export const CONFIG_FIELD_TYPES = {
   TEXTAREA: 'textarea',
   BOOLEAN: 'boolean',
   JSON_PATH: 'json_path',
-  SCHEMA_KEYS: 'schema_keys',     // Visual key picker from current schema
+  SCHEMA_KEYS: 'schema_keys',     // Visual key picker from current schema (multi-select)
+  SCHEMA_KEY: 'schema_key',       // Single key picker from current schema
   MODEL_SELECT: 'model_select',   // Model dropdown
   NODE_TYPE: 'node_type',         // standard vs action
   PROMPT_PICKER: 'prompt_picker', // Pick any existing prompt as target
+  LIBRARY_PICKER: 'library_picker', // Pick from prompt library
 };
 
 /**
@@ -61,7 +63,7 @@ export const ACTION_TYPES = {
     description: 'Create a specified number of child nodes with text content',
     icon: 'GitBranch',
     category: 'structure',
-    enabled: true,
+    enabled: false, // Disabled - use create_children_json for structured output
     configSchema: [
       {
         key: 'children_count',
@@ -85,7 +87,12 @@ export const ACTION_TYPES = {
         key: 'placement',
         label: 'Prompt Placement',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['children', 'siblings', 'top_level', 'specific_prompt'],
+        options: [
+          { value: 'children', label: 'As Children' },
+          { value: 'siblings', label: 'As Siblings' },
+          { value: 'top_level', label: 'Top Level' },
+          { value: 'specific_prompt', label: 'Under Specific Prompt' },
+        ],
         defaultValue: 'children',
         required: true,
         helpText: 'Where to create prompts: as children of this prompt, as siblings, top-level, or under a specific prompt',
@@ -102,7 +109,10 @@ export const ACTION_TYPES = {
         key: 'child_node_type',
         label: 'Child Node Type',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['standard', 'action'],
+        options: [
+          { value: 'standard', label: 'Standard Prompt' },
+          { value: 'action', label: 'Action Node' },
+        ],
         defaultValue: 'standard',
         required: false,
         helpText: 'Create standard prompts or action nodes',
@@ -110,8 +120,7 @@ export const ACTION_TYPES = {
       {
         key: 'copy_library_prompt_id',
         label: 'Apply Library Prompt',
-        type: CONFIG_FIELD_TYPES.SELECT,
-        source: 'prompt_library',
+        type: CONFIG_FIELD_TYPES.LIBRARY_PICKER,
         required: false,
         helpText: 'Optional library prompt to apply to each child',
       },
@@ -121,41 +130,46 @@ export const ACTION_TYPES = {
   create_children_json: {
     id: 'create_children_json',
     name: 'Create Children (JSON)',
-    description: 'Create child nodes from a JSON array in the AI response',
+    description: 'Create child nodes from a JSON array in the AI response. Each array item becomes a child prompt.',
     icon: 'Braces',
     category: 'structure',
     enabled: true,
     configSchema: [
       {
         key: 'json_path',
-        label: 'JSON Array Path',
-        type: CONFIG_FIELD_TYPES.SCHEMA_KEYS,
-        defaultValue: 'items',
+        label: 'Source Array Path',
+        type: CONFIG_FIELD_TYPES.SCHEMA_KEY, // Single select - pick ONE array
+        defaultValue: 'sections',
         required: true,
-        helpText: 'Select which array in the JSON response to use for creating children',
+        helpText: 'Select which array in the JSON response to use for creating children (e.g., "sections", "items")',
         fallbackType: CONFIG_FIELD_TYPES.JSON_PATH,
       },
       {
         key: 'name_field',
         label: 'Name Field',
         type: CONFIG_FIELD_TYPES.TEXT,
-        defaultValue: '',
+        defaultValue: 'title',
         required: false,
-        helpText: 'JSON path to the field to use as node name (e.g., "name", "title", "heading"). Leave empty for auto-detection.',
+        helpText: 'Field in each array item to use as prompt name (e.g., "title", "section_key"). Leave empty for auto-detection.',
       },
       {
         key: 'content_field',
         label: 'Content Field',
         type: CONFIG_FIELD_TYPES.TEXT,
-        defaultValue: '',
+        defaultValue: 'system_prompt',
         required: false,
-        helpText: 'Field to use as user prompt content (leave empty to use entire item)',
+        helpText: 'Field to use as the child prompt content (e.g., "system_prompt", "content"). Leave empty to use entire item as JSON.',
       },
       {
         key: 'placement',
         label: 'Prompt Placement',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['children', 'siblings', 'top_level', 'specific_prompt'],
+        options: [
+          { value: 'children', label: 'As Children' },
+          { value: 'siblings', label: 'As Siblings' },
+          { value: 'top_level', label: 'Top Level' },
+          { value: 'specific_prompt', label: 'Under Specific Prompt' },
+        ],
         defaultValue: 'children',
         required: true,
         helpText: 'Where to create prompts: as children of this prompt, as siblings, top-level, or under a specific prompt',
@@ -172,7 +186,10 @@ export const ACTION_TYPES = {
         key: 'child_node_type',
         label: 'Child Node Type',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['standard', 'action'],
+        options: [
+          { value: 'standard', label: 'Standard Prompt' },
+          { value: 'action', label: 'Action Node' },
+        ],
         defaultValue: 'standard',
         required: false,
         helpText: 'Create standard prompts or action nodes',
@@ -180,10 +197,9 @@ export const ACTION_TYPES = {
       {
         key: 'copy_library_prompt_id',
         label: 'Apply Library Prompt',
-        type: CONFIG_FIELD_TYPES.SELECT,
-        source: 'prompt_library',
+        type: CONFIG_FIELD_TYPES.LIBRARY_PICKER,
         required: false,
-        helpText: 'Optional library prompt to apply to each child',
+        helpText: 'Optional library prompt to apply to each child as the system prompt',
       },
     ],
   },
@@ -217,7 +233,11 @@ export const ACTION_TYPES = {
         key: 'name_source',
         label: 'Prompt Name Source',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['key_value', 'key_name', 'both'],
+        options: [
+          { value: 'key_value', label: 'Key Value' },
+          { value: 'key_name', label: 'Key Name' },
+          { value: 'both', label: 'Key: Value' },
+        ],
         defaultValue: 'key_value',
         required: true,
         helpText: 'Use the key value as name, the key itself, or "Key: Value" format',
@@ -234,7 +254,12 @@ export const ACTION_TYPES = {
         key: 'placement',
         label: 'Prompt Placement',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['children', 'siblings', 'top_level', 'specific_prompt'],
+        options: [
+          { value: 'children', label: 'As Children' },
+          { value: 'siblings', label: 'As Siblings' },
+          { value: 'top_level', label: 'Top Level' },
+          { value: 'specific_prompt', label: 'Under Specific Prompt' },
+        ],
         defaultValue: 'children',
         required: true,
         helpText: 'Where to create prompts: as children of this prompt, as siblings, top-level, or under a specific prompt',
@@ -251,7 +276,10 @@ export const ACTION_TYPES = {
         key: 'child_node_type',
         label: 'Child Node Type',
         type: CONFIG_FIELD_TYPES.SELECT,
-        options: ['standard', 'action'],
+        options: [
+          { value: 'standard', label: 'Standard Prompt' },
+          { value: 'action', label: 'Action Node' },
+        ],
         defaultValue: 'standard',
         required: false,
         helpText: 'Create standard prompts or action nodes',
@@ -259,8 +287,7 @@ export const ACTION_TYPES = {
       {
         key: 'copy_library_prompt_id',
         label: 'Apply Library Prompt',
-        type: CONFIG_FIELD_TYPES.SELECT,
-        source: 'prompt_library',
+        type: CONFIG_FIELD_TYPES.LIBRARY_PICKER,
         required: false,
         helpText: 'Optional library prompt to apply to each created prompt',
       },
