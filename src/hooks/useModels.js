@@ -56,22 +56,56 @@ export const useModels = () => {
     }
   };
 
-  const addModel = async (modelId, modelName, provider = 'openai') => {
+  const addModel = async (modelData) => {
     try {
       const { data, error } = await supabase
         .from(import.meta.env.VITE_MODELS_TBL)
-        .insert([{ model_id: modelId, model_name: modelName, provider, is_active: true }])
+        .insert([{ 
+          model_id: modelData.model_id, 
+          model_name: modelData.model_name, 
+          provider: modelData.provider || 'openai', 
+          is_active: true,
+          context_window: modelData.context_window || null,
+          max_output_tokens: modelData.max_output_tokens || null,
+          input_cost_per_million: modelData.input_cost_per_million || null,
+          output_cost_per_million: modelData.output_cost_per_million || null,
+          supports_temperature: modelData.supports_temperature ?? true,
+          api_model_id: modelData.api_model_id || modelData.model_id,
+        }])
         .select()
         .single();
 
       if (error) throw error;
 
-      setModels(prev => [...prev, data].sort((a, b) => a.model_name.localeCompare(b.model_name)));
+      setModels(prev => [...prev, data].sort((a, b) => (a.model_name || '').localeCompare(b.model_name || '')));
       toast.success('Model added successfully');
       return data;
     } catch (error) {
       console.error('Error adding model:', error);
       toast.error('Failed to add model');
+      return null;
+    }
+  };
+
+  const updateModel = async (rowId, updates) => {
+    try {
+      const { data, error } = await supabase
+        .from(import.meta.env.VITE_MODELS_TBL)
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('row_id', rowId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setModels(prev =>
+        prev.map(m => m.row_id === rowId ? { ...m, ...data } : m)
+      );
+      toast.success('Model updated');
+      return data;
+    } catch (error) {
+      console.error('Error updating model:', error);
+      toast.error('Failed to update model');
       return null;
     }
   };
@@ -155,6 +189,7 @@ export const useModels = () => {
     isLoading,
     toggleModelActive,
     addModel,
+    updateModel,
     deleteModel,
     getModelConfig,
     getActiveModels,
