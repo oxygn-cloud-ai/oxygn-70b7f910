@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { fetchModelConfig, resolveApiModelId, fetchActiveModels } from "../_shared/models.ts";
+import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,15 +8,6 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
-
-// Get default model from DB (first active model, or throw if none)
-async function getDefaultModel(supabase: any): Promise<string> {
-  const models = await fetchActiveModels(supabase);
-  if (models.length === 0) {
-    throw new Error('No active models configured in database');
-  }
-  return models[0].modelId;
-}
 
 // Resolve model using DB, with fallback to modelId itself
 async function resolveModel(supabase: any, modelId: string): Promise<string> {
@@ -117,7 +108,7 @@ serve(async (req) => {
       const start = Date.now();
       
       // Use default model from DB for health check
-      const healthCheckModel = await getDefaultModel(supabase);
+      const healthCheckModel = await getDefaultModelFromSettings(supabase);
       
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -193,7 +184,7 @@ serve(async (req) => {
       const startTime = Date.now();
 
       // Use DB for model resolution and defaults
-      const defaultModel = await getDefaultModel(supabase);
+      const defaultModel = await getDefaultModelFromSettings(supabase);
       const requestedModel = model || defaultModel;
       const modelId = await resolveModel(supabase, requestedModel);
       
