@@ -108,6 +108,36 @@ CRITICAL INSTRUCTIONS:
 
 Respond with the JSON object now.`;
 
+// Ensure schema is compliant with OpenAI's strict mode requirements
+// All objects must have additionalProperties: false and all properties in required array
+function ensureStrictCompliance(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+  
+  const fixed = { ...schema };
+  
+  if (fixed.type === 'object' && fixed.properties) {
+    // Add additionalProperties: false for strict mode
+    fixed.additionalProperties = false;
+    
+    // Ensure all properties are required
+    fixed.required = Object.keys(fixed.properties);
+    
+    // Recursively fix nested objects/arrays
+    fixed.properties = Object.fromEntries(
+      Object.entries(fixed.properties).map(([key, value]) => [
+        key,
+        ensureStrictCompliance(value)
+      ])
+    );
+  }
+  
+  if (fixed.type === 'array' && fixed.items) {
+    fixed.items = ensureStrictCompliance(fixed.items);
+  }
+  
+  return fixed;
+}
+
 // Format JSON schema for human-readable prompt
 function formatSchemaForPrompt(schema: any): string {
   if (!schema) return '';
@@ -190,12 +220,20 @@ async function runResponsesAPI(
 
   // Add structured output format if provided
   if (options.responseFormat && options.responseFormat.type === 'json_schema') {
+    // Apply strict mode compliance to ensure schema meets OpenAI requirements
+    const originalSchema = options.responseFormat.json_schema?.schema;
+    const compliantSchema = ensureStrictCompliance(originalSchema);
+    
+    if (JSON.stringify(originalSchema) !== JSON.stringify(compliantSchema)) {
+      console.log('Schema auto-fixed for strict mode compliance');
+    }
+    
     requestBody.text = {
       format: {
         type: 'json_schema',
         name: options.responseFormat.json_schema?.name || 'response',
-        schema: options.responseFormat.json_schema?.schema,
-        strict: options.responseFormat.json_schema?.strict ?? true,
+        schema: compliantSchema,
+        strict: true, // Always use strict mode
       },
     };
     console.log('Using structured output format:', requestBody.text.format.name);

@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Play, 
   Braces, 
@@ -26,6 +27,7 @@ import {
   Sparkles,
   Settings2,
   ListTree,
+  AlertTriangle,
 } from 'lucide-react';
 import { 
   getEnabledActionTypes, 
@@ -34,9 +36,16 @@ import {
   ACTION_CATEGORIES,
 } from '@/config/actionTypes';
 import { applyTemplateToPrompt } from '@/services/templateService';
-import { isFullTemplate } from '@/utils/schemaUtils';
+import { 
+  isFullTemplate, 
+  ensureStrictCompliance, 
+  schemaWasModified,
+  validateSchemaForAction,
+  findArrayPaths,
+} from '@/utils/schemaUtils';
 import ActionConfigRenderer from './ActionConfigRenderer';
 import { useJsonSchemaTemplates } from '@/hooks/useJsonSchemaTemplates';
+import { toast } from 'sonner';
 
 // Icon mapping for action types
 const iconMap = {
@@ -75,6 +84,20 @@ const ActionNodeSettings = ({
       return null;
     }
   }, [localData.response_format]);
+
+  // Validate schema against selected action type
+  const schemaValidation = useMemo(() => {
+    if (!currentSchemaObject || !localData.post_action) {
+      return { isValid: true, warnings: [], suggestions: [] };
+    }
+    return validateSchemaForAction(currentSchemaObject, localData.post_action, currentConfig);
+  }, [currentSchemaObject, localData.post_action, currentConfig]);
+
+  // Find array paths in current schema for suggestions
+  const availableArrayPaths = useMemo(() => {
+    if (!currentSchemaObject) return [];
+    return findArrayPaths(currentSchemaObject);
+  }, [currentSchemaObject]);
 
   // Separate full templates from schema-only templates (from DB)
   const fullTemplates = useMemo(() => 
@@ -208,7 +231,21 @@ const ActionNodeSettings = ({
     setSchemaError('');
 
     try {
-      const schema = JSON.parse(value);
+      let schema = JSON.parse(value);
+      
+      // Apply strict mode compliance
+      const fixedSchema = ensureStrictCompliance(schema);
+      const wasModified = schemaWasModified(schema, fixedSchema);
+      
+      if (wasModified) {
+        toast.info('Schema auto-fixed for strict mode compliance', {
+          description: 'Added required fields and additionalProperties: false'
+        });
+        schema = fixedSchema;
+        // Update the textarea with fixed schema
+        setCustomSchema(JSON.stringify(fixedSchema, null, 2));
+      }
+      
       const responseFormat = {
         type: 'json_schema',
         json_schema: {
@@ -432,6 +469,25 @@ const ActionNodeSettings = ({
                 {selectedAction.description}
               </p>
             </div>
+          )}
+
+          {/* Schema-Action Alignment Warning */}
+          {schemaValidation.warnings.length > 0 && (
+            <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/30">
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+              <AlertDescription className="text-[10px] text-on-surface space-y-1">
+                {schemaValidation.warnings.map((warning, i) => (
+                  <p key={i}>{warning}</p>
+                ))}
+                {schemaValidation.suggestions.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 text-on-surface-variant">
+                    {schemaValidation.suggestions.map((suggestion, i) => (
+                      <li key={i}>• {suggestion}</li>
+                    ))}
+                  </ul>
+                )}
+              </AlertDescription>
+            </Alert>
           )}
         </CardContent>
       </Card>
