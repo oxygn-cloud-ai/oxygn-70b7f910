@@ -2,7 +2,10 @@
  * Create Children (Text) Action Executor
  * 
  * Creates a specified number of child nodes with optional content from library prompts.
+ * Supports naming templates like {{n}}, {{nn}}, {{A}}, {{date:FORMAT}}.
  */
+
+import { processNamingTemplate } from '../../utils/namingTemplates.js';
 
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
@@ -155,7 +158,11 @@ export const executeCreateChildrenText = async ({
   const createdChildren = [];
 
   for (let i = 0; i < children_count; i++) {
-    const childName = `${name_prefix} ${i + 1}`;
+    // Support naming templates in the prefix (e.g., "Child {{nn}}", "Section {{A}}")
+    const hasTemplateCode = name_prefix && /\{\{[^}]+\}\}/.test(name_prefix);
+    const childName = hasTemplateCode 
+      ? processNamingTemplate(name_prefix, i)
+      : `${name_prefix} ${i + 1}`;
     
     // Build child data with proper inheritance
     const childData = {
