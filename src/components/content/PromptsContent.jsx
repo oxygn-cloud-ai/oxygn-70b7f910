@@ -30,6 +30,7 @@ import { Slider } from "@/components/ui/slider";
 import { LabelPicker } from "@/components/ui/label-picker";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   EmptyVariables, 
   EmptyConversation,
@@ -410,25 +411,25 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         {hasSetting('reasoning_effort') && (
           <div className="space-y-1.5">
             <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                  <span className="capitalize">{promptData?.reasoning_effort || 'medium'}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-                {(currentModelData?.reasoning_effort_levels || modelConfig.reasoningEffortLevels || ['low', 'medium', 'high']).map(level => (
-                  <DropdownMenuItem 
+            <Select 
+              value={promptData?.reasoning_effort || 'medium'} 
+              onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
+            >
+              <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                <SelectValue placeholder="Select effort level" />
+              </SelectTrigger>
+              <SelectContent className="bg-surface-container-high border-outline-variant z-50">
+                {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map(level => (
+                  <SelectItem 
                     key={level}
-                    onClick={() => onUpdateField?.('reasoning_effort', level)}
-                    className="text-body-sm text-on-surface capitalize"
+                    value={level}
+                    className="text-body-sm text-on-surface"
                   >
                     {level}
-                  </DropdownMenuItem>
+                  </SelectItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </SelectContent>
+            </Select>
             <p className="text-[10px] text-on-surface-variant">Higher = better reasoning, but slower & more expensive</p>
           </div>
         )}
