@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { TABLES } from "../_shared/tables.ts";
+import { fetchModelConfig, resolveApiModelId as resolveFromDb } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,27 +11,40 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Map friendly model IDs to actual OpenAI model names
-const MODEL_MAPPING: Record<string, string> = {
+// Fallback model mapping for when DB lookup fails
+const FALLBACK_MODEL_MAPPING: Record<string, string> = {
   'gpt-4o': 'gpt-4o',
   'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-4-turbo': 'gpt-4-turbo',
-  'o1': 'o1',
-  'o1-mini': 'o1-mini',
-  'o1-preview': 'o1-preview',
-  // Legacy mappings
   'gpt-5': 'gpt-4o',
   'gpt-5-mini': 'gpt-4o-mini',
   'gpt-5-nano': 'gpt-4o-mini',
-  'gpt-4.1': 'gpt-4o',
-  'gpt-4.1-mini': 'gpt-4o-mini',
 };
 
-// Models that don't support temperature parameter
-const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview'];
+// Keep local synchronous functions for backwards compatibility
+function resolveModelIdSync(modelId: string): string {
+  return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+}
 
-function resolveModelId(modelId: string): string {
-  return MODEL_MAPPING[modelId] || modelId;
+// Models that don't support temperature parameter  
+const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'];
+
+async function resolveModelIdAsync(supabase: any, modelId: string): Promise<string> {
+  try {
+    const resolved = await resolveFromDb(supabase, modelId);
+    return resolved || FALLBACK_MODEL_MAPPING[modelId] || modelId;
+  } catch {
+    return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+  }
+}
+
+async function supportsTemperatureAsync(supabase: any, modelId: string): Promise<boolean> {
+  try {
+    const config = await fetchModelConfig(supabase, modelId);
+    return config?.supportsTemperature ?? true;
+  } catch {
+    const lowerModel = modelId.toLowerCase();
+    return !NO_TEMPERATURE_MODELS.some((m: string) => lowerModel.includes(m));
+  }
 }
 
 function isAllowedDomain(email: string | undefined): boolean {
@@ -251,8 +265,8 @@ serve(async (req) => {
 
     // Model configuration
     const requestedModel = assistantData.model_override || 'gpt-4o-mini';
-    const modelId = resolveModelId(requestedModel);
-    const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
+    const modelId = resolveModelIdSync(requestedModel);
+    const isNoTempModel = NO_TEMPERATURE_MODELS.some((m: string) => modelId.toLowerCase().includes(m));
 
     // Build system instructions with additional context
     let systemContent = assistantData.instructions || 'You are a helpful assistant.';

@@ -21,14 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { toast } from "@/components/ui/sonner";
 
-// Mock data for fallback
-const MOCK_MODELS = [
-  { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI", active: true, inputCost: 2.50, outputCost: 10.00 },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI", active: true, inputCost: 0.15, outputCost: 0.60 },
-  { id: "gpt-4-turbo", name: "GPT-4 Turbo", provider: "OpenAI", active: false, inputCost: 10.00, outputCost: 30.00 },
-  { id: "o1-preview", name: "O1 Preview", provider: "OpenAI", active: true, inputCost: 15.00, outputCost: 60.00 },
-  { id: "o1-mini", name: "O1 Mini", provider: "OpenAI", active: true, inputCost: 3.00, outputCost: 12.00 },
-];
+// No mock data - all models come from database via useModels hook
 
 const DEFAULT_NAMING_LEVELS = [
   { level: 0, name: "Prompt", prefix: "", suffix: "" },
@@ -815,73 +808,220 @@ const ConversationsSection = () => {
   );
 };
 
-// AI Models Section - Updated to accept real data
-const AIModelsSection = ({ models = [], isLoading = false, onToggleModel }) => {
-  // Use real models if provided, fallback to mock
-  const displayModels = models.length > 0 ? models : MOCK_MODELS;
+// AI Models Section - Uses real data from database with per-model usage stats and inline settings
+const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settings = {}, onUpdateSetting }) => {
+  const [expandedModel, setExpandedModel] = useState(null);
+  const [usagePeriod, setUsagePeriod] = useState('all');
+  const [modelUsage, setModelUsage] = useState({});
+  const [loadingUsage, setLoadingUsage] = useState(true);
+  
+  // Fetch usage stats from q_ai_costs
+  useEffect(() => {
+    const fetchUsage = async () => {
+      try {
+        setLoadingUsage(true);
+        let query = supabase
+          .from(import.meta.env.VITE_AI_COSTS_TBL || 'q_ai_costs')
+          .select('model, tokens_input, tokens_output, cost_total_usd');
+        
+        if (usagePeriod === '30days') {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          query = query.gte('created_at', thirtyDaysAgo.toISOString());
+        } else if (usagePeriod === '7days') {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          query = query.gte('created_at', sevenDaysAgo.toISOString());
+        }
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        // Aggregate by model
+        const aggregated = {};
+        (data || []).forEach(row => {
+          const modelId = row.model || 'unknown';
+          if (!aggregated[modelId]) {
+            aggregated[modelId] = { totalTokens: 0, totalCost: 0, callCount: 0 };
+          }
+          aggregated[modelId].totalTokens += (row.tokens_input || 0) + (row.tokens_output || 0);
+          aggregated[modelId].totalCost += parseFloat(row.cost_total_usd) || 0;
+          aggregated[modelId].callCount += 1;
+        });
+        setModelUsage(aggregated);
+      } catch (error) {
+        console.error('Error fetching model usage:', error);
+      } finally {
+        setLoadingUsage(false);
+      }
+    };
+    fetchUsage();
+  }, [usagePeriod]);
 
-  const handleToggle = (id) => {
+  const getUsageForModel = (modelId) => {
+    // Try exact match first
+    if (modelUsage[modelId]) return modelUsage[modelId];
+    // Try partial match
+    for (const [key, value] of Object.entries(modelUsage)) {
+      if (key.startsWith(modelId) || modelId.startsWith(key)) {
+        return value;
+      }
+    }
+    return { totalTokens: 0, totalCost: 0, callCount: 0 };
+  };
+
+  const formatTokens = (tokens) => {
+    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+    return tokens.toString();
+  };
+
+  const handleToggle = (modelId) => {
     if (onToggleModel) {
-      onToggleModel(id);
+      onToggleModel(modelId);
     }
   };
 
+  // Show empty state if no models
+  if (!isLoading && models.length === 0) {
+    return (
+      <div className="space-y-3">
+        <SettingCard label="Available Models">
+          <div className="p-4 text-center">
+            <Cpu className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+            <p className="text-body-sm text-on-surface-variant">No models configured.</p>
+            <p className="text-[10px] text-on-surface-variant mt-1">Add models to the database to get started.</p>
+          </div>
+        </SettingCard>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
+      {/* Period Selector */}
+      <div className="flex items-center justify-between">
+        <span className="text-body-sm text-on-surface-variant">Usage period:</span>
+        <select
+          value={usagePeriod}
+          onChange={(e) => setUsagePeriod(e.target.value)}
+          className="h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="all">All Time</option>
+          <option value="30days">Last 30 Days</option>
+          <option value="7days">Last 7 Days</option>
+        </select>
+      </div>
+
       <SettingCard label="Available Models">
         <div className="space-y-1">
-          <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
+          {/* Table Header */}
+          <div className="grid grid-cols-[1fr,90px,80px,60px,40px] gap-2 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
             <span>Model</span>
-            <span className="text-right">Input $/1M</span>
-            <span className="text-right">Output $/1M</span>
+            <span className="text-right">Tokens Used</span>
+            <span className="text-right">Cost Spent</span>
             <span className="text-center">Active</span>
+            <span></span>
           </div>
+          
           {isLoading ? (
             <div className="flex items-center gap-2 py-4 px-3">
               <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
               <span className="text-body-sm text-on-surface-variant">Loading models...</span>
             </div>
           ) : (
-            displayModels.map((model, i) => (
-              <div key={model.model_id || model.id}>
-                {i > 0 && <SettingDivider />}
-                <div className="grid grid-cols-[1fr,100px,100px,80px] gap-3 px-3 py-2 items-center">
-                  <div>
-                    <span className="text-body-sm text-on-surface font-medium">{model.model_name || model.name}</span>
-                    <span className="text-[10px] text-on-surface-variant ml-2">{model.provider || 'OpenAI'}</span>
+            models.map((model, i) => {
+              const usage = getUsageForModel(model.model_id);
+              const isExpanded = expandedModel === model.model_id;
+              
+              return (
+                <div key={model.model_id || model.row_id}>
+                  {i > 0 && <SettingDivider />}
+                  {/* Model Row */}
+                  <div className="grid grid-cols-[1fr,90px,80px,60px,40px] gap-2 px-3 py-2 items-center">
+                    <div>
+                      <span className="text-body-sm text-on-surface font-medium">{model.model_name}</span>
+                      <span className="text-[10px] text-on-surface-variant ml-2">{model.provider || 'openai'}</span>
+                      {model.supports_reasoning_effort && (
+                        <span className="text-[9px] ml-1 px-1 py-0.5 bg-primary/10 text-primary rounded">reasoning</span>
+                      )}
+                    </div>
+                    <span className="text-body-sm text-on-surface-variant text-right">
+                      {loadingUsage ? '...' : formatTokens(usage.totalTokens)}
+                    </span>
+                    <span className="text-body-sm text-on-surface-variant text-right">
+                      {loadingUsage ? '...' : `$${usage.totalCost.toFixed(2)}`}
+                    </span>
+                    <div className="flex justify-center">
+                      <Switch 
+                        checked={model.is_active ?? true} 
+                        onCheckedChange={() => handleToggle(model.model_id)} 
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setExpandedModel(isExpanded ? null : model.model_id)}
+                            className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                          >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px]">{isExpanded ? 'Collapse' : 'Settings'}</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
-                  <span className="text-body-sm text-on-surface-variant text-right">
-                    ${(model.inputCost || 0).toFixed(2)}
-                  </span>
-                  <span className="text-body-sm text-on-surface-variant text-right">
-                    ${(model.outputCost || 0).toFixed(2)}
-                  </span>
-                  <div className="flex justify-center">
-                    <Switch 
-                      checked={model.is_active ?? model.active ?? true} 
-                      onCheckedChange={() => handleToggle(model.model_id || model.id)} 
-                    />
-                  </div>
+                  
+                  {/* Expanded Settings Panel */}
+                  {isExpanded && (
+                    <div className="px-3 py-3 bg-surface-container-low border-t border-outline-variant">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[11px]">
+                        <div>
+                          <span className="text-on-surface-variant">Context Window:</span>
+                          <span className="text-on-surface ml-1 font-medium">{formatTokens(model.context_window || 128000)}</span>
+                        </div>
+                        <div>
+                          <span className="text-on-surface-variant">Max Output:</span>
+                          <span className="text-on-surface ml-1 font-medium">{formatTokens(model.max_output_tokens || 4096)}</span>
+                        </div>
+                        <div>
+                          <span className="text-on-surface-variant">Token Param:</span>
+                          <span className="text-on-surface ml-1 font-mono">{model.token_param || 'max_tokens'}</span>
+                        </div>
+                        <div>
+                          <span className="text-on-surface-variant">Temperature:</span>
+                          <span className={`ml-1 font-medium ${model.supports_temperature ? 'text-green-600' : 'text-red-500'}`}>
+                            {model.supports_temperature ? 'Supported' : 'Not Supported'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-on-surface-variant">API Model:</span>
+                          <span className="text-on-surface ml-1 font-mono">{model.api_model_id || model.model_id}</span>
+                        </div>
+                        <div>
+                          <span className="text-on-surface-variant">Calls:</span>
+                          <span className="text-on-surface ml-1 font-medium">{usage.callCount}</span>
+                        </div>
+                      </div>
+                      {model.supported_settings && model.supported_settings.length > 0 && (
+                        <div className="mt-3 pt-2 border-t border-outline-variant">
+                          <span className="text-[10px] text-on-surface-variant uppercase">Supported Settings: </span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {model.supported_settings.map(setting => (
+                              <span key={setting} className="text-[10px] px-1.5 py-0.5 bg-surface-container rounded">
+                                {setting}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
-        </div>
-      </SettingCard>
-
-      <SettingCard label="Default Model Settings">
-        <div className="space-y-3">
-          <SettingRow label="Default Model">
-            <SettingInput>GPT-4o</SettingInput>
-          </SettingRow>
-          <SettingDivider />
-          <SettingRow label="Temperature" description="0.0 - 2.0">
-            <SettingInput minWidth="w-16">0.7</SettingInput>
-          </SettingRow>
-          <SettingDivider />
-          <SettingRow label="Max Tokens">
-            <SettingInput minWidth="w-20">4096</SettingInput>
-          </SettingRow>
         </div>
       </SettingCard>
     </div>

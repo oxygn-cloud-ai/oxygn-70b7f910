@@ -29,22 +29,27 @@ export const useModels = () => {
     fetchModels();
   }, [fetchModels]);
 
-  const toggleModelActive = async (rowId, isActive) => {
+  const toggleModelActive = async (modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    if (!model) return;
+    
+    const newActive = !model.is_active;
+    
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_MODELS_TBL)
-        .update({ is_active: isActive })
-        .eq('row_id', rowId);
+        .update({ is_active: newActive, updated_at: new Date().toISOString() })
+        .eq('model_id', modelId);
 
       if (error) throw error;
 
       setModels(prev =>
-        prev.map(model =>
-          model.row_id === rowId ? { ...model, is_active: isActive } : model
+        prev.map(m =>
+          m.model_id === modelId ? { ...m, is_active: newActive } : m
         )
       );
       
-      toast.success(`Model ${isActive ? 'activated' : 'deactivated'}`);
+      toast.success(`Model ${newActive ? 'activated' : 'deactivated'}`);
     } catch (error) {
       console.error('Error updating model:', error);
       toast.error('Failed to update model');
@@ -88,12 +93,74 @@ export const useModels = () => {
     }
   };
 
+  // Get model config from database record
+  const getModelConfig = useCallback((modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    if (model) {
+      return {
+        maxTokens: model.max_output_tokens || 4096,
+        tokenParam: model.token_param || 'max_tokens',
+        supportsTemperature: model.supports_temperature ?? true,
+        supportsReasoningEffort: model.supports_reasoning_effort ?? false,
+        reasoningEffortLevels: model.reasoning_effort_levels || ['low', 'medium', 'high'],
+        supportedSettings: model.supported_settings || ['temperature', 'max_tokens'],
+        supportedTools: model.supported_tools || [],
+        apiModelId: model.api_model_id || modelId,
+        contextWindow: model.context_window || 128000
+      };
+    }
+    // Fallback for unknown models
+    return {
+      maxTokens: 4096,
+      tokenParam: 'max_tokens',
+      supportsTemperature: true,
+      supportsReasoningEffort: false,
+      reasoningEffortLevels: [],
+      supportedSettings: ['temperature', 'max_tokens'],
+      supportedTools: [],
+      apiModelId: modelId,
+      contextWindow: 128000
+    };
+  }, [models]);
+
+  const getActiveModels = useCallback(() => {
+    return models.filter(m => m.is_active);
+  }, [models]);
+
+  const resolveApiModelId = useCallback((modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    return model?.api_model_id || modelId;
+  }, [models]);
+
+  const supportsTemperature = useCallback((modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    return model?.supports_temperature ?? true;
+  }, [models]);
+
+  const isSettingSupported = useCallback((setting, modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    if (!model?.supported_settings) return true;
+    return model.supported_settings.includes(setting);
+  }, [models]);
+
+  const isToolSupported = useCallback((tool, modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    if (!model?.supported_tools) return false;
+    return model.supported_tools.includes(tool);
+  }, [models]);
+
   return {
     models,
     isLoading,
     toggleModelActive,
     addModel,
     deleteModel,
+    getModelConfig,
+    getActiveModels,
+    resolveApiModelId,
+    supportsTemperature,
+    isSettingSupported,
+    isToolSupported,
     refetch: fetchModels
   };
 };
