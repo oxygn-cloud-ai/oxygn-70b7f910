@@ -18,7 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Bot, Upload, RefreshCw, X, FileText, Info, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-import { ALL_SETTINGS, isSettingSupported } from '../../config/modelCapabilities';
+import { ALL_SETTINGS } from '../../config/modelCapabilities';
+import { useModels } from '../../hooks/useModels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ConfluencePagesSection from '../ConfluencePagesSection';
 
@@ -29,6 +30,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   const { defaults: toolDefaults } = useConversationToolDefaults();
   const { models } = useOpenAIModels();
   const { settings } = useSettings(supabase);
+  const { isSettingSupported } = useModels();
 
   const [name, setName] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -54,7 +56,6 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   // Get current effective model
   const currentModel = modelOverride || selectedItemData?.model || defaultModel;
   const currentModelData = models?.find(m => m.model_id === currentModel || m.model_name === currentModel);
-  const currentProvider = currentModelData?.provider || 'openai';
 
   useEffect(() => {
     if (conversation) {
@@ -132,12 +133,12 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
 
   const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
     const settingInfo = ALL_SETTINGS[field];
-    const isSupported = isSettingSupported(field, currentModel, currentProvider);
+    const supported = isSettingSupported(field, currentModel);
     
     if (!settingInfo) return null;
 
     return (
-      <div className={`${!isSupported ? 'opacity-50' : ''}`}>
+      <div className={`${!supported ? 'opacity-50' : ''}`}>
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1">
             <Label className="text-xs">{settingInfo.label}</Label>
@@ -166,7 +167,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
           </div>
           {type === 'slider' && <span className="text-xs text-muted-foreground">{value || 'Default'}</span>}
         </div>
-        {!isSupported ? (
+        {!supported ? (
           <p className="text-xs text-muted-foreground italic">Not supported by this model</p>
         ) : type === 'slider' ? (
           <Slider

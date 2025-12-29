@@ -104,7 +104,7 @@ export const useOpenAICall = () => {
 
         const requestBody = {
           action: 'chat',
-          model: projectSettings?.model || 'gpt-4o-mini',
+          model: projectSettings?.model || null, // Let backend resolve default
           messages: [
             { role: 'system', content: finalSystemMessage },
             { role: 'user', content: finalUserMessage.trim() },

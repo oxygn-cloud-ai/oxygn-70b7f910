@@ -235,16 +235,17 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
 };
 
 // Import model capabilities at top level (ESM)
-import { getModelConfig, getModelCapabilities, ALL_SETTINGS } from '@/config/modelCapabilities';
+import { ALL_SETTINGS } from '@/config/modelCapabilities';
+import { useModels } from '@/hooks/useModels';
 
 // Settings Tab Content with dynamic model-aware parameters
 const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
+  const { getModelConfig, isSettingSupported } = useModels();
 
   // Use real data from promptData
-  const currentModel = promptData?.model || 'gpt-4o';
-  const currentProvider = models.find(m => m.model_id === currentModel)?.provider || 'openai';
+  const currentModel = promptData?.model || models.find(m => m.is_active)?.model_id || '';
   const modelConfig = getModelConfig(currentModel);
-  const modelCapabilities = getModelCapabilities(currentModel, currentProvider);
+  const supportedSettings = modelConfig.supportedSettings || [];
   
   const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
   const currentMaxTokens = promptData?.max_tokens || promptData?.max_completion_tokens || String(modelConfig.maxTokens);
@@ -288,10 +289,6 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
     const newConfig = getModelConfig(modelId);
     setMaxTokens(String(newConfig.maxTokens));
     onUpdateField?.(newConfig.tokenParam, String(newConfig.maxTokens));
-  };
-
-  const handleAssistantToggle = (checked) => {
-    onUpdateField?.('is_assistant', checked);
   };
 
   // Get display name for current model
@@ -379,8 +376,8 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         />
       </div>
 
-      {/* Reasoning Effort - only for GPT-5 and O-series */}
-      {modelCapabilities.includes('reasoning_effort') && (
+      {/* Reasoning Effort - only for models that support it */}
+      {supportedSettings.includes('reasoning_effort') && (
         <div className="space-y-1.5">
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
           <DropdownMenu>
@@ -391,7 +388,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-              {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map(level => (
+              {(modelConfig.reasoningEffortLevels || ['low', 'medium', 'high']).map(level => (
                 <DropdownMenuItem 
                   key={level}
                   onClick={() => onUpdateField?.('reasoning_effort', level)}
@@ -425,7 +422,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
       )}
 
       {/* Presence Penalty - only if supported */}
-      {modelCapabilities.includes('presence_penalty') && (
+      {supportedSettings.includes('presence_penalty') && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Presence Penalty</label>

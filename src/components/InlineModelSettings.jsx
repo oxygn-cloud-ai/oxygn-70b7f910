@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { ALL_SETTINGS, isSettingSupported } from '@/config/modelCapabilities';
+import { ALL_SETTINGS } from '@/config/modelCapabilities';
+import { useModels } from '@/hooks/useModels';
 import {
   Popover,
   PopoverContent,
@@ -77,6 +78,7 @@ export const ModelSettingsPanel = ({
   onUpdateDefault 
 }) => {
   const modelDefaults = defaults || {};
+  const { isSettingSupported } = useModels();
 
   const handleCheckChange = useCallback(async (field, checked) => {
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
@@ -126,7 +128,7 @@ export const ModelSettingsPanel = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {settingKeys.map(field => {
           const settingInfo = ALL_SETTINGS[field];
-          const isSupported = isSettingSupported(field, model.model_id, model.provider);
+          const supported = isSettingSupported(field, model.model_id);
           const isEnabled = modelDefaults[`${field}_on`] || false;
           const value = modelDefaults[field] !== undefined && modelDefaults[field] !== null 
             ? modelDefaults[field] 
@@ -137,7 +139,7 @@ export const ModelSettingsPanel = ({
               key={field}
               className={cn(
                 "p-2 rounded-lg border transition-all",
-                !isSupported 
+                !supported 
                   ? "bg-muted/50 border-muted opacity-50" 
                   : "bg-background border-border"
               )}
@@ -147,14 +149,14 @@ export const ModelSettingsPanel = ({
                   id={`${model.model_id}-${field}-checkbox`}
                   checked={isEnabled}
                   onCheckedChange={(checked) => handleCheckChange(field, checked)}
-                  disabled={!isSupported}
+                  disabled={!supported}
                   className="h-3.5 w-3.5"
                 />
                 <label 
                   htmlFor={`${model.model_id}-${field}`}
                   className={cn(
                     "text-xs font-medium flex-grow",
-                    !isSupported ? "text-muted-foreground" : "text-foreground"
+                    !supported ? "text-muted-foreground" : "text-foreground"
                   )}
                 >
                   {settingInfo.label}
@@ -191,9 +193,9 @@ export const ModelSettingsPanel = ({
                 id={`${model.model_id}-${field}`}
                 value={value}
                 onChange={(e) => handleValueChange(field, e.target.value)}
-                disabled={!isEnabled || !isSupported}
+                disabled={!isEnabled || !supported}
                 className="w-full h-7 text-xs"
-                placeholder={!isSupported ? "N/A" : (defaultValues[field] || "Enter value")}
+                placeholder={!supported ? "N/A" : (defaultValues[field] || "Enter value")}
               />
             </div>
           );
