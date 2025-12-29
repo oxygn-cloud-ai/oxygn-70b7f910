@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { addPrompt, duplicatePrompt } from '../services/promptMutations';
 import { deletePrompt, restorePrompt } from '../services/promptDeletion';
@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from 'uuid';
 export const useTreeOperations = (supabase, refreshTreeData) => {
   const { user } = useAuth();
   const { pushUndo, clearUndo } = useUndo();
+  const isAddingRef = useRef(false);
   
   // Restore a deleted prompt
   const handleRestoreDeleted = useCallback(async (actionId, itemId, itemName) => {
@@ -50,6 +51,14 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   // skipRefresh: when true, don't refresh tree (useful for bulk operations)
   const handleAddItem = useCallback(async (parentId, { skipRefresh = false } = {}) => {
     if (!supabase) return null;
+    
+    // Guard against multiple rapid insertions
+    if (isAddingRef.current) {
+      console.log('Add already in progress, skipping...');
+      return null;
+    }
+    isAddingRef.current = true;
+    
     try {
       // Fetch default admin prompt and conversation instructions from settings
       const { data: settingsData } = await supabase
@@ -75,6 +84,8 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       console.error('Error adding new prompt:', error);
       toast.error('Failed to add new prompt');
       return null;
+    } finally {
+      isAddingRef.current = false;
     }
   }, [supabase, refreshTreeData, user?.id]);
 

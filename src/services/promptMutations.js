@@ -171,19 +171,24 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     }
   }
   
-  // Fetch global naming settings
-  const { data: settings } = await supabase
+  // Fetch global naming settings (stored as JSON in prompt_naming_defaults)
+  const { data: namingSettingData } = await supabase
     .from(import.meta.env.VITE_SETTINGS_TBL)
-    .select('setting_key, setting_value')
-    .in('setting_key', ['naming_top_level_template', 'naming_child_template', 'naming_grandchild_template', 'naming_default_template']);
+    .select('setting_value')
+    .eq('setting_key', 'prompt_naming_defaults')
+    .maybeSingle();
   
-  const settingsMap = {};
-  (settings || []).forEach(s => {
-    settingsMap[s.setting_key] = s.setting_value;
-  });
+  let namingConfig = null;
+  if (namingSettingData?.setting_value) {
+    try {
+      namingConfig = JSON.parse(namingSettingData.setting_value);
+    } catch (e) {
+      console.error('Failed to parse naming config:', e);
+    }
+  }
   
-  // Get naming config for this level
-  const namingConfig = getLevelNamingConfig(level, settingsMap);
+  // Get naming config for this level (getLevelNamingConfig expects: namingConfig, level, topLevelName)
+  const levelConfig = getLevelNamingConfig(namingConfig, level, topLevelName);
   
   // Get sibling count for ordering
   let siblingQuery = supabase
@@ -199,13 +204,8 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   
   const { count: siblingCount } = await siblingQuery;
   
-  // Generate prompt name
-  const promptName = generatePromptName(namingConfig, {
-    level,
-    siblingOrder: (siblingCount || 0) + 1,
-    topLevelName,
-    parentName: topLevelName,
-  });
+  // Generate prompt name (expects: levelConfig, sequenceNumber, date)
+  const promptName = generatePromptName(levelConfig, siblingCount || 0, new Date());
   
   // Prepare insert data - apply model defaults first, then inherit/override from parent
   const insertData = {
