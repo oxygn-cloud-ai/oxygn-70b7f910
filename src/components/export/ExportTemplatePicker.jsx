@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, FolderOpen, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -50,13 +50,18 @@ export const ExportTemplatePicker = ({
   const [templateToDelete, setTemplateToDelete] = useState(null);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const hasFetchedRef = useRef(false);
 
-  // Fetch templates when dialog opens
+  // Fetch templates when dialog opens (only once per open)
   useEffect(() => {
-    if (showLoadDialog) {
+    if (showLoadDialog && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       fetchTemplates(exportType);
     }
-  }, [showLoadDialog, exportType, fetchTemplates]);
+    if (!showLoadDialog) {
+      hasFetchedRef.current = false;
+    }
+  }, [showLoadDialog, exportType]);
 
   const handleSave = async () => {
     if (!newTemplateName.trim()) return;
