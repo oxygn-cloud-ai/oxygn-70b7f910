@@ -183,7 +183,7 @@ const MainLayout = () => {
   }, [selectedPromptId, updateField]);
   
   // Phase 1: Run prompt and cascade hooks
-  const { runPrompt, runConversation, isRunning: isRunningPrompt } = useConversationRun();
+  const { runPrompt, runConversation, cancelRun, isRunning: isRunningPrompt, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren } = useCascadeExecutor();
   const [isRunningCascade, setIsRunningCascade] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -922,6 +922,8 @@ const MainLayout = () => {
                             onRenameThread={renameThread}
                             onSendMessage={handleSendConversationMessage}
                             promptName={selectedPromptData?.prompt_name}
+                            onCancel={cancelRun}
+                            progress={runProgress}
                           />
                         </motion.div>
                       </ResizablePanel>
