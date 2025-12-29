@@ -1171,9 +1171,9 @@ const PromptsContent = ({
           )}
           {activeTab === "attachments" && (
             <div className="space-y-4 p-4">
-              <FilesPagesSection assistantRowId={assistantRowId} />
+              <FilesPagesSection conversationRowId={assistantRowId} />
               <ConfluencePagesSection 
-                assistantRowId={assistantRowId} 
+                conversationRowId={assistantRowId} 
                 promptRowId={promptRowId} 
               />
             </div>

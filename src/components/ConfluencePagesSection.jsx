@@ -198,7 +198,7 @@ const PageTreeNode = ({
 };
 
 const ConfluencePagesSection = ({ 
-  assistantRowId = null, 
+  conversationRowId = null, 
   promptRowId = null
 }) => {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -210,7 +210,7 @@ const ConfluencePagesSection = ({
     fetchAttachedPages,
     detachPage,
     syncPage,
-  } = useConfluencePages(assistantRowId, promptRowId);
+  } = useConfluencePages(conversationRowId, promptRowId);
 
   const pageTree = useMemo(() => buildPageTree(pages), [pages]);
 

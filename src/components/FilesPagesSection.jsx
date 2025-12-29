@@ -24,7 +24,7 @@ const formatFileSize = (bytes) => {
 };
 
 const FilesPagesSection = ({ 
-  assistantRowId = null,
+  conversationRowId = null,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   
@@ -36,7 +36,7 @@ const FilesPagesSection = ({
     uploadFile,
     deleteFile,
     syncFiles,
-  } = useConversationFiles(assistantRowId);
+  } = useConversationFiles(conversationRowId);
 
   const handleFileUpload = async (e) => {
     const selectedFiles = e.target.files;
@@ -65,8 +65,22 @@ const FilesPagesSection = ({
     }
   };
 
-  if (!assistantRowId) {
-    return null;
+  if (!conversationRowId) {
+    return (
+      <Card>
+        <CardContent className="py-6">
+          <div className="flex flex-col items-center justify-center text-center space-y-2">
+            <FileText className="h-8 w-8 text-on-surface-variant" />
+            <p className="text-body-sm text-on-surface-variant">
+              Enable Conversation Mode to attach files.
+            </p>
+            <p className="text-[10px] text-on-surface-variant">
+              Files are synced to the conversation's knowledge base.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -98,7 +112,7 @@ const FilesPagesSection = ({
                     <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin")} />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Sync files to assistant</TooltipContent>
+                <TooltipContent side="bottom" className="text-xs">Sync files to conversation</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
