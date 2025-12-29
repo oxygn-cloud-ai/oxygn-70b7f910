@@ -31,7 +31,9 @@ const WorkbenchChatPanel = ({
   onSendMessage,
   onClearMessages,
   filesCount = 0,
-  pagesCount = 0
+  pagesCount = 0,
+  onCancel,
+  progress,
 }) => {
   const scrollAreaRef = useRef(null);
 
@@ -154,7 +156,11 @@ const WorkbenchChatPanel = ({
             {/* Thinking indicator - only show when no tool activity and no streaming content */}
             {isStreaming && !streamingMessage && toolActivity.length === 0 && (
               <div className="px-3 py-2">
-                <ThinkingIndicator />
+                <ThinkingIndicator 
+                  conversationName="Workbench AI"
+                  onCancel={onCancel}
+                  progress={progress}
+                />
               </div>
             )}
           </div>

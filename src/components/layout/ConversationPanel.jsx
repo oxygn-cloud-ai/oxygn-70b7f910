@@ -3,6 +3,7 @@ import { Send, Paperclip, Mic, MoreVertical, PanelRightClose, Loader2, MessageSq
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SkeletonChat } from "@/components/shared/Skeletons";
+import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
 
 const ConversationPanel = ({ 
   onClose,
@@ -10,7 +11,9 @@ const ConversationPanel = ({
   isLoadingMessages = false,
   isSending = false,
   onSendMessage,
-  promptName = "Prompt"
+  promptName = "Prompt",
+  onCancel,
+  progress,
 }) => {
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef(null);
@@ -100,17 +103,11 @@ const ConversationPanel = ({
             ))}
             {/* Thinking indicator when sending */}
             {isSending && (
-              <div className="flex justify-start">
-                <div 
-                  className="max-w-[85%] px-2.5 py-2 bg-surface-container-high text-on-surface-variant"
-                  style={{ borderRadius: "14px" }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span className="text-body-sm">Thinking...</span>
-                  </div>
-                </div>
-              </div>
+              <ThinkingIndicator 
+                conversationName={promptName}
+                onCancel={onCancel}
+                progress={progress}
+              />
             )}
           </div>
         )}
