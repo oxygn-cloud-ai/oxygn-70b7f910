@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, FileText, Link2, Unlink, RefreshCw, Loader2, Check, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,12 +29,15 @@ const WorkbenchConfluenceTab = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const hasLoadedSpaces = useRef(false);
 
   useEffect(() => {
-    if (spaces.length === 0) {
+    // Only load spaces once on mount
+    if (!hasLoadedSpaces.current && spaces.length === 0) {
+      hasLoadedSpaces.current = true;
       onListSpaces();
     }
-  }, [spaces.length, onListSpaces]);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
