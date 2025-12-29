@@ -1,6 +1,6 @@
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
-import { useCallback } from 'react';
 
 /**
  * A hook that returns a navigate function that respects in-progress API calls.

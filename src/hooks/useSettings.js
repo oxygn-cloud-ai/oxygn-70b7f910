@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 
 export const useSettings = (supabase) => {
