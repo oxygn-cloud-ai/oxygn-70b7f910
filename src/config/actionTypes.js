@@ -158,7 +158,19 @@ export const ACTION_TYPES = {
         type: CONFIG_FIELD_TYPES.TEXT,
         defaultValue: 'system_prompt',
         required: false,
-        helpText: 'Field to use as the child prompt content (e.g., "system_prompt", "content"). Leave empty to use entire item as JSON.',
+        helpText: 'Field to use as child prompt content (e.g., "system_prompt", "content"). Leave empty to use entire item as JSON.',
+      },
+      {
+        key: 'content_destination',
+        label: 'Content Destination',
+        type: CONFIG_FIELD_TYPES.SELECT,
+        options: [
+          { value: 'system', label: 'System Prompt (input_admin_prompt)' },
+          { value: 'user', label: 'User Prompt (input_user_prompt)' },
+        ],
+        defaultValue: 'system',
+        required: false,
+        helpText: 'Where to place the extracted content in the child prompt.',
       },
       {
         key: 'placement',

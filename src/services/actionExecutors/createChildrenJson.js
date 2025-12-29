@@ -132,6 +132,7 @@ export const executeCreateChildrenJson = async ({
   const {
     name_field = 'title',
     content_field = 'system_prompt',
+    content_destination = 'system', // 'system' or 'user'
     child_node_type = 'standard',
     placement = 'children',
     copy_library_prompt_id,
@@ -254,15 +255,22 @@ export const executeCreateChildrenJson = async ({
     }
 
     // Build child data with proper inheritance
+    // Determine where to place content based on content_destination
+    const isSystemDestination = content_destination === 'system';
+    
     const childData = {
       parent_row_id: targetParentRowId,
       prompt_name: String(childName).substring(0, 100),
-      input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
-      input_user_prompt: content || '',
+      input_admin_prompt: isSystemDestination 
+        ? (content || libraryPrompt?.content || defaults.def_admin_prompt || '')
+        : (libraryPrompt?.content || defaults.def_admin_prompt || ''),
+      input_user_prompt: isSystemDestination 
+        ? '' 
+        : (content || ''),
       position: nextPosition++,
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
-      node_type: child_node_type || 'standard', // Use configured node type
+      node_type: child_node_type || 'standard',
       // Store the original item data for reference
       extracted_variables: typeof item === 'object' ? item : { value: item },
       // Apply model defaults
