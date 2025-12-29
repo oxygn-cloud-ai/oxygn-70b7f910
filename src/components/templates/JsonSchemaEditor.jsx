@@ -238,11 +238,30 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
     setJsonError(null);
   }, [template.row_id]);
 
-  // Parse schema for visual editor
+  // Parse schema for visual editor - handle multiple nesting levels
   const schemaData = useMemo(() => {
     try {
-      const schema = editedTemplate.json_schema?.json_schema?.schema || editedTemplate.json_schema?.schema || {};
-      return schema;
+      const jsonSchema = editedTemplate.json_schema;
+      if (!jsonSchema) return { type: 'object', properties: {}, required: [] };
+      
+      // Handle OpenAI format: { json_schema: { name, schema: {...} } }
+      if (jsonSchema.json_schema?.schema) {
+        return jsonSchema.json_schema.schema;
+      }
+      // Handle wrapped format: { schema: {...} }
+      if (jsonSchema.schema?.properties) {
+        return jsonSchema.schema;
+      }
+      // Handle direct schema: { type, properties: {...} }
+      if (jsonSchema.properties) {
+        return jsonSchema;
+      }
+      // Handle deeply nested: { json_schema: { json_schema: { schema: {...} } } }
+      if (jsonSchema.json_schema?.json_schema?.schema) {
+        return jsonSchema.json_schema.json_schema.schema;
+      }
+      
+      return { type: 'object', properties: {}, required: [] };
     } catch {
       return { type: 'object', properties: {}, required: [] };
     }
