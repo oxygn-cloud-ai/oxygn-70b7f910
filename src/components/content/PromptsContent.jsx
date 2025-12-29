@@ -8,7 +8,7 @@ import {
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
-  Paperclip, Upload
+  Paperclip, Upload, Square
 } from "lucide-react";
 import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
@@ -900,6 +900,7 @@ const PromptsContent = ({
   onRunCascade,
   isRunningPrompt = false,
   isRunningCascade = false,
+  onCancelRun,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
@@ -1058,9 +1059,22 @@ const PromptsContent = ({
         </div>
         <div className="flex items-center gap-0.5 ml-2">
           {isRunningPrompt && (
-            <span className="text-[10px] text-primary font-medium tabular-nums mr-1">
-              {formattedTime}
-            </span>
+            <>
+              <span className="text-[10px] text-primary font-medium tabular-nums mr-1">
+                {formattedTime}
+              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={() => onCancelRun?.()}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container text-on-surface-variant hover:text-primary"
+                  >
+                    <Square className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Stop</TooltipContent>
+              </Tooltip>
+            </>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
