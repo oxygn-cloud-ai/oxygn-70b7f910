@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, Square, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Map progress stages to display text
@@ -189,17 +189,21 @@ const ThinkingIndicator = ({ onCancel, conversationName, progress }) => {
           ))}
         </div>
 
-        {/* Cancel button */}
+        {/* Cancel button - icon only per design system */}
         {onCancel && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="mt-3 h-7 text-xs text-muted-foreground hover:text-foreground"
-            onClick={onCancel}
-          >
-            <Square className="h-3 w-3 mr-1.5" />
-            Stop generating
-          </Button>
+          <div className="mt-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onCancel}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors"
+                >
+                  <Square className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Stop generating</TooltipContent>
+            </Tooltip>
+          </div>
         )}
       </div>
     </motion.div>

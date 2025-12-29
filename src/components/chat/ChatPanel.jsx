@@ -25,6 +25,8 @@ const ChatPanel = ({
   onToggleThreads,
   activeThreadName,
   threadCount = 0,
+  onCancel,
+  progress,
 }) => {
   const { userProfile } = useAuth();
   const { pendingCallsCount } = useApiCallContext();
@@ -117,7 +119,13 @@ const ChatPanel = ({
                 conversationName={conversationName}
               />
             ))}
-            {isSending && <ThinkingIndicator conversationName={conversationName} />}
+            {isSending && (
+              <ThinkingIndicator 
+                conversationName={conversationName} 
+                onCancel={onCancel}
+                progress={progress}
+              />
+            )}
           </div>
         )}
       </ScrollArea>
