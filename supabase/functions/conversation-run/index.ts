@@ -531,8 +531,60 @@ serve(async (req) => {
       let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
       let previousResponseId: string | null = null;
 
+      // ============================================================================
+      // CONVERSATIONAL MEMORY: If child prompt has is_assistant=true (inherited),
+      // look for the parent's active thread to chain context
+      // ============================================================================
+      if (!activeThreadRowId && childPrompt.is_assistant && childPrompt.parent_row_id) {
+        console.log('Child prompt has is_assistant=true, looking for parent thread context...');
+        
+        // Find the most recent active thread for the parent's assistant
+        const { data: parentThread } = await supabase
+          .from(TABLES.THREADS)
+          .select('row_id, last_response_id, assistant_row_id')
+          .eq('child_prompt_row_id', childPrompt.parent_row_id)
+          .eq('is_active', true)
+          .order('last_message_at', { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (parentThread?.last_response_id) {
+          // Use the parent's thread and its last response for context chaining
+          activeThreadRowId = parentThread.row_id;
+          previousResponseId = parentThread.last_response_id;
+          console.log('Inheriting parent thread context:', {
+            parent_prompt: childPrompt.parent_row_id,
+            thread: activeThreadRowId,
+            previous_response_id: previousResponseId,
+          });
+        } else {
+          // No parent thread with response - check if parent's assistant has any thread
+          const topLevelAssistantId = allAssistantRowIds[allAssistantRowIds.length - 1]; // Last one is the top-level
+          if (topLevelAssistantId) {
+            const { data: topThread } = await supabase
+              .from(TABLES.THREADS)
+              .select('row_id, last_response_id')
+              .eq('assistant_row_id', topLevelAssistantId)
+              .eq('is_active', true)
+              .order('last_message_at', { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (topThread?.last_response_id) {
+              activeThreadRowId = topThread.row_id;
+              previousResponseId = topThread.last_response_id;
+              console.log('Using top-level assistant thread:', {
+                assistant: topLevelAssistantId,
+                thread: activeThreadRowId,
+                previous_response_id: previousResponseId,
+              });
+            }
+          }
+        }
+      }
+
       // Try to get existing thread's last response ID for multi-turn context
-      if (activeThreadRowId) {
+      if (activeThreadRowId && !previousResponseId) {
         const { data: existingThread } = await supabase
           .from(TABLES.THREADS)
           .select('last_response_id')
