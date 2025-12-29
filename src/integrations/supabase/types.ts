@@ -653,30 +653,72 @@ export type Database = {
       }
       q_models: {
         Row: {
+          api_model_id: string | null
+          context_window: number | null
           created_at: string | null
+          deprecation_date: string | null
+          input_cost_per_million: number | null
           is_active: boolean | null
+          is_snapshot: boolean | null
+          max_output_tokens: number | null
           model_id: string | null
           model_name: string | null
+          output_cost_per_million: number | null
           provider: string | null
+          reasoning_effort_levels: string[] | null
           row_id: string
+          snapshot_of: string | null
+          supported_settings: string[] | null
+          supported_tools: string[] | null
+          supports_reasoning_effort: boolean | null
+          supports_temperature: boolean | null
+          token_param: string | null
           updated_at: string | null
         }
         Insert: {
+          api_model_id?: string | null
+          context_window?: number | null
           created_at?: string | null
+          deprecation_date?: string | null
+          input_cost_per_million?: number | null
           is_active?: boolean | null
+          is_snapshot?: boolean | null
+          max_output_tokens?: number | null
           model_id?: string | null
           model_name?: string | null
+          output_cost_per_million?: number | null
           provider?: string | null
+          reasoning_effort_levels?: string[] | null
           row_id?: string
+          snapshot_of?: string | null
+          supported_settings?: string[] | null
+          supported_tools?: string[] | null
+          supports_reasoning_effort?: boolean | null
+          supports_temperature?: boolean | null
+          token_param?: string | null
           updated_at?: string | null
         }
         Update: {
+          api_model_id?: string | null
+          context_window?: number | null
           created_at?: string | null
+          deprecation_date?: string | null
+          input_cost_per_million?: number | null
           is_active?: boolean | null
+          is_snapshot?: boolean | null
+          max_output_tokens?: number | null
           model_id?: string | null
           model_name?: string | null
+          output_cost_per_million?: number | null
           provider?: string | null
+          reasoning_effort_levels?: string[] | null
           row_id?: string
+          snapshot_of?: string | null
+          supported_settings?: string[] | null
+          supported_tools?: string[] | null
+          supports_reasoning_effort?: boolean | null
+          supports_temperature?: boolean | null
+          token_param?: string | null
           updated_at?: string | null
         }
         Relationships: []
