@@ -391,7 +391,7 @@ export const useCascadeExecutor = () => {
               level: levelIdx,
               index: promptIndex,
               total: nonExcludedPrompts.length,
-              model: prompt.model || 'default',
+              model: prompt.model || '(uses default)',
             }, null, 2),
           });
 

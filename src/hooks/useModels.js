@@ -109,17 +109,18 @@ export const useModels = () => {
         contextWindow: model.context_window || 128000
       };
     }
-    // Fallback for unknown models
+    // Fallback for unknown models - return null/empty values to indicate model needs DB config
+    console.warn(`Model config not found in database for: ${modelId}`);
     return {
-      maxTokens: 4096,
-      tokenParam: 'max_tokens',
-      supportsTemperature: true,
-      supportsReasoningEffort: false,
+      maxTokens: null,
+      tokenParam: null,
+      supportsTemperature: null,
+      supportsReasoningEffort: null,
       reasoningEffortLevels: [],
-      supportedSettings: ['temperature', 'max_tokens'],
+      supportedSettings: [],
       supportedTools: [],
       apiModelId: modelId,
-      contextWindow: 128000
+      contextWindow: null
     };
   }, [models]);
 
