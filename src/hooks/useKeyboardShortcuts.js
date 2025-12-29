@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 
 /**
  * Global keyboard shortcuts hook for the Mockup page
