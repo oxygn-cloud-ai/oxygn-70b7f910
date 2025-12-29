@@ -557,16 +557,34 @@ const ACTION_TYPES = [
   { id: "create_template", label: "Create Template", description: "Generate a template from the output" },
 ];
 
+const TEMPLATE_SOURCE_OPTIONS = [
+  { value: "output", label: "JSON Output Format" },
+  { value: "professional", label: "Professional Tone" },
+  { value: "error", label: "Error Handler" },
+];
+
 const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
-  const [actionType, setActionType] = useState("create_children_json");
-  const [includeInCascade, setIncludeInCascade] = useState(true);
+  // Read action type from database, default to "none"
+  const actionType = promptData?.post_action || "none";
+  const actionConfig = promptData?.post_action_config || {};
+
+  // Helper function to update nested config values
+  const updateActionConfig = (key, value) => {
+    const currentConfig = promptData?.post_action_config || {};
+    const newConfig = { ...currentConfig, [key]: value };
+    onUpdateField?.('post_action_config', newConfig);
+  };
+
+  // Get selected schema name for display
+  const selectedSchemaId = promptData?.json_schema_template_id;
+  const selectedSchema = schemas.find(s => (s.row_id || s.id) === selectedSchemaId);
 
   return (
     <div className="space-y-4">
       {/* Action Type Selector */}
       <SettingSelect
         value={actionType}
-        onValueChange={setActionType}
+        onValueChange={(value) => onUpdateField?.('post_action', value)}
         options={ACTION_TYPES.map(a => ({ value: a.id, label: a.label, description: a.description }))}
         label="Post Action"
         icon={GitBranch}
@@ -588,7 +606,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Path</label>
                 <input
                   type="text"
-                  defaultValue="$.items[*]"
+                  value={actionConfig.json_path || ''}
+                  onChange={(e) => updateActionConfig('json_path', e.target.value)}
                   placeholder="$.items[*]"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -600,7 +619,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Field</label>
                 <input
                   type="text"
-                  defaultValue="title"
+                  value={actionConfig.name_field || ''}
+                  onChange={(e) => updateActionConfig('name_field', e.target.value)}
                   placeholder="title"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -611,35 +631,24 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Content Field</label>
                 <input
                   type="text"
-                  defaultValue="content"
+                  value={actionConfig.content_field || ''}
+                  onChange={(e) => updateActionConfig('content_field', e.target.value)}
                   placeholder="content"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
               {/* JSON Schema */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
-                      <span>Select a schema...</span>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-                    {schemas.length === 0 ? (
-                      <DropdownMenuItem className="text-body-sm text-on-surface-variant">
-                        No schemas available
-                      </DropdownMenuItem>
-                    ) : schemas.map(schema => (
-                      <DropdownMenuItem key={schema.row_id || schema.id} className="text-body-sm text-on-surface">
-                        {schema.schema_name || schema.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <SettingSelect
+                value={selectedSchemaId || ''}
+                onValueChange={(value) => onUpdateField?.('json_schema_template_id', value || null)}
+                options={[
+                  { value: '', label: 'None' },
+                  ...schemas.map(s => ({ value: s.row_id || s.id, label: s.schema_name || s.name }))
+                ]}
+                label="JSON Schema (Optional)"
+                icon={Braces}
+              />
             </>
           )}
 
@@ -650,7 +659,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Delimiter</label>
                 <input
                   type="text"
-                  defaultValue="---"
+                  value={actionConfig.delimiter || ''}
+                  onChange={(e) => updateActionConfig('delimiter', e.target.value)}
                   placeholder="---"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -660,40 +670,32 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
               {/* Skip Empty */}
               <div className="flex items-center justify-between">
                 <span className="text-body-sm text-on-surface">Skip empty sections</span>
-                <Switch defaultChecked />
+                <Switch 
+                  checked={actionConfig.skip_empty !== false}
+                  onCheckedChange={(checked) => updateActionConfig('skip_empty', checked)}
+                />
               </div>
             </>
           )}
 
           {actionType === "create_template" && (
             <>
-              {/* Library Prompt */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Template Source</label>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                      <span className="flex items-center gap-2">
-                        <Library className="h-3.5 w-3.5 text-on-surface-variant" />
-                        JSON Output Format
-                      </span>
-                      <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-                    <DropdownMenuItem className="text-body-sm text-on-surface">Professional Tone</DropdownMenuItem>
-                    <DropdownMenuItem className="text-body-sm text-on-surface">JSON Output Format</DropdownMenuItem>
-                    <DropdownMenuItem className="text-body-sm text-on-surface">Error Handler</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              {/* Template Source */}
+              <SettingSelect
+                value={actionConfig.template_source || 'output'}
+                onValueChange={(value) => updateActionConfig('template_source', value)}
+                options={TEMPLATE_SOURCE_OPTIONS}
+                label="Template Source"
+                icon={Library}
+              />
 
               {/* Template Name Pattern */}
               <div className="space-y-1.5">
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Pattern</label>
                 <input
                   type="text"
-                  defaultValue="{{parent_name}}_template"
+                  value={actionConfig.name_pattern || ''}
+                  onChange={(e) => updateActionConfig('name_pattern', e.target.value)}
                   placeholder="{{parent_name}}_template"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
