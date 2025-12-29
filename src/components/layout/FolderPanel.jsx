@@ -114,14 +114,18 @@ const OwnerAvatar = ({ initials, color }) => (
 
 // Drop zone between items for inserting
 const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
-  const [{ isOver, canDrop }, drop] = useDrop({
+  const [{ isOver, canDrop, isDragging }, drop] = useDrop({
     accept: ITEM_TYPE,
-    drop: (item) => {
-      onDrop(item.id, targetIndex, siblingIds);
+    drop: (item, monitor) => {
+      // Only handle drop if this is the direct target
+      if (monitor.isOver({ shallow: true })) {
+        onDrop(item.id, targetIndex, siblingIds);
+      }
     },
     collect: (monitor) => ({
-      isOver: monitor.isOver(),
+      isOver: monitor.isOver({ shallow: true }),
       canDrop: monitor.canDrop(),
+      isDragging: monitor.getItem() !== null,
     }),
   });
 
@@ -129,14 +133,19 @@ const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
     <div
       ref={drop}
       className={`
-        h-1 mx-2 rounded-full transition-all duration-150
-        ${isOver && canDrop ? 'h-1 bg-primary' : 'bg-transparent'}
-        ${canDrop && !isOver ? 'hover:bg-primary/30 hover:h-1' : ''}
+        relative mx-1 rounded-full transition-all duration-150
+        ${isOver && canDrop 
+          ? 'h-2 bg-primary shadow-sm' 
+          : isDragging && canDrop 
+            ? 'h-2 bg-primary/20 hover:bg-primary/40' 
+            : 'h-0.5 bg-transparent'
+        }
       `}
       style={{ 
-        marginTop: isFirst ? 0 : '-2px',
-        marginBottom: '-2px',
-        minHeight: '4px'
+        zIndex: isDragging ? 20 : 1,
+        minHeight: isDragging ? '8px' : '2px',
+        marginTop: isFirst ? '2px' : '0px',
+        marginBottom: '0px',
       }}
     />
   );
@@ -208,7 +217,9 @@ const TreeItem = ({
     accept: ITEM_TYPE,
     canDrop: (dragItem) => dragItem.id !== id,
     drop: (dragItem, monitor) => {
-      if (!monitor.didDrop() && dragItem.id !== id && onMoveInto) {
+      // Only handle if dropped directly on this item (not on a DropZone)
+      // and only if no other drop target already handled it
+      if (monitor.isOver({ shallow: true }) && !monitor.didDrop() && dragItem.id !== id && onMoveInto) {
         onMoveInto(dragItem.id, id);
       }
     },
