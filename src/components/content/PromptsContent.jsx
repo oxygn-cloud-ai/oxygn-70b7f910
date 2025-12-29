@@ -1079,12 +1079,12 @@ const PromptsContent = ({
               <button 
                 onClick={() => onRunPrompt?.(selectedPromptId)}
                 disabled={isRunningPrompt}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container text-on-surface-variant"
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${isRunningPrompt ? 'text-primary animate-spin' : 'text-on-surface-variant'}`}
               >
                 <Play className="h-4 w-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Play</TooltipContent>
+            <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Play'}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
