@@ -95,9 +95,12 @@ const ThreadHistory = ({
                       </span>
                       {message.created_at && (
                         <span className="text-xs text-muted-foreground">
-                          {typeof message.created_at === 'number' 
-                            ? new Date(message.created_at * 1000).toLocaleString()
-                            : new Date(message.created_at).toLocaleString()}
+                          {(() => {
+                            const date = typeof message.created_at === 'number' 
+                              ? new Date(message.created_at * 1000)
+                              : new Date(message.created_at);
+                            return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
+                          })()}
                         </span>
                       )}
                     </div>

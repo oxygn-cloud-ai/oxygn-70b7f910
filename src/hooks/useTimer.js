@@ -15,9 +15,10 @@ export const useTimer = (isRunning) => {
   }, [isRunning]);
 
   const formatTime = (time) => {
+    if (time === null || time === undefined || isNaN(time)) return '0.000s';
     const seconds = Math.floor(time / 1000);
     const milliseconds = time % 1000;
-    return `${seconds}.${milliseconds.toString().padStart(3, '0')}s`;
+    return `${seconds}.${String(milliseconds).padStart(3, '0')}s`;
   };
 
   return formatTime(timer);
