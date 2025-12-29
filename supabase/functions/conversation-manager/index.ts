@@ -1,6 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES, FK } from "../_shared/tables.ts";
+import { fetchActiveModels } from "../_shared/models.ts";
+
+// Get default model from DB
+async function getDefaultModel(supabase: any): Promise<string> {
+  try {
+    const models = await fetchActiveModels(supabase);
+    return models.length > 0 ? models[0].modelId : 'gpt-4o';
+  } catch {
+    return 'gpt-4o';
+  }
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -108,13 +119,16 @@ serve(async (req) => {
         );
       }
 
+      // Get default model for display
+      const defaultModel = await getDefaultModel(supabase);
+
       // Format assistants for response
       const assistants = (localAssistants || []).map((la: any) => {
         const promptData = la?.[FK.ASSISTANTS_PROMPT.split('!')[0]] || la?.[TABLES.PROMPTS];
         return {
           row_id: la.row_id,
           name: la.name,
-          model: la.model_override || 'gpt-4o',
+          model: la.model_override || defaultModel,
           status: la.status || 'active',
           prompt_row_id: la.prompt_row_id,
           prompt_name: promptData?.prompt_name || null,

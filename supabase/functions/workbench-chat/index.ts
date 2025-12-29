@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { fetchActiveModels, resolveApiModelId } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,12 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
+
+// Get default model from DB
+async function getDefaultModel(supabase: any): Promise<string> {
+  const models = await fetchActiveModels(supabase);
+  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
+}
 
 function isAllowedDomain(email: string | undefined): boolean {
   if (!email) return false;
@@ -308,11 +315,14 @@ async function handleToolCall(
           userPrompt = userPrompt.replace(regex, value);
         }
 
-        // Call OpenAI
+        // Build messages array
         const messages = [];
         if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
         if (userPrompt) messages.push({ role: 'user', content: userPrompt });
 
+        // Call OpenAI with model from DB or prompt setting
+        const promptModel = prompt.model || (await getDefaultModel(supabase));
+        
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -320,7 +330,7 @@ async function handleToolCall(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: prompt.model || 'gpt-4o',
+            model: promptModel,
             messages,
             max_tokens: prompt.max_tokens ? parseInt(prompt.max_tokens) : undefined,
             temperature: prompt.temperature ? parseFloat(prompt.temperature) : undefined,

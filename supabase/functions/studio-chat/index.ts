@@ -2,7 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { TABLES } from "../_shared/tables.ts";
-import { fetchModelConfig, resolveApiModelId as resolveFromDb } from "../_shared/models.ts";
+import { fetchModelConfig, resolveApiModelId, fetchActiveModels } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,39 +11,28 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Fallback model mapping for when DB lookup fails
-const FALLBACK_MODEL_MAPPING: Record<string, string> = {
-  'gpt-4o': 'gpt-4o',
-  'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-5': 'gpt-4o',
-  'gpt-5-mini': 'gpt-4o-mini',
-  'gpt-5-nano': 'gpt-4o-mini',
-};
-
-// Keep local synchronous functions for backwards compatibility
-function resolveModelIdSync(modelId: string): string {
-  return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+// Get default model from DB (first active model)
+async function getDefaultModel(supabase: any): Promise<string> {
+  const models = await fetchActiveModels(supabase);
+  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
 }
 
-// Models that don't support temperature parameter  
-const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'];
-
-async function resolveModelIdAsync(supabase: any, modelId: string): Promise<string> {
+// Resolve model using DB
+async function resolveModel(supabase: any, modelId: string): Promise<string> {
   try {
-    const resolved = await resolveFromDb(supabase, modelId);
-    return resolved || FALLBACK_MODEL_MAPPING[modelId] || modelId;
+    return await resolveApiModelId(supabase, modelId);
   } catch {
-    return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+    return modelId;
   }
 }
 
-async function supportsTemperatureAsync(supabase: any, modelId: string): Promise<boolean> {
+// Check if model supports temperature from DB
+async function supportsTemperature(supabase: any, modelId: string): Promise<boolean> {
   try {
     const config = await fetchModelConfig(supabase, modelId);
     return config?.supportsTemperature ?? true;
   } catch {
-    const lowerModel = modelId.toLowerCase();
-    return !NO_TEMPERATURE_MODELS.some((m: string) => lowerModel.includes(m));
+    return true;
   }
 }
 
@@ -263,10 +252,11 @@ serve(async (req) => {
       }
     }
 
-    // Model configuration
-    const requestedModel = assistantData.model_override || 'gpt-4o-mini';
-    const modelId = resolveModelIdSync(requestedModel);
-    const isNoTempModel = NO_TEMPERATURE_MODELS.some((m: string) => modelId.toLowerCase().includes(m));
+    // Model configuration - use DB for defaults and resolution
+    const defaultModel = await getDefaultModel(supabase);
+    const requestedModel = assistantData.model_override || defaultModel;
+    const modelId = await resolveModel(supabase, requestedModel);
+    const modelSupportsTemp = await supportsTemperature(supabase, requestedModel);
 
     // Build system instructions with additional context
     let systemContent = assistantData.instructions || 'You are a helpful assistant.';
@@ -294,10 +284,10 @@ serve(async (req) => {
     const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
     const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
 
-    if (!isNoTempModel && temperature !== undefined && !isNaN(temperature)) {
+    if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
       requestBody.temperature = temperature;
     }
-    if (!isNoTempModel && topP !== undefined && !isNaN(topP)) {
+    if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
       requestBody.top_p = topP;
     }
     if (maxTokens !== undefined && !isNaN(maxTokens)) {

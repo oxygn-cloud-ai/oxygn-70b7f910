@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { fetchModelConfig, resolveApiModelId as resolveFromDb } from "../_shared/models.ts";
+import { fetchModelConfig, resolveApiModelId, fetchActiveModels } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,39 +9,28 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Fallback model mapping for when DB lookup fails
-const FALLBACK_MODEL_MAPPING: Record<string, string> = {
-  'gpt-4o': 'gpt-4o',
-  'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-5': 'gpt-4o',
-  'gpt-5-mini': 'gpt-4o-mini',
-  'gpt-5-nano': 'gpt-4o-mini',
-};
-
-// Keep local synchronous functions for backwards compatibility
-function resolveModelIdSync(modelId: string): string {
-  return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+// Get default model from DB (first active model)
+async function getDefaultModel(supabase: any): Promise<string> {
+  const models = await fetchActiveModels(supabase);
+  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
 }
 
-// Models that don't support temperature parameter
-const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'];
-
-async function resolveModelIdAsync(supabase: ReturnType<typeof createClient>, modelId: string): Promise<string> {
+// Resolve model using DB, with fallback to modelId itself
+async function resolveModel(supabase: any, modelId: string): Promise<string> {
   try {
-    const resolved = await resolveFromDb(supabase, modelId);
-    return resolved || FALLBACK_MODEL_MAPPING[modelId] || modelId;
+    return await resolveApiModelId(supabase, modelId);
   } catch {
-    return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+    return modelId;
   }
 }
 
-async function supportsTemperatureAsync(supabase: ReturnType<typeof createClient>, modelId: string): Promise<boolean> {
+// Check if model supports temperature from DB
+async function supportsTemperature(supabase: any, modelId: string): Promise<boolean> {
   try {
     const config = await fetchModelConfig(supabase, modelId);
     return config?.supportsTemperature ?? true;
   } catch {
-    const lowerModel = modelId.toLowerCase();
-    return !NO_TEMPERATURE_MODELS.some(m => lowerModel.includes(m));
+    return true; // Default to supporting temperature
   }
 }
 
@@ -113,10 +102,19 @@ serve(async (req) => {
     const { action, ...body } = await req.json();
     console.log('OpenAI proxy request:', { action, hasBody: !!body, user: validation.user?.email });
 
+    // Create supabase client for DB lookups
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
     // Health check / connection test
     if (action === 'health') {
       console.log('Running health check...');
       const start = Date.now();
+      
+      // Use default model from DB for health check
+      const healthCheckModel = await getDefaultModel(supabase);
       
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -125,7 +123,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: healthCheckModel,
           messages: [{ role: 'user', content: 'Hi' }],
           max_tokens: 1,
         }),
@@ -208,13 +206,15 @@ serve(async (req) => {
       const { model, messages, web_search_enabled, ...settings } = body;
       const startTime = Date.now();
 
-      const requestedModel = model || 'gpt-4o-mini';
-      const modelId = resolveModelIdSync(requestedModel);
+      // Use DB for model resolution and defaults
+      const defaultModel = await getDefaultModel(supabase);
+      const requestedModel = model || defaultModel;
+      const modelId = await resolveModel(supabase, requestedModel);
       
       console.log('Model resolution:', { requested: requestedModel, resolved: modelId });
       
-      // Check if model supports temperature
-      const isNoTempModel = NO_TEMPERATURE_MODELS.some((m: string) => modelId.toLowerCase().includes(m));
+      // Check if model supports temperature from DB
+      const modelSupportsTemp = await supportsTemperature(supabase, requestedModel);
 
       const requestBody: any = {
         model: modelId,
@@ -222,7 +222,7 @@ serve(async (req) => {
       };
 
       // Add optional parameters based on model capabilities
-      if (!isNoTempModel && settings.temperature !== undefined) {
+      if (modelSupportsTemp && settings.temperature !== undefined) {
         requestBody.temperature = settings.temperature;
       }
       
@@ -230,7 +230,7 @@ serve(async (req) => {
         requestBody.max_tokens = settings.max_tokens;
       }
       
-      if (!isNoTempModel && settings.top_p !== undefined) {
+      if (modelSupportsTemp && settings.top_p !== undefined) {
         requestBody.top_p = settings.top_p;
       }
       if (settings.frequency_penalty !== undefined) requestBody.frequency_penalty = settings.frequency_penalty;
@@ -239,7 +239,7 @@ serve(async (req) => {
       console.log('OpenAI Chat request:', { 
         model: requestBody.model, 
         messageCount: messages?.length, 
-        isNoTempModel
+        supportsTemperature: modelSupportsTemp
       });
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {

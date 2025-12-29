@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
-import { fetchModelConfig, resolveApiModelId as resolveFromDb } from "../_shared/models.ts";
+import { fetchModelConfig, resolveApiModelId, fetchActiveModels } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,41 +10,30 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Fallback model mapping for when DB lookup fails
-const FALLBACK_MODEL_MAPPING: Record<string, string> = {
-  'gpt-4o': 'gpt-4o',
-  'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-5': 'gpt-4o',
-  'gpt-5-mini': 'gpt-4o-mini',
-  'gpt-5-nano': 'gpt-4o-mini',
-};
+// Get default model from DB (first active model)
+async function getDefaultModel(supabase: any): Promise<string> {
+  const models = await fetchActiveModels(supabase);
+  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
+}
 
-async function resolveModelIdFromDb(supabase: ReturnType<typeof createClient>, modelId: string): Promise<string> {
+// Resolve model using DB
+async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {
   try {
-    const resolved = await resolveFromDb(supabase, modelId);
-    return resolved || FALLBACK_MODEL_MAPPING[modelId] || modelId;
+    return await resolveApiModelId(supabase, modelId);
   } catch {
-    return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+    return modelId;
   }
 }
 
-async function modelSupportsTemperature(supabase: ReturnType<typeof createClient>, modelId: string): Promise<boolean> {
+// Check if model supports temperature from DB
+async function modelSupportsTemperatureDb(supabase: any, modelId: string): Promise<boolean> {
   try {
     const config = await fetchModelConfig(supabase, modelId);
     return config?.supportsTemperature ?? true;
   } catch {
-    const lowerModel = modelId.toLowerCase();
-    return !['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'].some(m => lowerModel.includes(m));
+    return true;
   }
 }
-
-// Keep local resolveModelId for backwards compatibility in existing code
-function resolveModelId(modelId: string): string {
-  return FALLBACK_MODEL_MAPPING[modelId] || modelId;
-}
-
-// Keep NO_TEMPERATURE_MODELS for backwards compatibility
-const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'];
 
 function isAllowedDomain(email: string | undefined): boolean {
   if (!email) return false;
@@ -174,6 +163,7 @@ async function runResponsesAPI(
   systemPrompt: string,
   previousResponseId: string | null,
   apiKey: string,
+  supabase: any,
   options: {
     responseFormat?: any;
     seed?: number;
@@ -181,8 +171,11 @@ async function runResponsesAPI(
     reasoningEffort?: string;
   } = {},
 ): Promise<ResponsesResult> {
-  const requestedModel = assistantData.model_override || 'gpt-4o-mini';
-  const modelId = resolveModelId(requestedModel);
+  // Use DB for model resolution
+  const defaultModel = await getDefaultModel(supabase);
+  const requestedModel = assistantData.model_override || defaultModel;
+  const modelId = await resolveModelFromDb(supabase, requestedModel);
+  const modelSupportsTemp = await modelSupportsTemperatureDb(supabase, requestedModel);
   
   // Build request body for Responses API
   const requestBody: any = {
@@ -219,13 +212,10 @@ async function runResponsesAPI(
   const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
   const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
 
-  // Check if model supports temperature
-  const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
-
-  if (!isNoTempModel && temperature !== undefined && !isNaN(temperature)) {
+  if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
     requestBody.temperature = temperature;
   }
-  if (!isNoTempModel && topP !== undefined && !isNaN(topP)) {
+  if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
     requestBody.top_p = topP;
   }
   if (maxTokens !== undefined && !isNaN(maxTokens)) {
@@ -794,6 +784,7 @@ serve(async (req) => {
       systemPrompt,
       previousResponseId,
       OPENAI_API_KEY,
+      supabase,
       apiOptions
     );
 
@@ -836,6 +827,10 @@ serve(async (req) => {
       return new Response(JSON.stringify(body), { status, headers });
     }
 
+    // Get model used from DB
+    const defaultModel = await getDefaultModel(supabase);
+    const modelUsedForMetadata = assistantData.model_override || defaultModel;
+
     // Update child prompt with response (output_response is displayed in UI)
     await supabase
       .from(TABLES.PROMPTS)
@@ -843,7 +838,7 @@ serve(async (req) => {
         output_response: result.response,
         last_ai_call_metadata: {
           latency_ms: Date.now() - startTime,
-          model: assistantData.model_override || 'gpt-4o-mini',
+          model: modelUsedForMetadata,
           tokens_input: result.usage?.prompt_tokens || 0,
           tokens_output: result.usage?.completion_tokens || 0,
           tokens_total: result.usage?.total_tokens || 0,
@@ -863,7 +858,6 @@ serve(async (req) => {
         .eq('row_id', activeThreadRowId);
     }
 
-    const modelUsed = assistantData.model_override || 'gpt-4o-mini';
     console.log('Run completed successfully');
 
     return new Response(
@@ -871,7 +865,7 @@ serve(async (req) => {
         success: true,
         response: result.response,
         usage: result.usage,
-        model: modelUsed,
+        model: modelUsedForMetadata,
         child_prompt_name: childPrompt.prompt_name,
         thread_row_id: activeThreadRowId,
         response_id: result.response_id,
