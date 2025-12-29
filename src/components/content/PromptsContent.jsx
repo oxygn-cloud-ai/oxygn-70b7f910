@@ -191,7 +191,7 @@ import ResizablePromptArea from "../shared/ResizablePromptArea";
 import ResizableOutputArea from "../shared/ResizableOutputArea";
 
 // Prompt Tab Content
-const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [] }) => {
+const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [], onCancelRun, runProgress }) => {
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
@@ -230,8 +230,10 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         metadata={metadata}
         defaultHeight={144}
         onRegenerate={() => onRunPrompt?.(selectedPromptId)}
+        onCancel={onCancelRun}
         isRegenerating={isRunningPrompt}
         runTime={formattedTime}
+        progress={runProgress}
       />
     </div>
   );
@@ -901,6 +903,7 @@ const PromptsContent = ({
   isRunningPrompt = false,
   isRunningCascade = false,
   onCancelRun,
+  runProgress,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
@@ -1123,6 +1126,8 @@ const PromptsContent = ({
               isRunningPrompt={isRunningPrompt}
               formattedTime={formattedTime}
               variables={variables}
+              onCancelRun={onCancelRun}
+              runProgress={runProgress}
             />
           )}
           {activeTab === "settings" && (
