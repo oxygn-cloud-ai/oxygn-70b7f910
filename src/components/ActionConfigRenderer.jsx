@@ -191,8 +191,8 @@ const ActionConfigRenderer = ({
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </Label>
-        {field.description && (
-          <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+        {field.helpText && (
+          <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
         )}
         
         <Select
@@ -234,8 +234,8 @@ const ActionConfigRenderer = ({
           {field.label}
           {field.required && <span className="text-red-500 ml-1">*</span>}
         </Label>
-        {field.description && (
-          <p className="text-[10px] text-on-surface-variant">{field.description}</p>
+        {field.helpText && (
+          <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
         )}
         
         <Select
