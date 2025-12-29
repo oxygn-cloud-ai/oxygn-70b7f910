@@ -123,12 +123,17 @@ export const executeCreateChildrenJson = async ({
   config,
   context,
 }) => {
+  // Handle json_path as either string OR array (use first element if array)
+  const rawJsonPath = config?.json_path;
+  const json_path = Array.isArray(rawJsonPath) 
+    ? rawJsonPath[0] 
+    : (rawJsonPath || 'sections');
+
   const {
-    json_path = 'items',
-    name_field = 'name',
-    content_field = '',
-    child_node_type = 'standard', // NEW: 'standard' or 'action'
-    placement = 'children',       // NEW: Support placement option
+    name_field = 'title',
+    content_field = 'system_prompt',
+    child_node_type = 'standard',
+    placement = 'children',
     copy_library_prompt_id,
   } = config || {};
 
@@ -136,7 +141,14 @@ export const executeCreateChildrenJson = async ({
   const items = getNestedValue(jsonResponse, json_path);
   
   if (!Array.isArray(items)) {
-    throw new Error(`JSON path "${json_path}" does not point to an array. Found: ${typeof items}`);
+    // Provide helpful error with available keys
+    const availableKeys = typeof jsonResponse === 'object' && jsonResponse !== null
+      ? Object.keys(jsonResponse).filter(k => Array.isArray(jsonResponse[k])).join(', ') || 'none found'
+      : 'none';
+    throw new Error(
+      `JSON path "${json_path}" does not point to an array. ` +
+      `Found: ${typeof items}. Available array keys: ${availableKeys}`
+    );
   }
 
   if (items.length === 0) {
