@@ -131,7 +131,7 @@ const MainLayout = () => {
   const { settings, updateSetting, isLoading: isLoadingSettings } = useSettings(supabase);
   
   // Models hook - Phase 6
-  const { models, isLoading: isLoadingModels, toggleModelActive } = useModels();
+  const { models, isLoading: isLoadingModels, toggleModelActive, addModel, updateModel, deleteModel } = useModels();
   
   // Workbench hooks - Phase 3
   const workbenchThreads = useWorkbenchThreads();
@@ -873,8 +873,11 @@ const MainLayout = () => {
                       isLoadingModels={isLoadingModels}
                       onToggleModel={(modelId) => {
                         const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
-                        if (model) toggleModelActive(model.row_id, !model.is_active);
+                        if (model) toggleModelActive(model.model_id);
                       }}
+                      onAddModel={addModel}
+                      onUpdateModel={updateModel}
+                      onDeleteModel={deleteModel}
                       // Phase 4 - Cost analytics and conversation defaults
                       costTracking={costTracking}
                       conversationToolDefaults={conversationToolDefaults}

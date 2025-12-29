@@ -809,11 +809,25 @@ const ConversationsSection = () => {
 };
 
 // AI Models Section - Uses real data from database with per-model usage stats and inline settings
-const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settings = {}, onUpdateSetting }) => {
+const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddModel, onUpdateModel, onDeleteModel, settings = {}, onUpdateSetting }) => {
   const [expandedModel, setExpandedModel] = useState(null);
   const [usagePeriod, setUsagePeriod] = useState('all');
   const [modelUsage, setModelUsage] = useState({});
   const [loadingUsage, setLoadingUsage] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingModel, setEditingModel] = useState(null);
+  const [formData, setFormData] = useState({
+    model_id: '',
+    model_name: '',
+    provider: 'openai',
+    context_window: '',
+    max_output_tokens: '',
+    input_cost_per_million: '',
+    output_cost_per_million: '',
+    supports_temperature: true,
+    api_model_id: '',
+  });
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   
   // Fetch usage stats from q_ai_costs
   useEffect(() => {
@@ -859,9 +873,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
   }, [usagePeriod]);
 
   const getUsageForModel = (modelId) => {
-    // Try exact match first
     if (modelUsage[modelId]) return modelUsage[modelId];
-    // Try partial match
     for (const [key, value] of Object.entries(modelUsage)) {
       if (key.startsWith(modelId) || modelId.startsWith(key)) {
         return value;
@@ -883,52 +895,256 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
     }
   };
 
-  // Show empty state if no models
-  if (!isLoading && models.length === 0) {
-    return (
-      <div className="space-y-3">
-        <SettingCard label="Available Models">
-          <div className="p-4 text-center">
-            <Cpu className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
-            <p className="text-body-sm text-on-surface-variant">No models configured.</p>
-            <p className="text-[10px] text-on-surface-variant mt-1">Add models to the database to get started.</p>
-          </div>
-        </SettingCard>
+  const resetForm = () => {
+    setFormData({
+      model_id: '',
+      model_name: '',
+      provider: 'openai',
+      context_window: '',
+      max_output_tokens: '',
+      input_cost_per_million: '',
+      output_cost_per_million: '',
+      supports_temperature: true,
+      api_model_id: '',
+    });
+    setShowAddForm(false);
+    setEditingModel(null);
+  };
+
+  const handleEdit = (model) => {
+    setEditingModel(model.row_id);
+    setFormData({
+      model_id: model.model_id || '',
+      model_name: model.model_name || '',
+      provider: model.provider || 'openai',
+      context_window: model.context_window?.toString() || '',
+      max_output_tokens: model.max_output_tokens?.toString() || '',
+      input_cost_per_million: model.input_cost_per_million?.toString() || '',
+      output_cost_per_million: model.output_cost_per_million?.toString() || '',
+      supports_temperature: model.supports_temperature ?? true,
+      api_model_id: model.api_model_id || '',
+    });
+    setShowAddForm(false);
+  };
+
+  const handleSave = async () => {
+    if (!formData.model_id || !formData.model_name) {
+      toast.error('Model ID and Name are required');
+      return;
+    }
+
+    const modelData = {
+      model_id: formData.model_id,
+      model_name: formData.model_name,
+      provider: formData.provider,
+      context_window: formData.context_window ? parseInt(formData.context_window) : null,
+      max_output_tokens: formData.max_output_tokens ? parseInt(formData.max_output_tokens) : null,
+      input_cost_per_million: formData.input_cost_per_million ? parseFloat(formData.input_cost_per_million) : null,
+      output_cost_per_million: formData.output_cost_per_million ? parseFloat(formData.output_cost_per_million) : null,
+      supports_temperature: formData.supports_temperature,
+      api_model_id: formData.api_model_id || formData.model_id,
+    };
+
+    if (editingModel) {
+      await onUpdateModel?.(editingModel, modelData);
+    } else {
+      await onAddModel?.(modelData);
+    }
+    resetForm();
+  };
+
+  const handleDelete = async (rowId) => {
+    await onDeleteModel?.(rowId);
+    setDeleteConfirm(null);
+  };
+
+  // Form component for add/edit
+  const ModelForm = ({ isEditing }) => (
+    <div className="p-3 bg-surface-container-low rounded-m3-md border border-outline-variant space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-body-sm text-on-surface font-medium">{isEditing ? 'Edit Model' : 'Add New Model'}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button onClick={resetForm} className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+              <X className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Cancel</TooltipContent>
+        </Tooltip>
       </div>
-    );
-  }
+      
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model ID *</label>
+          <input
+            type="text"
+            value={formData.model_id}
+            onChange={(e) => setFormData(prev => ({ ...prev, model_id: e.target.value }))}
+            placeholder="gpt-4o"
+            disabled={isEditing}
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Display Name *</label>
+          <input
+            type="text"
+            value={formData.model_name}
+            onChange={(e) => setFormData(prev => ({ ...prev, model_name: e.target.value }))}
+            placeholder="GPT-4o"
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Provider</label>
+          <select
+            value={formData.provider}
+            onChange={(e) => setFormData(prev => ({ ...prev, provider: e.target.value }))}
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">API Model ID</label>
+          <input
+            type="text"
+            value={formData.api_model_id}
+            onChange={(e) => setFormData(prev => ({ ...prev, api_model_id: e.target.value }))}
+            placeholder="Same as Model ID if empty"
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Context Window</label>
+          <input
+            type="number"
+            value={formData.context_window}
+            onChange={(e) => setFormData(prev => ({ ...prev, context_window: e.target.value }))}
+            placeholder="128000"
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Max Output Tokens</label>
+          <input
+            type="number"
+            value={formData.max_output_tokens}
+            onChange={(e) => setFormData(prev => ({ ...prev, max_output_tokens: e.target.value }))}
+            placeholder="4096"
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Input Cost ($/1M tokens)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.input_cost_per_million}
+            onChange={(e) => setFormData(prev => ({ ...prev, input_cost_per_million: e.target.value }))}
+            placeholder="2.50"
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Output Cost ($/1M tokens)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.output_cost_per_million}
+            onChange={(e) => setFormData(prev => ({ ...prev, output_cost_per_million: e.target.value }))}
+            placeholder="10.00"
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Checkbox 
+          id="supports_temp" 
+          checked={formData.supports_temperature}
+          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, supports_temperature: checked }))}
+        />
+        <label htmlFor="supports_temp" className="text-body-sm text-on-surface">Supports Temperature</label>
+      </div>
+      
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          onClick={resetForm}
+          className="px-3 h-8 text-body-sm text-on-surface-variant hover:bg-on-surface/[0.08] rounded-m3-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          className="px-3 h-8 text-body-sm bg-primary text-on-primary rounded-m3-sm hover:bg-primary/90 flex items-center gap-1"
+        >
+          <Save className="h-4 w-4" />
+          {isEditing ? 'Update' : 'Add Model'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-3">
-      {/* Period Selector */}
+      {/* Period Selector and Add Button */}
       <div className="flex items-center justify-between">
-        <span className="text-body-sm text-on-surface-variant">Usage period:</span>
-        <select
-          value={usagePeriod}
-          onChange={(e) => setUsagePeriod(e.target.value)}
-          className="h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="all">All Time</option>
-          <option value="30days">Last 30 Days</option>
-          <option value="7days">Last 7 Days</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-body-sm text-on-surface-variant">Usage period:</span>
+          <select
+            value={usagePeriod}
+            onChange={(e) => setUsagePeriod(e.target.value)}
+            className="h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">All Time</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="7days">Last 7 Days</option>
+          </select>
+        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => { setShowAddForm(true); setEditingModel(null); resetForm(); setShowAddForm(true); }}
+              className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Add Model</TooltipContent>
+        </Tooltip>
       </div>
+
+      {/* Add Form */}
+      {showAddForm && <ModelForm isEditing={false} />}
+
+      {/* Edit Form (shown inline when editing) */}
+      {editingModel && <ModelForm isEditing={true} />}
 
       <SettingCard label="Available Models">
         <div className="space-y-1">
           {/* Table Header */}
-          <div className="grid grid-cols-[1fr,90px,80px,60px,40px] gap-2 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
+          <div className="grid grid-cols-[1fr,90px,80px,60px,70px] gap-2 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
             <span>Model</span>
             <span className="text-right">Tokens Used</span>
             <span className="text-right">Cost Spent</span>
             <span className="text-center">Active</span>
-            <span></span>
+            <span className="text-center">Actions</span>
           </div>
           
           {isLoading ? (
             <div className="flex items-center gap-2 py-4 px-3">
               <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
               <span className="text-body-sm text-on-surface-variant">Loading models...</span>
+            </div>
+          ) : models.length === 0 ? (
+            <div className="p-4 text-center">
+              <Cpu className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
+              <p className="text-body-sm text-on-surface-variant">No models configured.</p>
+              <p className="text-[10px] text-on-surface-variant mt-1">Click the + button above to add a model.</p>
             </div>
           ) : (
             models.map((model, i) => {
@@ -939,13 +1155,18 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
                 <div key={model.model_id || model.row_id}>
                   {i > 0 && <SettingDivider />}
                   {/* Model Row */}
-                  <div className="grid grid-cols-[1fr,90px,80px,60px,40px] gap-2 px-3 py-2 items-center">
-                    <div>
-                      <span className="text-body-sm text-on-surface font-medium">{model.model_name}</span>
-                      <span className="text-[10px] text-on-surface-variant ml-2">{model.provider || 'openai'}</span>
-                      {model.supports_reasoning_effort && (
-                        <span className="text-[9px] ml-1 px-1 py-0.5 bg-primary/10 text-primary rounded">reasoning</span>
-                      )}
+                  <div className="grid grid-cols-[1fr,90px,80px,60px,70px] gap-2 px-3 py-2 items-center">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setExpandedModel(isExpanded ? null : model.model_id)}
+                        className="w-5 h-5 flex items-center justify-center rounded text-on-surface-variant hover:bg-on-surface/[0.08]"
+                      >
+                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                      <div>
+                        <span className="text-body-sm text-on-surface font-medium">{model.model_name}</span>
+                        <span className="text-[10px] text-on-surface-variant ml-2">{model.provider || 'openai'}</span>
+                      </div>
                     </div>
                     <span className="text-body-sm text-on-surface-variant text-right">
                       {loadingUsage ? '...' : formatTokens(usage.totalTokens)}
@@ -959,20 +1180,52 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
                         onCheckedChange={() => handleToggle(model.model_id)} 
                       />
                     </div>
-                    <div className="flex justify-center">
+                    <div className="flex justify-center gap-1">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => setExpandedModel(isExpanded ? null : model.model_id)}
+                            onClick={() => handleEdit(model)}
                             className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
                           >
-                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <Settings className="h-3.5 w-3.5" />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent className="text-[10px]">{isExpanded ? 'Collapse' : 'Settings'}</TooltipContent>
+                        <TooltipContent className="text-[10px]">Edit</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setDeleteConfirm(model.row_id)}
+                            className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-red-500/10 hover:text-red-500"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[10px]">Delete</TooltipContent>
                       </Tooltip>
                     </div>
                   </div>
+                  
+                  {/* Delete Confirmation */}
+                  {deleteConfirm === model.row_id && (
+                    <div className="px-3 py-2 bg-red-500/10 border-t border-outline-variant flex items-center justify-between">
+                      <span className="text-body-sm text-red-500">Delete {model.model_name}?</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          className="px-2 h-6 text-[11px] text-on-surface-variant hover:bg-on-surface/[0.08] rounded"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleDelete(model.row_id)}
+                          className="px-2 h-6 text-[11px] bg-red-500 text-white rounded hover:bg-red-600"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Expanded Settings Panel */}
                   {isExpanded && (
@@ -987,8 +1240,8 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
                           <span className="text-on-surface ml-1 font-medium">{model.max_output_tokens ? formatTokens(model.max_output_tokens) : 'Not set'}</span>
                         </div>
                         <div>
-                          <span className="text-on-surface-variant">Token Param:</span>
-                          <span className="text-on-surface ml-1 font-mono">{model.token_param || 'Not set'}</span>
+                          <span className="text-on-surface-variant">API Model:</span>
+                          <span className="text-on-surface ml-1 font-mono">{model.api_model_id || model.model_id}</span>
                         </div>
                         <div>
                           <span className="text-on-surface-variant">Temperature:</span>
@@ -997,26 +1250,14 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
                           </span>
                         </div>
                         <div>
-                          <span className="text-on-surface-variant">API Model:</span>
-                          <span className="text-on-surface ml-1 font-mono">{model.api_model_id || model.model_id}</span>
+                          <span className="text-on-surface-variant">Input Cost:</span>
+                          <span className="text-on-surface ml-1 font-medium">{model.input_cost_per_million ? `$${model.input_cost_per_million}/1M` : 'Not set'}</span>
                         </div>
                         <div>
-                          <span className="text-on-surface-variant">Calls:</span>
-                          <span className="text-on-surface ml-1 font-medium">{usage.callCount}</span>
+                          <span className="text-on-surface-variant">Output Cost:</span>
+                          <span className="text-on-surface ml-1 font-medium">{model.output_cost_per_million ? `$${model.output_cost_per_million}/1M` : 'Not set'}</span>
                         </div>
                       </div>
-                      {model.supported_settings && model.supported_settings.length > 0 && (
-                        <div className="mt-3 pt-2 border-t border-outline-variant">
-                          <span className="text-[10px] text-on-surface-variant uppercase">Supported Settings: </span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {model.supported_settings.map(setting => (
-                              <span key={setting} className="text-[10px] px-1.5 py-0.5 bg-surface-container rounded">
-                                {setting}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1930,6 +2171,9 @@ const SettingsContent = ({
   models = [],
   isLoadingModels = false,
   onToggleModel,
+  onAddModel,
+  onUpdateModel,
+  onDeleteModel,
   costTracking,
   conversationToolDefaults,
 }) => {
@@ -1961,6 +2205,9 @@ const SettingsContent = ({
           models, 
           isLoading: isLoadingModels, 
           onToggleModel,
+          onAddModel,
+          onUpdateModel,
+          onDeleteModel,
           settings,
           onUpdateSetting,
         };

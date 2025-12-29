@@ -40,6 +40,9 @@ const ReadingPane = ({
   models = [],
   isLoadingModels = false,
   onToggleModel,
+  onAddModel,
+  onUpdateModel,
+  onDeleteModel,
   // Phase 4 - Cost analytics and conversation defaults
   costTracking,
   conversationToolDefaults,
@@ -78,6 +81,9 @@ const ReadingPane = ({
         models={models}
         isLoadingModels={isLoadingModels}
         onToggleModel={onToggleModel}
+        onAddModel={onAddModel}
+        onUpdateModel={onUpdateModel}
+        onDeleteModel={onDeleteModel}
         costTracking={costTracking}
         conversationToolDefaults={conversationToolDefaults}
       />
