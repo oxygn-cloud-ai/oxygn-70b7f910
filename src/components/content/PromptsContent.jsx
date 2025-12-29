@@ -568,12 +568,54 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
   const actionType = promptData?.post_action || "none";
   const actionConfig = promptData?.post_action_config || {};
 
-  // Helper function to update nested config values
+  // Local state for text inputs (for immediate UI feedback)
+  const [localValues, setLocalValues] = useState({});
+  const debounceTimerRef = useRef({});
+
+  // Sync local values when promptData changes (e.g., switching prompts)
+  useEffect(() => {
+    setLocalValues({});
+  }, [promptData?.row_id]);
+
+  // Helper function to update nested config values (immediate save for non-text inputs)
   const updateActionConfig = (key, value) => {
     const currentConfig = promptData?.post_action_config || {};
     const newConfig = { ...currentConfig, [key]: value };
     onUpdateField?.('post_action_config', newConfig);
   };
+
+  // Debounced update for text inputs
+  const updateActionConfigDebounced = (key, value) => {
+    // Update local state immediately for UI feedback
+    setLocalValues(prev => ({ ...prev, [key]: value }));
+    
+    // Clear existing timer for this key
+    if (debounceTimerRef.current[key]) {
+      clearTimeout(debounceTimerRef.current[key]);
+    }
+    
+    // Set new debounce timer
+    debounceTimerRef.current[key] = setTimeout(() => {
+      const currentConfig = promptData?.post_action_config || {};
+      const newConfig = { ...currentConfig, [key]: value };
+      onUpdateField?.('post_action_config', newConfig);
+    }, 500);
+  };
+
+  // Get display value (local state takes precedence for active editing)
+  const getDisplayValue = (key, fallback = '') => {
+    if (key in localValues) {
+      return localValues[key];
+    }
+    return actionConfig[key] || fallback;
+  };
+
+  // Cleanup debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimerRef.current).forEach(timer => clearTimeout(timer));
+    };
+  }, []);
 
   // Get selected schema name for display
   const selectedSchemaId = promptData?.json_schema_template_id;
@@ -606,8 +648,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Path</label>
                 <input
                   type="text"
-                  value={actionConfig.json_path || ''}
-                  onChange={(e) => updateActionConfig('json_path', e.target.value)}
+                  value={getDisplayValue('json_path')}
+                  onChange={(e) => updateActionConfigDebounced('json_path', e.target.value)}
                   placeholder="$.items[*]"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -619,8 +661,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Field</label>
                 <input
                   type="text"
-                  value={actionConfig.name_field || ''}
-                  onChange={(e) => updateActionConfig('name_field', e.target.value)}
+                  value={getDisplayValue('name_field')}
+                  onChange={(e) => updateActionConfigDebounced('name_field', e.target.value)}
                   placeholder="title"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -631,8 +673,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Content Field</label>
                 <input
                   type="text"
-                  value={actionConfig.content_field || ''}
-                  onChange={(e) => updateActionConfig('content_field', e.target.value)}
+                  value={getDisplayValue('content_field')}
+                  onChange={(e) => updateActionConfigDebounced('content_field', e.target.value)}
                   placeholder="content"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -659,8 +701,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Delimiter</label>
                 <input
                   type="text"
-                  value={actionConfig.delimiter || ''}
-                  onChange={(e) => updateActionConfig('delimiter', e.target.value)}
+                  value={getDisplayValue('delimiter')}
+                  onChange={(e) => updateActionConfigDebounced('delimiter', e.target.value)}
                   placeholder="---"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
@@ -694,8 +736,8 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Pattern</label>
                 <input
                   type="text"
-                  value={actionConfig.name_pattern || ''}
-                  onChange={(e) => updateActionConfig('name_pattern', e.target.value)}
+                  value={getDisplayValue('name_pattern')}
+                  onChange={(e) => updateActionConfigDebounced('name_pattern', e.target.value)}
                   placeholder="{{parent_name}}_template"
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                 />
