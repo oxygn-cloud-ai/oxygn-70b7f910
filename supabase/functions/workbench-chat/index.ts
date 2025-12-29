@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { fetchActiveModels, resolveApiModelId } from "../_shared/models.ts";
+import { fetchActiveModels, resolveApiModelId, getDefaultModelFromSettings } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,15 +9,6 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
-
-// Get default model from DB (first active model, or throw if none)
-async function getDefaultModel(supabase: any): Promise<string> {
-  const models = await fetchActiveModels(supabase);
-  if (models.length === 0) {
-    throw new Error('No active models configured in database');
-  }
-  return models[0].modelId;
-}
 
 function isAllowedDomain(email: string | undefined): boolean {
   if (!email) return false;
@@ -324,7 +315,7 @@ async function handleToolCall(
         if (userPrompt) messages.push({ role: 'user', content: userPrompt });
 
         // Call OpenAI with model from DB or prompt setting
-        const promptModel = prompt.model || (await getDefaultModel(supabase));
+        const promptModel = prompt.model || (await getDefaultModelFromSettings(supabase));
         
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -514,7 +505,7 @@ serve(async (req) => {
         selectedModel = modelSetting.setting_value;
       } else {
         // Fall back to first active model from DB
-        selectedModel = await getDefaultModel(supabase);
+        selectedModel = await getDefaultModelFromSettings(supabase);
       }
     }
 

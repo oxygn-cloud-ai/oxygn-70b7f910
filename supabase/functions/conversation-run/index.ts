@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
-import { fetchModelConfig, resolveApiModelId, fetchActiveModels } from "../_shared/models.ts";
+import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,15 +9,6 @@ const corsHeaders = {
 };
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
-
-// Get default model from DB (first active model, or throw if none)
-async function getDefaultModel(supabase: any): Promise<string> {
-  const models = await fetchActiveModels(supabase);
-  if (models.length === 0) {
-    throw new Error('No active models configured in database');
-  }
-  return models[0].modelId;
-}
 
 // Resolve model using DB
 async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {
@@ -175,7 +166,7 @@ async function runResponsesAPI(
   } = {},
 ): Promise<ResponsesResult> {
   // Use DB for model resolution
-  const defaultModel = await getDefaultModel(supabase);
+  const defaultModel = await getDefaultModelFromSettings(supabase);
   const requestedModel = assistantData.model_override || defaultModel;
   const modelId = await resolveModelFromDb(supabase, requestedModel);
   const modelSupportsTemp = await modelSupportsTemperatureDb(supabase, requestedModel);
@@ -834,7 +825,7 @@ serve(async (req) => {
     }
 
     // Get model used from DB
-    const defaultModel = await getDefaultModel(supabase);
+    const defaultModel = await getDefaultModelFromSettings(supabase);
     const modelUsedForMetadata = assistantData.model_override || defaultModel;
 
     // Update child prompt with response (output_response is displayed in UI)

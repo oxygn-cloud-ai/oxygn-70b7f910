@@ -140,3 +140,38 @@ export async function fetchActiveModels(
 
   return (data as unknown as ModelRow[]).map(rowToConfig);
 }
+
+/**
+ * Fetch the default model from q_settings, fallback to first active model
+ */
+export async function getDefaultModelFromSettings(
+  supabase: any
+): Promise<string> {
+  // First try to get from settings
+  const { data: settingData } = await supabase
+    .from('q_settings')
+    .select('setting_value')
+    .eq('setting_key', 'default_model')
+    .single();
+
+  if (settingData?.setting_value) {
+    // Verify the model exists and is active
+    const { data: modelData } = await supabase
+      .from('q_models')
+      .select('model_id')
+      .eq('model_id', settingData.setting_value)
+      .eq('is_active', true)
+      .single();
+
+    if (modelData?.model_id) {
+      return modelData.model_id;
+    }
+  }
+
+  // Fallback to first active model
+  const activeModels = await fetchActiveModels(supabase);
+  if (activeModels.length === 0) {
+    throw new Error('No active models found in database and no default_model setting configured');
+  }
+  return activeModels[0].modelId;
+}
