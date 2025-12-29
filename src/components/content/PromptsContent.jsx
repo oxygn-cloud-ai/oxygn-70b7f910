@@ -30,7 +30,7 @@ import { Slider } from "@/components/ui/slider";
 import { LabelPicker } from "@/components/ui/label-picker";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
 import { 
   EmptyVariables, 
   EmptyConversation,
@@ -309,35 +309,13 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
   return (
     <div className="space-y-4">
-      {/* Model Selection - shows all models, inactive ones greyed out */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model</label>
-        <Select 
-          value={promptData?.model || currentModel} 
-          onValueChange={(value) => handleModelChange(value)}
-        >
-          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-            <SelectValue placeholder="Select model">{currentModelDisplay}</SelectValue>
-          </SelectTrigger>
-          <SelectContent className="max-h-64 bg-surface-container-high border-outline-variant z-50">
-            {models.length === 0 ? (
-              <SelectItem value="none" disabled className="text-body-sm text-on-surface-variant">
-                No models available
-              </SelectItem>
-            ) : models.filter(m => m.is_active !== false).map(model => (
-              <SelectItem 
-                key={model.row_id || model.id || model.model_id}
-                value={model.model_id || model.id}
-                className="text-body-sm text-on-surface"
-              >
-                <span className="flex items-center justify-between w-full gap-2">
-                  <span>{model.model_name || model.name}</span>
-                  <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Model Selection */}
+      <SettingModelSelect
+        value={promptData?.model || currentModel}
+        onValueChange={handleModelChange}
+        models={models}
+        label="Model"
+      />
         
         {/* Show supported settings info */}
         {supportedSettings.length > 0 && (
@@ -399,29 +377,20 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
         {/* Reasoning Effort - only for models that support it */}
         {hasSetting('reasoning_effort') && (
-          <div className="space-y-1.5">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
-            <Select 
-              value={promptData?.reasoning_effort || 'medium'} 
-              onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
-            >
-              <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                <SelectValue placeholder="Select effort level" />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-                {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map(level => (
-                  <SelectItem 
-                    key={level}
-                    value={level}
-                    className="text-body-sm text-on-surface"
-                  >
-                    {level}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-on-surface-variant">Higher = better reasoning, but slower & more expensive</p>
-          </div>
+          <SettingSelect
+            value={promptData?.reasoning_effort || 'medium'}
+            onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
+            options={[
+              { value: 'none', label: 'none' },
+              { value: 'minimal', label: 'minimal' },
+              { value: 'low', label: 'low' },
+              { value: 'medium', label: 'medium' },
+              { value: 'high', label: 'high' },
+              { value: 'xhigh', label: 'xhigh' },
+            ]}
+            label="Reasoning Effort"
+            hint="Higher = better reasoning, but slower & more expensive"
+          />
         )}
 
         {/* Frequency Penalty */}
@@ -506,55 +475,31 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
         {/* Response Format */}
         {hasSetting('response_format') && (
-          <div className="space-y-1.5">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Response Format</label>
-            <Select 
-              value={promptData?.response_format || 'text'} 
-              onValueChange={(value) => onUpdateField?.('response_format', value)}
-            >
-              <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                <SelectValue placeholder="Select format" />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-                {['text', 'json_object', 'json_schema'].map(format => (
-                  <SelectItem 
-                    key={format}
-                    value={format}
-                    className="text-body-sm text-on-surface"
-                  >
-                    {format.replace(/_/g, ' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <SettingSelect
+            value={promptData?.response_format || 'text'}
+            onValueChange={(value) => onUpdateField?.('response_format', value)}
+            options={[
+              { value: 'text', label: 'text' },
+              { value: 'json_object', label: 'json object' },
+              { value: 'json_schema', label: 'json schema' },
+            ]}
+            label="Response Format"
+          />
         )}
 
         {/* Tool Choice - only if supported */}
         {hasSetting('tool_choice') && (
-          <div className="space-y-1.5">
-            <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tool Choice</label>
-            <Select 
-              value={promptData?.tool_choice || 'auto'} 
-              onValueChange={(value) => onUpdateField?.('tool_choice', value)}
-            >
-              <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                <SelectValue placeholder="Select tool choice" />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-container-high border-outline-variant z-50">
-                {['auto', 'none', 'required'].map(choice => (
-                  <SelectItem 
-                    key={choice}
-                    value={choice}
-                    className="text-body-sm text-on-surface capitalize"
-                  >
-                    {choice}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-on-surface-variant">Controls when the model uses tools</p>
-          </div>
+          <SettingSelect
+            value={promptData?.tool_choice || 'auto'}
+            onValueChange={(value) => onUpdateField?.('tool_choice', value)}
+            options={[
+              { value: 'auto', label: 'auto' },
+              { value: 'none', label: 'none' },
+              { value: 'required', label: 'required' },
+            ]}
+            label="Tool Choice"
+            hint="Controls when the model uses tools"
+          />
         )}
 
         {/* No settings available message */}
@@ -620,31 +565,14 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
   return (
     <div className="space-y-4">
       {/* Action Type Selector */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Post Action</label>
-        <Select value={actionType} onValueChange={setActionType}>
-          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-            <span className="flex items-center gap-2">
-              <GitBranch className="h-3.5 w-3.5 text-on-surface-variant" />
-              <SelectValue placeholder="Select action" />
-            </span>
-          </SelectTrigger>
-          <SelectContent className="w-64 bg-surface-container-high border-outline-variant z-50">
-            {ACTION_TYPES.map(action => (
-              <SelectItem 
-                key={action.id} 
-                value={action.id}
-                className="text-body-sm text-on-surface"
-              >
-                <div className="flex-1">
-                  <span className="block">{action.label}</span>
-                  <span className="text-[10px] text-on-surface-variant">{action.description}</span>
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SettingSelect
+        value={actionType}
+        onValueChange={setActionType}
+        options={ACTION_TYPES.map(a => ({ value: a.id, label: a.label, description: a.description }))}
+        label="Post Action"
+        icon={GitBranch}
+        contentClassName="w-64"
+      />
 
       {/* Action Configuration (shown when action type is not none) */}
       {actionType !== "none" && (
