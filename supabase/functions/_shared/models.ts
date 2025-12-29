@@ -36,15 +36,16 @@ interface ModelRow {
   output_cost_per_million: string | null;
 }
 
-// Default config for fallback
+// Default config for null database values - used ONLY when model exists in DB but has null fields
+// Models MUST be configured in the database; these are just fallbacks for incomplete records
 const DEFAULT_CONFIG = {
   contextWindow: 128000,
   maxOutputTokens: 4096,
   tokenParam: 'max_tokens',
   supportsTemperature: true,
   supportsReasoningEffort: false,
-  supportedSettings: ['temperature', 'max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'response_format'],
-  supportedTools: ['web_search', 'code_interpreter', 'file_search'],
+  supportedSettings: [] as string[],  // Empty - model must have settings configured
+  supportedTools: [] as string[],     // Empty - model must have tools configured
 };
 
 function rowToConfig(row: ModelRow): ModelConfig {

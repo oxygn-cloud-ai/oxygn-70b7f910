@@ -979,15 +979,15 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, settin
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[11px]">
                         <div>
                           <span className="text-on-surface-variant">Context Window:</span>
-                          <span className="text-on-surface ml-1 font-medium">{formatTokens(model.context_window || 128000)}</span>
+                          <span className="text-on-surface ml-1 font-medium">{model.context_window ? formatTokens(model.context_window) : 'Not set'}</span>
                         </div>
                         <div>
                           <span className="text-on-surface-variant">Max Output:</span>
-                          <span className="text-on-surface ml-1 font-medium">{formatTokens(model.max_output_tokens || 4096)}</span>
+                          <span className="text-on-surface ml-1 font-medium">{model.max_output_tokens ? formatTokens(model.max_output_tokens) : 'Not set'}</span>
                         </div>
                         <div>
                           <span className="text-on-surface-variant">Token Param:</span>
-                          <span className="text-on-surface ml-1 font-mono">{model.token_param || 'max_tokens'}</span>
+                          <span className="text-on-surface ml-1 font-mono">{model.token_param || 'Not set'}</span>
                         </div>
                         <div>
                           <span className="text-on-surface-variant">Temperature:</span>

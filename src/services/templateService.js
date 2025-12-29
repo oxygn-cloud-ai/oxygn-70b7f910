@@ -6,6 +6,12 @@
  */
 
 import { getActionType, getDefaultActionConfig } from '@/config/actionTypes';
+import { ALL_SETTINGS } from '@/config/modelCapabilities';
+
+// Get all setting keys that can be applied to prompts
+const MODEL_SETTINGS_KEYS = Object.keys(ALL_SETTINGS).filter(key => 
+  ALL_SETTINGS[key].type !== 'hidden'
+);
 
 /**
  * Apply a template's full configuration to prompt data
@@ -62,13 +68,8 @@ export const applyTemplateToPrompt = (template, currentData = {}) => {
       updates.model_on = true;
     }
     
-    // Apply model settings with their enabled flags
-    const settingsMap = [
-      'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
-      'presence_penalty', 'reasoning_effort'
-    ];
-    
-    for (const setting of settingsMap) {
+    // Apply model settings with their enabled flags (from config)
+    for (const setting of MODEL_SETTINGS_KEYS) {
       if (template.modelConfig[setting]?.enabled) {
         updates[setting] = template.modelConfig[setting].value;
         updates[`${setting}_on`] = true;
@@ -189,12 +190,8 @@ export const extractTemplateFromPrompt = (promptData) => {
     hasModelConfig = true;
   }
 
-  const settingsFields = [
-    'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
-    'presence_penalty', 'reasoning_effort'
-  ];
-
-  for (const field of settingsFields) {
+  // Use settings keys from config
+  for (const field of MODEL_SETTINGS_KEYS) {
     if (promptData[`${field}_on`] && promptData[field]) {
       modelSettings[field] = {
         enabled: true,

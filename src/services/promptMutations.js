@@ -152,8 +152,9 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       .maybeSingle();
 
     if (defaultsData) {
-      const defaultSettingFields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
-        'presence_penalty', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user'];
+      // All model settings fields that can have defaults
+      const defaultSettingFields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
+        'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
       
       defaultSettingFields.forEach(field => {
         if (defaultsData[`${field}_on`]) {

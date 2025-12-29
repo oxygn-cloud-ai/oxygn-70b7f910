@@ -26,18 +26,10 @@ const InlineModelSettings = ({
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
     
     if (checked && !modelDefaults[field]) {
-      const defaultValues = {
-        temperature: '0.7',
-        max_tokens: '2048',
-        top_p: '1',
-        frequency_penalty: '0',
-        presence_penalty: '0',
-        n: '1',
-        stream: false,
-        response_format: '{"type": "text"}',
-      };
-      if (defaultValues[field] !== undefined) {
-        await onUpdateDefault(model.model_id, field, defaultValues[field]);
+      // Use default value from ALL_SETTINGS config
+      const settingConfig = ALL_SETTINGS[field];
+      if (settingConfig?.defaultValue !== undefined) {
+        await onUpdateDefault(model.model_id, field, settingConfig.defaultValue);
       }
     }
   }, [model.model_id, modelDefaults, onUpdateDefault]);
@@ -84,18 +76,10 @@ export const ModelSettingsPanel = ({
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
     
     if (checked && !modelDefaults[field]) {
-      const defaultValues = {
-        temperature: '0.7',
-        max_tokens: '2048',
-        top_p: '1',
-        frequency_penalty: '0',
-        presence_penalty: '0',
-        n: '1',
-        stream: false,
-        response_format: '{"type": "text"}',
-      };
-      if (defaultValues[field] !== undefined) {
-        await onUpdateDefault(model.model_id, field, defaultValues[field]);
+      // Use default value from ALL_SETTINGS config
+      const settingConfig = ALL_SETTINGS[field];
+      if (settingConfig?.defaultValue !== undefined) {
+        await onUpdateDefault(model.model_id, field, settingConfig.defaultValue);
       }
     }
   }, [model.model_id, modelDefaults, onUpdateDefault]);
@@ -106,18 +90,10 @@ export const ModelSettingsPanel = ({
 
   const settingKeys = Object.keys(ALL_SETTINGS);
 
-  const defaultValues = {
-    temperature: '0.7',
-    max_tokens: '2048',
-    top_p: '1',
-    frequency_penalty: '0',
-    presence_penalty: '0',
-    n: '1',
-    stream: 'false',
-    response_format: '{"type": "text"}',
-    stop: '',
-    logit_bias: '',
-    o_user: '',
+  // Build default values from ALL_SETTINGS config
+  const getDefaultValue = (field) => {
+    const settingConfig = ALL_SETTINGS[field];
+    return settingConfig?.defaultValue ?? '';
   };
 
   return (
@@ -132,7 +108,7 @@ export const ModelSettingsPanel = ({
           const isEnabled = modelDefaults[`${field}_on`] || false;
           const value = modelDefaults[field] !== undefined && modelDefaults[field] !== null 
             ? modelDefaults[field] 
-            : (isEnabled ? defaultValues[field] || '' : '');
+            : (isEnabled ? getDefaultValue(field) : '');
 
           return (
             <div 
@@ -195,7 +171,7 @@ export const ModelSettingsPanel = ({
                 onChange={(e) => handleValueChange(field, e.target.value)}
                 disabled={!isEnabled || !supported}
                 className="w-full h-7 text-xs"
-                placeholder={!supported ? "N/A" : (defaultValues[field] || "Enter value")}
+                placeholder={!supported ? "N/A" : (getDefaultValue(field) || "Enter value")}
               />
             </div>
           );
