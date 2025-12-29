@@ -9,10 +9,13 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Get default model from DB (first active model)
+// Get default model from DB (first active model, or throw if none)
 async function getDefaultModel(supabase: any): Promise<string> {
   const models = await fetchActiveModels(supabase);
-  return models.length > 0 ? models[0].modelId : 'gpt-4o-mini';
+  if (models.length === 0) {
+    throw new Error('No active models configured in database');
+  }
+  return models[0].modelId;
 }
 
 // Resolve model using DB, with fallback to modelId itself
@@ -170,32 +173,15 @@ serve(async (req) => {
       );
     }
 
-    // List models
+    // List models - return active models from DB instead of filtering OpenAI API
     if (action === 'models') {
-      console.log('Fetching models...');
-      const response = await fetch('https://api.openai.com/v1/models', {
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        },
-      });
-
-      if (!response.ok) {
-        console.error('Failed to fetch models:', response.status);
-        return new Response(
-          JSON.stringify({ status: 'error', message: 'Could not fetch models', available: [] }),
-          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const data = await response.json();
-      const chatModels = data.data
-        .filter((m: any) => m.id.includes('gpt') || m.id.includes('o1'))
-        .map((m: any) => m.id)
-        .sort();
-
-      console.log('Found models:', chatModels.length);
+      console.log('Fetching active models from database...');
+      const dbModels = await fetchActiveModels(supabase);
+      const modelIds = dbModels.map(m => m.modelId).sort();
+      
+      console.log('Found models:', modelIds.length);
       return new Response(
-        JSON.stringify({ status: 'success', message: `${chatModels.length} GPT models available`, available: chatModels }),
+        JSON.stringify({ status: 'success', message: `${modelIds.length} models available`, available: modelIds }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

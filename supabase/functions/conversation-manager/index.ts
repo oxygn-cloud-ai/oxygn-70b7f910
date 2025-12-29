@@ -3,14 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES, FK } from "../_shared/tables.ts";
 import { fetchActiveModels } from "../_shared/models.ts";
 
-// Get default model from DB
+// Get default model from DB (first active model, or throw if none)
 async function getDefaultModel(supabase: any): Promise<string> {
-  try {
-    const models = await fetchActiveModels(supabase);
-    return models.length > 0 ? models[0].modelId : 'gpt-4o';
-  } catch {
-    return 'gpt-4o';
+  const models = await fetchActiveModels(supabase);
+  if (models.length === 0) {
+    throw new Error('No active models configured in database');
   }
+  return models[0].modelId;
 }
 
 const corsHeaders = {

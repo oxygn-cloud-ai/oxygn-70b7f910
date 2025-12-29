@@ -10,33 +10,39 @@ export const useCostTracking = () => {
   const { user } = useAuth();
 
   /**
-   * Fetch pricing for a model
+   * Fetch pricing for a model from q_models table
    * @param {string} modelId - Model ID
    * @returns {Promise<{cost_per_1k_input_tokens: number, cost_per_1k_output_tokens: number}>}
    */
   const getModelPricing = useCallback(async (modelId) => {
     try {
-      // Try exact match first
+      // Try exact match first from q_models table
       let { data, error } = await supabase
-        .from(import.meta.env.VITE_MODEL_PRICING_TBL)
-        .select('cost_per_1k_input_tokens, cost_per_1k_output_tokens')
+        .from(import.meta.env.VITE_MODELS_TBL)
+        .select('input_cost_per_million, output_cost_per_million')
         .eq('model_id', modelId)
         .maybeSingle();
 
       if (!data && !error) {
-        // Try partial match (e.g., "gpt-4o" matches "gpt-4o-2024-05-13")
-        const baseModel = modelId.split('-').slice(0, 2).join('-');
-        const { data: partialMatch } = await supabase
-          .from(import.meta.env.VITE_MODEL_PRICING_TBL)
-          .select('cost_per_1k_input_tokens, cost_per_1k_output_tokens')
-          .ilike('model_id', `${baseModel}%`)
-          .limit(1)
+        // Try partial match using api_model_id
+        const { data: apiMatch } = await supabase
+          .from(import.meta.env.VITE_MODELS_TBL)
+          .select('input_cost_per_million, output_cost_per_million')
+          .eq('api_model_id', modelId)
           .maybeSingle();
         
-        data = partialMatch;
+        data = apiMatch;
       }
 
-      return data || { cost_per_1k_input_tokens: 0, cost_per_1k_output_tokens: 0 };
+      if (data) {
+        // Convert from per-million to per-1k tokens
+        return { 
+          cost_per_1k_input_tokens: (parseFloat(data.input_cost_per_million) || 0) / 1000,
+          cost_per_1k_output_tokens: (parseFloat(data.output_cost_per_million) || 0) / 1000
+        };
+      }
+
+      return { cost_per_1k_input_tokens: 0, cost_per_1k_output_tokens: 0 };
     } catch (error) {
       console.error('Error fetching model pricing:', error);
       return { cost_per_1k_input_tokens: 0, cost_per_1k_output_tokens: 0 };
