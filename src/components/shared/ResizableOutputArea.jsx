@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Play, Copy, Check, Clock, Loader2, Square, Bot, CheckCircle2, Link2
+  Play, Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -206,9 +206,9 @@ const ResizableOutputArea = ({
                   <TooltipTrigger asChild>
                     <button 
                       onClick={onCancel}
-                      className="w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] text-on-surface-variant hover:text-primary"
+                      className="w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] text-red-500 hover:text-red-600"
                     >
-                      <Square className="h-3.5 w-3.5" />
+                      <Octagon className="h-3.5 w-3.5 fill-current" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent className="text-[10px]">Stop</TooltipContent>
