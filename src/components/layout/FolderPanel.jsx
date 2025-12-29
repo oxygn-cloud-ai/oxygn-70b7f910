@@ -32,11 +32,12 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { useDrag, useDrop } from "react-dnd";
 import { SkeletonListItem } from "@/components/shared/Skeletons";
 import { toast } from "@/components/ui/sonner";
 import { IconPicker } from "@/components/IconPicker";
-import { updatePromptIcon } from "@/services/promptMutations";
+import { updatePromptIcon, updatePromptField } from "@/services/promptMutations";
 import { useSupabase } from "@/hooks/useSupabase";
 
 const ITEM_TYPE = "PROMPT_ITEM";
@@ -172,10 +173,14 @@ const TreeItem = ({
   onRangeSelect,
   // Icon editing
   onIconChange,
-  onRefresh
+  onRefresh,
+  // Supabase for inline editing
+  supabase
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
   const ref = useRef(null);
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 12;
@@ -243,6 +248,8 @@ const TreeItem = ({
   
   // Handle row click - support multi-select with shift
   const handleRowClick = (e) => {
+    if (isEditing) return; // Don't handle clicks while editing
+    
     if (isMultiSelectMode) {
       if (e.shiftKey && lastSelectedId && allFlatItems && onRangeSelect) {
         // Shift+click: range select
@@ -267,6 +274,31 @@ const TreeItem = ({
     } else {
       onToggleSelect?.(id);
     }
+  };
+
+  // Inline editing handlers
+  const handleStartEdit = (e) => {
+    e.stopPropagation();
+    setEditValue(label);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editValue.trim() && editValue.trim() !== label && supabase) {
+      try {
+        await updatePromptField(supabase, id, 'prompt_name', editValue.trim());
+        onRefresh?.();
+      } catch (error) {
+        console.error('Error renaming prompt:', error);
+        toast.error('Failed to rename prompt');
+      }
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditValue('');
   };
   
   return (
@@ -332,7 +364,28 @@ const TreeItem = ({
           <TooltipContent className="text-[10px]">Click to change icon</TooltipContent>
         </Tooltip>
         
-        <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
+        {isEditing ? (
+          <Input
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+            onBlur={handleSaveEdit}
+            onClick={(e) => e.stopPropagation()}
+            autoFocus
+            className="flex-1 h-5 text-[11px] py-0 px-1 bg-surface-container border-primary"
+          />
+        ) : (
+          <span 
+            className="flex-1 text-left text-[11px] truncate font-medium"
+            onDoubleClick={handleStartEdit}
+          >
+            {label}
+          </span>
+        )}
         
         {/* Icon Picker Dialog */}
         <IconPicker 
@@ -447,6 +500,7 @@ const TreeItem = ({
                 // Icon editing
                 onIconChange={onIconChange}
                 onRefresh={onRefresh}
+                supabase={supabase}
               />
               <DropZone onDrop={onMoveBetween} />
             </React.Fragment>
@@ -1019,6 +1073,7 @@ const FolderPanel = ({
                     // Icon editing
                     onIconChange={handleIconChange}
                     onRefresh={onRefresh}
+                    supabase={supabase}
                   />
                   <DropZone onDrop={handleMoveBetween} />
                 </React.Fragment>
