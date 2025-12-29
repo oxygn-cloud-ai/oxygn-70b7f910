@@ -37,7 +37,7 @@ const invokeFunction = async (action, params = {}) => {
   }
 };
 
-export const useConfluencePages = (assistantRowId = null, promptRowId = null) => {
+export const useConfluencePages = (conversationRowId = null, promptRowId = null) => {
   const [pages, setPages] = useState([]);
   const [spaces, setSpaces] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -52,11 +52,11 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
   const [connectionStatus, setConnectionStatus] = useState(null);
 
   const fetchAttachedPages = useCallback(async () => {
-    if (!assistantRowId && !promptRowId) return;
+    if (!conversationRowId && !promptRowId) return;
     
     setIsLoading(true);
     try {
-      const data = await invokeFunction('list-attached', { assistantRowId, promptRowId });
+      const data = await invokeFunction('list-attached', { assistantRowId: conversationRowId, promptRowId });
       setPages(data.pages || []);
     } catch (error) {
       console.error('Error fetching attached pages:', error);
@@ -64,7 +64,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     } finally {
       setIsLoading(false);
     }
-  }, [assistantRowId, promptRowId]);
+  }, [conversationRowId, promptRowId]);
 
   useEffect(() => {
     fetchAttachedPages();
@@ -202,7 +202,7 @@ export const useConfluencePages = (assistantRowId = null, promptRowId = null) =>
     try {
       const data = await invokeFunction('attach-page', { 
         pageId, 
-        assistantRowId, 
+        assistantRowId: conversationRowId, 
         promptRowId,
         contentType
       });
