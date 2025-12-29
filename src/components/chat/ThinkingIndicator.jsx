@@ -1,39 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Square, Loader2, CheckCircle2 } from 'lucide-react';
+import { Bot, Square, Loader2, CheckCircle2, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Map progress stages to display text
 const getStageDisplay = (progress) => {
-  if (!progress) return { text: 'Starting...', icon: null };
+  if (!progress) return { text: 'Starting...', icon: null, badge: null };
   
   switch (progress.stage || progress.type) {
     case 'started':
-      return { text: 'Starting...', icon: null };
+      return { text: 'Starting...', icon: null, badge: null };
     case 'prompt_loaded':
-      return { text: `Loaded: ${progress.prompt_name || 'prompt'}`, icon: null };
+      return { text: `Loaded: ${progress.prompt_name || 'prompt'}`, icon: null, badge: null };
     case 'loading_context':
-      return { text: 'Loading files and pages...', icon: <Loader2 className="h-3 w-3 animate-spin" /> };
+      return { text: 'Loading files and pages...', icon: <Loader2 className="h-3 w-3 animate-spin" />, badge: null };
     case 'context_ready':
+      if (progress.inherited_context) {
+        return { 
+          text: 'Using inherited conversation', 
+          icon: <Link2 className="h-3 w-3 text-primary" />,
+          badge: 'inherited'
+        };
+      }
       if (progress.cached) {
-        return { text: 'Using cached context', icon: <CheckCircle2 className="h-3 w-3 text-green-500" /> };
+        return { text: 'Using cached context', icon: <CheckCircle2 className="h-3 w-3 text-green-500" />, badge: null };
       }
       const parts = [];
       if (progress.files_count > 0) parts.push(`${progress.files_count} file${progress.files_count > 1 ? 's' : ''}`);
       if (progress.pages_count > 0) parts.push(`${progress.pages_count} page${progress.pages_count > 1 ? 's' : ''}`);
       const contextText = parts.length > 0 ? `Context loaded (${parts.join(', ')})` : 'Context ready';
-      return { text: contextText, icon: <CheckCircle2 className="h-3 w-3 text-green-500" /> };
+      return { text: contextText, icon: <CheckCircle2 className="h-3 w-3 text-green-500" />, badge: null };
     case 'calling_api':
-      return { text: `Calling ${progress.model || 'AI'}...`, icon: <Loader2 className="h-3 w-3 animate-spin" /> };
+      return { text: `Calling ${progress.model || 'AI'}...`, icon: <Loader2 className="h-3 w-3 animate-spin" />, badge: progress.inherited_context ? 'inherited' : null };
     case 'heartbeat':
-      return { text: 'Still working...', icon: null };
+      return { text: 'Still working...', icon: null, badge: null };
     case 'complete':
-      return { text: 'Complete!', icon: <CheckCircle2 className="h-3 w-3 text-green-500" /> };
+      return { text: 'Complete!', icon: <CheckCircle2 className="h-3 w-3 text-green-500" />, badge: null };
     case 'error':
-      return { text: 'Error occurred', icon: null };
+      return { text: 'Error occurred', icon: null, badge: null };
     default:
-      return { text: 'Processing...', icon: null };
+      return { text: 'Processing...', icon: null, badge: null };
   }
 };
 
@@ -134,6 +141,20 @@ const ThinkingIndicator = ({ onCancel, conversationName, progress }) => {
             )}
             {stageDisplay.text}
           </span>
+          {/* Inherited context badge */}
+          {stageDisplay.badge === 'inherited' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-m3-sm bg-primary/10 text-primary text-[9px] font-medium">
+                  <Link2 className="h-2.5 w-2.5" />
+                  Inherited
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px] max-w-[200px]">
+                Using conversation history from parent prompt
+              </TooltipContent>
+            </Tooltip>
+          )}
         </motion.div>
 
         {/* Progress stages indicator */}

@@ -709,13 +709,17 @@ serve(async (req) => {
           elapsed_ms: Date.now() - startTime 
         });
       } else {
-        console.log('Skipping file/confluence context load - using previous_response_id for context');
+        // Check if this is inherited context from parent thread
+        const isInheritedContext = !!previousResponseId && childPrompt.parent_row_id;
+        console.log('Skipping file/confluence context load - using previous_response_id for context', 
+          isInheritedContext ? '(inherited from parent)' : '');
         emitter.emit({ 
           type: 'progress', 
           stage: 'context_ready', 
           files_count: 0,
           pages_count: 0,
           cached: true,
+          inherited_context: isInheritedContext,
           elapsed_ms: Date.now() - startTime 
         });
       }
