@@ -427,12 +427,37 @@ serve(async (req) => {
     
     console.log('All assistant IDs in hierarchy:', allAssistantRowIds);
 
+    // If no assistant configuration exists, create one automatically
+    // This ensures prompts can run without requiring manual assistant setup
     if (!assistantData) {
-      console.error('No assistant found for prompt:', child_prompt_row_id);
-      return new Response(
-        JSON.stringify({ error: 'No assistant configuration found for this prompt or its parent hierarchy' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('No assistant found, auto-creating for prompt:', child_prompt_row_id);
+      
+      const { data: newAssistant, error: createAssistantError } = await supabase
+        .from(TABLES.ASSISTANTS)
+        .insert({
+          prompt_row_id: child_prompt_row_id,
+          name: childPrompt.prompt_name || 'Auto-created Assistant',
+          instructions: '',
+          use_global_tool_defaults: true,
+          status: 'active',
+          api_version: 'responses',
+          owner_id: validation.user?.id,
+        })
+        .select()
+        .single();
+      
+      if (createAssistantError) {
+        console.error('Failed to create assistant:', createAssistantError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to create assistant configuration' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      assistantData = newAssistant;
+      topLevelPromptId = child_prompt_row_id;
+      allAssistantRowIds.push(newAssistant.row_id);
+      console.log('Auto-created assistant:', newAssistant.row_id);
     }
 
     // Determine which thread to use and get previous response ID for chaining
