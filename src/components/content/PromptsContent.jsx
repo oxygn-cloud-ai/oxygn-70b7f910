@@ -932,7 +932,7 @@ const PromptsContent = ({
               </TooltipTrigger>
               <TooltipContent className="text-[10px]">Attachments</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="end" className="w-48 bg-surface-container-high border-outline-variant">
+            <DropdownMenuContent align="start" side="bottom" className="w-48 bg-surface-container-high border-outline-variant">
               <DropdownMenuItem 
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || !assistantRowId}
