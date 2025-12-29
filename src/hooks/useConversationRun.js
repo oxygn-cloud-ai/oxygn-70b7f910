@@ -40,57 +40,85 @@ export const useConversationRun = () => {
 
   // Parse SSE stream and return final result
   const parseSSEStream = useCallback(async (response, onProgress) => {
+    if (!response?.body) {
+      throw new Error('No response body received from edge function');
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+
     let buffer = '';
     let result = null;
     let error = null;
+    let doneReceived = false;
+
+    const handleLine = (rawLine) => {
+      let line = rawLine;
+      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (!line || line.trim() === '' || line.startsWith(':')) return;
+
+      if (!line.startsWith('data:')) return;
+
+      const data = line.replace(/^data:\s?/, '').trim();
+      if (!data) return;
+
+      if (data === '[DONE]') {
+        doneReceived = true;
+        return;
+      }
+
+      try {
+        const event = JSON.parse(data);
+
+        if (event.type === 'heartbeat') {
+          onProgress?.({ type: 'heartbeat', elapsed_ms: event.elapsed_ms });
+        } else if (event.type === 'progress') {
+          onProgress?.(event);
+        } else if (event.type === 'started') {
+          onProgress?.({ type: 'started', prompt_row_id: event.prompt_row_id });
+        } else if (event.type === 'complete') {
+          result = event;
+          onProgress?.(event);
+        } else if (event.type === 'error') {
+          error = event;
+          onProgress?.({ type: 'error', error: event.error });
+        }
+      } catch (parseErr) {
+        // If parsing fails, keep going; stream may contain non-JSON data lines.
+        console.warn('Failed to parse SSE event:', data, parseErr);
+      }
+    };
 
     try {
-      while (true) {
+      while (!doneReceived) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Parse SSE events (data: {...}\n\n)
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') continue;
-
-            try {
-              const event = JSON.parse(data);
-              
-              // Handle different event types
-              if (event.type === 'heartbeat') {
-                onProgress?.({ type: 'heartbeat', elapsed_ms: event.elapsed_ms });
-              } else if (event.type === 'progress') {
-                onProgress?.(event);
-              } else if (event.type === 'started') {
-                onProgress?.({ type: 'started', prompt_row_id: event.prompt_row_id });
-              } else if (event.type === 'complete') {
-                result = event;
-                onProgress?.({ type: 'complete', elapsed_ms: event.elapsed_ms });
-              } else if (event.type === 'error') {
-                error = event;
-                onProgress?.({ type: 'error', error: event.error });
-              }
-            } catch (parseErr) {
-              console.warn('Failed to parse SSE event:', data, parseErr);
-            }
-          }
+        let newlineIndex;
+        while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+          handleLine(line);
+          if (error || doneReceived) break;
         }
+
+        if (error) break;
       }
     } catch (readErr) {
-      // Handle abort
-      if (readErr.name === 'AbortError') {
+      if (readErr?.name === 'AbortError') {
         throw new Error('Request cancelled');
       }
       throw readErr;
+    }
+
+    // Final flush: handle last line(s) that may not end with a newline
+    if (!error && buffer.trim()) {
+      for (const raw of buffer.split('\n')) {
+        handleLine(raw);
+        if (error) break;
+      }
     }
 
     if (error) {
