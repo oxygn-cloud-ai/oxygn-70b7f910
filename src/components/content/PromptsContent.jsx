@@ -14,6 +14,8 @@ import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
 import { useConfluencePages } from "@/hooks/useConfluencePages";
 import VariablesTabContent from "./VariablesTabContent";
+import FilesPagesSection from "@/components/FilesPagesSection";
+import ConfluencePagesSection from "@/components/ConfluencePagesSection";
 import { VariablePicker } from "@/components/shared";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -1166,6 +1168,15 @@ const PromptsContent = ({
               childrenData={[]}
               siblingsData={[]}
             />
+          )}
+          {activeTab === "attachments" && (
+            <div className="space-y-4 p-4">
+              <FilesPagesSection assistantRowId={assistantRowId} />
+              <ConfluencePagesSection 
+                assistantRowId={assistantRowId} 
+                promptRowId={promptRowId} 
+              />
+            </div>
           )}
         </div>
       </div>
