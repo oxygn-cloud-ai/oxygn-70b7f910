@@ -1143,7 +1143,7 @@ const PromptsContent = ({
       <ConfluenceSearchModal
         open={confluenceModalOpen}
         onOpenChange={setConfluenceModalOpen}
-        assistantRowId={assistantRowId}
+        conversationRowId={assistantRowId}
         promptRowId={promptRowId}
         onPageAttached={fetchAttachedPages}
       />
