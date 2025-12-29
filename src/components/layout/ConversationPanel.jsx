@@ -76,7 +76,7 @@ const ConversationPanel = ({
       <ScrollArea className="flex-1 p-2.5" ref={scrollRef}>
         {isLoadingMessages ? (
           <SkeletonChat />
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !isSending ? (
           <div className="flex flex-col items-center justify-center h-full py-8 text-center">
             <MessageSquare className="h-10 w-10 text-on-surface-variant/30 mb-3" />
             <p className="text-body-sm text-on-surface-variant">No messages yet</p>
