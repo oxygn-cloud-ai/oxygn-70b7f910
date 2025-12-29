@@ -302,6 +302,46 @@ async function runResponsesAPI(
 }
 
 // ============================================================================
+// SSE STREAMING RESPONSE HANDLER
+// ============================================================================
+
+interface SSEEmitter {
+  emit: (event: any) => void;
+  close: () => void;
+}
+
+function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter } {
+  const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array>;
+  
+  const stream = new ReadableStream({
+    start(c) {
+      controller = c;
+    },
+  });
+  
+  const emitter: SSEEmitter = {
+    emit: (event: any) => {
+      try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      } catch (e) {
+        console.warn('SSE emit error:', e);
+      }
+    },
+    close: () => {
+      try {
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (e) {
+        console.warn('SSE close error:', e);
+      }
+    },
+  };
+  
+  return { stream, emitter };
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -310,580 +350,604 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    // Validate user and domain
-    const validation = await validateUser(req);
-    if (!validation.valid) {
-      console.error('Auth validation failed:', validation.error);
-      return new Response(
-        JSON.stringify({ error: validation.error }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+  // Create SSE stream for progress events
+  const { stream, emitter } = createSSEStream();
+  const startTime = Date.now();
+  let heartbeatInterval: number | null = null;
 
-    console.log('User validated:', validation.user?.email);
+  // Start heartbeat immediately
+  heartbeatInterval = setInterval(() => {
+    emitter.emit({ type: 'heartbeat', elapsed_ms: Date.now() - startTime });
+  }, 10000);
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  // Process request in background while streaming progress
+  (async () => {
+    try {
+      // Validate user and domain
+      const validation = await validateUser(req);
+      if (!validation.valid) {
+        console.error('Auth validation failed:', validation.error);
+        emitter.emit({ type: 'error', error: validation.error, error_code: 'AUTH_FAILED' });
+        return;
+      }
 
-    if (!OPENAI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      console.log('User validated:', validation.user?.email);
 
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const { 
-      child_prompt_row_id, 
-      user_message, 
-      template_variables,
-      thread_row_id,
-      thread_mode,
-      child_thread_strategy,
-      existing_thread_row_id,
-    } = await req.json();
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    const startTime = Date.now();
-    
-    console.log('Conversation run request:', { 
-      child_prompt_row_id, 
-      user: validation.user?.email,
-      thread_row_id,
-      thread_mode,
-    });
+      if (!OPENAI_API_KEY) {
+        emitter.emit({ type: 'error', error: 'OpenAI API key not configured', error_code: 'CONFIG_ERROR' });
+        return;
+      }
 
-    // Fetch child prompt with parent info
-    const { data: childPrompt, error: promptError } = await supabase
-      .from(TABLES.PROMPTS)
-      .select('*, parent:parent_row_id(row_id, is_assistant)')
-      .eq('row_id', child_prompt_row_id)
-      .single();
+      const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+      const { 
+        child_prompt_row_id, 
+        user_message, 
+        template_variables,
+        thread_row_id,
+        thread_mode,
+        child_thread_strategy,
+        existing_thread_row_id,
+      } = await req.json();
 
-    if (promptError || !childPrompt) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      console.log('Conversation run request:', { 
+        child_prompt_row_id, 
+        user: validation.user?.email,
+        thread_row_id,
+        thread_mode,
+      });
 
-    // Collect ALL assistant IDs from the hierarchy (for file inheritance)
-    // The first assistant found is used for settings, but files come from ALL assistants
-    let assistantData: any = null;
-    let topLevelPromptId: string | null = null;
-    const allAssistantRowIds: string[] = [];
-    
-    // Check if current prompt has an assistant
-    const { data: selfAssistant } = await supabase
-      .from(TABLES.ASSISTANTS)
-      .select('*')
-      .eq('prompt_row_id', child_prompt_row_id)
-      .single();
-    
-    if (selfAssistant) {
-      assistantData = selfAssistant;
-      topLevelPromptId = child_prompt_row_id;
-      allAssistantRowIds.push(selfAssistant.row_id);
-      console.log('Found assistant on current prompt:', child_prompt_row_id);
-    }
-    
-    // Walk up the parent chain to collect ALL assistants in the hierarchy
-    let currentPromptId = childPrompt.parent_row_id;
-    const maxDepth = 10;
-    let depth = 0;
+      // Emit started event
+      emitter.emit({ type: 'started', prompt_row_id: child_prompt_row_id });
 
-    while (currentPromptId && depth < maxDepth) {
-      depth++;
+      // Fetch child prompt with parent info
+      const { data: childPrompt, error: promptError } = await supabase
+        .from(TABLES.PROMPTS)
+        .select('*, parent:parent_row_id(row_id, is_assistant)')
+        .eq('row_id', child_prompt_row_id)
+        .single();
+
+      if (promptError || !childPrompt) {
+        emitter.emit({ type: 'error', error: 'Prompt not found', error_code: 'NOT_FOUND' });
+        return;
+      }
+
+      emitter.emit({ 
+        type: 'progress', 
+        stage: 'prompt_loaded', 
+        prompt_name: childPrompt.prompt_name,
+        elapsed_ms: Date.now() - startTime 
+      });
+
+      // Collect ALL assistant IDs from the hierarchy (for file inheritance)
+      let assistantData: any = null;
+      let topLevelPromptId: string | null = null;
+      const allAssistantRowIds: string[] = [];
       
-      // Check if this parent has an assistant config
-      const { data: parentAssistant } = await supabase
+      // Check if current prompt has an assistant
+      const { data: selfAssistant } = await supabase
         .from(TABLES.ASSISTANTS)
         .select('*')
-        .eq('prompt_row_id', currentPromptId)
+        .eq('prompt_row_id', child_prompt_row_id)
         .single();
       
-      if (parentAssistant) {
-        allAssistantRowIds.push(parentAssistant.row_id);
-        // Use the first parent assistant for settings if we don't have one from self
-        if (!assistantData) {
-          assistantData = parentAssistant;
-          topLevelPromptId = currentPromptId;
-          console.log('Found assistant at depth', depth, ':', currentPromptId);
-        } else {
-          console.log('Found parent assistant at depth', depth, ':', parentAssistant.row_id);
+      if (selfAssistant) {
+        assistantData = selfAssistant;
+        topLevelPromptId = child_prompt_row_id;
+        allAssistantRowIds.push(selfAssistant.row_id);
+        console.log('Found assistant on current prompt:', child_prompt_row_id);
+      }
+      
+      // Walk up the parent chain to collect ALL assistants in the hierarchy
+      let currentPromptId = childPrompt.parent_row_id;
+      const maxDepth = 10;
+      let depth = 0;
+
+      while (currentPromptId && depth < maxDepth) {
+        depth++;
+        
+        const { data: parentAssistant } = await supabase
+          .from(TABLES.ASSISTANTS)
+          .select('*')
+          .eq('prompt_row_id', currentPromptId)
+          .single();
+        
+        if (parentAssistant) {
+          allAssistantRowIds.push(parentAssistant.row_id);
+          if (!assistantData) {
+            assistantData = parentAssistant;
+            topLevelPromptId = currentPromptId;
+            console.log('Found assistant at depth', depth, ':', currentPromptId);
+          } else {
+            console.log('Found parent assistant at depth', depth, ':', parentAssistant.row_id);
+          }
+        }
+        
+        const { data: parentPrompt } = await supabase
+          .from(TABLES.PROMPTS)
+          .select('parent_row_id')
+          .eq('row_id', currentPromptId)
+          .single();
+        
+        currentPromptId = parentPrompt?.parent_row_id || null;
+      }
+      
+      console.log('All assistant IDs in hierarchy:', allAssistantRowIds);
+
+      // If no assistant configuration exists, create one automatically
+      if (!assistantData) {
+        console.log('No assistant found, auto-creating for prompt:', child_prompt_row_id);
+        
+        const { data: newAssistant, error: createAssistantError } = await supabase
+          .from(TABLES.ASSISTANTS)
+          .insert({
+            prompt_row_id: child_prompt_row_id,
+            name: childPrompt.prompt_name || 'Auto-created Assistant',
+            instructions: '',
+            use_global_tool_defaults: true,
+            status: 'active',
+            api_version: 'responses',
+            owner_id: validation.user?.id,
+          })
+          .select()
+          .single();
+        
+        if (createAssistantError) {
+          console.error('Failed to create assistant:', createAssistantError);
+          emitter.emit({ type: 'error', error: 'Failed to create assistant configuration', error_code: 'ASSISTANT_CREATE_FAILED' });
+          return;
+        }
+        
+        assistantData = newAssistant;
+        topLevelPromptId = child_prompt_row_id;
+        allAssistantRowIds.push(newAssistant.row_id);
+        console.log('Auto-created assistant:', newAssistant.row_id);
+      }
+
+      // Determine which thread to use and get previous response ID for chaining
+      let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
+      let previousResponseId: string | null = null;
+
+      // Try to get existing thread's last response ID for multi-turn context
+      if (activeThreadRowId) {
+        const { data: existingThread } = await supabase
+          .from(TABLES.THREADS)
+          .select('last_response_id')
+          .eq('row_id', activeThreadRowId)
+          .single();
+        
+        if (existingThread?.last_response_id) {
+          previousResponseId = existingThread.last_response_id;
+          console.log('Using previous response for context:', previousResponseId);
         }
       }
-      
-      // Move up to parent
-      const { data: parentPrompt } = await supabase
-        .from(TABLES.PROMPTS)
-        .select('parent_row_id')
-        .eq('row_id', currentPromptId)
-        .single();
-      
-      currentPromptId = parentPrompt?.parent_row_id || null;
-    }
-    
-    console.log('All assistant IDs in hierarchy:', allAssistantRowIds);
 
-    // If no assistant configuration exists, create one automatically
-    // This ensures prompts can run without requiring manual assistant setup
-    if (!assistantData) {
-      console.log('No assistant found, auto-creating for prompt:', child_prompt_row_id);
-      
-      const { data: newAssistant, error: createAssistantError } = await supabase
-        .from(TABLES.ASSISTANTS)
-        .insert({
-          prompt_row_id: child_prompt_row_id,
-          name: childPrompt.prompt_name || 'Auto-created Assistant',
-          instructions: '',
-          use_global_tool_defaults: true,
-          status: 'active',
-          api_version: 'responses',
-          owner_id: validation.user?.id,
-        })
-        .select()
-        .single();
-      
-      if (createAssistantError) {
-        console.error('Failed to create assistant:', createAssistantError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create assistant configuration' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Create a new thread record if none exists
+      if (!activeThreadRowId) {
+        const { data: newThread } = await supabase
+          .from(TABLES.THREADS)
+          .insert({
+            assistant_row_id: assistantData.row_id,
+            child_prompt_row_id: child_prompt_row_id,
+            openai_conversation_id: `resp-thread-${Date.now()}`,
+            name: `${childPrompt.prompt_name} - ${new Date().toLocaleDateString()}`,
+            is_active: true,
+            owner_id: validation.user?.id,
+          })
+          .select()
+          .single();
+
+        if (newThread) {
+          activeThreadRowId = newThread.row_id;
+          console.log('Created new thread:', activeThreadRowId);
+        }
       }
-      
-      assistantData = newAssistant;
-      topLevelPromptId = child_prompt_row_id;
-      allAssistantRowIds.push(newAssistant.row_id);
-      console.log('Auto-created assistant:', newAssistant.row_id);
-    }
 
-    // Determine which thread to use and get previous response ID for chaining
-    let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
-    let previousResponseId: string | null = null;
+      // ============================================================================
+      // OPTIMIZATION: Skip file/confluence loading when we have previous_response_id
+      // OpenAI already has the context from previous turns
+      // ============================================================================
+      const isFollowUpMessage = !!previousResponseId;
+      let fileContext = '';
+      let confluenceContext = '';
+      let filesCount = 0;
+      let pagesCount = 0;
 
-    // Try to get existing thread's last response ID for multi-turn context
-    if (activeThreadRowId) {
-      const { data: existingThread } = await supabase
-        .from(TABLES.THREADS)
-        .select('last_response_id')
-        .eq('row_id', activeThreadRowId)
-        .single();
-      
-      if (existingThread?.last_response_id) {
-        previousResponseId = existingThread.last_response_id;
-        console.log('Using previous response for context:', previousResponseId);
-      }
-    }
+      if (!isFollowUpMessage) {
+        emitter.emit({ 
+          type: 'progress', 
+          stage: 'loading_context', 
+          message: 'Loading files and pages...',
+          elapsed_ms: Date.now() - startTime 
+        });
 
-    // Create a new thread record if none exists
-    if (!activeThreadRowId) {
-      const { data: newThread } = await supabase
-        .from(TABLES.THREADS)
-        .insert({
-          assistant_row_id: assistantData.row_id,
-          child_prompt_row_id: child_prompt_row_id,
-          openai_conversation_id: `resp-thread-${Date.now()}`, // Placeholder - actual chaining via previous_response_id
-          name: `${childPrompt.prompt_name} - ${new Date().toLocaleDateString()}`,
-          is_active: true,
-          owner_id: validation.user?.id,
-        })
-        .select()
-        .single();
+        // Fetch attached Confluence pages for context injection
+        const { data: confluencePages } = await supabase
+          .from(TABLES.CONFLUENCE_PAGES)
+          .select('page_id, page_title, content_text, page_url')
+          .or(`assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
 
-      if (newThread) {
-        activeThreadRowId = newThread.row_id;
-        console.log('Created new thread:', activeThreadRowId);
-      }
-    }
+        // Fetch attached files from ALL assistants in the hierarchy
+        let assistantFiles: any[] = [];
+        if (allAssistantRowIds.length > 0) {
+          const { data: files } = await supabase
+            .from(TABLES.ASSISTANT_FILES)
+            .select('original_filename, storage_path, mime_type')
+            .in('assistant_row_id', allAssistantRowIds);
+          assistantFiles = files || [];
+          filesCount = assistantFiles.length;
+          console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`);
+        }
 
-    // Fetch attached Confluence pages for context injection
-    const { data: confluencePages } = await supabase
-      .from(TABLES.CONFLUENCE_PAGES)
-      .select('page_id, page_title, content_text, page_url')
-      .or(`assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
-
-    // Fetch attached files from ALL assistants in the hierarchy
-    let assistantFiles: any[] = [];
-    if (allAssistantRowIds.length > 0) {
-      const { data: files } = await supabase
-        .from(TABLES.ASSISTANT_FILES)
-        .select('original_filename, storage_path, mime_type')
-        .in('assistant_row_id', allAssistantRowIds);
-      assistantFiles = files || [];
-      console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`);
-    }
-
-    // Build file context from attached files (read text-based files directly)
-    let fileContext = '';
-    if (assistantFiles && assistantFiles.length > 0) {
-      const textMimeTypes = [
-        'text/plain', 'text/markdown', 'text/csv', 'text/html', 'text/xml',
-        'application/json', 'application/xml', 'text/x-markdown'
-      ];
-      
-      for (const file of assistantFiles) {
-        const isTextFile = textMimeTypes.some(t => file.mime_type?.startsWith(t)) ||
-          file.original_filename?.match(/\.(txt|md|csv|json|xml|html|yml|yaml|log)$/i);
-        
-        if (isTextFile && file.storage_path) {
-          try {
-            const { data: fileData, error: downloadError } = await supabase.storage
-              .from('assistant-files')
-              .download(file.storage_path);
+        // Build file context from attached files (read text-based files directly)
+        if (assistantFiles && assistantFiles.length > 0) {
+          const textMimeTypes = [
+            'text/plain', 'text/markdown', 'text/csv', 'text/html', 'text/xml',
+            'application/json', 'application/xml', 'text/x-markdown'
+          ];
+          
+          for (const file of assistantFiles) {
+            const isTextFile = textMimeTypes.some(t => file.mime_type?.startsWith(t)) ||
+              file.original_filename?.match(/\.(txt|md|csv|json|xml|html|yml|yaml|log)$/i);
             
-            if (!downloadError && fileData) {
-              const content = await fileData.text();
-              if (content && content.trim()) {
-                fileContext += `## File: ${file.original_filename}\n${content}\n\n---\n\n`;
+            if (isTextFile && file.storage_path) {
+              try {
+                const { data: fileData, error: downloadError } = await supabase.storage
+                  .from('assistant-files')
+                  .download(file.storage_path);
+                
+                if (!downloadError && fileData) {
+                  const content = await fileData.text();
+                  if (content && content.trim()) {
+                    fileContext += `## File: ${file.original_filename}\n${content}\n\n---\n\n`;
+                  }
+                }
+              } catch (err) {
+                console.warn('Could not read file:', file.original_filename, err);
               }
             }
-          } catch (err) {
-            console.warn('Could not read file:', file.original_filename, err);
+          }
+          
+          if (fileContext) {
+            fileContext = `[Attached Files Content]\n${fileContext}`;
           }
         }
-      }
-      
-      if (fileContext) {
-        fileContext = `[Attached Files Content]\n${fileContext}`;
-      }
-    }
 
-    // Build Confluence context from attached pages
-    let confluenceContext = '';
-    if (confluencePages && confluencePages.length > 0) {
-      const textPages = confluencePages.filter((p: any) => p.content_text);
+        // Build Confluence context from attached pages
+        if (confluencePages && confluencePages.length > 0) {
+          const textPages = confluencePages.filter((p: any) => p.content_text);
+          pagesCount = textPages.length;
 
-      if (textPages.length > 0) {
-        confluenceContext = textPages
-          .map((p: any) => `## ${p.page_title}\n${p.content_text}`)
-          .join('\n\n---\n\n');
-        confluenceContext = `[Attached Confluence Pages]\n${confluenceContext}\n\n---\n\n`;
-      }
-    }
-
-    // Fetch user-defined variables from q_prompt_variables
-    const { data: promptVariables } = await supabase
-      .from(TABLES.PROMPT_VARIABLES)
-      .select('variable_name, variable_value, default_value')
-      .eq('prompt_row_id', child_prompt_row_id);
-
-    console.log(`Fetched ${promptVariables?.length || 0} user variables for prompt`);
-
-    // Build user variables map from q_prompt_variables
-    const userVariablesMap: Record<string, string> = (promptVariables || []).reduce((acc, v) => {
-      if (v.variable_name) {
-        acc[v.variable_name] = v.variable_value || v.default_value || '';
-      }
-      return acc;
-    }, {} as Record<string, string>);
-
-    // Extract stored system variables from prompt's system_variables JSONB field
-    // These are user-input system variables like q.policy.name that were set on the prompt
-    const storedSystemVariables: Record<string, string> = {};
-    if (childPrompt.system_variables && typeof childPrompt.system_variables === 'object') {
-      Object.entries(childPrompt.system_variables).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          storedSystemVariables[key] = String(value);
+          if (textPages.length > 0) {
+            confluenceContext = textPages
+              .map((p: any) => `## ${p.page_title}\n${p.content_text}`)
+              .join('\n\n---\n\n');
+            confluenceContext = `[Attached Confluence Pages]\n${confluenceContext}\n\n---\n\n`;
+          }
         }
-      });
-      console.log(`Found ${Object.keys(storedSystemVariables).length} stored system variables:`, Object.keys(storedSystemVariables));
-    }
 
-    // Build template variables from prompt fields + user variables + system variables
-    const variables: Record<string, string> = {
-      input_admin_prompt: childPrompt.input_admin_prompt || '',
-      input_user_prompt: childPrompt.input_user_prompt || '',
-      admin_prompt_result: childPrompt.admin_prompt_result || '',
-      user_prompt_result: childPrompt.user_prompt_result || '',
-      output_response: childPrompt.output_response || '',
-      // Stored system variables from prompt's system_variables field (q.policy.name, etc.)
-      ...storedSystemVariables,
-      // User-defined variables from q_prompt_variables
-      ...userVariablesMap,
-      // Template variables passed from client (cascade context, system vars, etc.)
-      ...template_variables,
-    };
-
-    // ============================================================================
-    // RESOLVE q.ref[UUID].field REFERENCES
-    // Pattern: {{q.ref[uuid].field}} - references another prompt's field by UUID
-    // ============================================================================
-    const REF_PATTERN = /\{\{q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)\}\}/gi;
-    
-    const extractReferencedIds = (texts: string[]): string[] => {
-      const ids = new Set<string>();
-      const combined = texts.join(' ');
-      let match;
-      while ((match = REF_PATTERN.exec(combined)) !== null) {
-        ids.add(match[1].toLowerCase());
+        emitter.emit({ 
+          type: 'progress', 
+          stage: 'context_ready', 
+          files_count: filesCount,
+          pages_count: pagesCount,
+          elapsed_ms: Date.now() - startTime 
+        });
+      } else {
+        console.log('Skipping file/confluence context load - using previous_response_id for context');
+        emitter.emit({ 
+          type: 'progress', 
+          stage: 'context_ready', 
+          files_count: 0,
+          pages_count: 0,
+          cached: true,
+          elapsed_ms: Date.now() - startTime 
+        });
       }
-      REF_PATTERN.lastIndex = 0; // Reset for reuse
-      return Array.from(ids);
-    };
 
-    // Gather all text fields that might contain references
-    const textsToScan = [
-      childPrompt.input_admin_prompt || '',
-      childPrompt.input_user_prompt || '',
-      user_message || '',
-      assistantData.instructions || ''
-    ];
-    
-    const referencedIds = extractReferencedIds(textsToScan);
-    
-    if (referencedIds.length > 0) {
-      console.log(`Found ${referencedIds.length} q.ref references to resolve:`, referencedIds);
-      
-      const { data: refPrompts } = await supabase
-        .from(TABLES.PROMPTS)
-        .select('row_id, prompt_name, output_response, user_prompt_result, input_admin_prompt, input_user_prompt, system_variables')
-        .in('row_id', referencedIds);
-      
-      if (refPrompts && refPrompts.length > 0) {
-        refPrompts.forEach((p: any) => {
-          variables[`q.ref[${p.row_id}].output_response`] = p.output_response || '';
-          variables[`q.ref[${p.row_id}].user_prompt_result`] = p.user_prompt_result || '';
-          variables[`q.ref[${p.row_id}].input_admin_prompt`] = p.input_admin_prompt || '';
-          variables[`q.ref[${p.row_id}].input_user_prompt`] = p.input_user_prompt || '';
-          variables[`q.ref[${p.row_id}].prompt_name`] = p.prompt_name || '';
-          
-          // Include system variables from referenced prompt
-          if (p.system_variables && typeof p.system_variables === 'object') {
-            Object.entries(p.system_variables).forEach(([key, val]) => {
-              variables[`q.ref[${p.row_id}].${key}`] = String(val ?? '');
-            });
+      // Fetch user-defined variables from q_prompt_variables
+      const { data: promptVariables } = await supabase
+        .from(TABLES.PROMPT_VARIABLES)
+        .select('variable_name, variable_value, default_value')
+        .eq('prompt_row_id', child_prompt_row_id);
+
+      console.log(`Fetched ${promptVariables?.length || 0} user variables for prompt`);
+
+      // Build user variables map from q_prompt_variables
+      const userVariablesMap: Record<string, string> = (promptVariables || []).reduce((acc, v) => {
+        if (v.variable_name) {
+          acc[v.variable_name] = v.variable_value || v.default_value || '';
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      // Extract stored system variables from prompt's system_variables JSONB field
+      const storedSystemVariables: Record<string, string> = {};
+      if (childPrompt.system_variables && typeof childPrompt.system_variables === 'object') {
+        Object.entries(childPrompt.system_variables).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            storedSystemVariables[key] = String(value);
           }
         });
-        console.log(`Resolved ${refPrompts.length} referenced prompts`);
+        console.log(`Found ${Object.keys(storedSystemVariables).length} stored system variables:`, Object.keys(storedSystemVariables));
       }
-    }
 
-    // Fetch empty prompt fallback setting
-    let emptyPromptFallback = 'Execute this prompt';
-    try {
-      const { data: fallbackSetting } = await supabase
-        .from(TABLES.SETTINGS)
-        .select('setting_value')
-        .eq('setting_key', 'cascade_empty_prompt_fallback')
-        .single();
+      // Build template variables from prompt fields + user variables + system variables
+      const variables: Record<string, string> = {
+        input_admin_prompt: childPrompt.input_admin_prompt || '',
+        input_user_prompt: childPrompt.input_user_prompt || '',
+        admin_prompt_result: childPrompt.admin_prompt_result || '',
+        user_prompt_result: childPrompt.user_prompt_result || '',
+        output_response: childPrompt.output_response || '',
+        ...storedSystemVariables,
+        ...userVariablesMap,
+        ...template_variables,
+      };
+
+      // ============================================================================
+      // RESOLVE q.ref[UUID].field REFERENCES
+      // ============================================================================
+      const REF_PATTERN = /\{\{q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)\}\}/gi;
       
-      if (fallbackSetting?.setting_value) {
-        emptyPromptFallback = fallbackSetting.setting_value;
+      const extractReferencedIds = (texts: string[]): string[] => {
+        const ids = new Set<string>();
+        const combined = texts.join(' ');
+        let match;
+        while ((match = REF_PATTERN.exec(combined)) !== null) {
+          ids.add(match[1].toLowerCase());
+        }
+        REF_PATTERN.lastIndex = 0;
+        return Array.from(ids);
+      };
+
+      const textsToScan = [
+        childPrompt.input_admin_prompt || '',
+        childPrompt.input_user_prompt || '',
+        user_message || '',
+        assistantData.instructions || ''
+      ];
+      
+      const referencedIds = extractReferencedIds(textsToScan);
+      
+      if (referencedIds.length > 0) {
+        console.log(`Found ${referencedIds.length} q.ref references to resolve:`, referencedIds);
+        
+        const { data: refPrompts } = await supabase
+          .from(TABLES.PROMPTS)
+          .select('row_id, prompt_name, output_response, user_prompt_result, input_admin_prompt, input_user_prompt, system_variables')
+          .in('row_id', referencedIds);
+        
+        if (refPrompts && refPrompts.length > 0) {
+          refPrompts.forEach((p: any) => {
+            variables[`q.ref[${p.row_id}].output_response`] = p.output_response || '';
+            variables[`q.ref[${p.row_id}].user_prompt_result`] = p.user_prompt_result || '';
+            variables[`q.ref[${p.row_id}].input_admin_prompt`] = p.input_admin_prompt || '';
+            variables[`q.ref[${p.row_id}].input_user_prompt`] = p.input_user_prompt || '';
+            variables[`q.ref[${p.row_id}].prompt_name`] = p.prompt_name || '';
+            
+            if (p.system_variables && typeof p.system_variables === 'object') {
+              Object.entries(p.system_variables).forEach(([key, val]) => {
+                variables[`q.ref[${p.row_id}].${key}`] = String(val ?? '');
+              });
+            }
+          });
+          console.log(`Resolved ${refPrompts.length} referenced prompts`);
+        }
       }
-    } catch (err) {
-      console.log('Using default empty prompt fallback');
-    }
 
-    // Apply template to user message - ALWAYS apply substitution even for fallback
-    // Use user_message first, then input_user_prompt, then input_admin_prompt, then fallback setting
-    let finalMessage = user_message 
-      ? applyTemplate(user_message, variables)
-      : applyTemplate(childPrompt.input_user_prompt || childPrompt.input_admin_prompt || emptyPromptFallback, variables);
+      // Fetch empty prompt fallback setting
+      let emptyPromptFallback = 'Execute this prompt';
+      try {
+        const { data: fallbackSetting } = await supabase
+          .from(TABLES.SETTINGS)
+          .select('setting_value')
+          .eq('setting_key', 'cascade_empty_prompt_fallback')
+          .single();
+        
+        if (fallbackSetting?.setting_value) {
+          emptyPromptFallback = fallbackSetting.setting_value;
+        }
+      } catch (err) {
+        console.log('Using default empty prompt fallback');
+      }
 
-    // Log which variables were applied for debugging
-    console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
+      // Apply template to user message
+      let finalMessage = user_message 
+        ? applyTemplate(user_message, variables)
+        : applyTemplate(childPrompt.input_user_prompt || childPrompt.input_admin_prompt || emptyPromptFallback, variables);
 
-    // Prepend file context if available
-    if (fileContext) {
-      finalMessage = fileContext + finalMessage;
-    }
+      console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
 
-    // Prepend Confluence context if available
-    if (confluenceContext) {
-      finalMessage = confluenceContext + finalMessage;
-    }
+      // Prepend file context if available (only on first message)
+      if (fileContext) {
+        finalMessage = fileContext + finalMessage;
+      }
 
-    if (!finalMessage.trim()) {
-      console.error('No message to send for prompt:', {
-        child_prompt_row_id,
-        prompt_name: childPrompt.prompt_name,
-        has_user_prompt: !!childPrompt.input_user_prompt,
-        has_admin_prompt: !!childPrompt.input_admin_prompt,
-        has_user_message: !!user_message,
-      });
-      return new Response(
-        JSON.stringify({ 
+      // Prepend Confluence context if available (only on first message)
+      if (confluenceContext) {
+        finalMessage = confluenceContext + finalMessage;
+      }
+
+      if (!finalMessage.trim()) {
+        console.error('No message to send for prompt:', {
+          child_prompt_row_id,
+          prompt_name: childPrompt.prompt_name,
+        });
+        emitter.emit({ 
+          type: 'error', 
           error: `No message to send for prompt "${childPrompt.prompt_name}". Add content to the user prompt or admin prompt field.`,
           error_code: 'NO_MESSAGE_CONTENT',
           prompt_name: childPrompt.prompt_name,
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+        });
+        return;
+      }
 
-    // Build system prompt from assistant instructions + admin prompt
-    // Apply template variables to instructions as well
-    let systemPrompt = assistantData.instructions 
-      ? applyTemplate(assistantData.instructions, variables)
-      : '';
-    
-    // Add admin prompt as additional system context if present
-    const adminPrompt = childPrompt.input_admin_prompt 
-      ? applyTemplate(childPrompt.input_admin_prompt, variables)
-      : '';
-    
-    if (adminPrompt && adminPrompt.trim()) {
-      systemPrompt = systemPrompt 
-        ? `${systemPrompt}\n\n${adminPrompt.trim()}`
-        : adminPrompt.trim();
-    }
+      // Build system prompt from assistant instructions + admin prompt
+      let systemPrompt = assistantData.instructions 
+        ? applyTemplate(assistantData.instructions, variables)
+        : '';
+      
+      const adminPrompt = childPrompt.input_admin_prompt 
+        ? applyTemplate(childPrompt.input_admin_prompt, variables)
+        : '';
+      
+      if (adminPrompt && adminPrompt.trim()) {
+        systemPrompt = systemPrompt 
+          ? `${systemPrompt}\n\n${adminPrompt.trim()}`
+          : adminPrompt.trim();
+      }
 
-    // Build API options from prompt settings
-    const apiOptions: {
-      responseFormat?: any;
-      seed?: number;
-      toolChoice?: string;
-      reasoningEffort?: string;
-    } = {};
+      // Build API options from prompt settings
+      const apiOptions: {
+        responseFormat?: any;
+        seed?: number;
+        toolChoice?: string;
+        reasoningEffort?: string;
+      } = {};
 
-    // Handle action nodes - prepend action system prompt and set structured output
-    if (childPrompt.node_type === 'action') {
-      // Parse response_format for structured output
-      if (childPrompt.response_format) {
-        try {
-          const format = typeof childPrompt.response_format === 'string' 
-            ? JSON.parse(childPrompt.response_format) 
-            : childPrompt.response_format;
-          
-          if (format.type === 'json_schema') {
-            apiOptions.responseFormat = format;
+      // Handle action nodes - prepend action system prompt and set structured output
+      if (childPrompt.node_type === 'action') {
+        if (childPrompt.response_format) {
+          try {
+            const format = typeof childPrompt.response_format === 'string' 
+              ? JSON.parse(childPrompt.response_format) 
+              : childPrompt.response_format;
             
-            // Generate schema description for the prompt
-            const schemaDesc = formatSchemaForPrompt(format.json_schema?.schema);
-            
-            // Fetch custom action system prompt or use default
-            let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
-            try {
-              const { data: customPrompt } = await supabase
-                .from(TABLES.SETTINGS)
-                .select('setting_value')
-                .eq('setting_key', 'default_action_system_prompt')
-                .single();
+            if (format.type === 'json_schema') {
+              apiOptions.responseFormat = format;
               
-              if (customPrompt?.setting_value) {
-                actionSystemPrompt = customPrompt.setting_value;
+              const schemaDesc = formatSchemaForPrompt(format.json_schema?.schema);
+              
+              let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
+              try {
+                const { data: customPrompt } = await supabase
+                  .from(TABLES.SETTINGS)
+                  .select('setting_value')
+                  .eq('setting_key', 'default_action_system_prompt')
+                  .single();
+                
+                if (customPrompt?.setting_value) {
+                  actionSystemPrompt = customPrompt.setting_value;
+                }
+              } catch {
+                console.log('Using default action system prompt');
               }
-            } catch {
-              console.log('Using default action system prompt');
+              
+              actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
+              
+              systemPrompt = systemPrompt
+                ? `${actionSystemPrompt}\n\n---\n\n${systemPrompt}`
+                : actionSystemPrompt;
+              
+              console.log('Action node: applied structured output format');
             }
-            
-            // Insert schema description into prompt
-            actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
-            
-            // Prepend action system prompt
-            systemPrompt = systemPrompt
-              ? `${actionSystemPrompt}\n\n---\n\n${systemPrompt}`
-              : actionSystemPrompt;
-            
-            console.log('Action node: applied structured output format');
+          } catch (err) {
+            console.warn('Could not parse response_format:', err);
           }
-        } catch (err) {
-          console.warn('Could not parse response_format:', err);
         }
       }
-    }
 
-    // Add seed if enabled
-    if (childPrompt.seed_on && childPrompt.seed) {
-      const seed = parseInt(childPrompt.seed, 10);
-      if (!isNaN(seed)) {
-        apiOptions.seed = seed;
+      // Add seed if enabled
+      if (childPrompt.seed_on && childPrompt.seed) {
+        const seed = parseInt(childPrompt.seed, 10);
+        if (!isNaN(seed)) {
+          apiOptions.seed = seed;
+        }
       }
-    }
 
-    // Add reasoning effort for o1/o3 models
-    if (childPrompt.reasoning_effort_on && childPrompt.reasoning_effort) {
-      apiOptions.reasoningEffort = childPrompt.reasoning_effort;
-    }
+      // Add reasoning effort for o1/o3 models
+      if (childPrompt.reasoning_effort_on && childPrompt.reasoning_effort) {
+        apiOptions.reasoningEffort = childPrompt.reasoning_effort;
+      }
 
-    // Call OpenAI Responses API with previous_response_id for multi-turn context
-    const result = await runResponsesAPI(
-      assistantData,
-      finalMessage,
-      systemPrompt,
-      previousResponseId,
-      OPENAI_API_KEY,
-      supabase,
-      apiOptions
-    );
+      // Get model for display
+      const defaultModel = await getDefaultModelFromSettings(supabase);
+      const modelUsedForMetadata = assistantData.model_override || defaultModel;
 
-    if (!result.success) {
-      const errorText = result.error || 'Responses API call failed';
-
-      console.error('Responses API failed:', {
-        child_prompt_row_id,
+      // Emit calling_api progress
+      emitter.emit({ 
+        type: 'progress', 
+        stage: 'calling_api', 
+        model: modelUsedForMetadata,
         prompt_name: childPrompt.prompt_name,
-        error: errorText,
-        error_code: result.error_code,
+        elapsed_ms: Date.now() - startTime 
       });
 
-      let status = 400;
-      let retryAfterS: number | null = null;
+      // Call OpenAI Responses API
+      const result = await runResponsesAPI(
+        assistantData,
+        finalMessage,
+        systemPrompt,
+        previousResponseId,
+        OPENAI_API_KEY,
+        supabase,
+        apiOptions
+      );
 
-      // Map rate limits to HTTP 429
-      if (result.error_code === 'RATE_LIMITED' || /rate limit/i.test(errorText)) {
-        status = 429;
-        const match = /try again in ([0-9.]+)s/i.exec(errorText);
-        if (match) {
-          const parsed = Number.parseFloat(match[1]);
-          if (!Number.isNaN(parsed) && parsed > 0) retryAfterS = parsed;
+      if (!result.success) {
+        const errorText = result.error || 'Responses API call failed';
+
+        console.error('Responses API failed:', {
+          child_prompt_row_id,
+          prompt_name: childPrompt.prompt_name,
+          error: errorText,
+          error_code: result.error_code,
+        });
+
+        let retryAfterS: number | null = null;
+        if (result.error_code === 'RATE_LIMITED' || /rate limit/i.test(errorText)) {
+          const match = /try again in ([0-9.]+)s/i.exec(errorText);
+          if (match) {
+            const parsed = Number.parseFloat(match[1]);
+            if (!Number.isNaN(parsed) && parsed > 0) retryAfterS = parsed;
+          }
         }
+
+        emitter.emit({
+          type: 'error',
+          error: errorText,
+          error_code: result.error_code,
+          prompt_name: childPrompt.prompt_name,
+          ...(retryAfterS ? { retry_after_s: retryAfterS } : {}),
+        });
+        return;
       }
 
-      const body: Record<string, unknown> = {
-        error: errorText,
-        error_code: result.error_code,
-        prompt_name: childPrompt.prompt_name,
-        ...(retryAfterS ? { retry_after_s: retryAfterS } : {}),
-      };
-
-      const headers: Record<string, string> = {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-        ...(retryAfterS ? { 'Retry-After': String(Math.ceil(retryAfterS)) } : {}),
-      };
-
-      return new Response(JSON.stringify(body), { status, headers });
-    }
-
-    // Get model used from DB
-    const defaultModel = await getDefaultModelFromSettings(supabase);
-    const modelUsedForMetadata = assistantData.model_override || defaultModel;
-
-    // Update child prompt with response (output_response is displayed in UI)
-    await supabase
-      .from(TABLES.PROMPTS)
-      .update({ 
-        output_response: result.response,
-        last_ai_call_metadata: {
-          latency_ms: Date.now() - startTime,
-          model: modelUsedForMetadata,
-          tokens_input: result.usage?.prompt_tokens || 0,
-          tokens_output: result.usage?.completion_tokens || 0,
-          tokens_total: result.usage?.total_tokens || 0,
-          response_id: result.response_id,
-        }
-      })
-      .eq('row_id', child_prompt_row_id);
-
-    // Update thread's last_message_at and last_response_id
-    if (activeThreadRowId) {
+      // Update child prompt with response
       await supabase
-        .from(TABLES.THREADS)
+        .from(TABLES.PROMPTS)
         .update({ 
-          last_message_at: new Date().toISOString(),
-          last_response_id: result.response_id,
+          output_response: result.response,
+          last_ai_call_metadata: {
+            latency_ms: Date.now() - startTime,
+            model: modelUsedForMetadata,
+            tokens_input: result.usage?.prompt_tokens || 0,
+            tokens_output: result.usage?.completion_tokens || 0,
+            tokens_total: result.usage?.total_tokens || 0,
+            response_id: result.response_id,
+          }
         })
-        .eq('row_id', activeThreadRowId);
-    }
+        .eq('row_id', child_prompt_row_id);
 
-    console.log('Run completed successfully');
+      // Update thread's last_message_at and last_response_id
+      if (activeThreadRowId) {
+        await supabase
+          .from(TABLES.THREADS)
+          .update({ 
+            last_message_at: new Date().toISOString(),
+            last_response_id: result.response_id,
+          })
+          .eq('row_id', activeThreadRowId);
+      }
 
-    return new Response(
-      JSON.stringify({
+      console.log('Run completed successfully');
+
+      // Emit complete event with full response data
+      emitter.emit({
+        type: 'complete',
         success: true,
         response: result.response,
         usage: result.usage,
@@ -891,16 +955,28 @@ serve(async (req) => {
         child_prompt_name: childPrompt.prompt_name,
         thread_row_id: activeThreadRowId,
         response_id: result.response_id,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+        elapsed_ms: Date.now() - startTime,
+      });
 
-  } catch (error) {
-    console.error('Conversation run error:', error);
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+    } catch (error) {
+      console.error('Conversation run error:', error);
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      emitter.emit({ type: 'error', error: message, error_code: 'INTERNAL_ERROR' });
+    } finally {
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+      }
+      emitter.close();
+    }
+  })();
+
+  // Return SSE stream immediately
+  return new Response(stream, {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 });
