@@ -172,7 +172,7 @@ const TreeNode = ({
 const ConfluenceSearchModal = ({ 
   open, 
   onOpenChange, 
-  assistantRowId = null,
+  conversationRowId = null,
   promptRowId = null,
   onPageAttached
 }) => {
@@ -198,7 +198,7 @@ const ConfluenceSearchModal = ({
     attachPage,
     clearSearch,
     clearSpaceTree
-  } = useConfluencePages(assistantRowId, promptRowId);
+  } = useConfluencePages(conversationRowId, promptRowId);
 
   // Load spaces when modal opens
   useEffect(() => {
