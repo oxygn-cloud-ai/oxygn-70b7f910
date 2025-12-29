@@ -113,11 +113,11 @@ const OwnerAvatar = ({ initials, color }) => (
 );
 
 // Drop zone between items for inserting
-const DropZone = ({ onDrop, isFirst = false }) => {
+const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
     drop: (item) => {
-      onDrop(item.id, 'between');
+      onDrop(item.id, targetIndex, siblingIds);
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),
@@ -129,13 +129,14 @@ const DropZone = ({ onDrop, isFirst = false }) => {
     <div
       ref={drop}
       className={`
-        h-0.5 mx-2 rounded-full transition-all duration-150
-        ${isOver && canDrop ? 'h-0.5 bg-primary' : 'bg-transparent'}
-        ${canDrop && !isOver ? 'hover:bg-primary/30' : ''}
+        h-1 mx-2 rounded-full transition-all duration-150
+        ${isOver && canDrop ? 'h-1 bg-primary' : 'bg-transparent'}
+        ${canDrop && !isOver ? 'hover:bg-primary/30 hover:h-1' : ''}
       `}
       style={{ 
-        marginTop: isFirst ? 0 : '-1px',
-        marginBottom: '-1px'
+        marginTop: isFirst ? 0 : '-2px',
+        marginBottom: '-2px',
+        minHeight: '4px'
       }}
     />
   );
@@ -467,6 +468,13 @@ const TreeItem = ({
             className="absolute top-0 bottom-0 w-px bg-outline-variant/50"
             style={{ left: `${paddingLeft + 10}px` }}
           />
+          {/* First drop zone for inserting at the beginning */}
+          <DropZone 
+            onDrop={onMoveBetween} 
+            targetIndex={0}
+            siblingIds={item.children.map(c => c.id || c.row_id)}
+            isFirst
+          />
           {item.children.map((child, idx) => (
             <React.Fragment key={child.id || child.row_id}>
               <TreeItem
@@ -502,7 +510,11 @@ const TreeItem = ({
                 onRefresh={onRefresh}
                 supabase={supabase}
               />
-              <DropZone onDrop={onMoveBetween} />
+              <DropZone 
+                onDrop={onMoveBetween}
+                targetIndex={idx + 1}
+                siblingIds={item.children.map(c => c.id || c.row_id)}
+              />
             </React.Fragment>
           ))}
         </div>
@@ -591,10 +603,71 @@ const FolderPanel = ({
     }
   };
 
-  const handleMoveBetween = (draggedId, position) => {
-    // For now, just log - full implementation would calculate new position
-    console.log(`Insert ${draggedId} at position`);
-  };
+  const handleMoveBetween = useCallback(async (draggedId, targetIndex, siblingIds) => {
+    if (!supabase || !onMovePrompt) return;
+    
+    try {
+      // Get positions of siblings to calculate new position
+      const { data: siblings } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id, position, parent_row_id')
+        .in('row_id', siblingIds)
+        .order('position', { ascending: true });
+      
+      if (!siblings?.length) return;
+      
+      // Get dragged item to check if it's from the same level
+      const { data: draggedItem } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id, parent_row_id, prompt_name')
+        .eq('row_id', draggedId)
+        .maybeSingle();
+      
+      if (!draggedItem) return;
+      
+      // Calculate new position based on target index
+      let newPosition;
+      const sortedSiblings = [...siblings].sort((a, b) => (a.position || 0) - (b.position || 0));
+      
+      // Filter out the dragged item if it's in the same list
+      const filteredSiblings = sortedSiblings.filter(s => s.row_id !== draggedId);
+      
+      if (targetIndex === 0) {
+        // Insert at the beginning
+        const firstPosition = filteredSiblings[0]?.position || 1000000;
+        newPosition = firstPosition - 1000000;
+      } else if (targetIndex >= filteredSiblings.length) {
+        // Insert at the end
+        const lastPosition = filteredSiblings[filteredSiblings.length - 1]?.position || 0;
+        newPosition = lastPosition + 1000000;
+      } else {
+        // Insert between two items
+        const prevPosition = filteredSiblings[targetIndex - 1]?.position || 0;
+        const nextPosition = filteredSiblings[targetIndex]?.position || prevPosition + 2000000;
+        newPosition = (prevPosition + nextPosition) / 2;
+      }
+      
+      // Get the parent of the target location (same as siblings)
+      const targetParentId = sortedSiblings[0]?.parent_row_id || null;
+      
+      // Update the dragged item's position and parent
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ 
+          position: newPosition,
+          parent_row_id: targetParentId
+        })
+        .eq('row_id', draggedId);
+      
+      if (error) throw error;
+      
+      await onRefresh?.();
+      toast.success(`"${draggedItem.prompt_name || 'Prompt'}" repositioned`);
+    } catch (error) {
+      console.error('Error repositioning item:', error);
+      toast.error('Failed to reposition item');
+    }
+  }, [supabase, onRefresh]);
 
   // Flatten tree to get all items (for range selection)
   const allFlatItems = useMemo(() => {
@@ -1039,7 +1112,12 @@ const FolderPanel = ({
           {/* Real tree data - filtered */}
           {!isLoading && filteredTreeData.length > 0 && (
             <>
-              <DropZone onDrop={handleMoveBetween} isFirst />
+              <DropZone 
+                onDrop={handleMoveBetween} 
+                targetIndex={0}
+                siblingIds={filteredTreeData.map(item => item.id || item.row_id)}
+                isFirst 
+              />
               {filteredTreeData.map((item, idx) => (
                 <React.Fragment key={item.id || item.row_id}>
                   <TreeItem
@@ -1075,7 +1153,11 @@ const FolderPanel = ({
                     onRefresh={onRefresh}
                     supabase={supabase}
                   />
-                  <DropZone onDrop={handleMoveBetween} />
+                  <DropZone 
+                    onDrop={handleMoveBetween}
+                    targetIndex={idx + 1}
+                    siblingIds={filteredTreeData.map(i => i.id || i.row_id)}
+                  />
                 </React.Fragment>
               ))}
             </>
