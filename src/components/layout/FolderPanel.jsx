@@ -129,25 +129,59 @@ const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
     }),
   });
 
+  const showIndicator = isDragging && canDrop;
+  const isActive = isOver && canDrop;
+
   return (
     <div
       ref={drop}
-      className={`
-        relative mx-1 rounded-full transition-all duration-150
-        ${isOver && canDrop 
-          ? 'h-2 bg-primary shadow-sm' 
-          : isDragging && canDrop 
-            ? 'h-2 bg-primary/20 hover:bg-primary/40' 
-            : 'h-0.5 bg-transparent'
-        }
-      `}
+      className="relative transition-all duration-150"
       style={{ 
         zIndex: isDragging ? 20 : 1,
-        minHeight: isDragging ? '8px' : '2px',
-        marginTop: isFirst ? '2px' : '0px',
-        marginBottom: '0px',
+        height: showIndicator ? '12px' : '4px',
+        marginTop: isFirst ? '2px' : '-2px',
+        marginBottom: '-2px',
       }}
-    />
+    >
+      {/* Invisible hit area */}
+      <div className="absolute inset-0" />
+      
+      {/* Visual indicator line */}
+      {showIndicator && (
+        <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 flex items-center">
+          {/* Left circle */}
+          <div 
+            className={`
+              w-2 h-2 rounded-full border-2 transition-all duration-150 shrink-0
+              ${isActive 
+                ? 'bg-primary border-primary scale-110' 
+                : 'bg-transparent border-primary/40'
+              }
+            `}
+          />
+          {/* Line */}
+          <div 
+            className={`
+              flex-1 h-0.5 transition-all duration-150
+              ${isActive 
+                ? 'bg-primary' 
+                : 'bg-primary/30'
+              }
+            `}
+          />
+          {/* Right circle */}
+          <div 
+            className={`
+              w-2 h-2 rounded-full border-2 transition-all duration-150 shrink-0
+              ${isActive 
+                ? 'bg-primary border-primary scale-110' 
+                : 'bg-transparent border-primary/40'
+              }
+            `}
+          />
+        </div>
+      )}
+    </div>
   );
 };
 
