@@ -865,6 +865,7 @@ const MainLayout = () => {
                       onRunCascade={handleRunCascade}
                       isRunningPrompt={isRunningPrompt}
                       isRunningCascade={isRunningCascade}
+                      onCancelRun={cancelRun}
                       // Settings props for Phase 6
                       settings={settings}
                       isLoadingSettings={isLoadingSettings}
