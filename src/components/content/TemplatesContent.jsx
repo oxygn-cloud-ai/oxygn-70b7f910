@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VariablePicker } from "@/components/shared";
 
 // Source options for variable mappings
@@ -324,42 +325,32 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
     <div className="space-y-4">
       <div className="space-y-1.5">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model</label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span>{currentModelDisplay}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full max-h-64 overflow-auto bg-surface-container-high border-outline-variant">
+        <Select 
+          value={templateData?.structure?.model || currentModel} 
+          onValueChange={(value) => handleModelChange(value)}
+        >
+          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+            <SelectValue placeholder="Select model">{currentModelDisplay}</SelectValue>
+          </SelectTrigger>
+          <SelectContent className="max-h-64 bg-surface-container-high border-outline-variant z-50">
             {models.length === 0 ? (
-              <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+              <SelectItem value="none" disabled className="text-body-sm text-on-surface-variant">
                 No models available
-              </DropdownMenuItem>
-            ) : models.map(model => {
-              const isActive = model.is_active !== false;
-              return (
-                <Tooltip key={model.row_id || model.id || model.model_id}>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuItem 
-                      onClick={() => isActive && handleModelChange(model.model_id || model.id)}
-                      className={`text-body-sm ${isActive ? 'text-on-surface cursor-pointer' : 'text-on-surface-variant/50 cursor-not-allowed opacity-60'}`}
-                      disabled={!isActive}
-                    >
-                      <span className="flex-1">{model.model_name || model.name}</span>
-                      <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
-                    </DropdownMenuItem>
-                  </TooltipTrigger>
-                  {!isActive && (
-                    <TooltipContent side="right" className="text-[10px]">
-                      Activate in Settings → AI Models
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </SelectItem>
+            ) : models.filter(m => m.is_active !== false).map(model => (
+              <SelectItem 
+                key={model.row_id || model.id || model.model_id}
+                value={model.model_id || model.id}
+                className="text-body-sm text-on-surface"
+              >
+                <span className="flex items-center justify-between w-full gap-2">
+                  <span>{model.model_name || model.name}</span>
+                  <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Temperature - only show if model supports it */}
@@ -411,43 +402,40 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
       {supportedSettings.includes('reasoning_effort') && (
         <div className="space-y-1.5">
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                <span className="capitalize">{templateData?.structure?.reasoning_effort || 'medium'}</span>
-                <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-              {(modelConfig.reasoningEffortLevels || ['low', 'medium', 'high']).map(level => (
-                <DropdownMenuItem
+          <Select 
+            value={templateData?.structure?.reasoning_effort || 'medium'} 
+            onValueChange={(value) => onUpdateField?.('structure.reasoning_effort', value)}
+          >
+            <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+              <SelectValue placeholder="Select effort level" />
+            </SelectTrigger>
+            <SelectContent className="bg-surface-container-high border-outline-variant z-50">
+              {['none', 'minimal', 'low', 'medium', 'high', 'xhigh'].map(level => (
+                <SelectItem 
                   key={level}
-                  onClick={() => onUpdateField?.('structure.reasoning_effort', level)}
-                  className="text-body-sm text-on-surface capitalize"
+                  value={level}
+                  className="text-body-sm text-on-surface"
                 >
                   {level}
-                </DropdownMenuItem>
+                </SelectItem>
               ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
       <div className="space-y-1.5">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema (Optional)</label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
-              <span>Select a schema...</span>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
-            <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+        <Select value="" onValueChange={() => {}}>
+          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant">
+            <SelectValue placeholder="Select a schema..." />
+          </SelectTrigger>
+          <SelectContent className="bg-surface-container-high border-outline-variant z-50">
+            <SelectItem value="none" disabled className="text-body-sm text-on-surface-variant">
               No schemas available
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">

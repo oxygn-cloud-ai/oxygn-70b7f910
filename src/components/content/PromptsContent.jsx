@@ -312,42 +312,32 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
       {/* Model Selection - shows all models, inactive ones greyed out */}
       <div className="space-y-1.5">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model</label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span>{currentModelDisplay}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-full max-h-64 overflow-auto bg-surface-container-high border-outline-variant">
+        <Select 
+          value={promptData?.model || currentModel} 
+          onValueChange={(value) => handleModelChange(value)}
+        >
+          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+            <SelectValue placeholder="Select model">{currentModelDisplay}</SelectValue>
+          </SelectTrigger>
+          <SelectContent className="max-h-64 bg-surface-container-high border-outline-variant z-50">
             {models.length === 0 ? (
-              <DropdownMenuItem className="text-body-sm text-on-surface-variant">
+              <SelectItem value="none" disabled className="text-body-sm text-on-surface-variant">
                 No models available
-              </DropdownMenuItem>
-            ) : models.map(model => {
-              const isActive = model.is_active !== false;
-              return (
-                <Tooltip key={model.row_id || model.id || model.model_id}>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuItem 
-                      onClick={() => isActive && handleModelChange(model.model_id || model.id)}
-                      className={`text-body-sm ${isActive ? 'text-on-surface cursor-pointer' : 'text-on-surface-variant/50 cursor-not-allowed opacity-60'}`}
-                      disabled={!isActive}
-                    >
-                      <span className="flex-1">{model.model_name || model.name}</span>
-                      <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
-                    </DropdownMenuItem>
-                  </TooltipTrigger>
-                  {!isActive && (
-                    <TooltipContent side="right" className="text-[10px]">
-                      Activate in Settings → AI Models
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </SelectItem>
+            ) : models.filter(m => m.is_active !== false).map(model => (
+              <SelectItem 
+                key={model.row_id || model.id || model.model_id}
+                value={model.model_id || model.id}
+                className="text-body-sm text-on-surface"
+              >
+                <span className="flex items-center justify-between w-full gap-2">
+                  <span>{model.model_name || model.name}</span>
+                  <span className="text-[10px] text-on-surface-variant">{model.provider || 'OpenAI'}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         
         {/* Show supported settings info */}
         {supportedSettings.length > 0 && (
@@ -518,25 +508,25 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         {hasSetting('response_format') && (
           <div className="space-y-1.5">
             <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Response Format</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                  <span>{promptData?.response_format || 'text'}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+            <Select 
+              value={promptData?.response_format || 'text'} 
+              onValueChange={(value) => onUpdateField?.('response_format', value)}
+            >
+              <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                <SelectValue placeholder="Select format" />
+              </SelectTrigger>
+              <SelectContent className="bg-surface-container-high border-outline-variant z-50">
                 {['text', 'json_object', 'json_schema'].map(format => (
-                  <DropdownMenuItem 
+                  <SelectItem 
                     key={format}
-                    onClick={() => onUpdateField?.('response_format', format)}
+                    value={format}
                     className="text-body-sm text-on-surface"
                   >
                     {format.replace(/_/g, ' ')}
-                  </DropdownMenuItem>
+                  </SelectItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -544,25 +534,25 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         {hasSetting('tool_choice') && (
           <div className="space-y-1.5">
             <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tool Choice</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-                  <span>{promptData?.tool_choice || 'auto'}</span>
-                  <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-full bg-surface-container-high border-outline-variant">
+            <Select 
+              value={promptData?.tool_choice || 'auto'} 
+              onValueChange={(value) => onUpdateField?.('tool_choice', value)}
+            >
+              <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+                <SelectValue placeholder="Select tool choice" />
+              </SelectTrigger>
+              <SelectContent className="bg-surface-container-high border-outline-variant z-50">
                 {['auto', 'none', 'required'].map(choice => (
-                  <DropdownMenuItem 
+                  <SelectItem 
                     key={choice}
-                    onClick={() => onUpdateField?.('tool_choice', choice)}
+                    value={choice}
                     className="text-body-sm text-on-surface capitalize"
                   >
                     {choice}
-                  </DropdownMenuItem>
+                  </SelectItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </SelectContent>
+            </Select>
             <p className="text-[10px] text-on-surface-variant">Controls when the model uses tools</p>
           </div>
         )}
@@ -632,32 +622,28 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
       {/* Action Type Selector */}
       <div className="space-y-1.5">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Post Action</label>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="w-full h-8 px-2.5 flex items-center justify-between bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
-              <span className="flex items-center gap-2">
-                <GitBranch className="h-3.5 w-3.5 text-on-surface-variant" />
-                {ACTION_TYPES.find(a => a.id === actionType)?.label || "None"}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-64 bg-surface-container-high border-outline-variant">
+        <Select value={actionType} onValueChange={setActionType}>
+          <SelectTrigger className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface">
+            <span className="flex items-center gap-2">
+              <GitBranch className="h-3.5 w-3.5 text-on-surface-variant" />
+              <SelectValue placeholder="Select action" />
+            </span>
+          </SelectTrigger>
+          <SelectContent className="w-64 bg-surface-container-high border-outline-variant z-50">
             {ACTION_TYPES.map(action => (
-              <DropdownMenuItem 
+              <SelectItem 
                 key={action.id} 
-                onClick={() => setActionType(action.id)}
-                className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer"
+                value={action.id}
+                className="text-body-sm text-on-surface"
               >
                 <div className="flex-1">
                   <span className="block">{action.label}</span>
                   <span className="text-[10px] text-on-surface-variant">{action.description}</span>
                 </div>
-                {actionType === action.id && <Check className="h-4 w-4 text-primary" />}
-              </DropdownMenuItem>
+              </SelectItem>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Action Configuration (shown when action type is not none) */}
