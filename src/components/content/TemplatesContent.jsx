@@ -392,7 +392,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">
             {modelConfig.tokenParam === 'max_completion_tokens' ? 'Max Completion Tokens' : 'Max Tokens'}
           </label>
-          <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens.toLocaleString()}</span>
+          <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
         </div>
         <input
           type="number"
