@@ -1,5 +1,35 @@
 import { buildTree } from '../utils/positionUtils';
 
+// Helper to create a conversation/assistant record for a prompt
+const createConversationRecord = async (supabase, promptRowId, promptName) => {
+  try {
+    const insertData = {
+      prompt_row_id: promptRowId,
+      name: promptName || 'Conversation',
+      status: 'active',
+      api_version: 'responses',
+      use_global_tool_defaults: true,
+    };
+    
+    const { data: conversation, error: createError } = await supabase
+      .from(import.meta.env.VITE_ASSISTANTS_TBL)
+      .insert([insertData])
+      .select()
+      .maybeSingle();
+
+    if (createError) {
+      console.error('Failed to create conversation record:', createError);
+      return null;
+    }
+
+    console.log('Auto-created conversation record:', conversation?.row_id);
+    return conversation?.row_id;
+  } catch (error) {
+    console.error('Error in createConversationRecord:', error);
+    return null;
+  }
+};
+
 export const fetchPrompts = async (supabase, currentUserId = null) => {
   try {
     if (!import.meta.env.VITE_PROMPTS_TBL) {
@@ -43,13 +73,41 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
       }
     }
 
+    // Find top-level prompts missing assistant records and create them
+    const promptsNeedingAssistant = (data || []).filter(prompt => {
+      const assistantData = prompt[import.meta.env.VITE_ASSISTANTS_TBL];
+      const hasAssistant = Array.isArray(assistantData) 
+        ? assistantData.length > 0 
+        : !!assistantData;
+      // Top-level prompts (no parent) that are marked as assistant but have no record
+      return !prompt.parent_row_id && prompt.is_assistant && !hasAssistant;
+    });
+
+    // Create missing assistant records in parallel
+    const createdAssistants = new Map();
+    if (promptsNeedingAssistant.length > 0) {
+      console.log(`Creating ${promptsNeedingAssistant.length} missing assistant records...`);
+      const creationPromises = promptsNeedingAssistant.map(async (prompt) => {
+        const newAssistantId = await createConversationRecord(supabase, prompt.row_id, prompt.prompt_name);
+        if (newAssistantId) {
+          createdAssistants.set(prompt.row_id, newAssistantId);
+        }
+      });
+      await Promise.all(creationPromises);
+    }
+
     // Add owner display info and extract assistant_row_id
     const promptsWithOwnerInfo = (data || []).map(prompt => {
-      // Extract assistant_row_id from the joined data
+      // Extract assistant_row_id from the joined data or from newly created
       const assistantData = prompt[import.meta.env.VITE_ASSISTANTS_TBL];
-      const assistant_row_id = Array.isArray(assistantData) 
+      let assistant_row_id = Array.isArray(assistantData) 
         ? assistantData[0]?.row_id 
         : assistantData?.row_id;
+      
+      // Use newly created assistant if we just made one
+      if (!assistant_row_id && createdAssistants.has(prompt.row_id)) {
+        assistant_row_id = createdAssistants.get(prompt.row_id);
+      }
       
       // Remove the nested assistant object
       const { [import.meta.env.VITE_ASSISTANTS_TBL]: _, ...promptData } = prompt;
