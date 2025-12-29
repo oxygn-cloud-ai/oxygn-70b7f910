@@ -1010,6 +1010,19 @@ const PromptsContent = ({
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="text-title-sm text-on-surface font-medium">{promptName}</h2>
+          {promptData?.is_assistant && promptData?.parent_row_id && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-primary/10 rounded-m3-sm">
+                  <Link2 className="h-3 w-3 text-primary" />
+                  <span className="text-[10px] text-primary font-medium">Inherited</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">
+                Uses parent's conversation context
+              </TooltipContent>
+            </Tooltip>
+          )}
           <LabelPicker 
             labels={promptData?.labels || []} 
             onLabelsChange={(newLabels) => onUpdateField?.('labels', newLabels)}
