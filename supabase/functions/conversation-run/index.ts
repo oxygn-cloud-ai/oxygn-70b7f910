@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
+import { fetchModelConfig, resolveApiModelId as resolveFromDb } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,28 +10,41 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Map friendly model IDs to actual OpenAI model names
-const MODEL_MAPPING: Record<string, string> = {
+// Fallback model mapping for when DB lookup fails
+const FALLBACK_MODEL_MAPPING: Record<string, string> = {
   'gpt-4o': 'gpt-4o',
   'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-4-turbo': 'gpt-4-turbo',
-  'o1': 'o1',
-  'o1-mini': 'o1-mini',
-  'o1-preview': 'o1-preview',
-  // Legacy mappings
   'gpt-5': 'gpt-4o',
   'gpt-5-mini': 'gpt-4o-mini',
   'gpt-5-nano': 'gpt-4o-mini',
-  'gpt-4.1': 'gpt-4o',
-  'gpt-4.1-mini': 'gpt-4o-mini',
 };
 
-// Models that don't support temperature parameter
-const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview'];
-
-function resolveModelId(modelId: string): string {
-  return MODEL_MAPPING[modelId] || modelId;
+async function resolveModelIdFromDb(supabase: ReturnType<typeof createClient>, modelId: string): Promise<string> {
+  try {
+    const resolved = await resolveFromDb(supabase, modelId);
+    return resolved || FALLBACK_MODEL_MAPPING[modelId] || modelId;
+  } catch {
+    return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+  }
 }
+
+async function modelSupportsTemperature(supabase: ReturnType<typeof createClient>, modelId: string): Promise<boolean> {
+  try {
+    const config = await fetchModelConfig(supabase, modelId);
+    return config?.supportsTemperature ?? true;
+  } catch {
+    const lowerModel = modelId.toLowerCase();
+    return !['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'].some(m => lowerModel.includes(m));
+  }
+}
+
+// Keep local resolveModelId for backwards compatibility in existing code
+function resolveModelId(modelId: string): string {
+  return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+}
+
+// Keep NO_TEMPERATURE_MODELS for backwards compatibility
+const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'];
 
 function isAllowedDomain(email: string | undefined): boolean {
   if (!email) return false;

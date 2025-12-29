@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { fetchModelConfig, resolveApiModelId as resolveFromDb } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,29 +9,40 @@ const corsHeaders = {
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
-// Map friendly model IDs to actual OpenAI model names
-const MODEL_MAPPING: Record<string, string> = {
-  // GPT-4o family (current production models)
+// Fallback model mapping for when DB lookup fails
+const FALLBACK_MODEL_MAPPING: Record<string, string> = {
   'gpt-4o': 'gpt-4o',
   'gpt-4o-mini': 'gpt-4o-mini',
-  'gpt-4-turbo': 'gpt-4-turbo',
-  // Reasoning models
-  'o1': 'o1',
-  'o1-mini': 'o1-mini',
-  'o1-preview': 'o1-preview',
-  // Legacy mappings for backwards compatibility
-  'gpt-5': 'gpt-4o', // Map to gpt-4o as gpt-5 doesn't exist
+  'gpt-5': 'gpt-4o',
   'gpt-5-mini': 'gpt-4o-mini',
   'gpt-5-nano': 'gpt-4o-mini',
-  'gpt-4.1': 'gpt-4o',
-  'gpt-4.1-mini': 'gpt-4o-mini',
 };
 
-// Models that don't support temperature parameter
-const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview'];
+// Keep local synchronous functions for backwards compatibility
+function resolveModelIdSync(modelId: string): string {
+  return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+}
 
-function resolveModelId(modelId: string): string {
-  return MODEL_MAPPING[modelId] || modelId;
+// Models that don't support temperature parameter
+const NO_TEMPERATURE_MODELS = ['o1', 'o1-mini', 'o1-preview', 'o3', 'o3-mini', 'o4-mini'];
+
+async function resolveModelIdAsync(supabase: ReturnType<typeof createClient>, modelId: string): Promise<string> {
+  try {
+    const resolved = await resolveFromDb(supabase, modelId);
+    return resolved || FALLBACK_MODEL_MAPPING[modelId] || modelId;
+  } catch {
+    return FALLBACK_MODEL_MAPPING[modelId] || modelId;
+  }
+}
+
+async function supportsTemperatureAsync(supabase: ReturnType<typeof createClient>, modelId: string): Promise<boolean> {
+  try {
+    const config = await fetchModelConfig(supabase, modelId);
+    return config?.supportsTemperature ?? true;
+  } catch {
+    const lowerModel = modelId.toLowerCase();
+    return !NO_TEMPERATURE_MODELS.some(m => lowerModel.includes(m));
+  }
 }
 
 function isAllowedDomain(email: string | undefined): boolean {
@@ -197,12 +209,12 @@ serve(async (req) => {
       const startTime = Date.now();
 
       const requestedModel = model || 'gpt-4o-mini';
-      const modelId = resolveModelId(requestedModel);
+      const modelId = resolveModelIdSync(requestedModel);
       
       console.log('Model resolution:', { requested: requestedModel, resolved: modelId });
       
       // Check if model supports temperature
-      const isNoTempModel = NO_TEMPERATURE_MODELS.some(m => modelId.toLowerCase().includes(m));
+      const isNoTempModel = NO_TEMPERATURE_MODELS.some((m: string) => modelId.toLowerCase().includes(m));
 
       const requestBody: any = {
         model: modelId,
