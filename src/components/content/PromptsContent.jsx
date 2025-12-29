@@ -317,17 +317,16 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         label="Model"
       />
         
-        {/* Show supported settings info */}
-        {supportedSettings.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {supportedSettings.map(setting => (
-              <span key={setting} className="text-[9px] px-1.5 py-0.5 bg-surface-container rounded text-on-surface-variant">
-                {setting.replace(/_/g, ' ')}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Show supported settings info */}
+      {supportedSettings.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {supportedSettings.map(setting => (
+            <span key={setting} className="text-[9px] px-1.5 py-0.5 bg-surface-container rounded text-on-surface-variant">
+              {setting.replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Dynamic Model Settings Section */}
       <div className="p-3 bg-surface-container-low rounded-m3-md space-y-3">
