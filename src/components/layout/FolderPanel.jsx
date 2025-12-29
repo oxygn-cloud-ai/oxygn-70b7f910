@@ -593,9 +593,10 @@ const FolderPanel = ({
   const handleAddClick = useCallback(() => {
     // Only trigger if not a long press (menu not open)
     if (!addMenuOpen) {
-      onAddPrompt?.(null);
+      // If a prompt is selected, insert as sibling after it; otherwise insert at end of top-level
+      onAddPrompt?.(null, { insertAfterPromptId: selectedPromptId || null });
     }
-  }, [addMenuOpen, onAddPrompt]);
+  }, [addMenuOpen, onAddPrompt, selectedPromptId]);
 
   const handleMoveInto = async (draggedId, targetId) => {
     if (onMovePrompt) {
@@ -990,7 +991,7 @@ const FolderPanel = ({
                 <button
                   onClick={() => {
                     setAddMenuOpen(false);
-                    onAddPrompt?.(null);
+                    onAddPrompt?.(null, { insertAfterPromptId: selectedPromptId || null });
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm text-body-sm text-on-surface hover:bg-on-surface/[0.08] transition-colors"
                 >

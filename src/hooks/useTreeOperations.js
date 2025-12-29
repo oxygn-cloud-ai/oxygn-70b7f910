@@ -49,7 +49,8 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   }, [supabase, refreshTreeData, clearUndo]);
   
   // skipRefresh: when true, don't refresh tree (useful for bulk operations)
-  const handleAddItem = useCallback(async (parentId, { skipRefresh = false } = {}) => {
+  // insertAfterPromptId: if provided, insert as sibling after this prompt
+  const handleAddItem = useCallback(async (parentId, { skipRefresh = false, insertAfterPromptId = null } = {}) => {
     if (!supabase) return null;
     
     // Guard against multiple rapid insertions
@@ -74,7 +75,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       const defaultAdminPrompt = settingsMap['def_admin_prompt'] || '';
       const defaultConversationInstructions = settingsMap['def_assistant_instructions'] || '';
       
-      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id, defaultConversationInstructions);
+      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id, defaultConversationInstructions, insertAfterPromptId);
       if (!skipRefresh) {
         await refreshTreeData();
       }

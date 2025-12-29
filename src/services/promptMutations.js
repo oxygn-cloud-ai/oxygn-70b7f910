@@ -89,34 +89,80 @@ const createConversation = async (supabase, promptRowId, promptName, instruction
   }
 };
 
-export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultConversationInstructions = '') => {
-  // First, get the maximum position value for the current level
-  let query = supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('position')
-    .eq('is_deleted', false)
-    .order('position', { ascending: false })
-    .limit(1);
+export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultConversationInstructions = '', insertAfterPromptId = null) => {
+  // Calculate position based on insertion context
+  let newPosition;
+  let effectiveParentId = parentId;
   
-  if (parentId) {
-    query = query.eq('parent_row_id', parentId);
-  } else {
-    query = query.is('parent_row_id', null);
+  if (insertAfterPromptId) {
+    // Insert as sibling right after the specified prompt
+    const { data: referencePrompt } = await supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('row_id, position, parent_row_id')
+      .eq('row_id', insertAfterPromptId)
+      .maybeSingle();
+    
+    if (referencePrompt) {
+      // Use the same parent as the reference prompt (insert as sibling)
+      effectiveParentId = referencePrompt.parent_row_id;
+      
+      // Find the next sibling's position
+      let nextQuery = supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('position')
+        .eq('is_deleted', false)
+        .gt('position', referencePrompt.position)
+        .order('position', { ascending: true })
+        .limit(1);
+      
+      if (effectiveParentId) {
+        nextQuery = nextQuery.eq('parent_row_id', effectiveParentId);
+      } else {
+        nextQuery = nextQuery.is('parent_row_id', null);
+      }
+      
+      const { data: nextSibling } = await nextQuery;
+      
+      if (nextSibling?.[0]?.position) {
+        // Insert between reference and next sibling
+        newPosition = (referencePrompt.position + nextSibling[0].position) / 2;
+      } else {
+        // No next sibling, insert after reference
+        newPosition = referencePrompt.position + 1000000;
+      }
+    }
   }
   
-  const { data: existingPrompts } = await query;
-  const maxPosition = existingPrompts?.[0]?.position || 0;
+  // Fallback: get max position at the target level (append to end)
+  if (newPosition === undefined) {
+    let query = supabase
+      .from(import.meta.env.VITE_PROMPTS_TBL)
+      .select('position')
+      .eq('is_deleted', false)
+      .order('position', { ascending: false })
+      .limit(1);
+    
+    if (effectiveParentId) {
+      query = query.eq('parent_row_id', effectiveParentId);
+    } else {
+      query = query.is('parent_row_id', null);
+    }
+    
+    const { data: existingPrompts } = await query;
+    const maxPosition = existingPrompts?.[0]?.position || 0;
+    newPosition = maxPosition + 1000000;
+  }
   
-  // Get context for naming
-  const { level, topLevelName } = await getPromptContext(supabase, parentId);
+  // Get context for naming (use effectiveParentId for correct level calculation)
+  const { level, topLevelName } = await getPromptContext(supabase, effectiveParentId);
   
   // Fetch parent properties to inherit for child prompts
   let inheritedProps = {};
-  if (parentId) {
+  if (effectiveParentId) {
     const { data: parentPrompt } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .select('is_assistant, thread_mode, child_thread_strategy, default_child_thread_strategy, model, model_on, web_search_on, confluence_enabled')
-      .eq('row_id', parentId)
+      .eq('row_id', effectiveParentId)
       .maybeSingle();
     
     if (parentPrompt) {
@@ -196,8 +242,8 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     .select('row_id', { count: 'exact' })
     .eq('is_deleted', false);
     
-  if (parentId) {
-    siblingQuery = siblingQuery.eq('parent_row_id', parentId);
+  if (effectiveParentId) {
+    siblingQuery = siblingQuery.eq('parent_row_id', effectiveParentId);
   } else {
     siblingQuery = siblingQuery.is('parent_row_id', null);
   }
@@ -209,16 +255,16 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   
   // Prepare insert data - apply model defaults first, then inherit/override from parent
   const insertData = {
-    parent_row_id: parentId,
+    parent_row_id: effectiveParentId,
     prompt_name: promptName,
     input_admin_prompt: defaultAdminPrompt || null,
-    position: maxPosition + 1000000,
+    position: newPosition,
     is_deleted: false,
     owner_id: userId,
     // Apply global model defaults first
     ...modelDefaults,
     // Then apply inherited properties from parent (overrides defaults where set)
-    is_assistant: parentId === null ? true : (inheritedProps.is_assistant || false),
+    is_assistant: effectiveParentId === null ? true : (inheritedProps.is_assistant || false),
     thread_mode: inheritedProps.thread_mode || null,
     child_thread_strategy: inheritedProps.child_thread_strategy || null,
     default_child_thread_strategy: inheritedProps.default_child_thread_strategy || null,
@@ -244,7 +290,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   }
   
   // If this is a top-level prompt, create a conversation record
-  if (parentId === null && data?.[0]?.row_id) {
+  if (effectiveParentId === null && data?.[0]?.row_id) {
     await createConversation(supabase, data[0].row_id, promptName, defaultConversationInstructions);
   }
 
