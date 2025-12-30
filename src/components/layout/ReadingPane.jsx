@@ -160,6 +160,7 @@ const ReadingPane = ({
       onToggleConversation={onToggleConversation}
       conversationPanelOpen={conversationPanelOpen}
       models={models}
+      schemas={jsonSchemaTemplatesHook?.templates || []}
       onRunPrompt={onRunPrompt}
       onRunCascade={onRunCascade}
       isRunningPrompt={isRunningPrompt}
