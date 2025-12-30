@@ -38,7 +38,7 @@ const IconButton = ({ icon: Icon, label, onClick, className = "" }) => (
 
 const OwnerAvatar = ({ initials, color }) => (
   <div 
-    className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${color}`}
+    className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-compact font-medium ${color}`}
     style={{ width: "24px", height: "24px" }}
   >
     {initials}

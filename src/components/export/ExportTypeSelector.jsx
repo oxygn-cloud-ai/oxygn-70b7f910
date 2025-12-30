@@ -85,7 +85,7 @@ export const ExportTypeSelector = ({
                     {config.title}
                   </span>
                   {config.comingSoon && (
-                    <Badge variant="secondary" className="text-[10px] gap-1 px-1.5 py-0 h-5">
+                    <Badge variant="secondary" className="text-compact gap-1 px-1.5 py-0 h-5">
                       <Lock className="h-2.5 w-2.5" />
                       Coming soon
                     </Badge>

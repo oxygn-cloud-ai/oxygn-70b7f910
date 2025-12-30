@@ -113,7 +113,7 @@ const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], o
           {/* User Variables */}
           {allVariables.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
+              <div className="px-3 py-1.5 text-compact text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
                 User Variables
               </div>
               {allVariables.map(v => (

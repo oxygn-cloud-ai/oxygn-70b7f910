@@ -34,8 +34,8 @@ const LabelBadge = React.forwardRef(({
 }, ref) => {
   const sizeClasses = {
     xs: "text-[8px] px-1 py-0.5",
-    sm: "text-[10px] px-1.5 py-0.5",
-    default: "text-[10px] px-1.5 py-0.5",
+    sm: "text-compact px-1.5 py-0.5",
+    default: "text-compact px-1.5 py-0.5",
   };
 
   return (

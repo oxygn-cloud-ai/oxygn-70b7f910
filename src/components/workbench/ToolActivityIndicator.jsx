@@ -65,7 +65,7 @@ const ToolActivityIndicator = ({ toolCalls = [], isExecuting = false }) => {
                 {info.label}
               </span>
               {tool.args && Object.keys(tool.args).length > 0 && (
-                <span className="text-muted-foreground/70 text-[10px] truncate max-w-[150px]">
+                <span className="text-muted-foreground/70 text-compact truncate max-w-[150px]">
                   {Object.values(tool.args)[0]}
                 </span>
               )}
@@ -74,7 +74,7 @@ const ToolActivityIndicator = ({ toolCalls = [], isExecuting = false }) => {
         })}
       </div>
       {isExecuting && (
-        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/50 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-border/50 text-compact text-muted-foreground">
           <Loader2 className="h-2.5 w-2.5 animate-spin" />
           Processing tool results...
         </div>

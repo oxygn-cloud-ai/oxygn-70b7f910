@@ -122,7 +122,7 @@ const AuthContent = () => {
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-outline-variant" />
-            <span className="text-[10px] text-on-surface-variant uppercase">or continue with</span>
+            <span className="text-compact text-on-surface-variant uppercase">or continue with</span>
             <div className="flex-1 h-px bg-outline-variant" />
           </div>
 

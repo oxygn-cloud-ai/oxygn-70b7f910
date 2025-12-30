@@ -102,6 +102,7 @@
     --text-label-md: 11px;
     --text-label-sm: 10px;
     --text-tree: 11px;
+    --text-compact: 10px;
 
     /* M3 State Layer Opacities */
     --state-hover: 0.08;
@@ -328,6 +329,11 @@
   
   .text-tree {
     font-size: var(--text-tree);
+    line-height: 1.4;
+  }
+  
+  .text-compact {
+    font-size: var(--text-compact);
     line-height: 1.4;
   }
 }
