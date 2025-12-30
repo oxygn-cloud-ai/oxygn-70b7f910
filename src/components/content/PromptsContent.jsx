@@ -189,9 +189,6 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
   );
 };
 
-// Import the resizable area components
-import ResizablePromptArea from "../shared/ResizablePromptArea";
-import ResizableOutputArea from "../shared/ResizableOutputArea";
 
 // Prompt Tab Content
 const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [], onCancelRun, runProgress }) => {
