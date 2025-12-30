@@ -106,7 +106,7 @@ const AuthContent = () => {
 
             {mode === "login" && (
               <div className="flex justify-end">
-                <button className="text-[11px] text-primary hover:underline">
+                <button className="text-tree text-primary hover:underline">
                   Forgot password?
                 </button>
               </div>
@@ -147,7 +147,7 @@ const AuthContent = () => {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-[11px] text-on-surface-variant">
+        <p className="text-center text-tree text-on-surface-variant">
           By continuing, you agree to our{" "}
           <button className="text-primary hover:underline">Terms of Service</button>
           {" "}and{" "}

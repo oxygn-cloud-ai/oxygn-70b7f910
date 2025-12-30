@@ -157,7 +157,7 @@ const TopBar = ({
             >
               <Avatar className="h-8 w-8 ring-2 ring-transparent hover:ring-primary/30 transition-all duration-200">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
-                <AvatarFallback className="bg-tertiary-container text-on-surface text-[11px]">
+                <AvatarFallback className="bg-tertiary-container text-on-surface text-tree">
                   {initials}
                 </AvatarFallback>
               </Avatar>

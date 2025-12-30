@@ -75,7 +75,7 @@ const StepNavigation = ({ currentStep, onStepClick }) => (
             }`}>
               {isCompleted ? <Check className="h-3 w-3" /> : step.id}
             </div>
-            <span className="text-[11px] font-medium">{step.label}</span>
+            <span className="text-tree font-medium">{step.label}</span>
           </button>
           {index < STEPS.length - 1 && (
             <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />
@@ -647,7 +647,7 @@ const ExportPanel = ({
                               onCheckedChange={() => toggleVariableSelection?.(prompt.row_id, v.variable_name)}
                               className="h-3.5 w-3.5"
                             />
-                            <code className="text-[11px] text-on-surface font-mono">{v.variable_name}</code>
+                            <code className="text-tree text-on-surface font-mono">{v.variable_name}</code>
                           </label>
                         ))}
                       </div>
@@ -731,7 +731,7 @@ const ExportPanel = ({
               <div className="space-y-3">
                 <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
                   <p className="text-body-sm text-on-surface">JSON export will include:</p>
-                  <ul className="mt-2 space-y-1 text-[11px] text-on-surface-variant">
+                  <ul className="mt-2 space-y-1 text-tree text-on-surface-variant">
                     <li>• {selectedPromptsCount} prompts with hierarchy</li>
                     <li>• {selectedFieldsCount} fields per prompt</li>
                     <li>• {selectedVariablesCount} variable values</li>
@@ -752,7 +752,7 @@ const ExportPanel = ({
               <div className="space-y-3">
                 <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
                   <p className="text-body-sm text-on-surface">Markdown export will create:</p>
-                  <ul className="mt-2 space-y-1 text-[11px] text-on-surface-variant">
+                  <ul className="mt-2 space-y-1 text-tree text-on-surface-variant">
                     <li>• One file per prompt or single combined file</li>
                     <li>• Formatted with headers and code blocks</li>
                     <li>• Compatible with GitHub, Notion, etc.</li>

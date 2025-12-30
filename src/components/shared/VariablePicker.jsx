@@ -165,7 +165,7 @@ export const VariablePicker = ({
             </div>
             <div className="space-y-1">
               {transformedRefs.length === 0 ? (
-                <p className="text-[11px] text-on-surface-variant py-2 px-2">No prompts available</p>
+                <p className="text-tree text-on-surface-variant py-2 px-2">No prompts available</p>
               ) : (
                 transformedRefs.map(ref => (
                   <button
@@ -195,7 +195,7 @@ export const VariablePicker = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search variables..."
-                  className="flex-1 bg-transparent text-[11px] text-on-surface placeholder:text-on-surface-variant focus:outline-none"
+                  className="flex-1 bg-transparent text-tree text-on-surface placeholder:text-on-surface-variant focus:outline-none"
                 />
               </div>
             </div>
@@ -234,7 +234,7 @@ export const VariablePicker = ({
                           onClick={() => handleInsert(variable.name)}
                           className="w-full flex items-center justify-between px-3 py-1.5 pl-9 hover:bg-on-surface/[0.08]"
                         >
-                          <code className="text-[11px] text-on-surface font-mono">{`{{${variable.name}}}`}</code>
+                          <code className="text-tree text-on-surface font-mono">{`{{${variable.name}}}`}</code>
                           {variable.isStatic && (
                             <span className="text-[9px] px-1 py-0.5 rounded bg-surface-container text-on-surface-variant">auto</span>
                           )}
@@ -265,7 +265,7 @@ export const VariablePicker = ({
                       onClick={() => handleInsert(variable.name)}
                       className="w-full flex items-center justify-between px-3 py-1.5 pl-9 hover:bg-on-surface/[0.08]"
                     >
-                      <code className="text-[11px] text-on-surface font-mono">{`{{${variable.name}}}`}</code>
+                      <code className="text-tree text-on-surface font-mono">{`{{${variable.name}}}`}</code>
                       <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">{variable.type}</span>
                     </button>
                   ))}
