@@ -223,6 +223,26 @@ function getWorkbenchTools(config: {
     tools.push(...getGithubTools());
   }
 
+  // Database schema tool - always available
+  tools.push({
+    type: "function",
+    function: {
+      name: "get_database_schema",
+      description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships. Use this to understand the data model.",
+      parameters: {
+        type: "object",
+        properties: {
+          table_name: {
+            type: "string",
+            description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
+          }
+        },
+        required: [],
+        additionalProperties: false
+      }
+    }
+  });
+
   return tools;
 }
 
@@ -465,6 +485,91 @@ async function handleToolCall(
           return JSON.stringify({ error: 'GitHub access not configured' });
         }
         return await handleGithubToolCall(toolName, args, githubToken);
+      }
+
+      case 'get_database_schema': {
+        const { table_name } = args;
+        
+        // Query information_schema for column details
+        let columnsQuery = supabase
+          .from('information_schema.columns' as any)
+          .select('table_name, column_name, data_type, is_nullable, column_default')
+          .eq('table_schema', 'public');
+        
+        if (table_name) {
+          columnsQuery = columnsQuery.eq('table_name', table_name);
+        } else {
+          columnsQuery = columnsQuery.like('table_name', 'q_%');
+        }
+        
+        const { data: columns, error: columnsError } = await columnsQuery;
+        
+        if (columnsError) {
+          // Fallback: use a direct RPC or simpler approach
+          // Get tables from our known schema
+          const knownTables = [
+            'q_prompts', 'q_prompt_variables', 'q_prompt_library',
+            'q_assistants', 'q_assistant_files', 'q_threads',
+            'q_templates', 'q_json_schema_templates', 'q_export_templates',
+            'q_confluence_pages', 'q_models', 'q_model_defaults',
+            'q_settings', 'q_ai_costs', 'q_app_knowledge',
+            'q_workbench_threads', 'q_workbench_messages', 'q_workbench_files',
+            'q_workbench_confluence_links', 'q_vector_stores',
+            'q_prompt_family_threads', 'q_prompt_family_messages',
+            'profiles', 'projects', 'resource_shares', 'user_roles'
+          ];
+          
+          if (table_name) {
+            // Get sample row to infer columns
+            const { data: sample, error: sampleError } = await supabase
+              .from(table_name)
+              .select('*')
+              .limit(1);
+            
+            if (sampleError) {
+              return JSON.stringify({ error: `Cannot access table: ${table_name}` });
+            }
+            
+            const inferredColumns = sample && sample[0] 
+              ? Object.keys(sample[0]).map(col => ({
+                  column_name: col,
+                  data_type: typeof sample[0][col],
+                  sample_value: sample[0][col]?.toString()?.substring(0, 50)
+                }))
+              : [];
+            
+            return JSON.stringify({
+              table: table_name,
+              columns: inferredColumns,
+              note: 'Schema inferred from sample data'
+            });
+          }
+          
+          return JSON.stringify({
+            tables: knownTables,
+            note: 'Use table_name parameter to get column details for a specific table'
+          });
+        }
+        
+        // Group columns by table
+        const schema: Record<string, any[]> = {};
+        for (const col of columns || []) {
+          if (!schema[col.table_name]) {
+            schema[col.table_name] = [];
+          }
+          schema[col.table_name].push({
+            name: col.column_name,
+            type: col.data_type,
+            nullable: col.is_nullable === 'YES',
+            default: col.column_default
+          });
+        }
+        
+        return JSON.stringify({
+          tables: Object.keys(schema),
+          schema,
+          count: Object.keys(schema).length
+        });
       }
 
       default:
