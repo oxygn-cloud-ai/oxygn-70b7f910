@@ -6,6 +6,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
@@ -81,7 +83,8 @@ const ResizableOutputArea = ({
   runTime,
   progress,
   defaultHeight = MIN_HEIGHT,
-  storageKey // Optional key to persist sizing in localStorage
+  storageKey, // Optional key to persist sizing in localStorage
+  syntaxHighlight = false // Enable syntax highlighting for JSON output
 }) => {
   // Generate storage key from label if not provided
   const persistKey = storageKey || (label ? `qonsol-output-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
@@ -346,18 +349,38 @@ const ResizableOutputArea = ({
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-tree text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y font-mono"
+            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight ? '' : 'p-2.5 text-tree text-on-surface leading-relaxed whitespace-pre-wrap font-mono'}`}
             onMouseUp={handleResize}
           >
             {value ? (
-              // Try to format as JSON if it looks like JSON
+              // Try to format and optionally syntax-highlight JSON
               (() => {
                 const trimmed = value.trim();
                 if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
                     (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
                   try {
                     const parsed = JSON.parse(trimmed);
-                    return JSON.stringify(parsed, null, 2);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    
+                    if (syntaxHighlight) {
+                      return (
+                        <SyntaxHighlighter
+                          language="json"
+                          style={oneDark}
+                          customStyle={{
+                            margin: 0,
+                            padding: '10px',
+                            background: 'transparent',
+                            fontSize: '11px',
+                            lineHeight: '1.5',
+                          }}
+                          wrapLongLines
+                        >
+                          {formatted}
+                        </SyntaxHighlighter>
+                      );
+                    }
+                    return formatted;
                   } catch {
                     return value; // Not valid JSON, show as-is
                   }
@@ -365,7 +388,7 @@ const ResizableOutputArea = ({
                 return value;
               })()
             ) : (
-              <span className="text-on-surface-variant opacity-50 font-sans">{placeholder}</span>
+              <span className="text-on-surface-variant opacity-50 font-sans p-2.5 block">{placeholder}</span>
             )}
           </div>
 

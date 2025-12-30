@@ -236,6 +236,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         isRegenerating={isRunningPrompt}
         runTime={formattedTime}
         progress={runProgress}
+        syntaxHighlight={promptData?.node_type === 'action' && promptData?.post_action === 'create_children_json'}
       />
     </div>
   );
