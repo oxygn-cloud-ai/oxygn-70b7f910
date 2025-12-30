@@ -1,37 +1,177 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Paperclip, Mic, MoreVertical, PanelRightClose, Loader2, MessageSquare } from "lucide-react";
+import { 
+  Send, Paperclip, Mic, PanelRightClose, Loader2, MessageSquare, 
+  Plus, Trash2, ChevronDown, Wrench, Check
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SkeletonChat } from "@/components/shared/Skeletons";
 import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
+import ReactMarkdown from "react-markdown";
+
+// Tool Activity Indicator
+const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
+  if (!toolActivity || toolActivity.length === 0) return null;
+
+  return (
+    <div className="px-2 py-1.5 bg-surface-container rounded-m3-md mb-2">
+      <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
+        <Wrench className="h-3 w-3" />
+        <span>Using tools:</span>
+      </div>
+      <div className="flex flex-wrap gap-1 mt-1">
+        {toolActivity.map((tool, idx) => (
+          <span 
+            key={idx}
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] ${
+              tool.status === 'running' 
+                ? 'bg-primary/10 text-primary' 
+                : 'bg-green-500/10 text-green-600'
+            }`}
+          >
+            {tool.status === 'running' ? (
+              <Loader2 className="h-2 w-2 animate-spin" />
+            ) : (
+              <Check className="h-2 w-2" />
+            )}
+            {tool.name}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Thread Selector Dropdown
+const ThreadSelector = ({ threads, activeThread, onSelectThread, onCreateThread, onDeleteThread }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 px-2 py-1 rounded-m3-sm bg-surface-container hover:bg-surface-container-high text-body-sm text-on-surface"
+      >
+        <span className="truncate max-w-[120px]">
+          {activeThread?.title || 'Select chat'}
+        </span>
+        <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute top-full left-0 mt-1 w-56 bg-surface-container-high rounded-m3-md shadow-lg border border-outline-variant z-20 py-1 max-h-64 overflow-auto">
+          <button
+            onClick={() => {
+              onCreateThread?.();
+              setIsOpen(false);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-body-sm text-primary hover:bg-surface-container"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            New Chat
+          </button>
+          
+          {threads.length > 0 && <div className="h-px bg-outline-variant my-1" />}
+          
+          {threads.map(thread => (
+            <div 
+              key={thread.row_id}
+              className={`flex items-center justify-between px-3 py-1.5 hover:bg-surface-container group ${
+                activeThread?.row_id === thread.row_id ? 'bg-surface-container' : ''
+              }`}
+            >
+              <button
+                onClick={() => {
+                  onSelectThread?.(thread.row_id);
+                  setIsOpen(false);
+                }}
+                className="flex-1 text-left text-body-sm text-on-surface truncate"
+              >
+                {thread.title || 'Untitled'}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteThread?.(thread.row_id);
+                }}
+                className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:text-destructive hover:bg-surface-container"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ConversationPanel = ({ 
   onClose,
-  messages = [],
-  isLoadingMessages = false,
-  isSending = false,
-  onSendMessage,
   promptName = "Prompt",
+  // Prompt Family Chat props
+  promptFamilyChat,
+  // Legacy props (kept for backwards compatibility)
+  messages: legacyMessages,
+  isLoadingMessages: legacyIsLoadingMessages,
+  isSending: legacyIsSending,
+  onSendMessage: legacyOnSendMessage,
   onCancel,
   progress,
 }) => {
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef(null);
 
+  // Use prompt family chat if available, otherwise fall back to legacy
+  const usePromptFamilyMode = !!promptFamilyChat;
+  
+  const messages = usePromptFamilyMode 
+    ? promptFamilyChat.messages 
+    : (legacyMessages || []);
+    
+  const isLoadingMessages = usePromptFamilyMode 
+    ? promptFamilyChat.isLoading 
+    : legacyIsLoadingMessages;
+    
+  const isSending = usePromptFamilyMode 
+    ? (promptFamilyChat.isStreaming || promptFamilyChat.isExecutingTools)
+    : legacyIsSending;
+
+  const streamingMessage = usePromptFamilyMode ? promptFamilyChat.streamingMessage : '';
+  const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
+  const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
+
   // Auto-scroll to bottom when messages change or when sending
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isSending]);
+  }, [messages, isSending, streamingMessage]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || isSending) return;
     const message = inputValue.trim();
     setInputValue("");
     
-    if (onSendMessage) {
-      await onSendMessage(message);
+    if (usePromptFamilyMode) {
+      // Ensure we have a thread
+      if (!promptFamilyChat.activeThreadId) {
+        await promptFamilyChat.createThread('New Chat');
+      }
+      await promptFamilyChat.sendMessage(message);
+    } else if (legacyOnSendMessage) {
+      await legacyOnSendMessage(message);
     }
   };
 
@@ -42,20 +182,63 @@ const ConversationPanel = ({
     }
   };
 
+  const displayMessages = [...messages];
+  // Add streaming message as temporary assistant message
+  if (streamingMessage && usePromptFamilyMode) {
+    const lastMsg = displayMessages[displayMessages.length - 1];
+    if (lastMsg?.role !== 'assistant' || lastMsg.content !== streamingMessage) {
+      displayMessages.push({
+        row_id: 'streaming',
+        role: 'assistant',
+        content: streamingMessage
+      });
+    }
+  }
+
   return (
     <div className="h-full flex flex-col bg-surface-container-low min-h-0">
-      {/* Header - matches main toolbar height */}
+      {/* Header */}
       <div 
         className="h-14 flex items-center justify-between px-3 border-b border-outline-variant"
         style={{ height: "56px" }}
       >
-        <div>
-          <span className="text-title-sm text-on-surface font-medium">Conversation</span>
-          <p className="text-[10px] text-on-surface-variant">
-            {promptName} • {messages.length} messages
-          </p>
+        <div className="flex-1 min-w-0">
+          {usePromptFamilyMode ? (
+            <div className="flex items-center gap-2">
+              <ThreadSelector
+                threads={promptFamilyChat.threads}
+                activeThread={promptFamilyChat.activeThread}
+                onSelectThread={promptFamilyChat.switchThread}
+                onCreateThread={promptFamilyChat.createThread}
+                onDeleteThread={promptFamilyChat.deleteThread}
+              />
+              <span className="text-[10px] text-on-surface-variant">
+                {displayMessages.length} msg{displayMessages.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          ) : (
+            <div>
+              <span className="text-title-sm text-on-surface font-medium">Conversation</span>
+              <p className="text-[10px] text-on-surface-variant">
+                {promptName} • {messages.length} messages
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-0.5">
+          {usePromptFamilyMode && promptFamilyChat.activeThreadId && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={promptFamilyChat.createThread}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">New chat</TooltipContent>
+            </Tooltip>
+          )}
           {onClose && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -76,15 +259,25 @@ const ConversationPanel = ({
       <ScrollArea className="flex-1 p-2.5" ref={scrollRef}>
         {isLoadingMessages ? (
           <SkeletonChat />
-        ) : messages.length === 0 && !isSending ? (
+        ) : displayMessages.length === 0 && !isSending ? (
           <div className="flex flex-col items-center justify-center h-full py-8 text-center">
             <MessageSquare className="h-10 w-10 text-on-surface-variant/30 mb-3" />
-            <p className="text-body-sm text-on-surface-variant">No messages yet</p>
-            <p className="text-[10px] text-on-surface-variant/70">Start a conversation below</p>
+            <p className="text-body-sm text-on-surface-variant">
+              {usePromptFamilyMode 
+                ? "Ask me anything about this prompt family" 
+                : "No messages yet"
+              }
+            </p>
+            <p className="text-[10px] text-on-surface-variant/70">
+              {usePromptFamilyMode
+                ? "I can explore files, confluence, schemas & more"
+                : "Start a conversation below"
+              }
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {messages.map((msg, idx) => (
+            {displayMessages.map((msg, idx) => (
               <div 
                 key={msg.row_id || idx}
                 className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -97,17 +290,38 @@ const ConversationPanel = ({
                   }`}
                   style={{ borderRadius: "14px" }}
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-sm max-w-none text-on-surface prose-p:my-1 prose-headings:my-2">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  )}
                 </div>
               </div>
             ))}
-            {/* Thinking indicator when sending */}
-            {isSending && (
+            
+            {/* Tool activity indicator */}
+            {isExecutingTools && (
+              <ToolActivityIndicator toolActivity={toolActivity} isExecuting={isExecutingTools} />
+            )}
+            
+            {/* Thinking indicator when sending (legacy mode) */}
+            {isSending && !usePromptFamilyMode && (
               <ThinkingIndicator 
                 conversationName={promptName}
                 onCancel={onCancel}
                 progress={progress}
               />
+            )}
+            
+            {/* Streaming indicator for prompt family mode */}
+            {isSending && usePromptFamilyMode && !streamingMessage && (
+              <div className="flex justify-start">
+                <div className="px-2.5 py-2 bg-surface-container-high rounded-m3-lg" style={{ borderRadius: "14px" }}>
+                  <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -121,7 +335,7 @@ const ConversationPanel = ({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={usePromptFamilyMode ? "Ask about this prompt family..." : "Type a message..."}
               rows={1}
               className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-y"
             />
