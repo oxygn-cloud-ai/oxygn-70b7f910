@@ -253,6 +253,14 @@ const ActionConfigRenderer = ({
   const renderField = (field) => {
     const fieldId = `action-config-${field.key}`;
     const value = config[field.key] ?? field.defaultValue ?? '';
+    
+    // Handle dependsOn - only show field if dependency is met
+    if (field.dependsOn) {
+      const dependencyValue = config[field.dependsOn.key];
+      if (dependencyValue !== field.dependsOn.value) {
+        return null; // Don't render this field
+      }
+    }
 
     switch (field.type) {
       case CONFIG_FIELD_TYPES.SCHEMA_KEYS:

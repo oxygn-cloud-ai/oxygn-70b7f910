@@ -326,6 +326,18 @@ const MainLayout = () => {
             });
             // Immediately refresh tree to show newly created children
             await refreshTreeData();
+            
+            // Auto-expand the parent prompt so user can see the new children
+            if (actionResult.data?.createdCount > 0) {
+              const parentId = actionResult.data?.placement === 'children' 
+                ? promptData.row_id 
+                : (actionResult.data?.placement === 'specific_prompt' 
+                    ? actionResult.data?.targetParentRowId 
+                    : promptData.parent_row_id);
+              if (parentId) {
+                setExpandedFolders(prev => ({ ...prev, [parentId]: true }));
+              }
+            }
           } else {
             toast.warning(`Action failed: ${actionResult.error}`, {
               source: 'MainLayout.handleRunPrompt.postAction',
