@@ -203,6 +203,17 @@ const MainLayout = () => {
     const promptData = await fetchItemData(promptId);
     const startTime = Date.now();
 
+    // Determine response format - action nodes with schema template use structured output
+    const getResponseFormat = () => {
+      if (promptData?.node_type === 'action' && promptData?.json_schema_template_id) {
+        return 'Structured Output (JSON Schema)';
+      }
+      if (promptData?.response_format_on && promptData?.response_format) {
+        return promptData.response_format === 'json_object' ? 'JSON Object' : 'JSON Schema';
+      }
+      return 'text';
+    };
+
     // Show API request details toast
     const requestDetails = {
       prompt: promptData?.prompt_name || promptId.slice(0, 8),
@@ -210,8 +221,9 @@ const MainLayout = () => {
       system_prompt: truncateForLog(promptData?.input_admin_prompt),
       user_prompt: truncateForLog(promptData?.input_user_prompt),
       reasoning_effort: promptData?.reasoning_effort_on ? promptData?.reasoning_effort : 'off',
-      response_format: promptData?.response_format_on ? 'JSON Schema' : 'text',
+      response_format: getResponseFormat(),
       node_type: promptData?.node_type || 'standard',
+      json_schema_template_id: promptData?.json_schema_template_id || null,
     };
     
     toast.info('API Request', {
