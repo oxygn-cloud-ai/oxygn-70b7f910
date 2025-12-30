@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
-import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
+import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings, getTokenParam } from "../_shared/models.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -258,8 +258,12 @@ async function runResponsesAPI(
   if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
     requestBody.top_p = topP;
   }
+  // Use model's token_param to determine correct API parameter name
   if (maxTokens !== undefined && !isNaN(maxTokens)) {
+    const tokenParam = await getTokenParam(supabase, requestedModel);
+    // OpenAI Responses API uses max_output_tokens, but we track which param type was used
     requestBody.max_output_tokens = maxTokens;
+    console.log(`Using token param: ${tokenParam} -> max_output_tokens = ${maxTokens}`);
   }
 
   // Add frequency and presence penalty if provided
@@ -285,8 +289,10 @@ async function runResponsesAPI(
   }
 
   // Build request params summary for notifications
+  const modelTokenParam = await getTokenParam(supabase, requestedModel);
   const requestParams = {
     model: modelId,
+    model_token_param: modelTokenParam,
     temperature: requestBody.temperature,
     top_p: requestBody.top_p,
     max_output_tokens: requestBody.max_output_tokens,
@@ -961,8 +967,13 @@ serve(async (req) => {
         const topP = parseFloat(childPrompt.top_p);
         if (!isNaN(topP)) apiOptions.topP = topP;
       }
+      // Handle max tokens - check both max_tokens and max_completion_tokens based on what's enabled
       if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
         const maxT = parseInt(childPrompt.max_tokens, 10);
+        if (!isNaN(maxT)) apiOptions.maxTokens = maxT;
+      } else if (childPrompt.max_completion_tokens) {
+        // max_completion_tokens doesn't have a separate _on toggle - if it's set, use it
+        const maxT = parseInt(childPrompt.max_completion_tokens, 10);
         if (!isNaN(maxT)) apiOptions.maxTokens = maxT;
       }
       if (childPrompt.frequency_penalty_on && childPrompt.frequency_penalty) {
