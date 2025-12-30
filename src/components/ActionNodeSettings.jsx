@@ -99,6 +99,25 @@ const ActionNodeSettings = ({
     return findArrayPaths(currentSchemaObject);
   }, [currentSchemaObject]);
 
+  // Auto-populate json_path when there's exactly one array in the schema
+  useEffect(() => {
+    // Only auto-populate for actions that use json_path (like create_children_json)
+    const needsJsonPath = localData.post_action === 'create_children_json';
+    if (!needsJsonPath) return;
+
+    // Check if json_path is empty or uses a default that doesn't exist
+    const currentJsonPath = currentConfig?.json_path;
+    const hasValidPath = currentJsonPath && availableArrayPaths.includes(currentJsonPath);
+
+    // If there's exactly one array and no valid path set, auto-populate
+    if (availableArrayPaths.length === 1 && !hasValidPath) {
+      const autoPath = availableArrayPaths[0];
+      const newConfig = { ...currentConfig, json_path: autoPath };
+      handleChange('post_action_config', newConfig);
+      handleSave('post_action_config', newConfig);
+    }
+  }, [availableArrayPaths, localData.post_action, currentConfig?.json_path]);
+
   // Separate full templates from schema-only templates (from DB)
   const fullTemplates = useMemo(() => 
     templates.filter(t => t.node_config && t.action_config), 
