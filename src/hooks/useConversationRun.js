@@ -210,15 +210,17 @@ export const useConversationRun = () => {
           }
         }
 
-        // Include API response metadata in success toast
+        // Include API response metadata and request params in success toast
         toast.success('Run completed', {
           source: 'useConversationRun.runPrompt',
           details: JSON.stringify({
             promptRowId: childPromptRowId,
+            promptName: data?.child_prompt_name,
             model: data?.model,
             usage: data?.usage,
-            finishReason: data?.finish_reason,
             responseId: data?.response_id,
+            elapsedMs: data?.elapsed_ms,
+            requestParams: data?.request_params,
           }, null, 2),
         });
         return data;
