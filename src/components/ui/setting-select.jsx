@@ -77,14 +77,7 @@ const SettingSelect = React.forwardRef(({
                   option.disabled && "opacity-50"
                 )}
               >
-                {option.description ? (
-                  <div className="flex-1">
-                    <span className="block">{option.label}</span>
-                    <span className="text-[10px] text-on-surface-variant">{option.description}</span>
-                  </div>
-                ) : (
-                  option.label
-                )}
+                {option.label}
               </SelectItem>
             ))
           )}
