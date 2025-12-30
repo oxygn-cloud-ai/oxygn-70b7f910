@@ -932,14 +932,12 @@ const MainLayout = () => {
                   onNavLeave={handleNavLeave}
                   folderPanelOpen={folderPanelOpen}
                   onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
-                  onShowShortcuts={() => toast.info("Keyboard shortcuts available")}
-                  onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
-                  folderPanelOpen={folderPanelOpen}
                   onShowShortcuts={() => {}}
                   onHideNavRail={() => setNavRailOpen(false)}
                   onResetLayout={handleResetLayout}
                 />
               </motion.div>
+            )}
           </AnimatePresence>
           
           {/* Edge trigger when nav rail is hidden */}
