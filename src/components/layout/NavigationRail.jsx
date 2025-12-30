@@ -9,13 +9,15 @@ import {
   Heart,
   PanelLeftClose,
   PanelLeft,
-  Keyboard
+  Keyboard,
+  EyeOff
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -90,7 +92,8 @@ const NavigationRail = ({
   onNavLeave, 
   onToggleFolderPanel, 
   folderPanelOpen,
-  onShowShortcuts 
+  onShowShortcuts,
+  onHideNavRail
 }) => {
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts", shortcut: "1" },
@@ -139,12 +142,15 @@ const NavigationRail = ({
               <PanelLeft className="h-4 w-4" />
             )}
             <span>{folderPanelOpen ? "Close folders" : "Open folders"}</span>
-            <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-surface-container">⌘B</kbd>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onShowShortcuts} className="gap-2">
             <Keyboard className="h-4 w-4" />
             <span>Keyboard shortcuts</span>
-            <kbd className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-surface-container">?</kbd>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator className="bg-outline-variant" />
+          <DropdownMenuItem onClick={onHideNavRail} className="gap-2">
+            <EyeOff className="h-4 w-4" />
+            <span>Hide navigation</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

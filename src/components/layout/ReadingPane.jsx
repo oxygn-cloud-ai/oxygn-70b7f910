@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, LayoutTemplate, PanelRightOpen } from "lucide-react";
+import { FileText, LayoutTemplate, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   PromptsContent,
@@ -28,6 +28,9 @@ const ReadingPane = ({
   activeTemplateTab = "prompts",
   onToggleConversation, 
   conversationPanelOpen = true,
+  onToggleFolderPanel,
+  folderPanelOpen = true,
+  onToggleReadingPane,
   // Run prompt handlers
   onRunPrompt,
   onRunCascade,
@@ -120,19 +123,35 @@ const ReadingPane = ({
   if (!hasSelection) {
     return (
       <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
-        {/* Header with toggle button when conversation panel is closed */}
-        {!conversationPanelOpen && onToggleConversation && (
-          <div className="h-14 flex items-center justify-end px-3 border-b border-outline-variant shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <PanelRightOpen className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-compact">Show Conversation</TooltipContent>
-            </Tooltip>
+        {/* Header with toggle buttons */}
+        <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
+          {/* Left - Show folder panel when hidden */}
+          <div>
+            {!folderPanelOpen && onToggleFolderPanel && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={onToggleFolderPanel} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                    <PanelLeftOpen className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Show folders</TooltipContent>
+              </Tooltip>
+            )}
           </div>
-        )}
+          {/* Right - Show conversation panel when hidden */}
+          <div>
+            {!conversationPanelOpen && onToggleConversation && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                    <PanelRightOpen className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Show chat</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-on-surface-variant">
             <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
@@ -160,6 +179,8 @@ const ReadingPane = ({
       onExport={onExport}
       onToggleConversation={onToggleConversation}
       conversationPanelOpen={conversationPanelOpen}
+      onToggleFolderPanel={onToggleFolderPanel}
+      folderPanelOpen={folderPanelOpen}
       models={models}
       schemas={jsonSchemaTemplatesHook?.templates || []}
       onRunPrompt={onRunPrompt}

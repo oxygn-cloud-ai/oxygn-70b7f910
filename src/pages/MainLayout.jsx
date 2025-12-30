@@ -4,6 +4,7 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { motion, AnimatePresence } from "framer-motion";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import NavigationRail from "@/components/layout/NavigationRail";
+import EdgeTrigger from "@/components/layout/EdgeTrigger";
 import TopBar from "@/components/layout/TopBar";
 import FolderPanel from "@/components/layout/FolderPanel";
 import TemplatesFolderPanel from "@/components/layout/TemplatesFolderPanel";
@@ -35,7 +36,7 @@ import { useCostTracking } from "@/hooks/useCostTracking";
 import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { executePostAction } from "@/services/actionExecutors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
@@ -558,6 +559,14 @@ const MainLayout = () => {
     const saved = localStorage.getItem('qonsol-folder-panel-open');
     return saved !== null ? saved === 'true' : true; // Default open
   });
+  const [navRailOpen, setNavRailOpen] = useState(() => {
+    const saved = localStorage.getItem('qonsol-nav-rail-open');
+    return saved !== null ? saved === 'true' : true; // Default open
+  });
+  const [readingPaneOpen, setReadingPaneOpen] = useState(() => {
+    const saved = localStorage.getItem('qonsol-reading-pane-open');
+    return saved !== null ? saved === 'true' : true; // Default open
+  });
   const [conversationPanelOpen, setConversationPanelOpen] = useState(() => {
     const saved = localStorage.getItem('qonsol-conversation-panel-open');
     return saved !== null ? saved === 'true' : false; // Default closed
@@ -579,6 +588,14 @@ const MainLayout = () => {
   useEffect(() => {
     localStorage.setItem('qonsol-folder-panel-open', String(folderPanelOpen));
   }, [folderPanelOpen]);
+  
+  useEffect(() => {
+    localStorage.setItem('qonsol-nav-rail-open', String(navRailOpen));
+  }, [navRailOpen]);
+  
+  useEffect(() => {
+    localStorage.setItem('qonsol-reading-pane-open', String(readingPaneOpen));
+  }, [readingPaneOpen]);
   
   useEffect(() => {
     localStorage.setItem('qonsol-conversation-panel-open', String(conversationPanelOpen));
@@ -883,16 +900,40 @@ const MainLayout = () => {
 
         {/* Main Layout */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* Navigation Rail - 80px */}
-          <NavigationRail 
-            activeNav={activeNav}
-            onNavChange={setActiveNav}
-            onNavHover={handleNavHover}
-            onNavLeave={handleNavLeave}
-            folderPanelOpen={folderPanelOpen}
-            onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
-            onShowShortcuts={() => toast.info("Keyboard shortcuts: ⌘K search, ⌘B folders, ⌘J chat")}
-          />
+          {/* Navigation Rail - 80px - with slide animation */}
+          <AnimatePresence mode="wait">
+            {navRailOpen && (
+              <motion.div
+                initial={{ opacity: 0, x: -80 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -80 }}
+                transition={{ duration: 0.2 }}
+              >
+                <NavigationRail 
+                  activeNav={activeNav}
+                  onNavChange={setActiveNav}
+                  onNavHover={handleNavHover}
+                  onNavLeave={handleNavLeave}
+                  folderPanelOpen={folderPanelOpen}
+                  onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
+                  onShowShortcuts={() => toast.info("Keyboard shortcuts available")}
+                  onHideNavRail={() => setNavRailOpen(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          
+          {/* Edge trigger when nav rail is hidden */}
+          <AnimatePresence>
+            {!navRailOpen && (
+              <EdgeTrigger
+                side="left"
+                onClick={() => setNavRailOpen(true)}
+                icon={PanelLeft}
+                tooltip="Show navigation"
+              />
+            )}
+          </AnimatePresence>
 
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -932,77 +973,86 @@ const MainLayout = () => {
                   )}
                 </AnimatePresence>
 
-                {/* Reading Pane - flexible */}
-                <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
-                  <motion.div 
-                    className="h-full min-h-0 flex flex-col overflow-hidden"
-                    layout
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ReadingPane 
-                      hasSelection={selectedPromptId !== null} 
-                      selectedPromptId={selectedPromptId}
-                      promptData={selectedPromptData}
-                      isLoadingPrompt={isLoadingPrompt}
-                      onUpdateField={handleUpdateField}
-                      variables={variables}
-                      isLoadingVariables={isLoadingVariables}
-                      onAddVariable={addVariable}
-                      onUpdateVariable={updateVariable}
-                      onDeleteVariable={deleteVariable}
-                      selectedPromptHasChildren={selectedPromptHasChildren}
-                      onExport={() => exportState.openExport(selectedPromptId ? [selectedPromptId] : [])}
-                      activeNav={activeNav}
-                      activeSubItem={activeSubItem}
-                      selectedTemplate={selectedTemplate}
-                      activeTemplateTab={activeTemplateTab}
-                      onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
-                      conversationPanelOpen={conversationPanelOpen}
-                      // Run prompt and cascade handlers
-                      onRunPrompt={handleRunPrompt}
-                      onRunCascade={handleRunCascade}
-                      isRunningPrompt={isRunningPrompt}
-                      isRunningCascade={isRunningCascade}
-                      onCancelRun={cancelRun}
-                      runProgress={runProgress}
-                      // Settings props for Phase 6
-                      settings={settings}
-                      isLoadingSettings={isLoadingSettings}
-                      onUpdateSetting={updateSetting}
-                      models={models}
-                      isLoadingModels={isLoadingModels}
-                      onToggleModel={(modelId) => {
-                        const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
-                        if (model) toggleModelActive(model.model_id);
-                      }}
-                      onAddModel={addModel}
-                      onUpdateModel={updateModel}
-                      onDeleteModel={deleteModel}
-                      // Phase 4 - Cost analytics and conversation defaults
-                      costTracking={costTracking}
-                      conversationToolDefaults={conversationToolDefaults}
-                      // Workbench props for Phase 3
-                      workbenchThreads={workbenchThreads}
-                      workbenchMessages={workbenchMessages}
-                      workbenchFiles={workbenchFiles}
-                      workbenchConfluence={workbenchConfluence}
-                      promptLibrary={promptLibrary}
-                      // Templates props for Phase 8-9
-                      templatesHook={templatesHook}
-                      jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
-                      onEditSchema={(schemaId) => {
-                        // Navigate to templates and select the schema
-                        setActiveNav('templates');
-                        setActiveTemplateTab('schemas');
-                        // Find and select the schema template
-                        const schema = jsonSchemaTemplatesHook?.templates?.find(t => t.row_id === schemaId);
-                        if (schema) {
-                          setSelectedTemplate(schema);
-                        }
-                      }}
-                    />
-                  </motion.div>
-                </ResizablePanel>
+                {/* Reading Pane - flexible, conditionally rendered */}
+                <AnimatePresence mode="wait">
+                  {readingPaneOpen && (
+                    <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
+                      <motion.div 
+                        className="h-full min-h-0 flex flex-col overflow-hidden"
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <ReadingPane 
+                          hasSelection={selectedPromptId !== null} 
+                          selectedPromptId={selectedPromptId}
+                          promptData={selectedPromptData}
+                          isLoadingPrompt={isLoadingPrompt}
+                          onUpdateField={handleUpdateField}
+                          variables={variables}
+                          isLoadingVariables={isLoadingVariables}
+                          onAddVariable={addVariable}
+                          onUpdateVariable={updateVariable}
+                          onDeleteVariable={deleteVariable}
+                          selectedPromptHasChildren={selectedPromptHasChildren}
+                          onExport={() => exportState.openExport(selectedPromptId ? [selectedPromptId] : [])}
+                          activeNav={activeNav}
+                          activeSubItem={activeSubItem}
+                          selectedTemplate={selectedTemplate}
+                          activeTemplateTab={activeTemplateTab}
+                          onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
+                          conversationPanelOpen={conversationPanelOpen}
+                          onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
+                          folderPanelOpen={folderPanelOpen}
+                          onToggleReadingPane={() => setReadingPaneOpen(!readingPaneOpen)}
+                          // Run prompt and cascade handlers
+                          onRunPrompt={handleRunPrompt}
+                          onRunCascade={handleRunCascade}
+                          isRunningPrompt={isRunningPrompt}
+                          isRunningCascade={isRunningCascade}
+                          onCancelRun={cancelRun}
+                          runProgress={runProgress}
+                          // Settings props for Phase 6
+                          settings={settings}
+                          isLoadingSettings={isLoadingSettings}
+                          onUpdateSetting={updateSetting}
+                          models={models}
+                          isLoadingModels={isLoadingModels}
+                          onToggleModel={(modelId) => {
+                            const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
+                            if (model) toggleModelActive(model.model_id);
+                          }}
+                          onAddModel={addModel}
+                          onUpdateModel={updateModel}
+                          onDeleteModel={deleteModel}
+                          // Phase 4 - Cost analytics and conversation defaults
+                          costTracking={costTracking}
+                          conversationToolDefaults={conversationToolDefaults}
+                          // Workbench props for Phase 3
+                          workbenchThreads={workbenchThreads}
+                          workbenchMessages={workbenchMessages}
+                          workbenchFiles={workbenchFiles}
+                          workbenchConfluence={workbenchConfluence}
+                          promptLibrary={promptLibrary}
+                          // Templates props for Phase 8-9
+                          templatesHook={templatesHook}
+                          jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+                          onEditSchema={(schemaId) => {
+                            // Navigate to templates and select the schema
+                            setActiveNav('templates');
+                            setActiveTemplateTab('schemas');
+                            // Find and select the schema template
+                            const schema = jsonSchemaTemplatesHook?.templates?.find(t => t.row_id === schemaId);
+                            if (schema) {
+                              setSelectedTemplate(schema);
+                            }
+                          }}
+                        />
+                      </motion.div>
+                    </ResizablePanel>
+                  )}
+                </AnimatePresence>
 
                 <AnimatePresence mode="wait">
                   {showConversationPanel && (
