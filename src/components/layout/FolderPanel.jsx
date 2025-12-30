@@ -200,6 +200,7 @@ const TreeItem = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const ref = useRef(null);
+  const menuRef = useRef(null);
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 12;
   const depthIndicator = level > 4 ? `${level}` : null;
@@ -330,18 +331,14 @@ const TreeItem = ({
           setIsHovered(true);
           setMenuPosition({
             top: e.clientY,
-            left: e.clientX + 16
+            left: e.clientX + 16,
           });
         }}
-        onMouseMove={(e) => {
-          if (isHovered) {
-            setMenuPosition({
-              top: e.clientY,
-              left: e.clientX + 16
-            });
-          }
+        onMouseLeave={(e) => {
+          const next = e.relatedTarget;
+          if (menuRef.current && next && menuRef.current.contains(next)) return;
+          setIsHovered(false);
         }}
-        onMouseLeave={() => setIsHovered(false)}
         className={`
           w-full h-7 flex items-center gap-1.5 pr-1.5 rounded-m3-sm cursor-pointer
           transition-all duration-200 ease-emphasized group
@@ -436,6 +433,7 @@ const TreeItem = ({
         {/* Hover actions - rendered via portal to overflow panel */}
         {isHovered && !isMultiSelectMode && menuPosition && createPortal(
           <div 
+            ref={menuRef}
             className="fixed flex items-center gap-0.5 bg-surface-container-high rounded-m3-sm shadow-lg px-1 py-0.5 z-50 border border-outline-variant"
             style={{ 
               top: `${menuPosition.top}px`,
@@ -443,7 +441,11 @@ const TreeItem = ({
               transform: 'translateY(-50%)'
             }}
             onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseLeave={(e) => {
+              const next = e.relatedTarget;
+              if (ref.current && next && ref.current.contains(next)) return;
+              setIsHovered(false);
+            }}
           >
             <IconButton 
               icon={Star} 
