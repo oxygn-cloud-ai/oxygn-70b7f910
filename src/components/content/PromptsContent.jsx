@@ -35,7 +35,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
 import { 
   EmptyVariables, 
-import { 
   ResizablePromptArea, ResizableOutputArea, VariablePicker,
   EmptyConversation,
   EmptyOutput 
