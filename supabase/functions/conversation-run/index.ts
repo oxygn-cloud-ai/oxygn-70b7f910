@@ -180,6 +180,19 @@ function formatSchemaForPrompt(schema: any): string {
   return lines.join('\n');
 }
 
+// API options interface for runResponsesAPI
+interface ApiOptions {
+  responseFormat?: any;
+  seed?: number;
+  toolChoice?: string;
+  reasoningEffort?: string;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  topP?: number;
+  temperature?: number;
+  maxTokens?: number;
+}
+
 // Call OpenAI Responses API - uses previous_response_id for multi-turn context
 async function runResponsesAPI(
   assistantData: any,
@@ -188,13 +201,8 @@ async function runResponsesAPI(
   previousResponseId: string | null,
   apiKey: string,
   supabase: any,
-  options: {
-    responseFormat?: any;
-    seed?: number;
-    toolChoice?: string;
-    reasoningEffort?: string;
-  } = {},
-): Promise<ResponsesResult> {
+  options: ApiOptions = {},
+): Promise<ResponsesResult & { requestParams?: any }> {
   // Use DB for model resolution
   const defaultModel = await getDefaultModelFromSettings(supabase);
   const requestedModel = assistantData.model_override || defaultModel;
@@ -239,10 +247,10 @@ async function runResponsesAPI(
     console.log('Using structured output format:', requestBody.text.format.name);
   }
 
-  // Add model parameters if set
-  const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
-  const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
-  const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
+  // Add model parameters - prefer options (from prompt settings) over assistant overrides
+  const temperature = options.temperature ?? (assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined);
+  const topP = options.topP ?? (assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined);
+  const maxTokens = options.maxTokens ?? (assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined);
 
   if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
     requestBody.temperature = temperature;
@@ -252,6 +260,14 @@ async function runResponsesAPI(
   }
   if (maxTokens !== undefined && !isNaN(maxTokens)) {
     requestBody.max_output_tokens = maxTokens;
+  }
+
+  // Add frequency and presence penalty if provided
+  if (options.frequencyPenalty !== undefined && !isNaN(options.frequencyPenalty)) {
+    requestBody.frequency_penalty = options.frequencyPenalty;
+  }
+  if (options.presencePenalty !== undefined && !isNaN(options.presencePenalty)) {
+    requestBody.presence_penalty = options.presencePenalty;
   }
 
   // Add seed if provided
@@ -268,12 +284,30 @@ async function runResponsesAPI(
     }
   }
 
+  // Build request params summary for notifications
+  const requestParams = {
+    model: modelId,
+    temperature: requestBody.temperature,
+    top_p: requestBody.top_p,
+    max_output_tokens: requestBody.max_output_tokens,
+    frequency_penalty: requestBody.frequency_penalty,
+    presence_penalty: requestBody.presence_penalty,
+    seed: requestBody.seed,
+    reasoning_effort: requestBody.reasoning?.effort,
+    response_format: options.responseFormat ? {
+      type: options.responseFormat.type,
+      schema_name: options.responseFormat.json_schema?.name,
+    } : undefined,
+    has_previous_response: !!previousResponseId,
+    has_instructions: !!systemPrompt,
+  };
+
   console.log('Calling Responses API:', { 
     model: modelId, 
     hasPreviousResponse: !!previousResponseId,
     hasInstructions: !!systemPrompt,
     hasStructuredOutput: !!options.responseFormat,
-    requestBody: JSON.stringify(requestBody),
+    requestParams,
   });
 
   // Call Responses API with timeout (5 minutes max)
@@ -356,6 +390,7 @@ async function runResponsesAPI(
     response: responseText,
     usage,
     response_id: responseData.id,
+    requestParams,
   };
 }
 
@@ -915,12 +950,32 @@ serve(async (req) => {
       }
 
       // Build API options from prompt settings
-      const apiOptions: {
-        responseFormat?: any;
-        seed?: number;
-        toolChoice?: string;
-        reasoningEffort?: string;
-      } = {};
+      const apiOptions: ApiOptions = {};
+
+      // Add prompt-level model settings if enabled
+      if (childPrompt.temperature_on && childPrompt.temperature) {
+        const temp = parseFloat(childPrompt.temperature);
+        if (!isNaN(temp)) apiOptions.temperature = temp;
+      }
+      if (childPrompt.top_p_on && childPrompt.top_p) {
+        const topP = parseFloat(childPrompt.top_p);
+        if (!isNaN(topP)) apiOptions.topP = topP;
+      }
+      if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
+        const maxT = parseInt(childPrompt.max_tokens, 10);
+        if (!isNaN(maxT)) apiOptions.maxTokens = maxT;
+      }
+      if (childPrompt.frequency_penalty_on && childPrompt.frequency_penalty) {
+        const fp = parseFloat(childPrompt.frequency_penalty);
+        if (!isNaN(fp)) apiOptions.frequencyPenalty = fp;
+      }
+      if (childPrompt.presence_penalty_on && childPrompt.presence_penalty) {
+        const pp = parseFloat(childPrompt.presence_penalty);
+        if (!isNaN(pp)) apiOptions.presencePenalty = pp;
+      }
+      if (childPrompt.tool_choice_on && childPrompt.tool_choice) {
+        apiOptions.toolChoice = childPrompt.tool_choice;
+      }
 
       // Handle action nodes - prepend action system prompt and set structured output
       if (childPrompt.node_type === 'action') {
@@ -1101,7 +1156,7 @@ serve(async (req) => {
 
       console.log('Run completed successfully');
 
-      // Emit complete event with full response data
+      // Emit complete event with full response data including API request params
       emitter.emit({
         type: 'complete',
         success: true,
@@ -1112,6 +1167,7 @@ serve(async (req) => {
         thread_row_id: activeThreadRowId,
         response_id: result.response_id,
         elapsed_ms: Date.now() - startTime,
+        request_params: result.requestParams,
       });
 
     } catch (error) {
