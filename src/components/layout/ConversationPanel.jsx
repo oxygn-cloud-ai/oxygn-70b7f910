@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { 
-  Send, Paperclip, Mic, PanelRightClose, Loader2, MessageSquare, 
+  Send, Paperclip, Mic, PanelRightClose, Loader2, 
   Plus, Trash2, ChevronDown, Wrench, Check, Maximize2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -154,10 +154,13 @@ const ConversationPanel = ({
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
 
-  // Auto-scroll to bottom when messages change or when sending
+// Auto-scroll to bottom when messages change or when sending
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [messages, isSending, streamingMessage]);
 
@@ -276,7 +279,11 @@ const ConversationPanel = ({
           <SkeletonChat />
         ) : displayMessages.length === 0 && !isSending ? (
           <div className="flex flex-col items-center justify-center h-full py-8 text-center">
-            <MessageSquare className="h-10 w-10 text-on-surface-variant/30 mb-3" />
+            <img 
+              src="/head-striped-icon.png" 
+              alt="Qonsol" 
+              className="h-10 w-10 mb-3 opacity-50"
+            />
             <p className="text-body-sm text-on-surface-variant">
               {usePromptFamilyMode 
                 ? "Ask me anything about this prompt family" 
@@ -289,6 +296,11 @@ const ConversationPanel = ({
                 : "Start a conversation below"
               }
             </p>
+            {usePromptFamilyMode && (
+              <p className="text-[10px] text-on-surface-variant/70 mt-1">
+                I can also show you how to use Qonsol
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-2">

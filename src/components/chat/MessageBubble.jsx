@@ -89,10 +89,10 @@ const MessageBubble = ({ message, userProfile, conversationName, onRegenerate })
         <div className={cn(
           "prose prose-sm dark:prose-invert max-w-none",
           "prose-headings:text-on-surface prose-headings:font-semibold prose-headings:my-2",
-          "prose-h1:text-lg prose-h2:text-base prose-h3:text-sm",
-          "prose-p:text-on-surface prose-p:my-1.5 prose-p:text-[13px] prose-p:leading-relaxed",
+          "prose-h1:text-base prose-h2:text-sm prose-h3:text-body-sm",
+          "prose-p:text-on-surface prose-p:my-1.5 prose-p:text-body-sm prose-p:leading-relaxed",
           "prose-strong:text-on-surface prose-strong:font-semibold",
-          "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:text-[13px]",
+          "prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:text-body-sm",
           "prose-code:bg-surface-container prose-code:text-primary prose-code:px-1 prose-code:py-0.5 prose-code:rounded-m3-sm prose-code:text-xs prose-code:before:content-none prose-code:after:content-none",
           "prose-pre:bg-transparent prose-pre:p-0",
           "prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
