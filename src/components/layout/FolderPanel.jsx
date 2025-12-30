@@ -188,6 +188,8 @@ const TreeItem = ({
   lastSelectedId,
   allFlatItems,
   onRangeSelect,
+  selectedItems,
+  onSelectOnlyThis,
   // Icon editing
   onIconChange,
   onRefresh,
@@ -287,6 +289,13 @@ const TreeItem = ({
     }
   };
 
+  // Handle double-click to select only this item (not descendants)
+  const handleDoubleClick = (e) => {
+    e.stopPropagation();
+    if (isEditing) return;
+    onSelectOnlyThis?.(id);
+  };
+
   // Handle checkbox click
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
@@ -327,6 +336,7 @@ const TreeItem = ({
       <div
         ref={ref}
         onClick={handleRowClick}
+        onDoubleClick={handleDoubleClick}
         onMouseEnter={(e) => {
           setIsHovered(true);
           setMenuPosition({
@@ -340,7 +350,7 @@ const TreeItem = ({
           setIsHovered(false);
         }}
         className={`
-          w-full h-7 flex items-center gap-1.5 pr-1.5 rounded-m3-sm cursor-pointer
+          relative w-full h-7 flex items-center gap-0.5 pr-1.5 rounded-m3-sm cursor-pointer
           transition-all duration-200 ease-emphasized group
           ${itemIsActive 
             ? "bg-secondary-container text-secondary-container-foreground" 
@@ -421,9 +431,9 @@ const TreeItem = ({
           onIconSelect={handleIconSelect}
         />
         
-        {/* Status icons - always visible when not hovering */}
-        {!isHovered && (
-          <div className="flex items-center gap-0.5">
+        {/* Status icons - always visible, positioned at right edge */}
+        {(starred || excludedFromCascade || excludedFromExport) && (
+          <div className="absolute right-2 flex items-center gap-0.5">
             {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
             {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
             {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
@@ -539,11 +549,13 @@ const TreeItem = ({
                 isRunningCascade={isRunningCascade}
                 // Multi-select props
                 isMultiSelectMode={isMultiSelectMode}
-                isSelected={isSelected}
+                isSelected={selectedItems?.has(child.id || child.row_id)}
                 onToggleSelect={onToggleSelect}
                 lastSelectedId={lastSelectedId}
                 allFlatItems={allFlatItems}
                 onRangeSelect={onRangeSelect}
+                selectedItems={selectedItems}
+                onSelectOnlyThis={onSelectOnlyThis}
                 // Icon editing
                 onIconChange={onIconChange}
                 onRefresh={onRefresh}
@@ -765,6 +777,12 @@ const FolderPanel = ({
   const clearSelection = useCallback(() => {
     setSelectedItems(new Set());
     setLastSelectedId(null);
+  }, []);
+
+  // Handle double-click to select only this item (not descendants)
+  const handleSelectOnlyThis = useCallback((id) => {
+    setSelectedItems(new Set([id]));
+    setLastSelectedId(id);
   }, []);
 
   const selectAll = useCallback(() => {
@@ -1234,6 +1252,8 @@ const FolderPanel = ({
                     lastSelectedId={lastSelectedId}
                     allFlatItems={allFlatItems}
                     onRangeSelect={handleRangeSelect}
+                    selectedItems={selectedItems}
+                    onSelectOnlyThis={handleSelectOnlyThis}
                     // Icon editing
                     onIconChange={handleIconChange}
                     onRefresh={onRefresh}
