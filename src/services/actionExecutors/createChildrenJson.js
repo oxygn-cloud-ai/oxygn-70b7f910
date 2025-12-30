@@ -123,6 +123,15 @@ export const executeCreateChildrenJson = async ({
   config,
   context,
 }) => {
+  console.log('createChildrenJson: Starting execution with config:', {
+    json_path: config?.json_path,
+    name_field: config?.name_field,
+    content_field: config?.content_field,
+    content_destination: config?.content_destination,
+    placement: config?.placement,
+    child_node_type: config?.child_node_type,
+  });
+
   // Handle json_path as either string OR array (use first element if array)
   const rawJsonPath = config?.json_path;
   const json_path = Array.isArray(rawJsonPath) 
@@ -130,8 +139,8 @@ export const executeCreateChildrenJson = async ({
     : (rawJsonPath || 'sections');
 
   const {
-    name_field = 'title',
-    content_field = 'system_prompt',
+    name_field = 'prompt_name',
+    content_field = 'input_admin_prompt',
     content_destination = 'system', // 'system' or 'user'
     child_node_type = 'standard',
     placement = 'children',
@@ -228,7 +237,7 @@ export const executeCreateChildrenJson = async ({
       }
       // Auto-detect from common name fields if not found
       if (!childName) {
-        childName = item.name || item.title || item.heading || item.label || 
+        childName = item.prompt_name || item.name || item.title || item.heading || item.label || 
                     item.section_name || item.section_title || item.topic ||
                     item.subject || item.key || item.id;
       }
@@ -247,12 +256,31 @@ export const executeCreateChildrenJson = async ({
       content = item;
     } else if (content_field) {
       content = getNestedValue(item, content_field);
-      if (typeof content !== 'string') {
+      // Auto-detect if specified field not found
+      if (!content && typeof item === 'object') {
+        content = item.input_admin_prompt || item.system_prompt || item.content || 
+                  item.text || item.body || item.description;
+      }
+      if (typeof content !== 'string' && content !== undefined && content !== null) {
         content = JSON.stringify(content, null, 2);
       }
     } else {
-      content = JSON.stringify(item, null, 2);
+      // No content_field specified, try auto-detection
+      if (typeof item === 'object') {
+        content = item.input_admin_prompt || item.system_prompt || item.content || 
+                  item.text || item.body || item.description;
+      }
+      if (!content) {
+        content = JSON.stringify(item, null, 2);
+      }
     }
+
+    console.log(`createChildrenJson: Creating child ${i + 1}/${items.length}:`, {
+      extractedName: childName,
+      hasContent: !!content,
+      contentLength: content?.length,
+      contentPreview: content?.substring(0, 100),
+    });
 
     // Build child data with proper inheritance
     // Determine where to place content based on content_destination

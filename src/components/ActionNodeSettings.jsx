@@ -172,13 +172,15 @@ const ActionNodeSettings = ({
     const newActionId = actionId === '_none' ? null : actionId;
     handleChange('post_action', newActionId);
     
-    // Reset config to defaults for new action
+    // ALWAYS reset config to defaults for new action (clear old fields from previous action)
     if (newActionId) {
       const defaultConfig = getDefaultActionConfig(newActionId);
+      console.log('ActionNodeSettings: Switching to action', newActionId, 'with fresh config:', defaultConfig);
       handleChange('post_action_config', defaultConfig);
       handleSave('post_action', newActionId);
       handleSave('post_action_config', defaultConfig);
     } else {
+      console.log('ActionNodeSettings: Clearing action and config');
       handleChange('post_action_config', null);
       handleSave('post_action', null);
       handleSave('post_action_config', null);
