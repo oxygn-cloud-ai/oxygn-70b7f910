@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 const CascadeRunContext = createContext(null);
 
@@ -85,6 +86,11 @@ export const CascadeRunProvider = ({ children }) => {
       description: `Stopped after ${completedPrompts.length} prompt${completedPrompts.length !== 1 ? 's' : ''}`,
     });
     
+    // Track cascade cancellation
+    trackEvent('cascade_cancelled', {
+      prompts_completed: completedPrompts.length,
+    });
+    
     // Resolve any pending error dialog with 'stop'
     if (errorResolverRef.current) {
       errorResolverRef.current('stop');
@@ -95,12 +101,22 @@ export const CascadeRunProvider = ({ children }) => {
   const pause = useCallback(() => {
     pauseRef.current = true;
     setIsPaused(true);
-  }, []);
+    
+    // Track cascade pause
+    trackEvent('cascade_paused', {
+      prompts_completed: completedPrompts.length,
+    });
+  }, [completedPrompts.length]);
 
   const resume = useCallback(() => {
     pauseRef.current = false;
     setIsPaused(false);
-  }, []);
+    
+    // Track cascade resume
+    trackEvent('cascade_resumed', {
+      prompts_completed: completedPrompts.length,
+    });
+  }, [completedPrompts.length]);
 
   const isCancelled = useCallback(() => cancelRef.current, []);
   const checkPaused = useCallback(() => pauseRef.current, []);

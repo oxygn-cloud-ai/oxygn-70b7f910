@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { trackEvent } from '@/lib/posthog';
 
 /**
  * Hook for managing templates
@@ -65,6 +66,14 @@ export const useTemplates = () => {
       
       setTemplates(prev => [data, ...prev]);
       toast.success('Template created');
+      
+      // Track template creation
+      trackEvent('template_created', {
+        template_id: data?.row_id,
+        template_name: name,
+        category,
+      });
+      
       return data;
     } catch (error) {
       console.error('Error creating template:', error);

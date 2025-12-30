@@ -5,6 +5,7 @@ import { deletePrompt, restorePrompt } from '../services/promptDeletion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUndo } from '@/contexts/UndoContext';
 import { v4 as uuidv4 } from 'uuid';
+import { trackEvent } from '@/lib/posthog';
 
 export const useTreeOperations = (supabase, refreshTreeData) => {
   const { user } = useAuth();
@@ -80,6 +81,14 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
         await refreshTreeData();
       }
       toast.success('Prompt created');
+      
+      // Track prompt creation
+      trackEvent('prompt_created', {
+        prompt_id: newItemId?.[0]?.row_id,
+        parent_id: parentId,
+        has_default_content: !!defaultAdminPrompt,
+      });
+      
       return newItemId;
     } catch (error) {
       console.error('Error adding new prompt:', error);
@@ -115,13 +124,18 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
         parentId: promptData?.parent_row_id
       });
       
-      // Show toast with undo button
       toast.success(`"${name}" deleted`, {
         action: {
           label: 'Undo',
           onClick: () => handleRestoreDeleted(actionId, itemId, name)
         },
         duration: 8000
+      });
+      
+      // Track prompt deletion
+      trackEvent('prompt_deleted', {
+        prompt_id: itemId,
+        prompt_name: name,
       });
       
       return true;
@@ -139,6 +153,13 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       if (newItemId) {
         await refreshTreeData();
         toast.success('Prompt duplicated successfully');
+        
+        // Track prompt duplication
+        trackEvent('prompt_duplicated', {
+          source_prompt_id: itemId,
+          new_prompt_id: newItemId?.row_id,
+        });
+        
         return newItemId;
       }
     } catch (error) {

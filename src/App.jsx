@@ -15,6 +15,7 @@ import { ToastHistoryProvider } from "@/contexts/ToastHistoryContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { CascadeRunProvider } from "@/contexts/CascadeRunContext";
 import { UndoProvider } from "@/contexts/UndoContext";
+import PostHogPageView from "@/components/PostHogPageView";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
               <TooltipProvider>
                 <CascadeRunProvider>
                   <BrowserRouter>
+                    <PostHogPageView />
                     <ApiCallProvider>
                       <AuthProvider>
                         <NavigationGuard />
