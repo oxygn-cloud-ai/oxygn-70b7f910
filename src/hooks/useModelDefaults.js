@@ -25,7 +25,11 @@ export const useModelDefaults = () => {
       setModelDefaults(defaultsObj);
     } catch (error) {
       console.error('Error fetching model defaults:', error);
-      toast.error('Failed to fetch model defaults');
+      toast.error('Failed to fetch model defaults', {
+        source: 'useModelDefaults.fetchModelDefaults',
+        errorCode: error?.code || 'MODEL_DEFAULTS_FETCH_ERROR',
+        details: JSON.stringify({ error: error?.message, stack: error?.stack }, null, 2),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +73,11 @@ export const useModelDefaults = () => {
       return true;
     } catch (error) {
       console.error('Error updating model default:', error);
-      toast.error(`Failed to update: ${error.message}`);
+      toast.error(`Failed to update: ${error.message}`, {
+        source: 'useModelDefaults.updateModelDefault',
+        errorCode: error?.code || 'MODEL_DEFAULT_UPDATE_ERROR',
+        details: JSON.stringify({ modelId, field, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return false;
     }
   };

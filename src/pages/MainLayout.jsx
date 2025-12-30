@@ -217,6 +217,8 @@ const MainLayout = () => {
     toast.info('API Request', {
       description: `Model: ${requestDetails.model} | Reasoning: ${requestDetails.reasoning_effort} | Format: ${requestDetails.response_format}`,
       duration: 3000,
+      source: 'MainLayout.handleRunPrompt',
+      details: JSON.stringify(requestDetails, null, 2),
     });
     
     const result = await runPrompt(promptId);
@@ -284,16 +286,43 @@ const MainLayout = () => {
           });
           
           if (actionResult.success) {
-            toast.success(`Action completed: ${actionResult.message || 'Success'}`);
+            toast.success(`Action completed: ${actionResult.message || 'Success'}`, {
+              source: 'MainLayout.handleRunPrompt.postAction',
+              details: JSON.stringify({
+                promptRowId: promptData.row_id,
+                promptName: promptData.prompt_name,
+                action: promptData.post_action,
+                result: actionResult,
+              }, null, 2),
+            });
             // Immediately refresh tree to show newly created children
             await refreshTreeData();
           } else {
-            toast.warning(`Action failed: ${actionResult.error}`);
+            toast.warning(`Action failed: ${actionResult.error}`, {
+              source: 'MainLayout.handleRunPrompt.postAction',
+              errorCode: 'POST_ACTION_FAILED',
+              details: JSON.stringify({
+                promptRowId: promptData.row_id,
+                promptName: promptData.prompt_name,
+                action: promptData.post_action,
+                config: promptData.post_action_config,
+                error: actionResult.error,
+                result: actionResult,
+              }, null, 2),
+            });
           }
         } catch (jsonError) {
           console.warn('Action node response not valid JSON:', jsonError);
-          toast.warning('Action node response not valid JSON');
-        }
+          toast.warning('Action node response not valid JSON', {
+            source: 'MainLayout.handleRunPrompt.postAction',
+            errorCode: 'JSON_PARSE_ERROR',
+            details: JSON.stringify({
+              promptRowId: promptData.row_id,
+              promptName: promptData.prompt_name,
+              error: jsonError.message,
+              stack: jsonError.stack,
+            }, null, 2),
+          });
       }
       
       // Refresh the prompt data if this is the selected prompt
@@ -312,18 +341,30 @@ const MainLayout = () => {
     // Check if prompt has children
     const hasKids = await checkHasChildren(topLevelPromptId);
     if (!hasKids) {
-      toast.info("No children to cascade");
+      toast.info("No children to cascade", {
+        source: 'MainLayout.handleRunCascade',
+        details: JSON.stringify({ promptRowId: topLevelPromptId }, null, 2),
+      });
       return;
     }
     
     setIsRunningCascade(true);
     try {
       await executeCascade(topLevelPromptId, null);
-      toast.success("Cascade completed");
+      // Note: Success toast with details is handled by useCascadeExecutor
       refreshTreeData();
     } catch (error) {
       console.error("Cascade error:", error);
-      toast.error("Cascade failed", { description: error.message });
+      toast.error("Cascade failed", { 
+        description: error.message,
+        source: 'MainLayout.handleRunCascade',
+        errorCode: 'CASCADE_ERROR',
+        details: JSON.stringify({
+          promptRowId: topLevelPromptId,
+          error: error.message,
+          stack: error.stack,
+        }, null, 2),
+      });
     } finally {
       setIsRunningCascade(false);
     }

@@ -19,7 +19,11 @@ const useTreeData = (supabase) => {
       setTreeData(data || []);
     } catch (error) {
       console.error('Error refreshing tree data:', error);
-      toast.error('Failed to refresh tree data');
+      toast.error('Failed to refresh tree data', {
+        source: 'useTreeData.refreshTreeData',
+        errorCode: error?.code || 'TREE_REFRESH_ERROR',
+        details: JSON.stringify({ userId: user?.id, error: error?.message, stack: error?.stack }, null, 2),
+      });
       setTreeData([]);
     }
   }, [supabase, user?.id]);

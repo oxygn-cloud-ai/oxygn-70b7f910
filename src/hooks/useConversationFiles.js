@@ -113,16 +113,29 @@ export const useConversationFiles = (assistantRowId) => {
       }
 
       if (uploadedFiles.length > 0) {
-        toast.success(`${uploadedFiles.length} file(s) uploaded`);
+        toast.success(`${uploadedFiles.length} file(s) uploaded`, {
+          source: 'useConversationFiles.uploadFile',
+          details: JSON.stringify({ 
+            assistantRowId, 
+            fileCount: uploadedFiles.length, 
+            fileNames: uploadedFiles.map(f => f.original_filename),
+          }, null, 2),
+        });
         // Auto-sync files after upload
-        toast.info('Syncing files to assistant...');
+        toast.info('Syncing files to assistant...', {
+          source: 'useConversationFiles.uploadFile',
+        });
         await syncFiles();
       }
 
       return uploadedFiles;
     } catch (error) {
       console.error('Error in uploadFile:', error);
-      toast.error('Failed to upload files');
+      toast.error('Failed to upload files', {
+        source: 'useConversationFiles.uploadFile',
+        errorCode: error?.code || 'UPLOAD_ERROR',
+        details: JSON.stringify({ assistantRowId, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return null;
     } finally {
       setIsUploading(false);

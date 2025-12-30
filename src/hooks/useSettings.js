@@ -34,7 +34,11 @@ export const useSettings = (supabase) => {
     } catch (err) {
       console.error('Error fetching settings:', err);
       setError(err);
-      toast.error('Failed to fetch settings');
+      toast.error('Failed to fetch settings', {
+        source: 'useSettings.fetchSettings',
+        errorCode: err?.code || 'SETTINGS_FETCH_ERROR',
+        details: JSON.stringify({ error: err?.message, stack: err?.stack }, null, 2),
+      });
     } finally {
       setIsLoading(false);
     }

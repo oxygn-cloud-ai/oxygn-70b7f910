@@ -72,14 +72,25 @@ export const usePromptVariables = (promptRowId) => {
       if (error) throw error;
       
       setVariables(prev => [...prev, data]);
-      toast.success('Variable added');
+      toast.success('Variable added', {
+        source: 'usePromptVariables.addVariable',
+        details: JSON.stringify({ promptRowId, variableName: name, variableRowId: data?.row_id }, null, 2),
+      });
       return data;
     } catch (error) {
       console.error('Error adding variable:', error);
       if (error.code === '23505') {
-        toast.error('A variable with this name already exists');
+        toast.error('A variable with this name already exists', {
+          source: 'usePromptVariables.addVariable',
+          errorCode: 'DUPLICATE_VARIABLE',
+          details: JSON.stringify({ promptRowId, variableName: name }, null, 2),
+        });
       } else {
-        toast.error('Failed to add variable');
+        toast.error('Failed to add variable', {
+          source: 'usePromptVariables.addVariable',
+          errorCode: error?.code || 'ADD_VARIABLE_ERROR',
+          details: JSON.stringify({ promptRowId, variableName: name, error: error?.message, stack: error?.stack }, null, 2),
+        });
       }
       return null;
     }
@@ -112,7 +123,11 @@ export const usePromptVariables = (promptRowId) => {
       return true;
     } catch (error) {
       console.error('Error updating variable:', error);
-      toast.error('Failed to update variable');
+      toast.error('Failed to update variable', {
+        source: 'usePromptVariables.updateVariable',
+        errorCode: error?.code || 'UPDATE_VARIABLE_ERROR',
+        details: JSON.stringify({ rowId, updates, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return false;
     }
   }, []);
@@ -130,11 +145,18 @@ export const usePromptVariables = (promptRowId) => {
       if (error) throw error;
       
       setVariables(prev => prev.filter(v => v.row_id !== rowId));
-      toast.success('Variable deleted');
+      toast.success('Variable deleted', {
+        source: 'usePromptVariables.deleteVariable',
+        details: JSON.stringify({ rowId }, null, 2),
+      });
       return true;
     } catch (error) {
       console.error('Error deleting variable:', error);
-      toast.error('Failed to delete variable');
+      toast.error('Failed to delete variable', {
+        source: 'usePromptVariables.deleteVariable',
+        errorCode: error?.code || 'DELETE_VARIABLE_ERROR',
+        details: JSON.stringify({ rowId, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return false;
     }
   }, []);
