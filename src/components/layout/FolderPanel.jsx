@@ -114,10 +114,9 @@ const OwnerAvatar = ({ initials, color }) => (
 
 // Drop zone between items for inserting
 const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
-  const [{ isOver, canDrop, isDragging }, drop] = useDrop({
+  const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
     drop: (item, monitor) => {
-      // Only handle drop if this is the direct target
       if (monitor.isOver({ shallow: true })) {
         onDrop(item.id, targetIndex, siblingIds);
       }
@@ -125,62 +124,33 @@ const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
     collect: (monitor) => ({
       isOver: monitor.isOver({ shallow: true }),
       canDrop: monitor.canDrop(),
-      isDragging: monitor.getItem() !== null,
     }),
   });
 
-  const showIndicator = isDragging && canDrop;
   const isActive = isOver && canDrop;
 
   return (
     <div
       ref={drop}
-      className="relative transition-all duration-150"
+      className="relative"
       style={{ 
-        zIndex: isDragging ? 20 : 1,
-        height: showIndicator ? '12px' : '4px',
-        marginTop: isFirst ? '2px' : '-2px',
-        marginBottom: '-2px',
+        height: '8px',
+        marginTop: isFirst ? '2px' : '-4px',
+        marginBottom: '-4px',
       }}
     >
-      {/* Invisible hit area */}
-      <div className="absolute inset-0" />
-      
-      {/* Visual indicator line */}
-      {showIndicator && (
-        <div className="absolute left-2 right-2 top-1/2 -translate-y-1/2 flex items-center">
-          {/* Left circle */}
-          <div 
-            className={`
-              w-2 h-2 rounded-full border-2 transition-all duration-150 shrink-0
-              ${isActive 
-                ? 'bg-primary border-primary scale-110' 
-                : 'bg-transparent border-primary/40'
-              }
-            `}
-          />
-          {/* Line */}
-          <div 
-            className={`
-              flex-1 h-0.5 transition-all duration-150
-              ${isActive 
-                ? 'bg-primary' 
-                : 'bg-primary/30'
-              }
-            `}
-          />
-          {/* Right circle */}
-          <div 
-            className={`
-              w-2 h-2 rounded-full border-2 transition-all duration-150 shrink-0
-              ${isActive 
-                ? 'bg-primary border-primary scale-110' 
-                : 'bg-transparent border-primary/40'
-              }
-            `}
-          />
-        </div>
-      )}
+      {/* Visual indicator - only visible on hover */}
+      <div 
+        className={`
+          absolute left-2 right-2 top-1/2 -translate-y-1/2 
+          flex items-center transition-opacity duration-150
+          ${isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}
+        `}
+      >
+        <div className="w-2 h-2 rounded-full bg-primary border-2 border-primary shrink-0" />
+        <div className="flex-1 h-0.5 bg-primary" />
+        <div className="w-2 h-2 rounded-full bg-primary border-2 border-primary shrink-0" />
+      </div>
     </div>
   );
 };
