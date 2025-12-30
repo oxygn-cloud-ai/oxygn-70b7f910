@@ -356,14 +356,8 @@ const ActionNodeSettings = ({
                           Full Templates (Auto-Configure)
                         </div>
                         {fullTemplates.map((template) => (
-                          <SelectItem key={template.row_id} value={template.row_id}>
-                            <div className="flex items-center gap-2">
-                              <Sparkles className="h-3 w-3 text-primary" />
-                              <span>{template.schema_name}</span>
-                              <Badge variant="outline" className="text-[9px] px-1">
-                                {template.node_config?.post_action?.replace('create_children_', '')}
-                              </Badge>
-                            </div>
+                          <SelectItem key={template.row_id} value={template.row_id} textValue={template.schema_name}>
+                            <span>{template.schema_name}</span>
                           </SelectItem>
                         ))}
                       </>
@@ -376,16 +370,8 @@ const ActionNodeSettings = ({
                           Schema Templates
                         </div>
                         {schemaOnlyTemplates.map((template) => (
-                          <SelectItem key={template.row_id} value={template.row_id}>
-                            <div className="flex items-center gap-2">
-                              <Braces className="h-3 w-3 text-on-surface-variant" />
-                              <span>{template.schema_name}</span>
-                              {template.category && (
-                                <Badge variant="outline" className="text-[9px] px-1">
-                                  {template.category}
-                                </Badge>
-                              )}
-                            </div>
+                          <SelectItem key={template.row_id} value={template.row_id} textValue={template.schema_name}>
+                            <span>{template.schema_name}</span>
                           </SelectItem>
                         ))}
                       </>
@@ -395,11 +381,8 @@ const ActionNodeSettings = ({
                     <div className="px-2 py-1.5 text-label-sm font-semibold text-on-surface-variant mt-1">
                       Other
                     </div>
-                    <SelectItem value="_custom">
-                      <div className="flex items-center gap-2">
-                        <Braces className="h-3 w-3" />
-                        <span>Custom Schema</span>
-                      </div>
+                    <SelectItem value="_custom" textValue="Custom Schema">
+                      <span>Custom Schema</span>
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -455,10 +438,8 @@ const ActionNodeSettings = ({
               <SelectValue placeholder="Select an action..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">
-                <div className="flex items-center gap-2">
-                  <span className="text-on-surface-variant">None</span>
-                </div>
+              <SelectItem value="_none" textValue="None">
+                <span className="text-on-surface-variant">None</span>
               </SelectItem>
               
               {Object.entries(groupedActions).map(([categoryId, actions]) => {
@@ -469,11 +450,8 @@ const ActionNodeSettings = ({
                       {category?.label || categoryId}
                     </div>
                     {actions.map((action) => (
-                      <SelectItem key={action.id} value={action.id}>
-                        <div className="flex items-center gap-2">
-                          {renderActionIcon(action.icon)}
-                          <span>{action.name}</span>
-                        </div>
+                      <SelectItem key={action.id} value={action.id} textValue={action.name}>
+                        <span>{action.name}</span>
                       </SelectItem>
                     ))}
                   </React.Fragment>
