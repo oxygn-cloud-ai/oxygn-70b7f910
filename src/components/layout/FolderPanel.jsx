@@ -328,11 +328,18 @@ const TreeItem = ({
         onClick={handleRowClick}
         onMouseEnter={(e) => {
           setIsHovered(true);
-          const rect = e.currentTarget.getBoundingClientRect();
           setMenuPosition({
-            top: rect.top + rect.height / 2,
-            left: rect.right + 8
+            top: e.clientY,
+            left: e.clientX + 16
           });
+        }}
+        onMouseMove={(e) => {
+          if (isHovered) {
+            setMenuPosition({
+              top: e.clientY,
+              left: e.clientX + 16
+            });
+          }
         }}
         onMouseLeave={() => setIsHovered(false)}
         className={`
