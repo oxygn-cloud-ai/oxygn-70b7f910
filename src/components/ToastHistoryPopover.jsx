@@ -104,7 +104,7 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
       details: notification.details || null,
       errorCode: notification.errorCode || null,
       source: notification.source || null,
-      stackTrace: notification.stackTrace || null,
+      callStack: notification.callStack || null,
     };
     const success = await onCopy(JSON.stringify(data, null, 2));
     showFeedback(success ? 'Copied!' : 'Failed');
@@ -215,15 +215,15 @@ const NotificationDetail = ({ notification, onBack, onCopy, onRemove }) => {
             </div>
           )}
 
-          {/* Stack Trace */}
-          {notification.stackTrace && (
+          {/* Call Stack */}
+          {notification.callStack && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Stack Trace</label>
-                <InlineCopyIcon onClick={() => handleCopyField('Stack trace', notification.stackTrace)} tooltip="Copy stack trace" />
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">Call Stack</label>
+                <InlineCopyIcon onClick={() => handleCopyField('Call stack', notification.callStack)} tooltip="Copy call stack" />
               </div>
               <pre className="text-[10px] bg-muted p-2 rounded font-mono overflow-x-auto whitespace-pre-wrap break-words max-h-40 text-muted-foreground">
-                {notification.stackTrace}
+                {notification.callStack}
               </pre>
             </div>
           )}

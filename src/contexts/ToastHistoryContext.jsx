@@ -16,8 +16,9 @@ export function ToastHistoryProvider({ children }) {
   const [history, setHistory] = useState([]);
 
   const addToHistory = useCallback((variant, title, options = {}) => {
-    // Capture stack trace for all variants for debugging purposes
-    const stackTrace = new Error().stack;
+    // Capture call stack for debugging - strip "Error\n" prefix for cleaner display
+    const rawStack = new Error().stack;
+    const callStack = rawStack?.replace(/^Error\n/, '') || null;
     
     const entry = {
       id: Date.now().toString(),
@@ -25,7 +26,7 @@ export function ToastHistoryProvider({ children }) {
       description: options.description || null,
       variant,
       timestamp: new Date(),
-      stackTrace,
+      callStack,
       details: options.details || null,
       errorCode: options.errorCode || null,
       source: options.source || null,
@@ -38,7 +39,7 @@ export function ToastHistoryProvider({ children }) {
       details: options.details,
       source: options.source,
       errorCode: options.errorCode,
-      stack: stackTrace,
+      callStack,
     });
     
     setHistory(prev => [entry, ...prev]);
@@ -67,7 +68,7 @@ export function ToastHistoryProvider({ children }) {
       details: item.details || null,
       errorCode: item.errorCode || null,
       source: item.source || null,
-      stackTrace: item.stackTrace || null,
+      callStack: item.callStack || null,
     }));
 
     return {
