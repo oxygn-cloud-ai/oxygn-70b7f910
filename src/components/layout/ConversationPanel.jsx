@@ -285,9 +285,9 @@ const ConversationPanel = ({
         ) : displayMessages.length === 0 && !isSending ? (
           <div className="flex flex-col items-center justify-center h-full py-8 text-center">
             <img 
-              src="/head-striped-icon.png" 
+              src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
               alt="Qonsol" 
-              className="h-10 w-10 mb-3 opacity-50"
+              className="h-6 mb-3 opacity-50 dark:brightness-0 dark:invert"
             />
             <p className="text-body-sm text-on-surface-variant">
               {usePromptFamilyMode 
