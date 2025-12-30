@@ -18,7 +18,7 @@ import { useConfluencePages } from "@/hooks/useConfluencePages";
 import VariablesTabContent from "./VariablesTabContent";
 import FilesPagesSection from "@/components/FilesPagesSection";
 import ConfluencePagesSection from "@/components/ConfluencePagesSection";
-import { VariablePicker } from "@/components/shared";
+
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
