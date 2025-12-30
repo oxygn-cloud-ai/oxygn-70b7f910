@@ -931,6 +931,16 @@ const MainLayout = () => {
                       // Templates props for Phase 8-9
                       templatesHook={templatesHook}
                       jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+                      onEditSchema={(schemaId) => {
+                        // Navigate to templates and select the schema
+                        setActiveNav('templates');
+                        setActiveSubItem('schemas');
+                        // Find and select the schema template
+                        const schema = jsonSchemaTemplatesHook?.templates?.find(t => t.row_id === schemaId);
+                        if (schema) {
+                          setSelectedTemplate(schema);
+                        }
+                      }}
                     />
                   </motion.div>
                 </ResizablePanel>
