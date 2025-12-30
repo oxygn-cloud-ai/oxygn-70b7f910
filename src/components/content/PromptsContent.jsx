@@ -6,7 +6,7 @@ import {
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 
   Download, MoreVertical, Star, Trash2, Share2, Link2, 
   Hash, List, Braces, ToggleLeft, Library, ChevronDown, 
-  Search, Plus, PanelRightOpen, Workflow, Bot, Thermometer,
+  Search, Plus, PanelRightOpen, PanelLeftOpen, Workflow, Bot, Thermometer,
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
@@ -1188,6 +1188,8 @@ const PromptsContent = ({
   onExport, 
   onToggleConversation, 
   conversationPanelOpen = true,
+  onToggleFolderPanel,
+  folderPanelOpen = true,
   models = [],
   schemas = [],
   libraryItems = [],
@@ -1247,19 +1249,33 @@ const PromptsContent = ({
   if (!hasSelection) {
     return (
       <div className="flex-1 flex flex-col min-h-0 overflow-auto bg-surface">
-        {/* Header with toggle button when conversation panel is closed */}
-        {!conversationPanelOpen && onToggleConversation && (
-          <div className="h-14 flex items-center justify-end px-3 border-b border-outline-variant shrink-0">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <PanelRightOpen className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Show Conversation</TooltipContent>
-            </Tooltip>
+        {/* Header with toggle buttons */}
+        <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
+          <div>
+            {!folderPanelOpen && onToggleFolderPanel && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={onToggleFolderPanel} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                    <PanelLeftOpen className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Show folders</TooltipContent>
+              </Tooltip>
+            )}
           </div>
-        )}
+          <div>
+            {!conversationPanelOpen && onToggleConversation && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                    <PanelRightOpen className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Show chat</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-on-surface-variant">
             <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
