@@ -207,11 +207,6 @@ const ConversationPanel = ({
         className="h-14 flex items-center justify-between px-3 border-b border-outline-variant gap-3"
         style={{ height: "56px" }}
       >
-        <img 
-          src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
-          alt="Qonsol" 
-          className="h-5 shrink-0 dark:brightness-0 dark:invert"
-        />
         <div className="flex-1 min-w-0">
           {usePromptFamilyMode ? (
             <div className="flex items-center gap-2">
