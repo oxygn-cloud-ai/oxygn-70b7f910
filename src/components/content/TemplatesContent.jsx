@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
-import { VariablePicker } from "@/components/shared";
+import { VariablePicker, VariablePicker as MockupVariablePicker } from "@/components/shared";
 
 // Source options for variable mappings
 const SOURCE_OPTIONS = [
