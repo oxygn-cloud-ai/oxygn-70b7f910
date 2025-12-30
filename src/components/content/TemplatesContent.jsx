@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useModels } from '@/hooks/useModels';
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
@@ -303,6 +303,9 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
 
   const [temperature, setTemperature] = useState([templateData?.structure?.temperature || 0.7]);
   const [maxTokens, setMaxTokens] = useState(templateData?.structure?.max_tokens || String(modelConfig.maxTokens));
+  
+  // Debounce ref for slider saves
+  const sliderDebounceRef = useRef({});
 
   // Update max tokens when model changes
   useEffect(() => {
@@ -316,6 +319,21 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
     const newConfig = getModelConfig(modelId);
     setMaxTokens(String(newConfig.maxTokens));
     onUpdateField?.(`structure.${newConfig.tokenParam}`, String(newConfig.maxTokens));
+  };
+  
+  // Debounced slider change handler
+  const handleDebouncedSliderChange = (field, value, setter) => {
+    setter(value);
+    
+    // Clear existing debounce timer
+    if (sliderDebounceRef.current[field]) {
+      clearTimeout(sliderDebounceRef.current[field]);
+    }
+    
+    // Set new debounce timer (500ms delay)
+    sliderDebounceRef.current[field] = setTimeout(() => {
+      onUpdateField?.(field, value[0]);
+    }, 500);
   };
 
   // Get display name for current model
@@ -339,10 +357,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           </div>
           <Slider
             value={temperature}
-            onValueChange={(v) => {
-              setTemperature(v);
-              onUpdateField?.('structure.temperature', v[0]);
-            }}
+            onValueChange={(v) => handleDebouncedSliderChange('structure.temperature', v, setTemperature)}
             max={2}
             step={0.1}
             className="w-full"

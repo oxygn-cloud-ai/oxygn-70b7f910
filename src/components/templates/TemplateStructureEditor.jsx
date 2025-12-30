@@ -665,6 +665,9 @@ const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, a
  * Model settings section
  */
 const ModelSettingsSection = ({ node, onUpdate, models }) => {
+  // Debounce ref for slider values
+  const sliderDebounceRef = React.useRef({});
+
   const SettingRow = ({ label, field, type = 'text', min, max, step, options }) => {
     const isOn = node[`${field}_on`] || false;
     const value = node[field];
@@ -675,6 +678,22 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
 
     const handleValueChange = (newValue) => {
       onUpdate({ [field]: newValue });
+    };
+
+    // Debounced slider change handler
+    const handleSliderChange = ([v]) => {
+      // Update local display immediately
+      onUpdate({ [field]: String(v) });
+      
+      // Clear existing debounce timer
+      if (sliderDebounceRef.current[field]) {
+        clearTimeout(sliderDebounceRef.current[field]);
+      }
+      
+      // Set new debounce timer (500ms delay) - onUpdate already handles the save
+      sliderDebounceRef.current[field] = setTimeout(() => {
+        // The update already happened, this is just to batch rapid changes
+      }, 500);
     };
 
     return (
@@ -693,7 +712,7 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
                 min={min}
                 max={max}
                 step={step}
-                onValueChange={([v]) => handleValueChange(String(v))}
+                onValueChange={handleSliderChange}
                 className="flex-1"
               />
               <span className="text-xs text-muted-foreground w-10 text-right">{value || min}</span>
