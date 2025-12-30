@@ -71,7 +71,7 @@ const FilesPagesSection = ({
         <CardContent className="py-6">
           <div className="flex flex-col items-center justify-center text-center space-y-2">
             <FileText className="h-8 w-8 text-on-surface-variant" />
-            <p className="text-body-sm text-on-surface-variant">
+            <p className="text-tree text-on-surface-variant">
               Enable Conversation Mode to attach files.
             </p>
             <p className="text-[10px] text-on-surface-variant">

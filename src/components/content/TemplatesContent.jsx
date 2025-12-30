@@ -1070,11 +1070,11 @@ const TemplatesContent = ({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-surface-container-high border-outline-variant">
-              <DropdownMenuItem className="text-body-sm"><Star className="h-3.5 w-3.5 mr-2" /> Star</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDuplicate} className="text-body-sm"><Copy className="h-3.5 w-3.5 mr-2" /> Duplicate</DropdownMenuItem>
-              <DropdownMenuItem className="text-body-sm"><Share2 className="h-3.5 w-3.5 mr-2" /> Share</DropdownMenuItem>
+              <DropdownMenuItem className="text-tree"><Star className="h-3.5 w-3.5 mr-2" /> Star</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDuplicate} className="text-tree"><Copy className="h-3.5 w-3.5 mr-2" /> Duplicate</DropdownMenuItem>
+              <DropdownMenuItem className="text-tree"><Share2 className="h-3.5 w-3.5 mr-2" /> Share</DropdownMenuItem>
               <DropdownMenuSeparator className="bg-outline-variant" />
-              <DropdownMenuItem onClick={handleDelete} className="text-body-sm text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" /> Delete</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDelete} className="text-tree text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" /> Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

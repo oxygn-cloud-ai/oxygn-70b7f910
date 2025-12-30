@@ -89,7 +89,7 @@ const LabelPicker = React.forwardRef(({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search labels..."
-              className="w-full h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-tree text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary"
               autoFocus
             />
           </div>

@@ -57,7 +57,7 @@ export function SearchFilter({
             <Button 
               variant="ghost" 
               size="sm" 
-              className={`h-8 gap-1.5 text-xs ${filterType !== 'all' ? '!text-primary !bg-transparent' : '!text-muted-foreground hover:!text-foreground'} hover:!bg-muted/50`}
+              className={`h-8 gap-1.5 text-tree ${filterType !== 'all' ? '!text-primary !bg-transparent' : '!text-muted-foreground hover:!text-foreground'} hover:!bg-muted/50`}
             >
               <Filter className="h-3 w-3" />
               <span className="hidden sm:inline">{activeFilter?.label}</span>
@@ -68,7 +68,7 @@ export function SearchFilter({
               <React.Fragment key={option.value}>
                 <DropdownMenuItem
                   onClick={() => onFilterChange(option.value)}
-                  className={`text-xs ${filterType === option.value ? 'bg-primary/10 text-primary' : ''}`}
+                  className={`text-tree ${filterType === option.value ? 'bg-primary/10 text-primary' : ''}`}
                 >
                   {option.label}
                 </DropdownMenuItem>
