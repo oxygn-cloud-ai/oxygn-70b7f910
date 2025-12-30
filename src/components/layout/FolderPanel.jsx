@@ -337,20 +337,17 @@ const TreeItem = ({
         `}
         style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
       >
-        {/* Multi-select checkbox - shown only in multi-select mode */}
-        {isMultiSelectMode && (
-          <div onClick={handleCheckboxClick} className="flex-shrink-0">
-            <Checkbox
-              checked={isSelected}
-              className="h-3.5 w-3.5 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-            />
-          </div>
-        )}
+        {/* Selection checkbox - always visible, grey when unselected, pink when selected */}
+        <div onClick={handleCheckboxClick} className="flex-shrink-0">
+          {isSelected ? (
+            <CheckSquare className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <Square className="h-3.5 w-3.5 text-on-surface-variant/40 hover:text-on-surface-variant transition-colors" />
+          )}
+        </div>
         
-        {/* Drag handle - only on hover (hidden in multi-select mode) */}
-        {!isMultiSelectMode && (
-          <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
-        )}
+        {/* Drag handle - only on hover */}
+        <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered && !isMultiSelectMode ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
         
         {/* Expand/collapse chevron - show for all items, greyed out when no children */}
         <button 
@@ -412,8 +409,8 @@ const TreeItem = ({
           onIconSelect={handleIconSelect}
         />
         
-        {/* Hover actions or status icons - hidden in multi-select mode */}
-        {!isMultiSelectMode && isHovered ? (
+        {/* Hover actions or status icons */}
+        {isHovered && !isMultiSelectMode ? (
           <div className="flex items-center gap-0.5">
             <IconButton 
               icon={Star} 
@@ -456,17 +453,13 @@ const TreeItem = ({
             />
             <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id, label)} />
           </div>
-        ) : !isMultiSelectMode ? (
+        ) : (
           <div className="flex items-center gap-0.5">
             {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
             {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
             {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
           </div>
-        ) : isSelected ? (
-          <div className="flex items-center">
-            <CheckSquare className="h-3 w-3 text-primary" />
-          </div>
-        ) : null}
+        )}
       </div>
       
       {/* Drop indicator when hovering - shows "drop to make child" hint */}
