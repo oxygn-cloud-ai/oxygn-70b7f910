@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchActiveModels, resolveApiModelId, getDefaultModelFromSettings } from "../_shared/models.ts";
+import { loadQonsolKnowledge, getQonsolHelpTool, handleQonsolHelpToolCall } from "../_shared/knowledge.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,8 +53,14 @@ function getWorkbenchTools(config: {
   hasLibrary: boolean;
   hasConfluence: boolean;
   hasFiles: boolean;
+  hasKnowledge: boolean;
 }) {
   const tools: any[] = [];
+
+  // Qonsol Help tool
+  if (config.hasKnowledge) {
+    tools.push(getQonsolHelpTool());
+  }
 
   // Prompt tools
   if (config.hasPrompts) {
@@ -437,6 +444,10 @@ async function handleToolCall(
         });
       }
 
+      case 'search_qonsol_help': {
+        return await handleQonsolHelpToolCall(args, supabase);
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
@@ -523,17 +534,28 @@ serve(async (req) => {
     // Check what resources are available
     const hasThread = !!thread_row_id;
     
+    // Load Qonsol knowledge for the system prompt
+    const knowledge = await loadQonsolKnowledge(supabase, ['overview', 'prompts', 'workbench', 'troubleshooting']);
+    
     // Get tool configuration
     const tools = getWorkbenchTools({
       hasPrompts: true,
       hasLibrary: true,
       hasConfluence: hasThread,
-      hasFiles: hasThread
+      hasFiles: hasThread,
+      hasKnowledge: true
     });
 
-    // Build messages array with system prompt
+    // Build messages array with system prompt including knowledge
+    const enhancedSystemContent = `${systemContent}
+
+## Qonsol Knowledge Base
+${knowledge}
+
+Use the search_qonsol_help tool to find more specific information about Qonsol features.`;
+
     const apiMessages = [
-      { role: 'system', content: systemContent },
+      { role: 'system', content: enhancedSystemContent },
       ...messages
     ];
 
