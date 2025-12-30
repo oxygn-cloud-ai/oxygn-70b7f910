@@ -62,7 +62,7 @@ const CascadeProgressBar = ({
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-4 text-[11px] text-on-surface-variant">
+        <div className="flex items-center gap-4 text-tree text-on-surface-variant">
           <span>{completedPrompts}/{totalPrompts} prompts</span>
           {skippedPrompts > 0 && (
             <Tooltip>
@@ -83,7 +83,7 @@ const CascadeProgressBar = ({
         </div>
 
         {/* Current Prompt */}
-        <div className="flex items-center gap-2 text-[11px]">
+        <div className="flex items-center gap-2 text-tree">
           <ChevronRight className="h-3 w-3 text-on-surface-variant" />
           <span className="text-on-surface truncate max-w-32">{currentPromptName}</span>
         </div>
@@ -167,7 +167,7 @@ const CascadeErrorDialog = ({
             <p className="text-body-sm text-destructive">{errorMessage}</p>
           </div>
 
-          <p className="text-[11px] text-on-surface-variant">{suggestions[errorType]}</p>
+          <p className="text-tree text-on-surface-variant">{suggestions[errorType]}</p>
         </div>
 
         {/* Actions */}
@@ -304,7 +304,7 @@ const ToolActivityIndicator = ({ tools, isExecuting }) => {
           return (
             <div 
               key={`${tool.name}-${index}`}
-              className={`flex items-center gap-2 text-[11px] py-1 px-2 rounded-m3-sm ${
+              className={`flex items-center gap-2 text-tree py-1 px-2 rounded-m3-sm ${
                 isComplete ? "bg-surface/50" : "bg-surface"
               }`}
             >
@@ -451,7 +451,7 @@ const ResourcesPanel = ({
               <div className="p-2 bg-primary/5 rounded-m3-sm border border-primary/20">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Loader2 className="h-3 w-3 text-primary animate-spin" />
-                  <span className="text-[11px] text-on-surface">Uploading file...</span>
+                  <span className="text-tree text-on-surface">Uploading file...</span>
                 </div>
                 <Progress value={50} className="h-1.5" />
               </div>
@@ -503,7 +503,7 @@ const ResourcesPanel = ({
             {!isLoadingFiles && files.length === 0 && (
               <div className="text-center py-4 text-on-surface-variant">
                 <Paperclip className="h-6 w-6 mx-auto opacity-30 mb-1" />
-                <p className="text-[11px]">No files attached</p>
+                <p className="text-tree">No files attached</p>
               </div>
             )}
 
@@ -584,7 +584,7 @@ const ResourcesPanel = ({
               ) : pages.length === 0 ? (
                 <div className="text-center py-4 text-on-surface-variant">
                   <Link2 className="h-6 w-6 mx-auto opacity-30 mb-1" />
-                  <p className="text-[11px]">No pages linked</p>
+                  <p className="text-tree">No pages linked</p>
                   <p className="text-[10px] opacity-70">Search above to link pages</p>
                 </div>
               ) : (
@@ -680,7 +680,7 @@ const ResourcesPanel = ({
               ) : filteredLibrary.length === 0 ? (
                 <div className="text-center py-4 text-on-surface-variant">
                   <BookOpen className="h-6 w-6 mx-auto opacity-30 mb-1" />
-                  <p className="text-[11px]">{librarySearch ? 'No matches found' : 'Library empty'}</p>
+                  <p className="text-tree">{librarySearch ? 'No matches found' : 'Library empty'}</p>
                 </div>
               ) : (
                 filteredLibrary.map(prompt => (

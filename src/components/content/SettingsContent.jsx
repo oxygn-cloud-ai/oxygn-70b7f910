@@ -795,9 +795,9 @@ const ConversationsSection = () => {
                       </Tooltip>
                     )}
                   </div>
-                  <span className="text-[11px] text-on-surface-variant truncate">{conv.model_override || conv.model || '-'}</span>
-                  <span className="text-[11px] text-on-surface-variant truncate">{conv.prompt_name || "-"}</span>
-                  <span className="text-[11px] text-on-surface-variant">{formatDate(conv.created_at)}</span>
+                  <span className="text-tree text-on-surface-variant truncate">{conv.model_override || conv.model || '-'}</span>
+                  <span className="text-tree text-on-surface-variant truncate">{conv.prompt_name || "-"}</span>
+                  <span className="text-tree text-on-surface-variant">{formatDate(conv.created_at)}</span>
                 </div>
               ))}
             </div>
@@ -1213,13 +1213,13 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
                       <div className="flex gap-2">
                         <button
                           onClick={() => setDeleteConfirm(null)}
-                          className="px-2 h-6 text-[11px] text-on-surface-variant hover:bg-on-surface/[0.08] rounded"
+                          className="px-2 h-6 text-tree text-on-surface-variant hover:bg-on-surface/[0.08] rounded"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => handleDelete(model.row_id)}
-                          className="px-2 h-6 text-[11px] bg-red-500 text-white rounded hover:bg-red-600"
+                          className="px-2 h-6 text-tree bg-red-500 text-white rounded hover:bg-red-600"
                         >
                           Delete
                         </button>
@@ -1230,7 +1230,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
                   {/* Expanded Settings Panel */}
                   {isExpanded && (
                     <div className="px-3 py-3 bg-surface-container-low border-t border-outline-variant">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[11px]">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-tree">
                         <div>
                           <span className="text-on-surface-variant">Context Window:</span>
                           <span className="text-on-surface ml-1 font-medium">{model.context_window ? formatTokens(model.context_window) : 'Not set'}</span>
@@ -1338,7 +1338,7 @@ const APIKeysSection = ({ settings = {} }) => {
                 </div>
               </div>
               {showKey[apiKey.id] && apiKey.configured && (
-                <code className="block mt-1 text-[11px] text-on-surface-variant font-mono px-2">
+                <code className="block mt-1 text-tree text-on-surface-variant font-mono px-2">
                   •••••••••••••••••••••
                 </code>
               )}
@@ -1392,7 +1392,7 @@ const ThemeSection = () => {
               }`}
             >
               <option.icon className={`h-5 w-5 ${theme === option.id ? "text-secondary-container-foreground" : "text-on-surface-variant"}`} />
-              <span className={`text-[11px] ${theme === option.id ? "text-secondary-container-foreground font-medium" : "text-on-surface-variant"}`}>
+              <span className={`text-tree ${theme === option.id ? "text-secondary-container-foreground font-medium" : "text-on-surface-variant"}`}>
                 {option.label}
               </span>
               {theme === option.id && <Check className="h-3.5 w-3.5 text-secondary-container-foreground" />}

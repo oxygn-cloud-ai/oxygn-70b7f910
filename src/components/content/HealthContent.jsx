@@ -76,28 +76,28 @@ const OverviewSection = ({ healthData, isLoading }) => {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <HealthCard icon={Database} title="Database" status={healthData.database.status}>
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-tree">
             <span className="text-on-surface-variant">Status</span>
             <span className="text-on-surface">{healthData.database.message}</span>
           </div>
         </HealthCard>
 
         <HealthCard icon={Zap} title="AI Services" status={healthData.openai.connection.status}>
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-tree">
             <span className="text-on-surface-variant">Latency</span>
             <span className="text-on-surface">{healthData.openai.connection.latency ? `${healthData.openai.connection.latency}ms` : 'N/A'}</span>
           </div>
         </HealthCard>
 
         <HealthCard icon={Shield} title="Authentication" status={healthData.auth.status}>
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-tree">
             <span className="text-on-surface-variant">User</span>
             <span className="text-on-surface truncate max-w-32">{healthData.auth.user?.email || 'Not logged in'}</span>
           </div>
         </HealthCard>
 
         <HealthCard icon={Globe} title="Edge Functions" status={healthData.openai.connection.status}>
-          <div className="flex items-center justify-between text-[11px]">
+          <div className="flex items-center justify-between text-tree">
             <span className="text-on-surface-variant">Status</span>
             <span className="text-on-surface">{healthData.openai.connection.message}</span>
           </div>
@@ -125,7 +125,7 @@ const DatabaseSection = ({ healthData, isLoading }) => {
           <span className="text-label-sm text-on-surface font-medium">Connection</span>
           <StatusBadge status={healthData.database.status} />
         </div>
-        <p className="text-[11px] text-on-surface-variant">{healthData.database.message}</p>
+        <p className="text-tree text-on-surface-variant">{healthData.database.message}</p>
       </div>
       
       <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
@@ -171,9 +171,9 @@ const AIServicesSection = ({ healthData, isLoading }) => {
           <span className="text-label-sm text-on-surface font-medium">OpenAI Connection</span>
           <StatusBadge status={healthData.openai?.connection?.status || 'pending'} />
         </div>
-        <p className="text-[11px] text-on-surface-variant">{healthData.openai?.connection?.message}</p>
+        <p className="text-tree text-on-surface-variant">{healthData.openai?.connection?.message}</p>
         {healthData.openai?.connection?.latency && (
-          <p className="text-[11px] text-on-surface-variant mt-1">Latency: {healthData.openai.connection.latency}ms</p>
+          <p className="text-tree text-on-surface-variant mt-1">Latency: {healthData.openai.connection.latency}ms</p>
         )}
       </div>
       
@@ -219,7 +219,7 @@ const AuthStatusSection = ({ healthData, isLoading }) => {
             <h4 className="text-body-sm text-on-surface font-medium">
               {isAuthenticated ? 'Authenticated' : 'Not Authenticated'}
             </h4>
-            <p className="text-[11px] text-on-surface-variant">{healthData.auth?.message}</p>
+            <p className="text-tree text-on-surface-variant">{healthData.auth?.message}</p>
           </div>
         </div>
 
@@ -271,7 +271,7 @@ const APIHealthSection = ({ healthData, isLoading }) => {
             <div className="flex justify-center">
               <StatusBadge status={healthData.openai?.connection?.status || 'pending'} />
             </div>
-            <span className="text-[11px] text-on-surface-variant text-right truncate">
+            <span className="text-tree text-on-surface-variant text-right truncate">
               {healthData.openai?.connection?.message || 'Checking...'}
             </span>
           </div>
@@ -314,7 +314,7 @@ const EnvironmentSection = ({ healthData, isLoading }) => {
                 {envVar.isSet ? 'Set' : 'Missing'}
               </span>
             </div>
-            <span className="text-[11px] text-on-surface-variant font-mono">{envVar.value}</span>
+            <span className="text-tree text-on-surface-variant font-mono">{envVar.value}</span>
           </div>
         ))}
       </div>

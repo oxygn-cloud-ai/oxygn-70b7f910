@@ -75,7 +75,7 @@ const MessageBubble = ({ message, userProfile, conversationName, onRegenerate })
       <div className="flex-1 min-w-0 space-y-0.5">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-foreground">
+          <span className="text-tree font-semibold text-foreground">
             {isUser ? (userProfile?.display_name || 'You') : (conversationName || 'AI')}
           </span>
           {timestamp && (

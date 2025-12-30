@@ -105,7 +105,7 @@ const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], o
                   onClick={() => handleSelect(v.name)}
                   className={`w-full flex items-center px-3 py-1.5 text-body-sm hover:bg-on-surface/[0.08] ${v.name === varName ? 'text-primary' : 'text-on-surface'}`}
                 >
-                  <code className="font-mono text-[11px]">{v.name}</code>
+                  <code className="font-mono text-tree">{v.name}</code>
                 </button>
               ))}
             </div>
@@ -122,7 +122,7 @@ const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], o
                   onClick={() => handleSelect(v.name)}
                   className={`w-full flex items-center px-3 py-1.5 text-body-sm hover:bg-on-surface/[0.08] ${v.name === varName ? 'text-primary' : 'text-on-surface'}`}
                 >
-                  <code className="font-mono text-[11px]">{v.name}</code>
+                  <code className="font-mono text-tree">{v.name}</code>
                 </button>
               ))}
             </div>
@@ -212,7 +212,7 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
         <DropdownMenuSeparator className="bg-outline-variant" />
         <div className="max-h-40 overflow-auto">
           {filteredPrompts.length === 0 ? (
-            <p className="text-[11px] text-on-surface-variant py-2 px-2 text-center">
+            <p className="text-tree text-on-surface-variant py-2 px-2 text-center">
               {libraryItems.length === 0 ? "No library items" : "No matches"}
             </p>
           ) : (

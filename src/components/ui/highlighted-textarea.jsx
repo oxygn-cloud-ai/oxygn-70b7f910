@@ -629,13 +629,13 @@ const HighlightedTextarea = React.forwardRef(({
         >
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] text-primary bg-primary/10 px-1 rounded">
+              <span className="font-mono text-tree text-primary bg-primary/10 px-1 rounded">
                 {`{{${hoveredVar.name}}}`}
               </span>
               <span className="text-[10px] text-on-surface-variant">{hoveredVar.type}</span>
             </div>
             {hoveredVar.description && (
-              <p className="text-[11px] text-on-surface-variant">{hoveredVar.description}</p>
+              <p className="text-tree text-on-surface-variant">{hoveredVar.description}</p>
             )}
             {hoveredVar.value && (
               <p className="text-[10px] text-on-surface-variant/70">Value: {hoveredVar.value}</p>
@@ -660,7 +660,7 @@ const HighlightedTextarea = React.forwardRef(({
           {/* Current variable info */}
           <div className="p-2 border-b border-outline-variant bg-surface-container-low">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-[11px] text-primary bg-primary/10 px-1 rounded">
+              <span className="font-mono text-tree text-primary bg-primary/10 px-1 rounded">
                 {`{{${clickedVarInfo.name}}}`}
               </span>
               <span className="text-[10px] text-on-surface-variant">{clickedVarInfo.info?.type}</span>
@@ -687,7 +687,7 @@ const HighlightedTextarea = React.forwardRef(({
                   }}
                 >
                   <span className={cn(
-                    "font-mono text-[11px] px-1 rounded",
+                    "font-mono text-tree px-1 rounded",
                     variable.isSystem ? "bg-primary/20 text-primary" : "bg-secondary text-secondary-foreground"
                   )}>
                     {variable.name}

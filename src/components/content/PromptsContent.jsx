@@ -572,7 +572,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
             <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
               <div className="flex items-center gap-1.5">
                 <tool.icon className="h-3.5 w-3.5 text-on-surface-variant" />
-                <span className="text-[11px] text-on-surface">{tool.label}</span>
+                <span className="text-tree text-on-surface">{tool.label}</span>
               </div>
               <Switch 
                 checked={promptData?.[tool.key] || false}

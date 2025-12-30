@@ -445,7 +445,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
             <div key={tool.label} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
               <div className="flex items-center gap-1.5">
                 <tool.icon className="h-3.5 w-3.5 text-on-surface-variant" />
-                <span className="text-[11px] text-on-surface">{tool.label}</span>
+                <span className="text-tree text-on-surface">{tool.label}</span>
               </div>
               <Switch 
                 checked={templateData?.structure?.[tool.key] || false}
@@ -782,7 +782,7 @@ const MappingRow = ({ mapping }) => {
         </span>
         
         {mapping.value && (
-          <code className="text-[11px] text-on-surface-variant font-mono truncate">
+          <code className="text-tree text-on-surface-variant font-mono truncate">
             {mapping.value}
           </code>
         )}
@@ -1197,7 +1197,7 @@ const TemplatesContent = ({
         {activeTemplateTab === "schemas" && activeEditorTab === "preview" && (
           <div className="space-y-3 max-w-2xl">
             <span className="text-label-sm text-on-surface-variant uppercase">Sample Output</span>
-            <div className="p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[11px] text-on-surface whitespace-pre overflow-auto">
+            <div className="p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-tree text-on-surface whitespace-pre overflow-auto">
 {`{
   "action": "example_action",
   "data": {}

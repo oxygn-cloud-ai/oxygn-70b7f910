@@ -1115,7 +1115,7 @@ const FolderPanel = ({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => onAddPrompt?.(null)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] text-on-primary bg-primary hover:bg-primary/90 rounded-m3-sm transition-colors shadow-sm"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-tree text-on-primary bg-primary hover:bg-primary/90 rounded-m3-sm transition-colors shadow-sm"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Create Prompt

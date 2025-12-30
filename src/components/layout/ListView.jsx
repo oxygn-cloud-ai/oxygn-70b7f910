@@ -108,11 +108,8 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar
         {prompt.prompt_name || prompt.name || "Unnamed"}
       </span>
 
-      {/* Preview - 11px */}
-      <span 
-        className="flex-1 truncate text-label-md text-on-surface-variant"
-        style={{ fontSize: "11px" }}
-      >
+      {/* Preview */}
+      <span className="flex-1 truncate text-tree text-on-surface-variant">
         {prompt.input_admin_prompt?.slice(0, 80) || prompt.preview || "No description"}
       </span>
 

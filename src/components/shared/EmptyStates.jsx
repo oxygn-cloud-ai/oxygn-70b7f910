@@ -209,7 +209,7 @@ export const WelcomeChat = () => (
       {["Analyze data", "Draft content", "Code review", "Brainstorm"].map(suggestion => (
         <button 
           key={suggestion}
-          className="px-3 py-1.5 text-[11px] bg-surface-container-low border border-outline-variant rounded-m3-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
+          className="px-3 py-1.5 text-tree bg-surface-container-low border border-outline-variant rounded-m3-full text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
         >
           {suggestion}
         </button>
