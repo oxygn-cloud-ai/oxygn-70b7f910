@@ -6,11 +6,11 @@ import {
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 
   Download, MoreVertical, Star, Trash2, Share2, Link2, 
   Hash, List, Braces, ToggleLeft, Library, ChevronDown, 
-  Search, Plus, PanelRightOpen, PanelLeftOpen, Workflow, Bot, Thermometer,
+  Search, Plus, PanelRightOpen, PanelLeftOpen, PanelLeftClose, Workflow, Bot, Thermometer,
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
-  Paperclip, Upload, Square, Target
+  Paperclip, Upload, Square, Target, Minimize2
 } from "lucide-react";
 import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
@@ -1190,6 +1190,8 @@ const PromptsContent = ({
   conversationPanelOpen = true,
   onToggleFolderPanel,
   folderPanelOpen = true,
+  onToggleReadingPane,
+  readingPaneOpen = true,
   models = [],
   schemas = [],
   libraryItems = [],
@@ -1360,6 +1362,17 @@ const PromptsContent = ({
             onChange={handleFileUpload} 
             disabled={isUploading} 
           />
+          
+          {onToggleReadingPane && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={onToggleReadingPane} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Minimize2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Hide prompt panel</TooltipContent>
+            </Tooltip>
+          )}
           
           {!conversationPanelOpen && onToggleConversation && (
             <Tooltip>

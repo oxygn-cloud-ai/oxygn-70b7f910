@@ -846,6 +846,8 @@ const MainLayout = () => {
           onMovePrompt={handleMoveItem}
           onRefresh={refreshTreeData}
           onClose={() => setFolderPanelOpen(false)}
+          onToggleReadingPane={() => setReadingPaneOpen(!readingPaneOpen)}
+          readingPaneOpen={readingPaneOpen}
           onRunPrompt={handleRunPrompt}
           onRunCascade={handleRunCascade}
           onToggleStar={handleToggleStar}
@@ -1072,6 +1074,8 @@ const MainLayout = () => {
                           promptFamilyChat={promptFamilyChat}
                           onCancel={cancelRun}
                           progress={runProgress}
+                          onToggleReadingPane={() => setReadingPaneOpen(!readingPaneOpen)}
+                          readingPaneOpen={readingPaneOpen}
                         />
                       </div>
                     </ResizablePanel>
