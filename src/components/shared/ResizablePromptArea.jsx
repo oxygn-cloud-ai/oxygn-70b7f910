@@ -262,16 +262,49 @@ const ResizablePromptArea = ({
   defaultHeight = MIN_HEIGHT,
   variables = [],
   promptReferences = [],
-  libraryItems = []
+  libraryItems = [],
+  storageKey // Optional key to persist sizing in localStorage
 }) => {
+  // Generate storage key from label if not provided
+  const persistKey = storageKey || (label ? `qonsol-prompt-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
+  
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value || '');
-  const [expandState, setExpandState] = useState('min'); // 'collapsed' | 'min' | 'full'
-  const [manualHeight, setManualHeight] = useState(null);
+  const [expandState, setExpandState] = useState(() => {
+    if (persistKey) {
+      try {
+        const saved = localStorage.getItem(persistKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.expandState || 'min';
+        }
+      } catch {}
+    }
+    return 'min';
+  });
+  const [manualHeight, setManualHeight] = useState(() => {
+    if (persistKey) {
+      try {
+        const saved = localStorage.getItem(persistKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.manualHeight || null;
+        }
+      } catch {}
+    }
+    return null;
+  });
   const textareaRef = useRef(null);
   const contentRef = useRef(null);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [cursorPosition, setCursorPosition] = useState(null);
+  
+  // Persist sizing to localStorage
+  useEffect(() => {
+    if (persistKey) {
+      localStorage.setItem(persistKey, JSON.stringify({ expandState, manualHeight }));
+    }
+  }, [persistKey, expandState, manualHeight]);
 
   // Transform user variables for the picker
   const transformedUserVars = useMemo(() => {
