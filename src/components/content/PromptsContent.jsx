@@ -35,10 +35,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
 import { 
   EmptyVariables, 
+import { 
+  ResizablePromptArea, ResizableOutputArea, VariablePicker,
   EmptyConversation,
   EmptyOutput 
 } from "@/components/shared";
-
+import MarkdownNotesArea from "@/components/shared/MarkdownNotesArea";
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
   customer_message: { name: "customer_message", type: "text", description: "The customer's original inquiry or message", source: "User Input", required: true },
@@ -240,13 +242,12 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
       />
 
       {/* Notes */}
-      <ResizablePromptArea 
+      <MarkdownNotesArea 
         label="Notes"
         value={promptData?.note || ''}
         placeholder="Add notes about this prompt..."
-        defaultHeight={64}
+        defaultHeight={80}
         onChange={(value) => onUpdateField?.('note', value)}
-        variables={[]}
       />
     </div>
   );
