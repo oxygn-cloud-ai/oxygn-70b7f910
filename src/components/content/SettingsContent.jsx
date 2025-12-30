@@ -238,6 +238,39 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
           </SettingRow>
         </div>
       </SettingCard>
+
+      {/* UI State Settings */}
+      <SettingCard label="UI State">
+        <div className="space-y-3">
+          <SettingRow 
+            label="Reset UI preferences" 
+            description="Clear saved panel states, tree expansion, and selected items"
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    // List of all localStorage keys used for UI state
+                    const uiStateKeys = [
+                      'qonsol-folder-panel-open',
+                      'qonsol-conversation-panel-open',
+                      'qonsol-active-nav',
+                      'qonsol-selected-prompt-id',
+                      'qonsol-expanded-folders',
+                    ];
+                    uiStateKeys.forEach(key => localStorage.removeItem(key));
+                    toast.success('UI state reset. Refresh to apply defaults.');
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Reset UI State</TooltipContent>
+            </Tooltip>
+          </SettingRow>
+        </div>
+      </SettingCard>
     </div>
   );
 };
