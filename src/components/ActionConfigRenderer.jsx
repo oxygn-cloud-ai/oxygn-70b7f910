@@ -152,13 +152,7 @@ const ActionConfigRenderer = ({
           <SelectContent>
             {displayKeys.map((schemaKey) => (
               <SelectItem key={schemaKey.key} value={schemaKey.key}>
-                <div className="flex items-center gap-2">
-                  <span>{schemaKey.key}</span>
-                  <Badge variant="outline" className="text-[9px]">{schemaKey.type}</Badge>
-                  {schemaKey.isArray && (
-                    <Badge variant="secondary" className="text-[9px]">array</Badge>
-                  )}
-                </div>
+                {schemaKey.key}
               </SelectItem>
             ))}
           </SelectContent>
@@ -207,14 +201,7 @@ const ActionConfigRenderer = ({
             <ScrollArea className="max-h-[200px]">
               {allPrompts.map((prompt) => (
                 <SelectItem key={prompt.row_id} value={prompt.row_id}>
-                  <div className="flex items-center gap-2">
-                    {prompt.children?.length > 0 ? (
-                      <Folder className="h-3 w-3 text-on-surface-variant" />
-                    ) : (
-                      <FileText className="h-3 w-3 text-on-surface-variant" />
-                    )}
-                    <span className="truncate">{prompt.fullName}</span>
-                  </div>
+                  {prompt.fullName}
                 </SelectItem>
               ))}
             </ScrollArea>
@@ -253,13 +240,7 @@ const ActionConfigRenderer = ({
               </SelectItem>
               {libraryItems.map((item) => (
                 <SelectItem key={item.row_id} value={item.row_id}>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-3 w-3 text-on-surface-variant" />
-                    <span>{item.name}</span>
-                    {item.category && (
-                      <Badge variant="outline" className="text-[9px]">{item.category}</Badge>
-                    )}
-                  </div>
+                  {item.name}
                 </SelectItem>
               ))}
             </ScrollArea>
