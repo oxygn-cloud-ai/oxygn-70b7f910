@@ -70,7 +70,7 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick, badg
     <Icon className={`h-4 w-4 flex-shrink-0 transition-all duration-200 ${
       isActive ? 'text-primary scale-105' : 'group-hover:scale-110'
     }`} />
-    <span className="flex-1 text-left text-[11px] truncate font-medium">{label}</span>
+    <span className="flex-1 text-left text-tree truncate font-medium">{label}</span>
     {badge && (
       <span className="text-[8px] px-1 py-0.5 rounded-full bg-primary/20 text-primary font-medium mr-1">
         {badge}
@@ -422,11 +422,11 @@ const TreeItem = ({
             onBlur={handleSaveEdit}
             onClick={(e) => e.stopPropagation()}
             autoFocus
-            className="flex-1 h-5 text-[11px] py-0 px-1 bg-surface-container border-primary"
+            className="flex-1 h-5 text-tree py-0 px-1 bg-surface-container border-primary"
           />
         ) : (
           <span 
-            className="flex-1 text-left text-[11px] truncate font-medium"
+            className="flex-1 text-left text-tree truncate font-medium"
             onDoubleClick={handleStartEdit}
           >
             {label}

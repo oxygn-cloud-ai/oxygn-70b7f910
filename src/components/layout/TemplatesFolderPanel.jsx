@@ -117,7 +117,7 @@ const TemplateTreeItem = ({
     >
       <GripVertical className="h-3 w-3 flex-shrink-0 text-on-surface-variant/40 cursor-grab" />
       <Icon className="h-3.5 w-3.5 flex-shrink-0" />
-      <span className="flex-1 text-left text-[11px] truncate">{label}</span>
+      <span className="flex-1 text-left text-tree truncate">{label}</span>
       
       {isHovered ? (
         <div className="flex items-center gap-0.5">
@@ -271,7 +271,7 @@ const TemplatesFolderPanel = ({
               <TooltipTrigger asChild>
                 <button
                   onClick={() => setActiveType(tab.id)}
-                  className={`flex-1 h-7 flex items-center justify-center gap-1.5 rounded-sm text-[11px] transition-colors ${
+                  className={`flex-1 h-7 flex items-center justify-center gap-1.5 rounded-sm text-tree transition-colors ${
                     activeType === tab.id 
                       ? "bg-secondary-container text-secondary-container-foreground" 
                       : "text-on-surface-variant hover:bg-on-surface/[0.08]"
@@ -345,7 +345,7 @@ const TemplatesFolderPanel = ({
         ) : displayTemplates.length === 0 ? (
           <div className="text-center py-8 text-on-surface-variant">
             <LayoutTemplate className="h-8 w-8 mx-auto mb-2 opacity-30" />
-            <p className="text-[11px]">No {activeType} yet</p>
+            <p className="text-tree">No {activeType} yet</p>
           </div>
         ) : (
           <div className="flex flex-col gap-0.5">

@@ -52,7 +52,7 @@ const ThreadSidebar = ({
       {/* Header */}
       <div className="px-2 py-1.5 border-b border-border space-y-1.5">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-semibold text-foreground">
+          <span className="text-tree font-semibold text-foreground">
             Conversations
           </span>
           <div className="flex items-center gap-0.5">
@@ -142,7 +142,7 @@ const ThreadSidebar = ({
                           <Input
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="h-5 text-[11px]"
+                            className="h-5 text-tree"
                             autoFocus
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSaveRename(thread.row_id);
