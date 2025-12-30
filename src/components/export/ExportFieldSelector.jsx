@@ -166,7 +166,7 @@ export const ExportFieldSelector = ({
                             <div className="flex items-center gap-2">
                               <Badge 
                                 variant={promptSelectedVars.length > 0 ? "default" : "secondary"} 
-                                className="text-[10px] px-1.5 py-0 h-5"
+                                className="text-compact px-1.5 py-0 h-5"
                               >
                                 {promptSelectedVars.length} / {variables.length}
                               </Badge>

@@ -129,7 +129,7 @@ const ReadingPane = ({
                   <PanelRightOpen className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Show Conversation</TooltipContent>
+              <TooltipContent className="text-compact">Show Conversation</TooltipContent>
             </Tooltip>
           </div>
         )}

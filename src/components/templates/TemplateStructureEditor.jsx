@@ -320,13 +320,13 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
           )}
           
           {!isRenaming && node.is_assistant && (
-            <Badge variant="secondary" className="text-[10px] px-1">
+            <Badge variant="secondary" className="text-compact px-1">
               <Bot className="h-3 w-3" />
             </Badge>
           )}
           
           {!isRenaming && nodeVariables.length > 0 && (
-            <Badge variant="outline" className="text-[10px] px-1">
+            <Badge variant="outline" className="text-compact px-1">
               {nodeVariables.length} var{nodeVariables.length > 1 ? 's' : ''}
             </Badge>
           )}

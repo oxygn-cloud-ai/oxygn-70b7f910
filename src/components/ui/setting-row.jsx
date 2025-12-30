@@ -19,7 +19,7 @@ const SettingRow = React.forwardRef(({
     <div className="flex-1 min-w-0">
       <div className="text-body-sm text-on-surface">{label}</div>
       {description && (
-        <div className="text-[10px] text-on-surface-variant">
+        <div className="text-compact text-on-surface-variant">
           {description}
         </div>
       )}

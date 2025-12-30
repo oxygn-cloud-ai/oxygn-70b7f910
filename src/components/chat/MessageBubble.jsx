@@ -79,7 +79,7 @@ const MessageBubble = ({ message, userProfile, conversationName, onRegenerate })
             {isUser ? (userProfile?.display_name || 'You') : (conversationName || 'AI')}
           </span>
           {timestamp && (
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-compact text-muted-foreground">
               {timestamp}
             </span>
           )}

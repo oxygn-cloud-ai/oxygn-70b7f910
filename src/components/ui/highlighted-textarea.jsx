@@ -632,15 +632,15 @@ const HighlightedTextarea = React.forwardRef(({
               <span className="font-mono text-tree text-primary bg-primary/10 px-1 rounded">
                 {`{{${hoveredVar.name}}}`}
               </span>
-              <span className="text-[10px] text-on-surface-variant">{hoveredVar.type}</span>
+              <span className="text-compact text-on-surface-variant">{hoveredVar.type}</span>
             </div>
             {hoveredVar.description && (
               <p className="text-tree text-on-surface-variant">{hoveredVar.description}</p>
             )}
             {hoveredVar.value && (
-              <p className="text-[10px] text-on-surface-variant/70">Value: {hoveredVar.value}</p>
+              <p className="text-compact text-on-surface-variant/70">Value: {hoveredVar.value}</p>
             )}
-            <p className="text-[10px] text-on-surface-variant/50 italic">Click to change</p>
+            <p className="text-compact text-on-surface-variant/50 italic">Click to change</p>
           </div>
         </div>
       )}
@@ -663,10 +663,10 @@ const HighlightedTextarea = React.forwardRef(({
               <span className="font-mono text-tree text-primary bg-primary/10 px-1 rounded">
                 {`{{${clickedVarInfo.name}}}`}
               </span>
-              <span className="text-[10px] text-on-surface-variant">{clickedVarInfo.info?.type}</span>
+              <span className="text-compact text-on-surface-variant">{clickedVarInfo.info?.type}</span>
             </div>
             {clickedVarInfo.info?.description && (
-              <p className="text-[10px] text-on-surface-variant">{clickedVarInfo.info.description}</p>
+              <p className="text-compact text-on-surface-variant">{clickedVarInfo.info.description}</p>
             )}
           </div>
           
@@ -692,7 +692,7 @@ const HighlightedTextarea = React.forwardRef(({
                   )}>
                     {variable.name}
                   </span>
-                  <span className="text-[10px] text-on-surface-variant truncate flex-1">{variable.type}</span>
+                  <span className="text-compact text-on-surface-variant truncate flex-1">{variable.type}</span>
                 </button>
               ))}
             </div>

@@ -129,7 +129,7 @@ const DatabaseSection = ({ healthData, isLoading }) => {
       </div>
       
       <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
-        <div className="grid grid-cols-[1fr,80px,100px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+        <div className="grid grid-cols-[1fr,80px,100px] gap-3 px-3 py-2 bg-surface-container text-compact text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
           <span>Table</span>
           <span className="text-right">Rows</span>
           <span className="text-center">Status</span>
@@ -309,7 +309,7 @@ const EnvironmentSection = ({ healthData, isLoading }) => {
           <div key={envVar.name} className={`grid grid-cols-[1fr,80px,180px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
             <span className="text-body-sm text-on-surface font-mono">{envVar.name}</span>
             <div className="flex justify-center">
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] ${envVar.isSet ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-compact ${envVar.isSet ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
                 {envVar.isSet ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                 {envVar.isSet ? 'Set' : 'Missing'}
               </span>

@@ -39,14 +39,14 @@ const WorkbenchResourcesPanel = ({
               <Paperclip className="h-3 w-3" />
               Files
               {files.length > 0 && (
-                <span className="ml-1 text-[10px] text-muted-foreground">({files.length})</span>
+                <span className="ml-1 text-compact text-muted-foreground">({files.length})</span>
               )}
             </TabsTrigger>
             <TabsTrigger value="confluence" className="text-xs gap-1">
               <FileText className="h-3 w-3" />
               Pages
               {pages.length > 0 && (
-                <span className="ml-1 text-[10px] text-muted-foreground">({pages.length})</span>
+                <span className="ml-1 text-compact text-muted-foreground">({pages.length})</span>
               )}
             </TabsTrigger>
             <TabsTrigger value="library" className="text-xs gap-1">

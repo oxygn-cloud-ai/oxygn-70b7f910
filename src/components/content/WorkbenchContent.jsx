@@ -72,7 +72,7 @@ const CascadeProgressBar = ({
                   {skippedPrompts} skipped
                 </span>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Skipped due to exclusion settings</TooltipContent>
+              <TooltipContent className="text-compact">Skipped due to exclusion settings</TooltipContent>
             </Tooltip>
           )}
           <span>Level {currentLevel}/{totalLevels}</span>
@@ -585,7 +585,7 @@ const ResourcesPanel = ({
                 <div className="text-center py-4 text-on-surface-variant">
                   <Link2 className="h-6 w-6 mx-auto opacity-30 mb-1" />
                   <p className="text-tree">No pages linked</p>
-                  <p className="text-[10px] opacity-70">Search above to link pages</p>
+                  <p className="text-compact opacity-70">Search above to link pages</p>
                 </div>
               ) : (
                 pages.map(page => (

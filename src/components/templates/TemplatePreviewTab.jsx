@@ -88,7 +88,7 @@ const TemplatePreviewTab = ({ template }) => {
             )}
             <span className="font-medium">{node.prompt_name || 'Untitled'}</span>
             {node.model && (
-              <Badge variant="outline" className="text-[10px]">{node.model}</Badge>
+              <Badge variant="outline" className="text-compact">{node.model}</Badge>
             )}
           </div>
           
