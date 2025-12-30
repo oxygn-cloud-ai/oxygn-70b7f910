@@ -62,11 +62,18 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
 
       setThreads(prev => [data.thread, ...prev]);
       setActiveThread(data.thread);
-      toast.success('New thread created');
+      toast.success('New thread created', {
+        source: 'useThreads.createThread',
+        details: JSON.stringify({ threadRowId: data.thread?.row_id, assistantRowId, childPromptRowId, name }, null, 2),
+      });
       return data.thread;
     } catch (error) {
       console.error('Error creating thread:', error);
-      toast.error('Failed to create thread');
+      toast.error('Failed to create thread', {
+        source: 'useThreads.createThread',
+        errorCode: error?.code || 'THREAD_CREATE_ERROR',
+        details: JSON.stringify({ assistantRowId, childPromptRowId, name, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return null;
     }
   }, [supabase, assistantRowId, childPromptRowId]);
@@ -90,11 +97,18 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         setActiveThread(null);
         setMessages([]);
       }
-      toast.success('Thread deleted');
+      toast.success('Thread deleted', {
+        source: 'useThreads.deleteThread',
+        details: JSON.stringify({ threadRowId }, null, 2),
+      });
       return true;
     } catch (error) {
       console.error('Error deleting thread:', error);
-      toast.error('Failed to delete thread');
+      toast.error('Failed to delete thread', {
+        source: 'useThreads.deleteThread',
+        errorCode: error?.code || 'THREAD_DELETE_ERROR',
+        details: JSON.stringify({ threadRowId, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return false;
     }
   }, [supabase, activeThread]);

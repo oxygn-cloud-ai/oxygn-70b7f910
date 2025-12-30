@@ -16,11 +16,18 @@ export const usePromptData = (supabase) => {
 
       if (error) throw error;
 
-      toast.success(`${fieldName} saved successfully`);
+      toast.success(`${fieldName} saved successfully`, {
+        source: 'usePromptData.updateField',
+        details: JSON.stringify({ rowId, fieldName, valueLength: String(value)?.length || 0 }, null, 2),
+      });
       return true;
     } catch (error) {
       console.error("Error updating field:", error);
-      toast.error(`Failed to update ${fieldName}: ${error?.message || "Unknown error"}`);
+      toast.error(`Failed to update ${fieldName}: ${error?.message || "Unknown error"}`, {
+        source: 'usePromptData.updateField',
+        errorCode: error?.code || 'UPDATE_ERROR',
+        details: JSON.stringify({ rowId, fieldName, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return false;
     }
   }, [supabase]);
@@ -57,7 +64,11 @@ export const usePromptData = (supabase) => {
       return null;
     } catch (error) {
       console.error("Error fetching item data:", error);
-      toast.error(`Failed to fetch prompt data: ${error?.message || "Unknown error"}`);
+      toast.error(`Failed to fetch prompt data: ${error?.message || "Unknown error"}`, {
+        source: 'usePromptData.fetchItemData',
+        errorCode: error?.code || 'FETCH_ERROR',
+        details: JSON.stringify({ rowId, error: error?.message, stack: error?.stack }, null, 2),
+      });
       return null;
     }
   }, [supabase]);

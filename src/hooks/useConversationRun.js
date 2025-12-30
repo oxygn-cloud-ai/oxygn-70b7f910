@@ -210,11 +210,23 @@ export const useConversationRun = () => {
           }
         }
 
-        toast.success('Run completed');
+        // Include API response metadata in success toast
+        toast.success('Run completed', {
+          source: 'useConversationRun.runPrompt',
+          details: JSON.stringify({
+            promptRowId: childPromptRowId,
+            model: data?.model,
+            usage: data?.usage,
+            finishReason: data?.finish_reason,
+            responseId: data?.response_id,
+          }, null, 2),
+        });
         return data;
       } catch (error) {
         if (error.message === 'Request cancelled') {
-          toast.info('Request cancelled');
+          toast.info('Request cancelled', {
+            source: 'useConversationRun.runPrompt',
+          });
           return null;
         }
         console.error('Error running conversation:', error);
@@ -222,6 +234,16 @@ export const useConversationRun = () => {
         toast.error(formatted.title, {
           description: formatted.description,
           duration: isQuotaError(error) ? 10000 : 5000,
+          source: 'useConversationRun.runPrompt',
+          errorCode: formatted.code,
+          details: JSON.stringify({
+            promptRowId: childPromptRowId,
+            errorMessage: error.message,
+            errorCode: error.error_code,
+            promptName: error.prompt_name,
+            retryAfter: error.retry_after_s,
+            stack: error.stack,
+          }, null, 2),
         });
         return null;
       } finally {
