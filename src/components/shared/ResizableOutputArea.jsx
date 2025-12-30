@@ -370,7 +370,8 @@ const ResizableOutputArea = ({
                           customStyle={{
                             margin: 0,
                             padding: '10px',
-                            background: 'transparent',
+                            background: 'none',
+                            backgroundColor: 'transparent',
                             fontSize: '11px',
                             lineHeight: '1.5',
                           }}
