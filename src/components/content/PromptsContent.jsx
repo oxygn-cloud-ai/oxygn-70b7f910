@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useTimer } from "@/hooks/useTimer";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { 
   FileText, Sliders, Variable, MessageSquare, Play, Copy, 
   Download, MoreVertical, Star, Trash2, Share2, Link2, 
@@ -638,15 +638,15 @@ const SchemaViewer = ({ schema, schemaName }) => {
         </Tooltip>
       </div>
       {isOpen && (
-        <div className="rounded-m3-sm overflow-hidden border border-outline-variant max-h-48 overflow-auto">
+        <div className="rounded-m3-sm overflow-hidden border border-outline-variant max-h-48 overflow-auto bg-surface-container">
           <SyntaxHighlighter
             language="json"
-            style={oneDark}
+            style={vs}
             customStyle={{
               margin: 0,
               padding: '8px',
               fontSize: '10px',
-              background: 'hsl(var(--surface-container))',
+              background: 'transparent',
             }}
           >
             {schemaString}
