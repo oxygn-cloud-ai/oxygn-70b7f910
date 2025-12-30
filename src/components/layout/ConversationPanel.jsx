@@ -207,10 +207,7 @@ const ConversationPanel = ({
         className="h-14 flex items-center justify-between px-3 border-b border-outline-variant gap-3"
         style={{ height: "56px" }}
       >
-        <div className="flex items-center gap-2 shrink-0">
-          <MessageSquare className="h-4 w-4 text-on-surface-variant" />
-          <span className="text-body-sm font-medium text-on-surface">Chat</span>
-        </div>
+        <span className="text-body-sm font-medium text-on-surface shrink-0">Chat</span>
         <div className="flex-1 min-w-0">
           {usePromptFamilyMode ? (
             <div className="flex items-center gap-2">
