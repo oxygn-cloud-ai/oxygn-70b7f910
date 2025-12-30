@@ -80,12 +80,45 @@ const ResizableOutputArea = ({
   isRegenerating = false,
   runTime,
   progress,
-  defaultHeight = MIN_HEIGHT 
+  defaultHeight = MIN_HEIGHT,
+  storageKey // Optional key to persist sizing in localStorage
 }) => {
-  const [expandState, setExpandState] = useState('min'); // 'collapsed' | 'min' | 'full'
-  const [manualHeight, setManualHeight] = useState(null);
+  // Generate storage key from label if not provided
+  const persistKey = storageKey || (label ? `qonsol-output-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
+  
+  const [expandState, setExpandState] = useState(() => {
+    if (persistKey) {
+      try {
+        const saved = localStorage.getItem(persistKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.expandState || 'min';
+        }
+      } catch {}
+    }
+    return 'min';
+  });
+  const [manualHeight, setManualHeight] = useState(() => {
+    if (persistKey) {
+      try {
+        const saved = localStorage.getItem(persistKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.manualHeight || null;
+        }
+      } catch {}
+    }
+    return null;
+  });
   const contentRef = useRef(null);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
+
+  // Persist sizing to localStorage
+  useEffect(() => {
+    if (persistKey) {
+      localStorage.setItem(persistKey, JSON.stringify({ expandState, manualHeight }));
+    }
+  }, [persistKey, expandState, manualHeight]);
 
   // Measure content height for 'full' state
   useEffect(() => {

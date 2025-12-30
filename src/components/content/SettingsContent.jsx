@@ -258,6 +258,12 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
                       'qonsol-selected-prompt-id',
                       'qonsol-expanded-folders',
                     ];
+                    // Also clear all prompt/output height keys
+                    Object.keys(localStorage).forEach(key => {
+                      if (key.startsWith('qonsol-prompt-height-') || key.startsWith('qonsol-output-height-')) {
+                        localStorage.removeItem(key);
+                      }
+                    });
                     uiStateKeys.forEach(key => localStorage.removeItem(key));
                     toast.success('UI state reset. Refresh to apply defaults.');
                   }}
