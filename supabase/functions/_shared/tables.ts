@@ -30,6 +30,11 @@ export const TABLES = {
   // New tables
   JSON_SCHEMA_TEMPLATES: getEnv('JSON_SCHEMA_TEMPLATES_TBL', 'q_json_schema_templates'),
   EXPORT_TEMPLATES: getEnv('EXPORT_TEMPLATES_TBL', 'q_export_templates'),
+  // Knowledge and prompt family chat tables
+  APP_KNOWLEDGE: getEnv('APP_KNOWLEDGE_TBL', 'q_app_knowledge'),
+  APP_KNOWLEDGE_HISTORY: getEnv('APP_KNOWLEDGE_HISTORY_TBL', 'q_app_knowledge_history'),
+  PROMPT_FAMILY_THREADS: getEnv('PROMPT_FAMILY_THREADS_TBL', 'q_prompt_family_threads'),
+  PROMPT_FAMILY_MESSAGES: getEnv('PROMPT_FAMILY_MESSAGES_TBL', 'q_prompt_family_messages'),
 } as const;
 
 // Helper to build FK relationship strings dynamically
