@@ -131,11 +131,29 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   // Responses API assistants are always active
   const isActive = true;
 
+  // Debounce refs for slider values
+  const sliderDebounceRef = useRef({});
+
   const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
     const settingInfo = ALL_SETTINGS[field];
     const supported = isSettingSupported(field, currentModel);
     
     if (!settingInfo) return null;
+
+    // Debounced slider change handler
+    const handleSliderChange = ([v]) => {
+      setValue(v.toString());
+      
+      // Clear existing debounce timer
+      if (sliderDebounceRef.current[field]) {
+        clearTimeout(sliderDebounceRef.current[field]);
+      }
+      
+      // Set new debounce timer (500ms delay)
+      sliderDebounceRef.current[field] = setTimeout(() => {
+        onSave(v.toString());
+      }, 500);
+    };
 
     return (
       <div className={`${!supported ? 'opacity-50' : ''}`}>
@@ -173,8 +191,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
           <Slider
             value={[parseFloat(value) || (field === 'top_p' ? 1 : field === 'temperature' ? 1 : 0)]}
             min={min} max={max} step={step}
-            onValueChange={([v]) => setValue(v.toString())}
-            onValueCommit={([v]) => onSave(v.toString())}
+            onValueChange={handleSliderChange}
           />
         ) : type === 'switch' ? (
           <Switch checked={!!value} onCheckedChange={(v) => { setValue(v); onSave(v); }} />

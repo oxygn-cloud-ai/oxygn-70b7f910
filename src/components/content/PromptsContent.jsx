@@ -259,6 +259,14 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
   const [temperature, setTemperature] = useState([currentTemp]);
   const [maxTokens, setMaxTokens] = useState(currentMaxTokens);
+  
+  // Local state for sliders to enable immediate visual feedback
+  const [frequencyPenalty, setFrequencyPenalty] = useState([parseFloat(promptData?.frequency_penalty || '0')]);
+  const [presencePenalty, setPresencePenalty] = useState([parseFloat(promptData?.presence_penalty || '0')]);
+  const [topP, setTopP] = useState([parseFloat(promptData?.top_p || '1')]);
+  
+  // Debounce ref for slider saves
+  const sliderDebounceRef = useRef({});
 
   // Sync state when promptData or model changes
   useEffect(() => {
@@ -275,10 +283,37 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
       setMaxTokens(String(modelConfig.maxTokens));
     }
   }, [promptData?.max_tokens, promptData?.max_completion_tokens, modelConfig.maxTokens]);
+  
+  // Sync other slider states when promptData changes
+  useEffect(() => {
+    setFrequencyPenalty([parseFloat(promptData?.frequency_penalty || '0')]);
+  }, [promptData?.frequency_penalty]);
+  
+  useEffect(() => {
+    setPresencePenalty([parseFloat(promptData?.presence_penalty || '0')]);
+  }, [promptData?.presence_penalty]);
+  
+  useEffect(() => {
+    setTopP([parseFloat(promptData?.top_p || '1')]);
+  }, [promptData?.top_p]);
+
+  // Debounced slider change handler
+  const handleDebouncedSliderChange = (field, value, setter) => {
+    setter(value);
+    
+    // Clear existing debounce timer
+    if (sliderDebounceRef.current[field]) {
+      clearTimeout(sliderDebounceRef.current[field]);
+    }
+    
+    // Set new debounce timer (500ms delay)
+    sliderDebounceRef.current[field] = setTimeout(() => {
+      onUpdateField?.(field, String(value[0]));
+    }, 500);
+  };
 
   const handleTemperatureChange = (value) => {
-    setTemperature(value);
-    onUpdateField?.('temperature', String(value[0]));
+    handleDebouncedSliderChange('temperature', value, setTemperature);
   };
 
   const handleMaxTokensChange = (e) => {
@@ -399,11 +434,11 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Frequency Penalty</label>
-              <span className="text-body-sm text-on-surface font-mono">{promptData?.frequency_penalty || '0'}</span>
+              <span className="text-body-sm text-on-surface font-mono">{frequencyPenalty[0]}</span>
             </div>
             <Slider
-              value={[parseFloat(promptData?.frequency_penalty || '0')]}
-              onValueChange={(v) => onUpdateField?.('frequency_penalty', String(v[0]))}
+              value={frequencyPenalty}
+              onValueChange={(v) => handleDebouncedSliderChange('frequency_penalty', v, setFrequencyPenalty)}
               min={-2}
               max={2}
               step={0.1}
@@ -418,11 +453,11 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Presence Penalty</label>
-              <span className="text-body-sm text-on-surface font-mono">{promptData?.presence_penalty || '0'}</span>
+              <span className="text-body-sm text-on-surface font-mono">{presencePenalty[0]}</span>
             </div>
             <Slider
-              value={[parseFloat(promptData?.presence_penalty || '0')]}
-              onValueChange={(v) => onUpdateField?.('presence_penalty', String(v[0]))}
+              value={presencePenalty}
+              onValueChange={(v) => handleDebouncedSliderChange('presence_penalty', v, setPresencePenalty)}
               min={-2}
               max={2}
               step={0.1}
@@ -437,11 +472,11 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Top P</label>
-              <span className="text-body-sm text-on-surface font-mono">{promptData?.top_p || '1'}</span>
+              <span className="text-body-sm text-on-surface font-mono">{topP[0]}</span>
             </div>
             <Slider
-              value={[parseFloat(promptData?.top_p || '1')]}
-              onValueChange={(v) => onUpdateField?.('top_p', String(v[0]))}
+              value={topP}
+              onValueChange={(v) => handleDebouncedSliderChange('top_p', v, setTopP)}
               min={0}
               max={1}
               step={0.05}
