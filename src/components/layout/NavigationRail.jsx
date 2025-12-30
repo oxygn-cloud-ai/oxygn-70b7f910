@@ -10,7 +10,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   Keyboard,
-  EyeOff
+  EyeOff,
+  RotateCcw
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -93,7 +94,8 @@ const NavigationRail = ({
   onToggleFolderPanel, 
   folderPanelOpen,
   onShowShortcuts,
-  onHideNavRail
+  onHideNavRail,
+  onResetLayout
 }) => {
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts", shortcut: "1" },
@@ -151,6 +153,10 @@ const NavigationRail = ({
           <DropdownMenuItem onClick={onHideNavRail} className="gap-2">
             <EyeOff className="h-4 w-4" />
             <span>Hide navigation</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onResetLayout} className="gap-2">
+            <RotateCcw className="h-4 w-4" />
+            <span>Reset layout</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

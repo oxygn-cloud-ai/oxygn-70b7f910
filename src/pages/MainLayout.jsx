@@ -631,6 +631,22 @@ const MainLayout = () => {
   // Get undo context for keyboard shortcut
   const { undoStack, clearUndo } = useUndo();
 
+  // Reset all panel states to defaults
+  const handleResetLayout = useCallback(() => {
+    setNavRailOpen(true);
+    setFolderPanelOpen(true);
+    setReadingPaneOpen(true);
+    setConversationPanelOpen(true);
+    
+    // Clear localStorage for panel states
+    localStorage.setItem('qonsol-nav-rail-open', 'true');
+    localStorage.setItem('qonsol-folder-panel-open', 'true');
+    localStorage.setItem('qonsol-reading-pane-open', 'true');
+    localStorage.setItem('qonsol-conversation-panel-open', 'true');
+    
+    toast.success('Layout reset to defaults');
+  }, []);
+
   // Handle undo via keyboard shortcut (undoes last action)
   const handleUndo = useCallback(async () => {
     if (undoStack.length === 0) {
@@ -917,10 +933,13 @@ const MainLayout = () => {
                   folderPanelOpen={folderPanelOpen}
                   onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
                   onShowShortcuts={() => toast.info("Keyboard shortcuts available")}
+                  onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
+                  folderPanelOpen={folderPanelOpen}
+                  onShowShortcuts={() => {}}
                   onHideNavRail={() => setNavRailOpen(false)}
+                  onResetLayout={handleResetLayout}
                 />
               </motion.div>
-            )}
           </AnimatePresence>
           
           {/* Edge trigger when nav rail is hidden */}
