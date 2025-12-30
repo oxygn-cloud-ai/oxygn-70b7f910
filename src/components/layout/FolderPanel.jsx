@@ -27,7 +27,8 @@ import {
   CheckSquare,
   Square,
   X,
-  Palette
+  Palette,
+  PanelLeftClose
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -565,6 +566,7 @@ const FolderPanel = ({
   onExportPrompt,
   onMovePrompt,
   onRefresh,
+  onClose,
   // Phase 1 handlers
   onRunPrompt,
   onRunCascade,
@@ -911,11 +913,31 @@ const FolderPanel = ({
   
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
+      {/* Header with close button */}
+      <div className="h-10 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
+        <p className="text-title-sm text-on-surface font-medium flex items-center gap-2">
+          <FolderOpen className="h-4 w-4 text-on-surface-variant" />
+          Prompts
+        </p>
+        {onClose && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Hide panel</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+
       {/* Quick View */}
       <div className="p-1.5">
         <div className="flex items-center justify-between px-2 py-1">
           <p className="text-[9px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
-            <FolderOpen className="h-3 w-3" />
             Quick View
           </p>
           {activeSmartFolder !== "all" && (

@@ -845,6 +845,7 @@ const MainLayout = () => {
           onExportPrompt={(id) => { setSelectedPromptId(id); setExportPanelOpen(true); }}
           onMovePrompt={handleMoveItem}
           onRefresh={refreshTreeData}
+          onClose={() => setFolderPanelOpen(false)}
           onRunPrompt={handleRunPrompt}
           onRunCascade={handleRunCascade}
           onToggleStar={handleToggleStar}
