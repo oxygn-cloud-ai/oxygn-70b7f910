@@ -188,6 +188,13 @@ const MainLayout = () => {
   const [isRunningCascade, setIsRunningCascade] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
+  // Helper to truncate long text for toast display
+  const truncateForLog = (text, maxLen = 50) => {
+    if (!text) return '[empty]';
+    if (text.length <= maxLen) return text;
+    return `${text.slice(0, maxLen)}...`;
+  };
+
   // Handler for running a single prompt
   const handleRunPrompt = useCallback(async (promptId) => {
     if (!promptId) return;
@@ -195,10 +202,42 @@ const MainLayout = () => {
     // Fetch prompt data to check if it's an action node
     const promptData = await fetchItemData(promptId);
     const startTime = Date.now();
+
+    // Show API request details toast
+    const requestDetails = {
+      prompt: promptData?.prompt_name || promptId.slice(0, 8),
+      model: promptData?.model || 'default',
+      system_prompt: truncateForLog(promptData?.input_admin_prompt),
+      user_prompt: truncateForLog(promptData?.input_user_prompt),
+      reasoning_effort: promptData?.reasoning_effort_on ? promptData?.reasoning_effort : 'off',
+      response_format: promptData?.response_format_on ? 'JSON Schema' : 'text',
+      node_type: promptData?.node_type || 'standard',
+    };
+    
+    toast.info('API Request', {
+      description: `Model: ${requestDetails.model} | Reasoning: ${requestDetails.reasoning_effort} | Format: ${requestDetails.response_format}`,
+      duration: 3000,
+    });
     
     const result = await runPrompt(promptId);
     if (result) {
       const latencyMs = Date.now() - startTime;
+      
+      // Show API response details toast
+      const responseDetails = {
+        model: result.model || 'unknown',
+        tokens_in: result.usage?.prompt_tokens || 0,
+        tokens_out: result.usage?.completion_tokens || 0,
+        tokens_total: result.usage?.total_tokens || 0,
+        latency: latencyMs,
+        finish_reason: result.finish_reason || 'stop',
+        response_preview: truncateForLog(result.response, 80),
+      };
+      
+      toast.success('API Response', {
+        description: `${responseDetails.model} | ${responseDetails.tokens_total} tokens | ${responseDetails.latency}ms | ${responseDetails.finish_reason}`,
+        duration: 5000,
+      });
       
       // Record cost and update metadata with USD costs
       if (result.usage && result.model) {
