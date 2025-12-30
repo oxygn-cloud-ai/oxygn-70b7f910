@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { fetchActiveModels, resolveApiModelId, getDefaultModelFromSettings } from "../_shared/models.ts";
 import { loadQonsolKnowledge, getQonsolHelpTool, handleQonsolHelpToolCall } from "../_shared/knowledge.ts";
+import { getGithubTools, handleGithubToolCall } from "../_shared/github.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -54,6 +55,7 @@ function getWorkbenchTools(config: {
   hasConfluence: boolean;
   hasFiles: boolean;
   hasKnowledge: boolean;
+  hasGithub: boolean;
 }) {
   const tools: any[] = [];
 
@@ -216,6 +218,11 @@ function getWorkbenchTools(config: {
     });
   }
 
+  // GitHub repository tools
+  if (config.hasGithub) {
+    tools.push(...getGithubTools());
+  }
+
   return tools;
 }
 
@@ -228,9 +235,10 @@ async function handleToolCall(
     userId: string;
     threadRowId: string;
     openAIApiKey: string;
+    githubToken?: string;
   }
 ): Promise<string> {
-  const { supabase, userId, threadRowId, openAIApiKey } = context;
+  const { supabase, userId, threadRowId, openAIApiKey, githubToken } = context;
 
   try {
     switch (toolName) {
@@ -448,6 +456,17 @@ async function handleToolCall(
         return await handleQonsolHelpToolCall(args, supabase);
       }
 
+      // GitHub tools
+      case 'github_list_files':
+      case 'github_read_file':
+      case 'github_search_code':
+      case 'github_get_structure': {
+        if (!githubToken) {
+          return JSON.stringify({ error: 'GitHub access not configured' });
+        }
+        return await handleGithubToolCall(toolName, args, githubToken);
+      }
+
       default:
         return JSON.stringify({ error: `Unknown tool: ${toolName}` });
     }
@@ -533,6 +552,8 @@ serve(async (req) => {
 
     // Check what resources are available
     const hasThread = !!thread_row_id;
+    const githubToken = Deno.env.get('GITHUB_TOKEN');
+    const hasGithub = !!githubToken;
     
     // Load Qonsol knowledge for the system prompt
     const knowledge = await loadQonsolKnowledge(supabase, ['overview', 'prompts', 'workbench', 'troubleshooting']);
@@ -543,7 +564,8 @@ serve(async (req) => {
       hasLibrary: true,
       hasConfluence: hasThread,
       hasFiles: hasThread,
-      hasKnowledge: true
+      hasKnowledge: true,
+      hasGithub
     });
 
     // Build messages array with system prompt including knowledge
@@ -571,7 +593,8 @@ Use the search_qonsol_help tool to find more specific information about Qonsol f
       supabase,
       userId: validation.user!.id,
       threadRowId: thread_row_id || '',
-      openAIApiKey: openAIApiKey || ''
+      openAIApiKey: openAIApiKey || '',
+      githubToken: githubToken || undefined
     };
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
