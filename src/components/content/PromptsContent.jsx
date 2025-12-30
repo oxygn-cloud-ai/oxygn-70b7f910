@@ -737,7 +737,6 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
         onValueChange={(value) => onUpdateField?.('post_action', value)}
         options={ACTION_TYPES.map(a => ({ value: a.id, label: a.label, description: a.description }))}
         label="Post Action"
-        icon={GitBranch}
         contentClassName="w-64"
       />
 
@@ -797,7 +796,6 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                   ...schemas.map(s => ({ value: s.row_id || s.id, label: s.schema_name || s.name }))
                 ]}
                 label="JSON Schema (Optional)"
-                icon={Braces}
               />
 
               {/* Schema Viewer */}
@@ -841,7 +839,6 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 onValueChange={(value) => updateActionConfig('template_source', value)}
                 options={TEMPLATE_SOURCE_OPTIONS}
                 label="Template Source"
-                icon={Library}
               />
 
               {/* Template Name Pattern */}
