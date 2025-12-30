@@ -42,7 +42,7 @@ const SettingSelect = React.forwardRef(({
         <SelectTrigger 
           ref={ref}
           className={cn(
-            "w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface",
+            "w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-tree text-on-surface",
             disabled && "opacity-50 cursor-not-allowed",
             triggerClassName
           )}
@@ -63,7 +63,7 @@ const SettingSelect = React.forwardRef(({
           )}
         >
           {options.length === 0 ? (
-            <SelectItem value="__empty__" disabled className="text-body-sm text-on-surface-variant">
+            <SelectItem value="__empty__" disabled className="text-tree text-on-surface-variant">
               No options available
             </SelectItem>
           ) : (
@@ -73,7 +73,7 @@ const SettingSelect = React.forwardRef(({
                 value={option.value}
                 disabled={option.disabled}
                 className={cn(
-                  "text-body-sm text-on-surface",
+                  "text-tree text-on-surface",
                   option.disabled && "opacity-50"
                 )}
               >
@@ -121,7 +121,7 @@ const SettingModelSelect = React.forwardRef(({
         <SelectTrigger 
           ref={ref}
           className={cn(
-            "w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface",
+            "w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-tree text-on-surface",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -129,7 +129,7 @@ const SettingModelSelect = React.forwardRef(({
         </SelectTrigger>
         <SelectContent className="max-h-64 bg-surface-container-high border-outline-variant z-50">
           {activeModels.length === 0 ? (
-            <SelectItem value="__empty__" disabled className="text-body-sm text-on-surface-variant">
+            <SelectItem value="__empty__" disabled className="text-tree text-on-surface-variant">
               No models available
             </SelectItem>
           ) : (
@@ -137,7 +137,7 @@ const SettingModelSelect = React.forwardRef(({
               <SelectItem
                 key={model.row_id || model.id || model.model_id}
                 value={model.model_id || model.id}
-                className="text-body-sm text-on-surface"
+                className="text-tree text-on-surface"
               >
                 <span className="flex items-center justify-between w-full gap-2">
                   <span>{model.model_name || model.name}</span>
