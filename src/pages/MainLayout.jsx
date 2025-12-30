@@ -34,7 +34,7 @@ import { useCascadeExecutor } from "@/hooks/useCascadeExecutor";
 import { useCostTracking } from "@/hooks/useCostTracking";
 import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { toast } from "@/components/ui/sonner";
+import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
 import { Loader2 } from "lucide-react";
 import { executePostAction } from "@/services/actionExecutors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -546,8 +546,14 @@ const MainLayout = () => {
   }, [selectedPromptId, treeData]);
 
 
-  const [isDark, setIsDark] = useState(false);
-  const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
+  // Initialize isDark from stored theme preference
+  const [isDark, setIsDark] = useState(() => {
+    const pref = getThemePreference();
+    if (pref === 'system') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return pref === 'dark';
+  });
   const [folderPanelOpen, setFolderPanelOpen] = useState(() => {
     const saved = localStorage.getItem('qonsol-folder-panel-open');
     return saved !== null ? saved === 'true' : true; // Default open
@@ -667,7 +673,7 @@ const MainLayout = () => {
   const submenuRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
 
-  // Toggle dark mode on the document
+  // Toggle dark mode on the document and sync with theme preference changes
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add("dark");
@@ -678,6 +684,33 @@ const MainLayout = () => {
       document.documentElement.classList.remove("dark");
     };
   }, [isDark]);
+
+  // Listen for theme preference changes from settings
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const pref = getThemePreference();
+      if (pref === 'system') {
+        setIsDark(window.matchMedia('(prefers-color-scheme: dark)').matches);
+      } else {
+        setIsDark(pref === 'dark');
+      }
+    };
+    
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemChange = (e) => {
+      if (getThemePreference() === 'system') {
+        setIsDark(e.matches);
+      }
+    };
+    
+    window.addEventListener('theme-preference-change', handleThemeChange);
+    mediaQuery.addEventListener('change', handleSystemChange);
+    
+    return () => {
+      window.removeEventListener('theme-preference-change', handleThemeChange);
+      mediaQuery.removeEventListener('change', handleSystemChange);
+    };
+  }, []);
 
   // Cleanup timeout on unmount
   useEffect(() => {
