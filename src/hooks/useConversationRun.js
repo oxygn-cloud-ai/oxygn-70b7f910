@@ -3,6 +3,7 @@ import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useConversationRun = () => {
   const supabase = useSupabase();
@@ -223,6 +224,18 @@ export const useConversationRun = () => {
             requestParams: data?.request_params,
           }, null, 2),
         });
+        
+        // Track prompt run success
+        trackEvent('prompt_run', {
+          prompt_id: childPromptRowId,
+          prompt_name: data?.child_prompt_name,
+          model: data?.model,
+          tokens_input: data?.usage?.input_tokens,
+          tokens_output: data?.usage?.output_tokens,
+          elapsed_ms: data?.elapsed_ms,
+          success: true,
+        });
+        
         return data;
       } catch (error) {
         if (error.message === 'Request cancelled') {
@@ -247,6 +260,19 @@ export const useConversationRun = () => {
             stack: error.stack,
           }, null, 2),
         });
+        
+        // Track prompt run error
+        trackEvent('prompt_run', {
+          prompt_id: childPromptRowId,
+          success: false,
+          error_code: formatted.code,
+          error_message: error.message,
+        });
+        trackException(error, {
+          context: 'conversation_run',
+          prompt_id: childPromptRowId,
+        });
+        
         return null;
       } finally {
         abortControllerRef.current = null;

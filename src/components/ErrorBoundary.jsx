@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { trackException } from '@/lib/posthog';
 
 /**
  * Error Boundary component to catch React rendering errors.
@@ -20,6 +21,12 @@ class ErrorBoundary extends Component {
     // Log to console for debugging
     console.error('ErrorBoundary caught an error:', error);
     console.error('Component stack:', errorInfo?.componentStack);
+    
+    // Track error in PostHog
+    trackException(error, {
+      component_stack: errorInfo?.componentStack,
+      context: 'error_boundary',
+    });
     
     // Report to parent window if available (Lovable's error reporting)
     try {

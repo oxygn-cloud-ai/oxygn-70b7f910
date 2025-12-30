@@ -8,6 +8,7 @@ import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiE
 import { buildSystemVariablesForRun } from '@/utils/resolveSystemVariables';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { executePostAction } from '@/services/actionExecutors';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 // Helper to get a usable message from a prompt
 const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
@@ -324,6 +325,15 @@ export const useCascadeExecutor = () => {
 
     // Initialize cascade state with correct count
     startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
+    
+    // Track cascade start
+    trackEvent('cascade_started', {
+      top_level_prompt_id: topLevelRowId,
+      top_level_prompt_name: topLevelPrompt?.prompt_name,
+      total_levels: hierarchy.totalLevels,
+      total_prompts: nonExcludedPrompts.length,
+      excluded_prompts: excludedPrompts.length,
+    });
 
     // Mark excluded prompts as skipped immediately
     for (const excludedPrompt of excludedPrompts) {
@@ -735,6 +745,16 @@ export const useCascadeExecutor = () => {
           })),
         }, null, 2),
       });
+      
+      // Track cascade completion
+      trackEvent('cascade_completed', {
+        top_level_prompt_id: topLevelRowId,
+        top_level_prompt_name: topLevelPrompt?.prompt_name,
+        total_prompts_run: accumulatedResponses.length,
+        skipped_prompts: accumulatedResponses.filter(r => r.skipped).length,
+        elapsed_ms: totalElapsedMs,
+        success: true,
+      });
 
     } catch (error) {
       console.error('Cascade execution error:', error);
@@ -748,6 +768,20 @@ export const useCascadeExecutor = () => {
           completedPrompts: accumulatedResponses.length,
           elapsedMs: Date.now() - cascadeStartTime,
         }, null, 2),
+      });
+      
+      // Track cascade failure
+      trackEvent('cascade_completed', {
+        top_level_prompt_id: topLevelRowId,
+        top_level_prompt_name: topLevelPrompt?.prompt_name,
+        total_prompts_run: accumulatedResponses.length,
+        elapsed_ms: Date.now() - cascadeStartTime,
+        success: false,
+        error_message: error.message,
+      });
+      trackException(error, {
+        context: 'cascade_execution',
+        top_level_prompt_id: topLevelRowId,
       });
     }
   }, [
