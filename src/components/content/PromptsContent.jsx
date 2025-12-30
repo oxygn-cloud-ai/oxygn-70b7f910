@@ -10,7 +10,7 @@ import {
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
-  Paperclip, Upload, Square
+  Paperclip, Upload, Square, Target
 } from "lucide-react";
 import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
@@ -683,42 +683,75 @@ const JsonPathConfig = ({
   onEditSchema,
 }) => {
   const [showPathPicker, setShowPathPicker] = useState(false);
+  const [showFieldMapping, setShowFieldMapping] = useState(false);
   
-  // Extract array paths from schema
+  // Extract array paths from schema with enhanced info
   const arrayPaths = useMemo(() => {
     if (!selectedSchema?.json_schema) return [];
-    const paths = [];
     
     const findArrays = (obj, currentPath = '') => {
-      if (!obj || typeof obj !== 'object') return;
+      if (!obj || typeof obj !== 'object') return [];
+      
+      const paths = [];
       
       if (obj.type === 'array') {
-        paths.push(currentPath || 'root');
+        const itemType = obj.items?.type || 'any';
+        const itemProps = obj.items?.properties ? Object.keys(obj.items.properties) : [];
+        paths.push({
+          path: currentPath || 'root',
+          itemType,
+          itemProps,
+          description: obj.description || '',
+        });
+        
+        // Traverse into array items to find nested arrays
+        if (obj.items) {
+          paths.push(...findArrays(obj.items, currentPath));
+        }
       }
       
       if (obj.properties) {
         Object.entries(obj.properties).forEach(([key, value]) => {
-          findArrays(value, currentPath ? `${currentPath}.${key}` : key);
+          const path = currentPath ? `${currentPath}.${key}` : key;
+          paths.push(...findArrays(value, path));
         });
       }
       
-      if (obj.items) {
-        findArrays(obj.items, currentPath);
-      }
+      return paths;
     };
     
-    findArrays(selectedSchema.json_schema);
-    return paths;
+    return findArrays(selectedSchema.json_schema);
   }, [selectedSchema]);
 
-  const handleSelectPath = (path) => {
-    updateActionConfigDebounced('json_path', path);
+  // Auto-select path if only one array exists and no path is set
+  useEffect(() => {
+    if (arrayPaths.length === 1 && !getDisplayValue('json_path')) {
+      updateActionConfigDebounced('json_path', arrayPaths[0].path);
+    }
+  }, [arrayPaths, getDisplayValue, updateActionConfigDebounced]);
+
+  // Detect which field will be used for title
+  const detectedTitleField = useMemo(() => {
+    const currentPath = getDisplayValue('json_path');
+    const arrayInfo = arrayPaths.find(a => a.path === currentPath);
+    if (!arrayInfo?.itemProps?.length) return null;
+    
+    // Common title field names
+    const titleFields = ['title', 'name', 'heading', 'label', 'subject'];
+    return arrayInfo.itemProps.find(p => titleFields.includes(p.toLowerCase())) || arrayInfo.itemProps[0];
+  }, [arrayPaths, getDisplayValue]);
+
+  const handleSelectPath = (pathInfo) => {
+    updateActionConfigDebounced('json_path', pathInfo.path);
     setShowPathPicker(false);
   };
 
+  const currentNameField = getDisplayValue('name_field');
+  const currentContentField = getDisplayValue('content_field');
+
   return (
     <>
-      {/* JSON Schema - moved to top */}
+      {/* JSON Schema */}
       <SettingSelect
         value={selectedSchemaId || 'none'}
         onValueChange={(value) => onUpdateField?.('json_schema_template_id', value === 'none' ? null : value)}
@@ -729,15 +762,15 @@ const JsonPathConfig = ({
         label="JSON Schema (Optional)"
       />
 
-      {/* JSON Path - right after schema */}
+      {/* Array Path */}
       <div className="space-y-1">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Path</label>
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Array Path</label>
         <div className="flex gap-1.5">
           <input
             type="text"
             value={getDisplayValue('json_path')}
             onChange={(e) => updateActionConfigDebounced('json_path', e.target.value)}
-            placeholder="$.items[*]"
+            placeholder="sections"
             className="flex-1 h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {arrayPaths.length > 0 && (
@@ -746,30 +779,35 @@ const JsonPathConfig = ({
                 <button
                   type="button"
                   onClick={() => setShowPathPicker(!showPathPicker)}
-                  className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container border border-outline-variant"
+                  className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${
+                    showPathPicker ? 'text-primary' : 'text-on-surface-variant'
+                  }`}
                 >
-                  <List className="h-4 w-4 text-on-surface-variant" />
+                  <Target className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Select from schema</TooltipContent>
+              <TooltipContent>Select array from schema</TooltipContent>
             </Tooltip>
           )}
         </div>
         {showPathPicker && arrayPaths.length > 0 && (
           <div className="bg-surface-container border border-outline-variant rounded-m3-sm p-1.5 space-y-0.5">
-            {arrayPaths.map((path) => (
+            {arrayPaths.map((pathInfo) => (
               <button
-                key={path}
+                key={pathInfo.path}
                 type="button"
-                onClick={() => handleSelectPath(path)}
-                className="w-full text-left px-2 py-1 text-body-sm font-mono text-on-surface hover:bg-surface-container-high rounded-m3-sm transition-colors"
+                onClick={() => handleSelectPath(pathInfo)}
+                className="w-full text-left px-2 py-1.5 text-body-sm text-on-surface hover:bg-surface-container-high rounded-m3-sm transition-colors"
               >
-                {path}
+                <span className="font-mono">{pathInfo.path}</span>
+                <span className="text-[10px] text-on-surface-variant ml-2">
+                  (array of {pathInfo.itemType}s{pathInfo.itemProps.length > 0 ? `: ${pathInfo.itemProps.slice(0, 3).join(', ')}${pathInfo.itemProps.length > 3 ? '...' : ''}` : ''})
+                </span>
               </button>
             ))}
           </div>
         )}
-        <p className="text-[10px] text-on-surface-variant">Path to array of items to create as children</p>
+        <p className="text-[10px] text-on-surface-variant">Path to the array that will become child prompts</p>
       </div>
 
       {/* Schema Viewer */}
@@ -782,28 +820,67 @@ const JsonPathConfig = ({
         />
       )}
 
-      {/* Name Field */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Field</label>
-        <input
-          type="text"
-          value={getDisplayValue('name_field')}
-          onChange={(e) => updateActionConfigDebounced('name_field', e.target.value)}
-          placeholder="title"
-          className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
+      {/* Field Mapping Preview & Override */}
+      <div className="space-y-2">
+        {/* Preview of auto-detected mapping */}
+        {getDisplayValue('json_path') && !showFieldMapping && (
+          <div className="flex items-center justify-between text-[10px] text-on-surface-variant">
+            <span>
+              Title: <span className="font-mono text-on-surface">{currentNameField || detectedTitleField || 'auto-detect'}</span>
+              {' · '}
+              Content: <span className="font-mono text-on-surface">{currentContentField || 'full item'}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowFieldMapping(true)}
+              className="text-primary hover:underline"
+            >
+              Customize
+            </button>
+          </div>
+        )}
 
-      {/* Content Field */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Content Field</label>
-        <input
-          type="text"
-          value={getDisplayValue('content_field')}
-          onChange={(e) => updateActionConfigDebounced('content_field', e.target.value)}
-          placeholder="content"
-          className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-        />
+        {/* Expanded field mapping controls */}
+        {showFieldMapping && (
+          <div className="p-2 bg-surface-container rounded-m3-sm space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">Field Mapping</span>
+              <button
+                type="button"
+                onClick={() => setShowFieldMapping(false)}
+                className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high"
+              >
+                <X className="h-3 w-3 text-on-surface-variant" />
+              </button>
+            </div>
+            
+            {/* Title Property */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-on-surface-variant">Title Property</label>
+              <input
+                type="text"
+                value={getDisplayValue('name_field')}
+                onChange={(e) => updateActionConfigDebounced('name_field', e.target.value)}
+                placeholder={detectedTitleField || 'auto-detect'}
+                className="w-full h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <p className="text-[9px] text-on-surface-variant">Property for child prompt name (leave empty to auto-detect)</p>
+            </div>
+
+            {/* Content Property */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-on-surface-variant">Content Property</label>
+              <input
+                type="text"
+                value={getDisplayValue('content_field')}
+                onChange={(e) => updateActionConfigDebounced('content_field', e.target.value)}
+                placeholder="full item JSON"
+                className="w-full h-7 px-2 bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <p className="text-[9px] text-on-surface-variant">Property for prompt content (leave empty to use full item)</p>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
