@@ -63,7 +63,7 @@ const LoadingScreen = () => (
       className="flex items-center gap-2 text-on-surface-variant"
     >
       <Loader2 className="h-4 w-4 animate-spin" />
-      <span className="text-body-sm">Loading workspace...</span>
+      <span className="text-tree">Loading workspace...</span>
     </motion.div>
   </motion.div>
 );

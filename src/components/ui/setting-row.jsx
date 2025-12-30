@@ -17,7 +17,7 @@ const SettingRow = React.forwardRef(({
     {...props}
   >
     <div className="flex-1 min-w-0">
-      <div className="text-body-sm text-on-surface">{label}</div>
+      <div className="text-tree text-on-surface">{label}</div>
       {description && (
         <div className="text-compact text-on-surface-variant">
           {description}

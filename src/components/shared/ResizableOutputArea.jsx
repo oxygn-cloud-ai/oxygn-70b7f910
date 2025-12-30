@@ -313,7 +313,7 @@ const ResizableOutputArea = ({
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y"
+            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-tree text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y"
             onMouseUp={handleResize}
           >
             {value || <span className="text-on-surface-variant opacity-50">{placeholder}</span>}

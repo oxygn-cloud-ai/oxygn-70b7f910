@@ -173,7 +173,7 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
         <DropdownMenuSeparator className="bg-outline-variant" />
         <div className="max-h-40 overflow-auto">
           {filteredPrompts.map(prompt => (
-            <DropdownMenuItem key={prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
+            <DropdownMenuItem key={prompt.id} className="text-tree text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
               <span className="flex-1">{prompt.name}</span>
               <div className="flex gap-1">
                 {prompt.labels?.slice(0, 1).map(lbl => (

@@ -165,7 +165,7 @@ const TopBar = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-surface-container-high border-outline-variant">
             <div className="px-3 py-2">
-              <p className="text-body-sm font-medium text-on-surface">{displayName}</p>
+              <p className="text-tree font-medium text-on-surface">{displayName}</p>
               <p className="text-[10px] text-on-surface-variant">{email}</p>
               {isAdmin && (
                 <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-medium bg-primary/10 text-primary rounded-m3-sm">
@@ -176,7 +176,7 @@ const TopBar = ({
             <DropdownMenuSeparator className="bg-outline-variant" />
             <DropdownMenuItem 
               onClick={handleSignOut}
-              className="text-body-sm text-on-surface cursor-pointer"
+              className="text-tree text-on-surface cursor-pointer"
             >
               <LogOut className="h-4 w-4 mr-2 text-on-surface-variant" />
               Sign out

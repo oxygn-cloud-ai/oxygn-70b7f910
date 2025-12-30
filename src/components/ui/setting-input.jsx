@@ -16,7 +16,7 @@ const SettingInput = React.forwardRef(({
     )}
     {...props}
   >
-    <span className="text-body-sm text-on-surface truncate">{children}</span>
+    <span className="text-tree text-on-surface truncate">{children}</span>
   </div>
 ))
 SettingInput.displayName = "SettingInput"

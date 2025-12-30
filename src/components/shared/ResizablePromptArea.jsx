@@ -217,7 +217,7 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
             </p>
           ) : (
             filteredPrompts.map(prompt => (
-              <DropdownMenuItem key={prompt.row_id || prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
+              <DropdownMenuItem key={prompt.row_id || prompt.id} className="text-tree text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
                 <span className="flex-1">{prompt.name}</span>
                 {prompt.category && (
                   <LabelBadge label={prompt.category} size="xs" />
