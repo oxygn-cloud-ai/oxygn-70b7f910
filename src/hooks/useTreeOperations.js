@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { addPrompt, duplicatePrompt } from '../services/promptMutations';
 import { deletePrompt, restorePrompt } from '../services/promptDeletion';

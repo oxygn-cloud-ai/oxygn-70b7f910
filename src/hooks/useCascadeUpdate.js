@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 
 export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelectedItemData) => {
