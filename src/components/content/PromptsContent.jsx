@@ -589,22 +589,52 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 // Schema Viewer Component
 const SchemaViewer = ({ schema, schemaName }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   if (!schema) return null;
   
   const schemaString = typeof schema === 'string' ? schema : JSON.stringify(schema, null, 2);
   
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(schemaString);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+  
   return (
     <div className="space-y-1.5">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-1.5 text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
-      >
-        <Eye className="h-3 w-3" />
-        <span>{isOpen ? 'Hide' : 'View'} Schema</span>
-        <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-1.5 text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <Eye className="h-3 w-3" />
+          <span>{isOpen ? 'Hide' : 'View'} Schema</span>
+          <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+            >
+              {copied ? (
+                <Check className="h-3 w-3 text-green-500" />
+              ) : (
+                <Copy className="h-3 w-3 text-on-surface-variant" />
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{copied ? 'Copied!' : 'Copy Schema'}</TooltipContent>
+        </Tooltip>
+      </div>
       {isOpen && (
         <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-48 font-mono text-on-surface-variant border border-outline-variant">
           {schemaString}
