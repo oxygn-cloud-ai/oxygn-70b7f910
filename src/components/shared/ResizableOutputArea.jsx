@@ -10,6 +10,21 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+// Create a version of oneDark with transparent background
+const oneDarkNoBg = {
+  ...oneDark,
+  'pre[class*="language-"]': {
+    ...oneDark['pre[class*="language-"]'],
+    background: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  'code[class*="language-"]': {
+    ...oneDark['code[class*="language-"]'],
+    background: 'transparent',
+    backgroundColor: 'transparent',
+  },
+};
+
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
 
@@ -395,14 +410,20 @@ const ResizableOutputArea = ({
                       return (
                         <SyntaxHighlighter
                           language="json"
-                          style={oneDark}
+                          style={oneDarkNoBg}
                           customStyle={{
                             margin: 0,
                             padding: '10px',
-                            background: 'none',
+                            background: 'transparent',
                             backgroundColor: 'transparent',
                             fontSize: '11px',
                             lineHeight: '1.5',
+                          }}
+                          codeTagProps={{ 
+                            style: { 
+                              background: 'transparent', 
+                              backgroundColor: 'transparent' 
+                            } 
                           }}
                           wrapLongLines
                         >
