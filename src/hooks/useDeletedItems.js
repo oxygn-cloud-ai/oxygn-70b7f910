@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 /**
  * Hook for managing deleted items across all types (prompts, templates, JSON schemas, export templates)
@@ -120,6 +121,13 @@ export const useDeletedItems = () => {
       }));
 
       toast.success('Item restored');
+      
+      // Track item restored
+      trackEvent('deleted_item_restored', {
+        item_type: type,
+        item_id: rowId,
+      });
+      
       return true;
     } catch (error) {
       console.error('Error restoring item:', error);
@@ -169,6 +177,13 @@ export const useDeletedItems = () => {
       }));
 
       toast.success('Item permanently deleted');
+      
+      // Track permanent deletion
+      trackEvent('deleted_item_purged', {
+        item_type: type,
+        item_id: rowId,
+      });
+      
       return true;
     } catch (error) {
       console.error('Error permanently deleting item:', error);

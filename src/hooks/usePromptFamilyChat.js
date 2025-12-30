@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const usePromptFamilyChat = (promptRowId) => {
   const [threads, setThreads] = useState([]);
@@ -190,6 +191,13 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsExecutingTools(false);
 
+    // Track prompt family message sent
+    trackEvent('prompt_family_message_sent', {
+      prompt_id: promptRowId,
+      thread_id: activeThreadId,
+      message_length: userMessage.length,
+    });
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
@@ -297,6 +305,13 @@ export const usePromptFamilyChat = (promptRowId) => {
         .update({ updated_at: new Date().toISOString() })
         .eq('row_id', activeThreadId);
 
+      // Track successful response
+      trackEvent('prompt_family_response_received', {
+        prompt_id: promptRowId,
+        thread_id: activeThreadId,
+        response_length: fullContent.length,
+      });
+
       return fullContent;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -305,6 +320,10 @@ export const usePromptFamilyChat = (promptRowId) => {
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
+      
+      // Track error
+      trackException(error, { context: 'prompt_family_chat' });
+      
       return null;
     }
   }, [activeThreadId, promptRowId, messages, addMessage]);

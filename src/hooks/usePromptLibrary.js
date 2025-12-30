@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const usePromptLibrary = () => {
   const [items, setItems] = useState([]);
@@ -78,6 +79,13 @@ export const usePromptLibrary = () => {
       }
 
       toast.success('Library item created');
+      
+      // Track library item created
+      trackEvent('library_item_created', {
+        item_id: data.row_id,
+        category,
+      });
+      
       return data;
     } catch (error) {
       console.error('Error creating library item:', error);

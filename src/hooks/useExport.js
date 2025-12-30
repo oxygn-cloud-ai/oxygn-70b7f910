@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { trackEvent } from '@/lib/posthog';
 
 const EXPORT_STEPS = {
   SELECT_PROMPTS: 1,
@@ -194,6 +195,11 @@ export const useExport = () => {
   // Open the export drawer, optionally with pre-selected prompts
   const openExport = useCallback(async (preSelectedPromptIds = []) => {
     setIsOpen(true);
+    
+    // Track export started
+    trackEvent('export_started', {
+      pre_selected_count: preSelectedPromptIds.length,
+    });
 
     if (preSelectedPromptIds.length > 0) {
       try {

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useWorkbenchMessages = () => {
   const [messages, setMessages] = useState([]);
@@ -92,6 +93,13 @@ export const useWorkbenchMessages = () => {
     setStreamingMessage('');
     setToolActivity([]);
     setIsExecutingTools(false);
+
+    // Track workbench message sent
+    trackEvent('workbench_message_sent', {
+      thread_id: threadRowId,
+      model,
+      message_length: userMessage.length,
+    });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -199,6 +207,12 @@ export const useWorkbenchMessages = () => {
       setToolActivity([]);
       setIsExecutingTools(false);
 
+      // Track successful response
+      trackEvent('workbench_response_received', {
+        thread_id: threadRowId,
+        response_length: fullContent.length,
+      });
+
       return assistantMsg;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -207,6 +221,10 @@ export const useWorkbenchMessages = () => {
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
+      
+      // Track error
+      trackException(error, { context: 'workbench_chat' });
+      
       return null;
     }
   }, [messages, addMessage]);

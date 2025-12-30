@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { validateVariableName } from '@/utils/variableResolver';
+import { trackEvent } from '@/lib/posthog';
 
 /**
  * Hook for managing user-defined prompt variables
@@ -76,6 +77,13 @@ export const usePromptVariables = (promptRowId) => {
         source: 'usePromptVariables.addVariable',
         details: JSON.stringify({ promptRowId, variableName: name, variableRowId: data?.row_id }, null, 2),
       });
+      
+      // Track variable added
+      trackEvent('variable_added', {
+        prompt_id: promptRowId,
+        variable_name: name,
+      });
+      
       return data;
     } catch (error) {
       console.error('Error adding variable:', error);

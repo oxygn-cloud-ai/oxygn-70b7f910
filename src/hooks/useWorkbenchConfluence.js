@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const useWorkbenchConfluence = () => {
   const [pages, setPages] = useState([]);
@@ -142,6 +143,13 @@ export const useWorkbenchConfluence = () => {
 
       setPages(prev => [data, ...prev]);
       toast.success('Page attached');
+      
+      // Track confluence page attached
+      trackEvent('workbench_confluence_attached', {
+        thread_id: threadRowId,
+        page_id: pageData.page_id,
+        space_key: pageData.space_key,
+      });
 
       // Auto-sync content using the new page's data directly
       syncPageById(data.row_id, pageData.page_id);

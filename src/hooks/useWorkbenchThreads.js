@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const useWorkbenchThreads = () => {
   const [threads, setThreads] = useState([]);
@@ -64,6 +65,12 @@ export const useWorkbenchThreads = () => {
       setThreads(prev => [data, ...prev]);
       setActiveThread(data);
       toast.success('Thread created');
+      
+      // Track thread creation
+      trackEvent('workbench_thread_created', {
+        thread_id: data.row_id,
+      });
+      
       return data;
     } catch (error) {
       console.error('Error creating thread:', error);
