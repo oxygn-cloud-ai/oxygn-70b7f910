@@ -51,33 +51,53 @@ export const schemaWasModified = (original, fixed) => {
 
 /**
  * Find all array paths in a schema (for create_children_json action)
+ * Recursively traverses into nested objects AND array items to find all arrays
  * @param {Object} schema - JSON schema object
  * @param {string} prefix - Current path prefix
- * @returns {Array} Array of path strings where arrays exist
+ * @returns {Array} Array of objects with path, itemType, and description
  */
 export const findArrayPaths = (schema, prefix = '') => {
   if (!schema || typeof schema !== 'object') return [];
   
   const paths = [];
   
+  // If this node is an array, add it
   if (schema.type === 'array') {
-    paths.push(prefix || 'root');
+    const itemType = schema.items?.type || 'any';
+    const itemProps = schema.items?.properties ? Object.keys(schema.items.properties) : [];
+    paths.push({
+      path: prefix || 'root',
+      itemType,
+      itemProps,
+      description: schema.description || '',
+    });
+    
+    // Also traverse INTO array items to find nested arrays
+    if (schema.items) {
+      const nestedPaths = findArrayPaths(schema.items, prefix ? `${prefix}[*]` : '[*]');
+      paths.push(...nestedPaths);
+    }
   }
   
+  // Traverse object properties
   if (schema.properties) {
     for (const [key, value] of Object.entries(schema.properties)) {
       const path = prefix ? `${prefix}.${key}` : key;
-      if (value.type === 'array') {
-        paths.push(path);
-      }
-      // Recursively check nested objects
-      if (value.type === 'object' && value.properties) {
-        paths.push(...findArrayPaths(value, path));
-      }
+      paths.push(...findArrayPaths(value, path));
     }
   }
   
   return paths;
+};
+
+/**
+ * Get a simple list of array path strings from a schema
+ * @param {Object} schema - JSON schema object
+ * @returns {Array} Array of path strings (dot notation)
+ */
+export const getArrayPathStrings = (schema) => {
+  const arrayPaths = findArrayPaths(schema);
+  return arrayPaths.map(p => p.path.replace(/\[\*\]/g, ''));
 };
 
 /**
