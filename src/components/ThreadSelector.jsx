@@ -137,11 +137,6 @@ const ThreadSelector = ({
                 {threads.map((thread) => (
                   <SelectItem key={thread.row_id} value={thread.row_id}>
                     {thread.name || `Thread ${thread.row_id.slice(0, 8)}`}
-                    {thread.message_count > 0 && (
-                      <span className="ml-2 text-muted-foreground">
-                        ({thread.message_count} msgs)
-                      </span>
-                    )}
                   </SelectItem>
                 ))}
               </SelectContent>

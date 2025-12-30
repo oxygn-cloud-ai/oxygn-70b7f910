@@ -284,10 +284,7 @@ const PromptReferencePicker = ({
                   <SelectContent>
                     {REFERENCE_FIELDS.map((field) => (
                       <SelectItem key={field.key} value={field.key}>
-                        <div className="flex flex-col">
-                          <span>{field.label}</span>
-                          <span className="text-xs text-muted-foreground">{field.description}</span>
-                        </div>
+                        {field.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
