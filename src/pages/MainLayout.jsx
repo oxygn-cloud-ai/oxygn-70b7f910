@@ -868,7 +868,7 @@ const MainLayout = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
             >
-              <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+              <ResizablePanelGroup direction="horizontal" autoSaveId="qonsol-panel-layout" className="flex-1 min-h-0">
                 {/* Folder/Submenu Panel - collapsible */}
                 <AnimatePresence mode="wait">
                   {folderPanelOpen && (

@@ -258,9 +258,11 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
                       'qonsol-selected-prompt-id',
                       'qonsol-expanded-folders',
                     ];
-                    // Also clear all prompt/output height keys
+                    // Also clear all prompt/output height keys and panel layout
                     Object.keys(localStorage).forEach(key => {
-                      if (key.startsWith('qonsol-prompt-height-') || key.startsWith('qonsol-output-height-')) {
+                      if (key.startsWith('qonsol-prompt-height-') || 
+                          key.startsWith('qonsol-output-height-') ||
+                          key.startsWith('react-resizable-panels:')) {
                         localStorage.removeItem(key);
                       }
                     });
