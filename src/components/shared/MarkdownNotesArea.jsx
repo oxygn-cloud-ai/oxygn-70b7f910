@@ -1,196 +1,197 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useEffect, useState } from 'react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
 import { 
-  Bold, Italic, List, ListOrdered, Link, Code, 
-  ChevronUp, ChevronDown, Eye, Edit3, Heading1, Heading2, Heading3, ChevronDown as DropdownIcon
-} from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-
-const MIN_HEIGHT = 80;
+  Bold, 
+  Italic, 
+  List, 
+  ListOrdered, 
+  Link as LinkIcon, 
+  Code,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Heading1,
+  Heading2,
+  Heading3,
+  Type
+} from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Toolbar button component
-const ToolbarButton = ({ icon: Icon, onClick, tooltipText, active = false }) => (
+const ToolbarButton = ({ icon: Icon, tooltip, onClick, active = false, disabled = false }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
         type="button"
         onClick={onClick}
+        disabled={disabled}
         className={`w-6 h-6 flex items-center justify-center rounded-m3-sm transition-colors ${
-          active 
-            ? "bg-primary/20 text-primary" 
-            : "text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-on-surface"
-        }`}
+          active
+            ? 'bg-primary/10 text-primary'
+            : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <Icon className="h-3.5 w-3.5" />
       </button>
     </TooltipTrigger>
-    <TooltipContent className="text-[10px]">{tooltipText}</TooltipContent>
+    <TooltipContent side="top" className="text-[10px]">
+      {tooltip}
+    </TooltipContent>
   </Tooltip>
 );
 
 // Heading dropdown component
-const HeadingDropdown = ({ onSelect }) => {
-  const [open, setOpen] = useState(false);
-  
-  const headings = [
-    { label: "Heading 1", prefix: "# ", icon: Heading1 },
-    { label: "Heading 2", prefix: "## ", icon: Heading2 },
-    { label: "Heading 3", prefix: "### ", icon: Heading3 },
-  ];
+const HeadingDropdown = ({ editor }) => {
+  const getCurrentHeading = () => {
+    if (editor?.isActive('heading', { level: 1 })) return { label: 'H1', icon: Heading1 };
+    if (editor?.isActive('heading', { level: 2 })) return { label: 'H2', icon: Heading2 };
+    if (editor?.isActive('heading', { level: 3 })) return { label: 'H3', icon: Heading3 };
+    return { label: 'Text', icon: Type };
+  };
+
+  const current = getCurrentHeading();
+  const CurrentIcon = current.icon;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="h-6 px-1.5 flex items-center gap-0.5 rounded-m3-sm text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-on-surface transition-colors"
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="h-6 px-1.5 flex items-center gap-1 rounded-m3-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"
+            >
+              <CurrentIcon className="h-3.5 w-3.5" />
+              <ChevronDown className="h-2.5 w-2.5" />
+            </button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-[10px]">
+          Text Style
+        </TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent align="start" className="min-w-[100px] bg-surface-container-high border-outline-variant">
+        <DropdownMenuItem
+          onClick={() => editor?.chain().focus().setParagraph().run()}
+          className="text-body-sm text-on-surface cursor-pointer"
         >
-          <Heading1 className="h-3.5 w-3.5" />
-          <DropdownIcon className="h-2.5 w-2.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-32 p-1 bg-surface-container-high border-outline-variant" align="start">
-        {headings.map(({ label, prefix, icon: Icon }) => (
-          <button
-            key={label}
-            type="button"
-            onClick={() => {
-              onSelect(prefix);
-              setOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm text-body-sm text-on-surface hover:bg-on-surface/[0.08] transition-colors"
-          >
-            <Icon className="h-3.5 w-3.5 text-on-surface-variant" />
-            {label}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+          <Type className="h-3.5 w-3.5 mr-2" />
+          Normal
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+          className="text-body-sm text-on-surface cursor-pointer"
+        >
+          <Heading1 className="h-3.5 w-3.5 mr-2" />
+          Heading 1
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+          className="text-body-sm text-on-surface cursor-pointer"
+        >
+          <Heading2 className="h-3.5 w-3.5 mr-2" />
+          Heading 2
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+          className="text-body-sm text-on-surface cursor-pointer"
+        >
+          <Heading3 className="h-3.5 w-3.5 mr-2" />
+          Heading 3
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
 /**
- * MarkdownNotesArea - A rich text notes field with markdown support
- * Features: formatting toolbar, live preview while editing, collapsible
+ * MarkdownNotesArea - A WYSIWYG notes editor using Tiptap
+ * Features: formatting toolbar, real-time editing, collapsible
  */
-const MarkdownNotesArea = ({ 
-  label = "Notes",
-  value, 
-  placeholder = "Add notes...",
+const MarkdownNotesArea = ({
+  value = '',
   onChange,
-  defaultHeight = MIN_HEIGHT,
+  placeholder = 'Add notes...',
+  label = 'Notes',
+  defaultHeight = 80,
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [localValue, setLocalValue] = useState(value || "");
-  const textareaRef = useRef(null);
 
-  // Sync with external value
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline',
+        },
+      }),
+      Placeholder.configure({
+        placeholder,
+        emptyEditorClass: 'is-editor-empty',
+      }),
+    ],
+    content: value || '',
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      // Return empty string if editor only contains empty paragraph
+      const isEmpty = html === '<p></p>' || html === '';
+      onChange?.(isEmpty ? '' : html);
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[80px] text-body-sm text-on-surface prose-p:my-1 prose-headings:text-on-surface prose-headings:font-medium prose-headings:mt-2 prose-headings:mb-1 prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-a:text-primary prose-code:text-primary prose-code:bg-surface-container-high prose-code:px-1 prose-code:rounded prose-strong:text-on-surface prose-em:text-on-surface',
+      },
+    },
+  });
+
+  // Sync external value changes
   useEffect(() => {
-    setLocalValue(value || "");
-  }, [value]);
-
-  // Focus textarea when entering edit mode
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.focus();
+    if (editor && value !== editor.getHTML()) {
+      const currentValue = editor.getHTML();
+      const isEmpty = currentValue === '<p></p>' || currentValue === '';
+      const newIsEmpty = !value || value === '<p></p>';
+      
+      // Only update if values are actually different
+      if (isEmpty !== newIsEmpty || (!isEmpty && value !== currentValue)) {
+        editor.commands.setContent(value || '');
+      }
     }
-  }, [isEditing]);
+  }, [value, editor]);
 
-  // Insert markdown formatting at cursor position
-  const insertFormatting = useCallback((prefix, suffix = "", placeholder = "") => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = localValue.substring(start, end);
-    const textToInsert = selectedText || placeholder;
-    
-    const newValue = 
-      localValue.substring(0, start) + 
-      prefix + textToInsert + suffix + 
-      localValue.substring(end);
-    
-    setLocalValue(newValue);
-    onChange?.(newValue);
-
-    // Restore focus and selection
-    setTimeout(() => {
-      textarea.focus();
-      const newCursorPos = start + prefix.length + textToInsert.length;
-      textarea.setSelectionRange(
-        selectedText ? newCursorPos + suffix.length : start + prefix.length,
-        selectedText ? newCursorPos + suffix.length : start + prefix.length + textToInsert.length
-      );
-    }, 0);
-  }, [localValue, onChange]);
-
-  // Insert heading at line start
-  const insertHeading = useCallback((prefix) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    // Find the start of the current line
-    const lineStart = localValue.lastIndexOf("\n", start - 1) + 1;
-    
-    // Check if line already has a heading prefix and remove it
-    const lineContent = localValue.substring(lineStart);
-    const existingHeadingMatch = lineContent.match(/^#{1,3}\s*/);
-    
-    let newValue;
-    if (existingHeadingMatch) {
-      // Replace existing heading
-      newValue = 
-        localValue.substring(0, lineStart) + 
-        prefix + 
-        lineContent.substring(existingHeadingMatch[0].length);
-    } else {
-      // Insert new heading
-      newValue = 
-        localValue.substring(0, lineStart) + 
-        prefix + 
-        localValue.substring(lineStart);
-    }
-    
-    setLocalValue(newValue);
-    onChange?.(newValue);
-
-    setTimeout(() => {
-      textarea.focus();
-    }, 0);
-  }, [localValue, onChange]);
-
-  const handleBold = () => insertFormatting("**", "**", "bold text");
-  const handleItalic = () => insertFormatting("*", "*", "italic text");
-  const handleBulletList = () => insertFormatting("\n- ", "", "list item");
-  const handleNumberedList = () => insertFormatting("\n1. ", "", "list item");
-  const handleLink = () => insertFormatting("[", "](url)", "link text");
-  const handleCode = () => insertFormatting("`", "`", "code");
-
-  const handleChange = (e) => {
-    setLocalValue(e.target.value);
-    onChange?.(e.target.value);
-  };
-
-  const handleContentClick = () => {
-    if (!isEditing) {
-      setIsEditing(true);
+  const handleAddLink = () => {
+    const url = window.prompt('Enter URL:');
+    if (url) {
+      editor?.chain().focus().setLink({ href: url }).run();
     }
   };
 
-  const handleBlur = (e) => {
-    // Don't exit edit mode if clicking on toolbar
-    if (e.relatedTarget?.closest('[data-toolbar]')) {
-      return;
-    }
-    setIsEditing(false);
+  const handleRemoveLink = () => {
+    editor?.chain().focus().unsetLink().run();
   };
 
-  const hasContent = localValue?.trim().length > 0;
+  const hasContent = value && value !== '<p></p>' && value.trim() !== '';
+
+  // Get plain text preview for collapsed state
+  const getPlainTextPreview = () => {
+    if (!value) return '';
+    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
+  };
 
   return (
     <div className="space-y-1.5">
@@ -205,14 +206,14 @@ const MarkdownNotesArea = ({
                 className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
               >
                 {isCollapsed ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
+                  <ChevronRight className="h-3.5 w-3.5" />
                 ) : (
                   <ChevronUp className="h-3.5 w-3.5" />
                 )}
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">
-              {isCollapsed ? "Expand" : "Collapse"}
+              {isCollapsed ? 'Expand' : 'Collapse'}
             </TooltipContent>
           </Tooltip>
           <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
@@ -220,63 +221,71 @@ const MarkdownNotesArea = ({
           </span>
         </div>
 
-        {/* Right side controls */}
+        {/* Toolbar - visible when not collapsed */}
         {!isCollapsed && (
           <div className="flex items-center gap-0.5" data-toolbar>
-            {/* Formatting toolbar - always visible */}
-            <div className="flex items-center gap-0.5 mr-2 pr-2 border-r border-outline-variant">
-              <HeadingDropdown onSelect={insertHeading} />
-              <ToolbarButton icon={Bold} onClick={handleBold} tooltipText="Bold (Ctrl+B)" />
-              <ToolbarButton icon={Italic} onClick={handleItalic} tooltipText="Italic (Ctrl+I)" />
-              <ToolbarButton icon={List} onClick={handleBulletList} tooltipText="Bullet list" />
-              <ToolbarButton icon={ListOrdered} onClick={handleNumberedList} tooltipText="Numbered list" />
-              <ToolbarButton icon={Link} onClick={handleLink} tooltipText="Insert link" />
-              <ToolbarButton icon={Code} onClick={handleCode} tooltipText="Inline code" />
-            </div>
+            <HeadingDropdown editor={editor} />
             
-            {/* Edit/Preview toggle */}
-            <ToolbarButton 
-              icon={isEditing ? Eye : Edit3} 
-              onClick={() => setIsEditing(!isEditing)} 
-              tooltipText={isEditing ? "Preview" : "Edit"}
-              active={isEditing}
+            <div className="w-px h-4 bg-outline-variant mx-1" />
+            
+            <ToolbarButton
+              icon={Bold}
+              tooltip="Bold (Ctrl+B)"
+              onClick={() => editor?.chain().focus().toggleBold().run()}
+              active={editor?.isActive('bold')}
+            />
+            <ToolbarButton
+              icon={Italic}
+              tooltip="Italic (Ctrl+I)"
+              onClick={() => editor?.chain().focus().toggleItalic().run()}
+              active={editor?.isActive('italic')}
+            />
+            
+            <div className="w-px h-4 bg-outline-variant mx-1" />
+            
+            <ToolbarButton
+              icon={List}
+              tooltip="Bullet List"
+              onClick={() => editor?.chain().focus().toggleBulletList().run()}
+              active={editor?.isActive('bulletList')}
+            />
+            <ToolbarButton
+              icon={ListOrdered}
+              tooltip="Numbered List"
+              onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+              active={editor?.isActive('orderedList')}
+            />
+            
+            <div className="w-px h-4 bg-outline-variant mx-1" />
+            
+            <ToolbarButton
+              icon={LinkIcon}
+              tooltip={editor?.isActive('link') ? 'Remove Link' : 'Add Link'}
+              onClick={editor?.isActive('link') ? handleRemoveLink : handleAddLink}
+              active={editor?.isActive('link')}
+            />
+            <ToolbarButton
+              icon={Code}
+              tooltip="Code"
+              onClick={() => editor?.chain().focus().toggleCode().run()}
+              active={editor?.isActive('code')}
             />
           </div>
         )}
       </div>
 
-      {/* Content area */}
+      {/* Editor content */}
       {!isCollapsed && (
         <div 
-          className="bg-surface-container rounded-m3-sm border border-outline-variant overflow-hidden cursor-text"
+          className="bg-surface-container rounded-m3-sm border border-outline-variant overflow-hidden"
           style={{ minHeight: defaultHeight }}
-          onClick={handleContentClick}
         >
-          {isEditing ? (
-            <textarea
-              ref={textareaRef}
-              value={localValue}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              placeholder={placeholder}
-              className="w-full p-3 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant/50 resize-y focus:outline-none"
-              style={{ minHeight: defaultHeight }}
+          <div className="p-3">
+            <EditorContent 
+              editor={editor} 
+              className="tiptap-editor [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:text-on-surface-variant/50 [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:pointer-events-none"
             />
-          ) : (
-            <div className="p-3 min-h-[80px]">
-              {hasContent ? (
-                <div className="prose prose-sm max-w-none text-on-surface prose-p:my-1 prose-p:text-body-sm prose-headings:text-on-surface prose-headings:font-medium prose-headings:mt-2 prose-headings:mb-1 prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-li:text-body-sm prose-a:text-primary prose-code:text-primary prose-code:bg-surface-container-high prose-code:px-1 prose-code:rounded prose-strong:text-on-surface prose-em:text-on-surface">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {localValue}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <p className="text-body-sm text-on-surface-variant/50 italic">
-                  {placeholder}
-                </p>
-              )}
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -287,7 +296,7 @@ const MarkdownNotesArea = ({
           onClick={() => setIsCollapsed(false)}
         >
           <p className="text-body-sm text-on-surface-variant line-clamp-1">
-            {localValue.substring(0, 100)}...
+            {getPlainTextPreview()}...
           </p>
         </div>
       )}
