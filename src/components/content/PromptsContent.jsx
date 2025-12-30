@@ -246,7 +246,7 @@ import { ALL_SETTINGS } from '@/config/modelCapabilities';
 import { useModels } from '@/hooks/useModels';
 
 // Settings Tab Content with dynamic model-aware parameters
-const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [] }) => {
+const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = [], onEditSchema }) => {
   const { getModelConfig, isSettingSupported } = useModels();
 
   // Use real data from promptData
@@ -584,12 +584,12 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
       </div>
 
       {/* Actions & Cascade Section */}
-      <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} schemas={schemas} />
+      <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} schemas={schemas} onEditSchema={onEditSchema} />
     </div>
   );
 };
 // Schema Viewer Component
-const SchemaViewer = ({ schema, schemaName }) => {
+const SchemaViewer = ({ schema, schemaName, schemaId, onEditSchema }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   
@@ -636,9 +636,23 @@ const SchemaViewer = ({ schema, schemaName }) => {
           </TooltipTrigger>
           <TooltipContent>{copied ? 'Copied!' : 'Copy Schema'}</TooltipContent>
         </Tooltip>
+        {schemaId && onEditSchema && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onEditSchema(schemaId)}
+                className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+              >
+                <Edit3 className="h-3 w-3 text-on-surface-variant" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Edit Schema Template</TooltipContent>
+          </Tooltip>
+        )}
       </div>
       {isOpen && (
-        <div className="rounded-m3-sm overflow-hidden border border-outline-variant max-h-48 overflow-auto bg-surface-container">
+        <ScrollArea className="rounded-m3-sm border border-outline-variant h-48 bg-surface-container">
           <SyntaxHighlighter
             language="json"
             style={vs}
@@ -651,7 +665,7 @@ const SchemaViewer = ({ schema, schemaName }) => {
           >
             {schemaString}
           </SyntaxHighlighter>
-        </div>
+        </ScrollArea>
       )}
     </div>
   );
@@ -665,7 +679,8 @@ const JsonPathConfig = ({
   selectedSchemaId, 
   selectedSchema, 
   schemas, 
-  onUpdateField 
+  onUpdateField,
+  onEditSchema,
 }) => {
   const [showPathPicker, setShowPathPicker] = useState(false);
   
@@ -759,7 +774,12 @@ const JsonPathConfig = ({
 
       {/* Schema Viewer */}
       {selectedSchema && selectedSchema.json_schema && (
-        <SchemaViewer schema={selectedSchema.json_schema} schemaName={selectedSchema.schema_name || selectedSchema.name} />
+        <SchemaViewer 
+          schema={selectedSchema.json_schema} 
+          schemaName={selectedSchema.schema_name || selectedSchema.name}
+          schemaId={selectedSchema.row_id || selectedSchema.id}
+          onEditSchema={onEditSchema}
+        />
       )}
 
       {/* Name Field */}
@@ -803,7 +823,7 @@ const TEMPLATE_SOURCE_OPTIONS = [
   { value: "error", label: "Error Handler" },
 ];
 
-const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
+const ActionConfigSection = ({ promptData, onUpdateField, schemas = [], onEditSchema }) => {
   // Read action type from database, default to "none"
   const actionType = promptData?.post_action || "none";
   const actionConfig = promptData?.post_action_config || {};
@@ -889,6 +909,7 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
               selectedSchema={selectedSchema}
               schemas={schemas}
               onUpdateField={onUpdateField}
+              onEditSchema={onEditSchema}
             />
           )}
 
@@ -1099,6 +1120,7 @@ const PromptsContent = ({
   isRunningCascade = false,
   onCancelRun,
   runProgress,
+  onEditSchema,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
@@ -1326,6 +1348,7 @@ const PromptsContent = ({
               onUpdateField={onUpdateField}
               models={models}
               schemas={schemas}
+              onEditSchema={onEditSchema}
             />
           )}
           {activeTab === "variables" && (

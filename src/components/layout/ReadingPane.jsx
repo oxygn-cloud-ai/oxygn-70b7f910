@@ -57,6 +57,7 @@ const ReadingPane = ({
   // Templates props - Phase 8-9
   templatesHook,
   jsonSchemaTemplatesHook,
+  onEditSchema,
 }) => {
   // Workbench mode - full workbench with threads and chat (now with real data)
   if (activeNav === "workbench") {
@@ -167,6 +168,7 @@ const ReadingPane = ({
       isRunningCascade={isRunningCascade}
       onCancelRun={onCancelRun}
       runProgress={runProgress}
+      onEditSchema={onEditSchema}
     />
   );
 };
