@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { icons } from "lucide-react";
 import { 
@@ -17,7 +18,6 @@ import {
   Play,
   Braces,
   Upload,
-  GripVertical,
   Workflow,
   RefreshCw,
   Loader2,
@@ -193,6 +193,7 @@ const TreeItem = ({
   supabase
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [menuPosition, setMenuPosition] = useState(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -323,7 +324,14 @@ const TreeItem = ({
       <div
         ref={ref}
         onClick={handleRowClick}
-        onMouseEnter={() => setIsHovered(true)}
+        onMouseEnter={(e) => {
+          setIsHovered(true);
+          const rect = e.currentTarget.getBoundingClientRect();
+          setMenuPosition({
+            top: rect.top + rect.height / 2,
+            left: rect.right + 8
+          });
+        }}
         onMouseLeave={() => setIsHovered(false)}
         className={`
           w-full h-7 flex items-center gap-1.5 pr-1.5 rounded-m3-sm cursor-pointer
@@ -346,8 +354,6 @@ const TreeItem = ({
           )}
         </div>
         
-        {/* Drag handle - only on hover */}
-        <GripVertical className={`h-2.5 w-2.5 flex-shrink-0 cursor-grab transition-opacity ${isHovered && !isMultiSelectMode ? 'text-on-surface-variant/60' : 'text-transparent'}`} />
         
         {/* Expand/collapse chevron - show for all items, greyed out when no children */}
         <button 
@@ -409,9 +415,27 @@ const TreeItem = ({
           onIconSelect={handleIconSelect}
         />
         
-        {/* Hover actions or status icons */}
-        {isHovered && !isMultiSelectMode ? (
+        {/* Status icons - always visible when not hovering */}
+        {!isHovered && (
           <div className="flex items-center gap-0.5">
+            {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
+            {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
+            {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
+          </div>
+        )}
+
+        {/* Hover actions - rendered via portal to overflow panel */}
+        {isHovered && !isMultiSelectMode && menuPosition && createPortal(
+          <div 
+            className="fixed flex items-center gap-0.5 bg-surface-container-high rounded-m3-sm shadow-lg px-1 py-0.5 z-50 border border-outline-variant"
+            style={{ 
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              transform: 'translateY(-50%)'
+            }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
             <IconButton 
               icon={Star} 
               label={starred ? "Unstar" : "Star"} 
@@ -452,13 +476,8 @@ const TreeItem = ({
               onClick={() => onToggleExcludeExport?.(id)}
             />
             <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id, label)} />
-          </div>
-        ) : (
-          <div className="flex items-center gap-0.5">
-            {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
-            {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
-            {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
       
