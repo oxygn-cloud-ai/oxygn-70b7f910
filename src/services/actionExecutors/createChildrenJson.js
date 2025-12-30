@@ -348,6 +348,7 @@ export const executeCreateChildrenJson = async ({
     children: createdChildren,
     childNodeType: child_node_type,
     placement,
+    targetParentRowId,
     jsonPath: json_path,
     message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement] || ''} from JSON array`,
   };

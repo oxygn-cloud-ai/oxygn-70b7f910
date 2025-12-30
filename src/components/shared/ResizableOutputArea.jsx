@@ -346,10 +346,27 @@ const ResizableOutputArea = ({
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-tree text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y"
+            className="p-2.5 bg-surface-container-low rounded-m3-md border border-outline-variant text-tree text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y font-mono"
             onMouseUp={handleResize}
           >
-            {value || <span className="text-on-surface-variant opacity-50">{placeholder}</span>}
+            {value ? (
+              // Try to format as JSON if it looks like JSON
+              (() => {
+                const trimmed = value.trim();
+                if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+                    (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                  try {
+                    const parsed = JSON.parse(trimmed);
+                    return JSON.stringify(parsed, null, 2);
+                  } catch {
+                    return value; // Not valid JSON, show as-is
+                  }
+                }
+                return value;
+              })()
+            ) : (
+              <span className="text-on-surface-variant opacity-50 font-sans">{placeholder}</span>
+            )}
           </div>
 
           {/* Metadata */}
