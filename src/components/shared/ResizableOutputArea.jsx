@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
   Play, Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2,
-  Braces, FileText
+  SwitchCamera
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -282,7 +282,7 @@ const ResizableOutputArea = ({
                   onClick={() => setJsonFormatEnabled(!jsonFormatEnabled)}
                   className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${jsonFormatEnabled ? 'text-primary' : 'text-on-surface-variant'}`}
                 >
-                  {jsonFormatEnabled ? <Braces className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                  <SwitchCamera className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
               <TooltipContent className="text-[10px]">{jsonFormatEnabled ? 'Show as plain text' : 'Format as JSON'}</TooltipContent>
@@ -373,7 +373,7 @@ const ResizableOutputArea = ({
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight ? '' : 'p-2.5 text-tree text-on-surface leading-relaxed whitespace-pre-wrap font-mono'}`}
+            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight && jsonFormatEnabled ? '' : 'p-2.5 text-[11px] text-on-surface leading-relaxed whitespace-pre-wrap font-mono'}`}
             onMouseUp={handleResize}
           >
             {value ? (
