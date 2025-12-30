@@ -657,6 +657,138 @@ const SchemaViewer = ({ schema, schemaName }) => {
   );
 };
 
+// JSON Path Configuration Component with schema-aware path picker
+const JsonPathConfig = ({ 
+  actionConfig, 
+  getDisplayValue, 
+  updateActionConfigDebounced, 
+  selectedSchemaId, 
+  selectedSchema, 
+  schemas, 
+  onUpdateField 
+}) => {
+  const [showPathPicker, setShowPathPicker] = useState(false);
+  
+  // Extract array paths from schema
+  const arrayPaths = useMemo(() => {
+    if (!selectedSchema?.json_schema) return [];
+    const paths = [];
+    
+    const findArrays = (obj, currentPath = '') => {
+      if (!obj || typeof obj !== 'object') return;
+      
+      if (obj.type === 'array') {
+        paths.push(currentPath || 'root');
+      }
+      
+      if (obj.properties) {
+        Object.entries(obj.properties).forEach(([key, value]) => {
+          findArrays(value, currentPath ? `${currentPath}.${key}` : key);
+        });
+      }
+      
+      if (obj.items) {
+        findArrays(obj.items, currentPath);
+      }
+    };
+    
+    findArrays(selectedSchema.json_schema);
+    return paths;
+  }, [selectedSchema]);
+
+  const handleSelectPath = (path) => {
+    updateActionConfigDebounced('json_path', path);
+    setShowPathPicker(false);
+  };
+
+  return (
+    <>
+      {/* JSON Schema - moved to top */}
+      <SettingSelect
+        value={selectedSchemaId || 'none'}
+        onValueChange={(value) => onUpdateField?.('json_schema_template_id', value === 'none' ? null : value)}
+        options={[
+          { value: 'none', label: 'None' },
+          ...schemas.map(s => ({ value: s.row_id || s.id, label: s.schema_name || s.name }))
+        ]}
+        label="JSON Schema (Optional)"
+      />
+
+      {/* JSON Path - right after schema */}
+      <div className="space-y-1">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Path</label>
+        <div className="flex gap-1.5">
+          <input
+            type="text"
+            value={getDisplayValue('json_path')}
+            onChange={(e) => updateActionConfigDebounced('json_path', e.target.value)}
+            placeholder="$.items[*]"
+            className="flex-1 h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+          {arrayPaths.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setShowPathPicker(!showPathPicker)}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container border border-outline-variant"
+                >
+                  <List className="h-4 w-4 text-on-surface-variant" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Select from schema</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        {showPathPicker && arrayPaths.length > 0 && (
+          <div className="bg-surface-container border border-outline-variant rounded-m3-sm p-1.5 space-y-0.5">
+            {arrayPaths.map((path) => (
+              <button
+                key={path}
+                type="button"
+                onClick={() => handleSelectPath(path)}
+                className="w-full text-left px-2 py-1 text-body-sm font-mono text-on-surface hover:bg-surface-container-high rounded-m3-sm transition-colors"
+              >
+                {path}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="text-[10px] text-on-surface-variant">Path to array of items to create as children</p>
+      </div>
+
+      {/* Schema Viewer */}
+      {selectedSchema && selectedSchema.json_schema && (
+        <SchemaViewer schema={selectedSchema.json_schema} schemaName={selectedSchema.schema_name || selectedSchema.name} />
+      )}
+
+      {/* Name Field */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Field</label>
+        <input
+          type="text"
+          value={getDisplayValue('name_field')}
+          onChange={(e) => updateActionConfigDebounced('name_field', e.target.value)}
+          placeholder="title"
+          className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
+      {/* Content Field */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Content Field</label>
+        <input
+          type="text"
+          value={getDisplayValue('content_field')}
+          onChange={(e) => updateActionConfigDebounced('content_field', e.target.value)}
+          placeholder="content"
+          className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+    </>
+  );
+};
+
 // Action Configuration Section
 const ACTION_TYPES = [
   { id: "none", label: "None", description: "No post-action" },
@@ -749,60 +881,15 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
           </div>
 
           {actionType === "create_children_json" && (
-            <>
-              {/* JSON Path */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Path</label>
-                <input
-                  type="text"
-                  value={getDisplayValue('json_path')}
-                  onChange={(e) => updateActionConfigDebounced('json_path', e.target.value)}
-                  placeholder="$.items[*]"
-                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-                <p className="text-[10px] text-on-surface-variant">Path to array of items to create as children</p>
-              </div>
-
-              {/* Name Field */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Name Field</label>
-                <input
-                  type="text"
-                  value={getDisplayValue('name_field')}
-                  onChange={(e) => updateActionConfigDebounced('name_field', e.target.value)}
-                  placeholder="title"
-                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              {/* Content Field */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Content Field</label>
-                <input
-                  type="text"
-                  value={getDisplayValue('content_field')}
-                  onChange={(e) => updateActionConfigDebounced('content_field', e.target.value)}
-                  placeholder="content"
-                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              {/* JSON Schema */}
-              <SettingSelect
-                value={selectedSchemaId || 'none'}
-                onValueChange={(value) => onUpdateField?.('json_schema_template_id', value === 'none' ? null : value)}
-                options={[
-                  { value: 'none', label: 'None' },
-                  ...schemas.map(s => ({ value: s.row_id || s.id, label: s.schema_name || s.name }))
-                ]}
-                label="JSON Schema (Optional)"
-              />
-
-              {/* Schema Viewer */}
-              {selectedSchema && selectedSchema.json_schema && (
-                <SchemaViewer schema={selectedSchema.json_schema} schemaName={selectedSchema.schema_name || selectedSchema.name} />
-              )}
-            </>
+            <JsonPathConfig 
+              actionConfig={actionConfig}
+              getDisplayValue={getDisplayValue}
+              updateActionConfigDebounced={updateActionConfigDebounced}
+              selectedSchemaId={selectedSchemaId}
+              selectedSchema={selectedSchema}
+              schemas={schemas}
+              onUpdateField={onUpdateField}
+            />
           )}
 
           {actionType === "create_children_text" && (
