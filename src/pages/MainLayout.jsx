@@ -34,6 +34,7 @@ import { useConversationRun } from "@/hooks/useConversationRun";
 import { useCascadeExecutor } from "@/hooks/useCascadeExecutor";
 import { useCostTracking } from "@/hooks/useCostTracking";
 import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults";
+import { usePromptFamilyChat } from "@/hooks/usePromptFamilyChat";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
 import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
@@ -167,6 +168,9 @@ const MainLayout = () => {
   
   // Conversation tool defaults - Phase 4
   const conversationToolDefaults = useConversationToolDefaults();
+  
+  // Prompt Family Chat hook - for knowledge-enhanced conversations about prompt families
+  const promptFamilyChat = usePromptFamilyChat(selectedPromptId);
   
   // Fetch messages when active thread changes
   useEffect(() => {
@@ -1087,18 +1091,8 @@ const MainLayout = () => {
                         >
                           <ConversationPanel 
                             onClose={() => setConversationPanelOpen(false)}
-                            threads={threads}
-                            activeThread={activeThread}
-                            onSelectThread={setActiveThread}
-                            messages={messages}
-                            isLoadingThreads={isLoadingThreads}
-                            isLoadingMessages={isLoadingMessages}
-                            isSending={isSendingMessage}
-                            onCreateThread={createThread}
-                            onDeleteThread={deleteThread}
-                            onRenameThread={renameThread}
-                            onSendMessage={handleSendConversationMessage}
                             promptName={selectedPromptData?.prompt_name}
+                            promptFamilyChat={promptFamilyChat}
                             onCancel={cancelRun}
                             progress={runProgress}
                           />

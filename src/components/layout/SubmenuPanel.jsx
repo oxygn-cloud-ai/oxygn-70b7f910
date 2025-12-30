@@ -23,7 +23,8 @@ import {
   CreditCard,
   Briefcase,
   FileText,
-  Trash2
+  Trash2,
+  BookOpen
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -221,6 +222,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Credentials & tokens"
         isActive={activeSubItem === "api-keys"}
         onClick={() => onItemClick?.("api-keys")}
+      />
+      <SubmenuItem 
+        icon={BookOpen} 
+        label="Knowledge Base" 
+        description="Qonsol expert content"
+        isActive={activeSubItem === "knowledge"}
+        onClick={() => onItemClick?.("knowledge")}
       />
       <SubmenuItem 
         icon={Trash2} 
