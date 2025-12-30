@@ -134,6 +134,104 @@ export type Database = {
         }
         Relationships: []
       }
+      q_app_knowledge: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          embedding: string | null
+          is_active: boolean | null
+          is_auto_generated: boolean | null
+          keywords: string[] | null
+          priority: number | null
+          row_id: string
+          source_id: string | null
+          source_type: string | null
+          title: string
+          topic: string
+          updated_at: string | null
+          updated_by: string | null
+          version: number | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          embedding?: string | null
+          is_active?: boolean | null
+          is_auto_generated?: boolean | null
+          keywords?: string[] | null
+          priority?: number | null
+          row_id?: string
+          source_id?: string | null
+          source_type?: string | null
+          title: string
+          topic: string
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          embedding?: string | null
+          is_active?: boolean | null
+          is_auto_generated?: boolean | null
+          keywords?: string[] | null
+          priority?: number | null
+          row_id?: string
+          source_id?: string | null
+          source_type?: string | null
+          title?: string
+          topic?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
+      q_app_knowledge_history: {
+        Row: {
+          content: string | null
+          edited_at: string | null
+          edited_by: string | null
+          knowledge_row_id: string | null
+          row_id: string
+          title: string | null
+          topic: string | null
+          version: number | null
+        }
+        Insert: {
+          content?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          knowledge_row_id?: string | null
+          row_id?: string
+          title?: string | null
+          topic?: string | null
+          version?: number | null
+        }
+        Update: {
+          content?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          knowledge_row_id?: string | null
+          row_id?: string
+          title?: string | null
+          topic?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_app_knowledge_history_knowledge_row_id_fkey"
+            columns: ["knowledge_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_app_knowledge"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
       q_assistant_files: {
         Row: {
           assistant_row_id: string | null
@@ -722,6 +820,89 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      q_prompt_family_messages: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          role: string
+          row_id: string
+          thread_row_id: string | null
+          tool_calls: Json | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          role: string
+          row_id?: string
+          thread_row_id?: string | null
+          tool_calls?: Json | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          role?: string
+          row_id?: string
+          thread_row_id?: string | null
+          tool_calls?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_prompt_family_messages_thread_row_id_fkey"
+            columns: ["thread_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompt_family_threads"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
+      q_prompt_family_threads: {
+        Row: {
+          created_at: string | null
+          is_active: boolean | null
+          openai_conversation_id: string | null
+          owner_id: string | null
+          prompt_row_id: string
+          row_id: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          is_active?: boolean | null
+          openai_conversation_id?: string | null
+          owner_id?: string | null
+          prompt_row_id: string
+          row_id?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          is_active?: boolean | null
+          openai_conversation_id?: string | null
+          owner_id?: string | null
+          prompt_row_id?: string
+          row_id?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_prompt_family_threads_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_owner_emails"
+            referencedColumns: ["prompt_row_id"]
+          },
+          {
+            foreignKeyName: "q_prompt_family_threads_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
       }
       q_prompt_library: {
         Row: {
@@ -1471,6 +1652,21 @@ export type Database = {
       owns_prompt: {
         Args: { _prompt_id: string; _user_id: string }
         Returns: boolean
+      }
+      search_knowledge: {
+        Args: {
+          filter_topics?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          row_id: string
+          similarity: number
+          title: string
+          topic: string
+        }[]
       }
     }
     Enums: {
