@@ -586,6 +586,34 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
     </div>
   );
 };
+// Schema Viewer Component
+const SchemaViewer = ({ schema, schemaName }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  if (!schema) return null;
+  
+  const schemaString = typeof schema === 'string' ? schema : JSON.stringify(schema, null, 2);
+  
+  return (
+    <div className="space-y-1.5">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 text-[10px] text-on-surface-variant hover:text-on-surface transition-colors"
+      >
+        <Eye className="h-3 w-3" />
+        <span>{isOpen ? 'Hide' : 'View'} Schema</span>
+        <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-48 font-mono text-on-surface-variant border border-outline-variant">
+          {schemaString}
+        </pre>
+      )}
+    </div>
+  );
+};
+
 // Action Configuration Section
 const ACTION_TYPES = [
   { id: "none", label: "None", description: "No post-action" },
@@ -728,6 +756,11 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [] }) => {
                 label="JSON Schema (Optional)"
                 icon={Braces}
               />
+
+              {/* Schema Viewer */}
+              {selectedSchema && selectedSchema.json_schema && (
+                <SchemaViewer schema={selectedSchema.json_schema} schemaName={selectedSchema.schema_name || selectedSchema.name} />
+              )}
             </>
           )}
 
