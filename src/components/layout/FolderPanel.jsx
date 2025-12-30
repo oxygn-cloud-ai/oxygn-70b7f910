@@ -28,7 +28,8 @@ import {
   Square,
   X,
   Palette,
-  PanelLeftClose
+  PanelLeftClose,
+  Maximize2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -567,6 +568,8 @@ const FolderPanel = ({
   onMovePrompt,
   onRefresh,
   onClose,
+  onToggleReadingPane,
+  readingPaneOpen = true,
   // Phase 1 handlers
   onRunPrompt,
   onRunCascade,
@@ -919,19 +922,34 @@ const FolderPanel = ({
           <FolderOpen className="h-4 w-4 text-on-surface-variant" />
           Prompts
         </p>
-        {onClose && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Hide panel</TooltipContent>
-          </Tooltip>
-        )}
+        <div className="flex items-center gap-0.5">
+          {!readingPaneOpen && onToggleReadingPane && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onToggleReadingPane}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show prompt panel</TooltipContent>
+            </Tooltip>
+          )}
+          {onClose && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Hide panel</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {/* Quick View */}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, MessageSquare, 
-  Plus, Trash2, ChevronDown, Wrench, Check
+  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -129,6 +129,8 @@ const ConversationPanel = ({
   onSendMessage: legacyOnSendMessage,
   onCancel,
   progress,
+  onToggleReadingPane,
+  readingPaneOpen = true,
 }) => {
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef(null);
@@ -226,6 +228,19 @@ const ConversationPanel = ({
           )}
         </div>
         <div className="flex items-center gap-0.5">
+          {!readingPaneOpen && onToggleReadingPane && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onToggleReadingPane}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show prompt panel</TooltipContent>
+            </Tooltip>
+          )}
           {usePromptFamilyMode && promptFamilyChat.activeThreadId && (
             <Tooltip>
               <TooltipTrigger asChild>
