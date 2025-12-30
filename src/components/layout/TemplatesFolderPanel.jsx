@@ -171,39 +171,33 @@ const TemplatesFolderPanel = ({
 
   // Mapping templates come from exportTemplates prop (empty array fallback)
 
-  // Transform real data to display format
+  // Transform real data to display format while keeping original data
   const displayTemplates = useMemo(() => {
     switch (activeType) {
       case "prompts":
         return templates.map(t => ({
+          ...t, // Keep all original template properties
           id: t.row_id,
-          row_id: t.row_id,
           name: t.template_name || "Untitled Template",
           description: t.template_description,
           labels: t.category ? [t.category] : [],
           starred: false, // Not implemented yet
-          structure: t.structure,
-          variable_definitions: t.variable_definitions,
-          version: t.version,
-          is_private: t.is_private,
         }));
       case "schemas":
         return schemaTemplates.map(s => ({
+          ...s, // Keep all original schema properties
           id: s.row_id,
-          row_id: s.row_id,
           name: s.schema_name || "Untitled Schema",
           description: s.schema_description,
           labels: s.category ? [s.category] : [],
           starred: false,
-          json_schema: s.json_schema,
-          is_private: s.is_private,
         }));
       case "mappings":
         return mappingTemplates;
       default:
         return templates.map(t => ({
+          ...t,
           id: t.row_id,
-          row_id: t.row_id,
           name: t.template_name || "Untitled Template",
           labels: t.category ? [t.category] : [],
           starred: false,
