@@ -944,9 +944,8 @@ const FolderPanel = ({
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       {/* Header with close button */}
-      <div className="h-10 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
-        <p className="text-title-sm text-on-surface font-medium flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-on-surface-variant" />
+      <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0" style={{ height: "56px" }}>
+        <p className="text-title-sm text-on-surface font-medium">
           Prompts
         </p>
         <div className="flex items-center gap-0.5">
