@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Play, Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2
+  Play, Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2,
+  Braces, FileText
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -115,6 +116,15 @@ const ResizableOutputArea = ({
   });
   const contentRef = useRef(null);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
+  const [jsonFormatEnabled, setJsonFormatEnabled] = useState(true);
+  
+  // Check if value looks like JSON
+  const isJsonContent = (() => {
+    if (!value) return false;
+    const trimmed = value.trim();
+    return (trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+           (trimmed.startsWith('[') && trimmed.endsWith(']'));
+  })();
 
   // Persist sizing to localStorage
   useEffect(() => {
@@ -264,6 +274,20 @@ const ResizableOutputArea = ({
               </Tooltip>
             </>
           )}
+          {/* JSON/Text format toggle - only show when content is JSON */}
+          {isJsonContent && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={() => setJsonFormatEnabled(!jsonFormatEnabled)}
+                  className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${jsonFormatEnabled ? 'text-primary' : 'text-on-surface-variant'}`}
+                >
+                  {jsonFormatEnabled ? <Braces className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">{jsonFormatEnabled ? 'Show as plain text' : 'Format as JSON'}</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
@@ -355,6 +379,11 @@ const ResizableOutputArea = ({
             {value ? (
               // Try to format and optionally syntax-highlight JSON
               (() => {
+                // If JSON formatting is disabled, show raw text
+                if (!jsonFormatEnabled) {
+                  return value;
+                }
+                
                 const trimmed = value.trim();
                 if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
                     (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
