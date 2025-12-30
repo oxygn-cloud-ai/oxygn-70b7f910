@@ -1130,6 +1130,7 @@ const PromptsContent = ({
               promptData={promptData}
               onUpdateField={onUpdateField}
               models={models}
+              schemas={schemas}
             />
           )}
           {activeTab === "variables" && (
