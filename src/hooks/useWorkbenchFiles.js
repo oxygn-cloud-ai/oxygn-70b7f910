@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { v4 as uuidv4 } from 'uuid';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useWorkbenchFiles = () => {
   const [files, setFiles] = useState([]);
@@ -71,10 +72,19 @@ export const useWorkbenchFiles = () => {
 
       setFiles(prev => [data, ...prev]);
       toast.success('File uploaded');
+      
+      // Track file upload
+      trackEvent('workbench_file_uploaded', {
+        thread_id: threadRowId,
+        file_type: file.type,
+        file_size: file.size,
+      });
+      
       return data;
     } catch (error) {
       console.error('Error uploading file:', error);
       toast.error('Failed to upload file');
+      trackException(error, { context: 'workbench_file_upload' });
       return null;
     } finally {
       setIsUploading(false);

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const useJsonSchemaTemplates = () => {
   const [templates, setTemplates] = useState([]);
@@ -76,6 +77,14 @@ export const useJsonSchemaTemplates = () => {
         a.schema_name.localeCompare(b.schema_name)
       ));
       toast.success('Schema template saved');
+      
+      // Track schema template created
+      trackEvent('schema_template_created', {
+        template_id: data.row_id,
+        template_name: schemaName,
+        category: category || 'general',
+      });
+      
       return data;
     } catch (error) {
       console.error('Error creating schema template:', error);

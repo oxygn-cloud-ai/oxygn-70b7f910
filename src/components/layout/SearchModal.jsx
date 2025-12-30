@@ -10,6 +10,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { trackEvent } from "@/lib/posthog";
 
 const SearchModal = ({
   isOpen,
@@ -53,6 +54,12 @@ const SearchModal = ({
   ];
 
   const handleSelect = (type, item) => {
+    // Track search selection
+    trackEvent('search_result_selected', {
+      result_type: type,
+      item_id: type === 'nav' ? item.id : (item.row_id || item.id),
+    });
+    
     if (type === "prompt") {
       onSelectPrompt?.(item.row_id || item.id);
     } else if (type === "template") {

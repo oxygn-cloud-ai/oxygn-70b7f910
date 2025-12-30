@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useConfluencePages } from './useConfluencePages';
 import { applyTemplateVariables } from '@/utils/resolveSystemVariables';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useConfluenceExport = () => {
   const {
@@ -268,14 +269,32 @@ export const useConfluenceExport = () => {
     console.log('[useConfluenceExport] Built page body, length:', body?.length);
     console.log('[useConfluenceExport] Creating page with parentId:', selectedParentId);
     
-    const result = await createPage({
-      spaceKey: selectedSpaceKey,
-      parentId: selectedParentId,
-      title: resolvedTitle,
-      body
-    });
+    try {
+      const result = await createPage({
+        spaceKey: selectedSpaceKey,
+        parentId: selectedParentId,
+        title: resolvedTitle,
+        body
+      });
 
-    return result;
+      // Track successful export
+      trackEvent('export_completed', {
+        export_type: 'confluence',
+        space_key: selectedSpaceKey,
+        prompts_exported: exportData?.length || 0,
+        used_template: !useBlankPage,
+      });
+
+      return result;
+    } catch (error) {
+      // Track export failure
+      trackEvent('export_failed', {
+        export_type: 'confluence',
+        error_message: error.message,
+      });
+      trackException(error, { context: 'confluence_export' });
+      throw error;
+    }
   }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage, pageTitleSource, resolveSourceValue, templateMappings]);
 
   // Reset state

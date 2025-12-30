@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const useSettings = (supabase) => {
   const [settings, setSettings] = useState({});
@@ -82,6 +83,11 @@ export const useSettings = (supabase) => {
           [key]: { value, description: '', row_id: data.row_id }
         }));
       }
+      
+      // Track setting update
+      trackEvent('setting_updated', {
+        setting_key: key,
+      });
     } catch (err) {
       console.error('Error updating setting:', err);
       throw err;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 const MAX_TOKENS = 16000;
 const ESTIMATED_TOKENS_PER_CHAR = 0.4;
@@ -160,6 +161,14 @@ export const useOpenAICall = () => {
           throw new Error('Empty response from AI');
         }
 
+        // Track AI call success
+        trackEvent('ai_call_completed', {
+          model: requestBody.model,
+          input_tokens: data?.usage?.prompt_tokens,
+          output_tokens: data?.usage?.completion_tokens,
+          web_search: requestBody.web_search_enabled || false,
+        });
+
         // Run success callback with content and full response data (for cost tracking)
         if (typeof options?.onSuccess === 'function') {
           try {
@@ -172,6 +181,7 @@ export const useOpenAICall = () => {
         return content;
       } catch (error) {
         handleApiError(error);
+        trackException(error, { context: 'openai_call' });
         return null;
       } finally {
         unregisterCall();
