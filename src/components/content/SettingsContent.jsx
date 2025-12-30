@@ -5,9 +5,10 @@ import {
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History
+  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History, BookOpen
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
+import KnowledgeManager from '@/components/admin/KnowledgeManager';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { SettingCard } from "@/components/ui/setting-card";
@@ -2186,6 +2187,9 @@ const OpenAIBillingSection = () => {
   );
 };
 
+// Knowledge Base Section (Admin only)
+const KnowledgeSection = () => <KnowledgeManager />;
+
 // Settings Sections Configuration
 const SETTINGS_SECTIONS = {
   "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
@@ -2202,6 +2206,7 @@ const SETTINGS_SECTIONS = {
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
   "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
+  "knowledge": { component: KnowledgeSection, icon: BookOpen, title: "Knowledge Base" },
 };
 
 const SettingsContent = ({ 
