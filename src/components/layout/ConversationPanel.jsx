@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
-  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2
+  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -207,6 +207,10 @@ const ConversationPanel = ({
         className="h-14 flex items-center justify-between px-3 border-b border-outline-variant gap-3"
         style={{ height: "56px" }}
       >
+        <div className="flex items-center gap-2 shrink-0">
+          <MessageSquare className="h-4 w-4 text-on-surface-variant" />
+          <span className="text-body-sm font-medium text-on-surface">Chat</span>
+        </div>
         <div className="flex-1 min-w-0">
           {usePromptFamilyMode ? (
             <div className="flex items-center gap-2">
