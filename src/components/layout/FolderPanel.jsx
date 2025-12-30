@@ -39,6 +39,7 @@ import { toast } from "@/components/ui/sonner";
 import { IconPicker } from "@/components/IconPicker";
 import { updatePromptIcon, updatePromptField } from "@/services/promptMutations";
 import { useSupabase } from "@/hooks/useSupabase";
+import { useDragAutoScroll } from "@/hooks/useDragAutoScroll";
 
 const ITEM_TYPE = "PROMPT_ITEM";
 
@@ -571,6 +572,12 @@ const FolderPanel = ({
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const longPressTimerRef = useRef(null);
   
+  // Auto-scroll during drag
+  const { scrollContainerRef, scrollContainerProps } = useDragAutoScroll({
+    edgeThreshold: 60,
+    scrollSpeed: 10
+  });
+  
   // Multi-select state
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [lastSelectedId, setLastSelectedId] = useState(null);
@@ -946,7 +953,11 @@ const FolderPanel = ({
       <div className="mx-2 h-px bg-outline-variant" />
 
       {/* Prompts Tree */}
-      <div className="flex-1 overflow-x-auto overflow-y-auto p-1.5 scrollbar-thin">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-x-auto overflow-y-auto p-1.5 scrollbar-thin"
+        {...scrollContainerProps}
+      >
         <div className="flex items-center justify-between px-2 py-1">
           <div className="flex items-center gap-1.5">
             <p className="text-[9px] text-on-surface-variant uppercase tracking-wider">
