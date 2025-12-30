@@ -53,9 +53,6 @@ const TopBar = ({
           alt="Qonsol Logo" 
           className="h-7 w-auto"
         />
-        <span className="text-title-sm font-medium text-on-surface">
-          Qonsol
-        </span>
       </motion.div>
 
       {/* Center - Search Bar */}
