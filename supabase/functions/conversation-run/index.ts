@@ -924,43 +924,85 @@ serve(async (req) => {
 
       // Handle action nodes - prepend action system prompt and set structured output
       if (childPrompt.node_type === 'action') {
-        if (childPrompt.response_format) {
+        let schemaToUse: any = null;
+        let schemaName = 'action_response';
+        
+        // Priority 1: Fetch schema from json_schema_template_id if set
+        if (childPrompt.json_schema_template_id) {
+          try {
+            const { data: schemaTemplate } = await supabase
+              .from(TABLES.JSON_SCHEMA_TEMPLATES)
+              .select('json_schema, schema_name')
+              .eq('row_id', childPrompt.json_schema_template_id)
+              .single();
+            
+            if (schemaTemplate?.json_schema) {
+              schemaToUse = typeof schemaTemplate.json_schema === 'string'
+                ? JSON.parse(schemaTemplate.json_schema)
+                : schemaTemplate.json_schema;
+              schemaName = schemaTemplate.schema_name?.replace(/[^a-zA-Z0-9_-]/g, '_') || 'action_response';
+              console.log('Action node: using schema from template:', childPrompt.json_schema_template_id);
+            }
+          } catch (err) {
+            console.warn('Could not fetch json_schema_template:', err);
+          }
+        }
+        
+        // Priority 2: Fallback to response_format if no template
+        if (!schemaToUse && childPrompt.response_format) {
           try {
             const format = typeof childPrompt.response_format === 'string' 
               ? JSON.parse(childPrompt.response_format) 
               : childPrompt.response_format;
             
-            if (format.type === 'json_schema') {
-              apiOptions.responseFormat = format;
-              
-              const schemaDesc = formatSchemaForPrompt(format.json_schema?.schema);
-              
-              let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
-              try {
-                const { data: customPrompt } = await supabase
-                  .from(TABLES.SETTINGS)
-                  .select('setting_value')
-                  .eq('setting_key', 'default_action_system_prompt')
-                  .single();
-                
-                if (customPrompt?.setting_value) {
-                  actionSystemPrompt = customPrompt.setting_value;
-                }
-              } catch {
-                console.log('Using default action system prompt');
-              }
-              
-              actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
-              
-              systemPrompt = systemPrompt
-                ? `${actionSystemPrompt}\n\n---\n\n${systemPrompt}`
-                : actionSystemPrompt;
-              
-              console.log('Action node: applied structured output format');
+            if (format.type === 'json_schema' && format.json_schema?.schema) {
+              schemaToUse = format.json_schema.schema;
+              schemaName = format.json_schema?.name || 'action_response';
+              console.log('Action node: using schema from response_format');
             }
           } catch (err) {
             console.warn('Could not parse response_format:', err);
           }
+        }
+        
+        // Apply structured output if we have a schema
+        if (schemaToUse) {
+          // Build the proper response_format for OpenAI
+          apiOptions.responseFormat = {
+            type: 'json_schema',
+            json_schema: {
+              name: schemaName,
+              strict: true,
+              schema: schemaToUse,
+            },
+          };
+          
+          const schemaDesc = formatSchemaForPrompt(schemaToUse);
+          
+          let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
+          try {
+            const { data: customPrompt } = await supabase
+              .from(TABLES.SETTINGS)
+              .select('setting_value')
+              .eq('setting_key', 'default_action_system_prompt')
+              .single();
+            
+            if (customPrompt?.setting_value) {
+              actionSystemPrompt = customPrompt.setting_value;
+            }
+          } catch {
+            console.log('Using default action system prompt');
+          }
+          
+          actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
+          
+          systemPrompt = systemPrompt
+            ? `${actionSystemPrompt}\n\n---\n\n${systemPrompt}`
+            : actionSystemPrompt;
+          
+          console.log('Action node: applied structured output format with schema:', schemaName);
+        } else {
+          console.log('Action node: no schema found, using text response');
         }
       }
 
