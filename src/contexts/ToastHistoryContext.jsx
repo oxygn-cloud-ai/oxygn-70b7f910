@@ -16,17 +16,31 @@ export function ToastHistoryProvider({ children }) {
   const [history, setHistory] = useState([]);
 
   const addToHistory = useCallback((variant, title, options = {}) => {
+    // Capture stack trace for all variants for debugging purposes
+    const stackTrace = new Error().stack;
+    
     const entry = {
       id: Date.now().toString(),
       title,
       description: options.description || null,
       variant,
       timestamp: new Date(),
-      stackTrace: variant === 'destructive' ? new Error().stack : null,
+      stackTrace,
       details: options.details || null,
       errorCode: options.errorCode || null,
       source: options.source || null,
     };
+    
+    // Log to console for debugging - include full context
+    const logLevel = variant === 'destructive' ? 'error' : variant === 'warning' ? 'warn' : 'info';
+    console[logLevel](`[Toast/${variant}] ${title}`, {
+      description: options.description,
+      details: options.details,
+      source: options.source,
+      errorCode: options.errorCode,
+      stack: stackTrace,
+    });
+    
     setHistory(prev => [entry, ...prev]);
   }, []);
 
