@@ -210,7 +210,7 @@ const ConversationPanel = ({
         <img 
           src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
           alt="Qonsol" 
-          className="h-5 shrink-0"
+          className="h-5 shrink-0 dark:brightness-0 dark:invert"
         />
         <div className="flex-1 min-w-0">
           {usePromptFamilyMode ? (
