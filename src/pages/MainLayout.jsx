@@ -934,7 +934,7 @@ const MainLayout = () => {
                       onEditSchema={(schemaId) => {
                         // Navigate to templates and select the schema
                         setActiveNav('templates');
-                        setActiveSubItem('schemas');
+                        setActiveTemplateTab('schemas');
                         // Find and select the schema template
                         const schema = jsonSchemaTemplatesHook?.templates?.find(t => t.row_id === schemaId);
                         if (schema) {
