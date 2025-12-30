@@ -238,6 +238,16 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         progress={runProgress}
         syntaxHighlight={promptData?.node_type === 'action' && promptData?.post_action === 'create_children_json'}
       />
+
+      {/* Notes */}
+      <ResizablePromptArea 
+        label="Notes"
+        value={promptData?.note || ''}
+        placeholder="Add notes about this prompt..."
+        defaultHeight={64}
+        onChange={(value) => onUpdateField?.('note', value)}
+        variables={[]}
+      />
     </div>
   );
 };
