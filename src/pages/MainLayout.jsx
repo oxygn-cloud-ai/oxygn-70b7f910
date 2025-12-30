@@ -465,7 +465,10 @@ const MainLayout = () => {
 
   const [isDark, setIsDark] = useState(false);
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
-  const [folderPanelOpen, setFolderPanelOpen] = useState(true);
+  const [folderPanelOpen, setFolderPanelOpen] = useState(() => {
+    const saved = localStorage.getItem('qonsol-folder-panel-open');
+    return saved !== null ? saved === 'true' : true; // Default open
+  });
   const [conversationPanelOpen, setConversationPanelOpen] = useState(() => {
     const saved = localStorage.getItem('qonsol-conversation-panel-open');
     return saved !== null ? saved === 'true' : false; // Default closed
@@ -480,7 +483,11 @@ const MainLayout = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   
-  // Persist conversation panel state to localStorage
+  // Persist panel states to localStorage
+  useEffect(() => {
+    localStorage.setItem('qonsol-folder-panel-open', String(folderPanelOpen));
+  }, [folderPanelOpen]);
+  
   useEffect(() => {
     localStorage.setItem('qonsol-conversation-panel-open', String(conversationPanelOpen));
   }, [conversationPanelOpen]);
