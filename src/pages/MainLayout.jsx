@@ -473,7 +473,10 @@ const MainLayout = () => {
     const saved = localStorage.getItem('qonsol-conversation-panel-open');
     return saved !== null ? saved === 'true' : false; // Default closed
   });
-  const [activeNav, setActiveNav] = useState("prompts");
+  const [activeNav, setActiveNav] = useState(() => {
+    const saved = localStorage.getItem('qonsol-active-nav');
+    return saved || "prompts"; // Default to prompts
+  });
   const [activeSubItem, setActiveSubItem] = useState(null);
   const [hoveredNav, setHoveredNav] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -491,6 +494,10 @@ const MainLayout = () => {
   useEffect(() => {
     localStorage.setItem('qonsol-conversation-panel-open', String(conversationPanelOpen));
   }, [conversationPanelOpen]);
+  
+  useEffect(() => {
+    localStorage.setItem('qonsol-active-nav', activeNav);
+  }, [activeNav]);
   
   // Initial load state
   useEffect(() => {
