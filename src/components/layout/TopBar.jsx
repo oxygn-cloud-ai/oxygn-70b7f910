@@ -48,10 +48,13 @@ const TopBar = ({
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <img 
+        <motion.img 
           src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
           alt="Qonsol Logo" 
-          className="h-7 w-auto"
+          className="h-7 w-auto cursor-pointer"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
         />
       </motion.div>
 
