@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 export const useTimer = (isRunning) => {
   const [timer, setTimer] = useState(0);
