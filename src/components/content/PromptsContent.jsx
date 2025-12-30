@@ -1320,6 +1320,16 @@ const PromptsContent = ({
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">
+          {!folderPanelOpen && onToggleFolderPanel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button onClick={onToggleFolderPanel} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                  <PanelLeftOpen className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show folders</TooltipContent>
+            </Tooltip>
+          )}
           <h2 className="text-title-sm text-on-surface font-medium">{promptName}</h2>
           {promptData?.is_assistant && promptData?.parent_row_id && (
             <Tooltip>

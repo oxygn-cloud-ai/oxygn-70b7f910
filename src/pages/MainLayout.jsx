@@ -976,160 +976,127 @@ const MainLayout = () => {
             >
               <ResizablePanelGroup direction="horizontal" autoSaveId="qonsol-panel-layout" className="flex-1 min-h-0">
                 {/* Folder/Submenu Panel - collapsible */}
-                <AnimatePresence mode="wait">
-                  {folderPanelOpen && (
-                    <>
-                      <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
-                        <motion.div 
-                          className="h-full min-h-0 overflow-x-auto overflow-y-hidden"
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: "auto" }}
-                          exit={{ opacity: 0, width: 0 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          {renderFolderPanelContent()}
-                        </motion.div>
-                      </ResizablePanel>
-                      <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
-                    </>
-                  )}
-                </AnimatePresence>
-
-                {/* Reading Pane - flexible, conditionally rendered */}
-                <AnimatePresence mode="wait">
-                  {readingPaneOpen && (
-                    <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
-                      <motion.div 
-                        className="h-full min-h-0 flex flex-col overflow-hidden"
-                        initial={{ opacity: 0, scale: 0.98 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <ReadingPane 
-                          hasSelection={selectedPromptId !== null} 
-                          selectedPromptId={selectedPromptId}
-                          promptData={selectedPromptData}
-                          isLoadingPrompt={isLoadingPrompt}
-                          onUpdateField={handleUpdateField}
-                          variables={variables}
-                          isLoadingVariables={isLoadingVariables}
-                          onAddVariable={addVariable}
-                          onUpdateVariable={updateVariable}
-                          onDeleteVariable={deleteVariable}
-                          selectedPromptHasChildren={selectedPromptHasChildren}
-                          onExport={() => exportState.openExport(selectedPromptId ? [selectedPromptId] : [])}
-                          activeNav={activeNav}
-                          activeSubItem={activeSubItem}
-                          selectedTemplate={selectedTemplate}
-                          activeTemplateTab={activeTemplateTab}
-                          onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
-                          conversationPanelOpen={conversationPanelOpen}
-                          onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
-                          folderPanelOpen={folderPanelOpen}
-                          onToggleReadingPane={() => setReadingPaneOpen(!readingPaneOpen)}
-                          // Run prompt and cascade handlers
-                          onRunPrompt={handleRunPrompt}
-                          onRunCascade={handleRunCascade}
-                          isRunningPrompt={isRunningPrompt}
-                          isRunningCascade={isRunningCascade}
-                          onCancelRun={cancelRun}
-                          runProgress={runProgress}
-                          // Settings props for Phase 6
-                          settings={settings}
-                          isLoadingSettings={isLoadingSettings}
-                          onUpdateSetting={updateSetting}
-                          models={models}
-                          isLoadingModels={isLoadingModels}
-                          onToggleModel={(modelId) => {
-                            const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
-                            if (model) toggleModelActive(model.model_id);
-                          }}
-                          onAddModel={addModel}
-                          onUpdateModel={updateModel}
-                          onDeleteModel={deleteModel}
-                          // Phase 4 - Cost analytics and conversation defaults
-                          costTracking={costTracking}
-                          conversationToolDefaults={conversationToolDefaults}
-                          // Workbench props for Phase 3
-                          workbenchThreads={workbenchThreads}
-                          workbenchMessages={workbenchMessages}
-                          workbenchFiles={workbenchFiles}
-                          workbenchConfluence={workbenchConfluence}
-                          promptLibrary={promptLibrary}
-                          // Templates props for Phase 8-9
-                          templatesHook={templatesHook}
-                          jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
-                          onEditSchema={(schemaId) => {
-                            // Navigate to templates and select the schema
-                            setActiveNav('templates');
-                            setActiveTemplateTab('schemas');
-                            // Find and select the schema template
-                            const schema = jsonSchemaTemplatesHook?.templates?.find(t => t.row_id === schemaId);
-                            if (schema) {
-                              setSelectedTemplate(schema);
-                            }
-                          }}
-                        />
-                      </motion.div>
+                {folderPanelOpen && (
+                  <>
+                    <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
+                      <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden">
+                        {renderFolderPanelContent()}
+                      </div>
                     </ResizablePanel>
-                  )}
-                </AnimatePresence>
+                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                  </>
+                )}
 
-                <AnimatePresence mode="wait">
-                  {showConversationPanel && (
-                    <>
-                      <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                {/* Reading Pane - flexible */}
+                {readingPaneOpen && (
+                  <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
+                    <div className="h-full min-h-0 flex flex-col overflow-hidden">
+                      <ReadingPane 
+                        hasSelection={selectedPromptId !== null} 
+                        selectedPromptId={selectedPromptId}
+                        promptData={selectedPromptData}
+                        isLoadingPrompt={isLoadingPrompt}
+                        onUpdateField={handleUpdateField}
+                        variables={variables}
+                        isLoadingVariables={isLoadingVariables}
+                        onAddVariable={addVariable}
+                        onUpdateVariable={updateVariable}
+                        onDeleteVariable={deleteVariable}
+                        selectedPromptHasChildren={selectedPromptHasChildren}
+                        onExport={() => exportState.openExport(selectedPromptId ? [selectedPromptId] : [])}
+                        activeNav={activeNav}
+                        activeSubItem={activeSubItem}
+                        selectedTemplate={selectedTemplate}
+                        activeTemplateTab={activeTemplateTab}
+                        onToggleConversation={() => setConversationPanelOpen(!conversationPanelOpen)}
+                        conversationPanelOpen={conversationPanelOpen}
+                        onToggleFolderPanel={() => setFolderPanelOpen(!folderPanelOpen)}
+                        folderPanelOpen={folderPanelOpen}
+                        onToggleReadingPane={() => setReadingPaneOpen(!readingPaneOpen)}
+                        // Run prompt and cascade handlers
+                        onRunPrompt={handleRunPrompt}
+                        onRunCascade={handleRunCascade}
+                        isRunningPrompt={isRunningPrompt}
+                        isRunningCascade={isRunningCascade}
+                        onCancelRun={cancelRun}
+                        runProgress={runProgress}
+                        // Settings props for Phase 6
+                        settings={settings}
+                        isLoadingSettings={isLoadingSettings}
+                        onUpdateSetting={updateSetting}
+                        models={models}
+                        isLoadingModels={isLoadingModels}
+                        onToggleModel={(modelId) => {
+                          const model = models.find(m => m.row_id === modelId || m.model_id === modelId);
+                          if (model) toggleModelActive(model.model_id);
+                        }}
+                        onAddModel={addModel}
+                        onUpdateModel={updateModel}
+                        onDeleteModel={deleteModel}
+                        // Phase 4 - Cost analytics and conversation defaults
+                        costTracking={costTracking}
+                        conversationToolDefaults={conversationToolDefaults}
+                        // Workbench props for Phase 3
+                        workbenchThreads={workbenchThreads}
+                        workbenchMessages={workbenchMessages}
+                        workbenchFiles={workbenchFiles}
+                        workbenchConfluence={workbenchConfluence}
+                        promptLibrary={promptLibrary}
+                        // Templates props for Phase 8-9
+                        templatesHook={templatesHook}
+                        jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+                        onEditSchema={(schemaId) => {
+                          // Navigate to templates and select the schema
+                          setActiveNav('templates');
+                          setActiveTemplateTab('schemas');
+                          // Find and select the schema template
+                          const schema = jsonSchemaTemplatesHook?.templates?.find(t => t.row_id === schemaId);
+                          if (schema) {
+                            setSelectedTemplate(schema);
+                          }
+                        }}
+                      />
+                    </div>
+                  </ResizablePanel>
+                )}
 
-                      {/* Conversation Panel - only shown for prompts */}
-                      <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-                        <motion.div
-                          className="h-full"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <ConversationPanel 
-                            onClose={() => setConversationPanelOpen(false)}
-                            promptName={selectedPromptData?.prompt_name}
-                            promptFamilyChat={promptFamilyChat}
-                            onCancel={cancelRun}
-                            progress={runProgress}
-                          />
-                        </motion.div>
-                      </ResizablePanel>
-                    </>
-                  )}
-                </AnimatePresence>
+                {showConversationPanel && (
+                  <>
+                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                    {/* Conversation Panel - only shown for prompts */}
+                    <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                      <div className="h-full">
+                        <ConversationPanel 
+                          onClose={() => setConversationPanelOpen(false)}
+                          promptName={selectedPromptData?.prompt_name}
+                          promptFamilyChat={promptFamilyChat}
+                          onCancel={cancelRun}
+                          progress={runProgress}
+                        />
+                      </div>
+                    </ResizablePanel>
+                  </>
+                )}
 
                 {/* Export Panel - toggleable, now connected to useExport */}
-                <AnimatePresence mode="wait">
                 {exportState.isOpen && (
-                    <>
-                      <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
-                      <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
-                        <motion.div
-                          className="h-full"
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <ExportPanel 
-                            isOpen={true} 
-                            onClose={() => {
-                              exportState.closeExport();
-                            }}
-                            exportState={exportState}
-                            treeData={hierarchicalTreeData}
-                            selectedPromptId={selectedPromptId}
-                          />
-                        </motion.div>
-                      </ResizablePanel>
-                    </>
-                  )}
-                </AnimatePresence>
+                  <>
+                    <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
+                    <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+                      <div className="h-full">
+                        <ExportPanel 
+                          isOpen={true} 
+                          onClose={() => {
+                            exportState.closeExport();
+                          }}
+                          exportState={exportState}
+                          treeData={hierarchicalTreeData}
+                          selectedPromptId={selectedPromptId}
+                        />
+                      </div>
+                    </ResizablePanel>
+                  </>
+                )}
               </ResizablePanelGroup>
             </motion.div>
           </div>
