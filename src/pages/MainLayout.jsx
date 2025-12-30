@@ -92,10 +92,27 @@ const MainLayout = () => {
   // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
   const hierarchicalTreeData = treeData || [];
   
-  // Selected prompt state and data
-  const [selectedPromptId, setSelectedPromptId] = useState(null);
+  // Selected prompt state and data - persisted to localStorage
+  const [selectedPromptId, setSelectedPromptId] = useState(() => {
+    const saved = localStorage.getItem('qonsol-selected-prompt-id');
+    return saved || null;
+  });
   const [selectedPromptData, setSelectedPromptData] = useState(null);
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  
+  // Tree expanded/collapsed state - persisted to localStorage
+  const [expandedFolders, setExpandedFolders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('qonsol-expanded-folders');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  
+  const toggleFolder = useCallback((id) => {
+    setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
+  }, []);
   
   // Prompt variables for selected prompt
   const { 
@@ -553,6 +570,20 @@ const MainLayout = () => {
     localStorage.setItem('qonsol-active-nav', activeNav);
   }, [activeNav]);
   
+  // Persist selected prompt to localStorage
+  useEffect(() => {
+    if (selectedPromptId) {
+      localStorage.setItem('qonsol-selected-prompt-id', selectedPromptId);
+    } else {
+      localStorage.removeItem('qonsol-selected-prompt-id');
+    }
+  }, [selectedPromptId]);
+  
+  // Persist expanded folders to localStorage
+  useEffect(() => {
+    localStorage.setItem('qonsol-expanded-folders', JSON.stringify(expandedFolders));
+  }, [expandedFolders]);
+  
   // Initial load state
   useEffect(() => {
     if (!isLoadingTree && !isLoadingSettings) {
@@ -723,6 +754,8 @@ const MainLayout = () => {
           isLoading={isLoadingTree}
           selectedPromptId={selectedPromptId}
           onSelectPrompt={setSelectedPromptId}
+          expandedFolders={expandedFolders}
+          onToggleFolder={toggleFolder}
           onAddPrompt={handleAddItem}
           onAddFromTemplate={() => setTemplateDialogOpen(true)}
           onDeletePrompt={handleDeleteItem}

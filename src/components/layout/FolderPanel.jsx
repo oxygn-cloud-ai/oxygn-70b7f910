@@ -544,6 +544,8 @@ const FolderPanel = ({
   isLoading = false, 
   selectedPromptId, 
   onSelectPrompt,
+  expandedFolders = {},
+  onToggleFolder,
   onAddPrompt,
   onAddFromTemplate,
   onDeletePrompt,
@@ -567,7 +569,6 @@ const FolderPanel = ({
   onBatchToggleExcludeExport
 }) => {
   const supabase = useSupabase();
-  const [expandedFolders, setExpandedFolders] = useState({});
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const longPressTimerRef = useRef(null);
@@ -594,10 +595,7 @@ const FolderPanel = ({
       toast.error('Failed to update icon');
     }
   }, [supabase, onRefresh]);
-
-  const toggleFolder = (id) => {
-    setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  // Use the toggleFolder from props (lifted state from MainLayout)
 
   const handleAddMouseDown = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
@@ -1151,7 +1149,7 @@ const FolderPanel = ({
                     item={item}
                     level={0}
                     isExpanded={expandedFolders[item.id || item.row_id]}
-                    onToggle={toggleFolder}
+                    onToggle={onToggleFolder}
                     onMoveInto={handleMoveInto}
                     onMoveBetween={handleMoveBetween}
                     onSelect={onSelectPrompt}
