@@ -898,8 +898,6 @@ const MainLayout = () => {
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Top Bar - 64dp */}
             <TopBar 
-              tooltipsEnabled={tooltipsEnabled} 
-              onToggleTooltips={() => setTooltipsEnabled(!tooltipsEnabled)}
               isDark={isDark}
               onToggleDark={() => setIsDark(!isDark)}
               onOpenSearch={() => setSearchOpen(true)}
