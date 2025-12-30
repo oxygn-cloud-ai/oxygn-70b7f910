@@ -323,6 +323,7 @@ const MainLayout = () => {
               stack: jsonError.stack,
             }, null, 2),
           });
+        }
       }
       
       // Refresh the prompt data if this is the selected prompt
