@@ -683,12 +683,14 @@ serve(async (req) => {
 
       // Create a new thread record if none exists
       if (!activeThreadRowId) {
+        // Use a temporary placeholder - will be updated with real response_id after API call
+        const tempConversationId = `pending-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
         const { data: newThread } = await supabase
           .from(TABLES.THREADS)
           .insert({
             assistant_row_id: assistantData.row_id,
             child_prompt_row_id: child_prompt_row_id,
-            openai_conversation_id: `resp-thread-${Date.now()}`,
+            openai_conversation_id: tempConversationId,
             name: `${childPrompt.prompt_name} - ${new Date().toLocaleDateString()}`,
             is_active: true,
             owner_id: validation.user?.id,
@@ -1253,15 +1255,18 @@ serve(async (req) => {
         })
         .eq('row_id', child_prompt_row_id);
 
-      // Update thread's last_message_at and last_response_id
-      if (activeThreadRowId) {
+      // Update thread's last_message_at, last_response_id, and openai_conversation_id
+      if (activeThreadRowId && result.response_id) {
         await supabase
           .from(TABLES.THREADS)
           .update({ 
             last_message_at: new Date().toISOString(),
             last_response_id: result.response_id,
+            openai_conversation_id: result.response_id, // Store actual response ID for reference
           })
           .eq('row_id', activeThreadRowId);
+        
+        console.log('Updated thread with response_id for context chaining:', result.response_id);
       }
 
       console.log('Run completed successfully');
