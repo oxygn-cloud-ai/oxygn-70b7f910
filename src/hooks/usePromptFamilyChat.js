@@ -175,13 +175,15 @@ export const usePromptFamilyChat = (promptRowId) => {
   }, [activeThreadId, threads]);
 
   // Add a message to local state only (messages are stored in OpenAI's chain now)
-  const addMessage = useCallback((role, content, toolCalls = null) => {
-    if (!activeThreadId) return null;
+  // Accepts optional threadId to use instead of activeThreadId (for newly created threads)
+  const addMessage = useCallback((role, content, toolCalls = null, threadId = null) => {
+    const effectiveThreadId = threadId || activeThreadId;
+    if (!effectiveThreadId) return null;
 
     // Just add to local state - messages are in OpenAI's Responses API chain
     const localMsg = {
       row_id: `local-${Date.now()}`,
-      thread_row_id: activeThreadId,
+      thread_row_id: effectiveThreadId,
       role,
       content,
       tool_calls: toolCalls,
@@ -209,11 +211,13 @@ export const usePromptFamilyChat = (promptRowId) => {
   }, [promptRowId, createThread]);
 
   // Send a message and get AI response
-  const sendMessage = useCallback(async (userMessage) => {
-    if (!activeThreadId || !userMessage.trim() || !promptRowId) return null;
+  // Accepts optional threadId to use instead of activeThreadId (for newly created threads)
+  const sendMessage = useCallback(async (userMessage, threadId = null) => {
+    const effectiveThreadId = threadId || activeThreadId;
+    if (!effectiveThreadId || !userMessage.trim() || !promptRowId) return null;
 
     // Add user message to UI immediately
-    const userMsg = await addMessage('user', userMessage);
+    const userMsg = await addMessage('user', userMessage, null, effectiveThreadId);
     if (!userMsg) return null;
 
     setIsStreaming(true);
@@ -224,7 +228,7 @@ export const usePromptFamilyChat = (promptRowId) => {
     // Track prompt family message sent
     trackEvent('prompt_family_message_sent', {
       prompt_id: promptRowId,
-      thread_id: activeThreadId,
+      thread_id: effectiveThreadId,
       message_length: userMessage.length,
     });
 
@@ -248,7 +252,7 @@ export const usePromptFamilyChat = (promptRowId) => {
             'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify({
-            thread_row_id: activeThreadId,
+            thread_row_id: effectiveThreadId,
             prompt_row_id: promptRowId,
             messages: apiMessages
           })
