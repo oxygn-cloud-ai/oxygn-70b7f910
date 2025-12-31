@@ -29,6 +29,13 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     return structure?._id ? structure : { ...structure, _id: 'root' };
   }, [structure]);
 
+  // Auto-select root node on mount so top-level prompt is immediately editable
+  useEffect(() => {
+    if (structureWithId && !selectedNodeId) {
+      setSelectedNodeId('root');
+    }
+  }, [structureWithId]);
+
   // Find node by ID in the tree
   const findNode = useCallback((node, id, path = []) => {
     if (!node) return null;
