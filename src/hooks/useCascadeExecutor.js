@@ -538,6 +538,17 @@ export const useCascadeExecutor = () => {
                         toast.success(`Action completed: ${actionResult.message}`, {
                           source: 'useCascadeExecutor.postAction',
                         });
+                        
+                        // Dispatch event to refresh tree after action creates children
+                        if (actionResult.createdCount > 0) {
+                          window.dispatchEvent(new CustomEvent('tree-refresh-needed', {
+                            detail: { 
+                              reason: 'post_action',
+                              createdCount: actionResult.createdCount,
+                              parentRowId: actionResult.targetParentRowId || prompt.row_id,
+                            }
+                          }));
+                        }
                       } else {
                         toast.warning(`Action failed: ${actionResult.error}`, {
                           source: 'useCascadeExecutor.postAction',
