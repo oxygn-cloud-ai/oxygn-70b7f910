@@ -722,26 +722,42 @@ serve(async (req) => {
           elapsed_ms: Date.now() - startTime 
         });
 
-        // Fetch attached Confluence pages for context injection
-        // For inherited context, also include pages from parent prompts in hierarchy
+// Fetch attached Confluence pages for context injection
+        // ALWAYS include pages from parent prompts in hierarchy (not just when isInheritedFromParent)
+        // Collect all prompt IDs in the hierarchy for confluence page lookup
+        const allPromptIdsForContext = [child_prompt_row_id];
+        let walkPromptId = childPrompt.parent_row_id;
+        let walkDepth = 0;
+        while (walkPromptId && walkDepth < 10) {
+          allPromptIdsForContext.push(walkPromptId);
+          const { data: walkPrompt } = await supabase
+            .from(TABLES.PROMPTS)
+            .select('parent_row_id')
+            .eq('row_id', walkPromptId)
+            .single();
+          walkPromptId = walkPrompt?.parent_row_id || null;
+          walkDepth++;
+        }
+        
+        console.log('Fetching confluence pages for prompt hierarchy:', allPromptIdsForContext);
+        
+        // Build confluence query to include pages from all prompts AND assistants in hierarchy
         let confluenceQuery = supabase
           .from(TABLES.CONFLUENCE_PAGES)
           .select('page_id, page_title, content_text, page_url, prompt_row_id');
         
-        if (isInheritedFromParent && allAssistantRowIds.length > 0) {
-          // Include pages from all assistants in hierarchy AND the child prompt
-          const allPromptIds = [child_prompt_row_id];
-          // Add parent prompt IDs by walking up from allAssistantRowIds
+        if (allAssistantRowIds.length > 0) {
+          // Include pages attached to any assistant OR any prompt in the hierarchy
           confluenceQuery = confluenceQuery.or(
-            `assistant_row_id.in.(${allAssistantRowIds.join(',')}),prompt_row_id.eq.${child_prompt_row_id}`
+            `assistant_row_id.in.(${allAssistantRowIds.join(',')}),prompt_row_id.in.(${allPromptIdsForContext.join(',')})`
           );
         } else {
-          confluenceQuery = confluenceQuery.or(
-            `assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`
-          );
+          // No assistants, just check prompts in hierarchy
+          confluenceQuery = confluenceQuery.in('prompt_row_id', allPromptIdsForContext);
         }
         
         const { data: confluencePages } = await confluenceQuery;
+        console.log(`Found ${confluencePages?.length || 0} confluence pages from hierarchy`);
 
         // Fetch attached files from ALL assistants in the hierarchy
         let assistantFiles: any[] = [];
@@ -752,8 +768,7 @@ serve(async (req) => {
             .in('assistant_row_id', allAssistantRowIds);
           assistantFiles = files || [];
           filesCount = assistantFiles.length;
-          console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`, 
-            isInheritedFromParent ? '(loading for inherited context)' : '');
+          console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`);
         }
 
         // Build file context from attached files (read text-based files directly)
