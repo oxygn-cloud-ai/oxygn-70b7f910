@@ -264,6 +264,66 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     }
   }, [structureWithId, onChange]);
 
+  // Reparent: move draggedId to become a child of targetId
+  const reparentNode = useCallback((draggedId, newParentId) => {
+    if (draggedId === newParentId || draggedId === 'root') return;
+    
+    // Check if newParentId is a descendant of draggedId (would create cycle)
+    const isDescendant = (parentNode, checkId) => {
+      if (!parentNode) return false;
+      if (parentNode._id === checkId) return true;
+      if (parentNode.children) {
+        return parentNode.children.some(child => isDescendant(child, checkId));
+      }
+      return false;
+    };
+    
+    const draggedNodeData = findNode(structureWithId, draggedId)?.node;
+    if (draggedNodeData && isDescendant(draggedNodeData, newParentId)) {
+      return; // Can't reparent to own descendant
+    }
+    
+    let draggedNode = null;
+    
+    // Remove from current location
+    const removeFromTree = (node) => {
+      if (!node) return node;
+      if (node.children && node.children.length > 0) {
+        const idx = node.children.findIndex(c => c._id === draggedId);
+        if (idx !== -1) {
+          draggedNode = node.children[idx];
+          const newChildren = [...node.children];
+          newChildren.splice(idx, 1);
+          return { ...node, children: newChildren };
+        }
+        return { ...node, children: node.children.map(c => removeFromTree(c)) };
+      }
+      return node;
+    };
+    
+    // Add as child of new parent
+    const addToNewParent = (node) => {
+      if (!node) return node;
+      const currentId = node._id || 'root';
+      if (currentId === newParentId) {
+        const newChildren = [...(node.children || []), draggedNode];
+        return { ...node, children: newChildren };
+      }
+      if (node.children) {
+        return { ...node, children: node.children.map(c => addToNewParent(c)) };
+      }
+      return node;
+    };
+    
+    let newStructure = removeFromTree(structureWithId);
+    if (draggedNode) {
+      newStructure = addToNewParent(newStructure);
+      // Auto-expand the new parent
+      setExpandedNodes(prev => new Set([...prev, newParentId]));
+      onChange(newStructure);
+    }
+  }, [structureWithId, onChange, findNode]);
+
   // Get sibling info for a node (for move up/down buttons)
   const getSiblingInfo = useCallback((nodeId) => {
     if (nodeId === 'root') return { isFirst: true, isLast: true };
@@ -379,14 +439,59 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       }),
     });
 
-    // Drop target - for reordering siblings
+    // Track drop position for visual feedback
+    const [dropPosition, setDropPosition] = useState(null); // 'before' | 'after' | 'child'
+
+    // Drop target - supports reordering (edges) and reparenting (center)
     const [{ isOver, canDrop }, dropRef] = useDrop({
       accept: DRAG_TYPE,
-      canDrop: (item) => item.id !== nodeId && !isRoot,
+      canDrop: (item) => {
+        if (item.id === nodeId) return false;
+        // Check if dropping on self's descendant (would create cycle)
+        const isDescendant = (parentNode, checkId) => {
+          if (!parentNode) return false;
+          if (parentNode._id === checkId) return true;
+          if (parentNode.children) {
+            return parentNode.children.some(child => isDescendant(child, checkId));
+          }
+          return false;
+        };
+        return !isDescendant(item.node, nodeId);
+      },
+      hover: (item, monitor) => {
+        if (!monitor.canDrop()) {
+          setDropPosition(null);
+          return;
+        }
+        const hoverBoundingRect = monitor.getClientOffset();
+        const dropTargetRect = document.getElementById(`tree-node-${nodeId}`)?.getBoundingClientRect();
+        if (!dropTargetRect || !hoverBoundingRect) {
+          setDropPosition('child');
+          return;
+        }
+        const hoverY = hoverBoundingRect.y - dropTargetRect.top;
+        const height = dropTargetRect.height;
+        const threshold = height * 0.25;
+        
+        if (hoverY < threshold) {
+          setDropPosition('before');
+        } else if (hoverY > height - threshold) {
+          setDropPosition('after');
+        } else {
+          setDropPosition('child');
+        }
+      },
       drop: (item, monitor) => {
-        if (!monitor.didDrop()) {
+        if (monitor.didDrop()) return;
+        
+        if (dropPosition === 'child') {
+          reparentNode(item.id, nodeId);
+        } else if (dropPosition === 'before') {
+          reorderNode(item.id, nodeId, 'before');
+        } else {
           reorderNode(item.id, nodeId, 'after');
         }
+        setDropPosition(null);
       },
       collect: (monitor) => ({
         isOver: monitor.isOver({ shallow: true }),
@@ -394,19 +499,34 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       }),
     });
 
+    // Reset drop position when not hovering
+    useEffect(() => {
+      if (!isOver) setDropPosition(null);
+    }, [isOver]);
+
     // Combine refs
     const combinedRef = (el) => {
       previewRef(el);
       dropRef(el);
     };
 
+    // Visual indicator styles based on drop position
+    const getDropStyles = () => {
+      if (!isOver || !canDrop || !dropPosition) return '';
+      if (dropPosition === 'child') return 'ring-2 ring-primary bg-primary/10';
+      if (dropPosition === 'before') return 'border-t-2 border-t-primary';
+      if (dropPosition === 'after') return 'border-b-2 border-b-primary';
+      return '';
+    };
+
     return (
       <div key={nodeId} ref={combinedRef} className={cn(isDragging && "opacity-40")}>
         <div
+          id={`tree-node-${nodeId}`}
           className={cn(
             "flex items-center gap-1 py-1.5 px-2 rounded-m3-sm cursor-pointer transition-colors group",
             isSelected ? "bg-secondary-container text-secondary-container-foreground" : "hover:bg-surface-container",
-            isOver && canDrop && "ring-2 ring-primary ring-offset-1 ring-offset-surface",
+            getDropStyles(),
           )}
           style={{ paddingLeft: `${depth * 20 + 8}px` }}
           onClick={() => !isRenaming && setSelectedNodeId(nodeId)}
