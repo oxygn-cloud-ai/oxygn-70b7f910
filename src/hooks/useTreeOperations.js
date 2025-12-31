@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { addPrompt, duplicatePrompt } from '../services/promptMutations';
 import { deletePrompt, restorePrompt } from '../services/promptDeletion';
@@ -11,6 +11,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   const { user } = useAuth();
   const { pushUndo, clearUndo } = useUndo();
   const isAddingRef = useRef(false);
+  const [deletingPromptIds, setDeletingPromptIds] = useState(new Set());
   
   // Restore a deleted prompt
   const handleRestoreDeleted = useCallback(async (actionId, itemId, itemName) => {
@@ -101,6 +102,10 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
 
   const handleDeleteItem = useCallback(async (itemId, itemName = 'Prompt') => {
     if (!supabase) return false;
+    
+    // Add to deleting set to show visual feedback
+    setDeletingPromptIds(prev => new Set([...prev, itemId]));
+    
     try {
       // Get the prompt data before deleting for undo
       const { data: promptData } = await supabase
@@ -143,6 +148,13 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       console.error('Error deleting prompt:', error);
       toast.error('Failed to delete prompt');
       return false;
+    } finally {
+      // Remove from deleting set
+      setDeletingPromptIds(prev => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
     }
   }, [supabase, refreshTreeData, pushUndo, handleRestoreDeleted]);
 
@@ -327,6 +339,8 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     handleBatchDuplicate,
     handleBatchStar,
     handleBatchToggleExcludeCascade,
-    handleBatchToggleExcludeExport
+    handleBatchToggleExcludeExport,
+    // Deleting state for UI feedback
+    deletingPromptIds
   };
 };
