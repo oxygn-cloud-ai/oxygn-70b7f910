@@ -280,10 +280,8 @@ const TreeItem = ({
         onToggleSelect?.(id);
       }
     } else {
-      if (hasChildren) {
-        onToggle?.(id);
-      }
       // Toggle selection: deselect if already selected, otherwise select
+      // Note: expand/collapse is only handled by the chevron button
       const isCurrentlySelected = selectedPromptId === id;
       onSelect?.(isCurrentlySelected ? null : id);
     }
