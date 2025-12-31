@@ -37,6 +37,9 @@ export const initPostHog = () => {
 
   // Set up global error handlers
   setupGlobalErrorHandlers();
+  
+  // Track page load performance
+  trackPageLoadPerformance();
 };
 
 /**
@@ -176,6 +179,62 @@ export const trackApiError = (endpoint, error, context = {}) => {
     timestamp: new Date().toISOString(),
     ...context,
   });
+};
+
+/**
+ * Track page load performance using Navigation Timing API
+ */
+const trackPageLoadPerformance = () => {
+  if (typeof window === 'undefined' || !window.performance) return;
+  
+  // Wait for load event to get complete timing
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const timing = performance.getEntriesByType('navigation')[0];
+      if (!timing) return;
+      
+      posthog.capture('page_load_performance', {
+        // Core Web Vitals timing
+        dns_lookup_ms: Math.round(timing.domainLookupEnd - timing.domainLookupStart),
+        tcp_connection_ms: Math.round(timing.connectEnd - timing.connectStart),
+        ttfb_ms: Math.round(timing.responseStart - timing.requestStart),
+        dom_interactive_ms: Math.round(timing.domInteractive - timing.navigationStart),
+        dom_complete_ms: Math.round(timing.domComplete - timing.navigationStart),
+        load_complete_ms: Math.round(timing.loadEventEnd - timing.navigationStart),
+        // Resource timing
+        transfer_size_bytes: timing.transferSize,
+        encoded_body_size: timing.encodedBodySize,
+        // Navigation type
+        navigation_type: timing.type,
+      });
+    }, 100); // Small delay to ensure loadEventEnd is populated
+  });
+};
+
+/**
+ * Track component render performance
+ */
+export const trackRenderPerformance = (componentName, renderTimeMs, context = {}) => {
+  if (!isInitialized) return;
+  
+  posthog.capture('component_render', {
+    component_name: componentName,
+    render_time_ms: renderTimeMs,
+    timestamp: new Date().toISOString(),
+    ...context,
+  });
+};
+
+/**
+ * Create a performance marker and return a function to measure elapsed time
+ */
+export const startPerformanceMeasure = (measureName) => {
+  const startTime = performance.now();
+  
+  return () => {
+    const endTime = performance.now();
+    return Math.round(endTime - startTime);
+  };
 };
 
 /**
