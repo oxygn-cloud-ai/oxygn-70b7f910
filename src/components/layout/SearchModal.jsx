@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, FileText, LayoutTemplate, MessageSquare, Settings, Heart, ArrowRight, Command } from "lucide-react";
 import {
@@ -22,13 +22,43 @@ const SearchModal = ({
   onNavigate,
 }) => {
   const [search, setSearch] = useState("");
+  const searchDebounceRef = useRef(null);
+  const hasTrackedOpenRef = useRef(false);
 
-  // Reset search when modal opens
+  // Track modal open and reset search
   useEffect(() => {
     if (isOpen) {
       setSearch("");
+      if (!hasTrackedOpenRef.current) {
+        trackEvent('search_modal_opened', { trigger: 'keyboard_or_click' });
+        hasTrackedOpenRef.current = true;
+      }
+    } else {
+      hasTrackedOpenRef.current = false;
     }
   }, [isOpen]);
+
+  // Debounced search tracking
+  useEffect(() => {
+    if (!search.trim()) return;
+    
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    
+    searchDebounceRef.current = setTimeout(() => {
+      trackEvent('search_query_entered', { 
+        query_length: search.length,
+        query_preview: search.substring(0, 50)
+      });
+    }, 1000);
+    
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [search]);
 
   // Flatten tree data for search
   const flatPrompts = useMemo(() => {
