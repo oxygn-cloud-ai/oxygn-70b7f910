@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { toast } from '@/components/ui/sonner';
 import { notify } from '@/contexts/ToastHistoryContext';
 import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
@@ -46,6 +47,7 @@ const validatePromptContent = (prompts) => {
 export const useCascadeExecutor = () => {
   const supabase = useSupabase();
   const { runConversation } = useConversationRun();
+  const { registerCall } = useApiCallContext();
   const {
     startCascade,
     updateProgress,
@@ -200,7 +202,11 @@ export const useCascadeExecutor = () => {
 
   // Execute the cascade run
   const executeCascade = useCallback(async (topLevelRowId, parentAssistantRowId) => {
+    // Register with ApiCallContext for NavigationGuard protection
+    const cleanupCall = registerCall();
+    
     if (!supabase) {
+      cleanupCall();
       toast.error('Database not available', {
         source: 'useCascadeExecutor.executeCascade',
         errorCode: 'SUPABASE_UNAVAILABLE',
@@ -783,6 +789,9 @@ export const useCascadeExecutor = () => {
         context: 'cascade_execution',
         top_level_prompt_id: topLevelRowId,
       });
+    } finally {
+      // Unregister from ApiCallContext
+      cleanupCall();
     }
   }, [
     supabase,
@@ -798,6 +807,7 @@ export const useCascadeExecutor = () => {
     runConversation,
     showError,
     getRetryDelayMs,
+    registerCall,
   ]);
 
   // Check if a prompt has children (for showing cascade button)
