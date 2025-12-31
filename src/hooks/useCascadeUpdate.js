@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelectedItemData) => {
   const handleCascade = useCallback(async (fieldName, selectedItemData) => {
@@ -48,6 +49,7 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelec
         if (contentUpdateError) throw contentUpdateError;
 
         toast.success('Cascade information and content updated successfully');
+        trackEvent('cascade_updated', { field_name: fieldName, cascade_field: cascadeField });
 
         if (refreshSelectedItemData) {
           await refreshSelectedItemData(parentData.row_id);
@@ -55,6 +57,7 @@ export const useCascadeUpdate = (isPopup, parentData, cascadeField, refreshSelec
       } catch (error) {
         console.error('Error updating cascade information:', error);
         toast.error(`Failed to update cascade information: ${error.message}`);
+        trackException(error, { context: 'useCascadeUpdate', field_name: fieldName });
       }
     }
   }, [isPopup, parentData, cascadeField, refreshSelectedItemData]);

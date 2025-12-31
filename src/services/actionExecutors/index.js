@@ -9,6 +9,7 @@ import { executeCreateChildrenText } from './createChildrenText';
 import { executeCreateChildrenJson } from './createChildrenJson';
 import { executeCreateChildrenSections } from './createChildrenSections';
 import { executeCreateTemplate } from './createTemplate';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 /**
  * Registry of action executors
@@ -60,12 +61,15 @@ export const executePostAction = async ({
       context,
     });
 
+    trackEvent('post_action_executed', { action_id: actionId, success: true });
+
     return {
       success: true,
       ...result,
     };
   } catch (error) {
     console.error(`Error executing action ${actionId}:`, error);
+    trackException(error, { context: 'executePostAction', action_id: actionId });
     return {
       success: false,
       error: error.message || 'Action execution failed',

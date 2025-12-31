@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useProjectData = (initialData, projectRowId) => {
   const [localData, setLocalData] = useState(initialData);
@@ -37,9 +38,11 @@ export const useProjectData = (initialData, projectRowId) => {
       }
 
       setUnsavedChanges(prev => ({ ...prev, [fieldName]: false }));
+      trackEvent('prompt_field_saved', { field_name: fieldName });
     } catch (error) {
       console.error(`Error saving ${fieldName}:`, error);
       toast.error(`Failed to save ${fieldName}: ${error.message}`);
+      trackException(error, { context: 'useProjectData.handleSave', field_name: fieldName });
     }
   };
 

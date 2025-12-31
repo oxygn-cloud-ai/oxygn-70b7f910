@@ -1,6 +1,7 @@
 import { deletePrompt } from './promptDeletion';
 import { getLevelNamingConfig, generatePromptName } from '@/utils/namingTemplates';
 import { calculateNewPositions } from '@/utils/positionUtils';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
   const result = calculateNewPositions(siblings, currentIndex, direction);
@@ -286,6 +287,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 
   if (error) {
     console.error('Failed to add prompt:', error);
+    trackException(error, { context: 'promptMutations.addPrompt' });
     throw error;
   }
   
@@ -293,6 +295,12 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   if (effectiveParentId === null && data?.[0]?.row_id) {
     await createConversation(supabase, data[0].row_id, promptName, defaultConversationInstructions);
   }
+
+  trackEvent('prompt_created', { 
+    prompt_id: data?.[0]?.row_id, 
+    is_top_level: effectiveParentId === null,
+    level 
+  });
 
   return data;
 };
@@ -339,7 +347,10 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
     .select()
     .single();
 
-  if (insertError) throw insertError;
+  if (insertError) {
+    trackException(insertError, { context: 'promptMutations.duplicatePrompt' });
+    throw insertError;
+  }
 
   // If duplicating a top-level prompt, also create a conversation record
   if (!sourcePrompt.parent_row_id && newPrompt?.row_id) {
@@ -371,6 +382,12 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
       await duplicateChildPrompt(supabase, child.row_id, newPrompt.row_id, userId);
     }
   }
+
+  trackEvent('prompt_duplicated', { 
+    source_id: sourcePromptId, 
+    new_id: newPrompt?.row_id,
+    is_top_level: !sourcePrompt.parent_row_id 
+  });
 
   return newPrompt;
 };

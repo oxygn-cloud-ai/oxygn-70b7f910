@@ -1,4 +1,5 @@
 import { handleSupabaseError } from './errorHandling';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const deletePrompt = async (supabase, id) => {
   try {
@@ -67,7 +68,9 @@ export const deletePrompt = async (supabase, id) => {
     };
 
     await markAsDeleted(id);
+    trackEvent('prompt_deleted', { prompt_id: id });
   } catch (error) {
+    trackException(error, { context: 'promptDeletion.deletePrompt', prompt_id: id });
     handleSupabaseError(error, 'deleting prompt');
   }
 };

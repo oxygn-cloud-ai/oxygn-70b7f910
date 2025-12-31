@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOOLTIPS } from '@/config/labels';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 const PromptFieldsTab = ({ 
   selectedItemData, 
@@ -117,9 +118,11 @@ const PromptFieldsTab = ({
         onUpdateField('is_assistant', true);
       }
       toast.success('Conversation mode enabled');
+      trackEvent('conversation_mode_enabled', { prompt_id: projectRowId });
     } catch (error) {
       console.error('Error enabling conversation mode:', error);
       toast.error('Failed to enable conversation mode');
+      trackException(error, { context: 'PromptFieldsTab.handleEnableAssistant' });
     }
   }, [supabase, projectRowId, onUpdateField]);
 
