@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { trackEvent } from '@/lib/posthog';
 
 const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onClick, onMouseEnter, onMouseLeave, shortcut }) => (
   <Tooltip>
@@ -189,7 +190,13 @@ const NavigationRail = ({
               shortcut={item.shortcut}
               isActive={activeNav === item.id}
               isHovered={hoveredId === item.id && activeNav !== item.id}
-              onClick={() => onNavChange?.(item.id)}
+              onClick={() => {
+                trackEvent('navigation_section_changed', { 
+                  section: item.id, 
+                  from_section: activeNav 
+                });
+                onNavChange?.(item.id);
+              }}
               onMouseEnter={() => handleMouseEnter(item.id)}
               onMouseLeave={handleMouseLeave}
             />
