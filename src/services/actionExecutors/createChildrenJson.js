@@ -151,13 +151,44 @@ export const executeCreateChildrenJson = async ({
   const items = getNestedValue(jsonResponse, json_path);
   
   if (!Array.isArray(items)) {
-    // Provide helpful error with available keys
-    const availableKeys = typeof jsonResponse === 'object' && jsonResponse !== null
-      ? Object.keys(jsonResponse).filter(k => Array.isArray(jsonResponse[k])).join(', ') || 'none found'
-      : 'none';
+    // Provide detailed error with available keys and debugging info
+    const responseType = typeof jsonResponse;
+    const isObject = responseType === 'object' && jsonResponse !== null;
+    const availableKeys = isObject
+      ? Object.keys(jsonResponse).filter(k => Array.isArray(jsonResponse[k]))
+      : [];
+    const allKeys = isObject ? Object.keys(jsonResponse) : [];
+    
+    // Check if the value at path is a string (common mistake - AI returns stringified JSON)
+    const valueAtPath = getNestedValue(jsonResponse, json_path);
+    let suggestion = '';
+    
+    if (typeof valueAtPath === 'string') {
+      suggestion = 'The value at this path is a string. The AI may have returned stringified JSON instead of an object.';
+    } else if (availableKeys.length > 0) {
+      suggestion = `Try changing json_path to "${availableKeys[0]}"`;
+    } else if (Array.isArray(jsonResponse)) {
+      suggestion = 'The response itself is an array. Try setting json_path to "root" or leave it empty.';
+    } else {
+      suggestion = 'Ensure your JSON schema includes an array field for child items.';
+    }
+    
+    const errorDetails = {
+      configuredPath: json_path,
+      valueType: typeof items,
+      valuePreview: items !== undefined ? String(items).substring(0, 100) : 'undefined',
+      availableArrayKeys: availableKeys.length > 0 ? availableKeys : 'none',
+      allResponseKeys: allKeys,
+      suggestion,
+    };
+    
+    console.error('createChildrenJson: Array path validation failed', errorDetails);
+    
     throw new Error(
       `JSON path "${json_path}" does not point to an array. ` +
-      `Found: ${typeof items}. Available array keys: ${availableKeys}`
+      `Found: ${typeof items}. ` +
+      `Available array keys: ${availableKeys.join(', ') || 'none'}. ` +
+      `${suggestion}`
     );
   }
 

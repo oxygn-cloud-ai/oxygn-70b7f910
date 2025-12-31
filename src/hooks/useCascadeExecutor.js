@@ -520,11 +520,96 @@ export const useCascadeExecutor = () => {
                     if (codeBlockMatch) {
                       jsonString = codeBlockMatch[1].trim();
                     }
-                    const jsonResponse = JSON.parse(jsonString);
+                    
+                    let jsonResponse;
+                    try {
+                      jsonResponse = JSON.parse(jsonString);
+                    } catch (parseError) {
+                      // Provide detailed parsing error
+                      const responsePreview = result.response.substring(0, 300);
+                      const expectedPath = prompt.post_action_config?.json_path || 'sections';
+                      
+                      console.error('JSON parsing failed:', {
+                        error: parseError.message,
+                        responsePreview,
+                        expectedPath,
+                        promptName: prompt.prompt_name,
+                      });
+                      
+                      toast.error(`Action node response is not valid JSON`, {
+                        description: `${prompt.prompt_name}: ${parseError.message}`,
+                        source: 'useCascadeExecutor.jsonParse',
+                        details: JSON.stringify({
+                          error: parseError.message,
+                          responsePreview: responsePreview + (result.response.length > 300 ? '...' : ''),
+                          responseLength: result.response.length,
+                          expectedArrayPath: expectedPath,
+                          hadCodeBlock: !!codeBlockMatch,
+                          tip: 'Ensure the AI prompt explicitly requests JSON output matching the schema',
+                        }, null, 2),
+                      });
+                      
+                      // Store error in last_action_result
+                      updateData.last_action_result = {
+                        status: 'failed',
+                        error: `JSON parse error: ${parseError.message}`,
+                        response_preview: responsePreview,
+                        executed_at: new Date().toISOString(),
+                      };
+                      
+                      throw parseError;
+                    }
+                    
                     updateData.extracted_variables = jsonResponse;
 
-                    // Execute post-action if configured
+                    // Pre-validate: check if required array path exists before executing action
                     if (prompt.post_action) {
+                      const actionConfig = prompt.post_action_config || {};
+                      const jsonPath = Array.isArray(actionConfig.json_path) 
+                        ? actionConfig.json_path[0] 
+                        : (actionConfig.json_path || 'sections');
+                      
+                      // For create_children_json, validate array exists
+                      if (prompt.post_action === 'create_children_json') {
+                        const getNestedValue = (obj, path) => {
+                          if (!path || path === 'root') return obj;
+                          return path.split('.').reduce((o, k) => o?.[k], obj);
+                        };
+                        
+                        const targetArray = getNestedValue(jsonResponse, jsonPath);
+                        const availableArrays = Object.keys(jsonResponse || {})
+                          .filter(k => Array.isArray(jsonResponse[k]));
+                        
+                        if (!Array.isArray(targetArray)) {
+                          const errorMsg = `Path "${jsonPath}" is not an array. Available arrays: ${availableArrays.join(', ') || 'none'}`;
+                          
+                          toast.error(`Action validation failed`, {
+                            description: errorMsg,
+                            source: 'useCascadeExecutor.preValidation',
+                            details: JSON.stringify({
+                              configuredPath: jsonPath,
+                              valueAtPath: typeof targetArray,
+                              availableArrays,
+                              responseKeys: Object.keys(jsonResponse || {}),
+                              suggestion: availableArrays.length > 0 
+                                ? `Try setting json_path to "${availableArrays[0]}"` 
+                                : 'Ensure the AI response contains an array field',
+                            }, null, 2),
+                          });
+                          
+                          updateData.last_action_result = {
+                            status: 'failed',
+                            error: errorMsg,
+                            available_arrays: availableArrays,
+                            executed_at: new Date().toISOString(),
+                          };
+                        } else if (targetArray.length === 0) {
+                          toast.warning(`Array at "${jsonPath}" is empty - no children will be created`, {
+                            source: 'useCascadeExecutor.preValidation',
+                          });
+                        }
+                      }
+                      
                       const actionResult = await executePostAction({
                         supabase,
                         prompt,
@@ -534,9 +619,25 @@ export const useCascadeExecutor = () => {
                         context: { userId: currentUser?.id },
                       });
 
+                      // Store execution result
+                      updateData.last_action_result = {
+                        status: actionResult.success ? 'success' : 'failed',
+                        created_count: actionResult.createdCount || 0,
+                        target_parent_id: actionResult.targetParentRowId,
+                        message: actionResult.message,
+                        error: actionResult.error || null,
+                        executed_at: new Date().toISOString(),
+                      };
+
                       if (actionResult.success) {
                         toast.success(`Action completed: ${actionResult.message}`, {
                           source: 'useCascadeExecutor.postAction',
+                          details: JSON.stringify({
+                            action: prompt.post_action,
+                            createdCount: actionResult.createdCount,
+                            targetParent: actionResult.targetParentRowId,
+                            children: actionResult.children?.slice(0, 5).map(c => c.prompt_name),
+                          }, null, 2),
                         });
                         
                         // Dispatch event to refresh tree after action creates children
@@ -552,15 +653,23 @@ export const useCascadeExecutor = () => {
                       } else {
                         toast.warning(`Action failed: ${actionResult.error}`, {
                           source: 'useCascadeExecutor.postAction',
+                          details: JSON.stringify({
+                            action: prompt.post_action,
+                            config: prompt.post_action_config,
+                            error: actionResult.error,
+                          }, null, 2),
                         });
                       }
                     }
                   } catch (jsonError) {
-                    console.warn('Action node response not valid JSON:', jsonError);
-                    toast.warning(`Action node response not valid JSON`, {
-                      description: prompt.prompt_name,
-                      source: 'useCascadeExecutor',
-                    });
+                    // Only log if not already handled above
+                    if (!updateData.last_action_result) {
+                      console.warn('Action node error:', jsonError);
+                      toast.warning(`Action node error: ${jsonError.message}`, {
+                        description: prompt.prompt_name,
+                        source: 'useCascadeExecutor',
+                      });
+                    }
                   }
                 }
 
