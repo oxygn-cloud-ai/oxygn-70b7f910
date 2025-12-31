@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatDistanceToNow } from 'date-fns';
+import { trackEvent } from '@/lib/posthog';
 
 const WorkbenchSidebar = ({
   threads,
@@ -31,6 +32,7 @@ const WorkbenchSidebar = ({
   const handleSaveEdit = async () => {
     if (editingId && editValue.trim()) {
       await onUpdateThread(editingId, { title: editValue.trim() });
+      trackEvent('workbench_thread_renamed', { thread_id: editingId });
     }
     setEditingId(null);
     setEditValue('');

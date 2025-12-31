@@ -229,6 +229,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       if (error) throw error;
 
       toast.success('Permission updated');
+      trackEvent('prompt_share_permission_updated', { share_id: shareId, new_permission: newPermission });
       fetchShares();
     } catch (error) {
       console.error('Error updating permission:', error);

@@ -18,6 +18,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
 import { LabelBadge } from "@/components/ui/label-badge";
+import { trackEvent } from "@/lib/posthog";
 
 const ITEM_TYPE = "TEMPLATE_ITEM";
 

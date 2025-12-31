@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { SettingCard } from '@/components/ui/setting-card';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import { useDeletedItems } from '@/hooks/useDeletedItems';
+import { trackEvent } from '@/lib/posthog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -196,11 +197,13 @@ const DeletedItemsContent = () => {
 
   const handleConfirmEmptyTrash = async () => {
     await permanentlyDeleteAll(emptyTrashDialog.type);
+    trackEvent('trash_emptied', { type: emptyTrashDialog.type || 'all' });
     setEmptyTrashDialog({ open: false, type: null });
   };
 
   const handleRestoreAll = async () => {
     await restoreAll(activeFilter === 'all' ? null : activeFilter);
+    trackEvent('trash_restore_all', { type: activeFilter });
   };
 
   const currentCount = activeFilter === 'all' ? counts.total : counts[activeFilter];

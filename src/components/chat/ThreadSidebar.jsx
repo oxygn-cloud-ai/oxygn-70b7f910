@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { trackEvent } from '@/lib/posthog';
 
 const ThreadSidebar = ({
   threads,
@@ -37,6 +38,7 @@ const ThreadSidebar = ({
   const handleSaveRename = (threadId) => {
     if (editName.trim()) {
       onRenameThread?.(threadId, editName.trim());
+      trackEvent('chat_thread_renamed', { thread_id: threadId });
     }
     setEditingThreadId(null);
     setEditName('');
