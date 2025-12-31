@@ -131,10 +131,31 @@ const MarkdownNotesArea = ({
   label = 'Notes',
   defaultHeight = 80,
   readOnly = false, // When true, disables editing
+  storageKey, // Optional key to persist collapsed state in localStorage
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Generate storage key from label if not provided
+  const persistKey = storageKey || (label ? `qonsol-notes-collapsed-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
+  
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (persistKey) {
+      try {
+        const saved = localStorage.getItem(persistKey);
+        if (saved !== null) {
+          return saved === 'true';
+        }
+      } catch {}
+    }
+    return false;
+  });
   const [localValue, setLocalValue] = useState(value || '');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Persist collapsed state to localStorage
+  useEffect(() => {
+    if (persistKey) {
+      localStorage.setItem(persistKey, String(isCollapsed));
+    }
+  }, [persistKey, isCollapsed]);
 
   // Sync local value when prop changes (external update)
   useEffect(() => {

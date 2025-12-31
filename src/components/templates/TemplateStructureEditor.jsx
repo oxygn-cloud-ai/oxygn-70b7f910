@@ -22,7 +22,7 @@ const DRAG_TYPE = 'TEMPLATE_NODE';
 /**
  * Visual structure editor for template prompt hierarchy
  */
-const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = [] }) => {
+const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = [], libraryItems = [], templateId = 'default' }) => {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [expandedNodes, setExpandedNodes] = useState(new Set(['root']));
   const [renamingNodeId, setRenamingNodeId] = useState(null);
@@ -671,6 +671,9 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
             onUpdate={(updates) => updateNode(selectedNodeId, updates)}
             variableDefinitions={variableDefinitions}
             isRoot={selectedNodeId === 'root'}
+            libraryItems={libraryItems}
+            templateId={templateId}
+            nodeId={selectedNodeId}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-on-surface-variant text-tree">
@@ -709,7 +712,7 @@ const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
 /**
  * Comprehensive editor for a single node with all settings
  */
-const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
+const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot, libraryItems = [], templateId = 'default', nodeId = 'root' }) => {
   const [activeSection, setActiveSection] = useState('prompts');
   const { models } = useModels();
   
@@ -752,6 +755,9 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
               node={node} 
               onUpdate={onUpdate} 
               variables={transformedVariables}
+              libraryItems={libraryItems}
+              templateId={templateId}
+              nodeId={nodeId}
             />
           )}
 
@@ -786,7 +792,12 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
 /**
  * Prompts section - matching prompt editor patterns
  */
-const PromptsSection = ({ node, onUpdate, variables }) => {
+const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], templateId = 'default', nodeId = 'root' }) => {
+  // Generate unique storage keys for this node's fields
+  const systemStorageKey = `template-${templateId}-${nodeId}-system`;
+  const userStorageKey = `template-${templateId}-${nodeId}-user`;
+  const notesStorageKey = `template-${templateId}-${nodeId}-notes`;
+  
   return (
     <div className="space-y-4">
       {/* Prompt Name */}
@@ -807,6 +818,8 @@ const PromptsSection = ({ node, onUpdate, variables }) => {
         defaultHeight={160}
         onSave={(value) => onUpdate({ input_admin_prompt: value })}
         variables={variables}
+        libraryItems={libraryItems}
+        storageKey={systemStorageKey}
       />
 
       {/* User Prompt */}
@@ -817,6 +830,8 @@ const PromptsSection = ({ node, onUpdate, variables }) => {
         defaultHeight={80}
         onSave={(value) => onUpdate({ input_user_prompt: value })}
         variables={variables}
+        libraryItems={libraryItems}
+        storageKey={userStorageKey}
       />
 
       {/* Notes */}
@@ -826,6 +841,7 @@ const PromptsSection = ({ node, onUpdate, variables }) => {
         placeholder="Internal notes about this prompt..."
         defaultHeight={80}
         onSave={(value) => onUpdate({ note: value })}
+        storageKey={notesStorageKey}
       />
     </div>
   );
