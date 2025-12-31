@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { trackEvent } from '@/lib/posthog';
 
 /**
  * Global keyboard shortcuts hook for the Mockup page
@@ -33,6 +34,7 @@ export const useKeyboardShortcuts = ({
     // Cmd/Ctrl + K - Search (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+k', action: 'search' });
       onSearch?.();
       return;
     }
@@ -40,6 +42,7 @@ export const useKeyboardShortcuts = ({
     // Cmd/Ctrl + B - Toggle folder panel (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+b', action: 'toggle_folder_panel' });
       onToggleFolderPanel?.();
       return;
     }
@@ -47,6 +50,7 @@ export const useKeyboardShortcuts = ({
     // Cmd/Ctrl + J - Toggle conversation panel (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+j', action: 'toggle_conversation_panel' });
       onToggleConversationPanel?.();
       return;
     }
@@ -54,6 +58,7 @@ export const useKeyboardShortcuts = ({
     // Cmd/Ctrl + S - Save (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+s', action: 'save' });
       onSave?.();
       return;
     }
@@ -61,6 +66,7 @@ export const useKeyboardShortcuts = ({
     // Cmd/Ctrl + Enter - Run prompt
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+enter', action: 'run_prompt' });
       onRun?.();
       return;
     }
@@ -68,6 +74,7 @@ export const useKeyboardShortcuts = ({
     // Escape - Close modals/panels (only when not typing)
     if (e.key === 'Escape' && !isTyping) {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'escape', action: 'close_modal' });
       onEscape?.();
       return;
     }
@@ -75,6 +82,7 @@ export const useKeyboardShortcuts = ({
     // Cmd/Ctrl + Z - Undo (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
+      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+z', action: 'undo' });
       onUndo?.();
       return;
     }
