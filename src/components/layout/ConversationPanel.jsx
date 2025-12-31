@@ -170,11 +170,15 @@ const ConversationPanel = ({
     setInputValue("");
     
     if (usePromptFamilyMode) {
-      // Ensure we have a thread
-      if (!promptFamilyChat.activeThreadId) {
-        await promptFamilyChat.createThread('New Chat');
+      // Ensure we have a thread - pass returned thread ID to sendMessage
+      let threadId = promptFamilyChat.activeThreadId;
+      if (!threadId) {
+        const newThread = await promptFamilyChat.createThread('New Chat');
+        threadId = newThread?.row_id;
       }
-      await promptFamilyChat.sendMessage(message);
+      if (threadId) {
+        await promptFamilyChat.sendMessage(message, threadId);
+      }
     } else if (legacyOnSendMessage) {
       await legacyOnSendMessage(message);
     }
