@@ -276,6 +276,15 @@ const NewPromptChoiceDialog = ({
           'q.parent.prompt.name': parentPromptName,
         };
 
+// Build system_variables object with q.* INPUT variables for runtime resolution
+        const systemVariables = {};
+        Object.entries(contextVars).forEach(([key, value]) => {
+          // Only store q.* variables that have values (these are user-input variables like q.policy.*)
+          if (key.startsWith('q.') && value !== undefined && value !== null && value !== '') {
+            systemVariables[key] = String(value);
+          }
+        });
+
         // Start with model defaults, then overlay template-specific settings
         const insertData = {
           parent_row_id: parentRowId,
@@ -287,6 +296,7 @@ const NewPromptChoiceDialog = ({
           template_row_id: templateRowId,
           position: newPosition,
           is_deleted: false,
+          system_variables: Object.keys(systemVariables).length > 0 ? systemVariables : null,
           ...modelDefaults, // Apply system model defaults first
         };
 
