@@ -157,6 +157,8 @@ const TemplatesFolderPanel = ({
   onDeleteTemplate,
   onCreateSchema,
   onDeleteSchema,
+  onDuplicateTemplate,
+  onDuplicateSchema,
 }) => {
   const [activeFolder, setActiveFolder] = useState("all");
 
@@ -249,6 +251,20 @@ const TemplatesFolderPanel = ({
       await onDeleteTemplate(template.row_id);
     } else if (activeType === "schemas" && onDeleteSchema) {
       await onDeleteSchema(template.row_id);
+    }
+  };
+
+  const handleDuplicate = async (template) => {
+    if (activeType === "prompts" && onDuplicateTemplate) {
+      const newTemplate = await onDuplicateTemplate(template);
+      if (newTemplate) {
+        onSelectTemplate?.(newTemplate);
+      }
+    } else if (activeType === "schemas" && onDuplicateSchema) {
+      const newSchema = await onDuplicateSchema(template);
+      if (newSchema) {
+        onSelectTemplate?.(newSchema);
+      }
     }
   };
 
@@ -360,6 +376,7 @@ const TemplatesFolderPanel = ({
                   index={index}
                   onClick={() => onSelectTemplate?.(template)}
                   onDelete={() => handleDelete(template)}
+                  onDuplicate={() => handleDuplicate(template)}
                 />
               ))}
           </div>
