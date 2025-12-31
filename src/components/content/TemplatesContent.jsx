@@ -555,31 +555,239 @@ const TemplateVariablesTabContent = ({ variables = [] }) => {
   );
 };
 
+// Node Editor Panel for Structure Tab
+const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
+  const [editedNode, setEditedNode] = useState({ ...node });
+
+  const handleFieldChange = (field, value) => {
+    setEditedNode(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    onUpdate(editedNode);
+    onClose();
+  };
+
+  return (
+    <div className="bg-surface-container rounded-m3-lg border border-outline-variant p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Edit3 className="h-4 w-4 text-on-surface-variant" />
+          <span className="text-body-sm text-on-surface font-medium">Edit Prompt</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={handleSave}
+                className="w-7 h-7 flex items-center justify-center rounded-m3-full text-primary hover:bg-primary/10"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Save</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={onClose}
+                className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Cancel</TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Prompt Name */}
+      <div className="space-y-1">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Prompt Name</label>
+        <input
+          type="text"
+          value={editedNode.prompt_name || editedNode.name || ''}
+          onChange={(e) => handleFieldChange('prompt_name', e.target.value)}
+          className="w-full px-3 py-2 text-body-sm bg-surface-container-low border border-outline-variant rounded-m3-sm text-on-surface focus:outline-none focus:border-primary"
+          placeholder="Enter prompt name..."
+        />
+      </div>
+
+      {/* System Prompt */}
+      <div className="space-y-1">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">System Prompt</label>
+        <textarea
+          value={editedNode.input_admin_prompt || ''}
+          onChange={(e) => handleFieldChange('input_admin_prompt', e.target.value)}
+          className="w-full px-3 py-2 text-body-sm bg-surface-container-low border border-outline-variant rounded-m3-sm text-on-surface focus:outline-none focus:border-primary min-h-24 resize-y font-mono text-[11px]"
+          placeholder="Enter system prompt..."
+        />
+      </div>
+
+      {/* User Prompt */}
+      <div className="space-y-1">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">User Prompt</label>
+        <textarea
+          value={editedNode.input_user_prompt || ''}
+          onChange={(e) => handleFieldChange('input_user_prompt', e.target.value)}
+          className="w-full px-3 py-2 text-body-sm bg-surface-container-low border border-outline-variant rounded-m3-sm text-on-surface focus:outline-none focus:border-primary min-h-16 resize-y font-mono text-[11px]"
+          placeholder="Enter user prompt..."
+        />
+      </div>
+
+      {/* Settings Row */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
+          <div className="flex items-center gap-1.5">
+            <Bot className="h-3.5 w-3.5 text-on-surface-variant" />
+            <span className="text-tree text-on-surface">Assistant</span>
+          </div>
+          <Switch 
+            checked={editedNode.is_assistant || false}
+            onCheckedChange={(checked) => handleFieldChange('is_assistant', checked)}
+          />
+        </div>
+        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
+          <div className="flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-on-surface-variant" />
+            <span className="text-tree text-on-surface">Web Search</span>
+          </div>
+          <Switch 
+            checked={editedNode.web_search_on || false}
+            onCheckedChange={(checked) => handleFieldChange('web_search_on', checked)}
+          />
+        </div>
+        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
+          <div className="flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-on-surface-variant" />
+            <span className="text-tree text-on-surface">Confluence</span>
+          </div>
+          <Switch 
+            checked={editedNode.confluence_enabled || false}
+            onCheckedChange={(checked) => handleFieldChange('confluence_enabled', checked)}
+          />
+        </div>
+        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
+          <div className="flex items-center gap-1.5">
+            <Search className="h-3.5 w-3.5 text-on-surface-variant" />
+            <span className="text-tree text-on-surface">File Search</span>
+          </div>
+          <Switch 
+            checked={editedNode.file_search_on || false}
+            onCheckedChange={(checked) => handleFieldChange('file_search_on', checked)}
+          />
+        </div>
+      </div>
+
+      {/* Model Settings */}
+      <div className="space-y-2">
+        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model Settings</label>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <span className="text-[10px] text-on-surface-variant">Model</span>
+            <input
+              type="text"
+              value={editedNode.model || ''}
+              onChange={(e) => handleFieldChange('model', e.target.value)}
+              className="w-full px-2 py-1.5 text-tree bg-surface-container-low border border-outline-variant rounded-m3-sm text-on-surface focus:outline-none focus:border-primary"
+              placeholder="e.g. gpt-4o"
+            />
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] text-on-surface-variant">Temperature</span>
+            <input
+              type="text"
+              value={editedNode.temperature || ''}
+              onChange={(e) => handleFieldChange('temperature', e.target.value)}
+              className="w-full px-2 py-1.5 text-tree bg-surface-container-low border border-outline-variant rounded-m3-sm text-on-surface focus:outline-none focus:border-primary"
+              placeholder="0.7"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Structure Tab Content - for Prompt Templates (shows hierarchy of child prompts)
-const TemplateStructureTabContent = ({ structure }) => {
+const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [localStructure, setLocalStructure] = useState(structure);
+
+  // Sync local structure with prop
+  useEffect(() => {
+    setLocalStructure(structure);
+  }, [structure]);
+
+  // Find node by id recursively
+  const findNodeById = (node, id) => {
+    if (!node) return null;
+    const nodeId = node._id || node.id || node.row_id;
+    if (nodeId === id) return node;
+    if (node.children) {
+      for (const child of node.children) {
+        const found = findNodeById(child, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // Update node in structure recursively
+  const updateNodeInStructure = (node, id, updates) => {
+    if (!node) return node;
+    const nodeId = node._id || node.id || node.row_id;
+    if (nodeId === id) {
+      return { ...node, ...updates };
+    }
+    if (node.children) {
+      return {
+        ...node,
+        children: node.children.map(child => updateNodeInStructure(child, id, updates))
+      };
+    }
+    return node;
+  };
+
+  const handleNodeUpdate = (updatedNode) => {
+    const nodeId = updatedNode._id || updatedNode.id || updatedNode.row_id;
+    const newStructure = updateNodeInStructure(localStructure, nodeId, updatedNode);
+    setLocalStructure(newStructure);
+    onStructureChange?.(newStructure);
+  };
+
   // Recursively count total children
   const countChildren = (node) => {
     if (!node?.children?.length) return 0;
     return node.children.length + node.children.reduce((acc, child) => acc + countChildren(child), 0);
   };
 
-  const totalChildren = countChildren(structure);
-  const hasChildren = structure?.children?.length > 0;
+  const totalChildren = countChildren(localStructure);
+  const hasChildren = localStructure?.children?.length > 0;
+  const selectedNode = selectedNodeId ? findNodeById(localStructure, selectedNodeId) : null;
 
   // Recursive structure node renderer
   const StructureTreeNode = ({ node, level = 0 }) => {
     const [expanded, setExpanded] = useState(true);
     const nodeChildren = node?.children || [];
     const hasNodeChildren = nodeChildren.length > 0;
+    const nodeId = node?._id || node?.id || node?.row_id;
+    const isSelected = nodeId === selectedNodeId;
 
     return (
       <div>
         <div 
-          className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer group"
+          className={`flex items-center gap-2 p-2 rounded-m3-sm cursor-pointer group transition-colors ${
+            isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-on-surface/[0.08]'
+          }`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
+          onClick={() => setSelectedNodeId(isSelected ? null : nodeId)}
         >
           {hasNodeChildren ? (
-            <button onClick={() => setExpanded(!expanded)} className="p-0.5">
+            <button 
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
+              className="p-0.5"
+            >
               {expanded ? (
                 <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
               ) : (
@@ -590,9 +798,9 @@ const TemplateStructureTabContent = ({ structure }) => {
             <div className="w-4" />
           )}
           
-          <FileText className="h-3.5 w-3.5 text-on-surface-variant" />
+          <FileText className={`h-3.5 w-3.5 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`} />
           
-          <span className="text-body-sm text-on-surface flex-1 truncate">
+          <span className={`text-body-sm flex-1 truncate ${isSelected ? 'text-primary font-medium' : 'text-on-surface'}`}>
             {node?.prompt_name || node?.name || "Unnamed Prompt"}
           </span>
           
@@ -607,6 +815,18 @@ const TemplateStructureTabContent = ({ structure }) => {
               {nodeChildren.length} child{nodeChildren.length !== 1 ? 'ren' : ''}
             </span>
           )}
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={(e) => { e.stopPropagation(); setSelectedNodeId(nodeId); }}
+                className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Edit</TooltipContent>
+          </Tooltip>
         </div>
         
         {expanded && hasNodeChildren && (
@@ -624,7 +844,7 @@ const TemplateStructureTabContent = ({ structure }) => {
     );
   };
 
-  if (!structure) {
+  if (!localStructure) {
     return (
       <div className="text-center py-12 text-on-surface-variant">
         <Layers className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -643,14 +863,26 @@ const TemplateStructureTabContent = ({ structure }) => {
             Prompt Hierarchy ({totalChildren + 1} prompt{totalChildren > 0 ? 's' : ''})
           </span>
         </div>
+        {selectedNode && (
+          <span className="text-[10px] text-primary">Click prompt to edit</span>
+        )}
       </div>
 
       <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant p-2">
         {/* Root prompt */}
-        <StructureTreeNode node={structure} level={0} />
+        <StructureTreeNode node={localStructure} level={0} />
       </div>
 
-      {!hasChildren && (
+      {/* Node Editor Panel */}
+      {selectedNode && (
+        <StructureNodeEditor 
+          node={selectedNode}
+          onUpdate={handleNodeUpdate}
+          onClose={() => setSelectedNodeId(null)}
+        />
+      )}
+
+      {!hasChildren && !selectedNode && (
         <div className="flex items-start gap-2 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant">
           <AlertCircle className="h-4 w-4 text-on-surface-variant shrink-0 mt-0.5" />
           <div>
@@ -660,7 +892,7 @@ const TemplateStructureTabContent = ({ structure }) => {
         </div>
       )}
 
-      {hasChildren && (
+      {hasChildren && !selectedNode && (
         <div className="flex items-start gap-2 p-2.5 bg-primary/5 rounded-m3-md border border-primary/20">
           <Layers className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <div>
@@ -1290,7 +1522,10 @@ const TemplatesContent = ({
 
           {/* Structure Tab - for Prompt Templates */}
           {activeEditorTab === "structure" && activeTemplateTab === "prompts" && (
-            <TemplateStructureTabContent structure={editedTemplate?.structure} />
+            <TemplateStructureTabContent 
+              structure={editedTemplate?.structure} 
+              onStructureChange={(newStructure) => handleUpdateField('structure', newStructure)}
+            />
           )}
         </div>
 
