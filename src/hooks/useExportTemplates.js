@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const useExportTemplates = () => {
   const [templates, setTemplates] = useState([]);
@@ -64,6 +65,7 @@ export const useExportTemplates = () => {
 
       setTemplates(prev => [data, ...prev]);
       toast.success('Export template saved');
+      trackEvent('export_template_created', { template_name: templateName, export_type: exportType });
       return data;
     } catch (error) {
       console.error('Error saving export template:', error);
@@ -89,6 +91,7 @@ export const useExportTemplates = () => {
 
       setTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
       toast.success('Template updated');
+      trackEvent('export_template_updated', { row_id: rowId });
       return data;
     } catch (error) {
       console.error('Error updating export template:', error);
@@ -111,6 +114,7 @@ export const useExportTemplates = () => {
 
       setTemplates(prev => prev.filter(t => t.row_id !== rowId));
       toast.success('Template deleted');
+      trackEvent('export_template_deleted', { row_id: rowId });
     } catch (error) {
       console.error('Error deleting export template:', error);
       toast.error('Failed to delete template');

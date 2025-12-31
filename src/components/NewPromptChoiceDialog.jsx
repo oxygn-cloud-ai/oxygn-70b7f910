@@ -31,6 +31,7 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 import {
   SYSTEM_VARIABLES,
   SYSTEM_VARIABLE_TYPES,
@@ -41,7 +42,7 @@ import {
   getSystemVariable,
 } from '@/config/systemVariables';
 
-const NewPromptChoiceDialog = ({ 
+const NewPromptChoiceDialog = ({
   isOpen, 
   onClose, 
   parentId = null,
@@ -64,6 +65,7 @@ const NewPromptChoiceDialog = ({
   );
 
   const handleCreatePlain = () => {
+    trackEvent('prompt_created_plain', { is_top_level: isTopLevel, parent_id: parentId });
     onCreatePlain();
     handleClose();
   };
@@ -370,6 +372,7 @@ const NewPromptChoiceDialog = ({
       const createdPrompt = await createPromptFromStructure(structure, parentId, 0, '', finalPromptName);
       
       toast.success('Prompt created from template');
+      trackEvent('prompt_created_from_template', { template_id: templateRowId, is_top_level: isTopLevel });
       onPromptCreated?.(createdPrompt.row_id);
       handleClose();
     } catch (error) {

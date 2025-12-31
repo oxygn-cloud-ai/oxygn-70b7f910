@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 const TOPICS = [
   'overview',
@@ -110,6 +111,7 @@ export const useKnowledge = () => {
       
       setItems(prev => [...prev, data]);
       toast.success('Knowledge item created');
+      trackEvent('knowledge_item_created', { topic: itemData.topic, title: itemData.title });
       return data;
     } catch (error) {
       console.error('Error creating knowledge:', error);
@@ -193,6 +195,7 @@ export const useKnowledge = () => {
       
       setItems(prev => prev.map(i => i.row_id === rowId ? data : i));
       toast.success('Knowledge item updated');
+      trackEvent('knowledge_item_updated', { row_id: rowId });
       return data;
     } catch (error) {
       console.error('Error updating knowledge:', error);
@@ -213,6 +216,7 @@ export const useKnowledge = () => {
       
       setItems(prev => prev.filter(i => i.row_id !== rowId));
       toast.success('Knowledge item deleted');
+      trackEvent('knowledge_item_deleted', { row_id: rowId });
       return true;
     } catch (error) {
       console.error('Error deleting knowledge:', error);

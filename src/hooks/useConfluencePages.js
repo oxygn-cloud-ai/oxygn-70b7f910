@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 // Move invokeFunction outside component to ensure stable reference
 const invokeFunction = async (action, params = {}) => {
@@ -185,11 +186,12 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       const data = await invokeFunction('create-page', { spaceKey, parentId, title, body });
       if (data.success) {
         toast.success('Page created successfully');
+        trackEvent('confluence_page_created', { space_key: spaceKey, has_parent: !!parentId });
       }
       return data;
     } catch (error) {
       console.error('[useConfluencePages] Error creating page:', error);
-      // Extract error message from the error object
+      trackException(error, { action: 'confluence_create_page', space_key: spaceKey });
       const errorMessage = error?.message || error?.error || 'Failed to create page';
       toast.error(errorMessage);
       throw error;
@@ -210,6 +212,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       if (data.success) {
         setPages(prev => [data.page, ...prev]);
         toast.success('Page attached successfully');
+        trackEvent('confluence_page_attached', { page_id: pageId, content_type: contentType });
       }
       return data;
     } catch (error) {
@@ -224,6 +227,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       await invokeFunction('detach-page', { rowId });
       setPages(prev => prev.filter(p => p.row_id !== rowId));
       toast.success('Page detached');
+      trackEvent('confluence_page_detached', { row_id: rowId });
     } catch (error) {
       console.error('Error detaching page:', error);
       toast.error('Failed to detach page');

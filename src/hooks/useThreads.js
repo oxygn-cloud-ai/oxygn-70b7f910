@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 export const useThreads = (assistantRowId, childPromptRowId) => {
   const supabase = useSupabase();
@@ -66,6 +67,7 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         source: 'useThreads.createThread',
         details: JSON.stringify({ threadRowId: data.thread?.row_id, assistantRowId, childPromptRowId, name }, null, 2),
       });
+      trackEvent('thread_created', { assistant_row_id: assistantRowId, child_prompt_row_id: childPromptRowId });
       return data.thread;
     } catch (error) {
       console.error('Error creating thread:', error);
@@ -101,6 +103,7 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         source: 'useThreads.deleteThread',
         details: JSON.stringify({ threadRowId }, null, 2),
       });
+      trackEvent('thread_deleted', { thread_row_id: threadRowId });
       return true;
     } catch (error) {
       console.error('Error deleting thread:', error);

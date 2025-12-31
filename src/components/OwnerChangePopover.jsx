@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSupabase } from '../hooks/useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { trackEvent } from '@/lib/posthog';
 
 // Standalone content component for use in external popovers
 export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged, onClose, isPrivate: initialIsPrivate }) => {
@@ -112,6 +113,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       if (error) throw error;
 
       toast.success('Owner changed successfully');
+      trackEvent('prompt_owner_changed', { prompt_row_id: promptRowId, new_owner_id: newOwnerId });
       setEmail('');
       if (onClose) onClose();
       if (onOwnerChanged) onOwnerChanged();
@@ -136,6 +138,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       if (error) throw error;
 
       toast.success(newValue ? 'Prompt is now private' : 'Prompt is now visible to team');
+      trackEvent('prompt_privacy_changed', { prompt_row_id: promptRowId, is_private: newValue });
       if (onOwnerChanged) onOwnerChanged();
     } catch (error) {
       console.error('Error updating privacy:', error);
@@ -183,6 +186,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       if (error) throw error;
 
       toast.success(`Shared with ${targetUser.display_name || targetUser.email}`);
+      trackEvent('prompt_shared', { prompt_row_id: promptRowId, permission: sharePermission });
       setShareEmail('');
       fetchShares();
     } catch (error) {
@@ -205,6 +209,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
       if (error) throw error;
 
       toast.success('Share removed');
+      trackEvent('prompt_share_removed', { share_id: shareId });
       fetchShares();
     } catch (error) {
       console.error('Error removing share:', error);

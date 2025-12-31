@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { trackEvent } from '@/lib/posthog';
 
 export const useModelDefaults = () => {
   const [modelDefaults, setModelDefaults] = useState({});
@@ -66,10 +67,11 @@ export const useModelDefaults = () => {
         [modelId]: {
           ...prev[modelId],
           model_id: modelId,
-          [field]: value
+        [field]: value
         }
       }));
 
+      trackEvent('model_default_updated', { model_id: modelId, field });
       return true;
     } catch (error) {
       console.error('Error updating model default:', error);
