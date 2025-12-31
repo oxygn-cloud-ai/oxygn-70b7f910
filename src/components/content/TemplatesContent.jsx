@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
 import { VariablePicker, VariablePicker as MockupVariablePicker } from "@/components/shared";
-import { TemplateStructureEditor } from "@/components/templates/TemplateStructureEditor";
+import TemplateStructureEditor from "@/components/templates/TemplateStructureEditor";
 
 // Source options for variable mappings
 const SOURCE_OPTIONS = [
