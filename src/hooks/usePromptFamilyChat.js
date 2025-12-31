@@ -168,7 +168,7 @@ export const usePromptFamilyChat = (promptRowId) => {
   }, [activeThreadId, threads]);
 
   // Add a message to local state only (messages are stored in OpenAI's chain now)
-  const addMessage = useCallback(async (role, content, toolCalls = null) => {
+  const addMessage = useCallback((role, content, toolCalls = null) => {
     if (!activeThreadId) return null;
 
     // Just add to local state - messages are in OpenAI's Responses API chain
@@ -183,10 +183,6 @@ export const usePromptFamilyChat = (promptRowId) => {
     
     setMessages(prev => [...prev, localMsg]);
     return localMsg;
-    } catch (error) {
-      console.error('Error adding message:', error);
-      return null;
-    }
   }, [activeThreadId]);
 
   // Clear messages - creates a new thread (clears OpenAI conversation chain)
