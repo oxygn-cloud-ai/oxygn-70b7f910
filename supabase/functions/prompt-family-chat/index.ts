@@ -14,6 +14,7 @@ import {
   getPromptFamilyTools
 } from "../_shared/promptFamily.ts";
 import { TABLES } from "../_shared/tables.ts";
+import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponse } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -227,7 +228,6 @@ async function handleToolCall(
           'q_settings', 'q_ai_costs', 'q_app_knowledge',
           'q_workbench_threads', 'q_workbench_messages', 'q_workbench_files',
           'q_workbench_confluence_links', 'q_vector_stores',
-          'q_prompt_family_threads', 'q_prompt_family_messages',
           'profiles', 'projects', 'resource_shares', 'user_roles'
         ];
         
@@ -291,7 +291,6 @@ serve(async (req) => {
 
     const { 
       prompt_row_id,
-      thread_row_id, 
       messages, 
       system_prompt, 
       model 
@@ -311,7 +310,6 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -320,16 +318,32 @@ serve(async (req) => {
       throw new Error('Missing Supabase configuration');
     }
 
-    const apiKey = LOVABLE_API_KEY || openAIApiKey;
-    const apiEndpoint = LOVABLE_API_KEY 
-      ? 'https://ai.gateway.lovable.dev/v1/chat/completions'
-      : 'https://api.openai.com/v1/chat/completions';
-    
-    if (!apiKey) {
-      throw new Error('No AI API key configured');
+    if (!openAIApiKey) {
+      throw new Error('No OpenAI API key configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ============================================================================
+    // UNIFIED FAMILY THREAD RESOLUTION
+    // Chat panel shares the same thread as prompt runs
+    // ============================================================================
+    const rootPromptRowId = await resolveRootPromptId(supabase, prompt_row_id);
+    console.log('Resolved root prompt for chat:', rootPromptRowId, 'from:', prompt_row_id);
+
+    // Get or create the unified family thread
+    const familyThread = await getOrCreateFamilyThread(
+      supabase,
+      rootPromptRowId,
+      validation.user!.id,
+      'Chat'
+    );
+
+    console.log('Using unified family thread:', {
+      thread_row_id: familyThread.row_id,
+      previous_response_id: familyThread.last_response_id,
+      thread_created: familyThread.created,
+    });
 
     // Get prompt family info
     const familyPromptIds = await getFamilyPromptIds(supabase, prompt_row_id);
@@ -355,8 +369,8 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt
-    let systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
+    // Build system prompt with chat-specific tools (NOT available to prompt runs)
+    const systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
 
 You have deep knowledge of how Qonsol works and can help users:
 - Understand their prompt structure and hierarchy
@@ -371,7 +385,7 @@ ${knowledge}
 Use your tools to explore the prompt family and provide helpful, accurate information.
 Be concise but thorough. When showing prompt content, format it nicely.`;
 
-    // Get tools
+    // Get tools (chat-specific - NOT available to prompt runs)
     const databaseSchemaTool = {
       type: "function",
       function: {
@@ -397,20 +411,10 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       databaseSchemaTool
     ];
 
-    // Build messages array
-    const apiMessages = [
-      { role: 'system', content: systemContent },
-      ...messages
-    ];
+    // Build the user message (last message in array)
+    const lastUserMessage = messages[messages.length - 1];
+    const userInput = lastUserMessage?.content || '';
 
-    console.log('Calling AI with model:', selectedModel, 'tools:', tools.length);
-
-    // Tool handling loop
-    const MAX_TOOL_ITERATIONS = 10;
-    let currentMessages = [...apiMessages];
-    let finalContent = '';
-    const toolEvents: Array<{ type: string; tool?: string; args?: any }> = [];
-    
     const toolContext = {
       supabase,
       userId: validation.user!.id,
@@ -419,21 +423,39 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       openAIApiKey
     };
 
+    // ============================================================================
+    // RESPONSES API with conversation chaining via previous_response_id
+    // This shares conversation memory with prompt runs
+    // ============================================================================
+    const MAX_TOOL_ITERATIONS = 10;
+    let previousResponseId = familyThread.last_response_id;
+    let finalContent = '';
+    const toolEvents: Array<{ type: string; tool?: string; args?: any }> = [];
+
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      console.log(`AI call iteration ${iteration + 1}, messages: ${currentMessages.length}`);
+      console.log(`AI call iteration ${iteration + 1}, previous_response_id:`, previousResponseId);
       
-      const response = await fetch(apiEndpoint, {
+      // Build Responses API request
+      const requestBody: any = {
+        model: selectedModel,
+        input: userInput,
+        instructions: systemContent,
+        tools: tools.length > 0 ? tools : undefined,
+        store: true, // Store for conversation chaining
+      };
+
+      // Chain with previous response for conversation memory
+      if (previousResponseId) {
+        requestBody.previous_response_id = previousResponseId;
+      }
+
+      const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: currentMessages,
-          tools: tools.length > 0 ? tools : undefined,
-          stream: false
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -444,7 +466,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
           );
         }
         const errorText = await response.text();
-        console.error('AI API error:', response.status, errorText);
+        console.error('Responses API error:', response.status, errorText);
         return new Response(
           JSON.stringify({ error: 'AI request failed' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -452,39 +474,27 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
 
       const result = await response.json();
-      const choice = result.choices?.[0];
+      console.log('Responses API result - id:', result.id, 'status:', result.status);
+
+      // Update previousResponseId for next iteration or final storage
+      previousResponseId = result.id;
+
+      // Check for tool calls in output
+      const toolCalls = result.output?.filter((item: any) => item.type === 'function_call') || [];
       
-      if (!choice) {
-        console.error('No choice in AI response:', result);
-        return new Response(
-          JSON.stringify({ error: 'Invalid AI response' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const message = choice.message;
-      const finishReason = choice.finish_reason;
-
-      console.log('AI response - finish_reason:', finishReason, 'has_tool_calls:', !!message.tool_calls);
-
-      // Check if AI wants to call tools
-      if (finishReason === 'tool_calls' && message.tool_calls && message.tool_calls.length > 0) {
-        console.log(`Executing ${message.tool_calls.length} tool call(s)`);
+      if (toolCalls.length > 0) {
+        console.log(`Executing ${toolCalls.length} tool call(s)`);
         
-        currentMessages.push({
-          role: 'assistant',
-          content: message.content || null,
-          tool_calls: message.tool_calls
-        });
-
-        for (const toolCall of message.tool_calls) {
-          const toolName = toolCall.function.name;
+        // Process tool calls
+        const toolResults: any[] = [];
+        for (const toolCall of toolCalls) {
+          const toolName = toolCall.name;
           let toolArgs = {};
           
           try {
-            toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+            toolArgs = JSON.parse(toolCall.arguments || '{}');
           } catch (e) {
-            console.error('Failed to parse tool arguments:', toolCall.function.arguments);
+            console.error('Failed to parse tool arguments:', toolCall.arguments);
           }
 
           toolEvents.push({ type: 'tool_start', tool: toolName, args: toolArgs });
@@ -497,20 +507,72 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
           toolEvents.push({ type: 'tool_end', tool: toolName });
 
-          currentMessages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: toolResult
+          toolResults.push({
+            type: 'function_call_output',
+            call_id: toolCall.call_id,
+            output: toolResult
           });
         }
 
+        // Submit tool results back to the API
+        const toolSubmitResponse = await fetch('https://api.openai.com/v1/responses', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: selectedModel,
+            previous_response_id: previousResponseId,
+            input: toolResults,
+            store: true,
+          })
+        });
+
+        if (!toolSubmitResponse.ok) {
+          const errorText = await toolSubmitResponse.text();
+          console.error('Tool submit error:', toolSubmitResponse.status, errorText);
+          break;
+        }
+
+        const toolSubmitResult = await toolSubmitResponse.json();
+        previousResponseId = toolSubmitResult.id;
+
+        // Extract content from tool submission result
+        const outputContent = toolSubmitResult.output?.find((item: any) => item.type === 'message');
+        if (outputContent?.content) {
+          for (const contentItem of outputContent.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              finalContent = contentItem.text;
+            }
+          }
+        }
+
+        // Check if more tool calls needed
+        const moreToolCalls = toolSubmitResult.output?.filter((item: any) => item.type === 'function_call') || [];
+        if (moreToolCalls.length === 0) {
+          break;
+        }
         continue;
       }
 
-      // AI returned final content
-      finalContent = message.content || '';
+      // Extract final content from response
+      const outputMessage = result.output?.find((item: any) => item.type === 'message');
+      if (outputMessage?.content) {
+        for (const contentItem of outputMessage.content) {
+          if (contentItem.type === 'output_text' && contentItem.text) {
+            finalContent = contentItem.text;
+          }
+        }
+      }
+      
       console.log('Final content received, length:', finalContent.length);
       break;
+    }
+
+    // Update family thread with final response ID for conversation chaining
+    if (previousResponseId) {
+      await updateFamilyThreadResponse(supabase, familyThread.row_id, previousResponseId);
     }
 
     if (toolEvents.length > 0) {

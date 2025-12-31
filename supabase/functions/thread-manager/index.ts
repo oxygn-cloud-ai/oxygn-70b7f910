@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
+import { resolveRootPromptId, clearFamilyThread } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -214,41 +215,38 @@ serve(async (req) => {
 
     // CREATE - Create a new thread with OpenAI conversation
     if (action === 'create') {
-      const { assistant_row_id, child_prompt_row_id, name } = body;
+      const { assistant_row_id, child_prompt_row_id, name, root_prompt_row_id } = body;
 
       // Generate a name if not provided
       const threadName = name || `Thread ${new Date().toISOString().split('T')[0]}`;
 
-      // Create OpenAI conversation
-      const conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
-        assistant_row_id: assistant_row_id || '',
-        child_prompt_row_id: child_prompt_row_id || '',
-      });
+      // Use a pending placeholder - will be updated with real response_id after first API call
+      const tempConversationId = `pending-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
-      // Save to database with real OpenAI conversation ID
+      // Save to database - include root_prompt_row_id for unified family threads
       const { data: savedThread, error: saveError } = await supabase
         .from(TABLES.THREADS)
         .insert({
           assistant_row_id,
           child_prompt_row_id,
-          openai_conversation_id: conversationId,
+          root_prompt_row_id, // New: for unified family thread lookup
+          openai_conversation_id: tempConversationId,
           name: threadName,
           is_active: true,
+          owner_id: validation.user?.id, // Always set owner
         })
         .select()
         .single();
 
       if (saveError) {
         console.error('Failed to save thread:', saveError);
-        // Try to clean up the OpenAI conversation
-        await deleteOpenAIConversation(OPENAI_API_KEY, conversationId);
         return new Response(
           JSON.stringify({ error: 'Failed to save thread' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('Created thread with OpenAI conversation:', savedThread.row_id, conversationId);
+      console.log('Created thread:', savedThread.row_id, 'root:', root_prompt_row_id);
 
       return new Response(
         JSON.stringify({ success: true, thread: savedThread }),
@@ -256,32 +254,26 @@ serve(async (req) => {
       );
     }
 
-    // LIST - List threads for an assistant or child prompt
+    // LIST - List threads for an assistant, child prompt, or root prompt family
     if (action === 'list') {
-      const { assistant_row_id, child_prompt_row_id, include_parent_threads } = body;
+      const { assistant_row_id, child_prompt_row_id, root_prompt_row_id } = body;
 
-      console.log('Listing threads:', { assistant_row_id, child_prompt_row_id, include_parent_threads });
+      console.log('Listing threads:', { assistant_row_id, child_prompt_row_id, root_prompt_row_id });
 
       let query = supabase
         .from(TABLES.THREADS)
         .select('*')
+        .eq('owner_id', validation.user?.id) // Always filter by owner
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (assistant_row_id) {
+      // Unified family thread lookup by root_prompt_row_id
+      if (root_prompt_row_id) {
+        query = query.eq('root_prompt_row_id', root_prompt_row_id);
+      } else if (assistant_row_id) {
         query = query.eq('assistant_row_id', assistant_row_id);
-      }
-      
-      // Handle child_prompt_row_id filtering properly
-      if (child_prompt_row_id) {
-        // If include_parent_threads is true, get both child-specific AND parent (null) threads
-        if (include_parent_threads) {
-          query = query.or(`child_prompt_row_id.eq.${child_prompt_row_id},child_prompt_row_id.is.null`);
-        } else {
-          query = query.eq('child_prompt_row_id', child_prompt_row_id);
-        }
-      } else if (child_prompt_row_id === null) {
-        // Explicitly looking for parent threads only
-        query = query.is('child_prompt_row_id', null);
+      } else if (child_prompt_row_id) {
+        query = query.eq('child_prompt_row_id', child_prompt_row_id);
       }
 
       const { data: threads, error } = await query;

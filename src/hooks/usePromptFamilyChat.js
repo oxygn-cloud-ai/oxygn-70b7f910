@@ -13,7 +13,24 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [toolActivity, setToolActivity] = useState([]);
   const [isExecutingTools, setIsExecutingTools] = useState(false);
 
-  // Fetch threads for this prompt family
+  // Compute root prompt ID by walking up parent chain
+  const computeRootPromptId = useCallback(async (pRowId) => {
+    let current = pRowId;
+    let depth = 0;
+    while (depth < 15) {
+      const { data } = await supabase
+        .from('q_prompts')
+        .select('parent_row_id')
+        .eq('row_id', current)
+        .single();
+      if (!data?.parent_row_id) return current;
+      current = data.parent_row_id;
+      depth++;
+    }
+    return current;
+  }, []);
+
+  // Fetch the unified family thread (one per family)
   const fetchThreads = useCallback(async () => {
     if (!promptRowId) {
       setThreads([]);
@@ -21,10 +38,16 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const rootId = await computeRootPromptId(promptRowId);
+      
       const { data, error } = await supabase
-        .from('q_prompt_family_threads')
+        .from('q_threads')
         .select('*')
-        .eq('prompt_row_id', promptRowId)
+        .eq('root_prompt_row_id', rootId)
+        .eq('owner_id', user.id)
         .eq('is_active', true)
         .order('updated_at', { ascending: false });
 
@@ -38,7 +61,7 @@ export const usePromptFamilyChat = (promptRowId) => {
     } catch (error) {
       console.error('Error fetching threads:', error);
     }
-  }, [promptRowId, activeThreadId]);
+  }, [promptRowId, activeThreadId, computeRootPromptId]);
 
   // Fetch messages for active thread
   const fetchMessages = useCallback(async () => {
@@ -65,7 +88,7 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [activeThreadId]);
 
-  // Create a new thread
+  // Create a new thread (clears existing and creates fresh one)
   const createThread = useCallback(async (title = 'New Chat') => {
     if (!promptRowId) return null;
 
@@ -73,20 +96,32 @@ export const usePromptFamilyChat = (promptRowId) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const rootId = await computeRootPromptId(promptRowId);
+
+      // Deactivate any existing active thread for this family
+      await supabase
+        .from('q_threads')
+        .update({ is_active: false })
+        .eq('root_prompt_row_id', rootId)
+        .eq('owner_id', user.id)
+        .eq('is_active', true);
+
+      // Create new thread
       const { data, error } = await supabase
-        .from('q_prompt_family_threads')
+        .from('q_threads')
         .insert({
-          prompt_row_id: promptRowId,
-          title,
+          root_prompt_row_id: rootId,
+          name: title,
           owner_id: user.id,
-          is_active: true
+          is_active: true,
+          openai_conversation_id: `pending-${Date.now()}`
         })
         .select()
         .single();
 
       if (error) throw error;
       
-      setThreads(prev => [data, ...prev]);
+      setThreads([data]);
       setActiveThreadId(data.row_id);
       setMessages([]);
       
@@ -96,7 +131,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       toast.error('Failed to create new chat');
       return null;
     }
-  }, [promptRowId]);
+  }, [promptRowId, computeRootPromptId]);
 
   // Switch to a different thread
   const switchThread = useCallback((threadId) => {
@@ -110,7 +145,7 @@ export const usePromptFamilyChat = (promptRowId) => {
   const deleteThread = useCallback(async (threadId) => {
     try {
       const { error } = await supabase
-        .from('q_prompt_family_threads')
+        .from('q_threads')
         .update({ is_active: false })
         .eq('row_id', threadId);
 
@@ -123,7 +158,7 @@ export const usePromptFamilyChat = (promptRowId) => {
         setActiveThreadId(remaining[0]?.row_id || null);
       }
       
-      toast.success('Chat deleted');
+      toast.success('Conversation cleared');
       return true;
     } catch (error) {
       console.error('Error deleting thread:', error);
@@ -132,51 +167,43 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [activeThreadId, threads]);
 
-  // Add a message to the database
+  // Add a message to local state only (messages are stored in OpenAI's chain now)
   const addMessage = useCallback(async (role, content, toolCalls = null) => {
     if (!activeThreadId) return null;
 
-    try {
-      const { data, error } = await supabase
-        .from('q_prompt_family_messages')
-        .insert({
-          thread_row_id: activeThreadId,
-          role,
-          content,
-          tool_calls: toolCalls
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setMessages(prev => [...prev, data]);
-      return data;
+    // Just add to local state - messages are in OpenAI's Responses API chain
+    const localMsg = {
+      row_id: `local-${Date.now()}`,
+      thread_row_id: activeThreadId,
+      role,
+      content,
+      tool_calls: toolCalls,
+      created_at: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, localMsg]);
+    return localMsg;
     } catch (error) {
       console.error('Error adding message:', error);
       return null;
     }
   }, [activeThreadId]);
 
-  // Clear messages in current thread
+  // Clear messages - creates a new thread (clears OpenAI conversation chain)
   const clearMessages = useCallback(async () => {
-    if (!activeThreadId) return false;
+    if (!promptRowId) return false;
 
     try {
-      const { error } = await supabase
-        .from('q_prompt_family_messages')
-        .delete()
-        .eq('thread_row_id', activeThreadId);
-
-      if (error) throw error;
-      setMessages([]);
-      toast.success('Messages cleared');
+      // Create new thread which clears the conversation chain
+      await createThread('New Chat');
+      toast.success('Conversation cleared');
       return true;
     } catch (error) {
       console.error('Error clearing messages:', error);
-      toast.error('Failed to clear messages');
+      toast.error('Failed to clear conversation');
       return false;
     }
-  }, [activeThreadId]);
+  }, [promptRowId, createThread]);
 
   // Send a message and get AI response
   const sendMessage = useCallback(async (userMessage) => {
@@ -301,8 +328,8 @@ export const usePromptFamilyChat = (promptRowId) => {
 
       // Update thread timestamp
       await supabase
-        .from('q_prompt_family_threads')
-        .update({ updated_at: new Date().toISOString() })
+        .from('q_threads')
+        .update({ last_message_at: new Date().toISOString() })
         .eq('row_id', activeThreadId);
 
       // Track successful response
