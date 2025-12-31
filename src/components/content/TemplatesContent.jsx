@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useModels } from '@/hooks/useModels';
+import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
   LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
@@ -119,11 +120,11 @@ const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
 );
 
 // Library Picker Dropdown
-const LibraryPickerDropdown = () => {
+const LibraryPickerDropdown = ({ libraryItems = [] }) => {
   const [searchQuery, setSearchQuery] = useState("");
   
-  const filteredPrompts = LIBRARY_PROMPTS.filter(prompt => 
-    prompt.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPrompts = libraryItems.filter(prompt => 
+    (prompt.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -154,16 +155,18 @@ const LibraryPickerDropdown = () => {
         </div>
         <DropdownMenuSeparator className="bg-outline-variant" />
         <div className="max-h-40 overflow-auto">
-          {filteredPrompts.map(prompt => (
-            <DropdownMenuItem key={prompt.id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
-              <span className="flex-1">{prompt.name}</span>
-              <div className="flex gap-1">
-                {prompt.labels?.slice(0, 1).map(lbl => (
-                  <LabelBadge key={lbl} label={lbl} size="xs" />
-                ))}
-              </div>
-            </DropdownMenuItem>
-          ))}
+          {filteredPrompts.length === 0 ? (
+            <div className="px-2 py-3 text-body-sm text-on-surface-variant text-center">No prompts found</div>
+          ) : (
+            filteredPrompts.map(prompt => (
+              <DropdownMenuItem key={prompt.row_id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
+                <span className="flex-1">{prompt.name}</span>
+                {prompt.category && (
+                  <LabelBadge label={prompt.category} size="xs" />
+                )}
+              </DropdownMenuItem>
+            ))
+          )}
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -171,7 +174,7 @@ const LibraryPickerDropdown = () => {
 };
 
 // Editable Text Area Component with Variable Picker
-const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick, onChange }) => {
+const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick, onChange, libraryItems = [] }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
@@ -197,7 +200,7 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</label>
         <div className="flex items-center gap-1">
           <MockupVariablePicker onInsert={handleInsertVariable} />
-          {onLibraryPick && <LibraryPickerDropdown />}
+          {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
@@ -230,7 +233,7 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
 };
 
 // Prompt Tab Content (for Prompt Templates)
-const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
+const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = [] }) => {
   const systemPrompt = templateData?.structure?.input_admin_prompt || '';
   const userPrompt = templateData?.structure?.input_user_prompt || '';
   const outputResponse = templateData?.structure?.output_response || '';
@@ -243,6 +246,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
         placeholder="Enter system prompt..."
         minHeight="min-h-40"
         onLibraryPick
+        libraryItems={libraryItems}
         onChange={(value) => onUpdateField?.('structure.input_admin_prompt', value)}
       />
 
@@ -252,6 +256,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField }) => {
         placeholder="Enter user prompt..."
         minHeight="min-h-16"
         onLibraryPick
+        libraryItems={libraryItems}
         onChange={(value) => onUpdateField?.('structure.input_user_prompt', value)}
       />
 
@@ -879,6 +884,7 @@ const TemplatesContent = ({
   onTemplateChange,
   models = [],
 }) => {
+  const { items: libraryItems } = usePromptLibrary();
   const [activeEditorTab, setActiveEditorTab] = useState("prompt");
   const [editedTemplate, setEditedTemplate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -1137,10 +1143,11 @@ const TemplatesContent = ({
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
           {/* Prompt Tab - for Prompt Templates */}
-          {activeEditorTab === "prompt" && activeTemplateTab === "prompts" && (
+{activeEditorTab === "prompt" && activeTemplateTab === "prompts" && (
             <TemplatePromptTabContent 
               templateData={editedTemplate}
               onUpdateField={handleUpdateField}
+              libraryItems={libraryItems}
             />
           )}
 
