@@ -21,6 +21,7 @@ import { useSupabase } from "@/hooks/useSupabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { toast } from "@/components/ui/sonner";
+import { trackEvent } from '@/lib/posthog';
 
 // No mock data - all models come from database via useModels hook
 
@@ -69,6 +70,7 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   const handleRetentionSave = () => {
     updateRetention(localRetention);
     toast.success(`Undo history retention set to ${localRetention} minutes`);
+    trackEvent('undo_retention_updated', { retention_minutes: localRetention });
   };
 
   const getValue = (key, fallback = '') => {

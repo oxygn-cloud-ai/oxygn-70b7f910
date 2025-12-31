@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent, trackException } from '@/lib/posthog';
 
 export const useConversationFiles = (assistantRowId) => {
   const supabase = useSupabase();
@@ -121,6 +122,10 @@ export const useConversationFiles = (assistantRowId) => {
             fileNames: uploadedFiles.map(f => f.original_filename),
           }, null, 2),
         });
+        trackEvent('conversation_file_uploaded', { 
+          file_count: uploadedFiles.length, 
+          file_types: uploadedFiles.map(f => f.mime_type) 
+        });
         // Auto-sync files after upload
         toast.info('Syncing files to assistant...', {
           source: 'useConversationFiles.uploadFile',
@@ -136,6 +141,7 @@ export const useConversationFiles = (assistantRowId) => {
         errorCode: error?.code || 'UPLOAD_ERROR',
         details: JSON.stringify({ assistantRowId, error: error?.message, stack: error?.stack }, null, 2),
       });
+      trackException(error, { context: 'useConversationFiles.uploadFile' });
       return null;
     } finally {
       setIsUploading(false);
@@ -185,10 +191,12 @@ export const useConversationFiles = (assistantRowId) => {
 
       setFiles(prev => prev.filter(f => f.row_id !== fileRowId));
       toast.success(`${file.original_filename} deleted`);
+      trackEvent('conversation_file_deleted', { file_name: file.original_filename });
       return true;
     } catch (error) {
       console.error('Error deleting file:', error);
       toast.error('Failed to delete file');
+      trackException(error, { context: 'useConversationFiles.deleteFile' });
       return false;
     }
   }, [supabase, files, assistantRowId]);
