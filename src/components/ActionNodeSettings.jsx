@@ -10,11 +10,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ResizablePromptArea } from '@/components/shared';
 import { 
   Play, 
   Braces, 
@@ -393,12 +393,13 @@ const ActionNodeSettings = ({
               {/* Custom Schema Editor */}
               {schemaSource === 'custom' && (
                 <div className="space-y-2">
-                  <Label className="text-label-sm text-on-surface-variant">Custom JSON Schema</Label>
-                  <Textarea
+                  <ResizablePromptArea
+                    label="Custom JSON Schema"
                     value={customSchema}
-                    onChange={(e) => handleCustomSchemaChange(e.target.value)}
                     placeholder='{"type": "object", "properties": {...}}'
-                    className="font-mono text-body-sm min-h-[120px] bg-surface-container"
+                    defaultHeight={120}
+                    onSave={(value) => handleCustomSchemaChange(value)}
+                    storageKey={`action-node-${localData.post_action || 'default'}-custom-schema`}
                   />
                   {schemaError && (
                     <p className="text-[10px] text-red-500">{schemaError}</p>

@@ -179,8 +179,18 @@ const HighlightedTextarea = React.forwardRef(({
         charCount += nodeLength;
       } else if (node.nodeName === 'BR') {
         charCount += 1;
-        if (charCount >= position) {
-          range.setStartAfter(node);
+        // Position cursor right after this <br> when we've reached the target position
+        if (charCount === position) {
+          // Find the next text node or position after the <br>
+          if (node.nextSibling) {
+            if (node.nextSibling.nodeType === Node.TEXT_NODE) {
+              range.setStart(node.nextSibling, 0);
+            } else {
+              range.setStartAfter(node);
+            }
+          } else {
+            range.setStartAfter(node);
+          }
           range.collapse(true);
           found = true;
           return;

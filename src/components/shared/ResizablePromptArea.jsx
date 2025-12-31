@@ -307,6 +307,7 @@ const ResizablePromptArea = ({
   const contentRef = useRef(null);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [cursorPosition, setCursorPosition] = useState(null);
+  const [selectionEnd, setSelectionEnd] = useState(null); // Track selection end for replacing selected text
   
   // Persist sizing to localStorage
   useEffect(() => {
@@ -374,28 +375,35 @@ const ResizablePromptArea = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleSave, isEditing]);
 
-  // Helper to get cursor position from contenteditable
-  const getCursorPositionFromEditor = useCallback(() => {
+  // Helper to get selection range from contenteditable (returns both start and end)
+  const getSelectionFromEditor = useCallback(() => {
     const editor = textareaRef.current;
-    if (!editor) return editValue.length;
+    if (!editor) return { start: editValue.length, end: editValue.length };
     
     const selection = window.getSelection();
-    if (!selection.rangeCount) return editValue.length;
+    if (!selection.rangeCount) return { start: editValue.length, end: editValue.length };
     
     const range = selection.getRangeAt(0);
-    const preCaretRange = range.cloneRange();
-    preCaretRange.selectNodeContents(editor);
-    preCaretRange.setEnd(range.startContainer, range.startOffset);
     
-    // Create a temporary div to get the text
-    const tempDiv = document.createElement('div');
-    tempDiv.appendChild(preCaretRange.cloneContents());
+    // Get start position
+    const preCaretRangeStart = range.cloneRange();
+    preCaretRangeStart.selectNodeContents(editor);
+    preCaretRangeStart.setEnd(range.startContainer, range.startOffset);
+    const tempDivStart = document.createElement('div');
+    tempDivStart.appendChild(preCaretRangeStart.cloneContents());
+    tempDivStart.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+    const start = tempDivStart.textContent?.length || 0;
     
-    // Handle br tags as newlines
-    const brs = tempDiv.querySelectorAll('br');
-    brs.forEach(br => br.replaceWith('\n'));
+    // Get end position
+    const preCaretRangeEnd = range.cloneRange();
+    preCaretRangeEnd.selectNodeContents(editor);
+    preCaretRangeEnd.setEnd(range.endContainer, range.endOffset);
+    const tempDivEnd = document.createElement('div');
+    tempDivEnd.appendChild(preCaretRangeEnd.cloneContents());
+    tempDivEnd.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+    const end = tempDivEnd.textContent?.length || 0;
     
-    return tempDiv.textContent?.length || 0;
+    return { start, end };
   }, [editValue.length]);
 
   // Track cursor position when textarea changes or user clicks/selects
@@ -408,47 +416,63 @@ const ResizablePromptArea = ({
   };
 
   const handleTextareaSelect = useCallback(() => {
-    // Get cursor from contenteditable
-    const pos = getCursorPositionFromEditor();
-    setCursorPosition(pos);
-  }, [getCursorPositionFromEditor]);
+    // Get selection range from contenteditable
+    const { start, end } = getSelectionFromEditor();
+    setCursorPosition(start);
+    setSelectionEnd(end);
+  }, [getSelectionFromEditor]);
 
   const handleTextareaClick = useCallback(() => {
-    // Get cursor from contenteditable
+    // Get selection range from contenteditable
     setTimeout(() => {
-      const pos = getCursorPositionFromEditor();
-      setCursorPosition(pos);
+      const { start, end } = getSelectionFromEditor();
+      setCursorPosition(start);
+      setSelectionEnd(end);
     }, 0);
-  }, [getCursorPositionFromEditor]);
+  }, [getSelectionFromEditor]);
 
   const handleTextareaKeyUp = useCallback(() => {
-    // Get cursor from contenteditable
-    const pos = getCursorPositionFromEditor();
-    setCursorPosition(pos);
-  }, [getCursorPositionFromEditor]);
+    // Get selection range from contenteditable
+    const { start, end } = getSelectionFromEditor();
+    setCursorPosition(start);
+    setSelectionEnd(end);
+  }, [getSelectionFromEditor]);
 
   const handleInsertVariable = useCallback((variableText) => {
     // variableText may already include {{ }} from VariablePicker
     const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
     
-    // Get current cursor position from editor if available
-    let insertPos = cursorPosition;
-    if (insertPos === null && textareaRef.current && isEditing) {
-      insertPos = getCursorPositionFromEditor();
-    }
-    if (insertPos === null) {
-      insertPos = editValue.length;
+    // Get current selection range from editor if available
+    let insertStart = cursorPosition;
+    let insertEnd = selectionEnd;
+    
+    if (insertStart === null && textareaRef.current && isEditing) {
+      const selection = getSelectionFromEditor();
+      insertStart = selection.start;
+      insertEnd = selection.end;
     }
     
-    const newValue = editValue.slice(0, insertPos) + insertion + editValue.slice(insertPos);
+    if (insertStart === null) {
+      insertStart = editValue.length;
+      insertEnd = editValue.length;
+    }
+    
+    // If no selection, insertEnd should equal insertStart
+    if (insertEnd === null || insertEnd < insertStart) {
+      insertEnd = insertStart;
+    }
+    
+    // Replace selected text (or insert at cursor if no selection)
+    const newValue = editValue.slice(0, insertStart) + insertion + editValue.slice(insertEnd);
     setEditValue(newValue);
     
     // Update cursor position to after the inserted variable
-    const newCursorPos = insertPos + insertion.length;
+    const newCursorPos = insertStart + insertion.length;
     setCursorPosition(newCursorPos);
+    setSelectionEnd(newCursorPos);
     
     // Note: We no longer call onChange here - changes are local until saved
-  }, [cursorPosition, editValue, isEditing, getCursorPositionFromEditor]);
+  }, [cursorPosition, selectionEnd, editValue, isEditing, getSelectionFromEditor]);
 
   // Handle replacing a variable in the text (used by ClickableVariable)
   const handleReplaceVariable = useCallback((start, end, newText) => {
