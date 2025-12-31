@@ -270,7 +270,8 @@ const ResizablePromptArea = ({
   variables = [],
   promptReferences = [],
   libraryItems = [],
-  storageKey // Optional key to persist sizing in localStorage
+  storageKey, // Optional key to persist sizing in localStorage
+  readOnly = false // When true, disables editing
 }) => {
   // Generate storage key from label if not provided
   const persistKey = storageKey || (label ? `qonsol-prompt-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
@@ -606,19 +607,21 @@ const ResizablePromptArea = ({
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Copy</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={() => isEditing ? handleDoneEditing() : setIsEditing(true)}
-                className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
-                  isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-                }`}
-              >
-                {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
-          </Tooltip>
+          {!readOnly && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={() => isEditing ? handleDoneEditing() : setIsEditing(true)}
+                  className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
+                    isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+                  }`}
+                >
+                  {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
+            </Tooltip>
+          )}
           {onPlay && (
             <Tooltip>
               <TooltipTrigger asChild>
