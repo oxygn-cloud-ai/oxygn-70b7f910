@@ -107,35 +107,46 @@ export const getArrayPathStrings = (schema) => {
  * @param {Object} config - Current action config (for json_path)
  * @returns {Object} { isValid: boolean, warnings: string[], suggestions: string[] }
  */
+/**
+ * Validate schema structure against action type requirements
+ * @param {Object} schema - JSON schema object
+ * @param {string} actionType - The action type (e.g., 'create_children_json')
+ * @param {Object} config - Current action config (for json_path)
+ * @returns {Object} { isValid: boolean, warnings: string[], suggestions: string[], arrayPaths: string[] }
+ */
 export const validateSchemaForAction = (schema, actionType, config = {}) => {
   const result = {
     isValid: true,
     warnings: [],
     suggestions: [],
+    arrayPaths: [], // Include for debugging
   };
   
   if (!schema || !actionType) return result;
   
-  const arrayPaths = findArrayPaths(schema);
+  const arrayPathObjects = findArrayPaths(schema);
+  // Extract just the path strings for comparison (fix: was comparing objects to strings)
+  const arrayPathStrings = arrayPathObjects.map(p => p.path.replace(/\[\*\]/g, ''));
+  result.arrayPaths = arrayPathStrings;
   
   switch (actionType) {
     case 'create_children_json':
-      if (arrayPaths.length === 0) {
+      if (arrayPathStrings.length === 0) {
         result.isValid = false;
         result.warnings.push('Schema has no array fields. "Create Children (JSON)" requires an array in the response.');
         result.suggestions.push('Consider using "Create Children (Sections)" for flat key-value structures.');
         result.suggestions.push('Or add an array field to your schema (e.g., "items": { "type": "array", ... })');
-      } else if (config.json_path && !arrayPaths.includes(config.json_path)) {
+      } else if (config.json_path && !arrayPathStrings.includes(config.json_path)) {
         result.warnings.push(`JSON path "${config.json_path}" is not an array in the schema.`);
-        result.suggestions.push(`Available arrays: ${arrayPaths.join(', ')}`);
-      } else if (!config.json_path && arrayPaths.length > 0) {
-        result.suggestions.push(`Set JSON Path to one of: ${arrayPaths.join(', ')}`);
+        result.suggestions.push(`Available arrays: ${arrayPathStrings.join(', ')}`);
+      } else if (!config.json_path && arrayPathStrings.length > 0) {
+        result.suggestions.push(`Set JSON Path to one of: ${arrayPathStrings.join(', ')}`);
       }
       break;
       
     case 'create_children_sections':
       // Sections work with flat key-value pairs - no array required
-      if (arrayPaths.length > 0 && schema.properties && Object.keys(schema.properties).length === 1) {
+      if (arrayPathStrings.length > 0 && schema.properties && Object.keys(schema.properties).length === 1) {
         result.suggestions.push('Schema has an array. Consider "Create Children (JSON)" for better control.');
       }
       break;

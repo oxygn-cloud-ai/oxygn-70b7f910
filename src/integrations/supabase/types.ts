@@ -1010,6 +1010,7 @@ export type Database = {
           is_legacy: boolean | null
           is_private: boolean | null
           json_schema_template_id: string | null
+          last_action_result: Json | null
           last_ai_call_metadata: Json | null
           library_prompt_id: string | null
           logit_bias: string | null
@@ -1090,6 +1091,7 @@ export type Database = {
           is_legacy?: boolean | null
           is_private?: boolean | null
           json_schema_template_id?: string | null
+          last_action_result?: Json | null
           last_ai_call_metadata?: Json | null
           library_prompt_id?: string | null
           logit_bias?: string | null
@@ -1170,6 +1172,7 @@ export type Database = {
           is_legacy?: boolean | null
           is_private?: boolean | null
           json_schema_template_id?: string | null
+          last_action_result?: Json | null
           last_ai_call_metadata?: Json | null
           library_prompt_id?: string | null
           logit_bias?: string | null

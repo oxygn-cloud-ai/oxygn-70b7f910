@@ -28,6 +28,10 @@ import {
   Settings2,
   ListTree,
   AlertTriangle,
+  Bug,
+  CheckCircle2,
+  XCircle,
+  Clock,
 } from 'lucide-react';
 import { 
   getEnabledActionTypes, 
@@ -69,6 +73,7 @@ const ActionNodeSettings = ({
   const [customSchema, setCustomSchema] = useState('');
   const [schemaError, setSchemaError] = useState('');
   const [isSchemaOpen, setIsSchemaOpen] = useState(true);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
   
   const { templates, isLoading: templatesLoading } = useJsonSchemaTemplates();
 
@@ -552,6 +557,132 @@ const ActionNodeSettings = ({
           </CardContent>
         </Card>
       )}
+
+      {/* Last Action Result */}
+      {localData.last_action_result && (
+        <Card className={`border ${
+          localData.last_action_result.status === 'success' 
+            ? 'bg-green-500/5 border-green-500/30' 
+            : 'bg-red-500/5 border-red-500/30'
+        }`}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-title-sm flex items-center gap-2 text-on-surface">
+              {localData.last_action_result.status === 'success' ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-red-500" />
+              )}
+              Last Execution
+              <span className="text-[10px] text-on-surface-variant font-normal ml-auto flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {new Date(localData.last_action_result.executed_at).toLocaleString()}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {localData.last_action_result.status === 'success' ? (
+              <p className="text-body-sm text-on-surface">
+                Created <strong>{localData.last_action_result.created_count || 0}</strong> child prompts
+                {localData.last_action_result.message && `: ${localData.last_action_result.message}`}
+              </p>
+            ) : (
+              <p className="text-body-sm text-red-500">
+                {localData.last_action_result.error}
+              </p>
+            )}
+            {localData.last_action_result.available_arrays && (
+              <p className="text-[10px] text-on-surface-variant">
+                Available arrays: {localData.last_action_result.available_arrays.join(', ') || 'none'}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Debug Info Panel */}
+      <Card className="bg-surface-container-low border-outline-variant">
+        <Collapsible open={isDebugOpen} onOpenChange={setIsDebugOpen}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-2 cursor-pointer hover:bg-surface-container transition-colors">
+              <CardTitle className="text-title-sm flex items-center justify-between text-on-surface">
+                <div className="flex items-center gap-2">
+                  <Bug className="h-4 w-4 text-on-surface-variant" />
+                  Debug Info
+                </div>
+                <ChevronDown className={`h-4 w-4 text-on-surface-variant transition-transform ${isDebugOpen ? 'rotate-180' : ''}`} />
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-3">
+              {/* Schema Validation Status */}
+              <div className="space-y-1">
+                <Label className="text-label-sm text-on-surface-variant">Schema Validation</Label>
+                <div className="flex items-center gap-2">
+                  {schemaValidation.isValid ? (
+                    <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Valid
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/30">
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Issues Found
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Available Array Paths */}
+              <div className="space-y-1">
+                <Label className="text-label-sm text-on-surface-variant">
+                  Array Paths in Schema ({schemaValidation.arrayPaths?.length || availableArrayPaths.length})
+                </Label>
+                <div className="flex flex-wrap gap-1">
+                  {(schemaValidation.arrayPaths || availableArrayPaths.map(p => p.path)).map((path, i) => (
+                    <Badge key={i} variant="secondary" className="text-[10px] font-mono">
+                      {path || 'root'}
+                    </Badge>
+                  ))}
+                  {(schemaValidation.arrayPaths?.length || availableArrayPaths.length) === 0 && (
+                    <span className="text-[10px] text-on-surface-variant">No arrays found</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Current Config */}
+              <div className="space-y-1">
+                <Label className="text-label-sm text-on-surface-variant">Current Action Config</Label>
+                <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-24 font-mono text-on-surface-variant">
+                  {JSON.stringify(currentConfig, null, 2) || 'null'}
+                </pre>
+              </div>
+
+              {/* Stored Response Format */}
+              <div className="space-y-1">
+                <Label className="text-label-sm text-on-surface-variant">Stored response_format</Label>
+                <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-32 font-mono text-on-surface-variant">
+                  {localData.response_format 
+                    ? (typeof localData.response_format === 'string' 
+                        ? JSON.stringify(JSON.parse(localData.response_format), null, 2)
+                        : JSON.stringify(localData.response_format, null, 2))
+                    : 'null'}
+                </pre>
+              </div>
+
+              {/* Template ID */}
+              {localData.json_schema_template_id && (
+                <div className="space-y-1">
+                  <Label className="text-label-sm text-on-surface-variant">Template ID</Label>
+                  <code className="text-[10px] bg-surface-container p-1 rounded font-mono text-on-surface-variant">
+                    {localData.json_schema_template_id}
+                  </code>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
+      </Card>
 
       {/* Info about Action Nodes */}
       <div className="p-3 bg-surface-container-low rounded-m3-md border border-outline-variant">
