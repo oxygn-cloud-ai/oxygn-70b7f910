@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -16,7 +16,8 @@ import {
   Heading1,
   Heading2,
   Heading3,
-  Type
+  Type,
+  Check
 } from 'lucide-react';
 import {
   Tooltip,
@@ -29,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { toast } from '@/components/ui/sonner';
 
 // Toolbar button component
 const ToolbarButton = ({ icon: Icon, tooltip, onClick, active = false, disabled = false }) => (
@@ -119,16 +121,45 @@ const HeadingDropdown = ({ editor }) => {
 
 /**
  * MarkdownNotesArea - A WYSIWYG notes editor using Tiptap
- * Features: formatting toolbar, real-time editing, collapsible
+ * Features: formatting toolbar, real-time editing, collapsible, explicit save
  */
 const MarkdownNotesArea = ({
   value = '',
   onChange,
+  onSave,
   placeholder = 'Add notes...',
   label = 'Notes',
   defaultHeight = 80,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [localValue, setLocalValue] = useState(value || '');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Sync local value when prop changes (external update)
+  useEffect(() => {
+    setLocalValue(value || '');
+    setHasUnsavedChanges(false);
+  }, [value]);
+
+  const handleSave = useCallback(() => {
+    if (hasUnsavedChanges && onSave) {
+      onSave(localValue);
+      setHasUnsavedChanges(false);
+      toast.success('Notes saved');
+    }
+  }, [localValue, hasUnsavedChanges, onSave]);
+
+  // Keyboard shortcut for save (Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave]);
 
   const editor = useEditor({
     extensions: [
@@ -146,12 +177,34 @@ const MarkdownNotesArea = ({
         emptyEditorClass: 'is-editor-empty',
       }),
     ],
-    content: value || '',
+    content: localValue || '',
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
       // Return empty string if editor only contains empty paragraph
       const isEmpty = html === '<p></p>' || html === '';
-      onChange?.(isEmpty ? '' : html);
+      const newValue = isEmpty ? '' : html;
+      
+      setLocalValue(newValue);
+      
+      // Track unsaved changes
+      const originalIsEmpty = !value || value === '<p></p>';
+      const newIsEmpty = !newValue || newValue === '<p></p>';
+      
+      if (originalIsEmpty && newIsEmpty) {
+        setHasUnsavedChanges(false);
+      } else {
+        setHasUnsavedChanges(newValue !== value);
+      }
+      
+      // Notify parent of local change (for tracking purposes only)
+      onChange?.(newValue);
+    },
+    onBlur: () => {
+      // Auto-save on blur if there are unsaved changes
+      if (hasUnsavedChanges && onSave) {
+        onSave(localValue);
+        setHasUnsavedChanges(false);
+      }
     },
     editorProps: {
       attributes: {
@@ -160,7 +213,7 @@ const MarkdownNotesArea = ({
     },
   });
 
-  // Sync external value changes
+  // Sync external value changes to editor
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       const currentValue = editor.getHTML();
@@ -170,6 +223,8 @@ const MarkdownNotesArea = ({
       // Only update if values are actually different
       if (isEmpty !== newIsEmpty || (!isEmpty && value !== currentValue)) {
         editor.commands.setContent(value || '');
+        setLocalValue(value || '');
+        setHasUnsavedChanges(false);
       }
     }
   }, [value, editor]);
@@ -185,12 +240,12 @@ const MarkdownNotesArea = ({
     editor?.chain().focus().unsetLink().run();
   };
 
-  const hasContent = value && value !== '<p></p>' && value.trim() !== '';
+  const hasContent = localValue && localValue !== '<p></p>' && localValue.trim() !== '';
 
   // Get plain text preview for collapsed state
   const getPlainTextPreview = () => {
-    if (!value) return '';
-    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
+    if (!localValue) return '';
+    return localValue.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
   };
 
   return (
@@ -219,11 +274,28 @@ const MarkdownNotesArea = ({
           <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
             {label}
           </span>
+          {/* Unsaved changes indicator */}
+          {hasUnsavedChanges && (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          )}
         </div>
 
         {/* Toolbar - visible when not collapsed */}
         {!isCollapsed && (
           <div className="flex items-center gap-0.5" data-toolbar>
+            {/* Save button - only show when there are unsaved changes */}
+            {hasUnsavedChanges && onSave && (
+              <>
+                <ToolbarButton
+                  icon={Check}
+                  tooltip="Save (Ctrl+S)"
+                  onClick={handleSave}
+                  active={true}
+                />
+                <div className="w-px h-4 bg-outline-variant mx-1" />
+              </>
+            )}
+            
             <HeadingDropdown editor={editor} />
             
             <div className="w-px h-4 bg-outline-variant mx-1" />
@@ -277,7 +349,9 @@ const MarkdownNotesArea = ({
       {/* Editor content */}
       {!isCollapsed && (
         <div 
-          className="bg-surface-container rounded-m3-sm border border-outline-variant overflow-hidden"
+          className={`bg-surface-container rounded-m3-sm border overflow-hidden transition-colors ${
+            hasUnsavedChanges ? 'border-primary/50' : 'border-outline-variant'
+          }`}
           style={{ minHeight: defaultHeight }}
         >
           <div className="p-3">
