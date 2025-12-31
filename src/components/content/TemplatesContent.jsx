@@ -30,6 +30,7 @@ import {
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
 import { VariablePicker, VariablePicker as MockupVariablePicker } from "@/components/shared";
 import TemplateStructureEditor from "@/components/templates/TemplateStructureEditor";
+import TemplateVariablesTab from "@/components/templates/TemplateVariablesTab";
 
 // Source options for variable mappings
 const SOURCE_OPTIONS = [
@@ -121,7 +122,7 @@ const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
 );
 
 // Library Picker Dropdown
-const LibraryPickerDropdown = ({ libraryItems = [] }) => {
+const LibraryPickerDropdown = ({ libraryItems = [], onSelect }) => {
   const [searchQuery, setSearchQuery] = useState("");
   
   const filteredPrompts = libraryItems.filter(prompt => 
@@ -160,7 +161,11 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
             <div className="px-2 py-3 text-body-sm text-on-surface-variant text-center">No prompts found</div>
           ) : (
             filteredPrompts.map(prompt => (
-              <DropdownMenuItem key={prompt.row_id} className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer">
+              <DropdownMenuItem 
+                key={prompt.row_id} 
+                className="text-body-sm text-on-surface hover:bg-on-surface/[0.08] cursor-pointer"
+                onClick={() => onSelect?.(prompt.content || '')}
+              >
                 <span className="flex-1">{prompt.name}</span>
                 {prompt.category && (
                   <LabelBadge label={prompt.category} size="xs" />
@@ -188,6 +193,10 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
     setEditValue(prev => prev + insertion);
   };
 
+  const handleLibrarySelect = (content) => {
+    setEditValue(prev => prev + content);
+  };
+
   const handleDoneEditing = () => {
     setIsEditing(false);
     if (onChange && editValue !== value) {
@@ -201,7 +210,7 @@ const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32",
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</label>
         <div className="flex items-center gap-1">
           <MockupVariablePicker onInsert={handleInsertVariable} />
-          {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
+          {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} onSelect={handleLibrarySelect} />}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
@@ -461,97 +470,6 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           ))}
         </div>
       </div>
-    </div>
-  );
-};
-
-// Variables Tab Content (for Prompt Templates)
-const TemplateVariablesTabContent = ({ variables = [] }) => {
-  const typeColors = {
-    string: "bg-blue-500/10 text-blue-600",
-    text: "bg-green-500/10 text-green-600",
-    enum: "bg-purple-500/10 text-purple-600",
-    number: "bg-amber-500/10 text-amber-600",
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-label-sm text-on-surface-variant uppercase">Variables ({variables.length})</span>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <Plus className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Add Variable</TooltipContent>
-        </Tooltip>
-      </div>
-
-      {variables.length === 0 ? (
-        <div className="text-center py-8 text-on-surface-variant">
-          <Variable className="h-8 w-8 mx-auto mb-2 opacity-30" />
-          <p className="text-body-sm">No variables defined</p>
-          <p className="text-[10px] opacity-70 mt-0.5">Variables will be extracted from prompts</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {variables.map((variable, idx) => {
-            const varType = variable.type || "string";
-            return (
-              <div key={idx} className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant group">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <code className="text-body-sm text-on-surface font-mono font-medium">{variable.name || variable.variable_name}</code>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${typeColors[varType] || typeColors.string}`}>
-                      {varType}
-                    </span>
-                    {(variable.required || variable.is_required) && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600">required</span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">{variable.description || variable.variable_description || ""}</p>
-                </div>
-                
-                {(variable.default || variable.default_value) && (
-                  <div className="text-[10px] text-on-surface-variant">
-                    default: <code className="text-on-surface">{variable.default || variable.default_value}</code>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">Edit</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px]">Delete</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {variables.length > 0 && variables.some(v => v.required || v.is_required) && (
-        <div className="flex items-start gap-2 p-2.5 bg-amber-500/10 rounded-m3-md border border-amber-500/20">
-          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-body-sm text-amber-700 font-medium">Required variables</p>
-            <p className="text-[10px] text-amber-600">Some variables need values before running</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -1066,62 +984,8 @@ const StructureNode = ({ node, level = 0 }) => {
   );
 };
 
-// Variable Editor Row Component
-const VariableRow = ({ variable, isEditing = false }) => {
-  const typeColors = {
-    string: "bg-blue-500/10 text-blue-600",
-    text: "bg-green-500/10 text-green-600",
-    enum: "bg-purple-500/10 text-purple-600",
-    number: "bg-amber-500/10 text-amber-600",
-  };
-
-  const varType = variable.type || "string";
-
-  return (
-    <div className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant group">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <code className="text-body-sm text-on-surface font-mono font-medium">{variable.name || variable.variable_name}</code>
-          <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${typeColors[varType] || typeColors.string}`}>
-            {varType}
-          </span>
-          {(variable.required || variable.is_required) && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-600">required</span>
-          )}
-        </div>
-        <p className="text-[10px] text-on-surface-variant mt-0.5">{variable.description || variable.variable_description || ""}</p>
-      </div>
-      
-      {(variable.default || variable.default_value) && (
-        <div className="text-[10px] text-on-surface-variant">
-          default: <code className="text-on-surface">{variable.default || variable.default_value}</code>
-        </div>
-      )}
-      
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <Edit3 className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Edit</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive hover:bg-on-surface/[0.08]">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Delete</TooltipContent>
-        </Tooltip>
-      </div>
-    </div>
-  );
-};
-
 // Variable Mapping Row Component
-const MappingRow = ({ mapping }) => {
+const MappingRow = ({ mapping, onEdit }) => {
   const source = SOURCE_OPTIONS.find(s => s.id === mapping.source);
   const SourceIcon = source?.icon || Variable;
 
@@ -1148,7 +1012,10 @@ const MappingRow = ({ mapping }) => {
       
       <Tooltip>
         <TooltipTrigger asChild>
-          <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+          <button 
+            onClick={() => onEdit?.(mapping)}
+            className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+          >
             <Edit3 className="h-3.5 w-3.5" />
           </button>
         </TooltipTrigger>
@@ -1514,10 +1381,12 @@ const TemplatesContent = ({
             />
           )}
 
-          {/* Variables Tab - for Prompt Templates */}
+          {/* Variables Tab - for Prompt Templates - uses working component */}
           {activeEditorTab === "variables" && activeTemplateTab === "prompts" && (
-            <TemplateVariablesTabContent 
-              variables={displayVariables}
+            <TemplateVariablesTab 
+              structure={editedTemplate?.structure}
+              variableDefinitions={editedTemplate?.variable_definitions || []}
+              onChange={(newVars) => handleUpdateField('variable_definitions', newVars)}
             />
           )}
 
@@ -1627,9 +1496,17 @@ const TemplatesContent = ({
             </div>
             
             <div className="space-y-2">
-              {MOCK_VARIABLE_MAPPINGS.map(mapping => (
-                <MappingRow key={mapping.variable} mapping={mapping} />
-              ))}
+              {(editedTemplate?.mappings || []).length === 0 ? (
+                <div className="text-center py-8 text-on-surface-variant">
+                  <Link2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-body-sm">No mappings defined</p>
+                  <p className="text-[10px] opacity-70 mt-0.5">Add mappings to connect variables to data sources</p>
+                </div>
+              ) : (
+                (editedTemplate?.mappings || []).map(mapping => (
+                  <MappingRow key={mapping.variable} mapping={mapping} onEdit={(m) => console.log('Edit mapping:', m)} />
+                ))
+              )}
             </div>
             
             <p className="text-[10px] text-on-surface-variant">
