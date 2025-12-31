@@ -210,30 +210,25 @@ export async function searchKnowledge(
 
 /**
  * Get the search_qonsol_help tool definition
+ * Uses Responses API format (flat structure with name at top level)
  */
 export function getQonsolHelpTool() {
   return {
     type: "function",
-    function: {
-      name: "search_qonsol_help",
-      description: "Search the Qonsol knowledge base for help on a specific topic or feature. Use this to find documentation about prompts, templates, variables, cascades, files, confluence integration, and more.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query - a topic name, feature, or question about Qonsol"
-          },
-          topics: {
-            type: "array",
-            items: { type: "string" },
-            description: "Optional: filter by specific topics (overview, prompts, templates, json_schemas, actions, variables, files, confluence, cascade, library, workbench, troubleshooting, database, edge_functions, api)"
-          }
-        },
-        required: ["query"],
-        additionalProperties: false
-      }
-    }
+    name: "search_qonsol_help",
+    description: "Search the Qonsol knowledge base for help on a specific topic or feature. Use this to find documentation about prompts, templates, variables, cascades, files, confluence integration, and more.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query - a topic name, feature, or question about Qonsol"
+        }
+      },
+      required: ["query"],
+      additionalProperties: false
+    },
+    strict: true
   };
 }
 

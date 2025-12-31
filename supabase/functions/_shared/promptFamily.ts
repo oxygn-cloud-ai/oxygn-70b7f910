@@ -276,127 +276,120 @@ function formatTreeStructure(node: any, depth: number): string {
 
 /**
  * Tool definitions for prompt family exploration
+ * Uses Responses API format (flat structure with name at top level)
  */
 export function getPromptFamilyTools() {
   return [
     {
       type: "function",
-      function: {
-        name: "get_prompt_tree",
-        description: "Get the complete prompt family tree showing all prompts and their hierarchy.",
-        parameters: {
-          type: "object",
-          properties: {},
-          required: [],
-          additionalProperties: false
-        }
-      }
+      name: "get_prompt_tree",
+      description: "Get the complete prompt family tree showing all prompts and their hierarchy.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "get_prompt_details",
-        description: "Get detailed information about a specific prompt including its content, settings, and output.",
-        parameters: {
-          type: "object",
-          properties: {
-            prompt_row_id: {
-              type: "string",
-              description: "The row_id of the prompt to retrieve"
-            }
-          },
-          required: ["prompt_row_id"],
-          additionalProperties: false
-        }
-      }
+      name: "get_prompt_details",
+      description: "Get detailed information about a specific prompt including its content, settings, and output.",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt_row_id: {
+            type: "string",
+            description: "The row_id of the prompt to retrieve"
+          }
+        },
+        required: ["prompt_row_id"],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "list_family_files",
-        description: "List all files attached to prompts in this family.",
-        parameters: {
-          type: "object",
-          properties: {},
-          required: [],
-          additionalProperties: false
-        }
-      }
+      name: "list_family_files",
+      description: "List all files attached to prompts in this family.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "list_family_confluence",
-        description: "List all Confluence pages attached to prompts in this family.",
-        parameters: {
-          type: "object",
-          properties: {},
-          required: [],
-          additionalProperties: false
-        }
-      }
+      name: "list_family_confluence",
+      description: "List all Confluence pages attached to prompts in this family.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "read_confluence_page",
-        description: "Read the full content of an attached Confluence page.",
-        parameters: {
-          type: "object",
-          properties: {
-            page_id: {
-              type: "string",
-              description: "The Confluence page ID"
-            }
-          },
-          required: ["page_id"],
-          additionalProperties: false
-        }
-      }
+      name: "read_confluence_page",
+      description: "Read the full content of an attached Confluence page.",
+      parameters: {
+        type: "object",
+        properties: {
+          page_id: {
+            type: "string",
+            description: "The Confluence page ID"
+          }
+        },
+        required: ["page_id"],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "list_family_variables",
-        description: "List all variables defined across prompts in this family.",
-        parameters: {
-          type: "object",
-          properties: {},
-          required: [],
-          additionalProperties: false
-        }
-      }
+      name: "list_family_variables",
+      description: "List all variables defined across prompts in this family.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "list_json_schemas",
-        description: "List all JSON schema templates used by prompts in this family.",
-        parameters: {
-          type: "object",
-          properties: {},
-          required: [],
-          additionalProperties: false
-        }
-      }
+      name: "list_json_schemas",
+      description: "List all JSON schema templates used by prompts in this family.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false
+      },
+      strict: true
     },
     {
       type: "function",
-      function: {
-        name: "get_json_schema_details",
-        description: "Get the full details of a JSON schema template including its structure and configuration.",
-        parameters: {
-          type: "object",
-          properties: {
-            schema_row_id: {
-              type: "string",
-              description: "The row_id of the JSON schema template"
-            }
-          },
-          required: ["schema_row_id"],
-          additionalProperties: false
-        }
-      }
+      name: "get_json_schema_details",
+      description: "Get the full details of a JSON schema template including its structure and configuration.",
+      parameters: {
+        type: "object",
+        properties: {
+          schema_row_id: {
+            type: "string",
+            description: "The row_id of the JSON schema template"
+          }
+        },
+        required: ["schema_row_id"],
+        additionalProperties: false
+      },
+      strict: true
     }
   ];
 }

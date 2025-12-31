@@ -755,7 +755,25 @@ const MainLayout = () => {
     };
   }, []);
 
-  // Cleanup timeout on unmount
+  // Listen for tree-refresh-needed events (from cascade executor after creating children)
+  useEffect(() => {
+    const handleTreeRefresh = async (event) => {
+      console.log('Tree refresh requested:', event.detail);
+      await refreshTreeData();
+      
+      // If we know the parent, expand it to show new children
+      const parentId = event.detail?.parentRowId;
+      if (parentId) {
+        setExpandedFolders(prev => ({ ...prev, [parentId]: true }));
+      }
+    };
+    
+    window.addEventListener('tree-refresh-needed', handleTreeRefresh);
+    return () => {
+      window.removeEventListener('tree-refresh-needed', handleTreeRefresh);
+    };
+  }, [refreshTreeData]);
+
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
