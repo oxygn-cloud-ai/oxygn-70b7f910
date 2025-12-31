@@ -20,10 +20,13 @@ export const usePromptFamilyChat = (promptRowId) => {
     while (depth < 15) {
       const { data } = await supabase
         .from('q_prompts')
-        .select('parent_row_id')
+        .select('parent_row_id, prompt_name')
         .eq('row_id', current)
         .single();
-      if (!data?.parent_row_id) return current;
+      if (!data?.parent_row_id) {
+        toast.info(`Root resolved: ${data?.prompt_name || current.slice(0, 8)}`, { duration: 2000 });
+        return current;
+      }
       current = data.parent_row_id;
       depth++;
     }
@@ -57,6 +60,10 @@ export const usePromptFamilyChat = (promptRowId) => {
       // Auto-select first thread if none selected
       if (data?.length > 0 && !activeThreadId) {
         setActiveThreadId(data[0].row_id);
+        const lastRespId = data[0].last_response_id;
+        toast.info(`Thread found: ${lastRespId ? `prev_resp: ${lastRespId.slice(0, 12)}...` : 'no history'}`, { duration: 3000 });
+      } else if (!data?.length) {
+        toast.info('No existing thread - will create on first message', { duration: 2000 });
       }
     } catch (error) {
       console.error('Error fetching threads:', error);
