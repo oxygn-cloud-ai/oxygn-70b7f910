@@ -269,6 +269,7 @@ export const executeCreateChildrenSections = async ({
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard', // Use configured node type
+      is_assistant: true, // Always enable conversation mode for child prompts
       // Store section data for reference
       extracted_variables: { 
         section_key: sectionKey, 
