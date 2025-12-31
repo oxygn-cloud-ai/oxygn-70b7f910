@@ -7,6 +7,7 @@ import { SettingCard } from '@/components/ui/setting-card';
 import { SettingRow } from '@/components/ui/setting-row';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import ReactMarkdown from 'react-markdown';
+import { ResizablePromptArea } from '@/components/shared';
 
 const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -216,12 +217,13 @@ const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
             <ReactMarkdown>{formData.content || '*No content*'}</ReactMarkdown>
           </div>
         ) : (
-          <textarea
+          <ResizablePromptArea
+            label="Content"
             value={formData.content}
-            onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
             placeholder="Write knowledge content in Markdown format..."
-            rows={12}
-            className="w-full px-3 py-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y font-mono"
+            defaultHeight={240}
+            onSave={(value) => setFormData(prev => ({ ...prev, content: value }))}
+            storageKey={`knowledge-${item?.row_id || 'new'}-content`}
           />
         )}
       </SettingCard>

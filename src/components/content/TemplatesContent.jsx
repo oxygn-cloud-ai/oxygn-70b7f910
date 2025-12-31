@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
-import { VariablePicker, VariablePicker as MockupVariablePicker } from "@/components/shared";
+import { VariablePicker, ResizablePromptArea } from "@/components/shared";
 import TemplateStructureEditor from "@/components/templates/TemplateStructureEditor";
 import TemplateVariablesTab from "@/components/templates/TemplateVariablesTab";
 
@@ -179,68 +179,7 @@ const LibraryPickerDropdown = ({ libraryItems = [], onSelect }) => {
   );
 };
 
-// Editable Text Area Component with Variable Picker
-const EditablePromptArea = ({ label, value, placeholder, minHeight = "min-h-32", onLibraryPick, onChange, libraryItems = [] }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-
-  useEffect(() => {
-    setEditValue(value || '');
-  }, [value]);
-
-  const handleInsertVariable = (variable) => {
-    const insertion = `{{${variable}}}`;
-    setEditValue(prev => prev + insertion);
-  };
-
-  const handleLibrarySelect = (content) => {
-    setEditValue(prev => prev + content);
-  };
-
-  const handleDoneEditing = () => {
-    setIsEditing(false);
-    if (onChange && editValue !== value) {
-      onChange(editValue);
-    }
-  };
-
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{label}</label>
-        <div className="flex items-center gap-1">
-          <MockupVariablePicker onInsert={handleInsertVariable} />
-          {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} onSelect={handleLibrarySelect} />}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={() => isEditing ? handleDoneEditing() : setIsEditing(true)}
-                className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
-                  isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-                }`}
-              >
-                {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
-      {isEditing ? (
-        <textarea
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          placeholder={placeholder}
-          className={`w-full ${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y font-mono`}
-        />
-      ) : (
-        <div className={`${minHeight} p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap`}>
-          {value ? <HighlightedText text={value} /> : <span className="text-on-surface-variant opacity-50">{placeholder}</span>}
-        </div>
-      )}
-    </div>
-  );
-};
+// EditablePromptArea is now replaced by ResizablePromptArea from shared components
 
 // Prompt Tab Content (for Prompt Templates)
 const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = [] }) => {
@@ -250,24 +189,26 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
 
   return (
     <div className="space-y-4">
-      <EditablePromptArea 
+      <ResizablePromptArea 
         label="System Prompt"
         value={systemPrompt}
         placeholder="Enter system prompt..."
-        minHeight="min-h-40"
+        defaultHeight={160}
         onLibraryPick
         libraryItems={libraryItems}
-        onChange={(value) => onUpdateField?.('structure.input_admin_prompt', value)}
+        onSave={(value) => onUpdateField?.('structure.input_admin_prompt', value)}
+        storageKey={`template-${templateData?.row_id || 'new'}-system`}
       />
 
-      <EditablePromptArea 
+      <ResizablePromptArea 
         label="User Prompt"
         value={userPrompt}
         placeholder="Enter user prompt..."
-        minHeight="min-h-16"
+        defaultHeight={64}
         onLibraryPick
         libraryItems={libraryItems}
-        onChange={(value) => onUpdateField?.('structure.input_user_prompt', value)}
+        onSave={(value) => onUpdateField?.('structure.input_user_prompt', value)}
+        storageKey={`template-${templateData?.row_id || 'new'}-user`}
       />
 
       <div className="space-y-1.5">

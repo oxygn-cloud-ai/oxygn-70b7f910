@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -149,6 +149,7 @@ const MarkdownNotesArea = ({
   });
   const [localValue, setLocalValue] = useState(value || '');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const isInternalChange = useRef(false); // Track internal vs external changes
 
   // Persist collapsed state to localStorage
   useEffect(() => {
@@ -203,6 +204,10 @@ const MarkdownNotesArea = ({
     editable: !readOnly,
     onUpdate: ({ editor }) => {
       if (readOnly) return;
+      
+      // Mark as internal change to prevent sync effect from resetting
+      isInternalChange.current = true;
+      
       const html = editor.getHTML();
       // Return empty string if editor only contains empty paragraph
       const isEmpty = html === '<p></p>' || html === '';
@@ -239,6 +244,12 @@ const MarkdownNotesArea = ({
 
   // Sync external value changes to editor
   useEffect(() => {
+    // Skip if this is an internal change (user editing)
+    if (isInternalChange.current) {
+      isInternalChange.current = false;
+      return;
+    }
+    
     if (editor && value !== editor.getHTML()) {
       const currentValue = editor.getHTML();
       const isEmpty = currentValue === '<p></p>' || currentValue === '';
