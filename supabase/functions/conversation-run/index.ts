@@ -839,7 +839,69 @@ serve(async (req) => {
         return acc;
       }, {} as Record<string, string>);
 
+// ============================================================================
+      // RESOLVE SYSTEM VARIABLES (q.* prefix)
+      // Static variables are computed at runtime, stored variables come from DB
+      // ============================================================================
+      
+      // Resolve static system variables at runtime
+      const staticSystemVariables: Record<string, string> = {
+        // Date/Time variables
+        'q.today': new Date().toISOString().split('T')[0],
+        'q.now': new Date().toISOString(),
+        'q.year': new Date().getFullYear().toString(),
+        'q.month': new Date().toLocaleString('en-US', { month: 'long' }),
+        // User variables
+        'q.user.name': validation.user?.user_metadata?.display_name || validation.user?.email?.split('@')[0] || 'Unknown',
+        'q.user.email': validation.user?.email || '',
+      };
+      
+      // Fetch parent prompt name for q.parent.prompt.name and top-level prompt name
+      let parentPromptName = '';
+      let topLevelPromptName = childPrompt.prompt_name || '';
+      
+      if (childPrompt.parent_row_id) {
+        const { data: parentPrompt } = await supabase
+          .from(TABLES.PROMPTS)
+          .select('prompt_name, parent_row_id')
+          .eq('row_id', childPrompt.parent_row_id)
+          .single();
+        
+        if (parentPrompt) {
+          parentPromptName = parentPrompt.prompt_name || '';
+          topLevelPromptName = parentPromptName; // Start with immediate parent
+          
+          // Walk up to find the true top-level prompt
+          let currentParentId = parentPrompt.parent_row_id;
+          let depth = 0;
+          while (currentParentId && depth < 10) {
+            const { data: ancestorPrompt } = await supabase
+              .from(TABLES.PROMPTS)
+              .select('prompt_name, parent_row_id')
+              .eq('row_id', currentParentId)
+              .single();
+            
+            if (ancestorPrompt) {
+              topLevelPromptName = ancestorPrompt.prompt_name || topLevelPromptName;
+              currentParentId = ancestorPrompt.parent_row_id;
+            } else {
+              break;
+            }
+            depth++;
+          }
+        }
+      }
+      
+      // Add prompt context variables
+      staticSystemVariables['q.toplevel.prompt.name'] = topLevelPromptName;
+      staticSystemVariables['q.parent.prompt.name'] = parentPromptName;
+      staticSystemVariables['q.prompt.name'] = childPrompt.prompt_name || '';
+      staticSystemVariables['q.prompt.id'] = child_prompt_row_id;
+      
+      console.log('Resolved static system variables:', Object.keys(staticSystemVariables));
+      
       // Extract stored system variables from prompt's system_variables JSONB field
+      // These are user-input variables like q.policy.name set by the user
       const storedSystemVariables: Record<string, string> = {};
       if (childPrompt.system_variables && typeof childPrompt.system_variables === 'object') {
         Object.entries(childPrompt.system_variables).forEach(([key, value]) => {
@@ -850,16 +912,18 @@ serve(async (req) => {
         console.log(`Found ${Object.keys(storedSystemVariables).length} stored system variables:`, Object.keys(storedSystemVariables));
       }
 
-      // Build template variables from prompt fields + user variables + system variables
+// Build template variables from prompt fields + user variables + system variables
+      // Order matters: later entries override earlier ones
       const variables: Record<string, string> = {
         input_admin_prompt: childPrompt.input_admin_prompt || '',
         input_user_prompt: childPrompt.input_user_prompt || '',
         admin_prompt_result: childPrompt.admin_prompt_result || '',
         user_prompt_result: childPrompt.user_prompt_result || '',
         output_response: childPrompt.output_response || '',
-        ...storedSystemVariables,
-        ...userVariablesMap,
-        ...template_variables,
+        ...staticSystemVariables,    // Static q.* variables (computed at runtime)
+        ...storedSystemVariables,    // User-input q.* variables (from system_variables field)
+        ...userVariablesMap,         // User-defined variables (from q_prompt_variables table)
+        ...template_variables,       // Variables passed in the request
       };
 
       // ============================================================================
