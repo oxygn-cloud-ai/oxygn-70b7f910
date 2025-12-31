@@ -1,22 +1,19 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, FileText, ArrowUp, ArrowDown, Edit2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, FileText, ArrowUp, ArrowDown, Edit2, Sliders, Globe, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import HighlightedTextarea from '@/components/ui/highlighted-textarea';
-import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { useModels } from '@/hooks/useModels';
-import VariablePicker from '@/components/VariablePicker';
+import { ResizablePromptArea } from '@/components/shared';
+import MarkdownNotesArea from '@/components/shared/MarkdownNotesArea';
+import { SettingCard } from '@/components/ui/setting-card';
+import { SettingRow } from '@/components/ui/setting-row';
+import { SettingDivider } from '@/components/ui/setting-divider';
+import { SettingModelSelect, SettingSelect } from '@/components/ui/setting-select';
 
 /**
  * Visual structure editor for template prompt hierarchy
@@ -26,6 +23,11 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   const [expandedNodes, setExpandedNodes] = useState(new Set(['root']));
   const [renamingNodeId, setRenamingNodeId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+
+  // Ensure root has an ID - moved BEFORE selectedNode computation
+  const structureWithId = useMemo(() => {
+    return structure?._id ? structure : { ...structure, _id: 'root' };
+  }, [structure]);
 
   // Find node by ID in the tree
   const findNode = useCallback((node, id, path = []) => {
@@ -40,6 +42,12 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     }
     return null;
   }, []);
+
+  // Get selected node data - now uses structureWithId
+  const selectedNode = useMemo(() => {
+    if (!selectedNodeId) return null;
+    return findNode(structureWithId, selectedNodeId)?.node || null;
+  }, [selectedNodeId, structureWithId, findNode]);
 
   // Update a specific node in the tree
   const updateNode = useCallback((nodeId, updates) => {
@@ -58,9 +66,9 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return node;
     };
     
-    const newStructure = updateInTree(structure);
+    const newStructure = updateInTree(structureWithId);
     onChange(newStructure);
-  }, [structure, onChange]);
+  }, [structureWithId, onChange]);
 
   // Add child to a node
   const addChild = useCallback((parentId) => {
@@ -109,11 +117,11 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return node;
     };
 
-    const newStructure = addToTree(structure);
+    const newStructure = addToTree(structureWithId);
     onChange(newStructure);
     setExpandedNodes(prev => new Set([...prev, parentId]));
     setSelectedNodeId(newChild._id);
-  }, [structure, onChange]);
+  }, [structureWithId, onChange]);
 
   // Delete a node
   const deleteNode = useCallback((nodeId) => {
@@ -132,12 +140,12 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return node;
     };
 
-    const newStructure = removeFromTree(structure);
+    const newStructure = removeFromTree(structureWithId);
     onChange(newStructure);
     if (selectedNodeId === nodeId) {
       setSelectedNodeId(null);
     }
-  }, [structure, onChange, selectedNodeId]);
+  }, [structureWithId, onChange, selectedNodeId]);
 
   // Duplicate a node
   const duplicateNode = useCallback((nodeId) => {
@@ -165,9 +173,9 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return node;
     };
 
-    const newStructure = duplicateInTree(structure);
+    const newStructure = duplicateInTree(structureWithId);
     onChange(newStructure);
-  }, [structure, onChange]);
+  }, [structureWithId, onChange]);
 
   // Move node up or down within its siblings
   const moveNode = useCallback((nodeId, direction) => {
@@ -194,9 +202,9 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return node;
     };
 
-    const newStructure = moveInTree(structure);
+    const newStructure = moveInTree(structureWithId);
     onChange(newStructure);
-  }, [structure, onChange]);
+  }, [structureWithId, onChange]);
 
   // Get sibling info for a node (for move up/down buttons)
   const getSiblingInfo = useCallback((nodeId) => {
@@ -220,8 +228,8 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return null;
     };
 
-    return findInTree(structure) || { isFirst: true, isLast: true };
-  }, [structure]);
+    return findInTree(structureWithId) || { isFirst: true, isLast: true };
+  }, [structureWithId]);
 
   // Start renaming a node
   const startRenaming = useCallback((nodeId, currentName) => {
@@ -264,6 +272,28 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     return matches.map(m => m.slice(2, -2).trim());
   };
 
+  // Icon button for tree actions
+  const TreeIconButton = ({ icon: Icon, onClick, tooltip, variant = 'default', disabled = false }) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          className={cn(
+            "h-6 w-6 flex items-center justify-center rounded-m3-full transition-colors",
+            disabled && "opacity-30 cursor-not-allowed",
+            variant === 'destructive' 
+              ? "text-red-500 hover:bg-red-500/10" 
+              : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+          )}
+        >
+          <Icon className="h-3 w-3" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+
   // Render tree node
   const renderNode = (node, depth = 0) => {
     if (!node) return null;
@@ -284,8 +314,8 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       <div key={nodeId}>
         <div
           className={cn(
-            "flex items-center gap-1 py-1.5 px-2 rounded cursor-pointer transition-colors group",
-            isSelected ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50 border border-transparent",
+            "flex items-center gap-1 py-1.5 px-2 rounded-m3-sm cursor-pointer transition-colors group",
+            isSelected ? "bg-secondary-container text-secondary-container-foreground" : "hover:bg-surface-container",
           )}
           style={{ paddingLeft: `${depth * 20 + 8}px` }}
           onClick={() => !isRenaming && setSelectedNodeId(nodeId)}
@@ -293,9 +323,9 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
           {hasChildren ? (
             <button
               onClick={(e) => { e.stopPropagation(); toggleExpanded(nodeId); }}
-              className="p-0.5 hover:bg-muted rounded"
+              className="p-0.5 hover:bg-surface-container-high rounded-m3-sm"
             >
-              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {isExpanded ? <ChevronDown className="h-4 w-4 text-on-surface-variant" /> : <ChevronRight className="h-4 w-4 text-on-surface-variant" />}
             </button>
           ) : (
             <span className="w-5" />
@@ -312,110 +342,63 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
               }}
               onBlur={finishRenaming}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 h-6 text-sm py-0 px-1"
+              className="flex-1 h-6 text-tree py-0 px-1 bg-surface-container border-outline-variant"
               autoFocus
             />
           ) : (
-            <span className="flex-1 text-sm truncate">{node.prompt_name || 'Untitled'}</span>
+            <span className="flex-1 text-tree truncate text-on-surface">{node.prompt_name || 'Untitled'}</span>
           )}
           
           {!isRenaming && node.is_assistant && (
-            <Badge variant="secondary" className="text-compact px-1">
+            <span className="text-compact px-1 py-0.5 rounded bg-secondary-container text-secondary-container-foreground flex items-center">
               <Bot className="h-3 w-3" />
-            </Badge>
+            </span>
           )}
           
           {!isRenaming && nodeVariables.length > 0 && (
-            <Badge variant="outline" className="text-compact px-1">
+            <span className="text-compact px-1 py-0.5 rounded border border-outline-variant text-on-surface-variant">
               {nodeVariables.length} var{nodeVariables.length > 1 ? 's' : ''}
-            </Badge>
+            </span>
           )}
           
           {!isRenaming && (
             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
-                    onClick={(e) => { e.stopPropagation(); addChild(nodeId); }}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Add child</TooltipContent>
-              </Tooltip>
+              <TreeIconButton
+                icon={Plus}
+                onClick={(e) => { e.stopPropagation(); addChild(nodeId); }}
+                tooltip="Add child"
+              />
               
               {nodeId !== 'root' && (
                 <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={`h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50 ${siblingInfo.isFirst ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); if (!siblingInfo.isFirst) moveNode(nodeId, 'up'); }}
-                        disabled={siblingInfo.isFirst}
-                      >
-                        <ArrowUp className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Move up</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={`h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50 ${siblingInfo.isLast ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        onClick={(e) => { e.stopPropagation(); if (!siblingInfo.isLast) moveNode(nodeId, 'down'); }}
-                        disabled={siblingInfo.isLast}
-                      >
-                        <ArrowDown className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Move down</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
-                        onClick={(e) => { e.stopPropagation(); startRenaming(nodeId, node.prompt_name); }}
-                      >
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Rename</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
-                        onClick={(e) => { e.stopPropagation(); duplicateNode(nodeId); }}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Duplicate</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 !text-destructive hover:!text-destructive hover:!bg-destructive/10"
-                        onClick={(e) => { e.stopPropagation(); deleteNode(nodeId); }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
-                  </Tooltip>
+                  <TreeIconButton
+                    icon={ArrowUp}
+                    onClick={(e) => { e.stopPropagation(); if (!siblingInfo.isFirst) moveNode(nodeId, 'up'); }}
+                    tooltip="Move up"
+                    disabled={siblingInfo.isFirst}
+                  />
+                  <TreeIconButton
+                    icon={ArrowDown}
+                    onClick={(e) => { e.stopPropagation(); if (!siblingInfo.isLast) moveNode(nodeId, 'down'); }}
+                    tooltip="Move down"
+                    disabled={siblingInfo.isLast}
+                  />
+                  <TreeIconButton
+                    icon={Edit2}
+                    onClick={(e) => { e.stopPropagation(); startRenaming(nodeId, node.prompt_name); }}
+                    tooltip="Rename"
+                  />
+                  <TreeIconButton
+                    icon={Copy}
+                    onClick={(e) => { e.stopPropagation(); duplicateNode(nodeId); }}
+                    tooltip="Duplicate"
+                  />
+                  <TreeIconButton
+                    icon={Trash2}
+                    onClick={(e) => { e.stopPropagation(); deleteNode(nodeId); }}
+                    tooltip="Delete"
+                    variant="destructive"
+                  />
                 </>
               )}
             </div>
@@ -431,24 +414,18 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     );
   };
 
-  // Get selected node data
-  const selectedNode = selectedNodeId ? findNode(structure, selectedNodeId)?.node : null;
-
-  // Ensure root has an ID
-  const structureWithId = structure?._id ? structure : { ...structure, _id: 'root' };
-
   return (
     <TooltipProvider>
     <div className="h-full flex">
       {/* Tree View */}
-      <div className="w-72 border-r border-border flex flex-col">
-        <div className="p-3 border-b border-border flex items-center justify-between">
-          <h4 className="text-sm font-medium">Prompt Hierarchy</h4>
+      <div className="w-72 border-r border-outline-variant flex flex-col bg-surface">
+        <div className="p-3 border-b border-outline-variant flex items-center justify-between">
+          <h4 className="text-tree text-on-surface font-medium">Prompt Hierarchy</h4>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={() => addChild('root')}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container transition-colors"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -464,7 +441,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       </div>
 
       {/* Node Editor */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-surface">
         {selectedNode ? (
           <NodeEditor
             node={selectedNode}
@@ -473,7 +450,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
             isRoot={selectedNodeId === 'root'}
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+          <div className="flex items-center justify-center h-full text-on-surface-variant text-tree">
             Select a node to edit its settings
           </div>
         )}
@@ -484,31 +461,43 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
 };
 
 /**
+ * Tab button for node editor sections
+ */
+const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <button
+        onClick={onClick}
+        className={cn(
+          "h-8 w-9 flex items-center justify-center rounded-m3-sm transition-all duration-200",
+          isActive 
+            ? "bg-secondary-container text-secondary-container-foreground" 
+            : "text-on-surface-variant hover:bg-surface-container"
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+    </TooltipTrigger>
+    <TooltipContent className="text-[10px]">{label}</TooltipContent>
+  </Tooltip>
+);
+
+/**
  * Comprehensive editor for a single node with all settings
  */
 const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
   const [activeSection, setActiveSection] = useState('prompts');
   const { models } = useModels();
   
-  // Refs for textarea cursor position tracking
-  const adminPromptRef = useRef(null);
-  const userPromptRef = useRef(null);
-  const cursorPositions = useRef({ input_admin_prompt: 0, input_user_prompt: 0 });
-
-  const insertVariable = (field, varName) => {
-    const currentValue = node[field] || '';
-    const varText = `{{${varName}}}`;
-    const pos = cursorPositions.current[field] || currentValue.length;
-    const newValue = currentValue.slice(0, pos) + varText + currentValue.slice(pos);
-    onUpdate({ [field]: newValue });
-    
-    // Update cursor position to after inserted variable
-    cursorPositions.current[field] = pos + varText.length;
-  };
-  
-  const handleCursorChange = (field) => (e) => {
-    cursorPositions.current[field] = e.target.selectionStart;
-  };
+  // Transform variable definitions for ResizablePromptArea
+  const transformedVariables = useMemo(() => {
+    if (!variableDefinitions) return [];
+    return variableDefinitions.map(v => ({
+      variable_name: v.name || v.variable_name,
+      variable_value: v.default_value || v.value || '',
+      type: v.type || 'text'
+    }));
+  }, [variableDefinitions]);
 
   const sections = [
     { id: 'prompts', label: 'Prompts', icon: MessageSquare },
@@ -520,41 +509,25 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
   return (
     <div className="h-full flex flex-col">
       {/* Section Tabs */}
-      <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/30">
-        <TooltipProvider>
-          {sections.map(section => (
-            <Tooltip key={section.id}>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setActiveSection(section.id)}
-                  className={`h-8 w-8 p-0 transition-colors ${
-                    activeSection === section.id 
-                      ? '!text-primary !bg-transparent hover:!bg-muted/50' 
-                      : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
-                  }`}
-                >
-                  <section.icon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{section.label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </TooltipProvider>
+      <div className="flex items-center gap-1 p-2 border-b border-outline-variant bg-surface-container-low">
+        {sections.map(section => (
+          <TabButton 
+            key={section.id}
+            icon={section.icon}
+            label={section.label}
+            isActive={activeSection === section.id}
+            onClick={() => setActiveSection(section.id)}
+          />
+        ))}
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-6 max-w-2xl">
+        <div className="p-4 space-y-4 max-w-2xl">
           {activeSection === 'prompts' && (
             <PromptsSection 
               node={node} 
               onUpdate={onUpdate} 
-              variableDefinitions={variableDefinitions}
-              insertVariable={insertVariable}
-              adminPromptRef={adminPromptRef}
-              userPromptRef={userPromptRef}
-              onCursorChange={handleCursorChange}
+              variables={transformedVariables}
             />
           )}
 
@@ -566,8 +539,8 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
             />
           )}
 
-          {activeSection === 'assistant' && (
-            <AssistantSection 
+          {activeSection === 'conversation' && (
+            <ConversationSection 
               node={node} 
               onUpdate={onUpdate}
               isRoot={isRoot}
@@ -587,202 +560,294 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot }) => {
 };
 
 /**
- * Prompts section - name, admin prompt, user prompt, note
+ * Prompts section - matching prompt editor patterns
  */
-const PromptsSection = ({ node, onUpdate, variableDefinitions, insertVariable, adminPromptRef, userPromptRef, onCursorChange }) => (
-  <div className="space-y-4">
-    <div className="space-y-2">
-      <Label>Prompt Name</Label>
-      <Input
-        value={node.prompt_name || ''}
-        onChange={(e) => onUpdate({ prompt_name: e.target.value })}
-        placeholder="Enter prompt name"
-      />
-    </div>
-
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label>System Prompt</Label>
-        <VariablePicker 
-          onInsert={(varName) => insertVariable('input_admin_prompt', varName)}
-          userVariables={variableDefinitions}
+const PromptsSection = ({ node, onUpdate, variables }) => {
+  return (
+    <div className="space-y-4">
+      {/* Prompt Name */}
+      <SettingCard label="Prompt Name">
+        <Input
+          value={node.prompt_name || ''}
+          onChange={(e) => onUpdate({ prompt_name: e.target.value })}
+          placeholder="Enter prompt name"
+          className="h-8 bg-surface-container border-outline-variant text-tree text-on-surface"
         />
-      </div>
-      <HighlightedTextarea
-        ref={adminPromptRef}
+      </SettingCard>
+
+      {/* System Prompt */}
+      <ResizablePromptArea 
+        label="System Prompt"
         value={node.input_admin_prompt || ''}
-        onChange={(e) => {
-          onUpdate({ input_admin_prompt: e.target.value });
-          onCursorChange('input_admin_prompt')(e);
-        }}
-        onSelect={onCursorChange('input_admin_prompt')}
-        onClick={onCursorChange('input_admin_prompt')}
-        onKeyUp={onCursorChange('input_admin_prompt')}
         placeholder="System instructions for the AI..."
-        rows={6}
-        userVariables={variableDefinitions}
+        defaultHeight={160}
+        onSave={(value) => onUpdate({ input_admin_prompt: value })}
+        variables={variables}
       />
-    </div>
 
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label>User Prompt</Label>
-        <VariablePicker 
-          onInsert={(varName) => insertVariable('input_user_prompt', varName)}
-          userVariables={variableDefinitions}
-        />
-      </div>
-      <HighlightedTextarea
-        ref={userPromptRef}
+      {/* User Prompt */}
+      <ResizablePromptArea 
+        label="User Prompt"
         value={node.input_user_prompt || ''}
-        onChange={(e) => {
-          onUpdate({ input_user_prompt: e.target.value });
-          onCursorChange('input_user_prompt')(e);
-        }}
-        onSelect={onCursorChange('input_user_prompt')}
-        onClick={onCursorChange('input_user_prompt')}
-        onKeyUp={onCursorChange('input_user_prompt')}
         placeholder="User message template..."
-        rows={4}
-        userVariables={variableDefinitions}
+        defaultHeight={80}
+        onSave={(value) => onUpdate({ input_user_prompt: value })}
+        variables={variables}
       />
-    </div>
 
-    <div className="space-y-2">
-      <Label>Notes</Label>
-      <Textarea
+      {/* Notes */}
+      <MarkdownNotesArea 
+        label="Notes"
         value={node.note || ''}
-        onChange={(e) => onUpdate({ note: e.target.value })}
         placeholder="Internal notes about this prompt..."
-        rows={2}
-        className="text-sm"
+        defaultHeight={80}
+        onSave={(value) => onUpdate({ note: value })}
       />
     </div>
-  </div>
-);
+  );
+};
 
 /**
- * Model settings section
+ * Model settings section - matching prompt editor patterns
  */
 const ModelSettingsSection = ({ node, onUpdate, models }) => {
-  // Debounce ref for slider values
-  const sliderDebounceRef = React.useRef({});
+  const { getModelConfig, isSettingSupported } = useModels();
+  const sliderDebounceRef = useRef({});
 
-  const SettingRow = ({ label, field, type = 'text', min, max, step, options }) => {
-    const isOn = node[`${field}_on`] || false;
-    const value = node[field];
+  const currentModel = node?.model || '';
+  const modelConfig = getModelConfig(currentModel);
+  const currentModelData = models?.find(m => m.model_id === currentModel);
+  const supportedSettings = currentModelData?.supported_settings || modelConfig?.supportedSettings || [];
 
-    const handleToggle = (checked) => {
-      onUpdate({ [`${field}_on`]: checked });
-    };
+  // Local state for sliders
+  const [temperature, setTemperature] = useState([parseFloat(node?.temperature || '0.7')]);
+  const [topP, setTopP] = useState([parseFloat(node?.top_p || '1')]);
+  const [frequencyPenalty, setFrequencyPenalty] = useState([parseFloat(node?.frequency_penalty || '0')]);
+  const [presencePenalty, setPresencePenalty] = useState([parseFloat(node?.presence_penalty || '0')]);
 
-    const handleValueChange = (newValue) => {
-      onUpdate({ [field]: newValue });
-    };
+  // Sync state when node changes
+  useEffect(() => {
+    setTemperature([parseFloat(node?.temperature || '0.7')]);
+  }, [node?.temperature]);
 
-    // Debounced slider change handler
-    const handleSliderChange = ([v]) => {
-      // Update local display immediately
-      onUpdate({ [field]: String(v) });
-      
-      // Clear existing debounce timer
-      if (sliderDebounceRef.current[field]) {
-        clearTimeout(sliderDebounceRef.current[field]);
-      }
-      
-      // Set new debounce timer (500ms delay) - onUpdate already handles the save
-      sliderDebounceRef.current[field] = setTimeout(() => {
-        // The update already happened, this is just to batch rapid changes
-      }, 500);
-    };
+  useEffect(() => {
+    setTopP([parseFloat(node?.top_p || '1')]);
+  }, [node?.top_p]);
 
-    return (
-      <div className="flex items-center gap-3 py-2">
-        <Switch
-          checked={isOn}
-          onCheckedChange={handleToggle}
-          className="scale-75"
-        />
-        <div className="flex-1 min-w-0">
-          <Label className={cn("text-sm", !isOn && "text-muted-foreground")}>{label}</Label>
-          {type === 'slider' && isOn && (
-            <div className="flex items-center gap-2 mt-1">
-              <Slider
-                value={[parseFloat(value) || min]}
-                min={min}
-                max={max}
-                step={step}
-                onValueChange={handleSliderChange}
-                className="flex-1"
-              />
-              <span className="text-xs text-muted-foreground w-10 text-right">{value || min}</span>
-            </div>
-          )}
-          {type === 'text' && isOn && (
-            <Input
-              value={value || ''}
-              onChange={(e) => handleValueChange(e.target.value)}
-              className="h-8 mt-1"
-              placeholder="Enter value"
-            />
-          )}
-          {type === 'number' && isOn && (
-            <Input
-              type="number"
-              value={value || ''}
-              onChange={(e) => handleValueChange(e.target.value)}
-              className="h-8 mt-1"
-              placeholder="Enter value"
-              min={min}
-              max={max}
-            />
-          )}
-        </div>
-      </div>
-    );
+  useEffect(() => {
+    setFrequencyPenalty([parseFloat(node?.frequency_penalty || '0')]);
+  }, [node?.frequency_penalty]);
+
+  useEffect(() => {
+    setPresencePenalty([parseFloat(node?.presence_penalty || '0')]);
+  }, [node?.presence_penalty]);
+
+  // Debounced slider change handler
+  const handleSliderChange = (field, value, setter) => {
+    setter(value);
+    
+    if (sliderDebounceRef.current[field]) {
+      clearTimeout(sliderDebounceRef.current[field]);
+    }
+    
+    sliderDebounceRef.current[field] = setTimeout(() => {
+      onUpdate({ [field]: String(value[0]) });
+    }, 500);
   };
+
+  const hasSetting = (setting) => supportedSettings.includes(setting);
 
   return (
     <div className="space-y-4">
       {/* Model Selection */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
+      <SettingCard label="Model">
+        <SettingRow label="Override Model">
           <Switch
             checked={node.model_on || false}
             onCheckedChange={(checked) => onUpdate({ model_on: checked })}
-            className="scale-75"
           />
-          <Label className={cn(!node.model_on && "text-muted-foreground")}>Model</Label>
-        </div>
+        </SettingRow>
         {node.model_on && (
-          <Select value={node.model || ''} onValueChange={(v) => onUpdate({ model: v })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select model" />
-            </SelectTrigger>
-            <SelectContent>
-              {models?.map(m => (
-                <SelectItem key={m.model_id} value={m.model_id}>
-                  {m.model_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SettingModelSelect
+            value={node.model || ''}
+            onValueChange={(v) => onUpdate({ model: v })}
+            models={models || []}
+          />
         )}
-      </div>
+      </SettingCard>
 
-      <Separator />
+      {/* Supported settings tags */}
+      {supportedSettings.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {supportedSettings.map(setting => (
+            <span key={setting} className="text-[9px] px-1.5 py-0.5 bg-surface-container rounded text-on-surface-variant">
+              {setting.replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )}
 
-      <SettingRow label="Temperature" field="temperature" type="slider" min={0} max={2} step={0.1} />
-      <SettingRow label="Max Tokens" field="max_tokens" type="number" min={1} />
-      <SettingRow label="Top P" field="top_p" type="slider" min={0} max={1} step={0.05} />
-      <SettingRow label="Frequency Penalty" field="frequency_penalty" type="slider" min={-2} max={2} step={0.1} />
-      <SettingRow label="Presence Penalty" field="presence_penalty" type="slider" min={-2} max={2} step={0.1} />
-      
-      <Separator />
+      {/* Model Parameters */}
+      <SettingCard label="Parameters">
+        {/* Temperature */}
+        <SettingRow label="Temperature">
+          <Switch
+            checked={node.temperature_on || false}
+            onCheckedChange={(checked) => onUpdate({ temperature_on: checked })}
+          />
+        </SettingRow>
+        {node.temperature_on && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-compact text-on-surface-variant">Value</span>
+              <span className="text-tree text-on-surface font-mono">{temperature[0]}</span>
+            </div>
+            <Slider
+              value={temperature}
+              onValueChange={(v) => handleSliderChange('temperature', v, setTemperature)}
+              max={2}
+              step={0.1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-compact text-on-surface-variant">
+              <span>Precise</span>
+              <span>Creative</span>
+            </div>
+          </div>
+        )}
 
-      <SettingRow label="Stop Sequences" field="stop" type="text" />
-      <SettingRow label="Response Format" field="response_format" type="text" />
-      <SettingRow label="N (completions)" field="n" type="number" min={1} max={10} />
+        <SettingDivider />
+
+        {/* Max Tokens */}
+        <SettingRow label="Max Tokens">
+          <Switch
+            checked={node.max_tokens_on || false}
+            onCheckedChange={(checked) => onUpdate({ max_tokens_on: checked })}
+          />
+        </SettingRow>
+        {node.max_tokens_on && (
+          <Input
+            type="number"
+            value={node.max_tokens || ''}
+            onChange={(e) => onUpdate({ max_tokens: e.target.value })}
+            placeholder="4096"
+            min={1}
+            className="h-8 bg-surface-container border-outline-variant text-tree text-on-surface"
+          />
+        )}
+
+        <SettingDivider />
+
+        {/* Top P */}
+        <SettingRow label="Top P">
+          <Switch
+            checked={node.top_p_on || false}
+            onCheckedChange={(checked) => onUpdate({ top_p_on: checked })}
+          />
+        </SettingRow>
+        {node.top_p_on && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-compact text-on-surface-variant">Value</span>
+              <span className="text-tree text-on-surface font-mono">{topP[0]}</span>
+            </div>
+            <Slider
+              value={topP}
+              onValueChange={(v) => handleSliderChange('top_p', v, setTopP)}
+              max={1}
+              step={0.05}
+              className="w-full"
+            />
+          </div>
+        )}
+
+        <SettingDivider />
+
+        {/* Frequency Penalty */}
+        <SettingRow label="Frequency Penalty">
+          <Switch
+            checked={node.frequency_penalty_on || false}
+            onCheckedChange={(checked) => onUpdate({ frequency_penalty_on: checked })}
+          />
+        </SettingRow>
+        {node.frequency_penalty_on && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-compact text-on-surface-variant">Value</span>
+              <span className="text-tree text-on-surface font-mono">{frequencyPenalty[0]}</span>
+            </div>
+            <Slider
+              value={frequencyPenalty}
+              onValueChange={(v) => handleSliderChange('frequency_penalty', v, setFrequencyPenalty)}
+              min={-2}
+              max={2}
+              step={0.1}
+              className="w-full"
+            />
+          </div>
+        )}
+
+        <SettingDivider />
+
+        {/* Presence Penalty */}
+        <SettingRow label="Presence Penalty">
+          <Switch
+            checked={node.presence_penalty_on || false}
+            onCheckedChange={(checked) => onUpdate({ presence_penalty_on: checked })}
+          />
+        </SettingRow>
+        {node.presence_penalty_on && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-compact text-on-surface-variant">Value</span>
+              <span className="text-tree text-on-surface font-mono">{presencePenalty[0]}</span>
+            </div>
+            <Slider
+              value={presencePenalty}
+              onValueChange={(v) => handleSliderChange('presence_penalty', v, setPresencePenalty)}
+              min={-2}
+              max={2}
+              step={0.1}
+              className="w-full"
+            />
+          </div>
+        )}
+      </SettingCard>
+
+      {/* Advanced Settings */}
+      <SettingCard label="Advanced">
+        <SettingRow label="Stop Sequences">
+          <Switch
+            checked={node.stop_on || false}
+            onCheckedChange={(checked) => onUpdate({ stop_on: checked })}
+          />
+        </SettingRow>
+        {node.stop_on && (
+          <Input
+            value={node.stop || ''}
+            onChange={(e) => onUpdate({ stop: e.target.value })}
+            placeholder="Enter stop sequences"
+            className="h-8 bg-surface-container border-outline-variant text-tree text-on-surface"
+          />
+        )}
+
+        <SettingDivider />
+
+        <SettingRow label="Response Format">
+          <Switch
+            checked={node.response_format_on || false}
+            onCheckedChange={(checked) => onUpdate({ response_format_on: checked })}
+          />
+        </SettingRow>
+        {node.response_format_on && (
+          <Input
+            value={node.response_format || ''}
+            onChange={(e) => onUpdate({ response_format: e.target.value })}
+            placeholder="json_object"
+            className="h-8 bg-surface-container border-outline-variant text-tree text-on-surface"
+          />
+        )}
+      </SettingCard>
     </div>
   );
 };
@@ -790,130 +855,130 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
 /**
  * Conversation configuration section
  */
-const AssistantSection = ({ node, onUpdate, isRoot }) => (
-  <div className="space-y-4">
-    <div className="flex items-center justify-between py-2">
-      <div>
-        <Label>Conversation Mode</Label>
-        <p className="text-xs text-muted-foreground">Enable conversation features with context memory</p>
-      </div>
-      <Switch
-        checked={node.is_assistant || false}
-        onCheckedChange={(checked) => onUpdate({ is_assistant: checked })}
-      />
-    </div>
+const ConversationSection = ({ node, onUpdate, isRoot }) => {
+  const threadModeOptions = [
+    { value: 'inherit', label: 'Inherit from parent' },
+    { value: 'isolated', label: 'Isolated (new thread each time)' },
+    { value: 'persistent', label: 'Persistent (continue conversation)' },
+  ];
 
-    {node.is_assistant && (
-      <>
-        <Separator />
+  const childStrategyOptions = [
+    { value: 'inherit', label: 'Inherit from parent' },
+    { value: 'isolated', label: 'Isolated' },
+    { value: 'shared', label: 'Shared with parent' },
+  ];
 
-        <div className="space-y-2">
-          <Label>Conversation Instructions</Label>
-          <p className="text-xs text-muted-foreground">Instructions for the AI conversation</p>
-          <Textarea
-            value={node.assistant_instructions || ''}
-            onChange={(e) => onUpdate({ assistant_instructions: e.target.value })}
-            placeholder="You are a helpful assistant that..."
-            rows={6}
-            className="text-sm"
+  const defaultStrategyOptions = [
+    { value: 'isolated', label: 'Isolated' },
+    { value: 'shared', label: 'Shared' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Conversation Mode Toggle */}
+      <SettingCard>
+        <SettingRow 
+          label="Conversation Mode" 
+          description="Enable conversation features with context memory"
+        >
+          <Switch
+            checked={node.is_assistant || false}
+            onCheckedChange={(checked) => onUpdate({ is_assistant: checked })}
           />
-        </div>
+        </SettingRow>
+      </SettingCard>
 
-        <Separator />
+      {node.is_assistant && (
+        <>
+          {/* Instructions */}
+          <SettingCard label="Instructions">
+            <ResizablePromptArea 
+              label="Conversation Instructions"
+              value={node.assistant_instructions || ''}
+              placeholder="You are a helpful assistant that..."
+              defaultHeight={120}
+              onSave={(value) => onUpdate({ assistant_instructions: value })}
+            />
+          </SettingCard>
 
-        <div className="space-y-2">
-          <Label>Thread Mode</Label>
-          <Select 
-            value={node.thread_mode || 'inherit'} 
-            onValueChange={(v) => onUpdate({ thread_mode: v === 'inherit' ? null : v })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Inherit from parent" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="inherit">Inherit from parent</SelectItem>
-              <SelectItem value="isolated">Isolated (new thread each time)</SelectItem>
-              <SelectItem value="persistent">Persistent (continue conversation)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Thread Settings */}
+          <SettingCard label="Thread Settings">
+            <SettingRow label="Thread Mode" />
+            <SettingSelect
+              value={node.thread_mode || 'inherit'}
+              onValueChange={(v) => onUpdate({ thread_mode: v === 'inherit' ? null : v })}
+              options={threadModeOptions}
+            />
 
-        <div className="space-y-2">
-          <Label>Child Thread Strategy</Label>
-          <Select 
-            value={node.child_thread_strategy || 'inherit'} 
-            onValueChange={(v) => onUpdate({ child_thread_strategy: v === 'inherit' ? null : v })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Inherit from parent" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="inherit">Inherit from parent</SelectItem>
-              <SelectItem value="isolated">Isolated</SelectItem>
-              <SelectItem value="shared">Shared with parent</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <SettingDivider />
 
-        {isRoot && (
-          <div className="space-y-2">
-            <Label>Default Child Thread Strategy</Label>
-            <p className="text-xs text-muted-foreground">Default for new child prompts</p>
-            <Select 
-              value={node.default_child_thread_strategy || 'isolated'} 
-              onValueChange={(v) => onUpdate({ default_child_thread_strategy: v })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="isolated">Isolated</SelectItem>
-                <SelectItem value="shared">Shared</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </>
-    )}
-  </div>
-);
+            <SettingRow label="Child Thread Strategy" />
+            <SettingSelect
+              value={node.child_thread_strategy || 'inherit'}
+              onValueChange={(v) => onUpdate({ child_thread_strategy: v === 'inherit' ? null : v })}
+              options={childStrategyOptions}
+            />
+
+            {isRoot && (
+              <>
+                <SettingDivider />
+                <SettingRow label="Default Child Strategy" description="Default for new child prompts" />
+                <SettingSelect
+                  value={node.default_child_thread_strategy || 'isolated'}
+                  onValueChange={(v) => onUpdate({ default_child_thread_strategy: v })}
+                  options={defaultStrategyOptions}
+                />
+              </>
+            )}
+          </SettingCard>
+        </>
+      )}
+    </div>
+  );
+};
 
 /**
  * Tools section
  */
 const ToolsSection = ({ node, onUpdate }) => (
   <div className="space-y-4">
-    <div className="flex items-center justify-between py-2">
-      <div>
-        <Label>Web Search</Label>
-        <p className="text-xs text-muted-foreground">Enable web search capability</p>
+    <SettingCard label="AI Tools">
+      <SettingRow 
+        label="Web Search" 
+        description="Enable web search capability"
+      >
+        <Switch
+          checked={node.web_search_on || false}
+          onCheckedChange={(checked) => onUpdate({ web_search_on: checked })}
+        />
+      </SettingRow>
+
+      <SettingDivider />
+
+      <SettingRow 
+        label="Confluence Integration" 
+        description="Enable Confluence page access"
+      >
+        <Switch
+          checked={node.confluence_enabled || false}
+          onCheckedChange={(checked) => onUpdate({ confluence_enabled: checked })}
+        />
+      </SettingRow>
+    </SettingCard>
+
+    {/* Info Card */}
+    <SettingCard>
+      <div className="flex items-start gap-3">
+        <BookOpen className="h-4 w-4 text-on-surface-variant shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          <p className="text-tree text-on-surface font-medium">File attachments & Confluence pages</p>
+          <p className="text-compact text-on-surface-variant">
+            File attachments and specific Confluence page links are configured after creating the prompt from this template.
+            The template defines the structure and default settings.
+          </p>
+        </div>
       </div>
-      <Switch
-        checked={node.web_search_on || false}
-        onCheckedChange={(checked) => onUpdate({ web_search_on: checked })}
-      />
-    </div>
-
-    <div className="flex items-center justify-between py-2">
-      <div>
-        <Label>Confluence Integration</Label>
-        <p className="text-xs text-muted-foreground">Enable Confluence page access</p>
-      </div>
-      <Switch
-        checked={node.confluence_enabled || false}
-        onCheckedChange={(checked) => onUpdate({ confluence_enabled: checked })}
-      />
-    </div>
-
-    <Separator />
-
-    <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
-      <p className="font-medium text-foreground mb-1">File attachments & Confluence pages</p>
-      <p>
-        File attachments and specific Confluence page links are configured after creating the prompt from this template.
-        The template defines the structure and default settings.
-      </p>
-    </div>
+    </SettingCard>
   </div>
 );
 
