@@ -183,6 +183,7 @@ function formatSchemaForPrompt(schema: any): string {
 
 // API options interface for runResponsesAPI
 interface ApiOptions {
+  model?: string;  // Prompt-level model override
   responseFormat?: any;
   seed?: number;
   toolChoice?: string;
@@ -205,10 +206,12 @@ async function runResponsesAPI(
   options: ApiOptions = {},
 ): Promise<ResponsesResult & { requestParams?: any }> {
   // Use DB for model resolution
+  // Priority: 1) options.model (prompt-level), 2) assistant override, 3) default
   const defaultModel = await getDefaultModelFromSettings(supabase);
-  const requestedModel = assistantData.model_override || defaultModel;
+  const requestedModel = options.model || assistantData.model_override || defaultModel;
   const modelId = await resolveModelFromDb(supabase, requestedModel);
   const modelSupportsTemp = await modelSupportsTemperatureDb(supabase, requestedModel);
+  console.log('Model resolution:', { optionsModel: options.model, assistantOverride: assistantData.model_override, default: defaultModel, resolved: requestedModel });
   
   // Build request body for Responses API
   const requestBody: any = {
@@ -995,7 +998,13 @@ serve(async (req) => {
       // Build API options from prompt settings
       const apiOptions: ApiOptions = {};
 
-      // Add prompt-level model settings if enabled
+      // Add prompt-level model override if enabled
+      if (childPrompt.model_on && childPrompt.model) {
+        apiOptions.model = childPrompt.model;
+        console.log('Using prompt-level model:', childPrompt.model);
+      }
+
+      // Add prompt-level temperature if enabled
       if (childPrompt.temperature_on && childPrompt.temperature) {
         const temp = parseFloat(childPrompt.temperature);
         if (!isNaN(temp)) apiOptions.temperature = temp;
@@ -1122,9 +1131,10 @@ serve(async (req) => {
         apiOptions.reasoningEffort = childPrompt.reasoning_effort;
       }
 
-      // Get model for display
+      // Get model for display - respect prompt-level override
       const defaultModel = await getDefaultModelFromSettings(supabase);
-      const modelUsedForMetadata = assistantData.model_override || defaultModel;
+      const promptModel = (childPrompt.model_on && childPrompt.model) ? childPrompt.model : null;
+      const modelUsedForMetadata = promptModel || assistantData.model_override || defaultModel;
 
       // Emit calling_api progress
       emitter.emit({ 
