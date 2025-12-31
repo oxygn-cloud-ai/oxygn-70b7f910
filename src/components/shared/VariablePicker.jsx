@@ -23,17 +23,17 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-// System variable categories
+// System variable categories with correct q. prefixes
 const SYSTEM_VARIABLE_GROUPS = [
   {
     id: "datetime",
     label: "Date & Time",
     icon: Clock,
     variables: [
-      { name: "current_date", label: "Current Date", isStatic: true },
-      { name: "current_time", label: "Current Time", isStatic: true },
-      { name: "current_datetime", label: "Current DateTime", isStatic: true },
-      { name: "timestamp", label: "Unix Timestamp", isStatic: true },
+      { name: "q.today", label: "Today", isStatic: true },
+      { name: "q.now", label: "Now", isStatic: true },
+      { name: "q.year", label: "Year", isStatic: true },
+      { name: "q.month", label: "Month", isStatic: true },
     ]
   },
   {
@@ -41,9 +41,8 @@ const SYSTEM_VARIABLE_GROUPS = [
     label: "User",
     icon: User,
     variables: [
-      { name: "user_email", label: "User Email", isStatic: true },
-      { name: "user_name", label: "User Name", isStatic: true },
-      { name: "user_id", label: "User ID", isStatic: true },
+      { name: "q.user.email", label: "User Email", isStatic: true },
+      { name: "q.user.name", label: "User Name", isStatic: true },
     ]
   },
   {
@@ -51,28 +50,10 @@ const SYSTEM_VARIABLE_GROUPS = [
     label: "Prompt Context",
     icon: FileText,
     variables: [
-      { name: "prompt_name", label: "Prompt Name", isStatic: false },
-      { name: "prompt_id", label: "Prompt ID", isStatic: false },
-      { name: "parent_output", label: "Parent Output", isStatic: false },
-      { name: "parent_name", label: "Parent Name", isStatic: false },
-    ]
-  },
-  {
-    id: "policy",
-    label: "Policy",
-    icon: Shield,
-    variables: [
-      { name: "compliance_notice", label: "Compliance Notice", isStatic: true },
-      { name: "data_handling_policy", label: "Data Handling Policy", isStatic: true },
-    ]
-  },
-  {
-    id: "other",
-    label: "Other",
-    icon: Hash,
-    variables: [
-      { name: "random_id", label: "Random ID", isStatic: false },
-      { name: "iteration_index", label: "Iteration Index", isStatic: false },
+      { name: "q.prompt.name", label: "Prompt Name", isStatic: true },
+      { name: "q.policy.name", label: "Policy Name", isStatic: true },
+      { name: "q.toplevel.prompt.name", label: "Top Level Prompt", isStatic: true },
+      { name: "q.parent.prompt.name", label: "Parent Prompt", isStatic: true },
     ]
   },
 ];

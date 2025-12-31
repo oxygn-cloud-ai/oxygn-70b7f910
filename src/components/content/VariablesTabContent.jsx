@@ -1,21 +1,29 @@
 import React, { useState, useMemo } from 'react';
 import { 
   Calendar, User, FileText, Briefcase, ChevronDown, ChevronRight,
-  Lock, Plus, Trash2, Edit2, Check, X, Info, AlertCircle,
+  Lock, Plus, Trash2, Edit2, Check, X, Info,
   ArrowUp, ArrowDown, GitBranch
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   SYSTEM_VARIABLES, 
   SYSTEM_VARIABLE_TYPES,
-  categorizeVariables,
-  resolveStaticVariables 
+  resolveStaticVariables,
+  getUserEditableVariables,
 } from '@/config/systemVariables';
 import { usePromptVariables } from '@/hooks/usePromptVariables';
+import { useSystemVariables } from '@/hooks/useSystemVariables';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-// System variable group configuration with icons
-const SYSTEM_VARIABLE_GROUPS = [
+// Static system variable groups (read-only)
+const STATIC_VARIABLE_GROUPS = [
   {
     id: 'datetime',
     label: 'Date & Time',
@@ -32,14 +40,19 @@ const SYSTEM_VARIABLE_GROUPS = [
     id: 'prompt',
     label: 'Prompt Context',
     icon: FileText,
-    variables: ['q.toplevel.prompt.name', 'q.parent.prompt.name'],
+    variables: ['q.prompt.name', 'q.policy.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name'],
   },
-  {
-    id: 'policy',
-    label: 'Policy',
-    icon: Briefcase,
-    variables: ['q.policy.name', 'q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.client.name', 'q.jurisdiction', 'q.topic'],
-  },
+];
+
+// User-editable policy variables
+const EDITABLE_POLICY_VARIABLES = [
+  'q.policy.version',
+  'q.policy.owner', 
+  'q.policy.effective.date',
+  'q.policy.review.date',
+  'q.client.name',
+  'q.jurisdiction',
+  'q.topic',
 ];
 
 // AI Response variables (from last_ai_call_metadata)
@@ -64,6 +77,7 @@ const VariablesTabContent = ({
   const { user } = useAuth();
   const [expandedSections, setExpandedSections] = useState({
     system: true,
+    policy: true,
     user: true,
     hierarchy: false,
     aiResponse: false,
@@ -77,6 +91,14 @@ const VariablesTabContent = ({
     updateVariable, 
     deleteVariable 
   } = usePromptVariables(promptRowId);
+
+  // System variables hook for editable policy variables
+  const {
+    systemVariables,
+    updateSystemVariable,
+    isSaving: isSavingSystemVar,
+    savingVarName,
+  } = useSystemVariables(promptRowId, promptData?.system_variables);
   
   // Add variable state
   const [isAdding, setIsAdding] = useState(false);
@@ -84,21 +106,29 @@ const VariablesTabContent = ({
   const [newValue, setNewValue] = useState('');
   const [newDescription, setNewDescription] = useState('');
   
-  // Edit state
+  // Edit state for user variables
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
+
+  // Edit state for policy variables
+  const [editingPolicyVar, setEditingPolicyVar] = useState(null);
+  const [editPolicyValue, setEditPolicyValue] = useState('');
 
   // Resolve static system variables
   const resolvedStaticVars = useMemo(() => {
     return resolveStaticVariables({
       user,
-      topLevelPromptName: promptData?.prompt_name,
+      promptName: promptData?.prompt_name,
+      topLevelPromptName: parentData?.prompt_name || promptData?.prompt_name,
       parentPromptName: parentData?.prompt_name,
     });
   }, [user, promptData?.prompt_name, parentData?.prompt_name]);
 
   // Get AI response metadata
   const aiMetadata = promptData?.last_ai_call_metadata || {};
+
+  // Count static system variables
+  const staticVarsCount = STATIC_VARIABLE_GROUPS.reduce((acc, g) => acc + g.variables.length, 0);
 
   // Toggle section expansion
   const toggleSection = (section) => {
@@ -120,7 +150,7 @@ const VariablesTabContent = ({
     }
   };
 
-  // Edit handlers
+  // Edit handlers for user variables
   const handleStartEdit = (variable) => {
     setEditingId(variable.row_id);
     setEditValue(variable.variable_value || '');
@@ -135,6 +165,27 @@ const VariablesTabContent = ({
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditValue('');
+  };
+
+  // Edit handlers for policy variables
+  const handleStartEditPolicy = (varName) => {
+    setEditingPolicyVar(varName);
+    setEditPolicyValue(systemVariables[varName] || '');
+  };
+
+  const handleSavePolicyEdit = async () => {
+    if (editingPolicyVar) {
+      const success = await updateSystemVariable(editingPolicyVar, editPolicyValue);
+      if (success) {
+        setEditingPolicyVar(null);
+        setEditPolicyValue('');
+      }
+    }
+  };
+
+  const handleCancelPolicyEdit = () => {
+    setEditingPolicyVar(null);
+    setEditPolicyValue('');
   };
 
   // Section header component
@@ -165,8 +216,8 @@ const VariablesTabContent = ({
     </button>
   );
 
-  // Variable row component for system variables
-  const SystemVariableRow = ({ varName, value, isStatic }) => {
+  // Variable row component for static system variables
+  const SystemVariableRow = ({ varName, value }) => {
     const def = SYSTEM_VARIABLES[varName];
     return (
       <div className="flex items-center gap-2.5 p-2 bg-surface-container rounded-m3-sm border border-outline-variant">
@@ -174,9 +225,7 @@ const VariablesTabContent = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <code className="text-body-sm text-on-surface font-mono">{`{{${varName}}}`}</code>
-            {isStatic && (
-              <span className="text-[10px] px-1 py-0.5 rounded bg-green-500/10 text-green-600">auto</span>
-            )}
+            <span className="text-[10px] px-1 py-0.5 rounded bg-green-500/10 text-green-600">auto</span>
           </div>
           {def?.description && (
             <p className="text-[10px] text-on-surface-variant truncate">{def.description}</p>
@@ -187,6 +236,97 @@ const VariablesTabContent = ({
             {value || '—'}
           </div>
         </div>
+      </div>
+    );
+  };
+
+  // Editable policy variable row
+  const EditablePolicyVariableRow = ({ varName }) => {
+    const def = SYSTEM_VARIABLES[varName];
+    const value = systemVariables[varName] || '';
+    const isEditing = editingPolicyVar === varName;
+    const isSavingThis = isSavingSystemVar && savingVarName === varName;
+    
+    return (
+      <div className="flex items-center gap-2.5 p-2 bg-surface-container rounded-m3-sm border border-outline-variant group">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <code className="text-body-sm text-on-surface font-mono">{`{{${varName}}}`}</code>
+          </div>
+          {def?.description && (
+            <p className="text-[10px] text-on-surface-variant truncate">{def.description}</p>
+          )}
+        </div>
+        
+        {isEditing ? (
+          <>
+            {def?.inputType === 'select' && def.options ? (
+              <Select value={editPolicyValue} onValueChange={setEditPolicyValue}>
+                <SelectTrigger className="w-32 h-7 text-body-sm border-primary">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {def.options.map(opt => (
+                    <SelectItem key={opt} value={opt} className="text-body-sm">
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <input
+                type="text"
+                value={editPolicyValue}
+                onChange={(e) => setEditPolicyValue(e.target.value)}
+                placeholder={def?.placeholder || ''}
+                className="w-32 h-7 px-2 bg-surface-container-high rounded-m3-sm border border-primary text-body-sm text-on-surface focus:outline-none font-mono"
+                autoFocus
+              />
+            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleSavePolicyEdit}
+                  disabled={isSavingThis}
+                  className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-surface-container disabled:opacity-50"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Save</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleCancelPolicyEdit}
+                  className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Cancel</TooltipContent>
+            </Tooltip>
+          </>
+        ) : (
+          <>
+            <div className="w-32 shrink-0">
+              <div className="h-7 px-2 flex items-center bg-surface-container-high rounded-m3-sm border border-outline-variant text-body-sm text-on-surface truncate font-mono">
+                {value || <span className="text-on-surface-variant italic">empty</span>}
+              </div>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={() => handleStartEditPolicy(varName)}
+                  className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Edit</TooltipContent>
+            </Tooltip>
+          </>
+        )}
       </div>
     );
   };
@@ -345,19 +485,19 @@ const VariablesTabContent = ({
 
   return (
     <div className="space-y-4">
-      {/* System Variables Section */}
+      {/* Static System Variables Section */}
       <div className="bg-surface-container-low rounded-m3-lg p-3 space-y-2">
         <SectionHeader 
           icon={Lock} 
           label="System Variables" 
-          count={Object.keys(SYSTEM_VARIABLES).length}
+          count={staticVarsCount}
           section="system"
           badge="read-only"
         />
         
         {expandedSections.system && (
           <div className="space-y-3 ml-5">
-            {SYSTEM_VARIABLE_GROUPS.map(group => (
+            {STATIC_VARIABLE_GROUPS.map(group => (
               <div key={group.id} className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <group.icon className="h-3.5 w-3.5 text-on-surface-variant" />
@@ -366,21 +506,34 @@ const VariablesTabContent = ({
                   </span>
                 </div>
                 <div className="space-y-1">
-                  {group.variables.map(varName => {
-                    const def = SYSTEM_VARIABLES[varName];
-                    const isStatic = def?.type === SYSTEM_VARIABLE_TYPES.STATIC;
-                    const value = isStatic ? resolvedStaticVars[varName] : def?.options?.[0] || '';
-                    return (
-                      <SystemVariableRow 
-                        key={varName}
-                        varName={varName}
-                        value={value}
-                        isStatic={isStatic}
-                      />
-                    );
-                  })}
+                  {group.variables.map(varName => (
+                    <SystemVariableRow 
+                      key={varName}
+                      varName={varName}
+                      value={resolvedStaticVars[varName]}
+                    />
+                  ))}
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Editable Policy Variables Section */}
+      <div className="bg-surface-container-low rounded-m3-lg p-3 space-y-2">
+        <SectionHeader 
+          icon={Briefcase} 
+          label="Policy Variables" 
+          count={EDITABLE_POLICY_VARIABLES.length}
+          section="policy"
+          badge="editable"
+        />
+        
+        {expandedSections.policy && (
+          <div className="space-y-1.5 ml-5">
+            {EDITABLE_POLICY_VARIABLES.map(varName => (
+              <EditablePolicyVariableRow key={varName} varName={varName} />
             ))}
           </div>
         )}
