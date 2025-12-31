@@ -386,23 +386,23 @@ Use your tools to explore the prompt family and provide helpful, accurate inform
 Be concise but thorough. When showing prompt content, format it nicely.`;
 
     // Get tools (chat-specific - NOT available to prompt runs)
+    // Uses Responses API format (flat structure with name at top level)
     const databaseSchemaTool = {
       type: "function",
-      function: {
-        name: "get_database_schema",
-        description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships. Use this to understand the data model.",
-        parameters: {
-          type: "object",
-          properties: {
-            table_name: {
-              type: "string",
-              description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
-            }
-          },
-          required: [],
-          additionalProperties: false
-        }
-      }
+      name: "get_database_schema",
+      description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships. Use this to understand the data model.",
+      parameters: {
+        type: "object",
+        properties: {
+          table_name: {
+            type: "string",
+            description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
+          }
+        },
+        required: [],
+        additionalProperties: false
+      },
+      strict: true
     };
 
     const tools = [
