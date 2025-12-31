@@ -34,6 +34,34 @@ export const initPostHog = () => {
   });
 
   isInitialized = true;
+
+  // Set up global error handlers
+  setupGlobalErrorHandlers();
+};
+
+/**
+ * Set up global error handlers for uncaught errors and promise rejections
+ */
+const setupGlobalErrorHandlers = () => {
+  // Catch uncaught JavaScript errors
+  window.addEventListener('error', (event) => {
+    trackException(event.error || new Error(event.message), {
+      error_type: 'uncaught_error',
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno
+    });
+  });
+
+  // Catch unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    const error = event.reason instanceof Error 
+      ? event.reason 
+      : new Error(String(event.reason));
+    trackException(error, {
+      error_type: 'unhandled_promise_rejection'
+    });
+  });
 };
 
 /**
@@ -129,6 +157,22 @@ export const trackException = (error, context = {}) => {
     $exception_message: error?.message || String(error),
     $exception_stack: error?.stack || null,
     $exception_type: error?.name || 'Error',
+    timestamp: new Date().toISOString(),
+    ...context,
+  });
+};
+
+/**
+ * Track API/network error with request context
+ */
+export const trackApiError = (endpoint, error, context = {}) => {
+  if (!isInitialized) return;
+  
+  posthog.capture('api_error', {
+    endpoint: endpoint,
+    error_message: error?.message || String(error),
+    error_code: error?.code || null,
+    status_code: error?.status || context.statusCode || null,
     timestamp: new Date().toISOString(),
     ...context,
   });
