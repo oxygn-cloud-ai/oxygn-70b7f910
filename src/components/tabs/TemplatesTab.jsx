@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTemplates } from '../../hooks/useTemplates';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId }) => {
   const { 
@@ -55,6 +56,7 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
         setTemplateName('');
         setTemplateDescription('');
         toast.success('Template created successfully');
+        trackEvent('template_saved_from_prompt', { prompt_row_id: promptRowId, template_name: templateName });
       }
     } finally {
       setIsSaving(false);
@@ -65,6 +67,7 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this template?')) {
       await deleteTemplate(templateId);
+      trackEvent('template_deleted_from_tab', { template_id: templateId });
     }
   };
 

@@ -2,6 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
+import { trackEvent } from '@/lib/posthog';
 
 const TOOL_DEFAULTS_QUERY_KEY = ['conversationToolDefaults'];
 
@@ -45,9 +46,10 @@ export const useConversationToolDefaults = () => {
       if (error) throw error;
       return true;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, updates) => {
       await queryClient.invalidateQueries({ queryKey: TOOL_DEFAULTS_QUERY_KEY });
       toast.success('Tool defaults updated');
+      trackEvent('tool_defaults_updated', { updated_fields: Object.keys(updates) });
     },
     onError: (error) => {
       console.error('Error updating tool defaults:', error);

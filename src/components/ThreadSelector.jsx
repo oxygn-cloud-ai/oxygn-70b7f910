@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { trackEvent } from '@/lib/posthog';
 
 const ThreadSelector = ({
   threads,
@@ -50,6 +51,7 @@ const ThreadSelector = ({
     setIsCreating(true);
     const name = `Thread ${new Date().toLocaleString()}`;
     await onCreateThread(name);
+    trackEvent('chat_thread_created_selector');
     setIsCreating(false);
   };
 

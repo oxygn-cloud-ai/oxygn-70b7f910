@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useExportTemplates } from '@/hooks/useExportTemplates';
+import { trackEvent } from '@/lib/posthog';
 
 export const ExportTemplatePicker = ({
   exportType,
@@ -89,6 +90,7 @@ export const ExportTemplatePicker = ({
         selectedVariables: template.selected_variables || {},
         confluenceConfig: template.confluence_config || {}
       });
+      trackEvent('export_template_loaded', { template_id: selectedTemplateId });
       setShowLoadDialog(false);
       setSelectedTemplateId('');
     }
