@@ -951,6 +951,7 @@ const MainLayout = () => {
                   onShowShortcuts={() => {}}
                   onHideNavRail={() => setNavRailOpen(false)}
                   onResetLayout={handleResetLayout}
+                  settings={settings}
                 />
               </motion.div>
             )}

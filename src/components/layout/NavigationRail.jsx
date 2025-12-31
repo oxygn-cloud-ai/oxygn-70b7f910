@@ -11,7 +11,8 @@ import {
   PanelLeft,
   Keyboard,
   EyeOff,
-  RotateCcw
+  RotateCcw,
+  Info
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -21,6 +22,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { trackEvent } from '@/lib/posthog';
 
 const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onClick, onMouseEnter, onMouseLeave, shortcut }) => (
@@ -83,8 +90,14 @@ const NavigationRail = ({
   folderPanelOpen,
   onShowShortcuts,
   onHideNavRail,
-  onResetLayout
+  onResetLayout,
+  settings = {}
 }) => {
+  const [aboutOpen, setAboutOpen] = useState(false);
+  
+  // Get version and build from settings
+  const version = settings?.version?.value || '3.0';
+  const build = settings?.build?.value || '1';
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts", shortcut: "1" },
     { id: "templates", icon: LayoutTemplate, label: "Templates", shortcut: "2" },
@@ -196,6 +209,14 @@ const NavigationRail = ({
             <RotateCcw className="h-4 w-4" />
             <span>Reset layout</span>
           </DropdownMenuItem>
+          <DropdownMenuSeparator className="bg-outline-variant" />
+          <DropdownMenuItem onClick={() => {
+            trackEvent('nav_menu_action', { action: 'about' });
+            setAboutOpen(true);
+          }} className="gap-2">
+            <Info className="h-4 w-4" />
+            <span>About</span>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -241,15 +262,40 @@ const NavigationRail = ({
         ))}
       </motion.div>
 
-      {/* Version indicator at bottom */}
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="text-[8px] text-on-surface-variant/50 mt-auto"
-      >
-        v2.0
-      </motion.div>
+      {/* About Dialog */}
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="sm:max-w-md bg-surface-container border-outline-variant">
+          <DialogHeader>
+            <DialogTitle className="text-title-sm text-on-surface font-medium">About Qonsol</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex justify-center mb-6">
+              <img 
+                src="/Qonsol-Full-Logo_Transparent_NoBuffer.png" 
+                alt="Qonsol Logo" 
+                className="h-12 object-contain"
+              />
+            </div>
+            <div className="space-y-2 text-body-sm text-on-surface-variant text-center">
+              <p className="text-on-surface">Copyright Oxygn Pte Ltd, ©2025, 2026</p>
+              <p>All rights reserved</p>
+              <p className="text-[11px] mt-4">Qonsol is a trademark of Oxygn Pte Ltd</p>
+            </div>
+            <div className="pt-4 border-t border-outline-variant">
+              <div className="flex justify-center gap-6 text-body-sm">
+                <div className="text-center">
+                  <span className="text-on-surface-variant">Version</span>
+                  <p className="text-on-surface font-medium">{version}</p>
+                </div>
+                <div className="text-center">
+                  <span className="text-on-surface-variant">Build</span>
+                  <p className="text-on-surface font-medium">{build}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.nav>
   );
 };
