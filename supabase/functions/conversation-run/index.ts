@@ -1036,6 +1036,16 @@ serve(async (req) => {
 
       // Handle action nodes - prepend action system prompt and set structured output
       if (childPrompt.node_type === 'action') {
+        console.log('Action node detected:', {
+          prompt_row_id: child_prompt_row_id,
+          prompt_name: childPrompt.prompt_name,
+          json_schema_template_id: childPrompt.json_schema_template_id || null,
+          response_format_type: typeof childPrompt.response_format,
+          response_format_preview: typeof childPrompt.response_format === 'string' 
+            ? childPrompt.response_format.substring(0, 100) 
+            : 'object',
+        });
+        
         let schemaToUse: any = null;
         let schemaName = 'action_response';
         
@@ -1063,17 +1073,28 @@ serve(async (req) => {
         // Priority 2: Fallback to response_format if no template
         if (!schemaToUse && childPrompt.response_format) {
           try {
-            const format = typeof childPrompt.response_format === 'string' 
-              ? JSON.parse(childPrompt.response_format) 
-              : childPrompt.response_format;
-            
-            if (format.type === 'json_schema' && format.json_schema?.schema) {
-              schemaToUse = format.json_schema.schema;
-              schemaName = format.json_schema?.name || 'action_response';
-              console.log('Action node: using schema from response_format');
+            const rawFormat = childPrompt.response_format;
+            // Skip if response_format is just a simple string like "text"
+            if (typeof rawFormat === 'string' && !rawFormat.trim().startsWith('{')) {
+              console.log('Action node: response_format is not a JSON object, skipping:', rawFormat);
+            } else {
+              const format = typeof rawFormat === 'string' 
+                ? JSON.parse(rawFormat) 
+                : rawFormat;
+              
+              if (format.type === 'json_schema' && format.json_schema?.schema) {
+                schemaToUse = format.json_schema.schema;
+                schemaName = format.json_schema?.name || 'action_response';
+                console.log('Action node: using schema from response_format');
+              } else if (format.type === 'json_schema' && !format.json_schema?.schema) {
+                console.warn('Action node: response_format has json_schema type but no schema object');
+              }
             }
           } catch (err) {
-            console.warn('Could not parse response_format:', err);
+            console.warn('Could not parse response_format:', err, 'Value preview:', 
+              typeof childPrompt.response_format === 'string' 
+                ? childPrompt.response_format.substring(0, 100) 
+                : 'object');
           }
         }
         
@@ -1114,7 +1135,66 @@ serve(async (req) => {
           
           console.log('Action node: applied structured output format with schema:', schemaName);
         } else {
-          console.log('Action node: no schema found, using text response');
+          // No schema found - use a sensible default for action nodes
+          console.warn('Action node: no schema found, using default items schema');
+          
+          // Default schema that matches the common action node use case
+          schemaToUse = {
+            type: 'object',
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    content: { type: 'string' }
+                  },
+                  required: ['name', 'content'],
+                  additionalProperties: false
+                }
+              }
+            },
+            required: ['items'],
+            additionalProperties: false
+          };
+          schemaName = 'default_action_response';
+          
+          // Set the responseFormat with the default schema
+          apiOptions.responseFormat = {
+            type: 'json_schema',
+            json_schema: {
+              name: schemaName,
+              strict: true,
+              schema: schemaToUse,
+            },
+          };
+          
+          const schemaDesc = formatSchemaForPrompt(schemaToUse);
+          
+          // Still apply the action system prompt
+          let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
+          try {
+            const { data: customPrompt } = await supabase
+              .from(TABLES.SETTINGS)
+              .select('setting_value')
+              .eq('setting_key', 'default_action_system_prompt')
+              .single();
+            
+            if (customPrompt?.setting_value) {
+              actionSystemPrompt = customPrompt.setting_value;
+            }
+          } catch {
+            console.log('Using default action system prompt');
+          }
+          
+          actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
+          
+          systemPrompt = systemPrompt
+            ? `${actionSystemPrompt}\n\n---\n\n${systemPrompt}`
+            : actionSystemPrompt;
+            
+          console.log('Action node: applied default structured output format');
         }
       }
 

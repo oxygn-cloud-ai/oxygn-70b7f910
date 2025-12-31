@@ -195,6 +195,9 @@ const ActionNodeSettings = ({
   const handleSchemaTemplateChange = (templateId) => {
     if (templateId === '_custom') {
       setSchemaSource('custom');
+      // Clear template ID when switching to custom
+      handleChange('json_schema_template_id', null);
+      handleSave('json_schema_template_id', null);
       return;
     }
 
@@ -226,6 +229,10 @@ const ActionNodeSettings = ({
           handleSave(key, value);
         });
         
+        // Save the template ID for edge function Priority 1 lookup
+        handleChange('json_schema_template_id', templateId);
+        handleSave('json_schema_template_id', templateId);
+        
         setCustomSchema(JSON.stringify(template.json_schema, null, 2));
         return;
       }
@@ -243,6 +250,11 @@ const ActionNodeSettings = ({
 
       handleChange('response_format', JSON.stringify(responseFormat));
       handleSave('response_format', JSON.stringify(responseFormat));
+      
+      // Save the template ID for edge function Priority 1 lookup
+      handleChange('json_schema_template_id', templateId);
+      handleSave('json_schema_template_id', templateId);
+      
       setCustomSchema(JSON.stringify(template.json_schema, null, 2));
     }
   };
