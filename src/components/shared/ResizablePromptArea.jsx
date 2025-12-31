@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Edit3, Check, Library, Search, Play, Loader2, ChevronRight, Copy
+  Edit3, Check, Library, Search, Play, Loader2, ChevronRight, Copy, Save
 } from "lucide-react";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -250,6 +250,12 @@ const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
  * ResizablePromptArea - Text field with dual resize methods:
  * 1. Drag handle (bottom-right corner via CSS resize)
  * 2. Chevron buttons to jump between collapsed/min/full states
+ * 
+ * Now with explicit save pattern - changes are only saved on:
+ * - Click save button
+ * - Press Ctrl+S
+ * - Blur (when user clicks away)
+ * - Click "Done" editing
  */
 const ResizablePromptArea = ({ 
   label, 
@@ -257,6 +263,7 @@ const ResizablePromptArea = ({
   placeholder, 
   onLibraryPick, 
   onChange,
+  onSave,
   onPlay,
   isPlaying = false,
   defaultHeight = MIN_HEIGHT,
@@ -270,6 +277,7 @@ const ResizablePromptArea = ({
   
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value || '');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [expandState, setExpandState] = useState(() => {
     if (persistKey) {
       try {
@@ -315,10 +323,18 @@ const ResizablePromptArea = ({
     }));
   }, [variables]);
 
-  // Sync editValue when value prop changes
+  // Sync editValue when value prop changes (external update)
   useEffect(() => {
     setEditValue(value || '');
+    setHasUnsavedChanges(false);
   }, [value]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    const normalizedEdit = editValue || '';
+    const normalizedValue = value || '';
+    setHasUnsavedChanges(normalizedEdit !== normalizedValue);
+  }, [editValue, value]);
 
   // Measure content height for 'full' state
   useEffect(() => {
@@ -330,6 +346,32 @@ const ResizablePromptArea = ({
       setContentHeight(Math.max(defaultHeight, scrollHeight));
     }
   }, [editValue, value, isEditing, defaultHeight]);
+
+  // Handle explicit save
+  const handleSave = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (onSave) {
+        onSave(editValue);
+      } else if (onChange) {
+        // Fallback to onChange if onSave not provided
+        onChange(editValue);
+      }
+      setHasUnsavedChanges(false);
+      toast.success('Saved');
+    }
+  }, [editValue, hasUnsavedChanges, onSave, onChange]);
+
+  // Keyboard shortcut for save (Ctrl+S)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && isEditing) {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave, isEditing]);
 
   // Helper to get cursor position from contenteditable
   const getCursorPositionFromEditor = useCallback(() => {
@@ -404,27 +446,46 @@ const ResizablePromptArea = ({
     const newCursorPos = insertPos + insertion.length;
     setCursorPosition(newCursorPos);
     
-    // Notify parent of change
-    if (onChange) {
-      onChange(newValue);
-    }
-  }, [cursorPosition, editValue, isEditing, getCursorPositionFromEditor, onChange]);
+    // Note: We no longer call onChange here - changes are local until saved
+  }, [cursorPosition, editValue, isEditing, getCursorPositionFromEditor]);
 
   // Handle replacing a variable in the text (used by ClickableVariable)
   const handleReplaceVariable = useCallback((start, end, newText) => {
     const newValue = editValue.slice(0, start) + newText + editValue.slice(end);
     setEditValue(newValue);
-    if (onChange) {
-      onChange(newValue);
-    }
-  }, [editValue, onChange]);
+    // Note: We no longer call onChange here - changes are local until saved
+  }, [editValue]);
 
   const handleDoneEditing = () => {
     setIsEditing(false);
-    if (onChange && editValue !== value) {
-      onChange(editValue);
+    // Save on done if there are unsaved changes
+    if (hasUnsavedChanges) {
+      if (onSave) {
+        onSave(editValue);
+      } else if (onChange) {
+        onChange(editValue);
+      }
+      setHasUnsavedChanges(false);
     }
   };
+
+  // Handle blur - auto-save when clicking away
+  const handleBlur = useCallback((e) => {
+    // Don't save if clicking within the same component (e.g., toolbar buttons)
+    const relatedTarget = e.relatedTarget;
+    if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
+      return;
+    }
+    
+    if (hasUnsavedChanges) {
+      if (onSave) {
+        onSave(editValue);
+      } else if (onChange) {
+        onChange(editValue);
+      }
+      setHasUnsavedChanges(false);
+    }
+  }, [editValue, hasUnsavedChanges, onSave, onChange]);
 
   // State transitions
   const goToCollapsed = () => {
@@ -473,7 +534,7 @@ const ResizablePromptArea = ({
   const currentHeight = getHeight();
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5" onBlur={handleBlur}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
@@ -505,18 +566,36 @@ const ResizablePromptArea = ({
             </>
           )}
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-1">{label}</label>
+          {/* Unsaved changes indicator */}
+          {hasUnsavedChanges && (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          )}
         </div>
         
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
+          {/* Save button - only show when there are unsaved changes */}
+          {hasUnsavedChanges && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleSave}
+                  className="w-6 h-6 flex items-center justify-center rounded-sm text-primary hover:bg-primary/10"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Save (Ctrl+S)</TooltipContent>
+            </Tooltip>
+          )}
           <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} />
           {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
                 onClick={async () => {
-                  if (value) {
-                    await navigator.clipboard.writeText(value);
+                  if (editValue) {
+                    await navigator.clipboard.writeText(editValue);
                     toast.success('Copied to clipboard');
                   }
                 }}
@@ -571,13 +650,17 @@ const ResizablePromptArea = ({
               placeholder={placeholder}
               userVariables={transformedUserVars}
               style={{ height: `${currentHeight}px` }}
-              className="w-full p-2.5 bg-surface-container rounded-m3-md border-primary text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y overflow-auto"
+              className={`w-full p-2.5 bg-surface-container rounded-m3-md text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y overflow-auto transition-colors ${
+                hasUnsavedChanges ? 'border-primary' : 'border-outline-variant'
+              }`}
             />
           ) : (
             <div 
               ref={contentRef}
               style={{ height: `${currentHeight}px` }}
-              className="p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y"
+              className={`p-2.5 bg-surface-container rounded-m3-md border text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y transition-colors ${
+                hasUnsavedChanges ? 'border-primary/50' : 'border-outline-variant'
+              }`}
               onMouseUp={handleResize}
             >
               {editValue ? (
