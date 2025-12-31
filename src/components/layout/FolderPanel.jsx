@@ -283,7 +283,9 @@ const TreeItem = ({
       if (hasChildren) {
         onToggle?.(id);
       }
-      onSelect?.(id);
+      // Toggle selection: deselect if already selected, otherwise select
+      const isCurrentlySelected = selectedPromptId === id;
+      onSelect?.(isCurrentlySelected ? null : id);
     }
   };
 
