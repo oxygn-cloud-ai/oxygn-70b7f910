@@ -47,7 +47,8 @@ export const useJsonSchemaTemplates = () => {
     childCreation,
     actionConfig,
     modelConfig,
-    systemPromptTemplate
+    systemPromptTemplate,
+    sampleOutput
   }) => {
     setIsSaving(true);
     try {
@@ -66,7 +67,8 @@ export const useJsonSchemaTemplates = () => {
           child_creation: childCreation || null,
           action_config: actionConfig || null,
           model_config: modelConfig || null,
-          system_prompt_template: systemPromptTemplate || null
+          system_prompt_template: systemPromptTemplate || null,
+          sample_output: sampleOutput || null
         })
         .select()
         .single();

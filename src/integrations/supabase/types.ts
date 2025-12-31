@@ -591,6 +591,7 @@ export type Database = {
           node_config: Json | null
           owner_id: string | null
           row_id: string
+          sample_output: Json | null
           schema_description: string | null
           schema_name: string
           system_prompt_template: string | null
@@ -608,6 +609,7 @@ export type Database = {
           node_config?: Json | null
           owner_id?: string | null
           row_id?: string
+          sample_output?: Json | null
           schema_description?: string | null
           schema_name: string
           system_prompt_template?: string | null
@@ -625,6 +627,7 @@ export type Database = {
           node_config?: Json | null
           owner_id?: string | null
           row_id?: string
+          sample_output?: Json | null
           schema_description?: string | null
           schema_name?: string
           system_prompt_template?: string | null

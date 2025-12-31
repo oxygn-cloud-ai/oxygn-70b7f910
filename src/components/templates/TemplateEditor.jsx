@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { TOOLTIPS } from '@/config/labels';
+import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import TemplateOverviewTab from './TemplateOverviewTab';
 import TemplateStructureEditor from './TemplateStructureEditor';
 import TemplateVariablesTab from './TemplateVariablesTab';
@@ -19,6 +20,9 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
   const [editedTemplate, setEditedTemplate] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Fetch library items for the ResizablePromptArea library picker
+  const { libraryItems } = usePromptLibrary();
 
   // Initialize edited template when template prop changes
   useEffect(() => {
@@ -175,6 +179,8 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
               structure={editedTemplate.structure}
               onChange={handleStructureChange}
               variableDefinitions={editedTemplate.variable_definitions}
+              libraryItems={libraryItems}
+              templateId={editedTemplate.row_id}
             />
           </TabsContent>
 

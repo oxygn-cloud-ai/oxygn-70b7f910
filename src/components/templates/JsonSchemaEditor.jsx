@@ -9,10 +9,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Plus, Trash2, ChevronRight, ChevronDown, Save, Loader2, Code, Eye, Sparkles, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, ChevronRight, ChevronDown, Save, Loader2, Code, Eye, Sparkles, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import { formatSchemaForPrompt } from '@/utils/schemaUtils';
+import { validateJsonSchema, validateDataAgainstSchema, formatValidationErrors, parseJson } from '@/utils/jsonSchemaValidator';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PROPERTY_TYPES = [
   { value: 'string', label: 'String' },
@@ -223,19 +225,45 @@ const PropertyEditor = ({ property, path, onUpdate, onDelete, depth = 0 }) => {
 };
 
 const JsonSchemaEditor = ({ template, onUpdate }) => {
+  const { isAdmin } = useAuth();
   const [editedTemplate, setEditedTemplate] = useState(template);
   const [activeView, setActiveView] = useState('visual');
   const [rawJson, setRawJson] = useState('');
   const [jsonError, setJsonError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // New state for validation
+  const [schemaValidation, setSchemaValidation] = useState({ isValid: true, errors: [], warnings: [] });
+  const [sampleValidation, setSampleValidation] = useState({ isValid: true, errors: [] });
+  const [customSampleOutput, setCustomSampleOutput] = useState('');
+  const [useCustomSample, setUseCustomSample] = useState(false);
+  const [sampleJsonError, setSampleJsonError] = useState(null);
 
-  // Initialize raw JSON view
+  // Initialize raw JSON view and custom sample
   React.useEffect(() => {
     setEditedTemplate(template);
     setRawJson(JSON.stringify(template.json_schema, null, 2));
     setHasChanges(false);
     setJsonError(null);
+    
+    // Initialize custom sample from template
+    if (template.sample_output) {
+      setCustomSampleOutput(JSON.stringify(template.sample_output, null, 2));
+      setUseCustomSample(true);
+      // Validate the saved sample against the schema
+      const result = validateDataAgainstSchema(template.sample_output, template.json_schema);
+      setSampleValidation(result);
+    } else {
+      setCustomSampleOutput('');
+      setUseCustomSample(false);
+      setSampleValidation({ isValid: true, errors: [] });
+    }
+    setSampleJsonError(null);
+    
+    // Validate the schema structure
+    const schemaResult = validateJsonSchema(template.json_schema);
+    setSchemaValidation(schemaResult);
   }, [template.row_id]);
 
   // Parse schema for visual editor - handle multiple nesting levels
@@ -335,24 +363,70 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
   const handleRawJsonChange = (value) => {
     setRawJson(value);
     setHasChanges(true);
-    try {
-      const parsed = JSON.parse(value);
-      setJsonError(null);
-      setEditedTemplate(prev => ({ ...prev, json_schema: parsed }));
-    } catch (err) {
-      setJsonError(err.message);
+    
+    // First check JSON syntax
+    const parseResult = parseJson(value);
+    if (!parseResult.isValid) {
+      setJsonError(parseResult.error);
+      setSchemaValidation({ isValid: false, errors: [{ path: '', message: 'Invalid JSON syntax' }], warnings: [] });
+      return;
+    }
+    
+    setJsonError(null);
+    setEditedTemplate(prev => ({ ...prev, json_schema: parseResult.data }));
+    
+    // Then validate schema structure
+    const schemaResult = validateJsonSchema(parseResult.data);
+    setSchemaValidation(schemaResult);
+    
+    // Re-validate sample if custom sample is in use
+    if (useCustomSample && customSampleOutput) {
+      const sampleParse = parseJson(customSampleOutput);
+      if (sampleParse.isValid) {
+        const sampleResult = validateDataAgainstSchema(sampleParse.data, parseResult.data);
+        setSampleValidation(sampleResult);
+      }
     }
   };
 
-  const applyPreset = (preset) => {
-    setEditedTemplate(prev => ({
-      ...prev,
-      json_schema: preset.schema,
-      schema_description: preset.description
-    }));
-    setRawJson(JSON.stringify(preset.schema, null, 2));
+  // Handle custom sample output changes
+  const handleCustomSampleChange = (value) => {
+    setCustomSampleOutput(value);
     setHasChanges(true);
-    toast.success(`Applied "${preset.name}" preset`);
+    
+    // First check JSON syntax
+    const parseResult = parseJson(value);
+    if (!parseResult.isValid) {
+      setSampleJsonError(parseResult.error);
+      setSampleValidation({ isValid: false, errors: [{ path: '', message: 'Invalid JSON syntax' }] });
+      return;
+    }
+    
+    setSampleJsonError(null);
+    
+    // Validate against schema
+    const sampleResult = validateDataAgainstSchema(parseResult.data, editedTemplate.json_schema);
+    setSampleValidation(sampleResult);
+  };
+
+  // Toggle custom sample mode
+  const handleToggleCustomSample = (enabled) => {
+    setUseCustomSample(enabled);
+    setHasChanges(true);
+    
+    if (enabled && !customSampleOutput) {
+      // Initialize with auto-generated preview
+      setCustomSampleOutput(previewOutput);
+      // Validate the auto-generated preview
+      const parseResult = parseJson(previewOutput);
+      if (parseResult.isValid) {
+        const result = validateDataAgainstSchema(parseResult.data, editedTemplate.json_schema);
+        setSampleValidation(result);
+      }
+    } else if (!enabled) {
+      setSampleValidation({ isValid: true, errors: [] });
+      setSampleJsonError(null);
+    }
   };
 
   const handleSave = async () => {
@@ -361,13 +435,33 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
       return;
     }
     
+    if (!schemaValidation.isValid) {
+      toast.error('Fix schema validation errors before saving');
+      return;
+    }
+    
+    if (useCustomSample && (sampleJsonError || !sampleValidation.isValid)) {
+      toast.error('Fix sample output errors before saving');
+      return;
+    }
+    
     setIsSaving(true);
     try {
+      // Prepare sample_output for save
+      let sampleOutput = null;
+      if (useCustomSample && customSampleOutput) {
+        const parseResult = parseJson(customSampleOutput);
+        if (parseResult.isValid) {
+          sampleOutput = parseResult.data;
+        }
+      }
+      
       await onUpdate(template.row_id, {
         schema_name: editedTemplate.schema_name,
         schema_description: editedTemplate.schema_description,
         category: editedTemplate.category,
-        json_schema: editedTemplate.json_schema
+        json_schema: editedTemplate.json_schema,
+        sample_output: sampleOutput,
       });
       setHasChanges(false);
     } catch (error) {
@@ -413,6 +507,24 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
     }
   }, [schemaData]);
 
+  // Check if save should be disabled
+  const isSaveDisabled = !hasChanges || isSaving || !!jsonError || !schemaValidation.isValid || 
+    (useCustomSample && (!!sampleJsonError || !sampleValidation.isValid));
+
+  // Get validation indicator for tabs
+  const getJsonTabIndicator = () => {
+    if (jsonError) return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
+    if (!schemaValidation.isValid) return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
+    if (schemaValidation.warnings.length > 0) return <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />;
+    return <span className="w-1.5 h-1.5 rounded-full bg-green-500" />;
+  };
+
+  const getPreviewTabIndicator = () => {
+    if (!useCustomSample) return null;
+    if (sampleJsonError || !sampleValidation.isValid) return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
+    return <span className="w-1.5 h-1.5 rounded-full bg-green-500" />;
+  };
+
   return (
     <TooltipProvider>
       <div className="h-full flex flex-col">
@@ -447,18 +559,26 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                onClick={handleSave} 
-                disabled={!hasChanges || isSaving || !!jsonError}
-                size="sm"
-              >
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                Save
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={isSaveDisabled}
+                    size="sm"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                    Save
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isSaveDisabled && !hasChanges ? 'No changes to save' : 
+                   isSaveDisabled ? 'Fix validation errors first' : 'Save changes'}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
 
-          {/* View Tabs & Presets */}
+          {/* View Tabs */}
           <div className="flex items-center justify-between">
             <Tabs value={activeView} onValueChange={setActiveView}>
               <TabsList className="h-8">
@@ -466,18 +586,18 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
                   <Sparkles className="h-3 w-3" />
                   Visual
                 </TabsTrigger>
-                <TabsTrigger value="json" className="text-xs gap-1">
+                <TabsTrigger value="json" className="text-xs gap-1.5">
                   <Code className="h-3 w-3" />
                   JSON
+                  {getJsonTabIndicator()}
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="text-xs gap-1">
+                <TabsTrigger value="preview" className="text-xs gap-1.5">
                   <Eye className="h-3 w-3" />
                   Preview
+                  {getPreviewTabIndicator()}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-
-            {/* Presets removed - use template picker instead */}
           </div>
         </div>
 
@@ -519,13 +639,49 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
             )}
 
             {activeView === 'json' && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                {/* Syntax Error */}
                 {jsonError && (
                   <div className="flex items-center gap-2 p-2 bg-destructive/10 text-destructive rounded text-xs">
-                    <AlertCircle className="h-4 w-4" />
-                    {jsonError}
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>Syntax Error: {jsonError}</span>
                   </div>
                 )}
+                
+                {/* Schema Validation Errors */}
+                {!jsonError && schemaValidation.errors.length > 0 && (
+                  <div className="flex items-start gap-2 p-2 bg-destructive/10 text-destructive rounded text-xs">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <span className="font-medium">Schema Validation Errors:</span>
+                      {schemaValidation.errors.map((err, i) => (
+                        <div key={i}>{err.path ? `${err.path}: ` : ''}{err.message}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Schema Warnings */}
+                {!jsonError && schemaValidation.isValid && schemaValidation.warnings.length > 0 && (
+                  <div className="flex items-start gap-2 p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded text-xs">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <span className="font-medium">Warnings:</span>
+                      {schemaValidation.warnings.map((warn, i) => (
+                        <div key={i}>{warn}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Valid Schema Indicator */}
+                {!jsonError && schemaValidation.isValid && schemaValidation.warnings.length === 0 && (
+                  <div className="flex items-center gap-2 p-2 bg-green-500/10 text-green-600 dark:text-green-400 rounded text-xs">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Schema is valid</span>
+                  </div>
+                )}
+                
                 <Textarea
                   value={rawJson}
                   onChange={(e) => handleRawJsonChange(e.target.value)}
@@ -537,11 +693,66 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
 
             {activeView === 'preview' && (
               <div className="space-y-4">
+                {/* Custom Sample Toggle - only for admins */}
+                {isAdmin && (
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <Label className="text-sm font-medium">Custom Sample Output</Label>
+                      <p className="text-xs text-muted-foreground">Define a custom sample instead of auto-generated</p>
+                    </div>
+                    <Switch 
+                      checked={useCustomSample} 
+                      onCheckedChange={handleToggleCustomSample} 
+                    />
+                  </div>
+                )}
+
                 <div>
-                  <Label className="text-sm font-medium mb-2 block">Sample Output</Label>
-                  <pre className="bg-muted p-4 rounded-lg text-xs font-mono overflow-auto">
-                    {previewOutput}
-                  </pre>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Sample Output {useCustomSample ? '(Custom)' : '(Auto-generated)'}
+                  </Label>
+                  
+                  {useCustomSample ? (
+                    <div className="space-y-2">
+                      {/* Sample Validation Errors */}
+                      {sampleJsonError && (
+                        <div className="flex items-center gap-2 p-2 bg-destructive/10 text-destructive rounded text-xs">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                          <span>Syntax Error: {sampleJsonError}</span>
+                        </div>
+                      )}
+                      
+                      {!sampleJsonError && !sampleValidation.isValid && (
+                        <div className="flex items-start gap-2 p-2 bg-destructive/10 text-destructive rounded text-xs">
+                          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                            <span className="font-medium">Validation Errors:</span>
+                            {sampleValidation.errors.map((err, i) => (
+                              <div key={i}>{err.path ? `${err.path}: ` : ''}{err.message}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!sampleJsonError && sampleValidation.isValid && (
+                        <div className="flex items-center gap-2 p-2 bg-green-500/10 text-green-600 dark:text-green-400 rounded text-xs">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span>Sample validates against schema</span>
+                        </div>
+                      )}
+                      
+                      <Textarea
+                        value={customSampleOutput}
+                        onChange={(e) => handleCustomSampleChange(e.target.value)}
+                        className="font-mono text-xs min-h-[300px]"
+                        placeholder="Enter custom sample output JSON..."
+                      />
+                    </div>
+                  ) : (
+                    <pre className="bg-muted p-4 rounded-lg text-xs font-mono overflow-auto">
+                      {previewOutput}
+                    </pre>
+                  )}
                 </div>
                 
                 <div>
