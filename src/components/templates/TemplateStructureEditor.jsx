@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, FileText, ArrowUp, ArrowDown, Edit2, Sliders, Globe, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, ArrowUp, ArrowDown, Edit2, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -96,6 +96,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       child_thread_strategy: null,
       default_child_thread_strategy: null,
       web_search_on: false,
+      confluence_enabled: false,
       children: [],
     };
 
@@ -611,7 +612,7 @@ const PromptsSection = ({ node, onUpdate, variables }) => {
  * Model settings section - matching prompt editor patterns
  */
 const ModelSettingsSection = ({ node, onUpdate, models }) => {
-  const { getModelConfig, isSettingSupported } = useModels();
+  const { getModelConfig } = useModels();
   const sliderDebounceRef = useRef({});
 
   const currentModel = node?.model || '';
@@ -891,15 +892,13 @@ const ConversationSection = ({ node, onUpdate, isRoot }) => {
       {node.is_assistant && (
         <>
           {/* Instructions */}
-          <SettingCard label="Instructions">
-            <ResizablePromptArea 
-              label="Conversation Instructions"
-              value={node.assistant_instructions || ''}
-              placeholder="You are a helpful assistant that..."
-              defaultHeight={120}
-              onSave={(value) => onUpdate({ assistant_instructions: value })}
-            />
-          </SettingCard>
+          <ResizablePromptArea 
+            label="Conversation Instructions"
+            value={node.assistant_instructions || ''}
+            placeholder="You are a helpful assistant that..."
+            defaultHeight={120}
+            onSave={(value) => onUpdate({ assistant_instructions: value })}
+          />
 
           {/* Thread Settings */}
           <SettingCard label="Thread Settings">
