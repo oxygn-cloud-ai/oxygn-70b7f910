@@ -52,7 +52,7 @@ export const usePromptFamilyChat = (promptRowId) => {
         .eq('root_prompt_row_id', rootId)
         .eq('owner_id', user.id)
         .eq('is_active', true)
-        .order('updated_at', { ascending: false });
+        .order('last_message_at', { ascending: false, nullsFirst: false });
 
       if (error) throw error;
       setThreads(data || []);
