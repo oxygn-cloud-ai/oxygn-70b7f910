@@ -191,7 +191,7 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
 
 
 // Prompt Tab Content
-const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [], onCancelRun, runProgress }) => {
+const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedPromptId, isRunningPrompt, formattedTime, variables = [], onCancelRun, runProgress, isLocked = false }) => {
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
@@ -207,8 +207,9 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         placeholder="Enter system prompt..."
         defaultHeight={160}
         onLibraryPick
-        onSave={(value) => onUpdateField?.('input_admin_prompt', value)}
+        onSave={isLocked ? undefined : (value) => onUpdateField?.('input_admin_prompt', value)}
         variables={variables}
+        readOnly={isLocked}
       />
 
       {/* User Prompt */}
@@ -218,8 +219,9 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         placeholder="Enter user prompt..."
         defaultHeight={64}
         onLibraryPick
-        onSave={(value) => onUpdateField?.('input_user_prompt', value)}
+        onSave={isLocked ? undefined : (value) => onUpdateField?.('input_user_prompt', value)}
         variables={variables}
+        readOnly={isLocked}
       />
 
       {/* Output */}
@@ -243,7 +245,8 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         value={promptData?.note || ''}
         placeholder="Add notes about this prompt..."
         defaultHeight={80}
-        onSave={(value) => onUpdateField?.('note', value)}
+        onSave={isLocked ? undefined : (value) => onUpdateField?.('note', value)}
+        readOnly={isLocked}
       />
     </div>
   );
@@ -1476,6 +1479,7 @@ const PromptsContent = ({
               variables={variables}
               onCancelRun={onCancelRun}
               runProgress={runProgress}
+              isLocked={isCascadeRunning || singleRunPromptId === selectedPromptId}
             />
           )}
           {activeTab === "settings" && (

@@ -130,6 +130,7 @@ const MarkdownNotesArea = ({
   placeholder = 'Add notes...',
   label = 'Notes',
   defaultHeight = 80,
+  readOnly = false, // When true, disables editing
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [localValue, setLocalValue] = useState(value || '');
@@ -178,7 +179,9 @@ const MarkdownNotesArea = ({
       }),
     ],
     content: localValue || '',
+    editable: !readOnly,
     onUpdate: ({ editor }) => {
+      if (readOnly) return;
       const html = editor.getHTML();
       // Return empty string if editor only contains empty paragraph
       const isEmpty = html === '<p></p>' || html === '';
@@ -201,7 +204,7 @@ const MarkdownNotesArea = ({
     },
     onBlur: () => {
       // Auto-save on blur if there are unsaved changes
-      if (hasUnsavedChanges && onSave) {
+      if (hasUnsavedChanges && onSave && !readOnly) {
         onSave(localValue);
         setHasUnsavedChanges(false);
       }
@@ -280,8 +283,8 @@ const MarkdownNotesArea = ({
           )}
         </div>
 
-        {/* Toolbar - visible when not collapsed */}
-        {!isCollapsed && (
+        {/* Toolbar - visible when not collapsed and not readOnly */}
+        {!isCollapsed && !readOnly && (
           <div className="flex items-center gap-0.5" data-toolbar>
             {/* Save button - only show when there are unsaved changes */}
             {hasUnsavedChanges && onSave && (
