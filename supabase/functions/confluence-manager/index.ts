@@ -199,6 +199,65 @@ Deno.serve(async (req) => {
     let result;
 
     switch (action) {
+      case 'find-unique-title': {
+        const { spaceKey, parentId, baseTitle } = params;
+        const config = await getConfluenceConfig();
+        
+        let candidateTitle = baseTitle;
+        let counter = 1;
+        const maxAttempts = 100; // Safety limit
+        
+        console.log(`[confluence-manager] Finding unique title for "${baseTitle}" in space ${spaceKey}`);
+        
+        while (counter <= maxAttempts) {
+          // Search for exact title match in space using CQL
+          // Escape quotes in title for CQL query
+          const escapedTitle = candidateTitle.replace(/"/g, '\\"');
+          const cql = `type=page AND space="${spaceKey}" AND title="${escapedTitle}"`;
+          
+          try {
+            const data = await confluenceRequest(`/content/search?cql=${encodeURIComponent(cql)}&limit=1`, config);
+            
+            if (!data.results || data.results.length === 0) {
+              // Title is unique
+              console.log(`[confluence-manager] Found unique title: "${candidateTitle}" (attempt ${counter})`);
+              result = { 
+                uniqueTitle: candidateTitle, 
+                wasModified: counter > 1,
+                originalTitle: baseTitle
+              };
+              break;
+            }
+            
+            // Title exists, try next increment
+            counter++;
+            candidateTitle = `${baseTitle} #${counter}`;
+            console.log(`[confluence-manager] Title exists, trying: "${candidateTitle}"`);
+          } catch (error: unknown) {
+            console.error('[confluence-manager] Error checking title:', error);
+            // On error, return original title and let create-page handle it
+            result = { 
+              uniqueTitle: baseTitle, 
+              wasModified: false, 
+              error: error instanceof Error ? error.message : 'Unknown error' 
+            };
+            break;
+          }
+        }
+        
+        // If we exceeded max attempts (shouldn't happen in practice)
+        if (!result) {
+          console.error(`[confluence-manager] Could not find unique title after ${maxAttempts} attempts`);
+          result = { 
+            uniqueTitle: `${baseTitle} #${Date.now()}`, 
+            wasModified: true,
+            originalTitle: baseTitle
+          };
+        }
+        
+        break;
+      }
+
       case 'test-connection': {
         const config = await getConfluenceConfig();
         try {

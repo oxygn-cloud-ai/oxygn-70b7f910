@@ -2,6 +2,9 @@ import { useState, useCallback } from 'react';
 import { useConfluencePages } from './useConfluencePages';
 import { applyTemplateVariables } from '@/utils/resolveSystemVariables';
 import { trackEvent, trackException } from '@/lib/posthog';
+import { toast } from '@/components/ui/sonner';
+
+const DEFAULT_PAGE_TITLE = 'A New Qonsol Generated Page';
 
 export const useConfluenceExport = () => {
   const {
@@ -16,6 +19,7 @@ export const useConfluenceExport = () => {
     getSpaceTree,
     getPageChildren,
     createPage,
+    findUniqueTitle,
     clearSpaceTree,
     clearTemplates,
     setSpaceTree
@@ -234,15 +238,15 @@ export const useConfluenceExport = () => {
   }, [useBlankPage, selectedTemplate, templateMappings, resolveSourceValue, resolveContentVariables]);
 
   // Create the page
-  const exportToConfluence = useCallback(async (exportData, title) => {
+  const exportToConfluence = useCallback(async (exportData) => {
     console.log('[useConfluenceExport] exportToConfluence called:', {
       exportDataLength: exportData?.length,
       exportDataSample: exportData?.[0] ? Object.keys(exportData[0]) : [],
-      title,
+      pageTitle,
+      pageTitleSource,
       selectedSpaceKey,
       selectedParentId,
       useBlankPage,
-      pageTitleSource,
       templateMappings: Object.keys(templateMappings)
     });
     
@@ -252,28 +256,38 @@ export const useConfluenceExport = () => {
       throw error;
     }
 
-    // Resolve the page title - either static or from a source
-    let resolvedTitle = title;
+    // Resolve the page title from state
+    let resolvedTitle = pageTitle;
     if (pageTitleSource) {
-      resolvedTitle = resolveSourceValue(pageTitleSource, exportData) || title;
+      resolvedTitle = resolveSourceValue(pageTitleSource, exportData) || pageTitle;
       console.log('[useConfluenceExport] Resolved dynamic title:', resolvedTitle);
     }
     
-    if (!resolvedTitle) {
-      const error = new Error('Page title is required');
-      console.error('[useConfluenceExport] Validation error:', error.message);
-      throw error;
+    // Apply default if empty
+    if (!resolvedTitle || resolvedTitle.trim() === '') {
+      resolvedTitle = DEFAULT_PAGE_TITLE;
+      console.log('[useConfluenceExport] Using default title:', resolvedTitle);
+    }
+
+    // Find a unique title (auto-increment if needed)
+    console.log('[useConfluenceExport] Finding unique title for:', resolvedTitle);
+    const titleResult = await findUniqueTitle(selectedSpaceKey, resolvedTitle, selectedParentId);
+    const finalTitle = titleResult.uniqueTitle;
+    
+    // Notify user if title was modified
+    if (titleResult.wasModified) {
+      toast.info(`Page created as "${finalTitle}" (original name already existed)`);
     }
 
     const body = buildPageBody(exportData);
     console.log('[useConfluenceExport] Built page body, length:', body?.length);
-    console.log('[useConfluenceExport] Creating page with parentId:', selectedParentId);
+    console.log('[useConfluenceExport] Creating page with parentId:', selectedParentId, 'title:', finalTitle);
     
     try {
       const result = await createPage({
         spaceKey: selectedSpaceKey,
         parentId: selectedParentId,
-        title: resolvedTitle,
+        title: finalTitle,
         body
       });
 
@@ -283,6 +297,7 @@ export const useConfluenceExport = () => {
         space_key: selectedSpaceKey,
         prompts_exported: exportData?.length || 0,
         used_template: !useBlankPage,
+        title_was_incremented: titleResult.wasModified
       });
 
       return result;
@@ -295,7 +310,7 @@ export const useConfluenceExport = () => {
       trackException(error, { context: 'confluence_export' });
       throw error;
     }
-  }, [selectedSpaceKey, selectedParentId, buildPageBody, createPage, useBlankPage, pageTitleSource, resolveSourceValue, templateMappings]);
+  }, [selectedSpaceKey, selectedParentId, pageTitle, pageTitleSource, buildPageBody, createPage, findUniqueTitle, useBlankPage, resolveSourceValue, templateMappings]);
 
   // Reset state
   const reset = useCallback(() => {

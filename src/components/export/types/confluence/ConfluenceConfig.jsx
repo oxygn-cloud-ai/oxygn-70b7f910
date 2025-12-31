@@ -322,7 +322,7 @@ export const ConfluenceConfig = ({
           </div>
           <div>
             <Label className="text-sm font-semibold">Page Title</Label>
-            <p className="text-xs text-muted-foreground">Set a static title or use a variable value</p>
+            <p className="text-xs text-muted-foreground">Set a static title or use a variable value. If the name exists, a number will be appended automatically.</p>
           </div>
         </div>
         
@@ -357,7 +357,7 @@ export const ConfluenceConfig = ({
             id="page-title"
             value={pageTitle}
             onChange={(e) => onSetPageTitle(e.target.value)}
-            placeholder="Enter page title..."
+            placeholder="A New Qonsol Generated Page"
             className="bg-background"
           />
         ) : (

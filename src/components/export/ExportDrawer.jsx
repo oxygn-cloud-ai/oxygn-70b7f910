@@ -104,7 +104,6 @@ export const ExportDrawer = ({
       try {
         const exportData = getExportData;
         console.log('[ExportDrawer] Export data:', exportData);
-        console.log('[ExportDrawer] Page title:', confluenceExport.pageTitle);
         console.log('[ExportDrawer] Space key:', confluenceExport.selectedSpaceKey);
         console.log('[ExportDrawer] Parent ID:', confluenceExport.selectedParentId);
         
@@ -113,10 +112,8 @@ export const ExportDrawer = ({
           return;
         }
         
-        const result = await confluenceExport.exportToConfluence(
-          exportData,
-          confluenceExport.pageTitle || 'Exported Prompts'
-        );
+        // No longer pass title - hook handles it internally with auto-increment
+        const result = await confluenceExport.exportToConfluence(exportData);
         if (result?.page?.url) {
           window.open(result.page.url, '_blank');
         }
@@ -270,7 +267,7 @@ export const ExportDrawer = ({
               {isLastStep ? (
                 <button
                   onClick={handleExport}
-                  disabled={!canProceed || isExporting || (!confluenceExport.pageTitle && !confluenceExport.pageTitleSource) || !confluenceExport.selectedSpaceKey}
+                  disabled={!canProceed || isExporting || !confluenceExport.selectedSpaceKey}
                   className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Export"
                   aria-label="Export"
