@@ -399,11 +399,11 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
             description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
           }
         },
-        required: [],
-        additionalProperties: false
-      },
-      strict: true
-    };
+      required: [],
+      additionalProperties: false
+    }
+    // strict: true removed - incompatible with optional parameters
+  };
 
     const tools = [
       ...getPromptFamilyTools(),
