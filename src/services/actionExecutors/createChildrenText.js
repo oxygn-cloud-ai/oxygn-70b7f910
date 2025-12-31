@@ -174,6 +174,7 @@ export const executeCreateChildrenText = async ({
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard',
+      is_assistant: true, // Always enable conversation mode for child prompts
       // Apply model defaults
       ...modelDefaults,
       // Inherit settings from parent

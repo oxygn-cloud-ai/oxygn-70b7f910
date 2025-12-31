@@ -299,6 +299,7 @@ export const executeCreateChildrenJson = async ({
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard',
+      is_assistant: true, // Always enable conversation mode for child prompts
       // Store the original item data for reference
       extracted_variables: typeof item === 'object' ? item : { value: item },
       // Apply model defaults
