@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, ArrowUp, ArrowDown, Edit2, BookOpen } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Trash2, Copy, Settings2, Bot, MessageSquare, Wrench, ArrowUp, ArrowDown, Edit2, BookOpen, GripVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -14,6 +14,10 @@ import { SettingCard } from '@/components/ui/setting-card';
 import { SettingRow } from '@/components/ui/setting-row';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import { SettingModelSelect, SettingSelect } from '@/components/ui/setting-select';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
+
+const DRAG_TYPE = 'TEMPLATE_NODE';
 
 /**
  * Visual structure editor for template prompt hierarchy
@@ -214,6 +218,52 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     onChange(newStructure);
   }, [structureWithId, onChange]);
 
+  // Drag-drop reorder: move draggedId to be a sibling of targetId at specified position
+  const reorderNode = useCallback((draggedId, targetId, position = 'after') => {
+    if (draggedId === targetId || draggedId === 'root') return;
+    
+    // Find dragged node and remove it from tree
+    let draggedNode = null;
+    
+    const removeFromTree = (node) => {
+      if (!node) return node;
+      if (node.children && node.children.length > 0) {
+        const idx = node.children.findIndex(c => c._id === draggedId);
+        if (idx !== -1) {
+          draggedNode = node.children[idx];
+          const newChildren = [...node.children];
+          newChildren.splice(idx, 1);
+          return { ...node, children: newChildren };
+        }
+        return { ...node, children: node.children.map(c => removeFromTree(c)) };
+      }
+      return node;
+    };
+    
+    // Insert node at target position
+    const insertAtTarget = (node) => {
+      if (!node) return node;
+      if (node.children && node.children.length > 0) {
+        const targetIdx = node.children.findIndex(c => c._id === targetId);
+        if (targetIdx !== -1) {
+          const newChildren = [...node.children];
+          const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+          newChildren.splice(insertIdx, 0, draggedNode);
+          return { ...node, children: newChildren };
+        }
+        return { ...node, children: node.children.map(c => insertAtTarget(c)) };
+      }
+      return node;
+    };
+    
+    // First remove, then insert
+    let newStructure = removeFromTree(structureWithId);
+    if (draggedNode) {
+      newStructure = insertAtTarget(newStructure);
+      onChange(newStructure);
+    }
+  }, [structureWithId, onChange]);
+
   // Get sibling info for a node (for move up/down buttons)
   const getSiblingInfo = useCallback((nodeId) => {
     if (nodeId === 'root') return { isFirst: true, isLast: true };
@@ -302,8 +352,8 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     </Tooltip>
   );
 
-  // Render tree node
-  const renderNode = (node, depth = 0) => {
+  // Draggable tree node component
+  const DraggableTreeNode = ({ node, depth = 0 }) => {
     if (!node) return null;
     const nodeId = node._id || 'root';
     const isExpanded = expandedNodes.has(nodeId);
@@ -311,6 +361,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     const hasChildren = node.children && node.children.length > 0;
     const isRenaming = renamingNodeId === nodeId;
     const siblingInfo = getSiblingInfo(nodeId);
+    const isRoot = nodeId === 'root';
     
     // Find variables in this node
     const nodeVariables = [
@@ -318,16 +369,59 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       ...extractVariables(node.input_user_prompt),
     ];
 
+    // Drag source - only non-root nodes can be dragged
+    const [{ isDragging }, dragRef, previewRef] = useDrag({
+      type: DRAG_TYPE,
+      item: { id: nodeId, node },
+      canDrag: !isRoot && !isRenaming,
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    });
+
+    // Drop target - for reordering siblings
+    const [{ isOver, canDrop }, dropRef] = useDrop({
+      accept: DRAG_TYPE,
+      canDrop: (item) => item.id !== nodeId && !isRoot,
+      drop: (item, monitor) => {
+        if (!monitor.didDrop()) {
+          reorderNode(item.id, nodeId, 'after');
+        }
+      },
+      collect: (monitor) => ({
+        isOver: monitor.isOver({ shallow: true }),
+        canDrop: monitor.canDrop(),
+      }),
+    });
+
+    // Combine refs
+    const combinedRef = (el) => {
+      previewRef(el);
+      dropRef(el);
+    };
+
     return (
-      <div key={nodeId}>
+      <div key={nodeId} ref={combinedRef} className={cn(isDragging && "opacity-40")}>
         <div
           className={cn(
             "flex items-center gap-1 py-1.5 px-2 rounded-m3-sm cursor-pointer transition-colors group",
             isSelected ? "bg-secondary-container text-secondary-container-foreground" : "hover:bg-surface-container",
+            isOver && canDrop && "ring-2 ring-primary ring-offset-1 ring-offset-surface",
           )}
           style={{ paddingLeft: `${depth * 20 + 8}px` }}
           onClick={() => !isRenaming && setSelectedNodeId(nodeId)}
         >
+          {/* Drag handle - only for non-root */}
+          {!isRoot && !isRenaming && (
+            <div
+              ref={dragRef}
+              className="cursor-grab active:cursor-grabbing p-0.5 text-on-surface-variant hover:text-on-surface"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </div>
+          )}
+          
           {hasChildren ? (
             <button
               onClick={(e) => { e.stopPropagation(); toggleExpanded(nodeId); }}
@@ -377,7 +471,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
                 tooltip="Add child"
               />
               
-              {nodeId !== 'root' && (
+              {!isRoot && (
                 <>
                   <TreeIconButton
                     icon={ArrowUp}
@@ -415,7 +509,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         
         {isExpanded && hasChildren && (
           <div>
-            {node.children.map(child => renderNode(child, depth + 1))}
+            {node.children.map(child => <DraggableTreeNode key={child._id} node={child} depth={depth + 1} />)}
           </div>
         )}
       </div>
@@ -423,6 +517,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   };
 
   return (
+    <DndProvider backend={HTML5Backend}>
     <TooltipProvider>
     <div className="h-full flex">
       {/* Tree View */}
@@ -443,7 +538,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2">
-            {renderNode(structureWithId)}
+            <DraggableTreeNode node={structureWithId} depth={0} />
           </div>
         </ScrollArea>
       </div>
@@ -465,6 +560,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       </div>
     </div>
     </TooltipProvider>
+    </DndProvider>
   );
 };
 
