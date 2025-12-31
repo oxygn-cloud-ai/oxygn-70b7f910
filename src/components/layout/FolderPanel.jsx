@@ -195,8 +195,9 @@ const TreeItem = ({
   onRefresh,
   // Supabase for inline editing
   supabase,
-  // Cascade highlighting
+  // Cascade and single run highlighting
   currentCascadePromptId,
+  singleRunPromptId,
   isCascadeRunning,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -252,7 +253,7 @@ const TreeItem = ({
   const DisplayIcon = CustomIcon || DefaultIcon;
   
   const itemIsActive = selectedPromptId === id;
-  const isCurrentlyRunning = isCascadeRunning && currentCascadePromptId === id;
+  const isCurrentlyRunning = (isCascadeRunning && currentCascadePromptId === id) || singleRunPromptId === id;
   
   // Handle icon click to open picker
   const handleIconClick = (e) => {
@@ -570,9 +571,10 @@ const TreeItem = ({
                 onIconChange={onIconChange}
                 onRefresh={onRefresh}
                 supabase={supabase}
-                // Cascade highlighting
+                // Cascade and single run highlighting
                 currentCascadePromptId={currentCascadePromptId}
                 isCascadeRunning={isCascadeRunning}
+                singleRunPromptId={singleRunPromptId}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -621,6 +623,7 @@ const FolderPanel = ({
   // Cascade highlighting
   currentCascadePromptId = null,
   isCascadeRunning = false,
+  singleRunPromptId = null,
 }) => {
   const supabase = useSupabase();
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
@@ -1273,9 +1276,10 @@ const FolderPanel = ({
                     onIconChange={handleIconChange}
                     onRefresh={onRefresh}
                     supabase={supabase}
-                    // Cascade highlighting
+                    // Cascade and single run highlighting
                     currentCascadePromptId={currentCascadePromptId}
                     isCascadeRunning={isCascadeRunning}
+                    singleRunPromptId={singleRunPromptId}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}
