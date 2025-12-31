@@ -36,6 +36,7 @@ import { useCostTracking } from "@/hooks/useCostTracking";
 import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults";
 import { usePromptFamilyChat } from "@/hooks/usePromptFamilyChat";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useRenderPerformance } from "@/hooks/useRenderPerformance";
 import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
 import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { executePostAction } from "@/services/actionExecutors";
@@ -71,6 +72,9 @@ const LoadingScreen = () => (
 );
 
 const MainLayout = () => {
+  // Track render performance for main layout
+  useRenderPerformance('MainLayout');
+  
   // Real data hooks
   const supabase = useSupabase();
   const { user: currentUser } = useAuth();
