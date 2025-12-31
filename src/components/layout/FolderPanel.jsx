@@ -189,6 +189,8 @@ const TreeItem = ({
   currentCascadePromptId,
   singleRunPromptId,
   isCascadeRunning,
+  // Deleting state for UI feedback
+  deletingPromptIds = new Set(),
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [menuPosition, setMenuPosition] = useState(null);
@@ -244,6 +246,7 @@ const TreeItem = ({
   
   const itemIsActive = selectedPromptId === id;
   const isCurrentlyRunning = (isCascadeRunning && currentCascadePromptId === id) || singleRunPromptId === id;
+  const isDeleting = deletingPromptIds.has(id);
   
   // Handle icon click to open picker
   const handleIconClick = (e) => {
@@ -266,7 +269,7 @@ const TreeItem = ({
   
   // Handle row click - support multi-select with shift
   const handleRowClick = (e) => {
-    if (isEditing) return; // Don't handle clicks while editing
+    if (isEditing || isDeleting) return; // Don't handle clicks while editing or deleting
     
     if (isMultiSelectMode) {
       if (e.shiftKey && lastSelectedId && allFlatItems && onRangeSelect) {
@@ -287,7 +290,7 @@ const TreeItem = ({
   // Handle double-click to select only this item (not descendants)
   const handleDoubleClick = (e) => {
     e.stopPropagation();
-    if (isEditing) return;
+    if (isEditing || isDeleting) return;
     onSelectOnlyThis?.(id);
   };
 
@@ -345,8 +348,12 @@ const TreeItem = ({
           setIsHovered(false);
         }}
         className={`
-          relative w-full h-7 flex items-center gap-0.5 pr-1.5 rounded-m3-sm cursor-pointer
+          relative w-full h-7 flex items-center gap-0.5 pr-1.5 rounded-m3-sm 
           transition-all duration-200 ease-emphasized group
+          ${isDeleting 
+            ? "opacity-50 cursor-not-allowed pointer-events-none"
+            : "cursor-pointer"
+          }
           ${isCurrentlyRunning
             ? "ring-2 ring-primary ring-offset-1 ring-offset-surface bg-primary/10"
             : itemIsActive 
@@ -417,8 +424,8 @@ const TreeItem = ({
           />
         ) : (
           <span 
-            className="flex-1 text-left text-tree truncate font-medium"
-            onDoubleClick={handleStartEdit}
+            className={`flex-1 text-left text-tree truncate font-medium ${isDeleting ? 'line-through opacity-50' : ''}`}
+            onDoubleClick={isDeleting ? undefined : handleStartEdit}
           >
             {label}
           </span>
@@ -565,6 +572,8 @@ const TreeItem = ({
                 currentCascadePromptId={currentCascadePromptId}
                 isCascadeRunning={isCascadeRunning}
                 singleRunPromptId={singleRunPromptId}
+                // Deleting state for UI feedback
+                deletingPromptIds={deletingPromptIds}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -614,6 +623,8 @@ const FolderPanel = ({
   currentCascadePromptId = null,
   isCascadeRunning = false,
   singleRunPromptId = null,
+  // Deleting state for UI feedback
+  deletingPromptIds = new Set(),
 }) => {
   const supabase = useSupabase();
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
@@ -1271,6 +1282,8 @@ const FolderPanel = ({
                     currentCascadePromptId={currentCascadePromptId}
                     isCascadeRunning={isCascadeRunning}
                     singleRunPromptId={singleRunPromptId}
+                    // Deleting state for UI feedback
+                    deletingPromptIds={deletingPromptIds}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}

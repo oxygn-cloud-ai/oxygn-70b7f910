@@ -92,7 +92,9 @@ const MainLayout = () => {
     handleBatchDuplicate,
     handleBatchStar,
     handleBatchToggleExcludeCascade,
-    handleBatchToggleExcludeExport
+    handleBatchToggleExcludeExport,
+    // Deleting state for UI feedback
+    deletingPromptIds
   } = useTreeOperations(supabase, refreshTreeData);
   const { updateField, fetchItemData } = usePromptData(supabase);
   
@@ -887,6 +889,7 @@ const MainLayout = () => {
           currentCascadePromptId={currentCascadePromptId}
           isCascadeRunning={isCascadeRunning}
           singleRunPromptId={singleRunPromptId}
+          deletingPromptIds={deletingPromptIds}
         />
       );
     }
