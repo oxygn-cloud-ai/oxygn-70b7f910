@@ -1,0 +1,30 @@
+name: Qonsol Release
+
+on:
+  push:
+    branches:
+      - main # Triggers whenever Lovable syncs code to your main branch
+
+permissions:
+  contents: write # Required permission to create releases and tags
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get Short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Uses the short commit hash as the version name (e.g., v-a1b2c3d)
+          tag_name: v-${{ steps.vars.outputs.sha_short }}
+          name: Release ${{ steps.vars.outputs.sha_short }}
+          generate_release_notes: true # Summarizes changes from Lovable
+          draft: false
+          prerelease: false
