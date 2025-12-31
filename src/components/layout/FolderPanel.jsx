@@ -60,16 +60,6 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick, badg
     `}
     style={{ height: "28px" }}
   >
-    {/* Active indicator bar */}
-    {isActive && (
-      <motion.div 
-        layoutId="smartFolderIndicator"
-        className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-primary rounded-full"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
-      />
-    )}
     <Icon className={`h-4 w-4 flex-shrink-0 transition-all duration-200 ${
       isActive ? 'text-primary scale-105' : 'group-hover:scale-110'
     }`} />

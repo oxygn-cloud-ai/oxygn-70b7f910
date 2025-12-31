@@ -33,19 +33,6 @@ const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onCli
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-        {/* Active indicator pill */}
-        <AnimatePresence>
-          {isActive && (
-            <motion.div
-              layoutId="activeNavIndicator"
-              className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full"
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -4 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            />
-          )}
-        </AnimatePresence>
 
         <button
           onClick={onClick}
