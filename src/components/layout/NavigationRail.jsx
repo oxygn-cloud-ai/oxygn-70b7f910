@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Menu,
@@ -107,6 +107,44 @@ const NavigationRail = ({
   ];
 
   const [hoveredId, setHoveredId] = useState(null);
+  const sectionStartTimeRef = useRef(Date.now());
+  const previousSectionRef = useRef(activeNav);
+
+  // Track time spent in section when switching or unmounting
+  useEffect(() => {
+    if (activeNav !== previousSectionRef.current) {
+      const timeSpent = Math.round((Date.now() - sectionStartTimeRef.current) / 1000);
+      trackEvent('section_time_spent', {
+        section: previousSectionRef.current,
+        duration_seconds: timeSpent
+      });
+      sectionStartTimeRef.current = Date.now();
+      previousSectionRef.current = activeNav;
+    }
+  }, [activeNav]);
+
+  // Track time on unmount (page close/refresh)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const timeSpent = Math.round((Date.now() - sectionStartTimeRef.current) / 1000);
+      trackEvent('section_time_spent', {
+        section: previousSectionRef.current,
+        duration_seconds: timeSpent,
+        is_session_end: true
+      });
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also track on component unmount
+      const timeSpent = Math.round((Date.now() - sectionStartTimeRef.current) / 1000);
+      trackEvent('section_time_spent', {
+        section: previousSectionRef.current,
+        duration_seconds: timeSpent
+      });
+    };
+  }, []);
 
   const handleMouseEnter = (id) => {
     setHoveredId(id);
