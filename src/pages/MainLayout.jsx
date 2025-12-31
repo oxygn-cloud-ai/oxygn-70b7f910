@@ -707,6 +707,8 @@ const MainLayout = () => {
         setSearchOpen(false);
       } else if (exportState.isOpen) {
         exportState.closeExport();
+      } else if (selectedPromptId) {
+        setSelectedPromptId(null);
       }
     },
     onUndo: handleUndo,
