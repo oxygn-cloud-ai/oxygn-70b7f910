@@ -1326,6 +1326,13 @@ const PromptsContent = ({
 
   return (
     <div className="flex-1 flex flex-col bg-surface min-h-0">
+      {/* Cascade Lock Banner */}
+      {isCascadeRunning && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
+          <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+          <span className="text-body-sm text-amber-700 dark:text-amber-400">Cascade in progress — editing disabled</span>
+        </div>
+      )}
       {/* Header */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">

@@ -38,6 +38,8 @@ const ReadingPane = ({
   isRunningCascade = false,
   onCancelRun,
   runProgress,
+  // Cascade lock
+  isCascadeRunning = false,
   // Settings props - Phase 6
   settings = {},
   isLoadingSettings = false,
@@ -192,6 +194,7 @@ const ReadingPane = ({
       onCancelRun={onCancelRun}
       runProgress={runProgress}
       onEditSchema={onEditSchema}
+      isCascadeRunning={isCascadeRunning}
     />
   );
 };

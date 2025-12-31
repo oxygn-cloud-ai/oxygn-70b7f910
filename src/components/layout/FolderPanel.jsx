@@ -194,7 +194,10 @@ const TreeItem = ({
   onIconChange,
   onRefresh,
   // Supabase for inline editing
-  supabase
+  supabase,
+  // Cascade highlighting
+  currentCascadePromptId,
+  isCascadeRunning,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [menuPosition, setMenuPosition] = useState(null);
@@ -249,6 +252,7 @@ const TreeItem = ({
   const DisplayIcon = CustomIcon || DefaultIcon;
   
   const itemIsActive = selectedPromptId === id;
+  const isCurrentlyRunning = isCascadeRunning && currentCascadePromptId === id;
   
   // Handle icon click to open picker
   const handleIconClick = (e) => {
@@ -352,9 +356,11 @@ const TreeItem = ({
         className={`
           relative w-full h-7 flex items-center gap-0.5 pr-1.5 rounded-m3-sm cursor-pointer
           transition-all duration-200 ease-emphasized group
-          ${itemIsActive 
-            ? "bg-secondary-container text-secondary-container-foreground" 
-            : "text-on-surface-variant hover:bg-on-surface/[0.08]"
+          ${isCurrentlyRunning
+            ? "ring-2 ring-primary ring-offset-1 ring-offset-surface bg-primary/10"
+            : itemIsActive 
+              ? "bg-secondary-container text-secondary-container-foreground" 
+              : "text-on-surface-variant hover:bg-on-surface/[0.08]"
           }
           ${isDragging ? "opacity-50 scale-95" : "hover:translate-x-0.5"}
           ${isOver && canDrop ? "ring-1 ring-primary bg-primary/10" : ""}
@@ -387,18 +393,22 @@ const TreeItem = ({
           }
         </button>
         
-        {/* Clickable icon to open picker */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button 
-              onClick={handleIconClick}
-              className="h-3.5 w-3.5 flex-shrink-0 hover:text-primary transition-colors"
-            >
-              <DisplayIcon className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Click to change icon</TooltipContent>
-        </Tooltip>
+        {/* Clickable icon to open picker - or spinner if currently running */}
+        {isCurrentlyRunning ? (
+          <Loader2 className="h-3.5 w-3.5 flex-shrink-0 text-primary animate-spin" />
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={handleIconClick}
+                className="h-3.5 w-3.5 flex-shrink-0 hover:text-primary transition-colors"
+              >
+                <DisplayIcon className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Click to change icon</TooltipContent>
+          </Tooltip>
+        )}
         
         {isEditing ? (
           <Input
@@ -560,6 +570,9 @@ const TreeItem = ({
                 onIconChange={onIconChange}
                 onRefresh={onRefresh}
                 supabase={supabase}
+                // Cascade highlighting
+                currentCascadePromptId={currentCascadePromptId}
+                isCascadeRunning={isCascadeRunning}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -604,7 +617,10 @@ const FolderPanel = ({
   onBatchDuplicate,
   onBatchStar,
   onBatchToggleExcludeCascade,
-  onBatchToggleExcludeExport
+  onBatchToggleExcludeExport,
+  // Cascade highlighting
+  currentCascadePromptId = null,
+  isCascadeRunning = false,
 }) => {
   const supabase = useSupabase();
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
@@ -1257,6 +1273,9 @@ const FolderPanel = ({
                     onIconChange={handleIconChange}
                     onRefresh={onRefresh}
                     supabase={supabase}
+                    // Cascade highlighting
+                    currentCascadePromptId={currentCascadePromptId}
+                    isCascadeRunning={isCascadeRunning}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}
