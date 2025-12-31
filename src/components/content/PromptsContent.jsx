@@ -1210,6 +1210,9 @@ const PromptsContent = ({
   onCancelRun,
   runProgress,
   onEditSchema,
+  // Lock state
+  isCascadeRunning = false,
+  singleRunPromptId = null,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
@@ -1326,11 +1329,13 @@ const PromptsContent = ({
 
   return (
     <div className="flex-1 flex flex-col bg-surface min-h-0">
-      {/* Cascade Lock Banner */}
-      {isCascadeRunning && (
+      {/* Run Lock Banner */}
+      {(isCascadeRunning || singleRunPromptId === selectedPromptId) && (
         <div className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
           <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
-          <span className="text-body-sm text-amber-700 dark:text-amber-400">Cascade in progress — editing disabled</span>
+          <span className="text-body-sm text-amber-700 dark:text-amber-400">
+            {isCascadeRunning ? 'Cascade in progress' : 'Prompt running'} — editing disabled
+          </span>
         </div>
       )}
       {/* Header */}

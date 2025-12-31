@@ -212,7 +212,7 @@ const MainLayout = () => {
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPrompt, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId } = useCascadeRun();
   const [isRunningCascade, setIsRunningCascade] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
@@ -868,6 +868,7 @@ const MainLayout = () => {
           onBatchToggleExcludeExport={handleBatchToggleExcludeExport}
           currentCascadePromptId={currentCascadePromptId}
           isCascadeRunning={isCascadeRunning}
+          singleRunPromptId={singleRunPromptId}
         />
       );
     }
@@ -1031,6 +1032,7 @@ const MainLayout = () => {
                         onCancelRun={cancelRun}
                         runProgress={runProgress}
                         isCascadeRunning={isCascadeRunning}
+                        singleRunPromptId={singleRunPromptId}
                         // Settings props for Phase 6
                         settings={settings}
                         isLoadingSettings={isLoadingSettings}
