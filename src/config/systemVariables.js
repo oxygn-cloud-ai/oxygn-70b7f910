@@ -3,12 +3,14 @@
  * 
  * All system variables use the `q.` prefix and are categorized as:
  * - static: Auto-populated at runtime (user cannot edit)
+ * - user_editable: User can edit in the Variables tab (stored in system_variables JSONB)
  * - input: User provides value when creating from template
  * - select: User selects from predefined options
  */
 
 export const SYSTEM_VARIABLE_TYPES = {
   STATIC: 'static',
+  USER_EDITABLE: 'user_editable',
   INPUT: 'input',
   SELECT: 'select',
 };
@@ -58,7 +60,13 @@ export const SYSTEM_VARIABLES = {
     getValue: (context) => context?.user?.email || '',
   },
 
-  // Prompt context variables (static - auto-populated during creation)
+  // Prompt context variables (static - auto-populated during execution)
+  'q.prompt.name': {
+    type: SYSTEM_VARIABLE_TYPES.STATIC,
+    label: 'Prompt Name',
+    description: 'Name of the current prompt',
+    getValue: (context) => context?.promptName || '',
+  },
   'q.toplevel.prompt.name': {
     type: SYSTEM_VARIABLE_TYPES.STATIC,
     label: 'Top Level Prompt Name',
@@ -72,63 +80,56 @@ export const SYSTEM_VARIABLES = {
     getValue: (context) => context?.parentPromptName || '',
   },
 
-  // User-input system variables
+  // Policy name is STATIC - derived from top-level prompt name
   'q.policy.name': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.STATIC,
     label: 'Policy Name',
-    description: 'Name of the policy (prefixes top-level prompt name)',
-    placeholder: 'Enter policy name',
-    required: true,
+    description: 'Derived from the top-level prompt name in the tree',
+    getValue: (context) => context?.topLevelPromptName || context?.promptName || '',
   },
+
+  // User-editable policy variables (stored in prompt's system_variables field)
   'q.policy.version': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
     label: 'Policy Version',
     description: 'Version of the policy',
     placeholder: 'e.g., 1.0, 2.1',
-    required: false,
   },
   'q.policy.owner': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
     label: 'Policy Owner',
     description: 'Owner or responsible party for the policy',
     placeholder: 'Enter policy owner',
-    required: false,
   },
   'q.policy.effective.date': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
     label: 'Effective Date',
     description: 'When the policy becomes effective',
     placeholder: 'YYYY-MM-DD',
-    required: false,
   },
   'q.policy.review.date': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
     label: 'Review Date',
     description: 'Next scheduled review date',
     placeholder: 'YYYY-MM-DD',
-    required: false,
   },
   'q.client.name': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
     label: 'Client Name',
     description: 'Name of the client or organization',
     placeholder: 'Enter client name',
-    required: false,
   },
   'q.jurisdiction': {
-    type: SYSTEM_VARIABLE_TYPES.INPUT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
     label: 'Jurisdiction',
     description: 'Legal jurisdiction',
     placeholder: 'e.g., Singapore, Hong Kong',
-    required: false,
   },
-
-  // Select system variables (predefined options)
   'q.topic': {
-    type: SYSTEM_VARIABLE_TYPES.SELECT,
+    type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,
+    inputType: 'select',
     label: 'Topic',
     description: 'Policy topic category',
-    required: true,
     options: [
       'Purpose',
       'Nature of the Firm',
@@ -144,7 +145,6 @@ export const SYSTEM_VARIABLES = {
       'Non-Compliance Consequences',
       'Training and Preparedness',
     ],
-    allowCustom: false, // Only admins can add options
   },
 };
 
@@ -169,6 +169,23 @@ export const getSystemVariable = (varName) => SYSTEM_VARIABLES[varName];
 export const isStaticSystemVariable = (varName) => {
   const def = SYSTEM_VARIABLES[varName];
   return def?.type === SYSTEM_VARIABLE_TYPES.STATIC;
+};
+
+/**
+ * Check if a system variable is user-editable
+ */
+export const isUserEditableVariable = (varName) => {
+  const def = SYSTEM_VARIABLES[varName];
+  return def?.type === SYSTEM_VARIABLE_TYPES.USER_EDITABLE;
+};
+
+/**
+ * Get all user-editable variables
+ */
+export const getUserEditableVariables = () => {
+  return Object.entries(SYSTEM_VARIABLES)
+    .filter(([_, def]) => def.type === SYSTEM_VARIABLE_TYPES.USER_EDITABLE)
+    .map(([name, def]) => ({ name, ...def }));
 };
 
 /**
@@ -207,6 +224,7 @@ export const getInputVariables = (variableNames) => {
  */
 export const categorizeVariables = (variableNames) => {
   const systemStatic = [];
+  const systemUserEditable = [];
   const systemInput = [];
   const userDefined = [];
 
@@ -215,6 +233,8 @@ export const categorizeVariables = (variableNames) => {
       const def = SYSTEM_VARIABLES[name];
       if (def?.type === SYSTEM_VARIABLE_TYPES.STATIC) {
         systemStatic.push(name);
+      } else if (def?.type === SYSTEM_VARIABLE_TYPES.USER_EDITABLE) {
+        systemUserEditable.push(name);
       } else if (def) {
         systemInput.push(name);
       } else {
@@ -226,5 +246,5 @@ export const categorizeVariables = (variableNames) => {
     }
   });
 
-  return { systemStatic, systemInput, userDefined };
+  return { systemStatic, systemUserEditable, systemInput, userDefined };
 };
