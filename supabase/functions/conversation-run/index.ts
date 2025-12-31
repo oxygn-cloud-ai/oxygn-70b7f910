@@ -609,6 +609,7 @@ serve(async (req) => {
       // Determine which thread to use and get previous response ID for chaining
       let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
       let previousResponseId: string | null = null;
+      let isInheritedFromParent = false; // Track if context is inherited vs same-thread continuation
 
       // ============================================================================
       // CONVERSATIONAL MEMORY: If child prompt has is_assistant=true (inherited),
@@ -631,10 +632,12 @@ serve(async (req) => {
           // Use the parent's thread and its last response for context chaining
           activeThreadRowId = parentThread.row_id;
           previousResponseId = parentThread.last_response_id;
+          isInheritedFromParent = true; // Mark as inherited - we still need to load files/pages
           console.log('Inheriting parent thread context:', {
             parent_prompt: childPrompt.parent_row_id,
             thread: activeThreadRowId,
             previous_response_id: previousResponseId,
+            inherited: true,
           });
         } else {
           // No parent thread with response - check if parent's assistant has any thread
@@ -652,10 +655,12 @@ serve(async (req) => {
             if (topThread?.last_response_id) {
               activeThreadRowId = topThread.row_id;
               previousResponseId = topThread.last_response_id;
+              isInheritedFromParent = true; // Mark as inherited - we still need to load files/pages
               console.log('Using top-level assistant thread:', {
                 assistant: topLevelAssistantId,
                 thread: activeThreadRowId,
                 previous_response_id: previousResponseId,
+                inherited: true,
               });
             }
           }
@@ -698,10 +703,11 @@ serve(async (req) => {
       }
 
       // ============================================================================
-      // OPTIMIZATION: Skip file/confluence loading when we have previous_response_id
-      // OpenAI already has the context from previous turns
+      // OPTIMIZATION: Skip file/confluence loading only for TRUE follow-ups
+      // (same thread continuation). When context is INHERITED from parent,
+      // we still need to load files/pages as they're not in the OpenAI context.
       // ============================================================================
-      const isFollowUpMessage = !!previousResponseId;
+      const isFollowUpMessage = !!previousResponseId && !isInheritedFromParent;
       let fileContext = '';
       let confluenceContext = '';
       let filesCount = 0;
@@ -712,14 +718,30 @@ serve(async (req) => {
           type: 'progress', 
           stage: 'loading_context', 
           message: 'Loading files and pages...',
+          inherited_context: isInheritedFromParent,
           elapsed_ms: Date.now() - startTime 
         });
 
         // Fetch attached Confluence pages for context injection
-        const { data: confluencePages } = await supabase
+        // For inherited context, also include pages from parent prompts in hierarchy
+        let confluenceQuery = supabase
           .from(TABLES.CONFLUENCE_PAGES)
-          .select('page_id, page_title, content_text, page_url')
-          .or(`assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`);
+          .select('page_id, page_title, content_text, page_url, prompt_row_id');
+        
+        if (isInheritedFromParent && allAssistantRowIds.length > 0) {
+          // Include pages from all assistants in hierarchy AND the child prompt
+          const allPromptIds = [child_prompt_row_id];
+          // Add parent prompt IDs by walking up from allAssistantRowIds
+          confluenceQuery = confluenceQuery.or(
+            `assistant_row_id.in.(${allAssistantRowIds.join(',')}),prompt_row_id.eq.${child_prompt_row_id}`
+          );
+        } else {
+          confluenceQuery = confluenceQuery.or(
+            `assistant_row_id.eq.${assistantData.row_id},prompt_row_id.eq.${child_prompt_row_id}`
+          );
+        }
+        
+        const { data: confluencePages } = await confluenceQuery;
 
         // Fetch attached files from ALL assistants in the hierarchy
         let assistantFiles: any[] = [];
@@ -730,7 +752,8 @@ serve(async (req) => {
             .in('assistant_row_id', allAssistantRowIds);
           assistantFiles = files || [];
           filesCount = assistantFiles.length;
-          console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`);
+          console.log(`Found ${assistantFiles.length} files from ${allAssistantRowIds.length} assistants in hierarchy`, 
+            isInheritedFromParent ? '(loading for inherited context)' : '');
         }
 
         // Build file context from attached files (read text-based files directly)
@@ -785,20 +808,17 @@ serve(async (req) => {
           stage: 'context_ready', 
           files_count: filesCount,
           pages_count: pagesCount,
+          inherited_context: isInheritedFromParent,
           elapsed_ms: Date.now() - startTime 
         });
       } else {
-        // Check if this is inherited context from parent thread
-        const isInheritedContext = !!previousResponseId && childPrompt.parent_row_id;
-        console.log('Skipping file/confluence context load - using previous_response_id for context', 
-          isInheritedContext ? '(inherited from parent)' : '');
+        console.log('Skipping file/confluence context load - true follow-up message in same thread');
         emitter.emit({ 
           type: 'progress', 
           stage: 'context_ready', 
           files_count: 0,
           pages_count: 0,
           cached: true,
-          inherited_context: isInheritedContext,
           elapsed_ms: Date.now() - startTime 
         });
       }
