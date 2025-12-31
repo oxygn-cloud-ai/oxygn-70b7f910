@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { trackEvent, trackException } from '@/lib/posthog';
+import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 
 // Move invokeFunction outside component to ensure stable reference
 const invokeFunction = async (action, params = {}) => {
@@ -30,6 +30,7 @@ const invokeFunction = async (action, params = {}) => {
     return data;
   } catch (err) {
     console.error(`[invokeFunction] Caught error for action ${action}:`, err);
+    trackApiError('confluence-manager', err, { action });
     // Re-throw with clear message
     if (err instanceof Error) {
       throw err;

@@ -3,7 +3,7 @@ import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
-import { trackEvent, trackException } from '@/lib/posthog';
+import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 
 export const useConversationRun = () => {
   const supabase = useSupabase();
@@ -267,6 +267,10 @@ export const useConversationRun = () => {
           success: false,
           error_code: formatted.code,
           error_message: error.message,
+        });
+        trackApiError('conversation-run', error, {
+          prompt_id: childPromptRowId,
+          error_code: formatted.code,
         });
         trackException(error, {
           context: 'conversation_run',

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
-import { trackEvent, trackException } from '@/lib/posthog';
+import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 
 const MAX_TOKENS = 16000;
 const ESTIMATED_TOKENS_PER_CHAR = 0.4;
@@ -181,6 +181,10 @@ export const useOpenAICall = () => {
         return content;
       } catch (error) {
         handleApiError(error);
+        trackApiError('openai-proxy', error, {
+          model: projectSettings?.model,
+          status_code: error?.status
+        });
         trackException(error, { context: 'openai_call' });
         return null;
       } finally {
