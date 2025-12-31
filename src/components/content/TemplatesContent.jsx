@@ -555,7 +555,127 @@ const TemplateVariablesTabContent = ({ variables = [] }) => {
   );
 };
 
-// File type icon helper
+// Structure Tab Content - for Prompt Templates (shows hierarchy of child prompts)
+const TemplateStructureTabContent = ({ structure }) => {
+  // Recursively count total children
+  const countChildren = (node) => {
+    if (!node?.children?.length) return 0;
+    return node.children.length + node.children.reduce((acc, child) => acc + countChildren(child), 0);
+  };
+
+  const totalChildren = countChildren(structure);
+  const hasChildren = structure?.children?.length > 0;
+
+  // Recursive structure node renderer
+  const StructureTreeNode = ({ node, level = 0 }) => {
+    const [expanded, setExpanded] = useState(true);
+    const nodeChildren = node?.children || [];
+    const hasNodeChildren = nodeChildren.length > 0;
+
+    return (
+      <div>
+        <div 
+          className="flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer group"
+          style={{ paddingLeft: `${level * 16 + 8}px` }}
+        >
+          {hasNodeChildren ? (
+            <button onClick={() => setExpanded(!expanded)} className="p-0.5">
+              {expanded ? (
+                <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />
+              )}
+            </button>
+          ) : (
+            <div className="w-4" />
+          )}
+          
+          <FileText className="h-3.5 w-3.5 text-on-surface-variant" />
+          
+          <span className="text-body-sm text-on-surface flex-1 truncate">
+            {node?.prompt_name || node?.name || "Unnamed Prompt"}
+          </span>
+          
+          {node?.is_assistant && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+              assistant
+            </span>
+          )}
+          
+          {hasNodeChildren && (
+            <span className="text-[10px] text-on-surface-variant">
+              {nodeChildren.length} child{nodeChildren.length !== 1 ? 'ren' : ''}
+            </span>
+          )}
+        </div>
+        
+        {expanded && hasNodeChildren && (
+          <div>
+            {nodeChildren.map((child, idx) => (
+              <StructureTreeNode 
+                key={child._id || child.id || child.row_id || idx} 
+                node={child} 
+                level={level + 1} 
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (!structure) {
+    return (
+      <div className="text-center py-12 text-on-surface-variant">
+        <Layers className="h-10 w-10 mx-auto mb-3 opacity-30" />
+        <p className="text-body-sm">No structure defined</p>
+        <p className="text-[10px] opacity-70 mt-1">This template has no prompt hierarchy</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <GitBranch className="h-4 w-4 text-on-surface-variant" />
+          <span className="text-label-sm text-on-surface-variant uppercase">
+            Prompt Hierarchy ({totalChildren + 1} prompt{totalChildren > 0 ? 's' : ''})
+          </span>
+        </div>
+      </div>
+
+      <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant p-2">
+        {/* Root prompt */}
+        <StructureTreeNode node={structure} level={0} />
+      </div>
+
+      {!hasChildren && (
+        <div className="flex items-start gap-2 p-2.5 bg-surface-container rounded-m3-md border border-outline-variant">
+          <AlertCircle className="h-4 w-4 text-on-surface-variant shrink-0 mt-0.5" />
+          <div>
+            <p className="text-body-sm text-on-surface">Single prompt template</p>
+            <p className="text-[10px] text-on-surface-variant">This template has no child prompts</p>
+          </div>
+        </div>
+      )}
+
+      {hasChildren && (
+        <div className="flex items-start gap-2 p-2.5 bg-primary/5 rounded-m3-md border border-primary/20">
+          <Layers className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="text-body-sm text-on-surface">Cascade template</p>
+            <p className="text-[10px] text-on-surface-variant">
+              Contains {totalChildren} child prompt{totalChildren !== 1 ? 's' : ''} that will be created as a hierarchy
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const getFileIcon = (type) => {
   if (type.includes('pdf')) return FileText;
   if (type.includes('json')) return Braces;
@@ -1092,6 +1212,7 @@ const TemplatesContent = ({
           {activeTemplateTab === "prompts" && (
             <>
               <TabButton icon={FileText} label="Prompt" isActive={activeEditorTab === "prompt"} onClick={() => setActiveEditorTab("prompt")} />
+              <TabButton icon={GitBranch} label="Structure" isActive={activeEditorTab === "structure"} onClick={() => setActiveEditorTab("structure")} />
               <TabButton icon={Sliders} label="Settings" isActive={activeEditorTab === "settings"} onClick={() => setActiveEditorTab("settings")} />
               <TabButton icon={Variable} label="Variables" isActive={activeEditorTab === "variables"} onClick={() => setActiveEditorTab("variables")} />
             </>
@@ -1165,6 +1286,11 @@ const TemplatesContent = ({
             <TemplateVariablesTabContent 
               variables={displayVariables}
             />
+          )}
+
+          {/* Structure Tab - for Prompt Templates */}
+          {activeEditorTab === "structure" && activeTemplateTab === "prompts" && (
+            <TemplateStructureTabContent structure={editedTemplate?.structure} />
           )}
         </div>
 
