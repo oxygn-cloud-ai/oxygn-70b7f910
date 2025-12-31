@@ -201,6 +201,23 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
+  const findUniqueTitle = useCallback(async (spaceKey, baseTitle, parentId = null) => {
+    try {
+      console.log('[useConfluencePages] Finding unique title:', { spaceKey, baseTitle, parentId });
+      const data = await invokeFunction('find-unique-title', { 
+        spaceKey, 
+        baseTitle, 
+        parentId 
+      });
+      console.log('[useConfluencePages] Unique title result:', data);
+      return data;
+    } catch (error) {
+      console.error('[useConfluencePages] Error finding unique title:', error);
+      // Return original title on error
+      return { uniqueTitle: baseTitle, wasModified: false, error: error.message };
+    }
+  }, []);
+
   const attachPage = async (pageId, contentType = 'page') => {
     try {
       const data = await invokeFunction('attach-page', { 
@@ -311,6 +328,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     cancelTreeLoading,
     searchPages,
     createPage,
+    findUniqueTitle,
     attachPage,
     detachPage,
     syncPage,
