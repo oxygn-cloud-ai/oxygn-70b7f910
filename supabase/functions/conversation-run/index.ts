@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings, getTokenParam } from "../_shared/models.ts";
+import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponse } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -606,103 +607,38 @@ serve(async (req) => {
         console.log('Auto-created assistant:', newAssistant.row_id);
       }
 
-      // Determine which thread to use and get previous response ID for chaining
-      let activeThreadRowId: string | null = thread_row_id || existing_thread_row_id || null;
-      let previousResponseId: string | null = null;
-      let isInheritedFromParent = false; // Track if context is inherited vs same-thread continuation
-
       // ============================================================================
-      // CONVERSATIONAL MEMORY: If child prompt has is_assistant=true (inherited),
-      // look for the parent's active thread to chain context
+      // UNIFIED FAMILY THREAD RESOLUTION
+      // All prompts in a family share ONE thread, keyed by root_prompt_row_id
       // ============================================================================
-      if (!activeThreadRowId && childPrompt.is_assistant && childPrompt.parent_row_id) {
-        console.log('Child prompt has is_assistant=true, looking for parent thread context...');
-        
-        // Find the most recent active thread for the parent's assistant
-        const { data: parentThread } = await supabase
-          .from(TABLES.THREADS)
-          .select('row_id, last_response_id, assistant_row_id')
-          .eq('child_prompt_row_id', childPrompt.parent_row_id)
-          .eq('is_active', true)
-          .order('last_message_at', { ascending: false, nullsFirst: false })
-          .limit(1)
-          .maybeSingle();
-        
-        if (parentThread?.last_response_id) {
-          // Use the parent's thread and its last response for context chaining
-          activeThreadRowId = parentThread.row_id;
-          previousResponseId = parentThread.last_response_id;
-          isInheritedFromParent = true; // Mark as inherited - we still need to load files/pages
-          console.log('Inheriting parent thread context:', {
-            parent_prompt: childPrompt.parent_row_id,
-            thread: activeThreadRowId,
-            previous_response_id: previousResponseId,
-            inherited: true,
-          });
-        } else {
-          // No parent thread with response - check if parent's assistant has any thread
-          const topLevelAssistantId = allAssistantRowIds[allAssistantRowIds.length - 1]; // Last one is the top-level
-          if (topLevelAssistantId) {
-            const { data: topThread } = await supabase
-              .from(TABLES.THREADS)
-              .select('row_id, last_response_id')
-              .eq('assistant_row_id', topLevelAssistantId)
-              .eq('is_active', true)
-              .order('last_message_at', { ascending: false, nullsFirst: false })
-              .limit(1)
-              .maybeSingle();
-            
-            if (topThread?.last_response_id) {
-              activeThreadRowId = topThread.row_id;
-              previousResponseId = topThread.last_response_id;
-              isInheritedFromParent = true; // Mark as inherited - we still need to load files/pages
-              console.log('Using top-level assistant thread:', {
-                assistant: topLevelAssistantId,
-                thread: activeThreadRowId,
-                previous_response_id: previousResponseId,
-                inherited: true,
-              });
-            }
-          }
-        }
-      }
+      
+      // Resolve the root prompt ID (walk up parent chain to find top-level)
+      const rootPromptRowId = await resolveRootPromptId(supabase, child_prompt_row_id);
+      console.log('Resolved root prompt:', rootPromptRowId, 'from child:', child_prompt_row_id);
 
-      // Try to get existing thread's last response ID for multi-turn context
-      if (activeThreadRowId && !previousResponseId) {
-        const { data: existingThread } = await supabase
-          .from(TABLES.THREADS)
-          .select('last_response_id')
-          .eq('row_id', activeThreadRowId)
-          .single();
-        
-        if (existingThread?.last_response_id) {
-          previousResponseId = existingThread.last_response_id;
-          console.log('Using previous response for context:', previousResponseId);
-        }
-      }
+      // Get or create the unified family thread
+      const familyThread = await getOrCreateFamilyThread(
+        supabase, 
+        rootPromptRowId, 
+        validation.user!.id,
+        childPrompt.prompt_name
+      );
 
-      // Create a new thread record if none exists
-      if (!activeThreadRowId) {
-        // Use a temporary placeholder - will be updated with real response_id after API call
-        const tempConversationId = `pending-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-        const { data: newThread } = await supabase
-          .from(TABLES.THREADS)
-          .insert({
-            assistant_row_id: assistantData.row_id,
-            child_prompt_row_id: child_prompt_row_id,
-            openai_conversation_id: tempConversationId,
-            name: `${childPrompt.prompt_name} - ${new Date().toLocaleDateString()}`,
-            is_active: true,
-            owner_id: validation.user?.id,
-          })
-          .select()
-          .single();
+      const activeThreadRowId = familyThread.row_id;
+      const previousResponseId = familyThread.last_response_id;
+      
+      // If thread existed and has no previous response, context is "new" not inherited
+      // If thread existed and has previous response, context is inherited from family conversation
+      const isInheritedFromParent = !familyThread.created && !!previousResponseId;
 
-        if (newThread) {
-          activeThreadRowId = newThread.row_id;
-          console.log('Created new thread:', activeThreadRowId);
-        }
-      }
+      console.log('Unified thread resolution:', {
+        root_prompt_row_id: rootPromptRowId,
+        child_prompt_row_id: child_prompt_row_id,
+        thread_row_id: activeThreadRowId,
+        previous_response_id: previousResponseId,
+        thread_created: familyThread.created,
+        inherited_context: isInheritedFromParent,
+      });
 
       // ============================================================================
       // OPTIMIZATION: Skip file/confluence loading only for TRUE follow-ups
@@ -1255,18 +1191,9 @@ serve(async (req) => {
         })
         .eq('row_id', child_prompt_row_id);
 
-      // Update thread's last_message_at, last_response_id, and openai_conversation_id
+      // Update family thread with new response_id for conversation chaining
       if (activeThreadRowId && result.response_id) {
-        await supabase
-          .from(TABLES.THREADS)
-          .update({ 
-            last_message_at: new Date().toISOString(),
-            last_response_id: result.response_id,
-            openai_conversation_id: result.response_id, // Store actual response ID for reference
-          })
-          .eq('row_id', activeThreadRowId);
-        
-        console.log('Updated thread with response_id for context chaining:', result.response_id);
+        await updateFamilyThreadResponse(supabase, activeThreadRowId, result.response_id);
       }
 
       console.log('Run completed successfully');

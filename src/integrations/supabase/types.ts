@@ -1328,6 +1328,7 @@ export type Database = {
           name: string | null
           openai_conversation_id: string
           owner_id: string | null
+          root_prompt_row_id: string | null
           row_id: string
         }
         Insert: {
@@ -1341,6 +1342,7 @@ export type Database = {
           name?: string | null
           openai_conversation_id: string
           owner_id?: string | null
+          root_prompt_row_id?: string | null
           row_id?: string
         }
         Update: {
@@ -1354,6 +1356,7 @@ export type Database = {
           name?: string | null
           openai_conversation_id?: string
           owner_id?: string | null
+          root_prompt_row_id?: string | null
           row_id?: string
         }
         Relationships: [
@@ -1374,6 +1377,20 @@ export type Database = {
           {
             foreignKeyName: "q_threads_child_prompt_row_id_fkey"
             columns: ["child_prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_threads_root_prompt_row_id_fkey"
+            columns: ["root_prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_owner_emails"
+            referencedColumns: ["prompt_row_id"]
+          },
+          {
+            foreignKeyName: "q_threads_root_prompt_row_id_fkey"
+            columns: ["root_prompt_row_id"]
             isOneToOne: false
             referencedRelation: "q_prompts"
             referencedColumns: ["row_id"]
