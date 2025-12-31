@@ -138,7 +138,10 @@ const NavigationRail = ({
           </motion.button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" className="w-56">
-          <DropdownMenuItem onClick={onToggleFolderPanel} className="gap-2">
+          <DropdownMenuItem onClick={() => {
+            trackEvent('nav_menu_action', { action: 'toggle_folder_panel', folder_open: !folderPanelOpen });
+            onToggleFolderPanel?.();
+          }} className="gap-2">
             {folderPanelOpen ? (
               <PanelLeftClose className="h-4 w-4" />
             ) : (
@@ -146,16 +149,25 @@ const NavigationRail = ({
             )}
             <span>{folderPanelOpen ? "Close folders" : "Open folders"}</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onShowShortcuts} className="gap-2">
+          <DropdownMenuItem onClick={() => {
+            trackEvent('nav_menu_action', { action: 'show_shortcuts' });
+            onShowShortcuts?.();
+          }} className="gap-2">
             <Keyboard className="h-4 w-4" />
             <span>Keyboard shortcuts</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-outline-variant" />
-          <DropdownMenuItem onClick={onHideNavRail} className="gap-2">
+          <DropdownMenuItem onClick={() => {
+            trackEvent('nav_menu_action', { action: 'hide_nav_rail' });
+            onHideNavRail?.();
+          }} className="gap-2">
             <EyeOff className="h-4 w-4" />
             <span>Hide navigation</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={onResetLayout} className="gap-2">
+          <DropdownMenuItem onClick={() => {
+            trackEvent('nav_menu_action', { action: 'reset_layout' });
+            onResetLayout?.();
+          }} className="gap-2">
             <RotateCcw className="h-4 w-4" />
             <span>Reset layout</span>
           </DropdownMenuItem>
