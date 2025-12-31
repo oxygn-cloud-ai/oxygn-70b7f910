@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DollarSign, Clock, Cpu, Hash, Calendar, TrendingUp, Info } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useCostTracking } from '@/hooks/useCostTracking';
+import { trackEvent } from '@/lib/posthog';
 
 const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
   const [position, setPosition] = useState(item?.position || '');
@@ -20,6 +21,7 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
   // Fetch lifetime costs when dialog opens
   useEffect(() => {
     if (isOpen && item?.id) {
+      trackEvent('debug_info_viewed', { prompt_id: item.id, prompt_name: item.prompt_name });
       setIsLoadingCosts(true);
       getLifetimeCosts(item.id)
         .then(costs => setLifetimeCosts(costs))
