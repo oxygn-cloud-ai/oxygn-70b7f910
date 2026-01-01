@@ -307,18 +307,26 @@ async function executeToolsAndSubmit(
   }
 
   // Submit tool results back to OpenAI
+  // Only include conversation if it's a valid conv_ ID (not resp_ or pending-)
+  const requestBody: any = {
+    model: selectedModel,
+    input: toolResults,
+    store: true,
+  };
+  
+  if (conversationId?.startsWith('conv_')) {
+    requestBody.conversation = conversationId;
+  } else {
+    console.warn('Invalid conversation ID in tool submit, omitting:', conversationId);
+  }
+  
   const submitResponse = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openAIApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: selectedModel,
-      conversation: conversationId,
-      input: toolResults,
-      store: true,
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!submitResponse.ok) {
