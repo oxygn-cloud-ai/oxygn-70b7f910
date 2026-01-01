@@ -102,7 +102,7 @@ export const useDeletedItems = (isAdmin = false) => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   // Restore a single item (RLS protects cross-tenant access)
   const restoreItem = useCallback(async (type, rowId) => {
@@ -269,7 +269,7 @@ export const useDeletedItems = (isAdmin = false) => {
       toast.error('Failed to restore items');
       return false;
     }
-  }, [fetchAllDeleted]);
+  }, [fetchAllDeleted, isAdmin]);
 
   // Permanently delete all items of a specific type (or all types if type is null) for current user only
   const permanentlyDeleteAll = useCallback(async (type = null) => {
@@ -324,7 +324,7 @@ export const useDeletedItems = (isAdmin = false) => {
       toast.error('Failed to empty trash');
       return false;
     }
-  }, [fetchAllDeleted]);
+  }, [fetchAllDeleted, isAdmin]);
 
   // Get just the counts without full data for current user only
   const fetchCounts = useCallback(async () => {
