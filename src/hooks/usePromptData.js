@@ -52,9 +52,41 @@ export const usePromptData = (supabase) => {
       if (data) {
         // Extract assistant_row_id from the joined data
         const assistantData = data[import.meta.env.VITE_ASSISTANTS_TBL];
-        const assistant_row_id = Array.isArray(assistantData) 
+        let assistant_row_id = Array.isArray(assistantData) 
           ? assistantData[0]?.row_id 
           : assistantData?.row_id;
+        
+        // If this is a child prompt, resolve root prompt's assistant_row_id
+        // All prompts in a family share the root's assistant for file storage
+        if (data.parent_row_id) {
+          let currentParentId = data.parent_row_id;
+          
+          while (currentParentId) {
+            const { data: parentData } = await supabase
+              .from(import.meta.env.VITE_PROMPTS_TBL)
+              .select(`
+                parent_row_id,
+                ${import.meta.env.VITE_ASSISTANTS_TBL}!${import.meta.env.VITE_ASSISTANTS_TBL}_prompt_row_id_fkey(row_id)
+              `)
+              .eq("row_id", currentParentId)
+              .maybeSingle();
+            
+            if (!parentData) break;
+            
+            const parentAssistantData = parentData[import.meta.env.VITE_ASSISTANTS_TBL];
+            const parentAssistantId = Array.isArray(parentAssistantData) 
+              ? parentAssistantData[0]?.row_id 
+              : parentAssistantData?.row_id;
+            
+            // Use the parent's assistant (will keep updating until we reach root)
+            if (parentAssistantId) {
+              assistant_row_id = parentAssistantId;
+            }
+            
+            // Move up to next parent (null when we reach root)
+            currentParentId = parentData.parent_row_id;
+          }
+        }
         
         // Remove the nested object and add flat assistant_row_id
         const { [import.meta.env.VITE_ASSISTANTS_TBL]: _, ...promptData } = data;
