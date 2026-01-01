@@ -59,6 +59,7 @@ export const useCascadeExecutor = () => {
     checkPaused,
     showError,
     showActionPreview,
+    skipAllPreviews,
   } = useCascadeRun();
 
   // Fetch hierarchy of prompts starting from a top-level prompt
@@ -594,8 +595,8 @@ export const useCascadeExecutor = () => {
                         });
                       }
                       
-                      // Show preview unless skip_preview is true
-                      const skipPreview = actionConfig.skip_preview === true;
+                      // Show preview unless skip_preview is true or skipAllPreviews is enabled
+                      const skipPreview = actionConfig.skip_preview === true || skipAllPreviews;
                       
                       if (!skipPreview && prompt.post_action === 'create_children_json') {
                         const confirmed = await showActionPreview({

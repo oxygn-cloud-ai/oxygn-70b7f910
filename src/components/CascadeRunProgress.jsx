@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { X, Pause, Play, Loader2, CheckCircle2, SkipForward } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { X, Pause, Play, Loader2, CheckCircle2, SkipForward, FastForward } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +26,8 @@ const CascadeRunProgress = () => {
     cancel,
     pause,
     resume,
+    skipAllPreviews,
+    setSkipAllPreviews,
   } = useCascadeRun();
 
   const [elapsed, setElapsed] = useState(0);
@@ -115,7 +118,28 @@ const CascadeRunProgress = () => {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {/* Skip All Previews Toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1.5">
+                  <FastForward className={`h-3.5 w-3.5 ${skipAllPreviews ? 'text-primary' : 'text-on-surface-variant'}`} />
+                  <Switch
+                    checked={skipAllPreviews}
+                    onCheckedChange={setSkipAllPreviews}
+                    className="scale-75"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Skip all action previews</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <div className="w-px h-4 bg-outline-variant" />
+          
           <Button
             variant="ghost"
             size="icon"
