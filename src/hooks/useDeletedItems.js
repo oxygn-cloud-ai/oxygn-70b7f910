@@ -22,31 +22,42 @@ export const useDeletedItems = () => {
     total: 0
   });
 
-  // Fetch all deleted items
+  // Fetch all deleted items for current user only
   const fetchAllDeleted = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch all types in parallel
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setDeletedItems({ prompts: [], templates: [], jsonSchemas: [], exportTemplates: [] });
+        setCounts({ prompts: 0, templates: 0, jsonSchemas: 0, exportTemplates: 0, total: 0 });
+        return { prompts: [], templates: [], jsonSchemas: [], exportTemplates: [] };
+      }
+
+      // Fetch all types in parallel with owner_id filter
       const [promptsRes, templatesRes, jsonSchemasRes, exportTemplatesRes] = await Promise.all([
         supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('row_id, prompt_name, parent_row_id, updated_at, icon_name, owner_id')
           .eq('is_deleted', true)
+          .eq('owner_id', user.id)
           .order('updated_at', { ascending: false }),
         supabase
           .from(import.meta.env.VITE_TEMPLATES_TBL)
           .select('row_id, template_name, category, updated_at, owner_id')
           .eq('is_deleted', true)
+          .eq('owner_id', user.id)
           .order('updated_at', { ascending: false }),
         supabase
           .from('q_json_schema_templates')
           .select('row_id, schema_name, category, updated_at, owner_id')
           .eq('is_deleted', true)
+          .eq('owner_id', user.id)
           .order('updated_at', { ascending: false }),
         supabase
           .from('q_export_templates')
           .select('row_id, template_name, export_type, updated_at, owner_id')
           .eq('is_deleted', true)
+          .eq('owner_id', user.id)
           .order('updated_at', { ascending: false })
       ]);
 
@@ -80,7 +91,7 @@ export const useDeletedItems = () => {
     }
   }, []);
 
-  // Restore a single item
+  // Restore a single item (RLS protects cross-tenant access)
   const restoreItem = useCallback(async (type, rowId) => {
     try {
       let tableName;
@@ -136,7 +147,7 @@ export const useDeletedItems = () => {
     }
   }, []);
 
-  // Permanently delete a single item
+  // Permanently delete a single item (RLS protects cross-tenant access)
   const permanentlyDeleteItem = useCallback(async (type, rowId) => {
     try {
       let tableName;
@@ -192,9 +203,15 @@ export const useDeletedItems = () => {
     }
   }, []);
 
-  // Restore all items of a specific type (or all types if type is null)
+  // Restore all items of a specific type (or all types if type is null) for current user only
   const restoreAll = useCallback(async (type = null) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Not authenticated');
+        return false;
+      }
+
       const typesToRestore = type ? [type] : ['prompts', 'templates', 'jsonSchemas', 'exportTemplates'];
       
       for (const t of typesToRestore) {
@@ -219,7 +236,8 @@ export const useDeletedItems = () => {
         const { error } = await supabase
           .from(tableName)
           .update({ is_deleted: false })
-          .eq('is_deleted', true);
+          .eq('is_deleted', true)
+          .eq('owner_id', user.id);
 
         if (error) throw error;
       }
@@ -235,9 +253,15 @@ export const useDeletedItems = () => {
     }
   }, [fetchAllDeleted]);
 
-  // Permanently delete all items of a specific type (or all types if type is null)
+  // Permanently delete all items of a specific type (or all types if type is null) for current user only
   const permanentlyDeleteAll = useCallback(async (type = null) => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Not authenticated');
+        return false;
+      }
+
       const typesToDelete = type ? [type] : ['prompts', 'templates', 'jsonSchemas', 'exportTemplates'];
       
       for (const t of typesToDelete) {
@@ -262,7 +286,8 @@ export const useDeletedItems = () => {
         const { error } = await supabase
           .from(tableName)
           .delete()
-          .eq('is_deleted', true);
+          .eq('is_deleted', true)
+          .eq('owner_id', user.id);
 
         if (error) throw error;
       }
@@ -278,26 +303,36 @@ export const useDeletedItems = () => {
     }
   }, [fetchAllDeleted]);
 
-  // Get just the counts without full data
+  // Get just the counts without full data for current user only
   const fetchCounts = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setCounts({ prompts: 0, templates: 0, jsonSchemas: 0, exportTemplates: 0, total: 0 });
+        return { prompts: 0, templates: 0, jsonSchemas: 0, exportTemplates: 0, total: 0 };
+      }
+
       const [promptsRes, templatesRes, jsonSchemasRes, exportTemplatesRes] = await Promise.all([
         supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true),
+          .eq('is_deleted', true)
+          .eq('owner_id', user.id),
         supabase
           .from(import.meta.env.VITE_TEMPLATES_TBL)
           .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true),
+          .eq('is_deleted', true)
+          .eq('owner_id', user.id),
         supabase
           .from('q_json_schema_templates')
           .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true),
+          .eq('is_deleted', true)
+          .eq('owner_id', user.id),
         supabase
           .from('q_export_templates')
           .select('row_id', { count: 'exact', head: true })
           .eq('is_deleted', true)
+          .eq('owner_id', user.id)
       ]);
 
       const newCounts = {

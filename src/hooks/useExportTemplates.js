@@ -12,9 +12,16 @@ export const useExportTemplates = () => {
   const fetchTemplates = useCallback(async (exportType = null) => {
     setIsLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setTemplates([]);
+        return [];
+      }
+
       let query = supabase
         .from('q_export_templates')
         .select('*')
+        .eq('owner_id', user.id)
         .or('is_deleted.is.null,is_deleted.eq.false')
         .order('updated_at', { ascending: false });
 
