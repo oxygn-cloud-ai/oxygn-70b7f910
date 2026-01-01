@@ -17,6 +17,10 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [toolActivity, setToolActivity] = useState([]);
   const [isExecutingTools, setIsExecutingTools] = useState(false);
   const [rootPromptId, setRootPromptId] = useState(null);
+  
+  // Session-level model and reasoning effort state
+  const [sessionModel, setSessionModel] = useState(null); // null = use default
+  const [sessionReasoningEffort, setSessionReasoningEffort] = useState('auto');
 
   // Compute root prompt ID by walking up parent chain
   const computeRootPromptId = useCallback(async (pRowId) => {
@@ -227,7 +231,8 @@ export const usePromptFamilyChat = (promptRowId) => {
   }, [rootPromptId, createThread]);
 
   // Send a message and get AI response
-  const sendMessage = useCallback(async (userMessage, threadId = null) => {
+  const sendMessage = useCallback(async (userMessage, threadId = null, options = {}) => {
+    const { model, reasoningEffort } = options;
     const effectiveThreadId = threadId || activeThreadId;
     if (!effectiveThreadId || !userMessage.trim() || !promptRowId) return null;
 
@@ -273,7 +278,9 @@ export const usePromptFamilyChat = (promptRowId) => {
           body: JSON.stringify({
             thread_row_id: effectiveThreadId,
             prompt_row_id: promptRowId,
-            messages: apiMessages
+            messages: apiMessages,
+            model: model || sessionModel || null,
+            reasoning_effort: reasoningEffort || sessionReasoningEffort
           }),
           signal: abortControllerRef.current?.signal
         }
@@ -382,7 +389,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       abortControllerRef.current = null;
       return null;
     }
-  }, [activeThreadId, promptRowId, messages, addMessage, registerCall]);
+  }, [activeThreadId, promptRowId, messages, addMessage, registerCall, sessionModel, sessionReasoningEffort]);
 
   // Effects
   useEffect(() => {
@@ -435,6 +442,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     clearMessages,
     sendMessage,
     setMessages,
-    cancelStream
+    cancelStream,
+    // Session-level model/reasoning state
+    sessionModel,
+    setSessionModel,
+    sessionReasoningEffort,
+    setSessionReasoningEffort,
   };
 };
