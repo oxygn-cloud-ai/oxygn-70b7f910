@@ -378,53 +378,51 @@ const ConversationPanel = ({
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-2.5 border-t border-outline-variant">
-        <div className="flex items-end gap-1.5">
-          <div className="flex-1 min-h-9 px-2.5 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-start">
-            <textarea
-              ref={textareaRef}
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value);
-                resizeTextarea();
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={usePromptFamilyMode ? "Ask about this prompt family..." : "Type a message..."}
-              rows={1}
-              className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none overflow-y-auto"
-              style={{ minHeight: '20px', maxHeight: '400px' }}
-            />
-          </div>
-          <div className="flex gap-0.5">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Paperclip className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Attach</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <Mic className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Voice</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={handleSend}
-                  disabled={!inputValue.trim() || isSending}
-                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
-                >
-                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Send</TooltipContent>
-            </Tooltip>
-          </div>
+      <div className="p-2.5 border-t border-outline-variant space-y-1.5">
+        <div className="flex-1 min-h-9 px-2.5 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-start">
+          <textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              resizeTextarea();
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={usePromptFamilyMode ? "Ask about this prompt family..." : "Type a message..."}
+            rows={1}
+            className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none overflow-y-auto"
+            style={{ minHeight: '20px', maxHeight: '400px' }}
+          />
+        </div>
+        <div className="flex justify-end gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Paperclip className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Attach</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Mic className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Voice</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isSending}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
+              >
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Send</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>
