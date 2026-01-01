@@ -45,6 +45,7 @@ import ActionPreviewDialog from "@/components/ActionPreviewDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
+import { useApiCallContext } from "@/contexts/ApiCallContext";
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -180,6 +181,22 @@ const MainLayout = () => {
   
   // Prompt Family Chat hook - for knowledge-enhanced conversations about prompt families
   const promptFamilyChat = usePromptFamilyChat(selectedPromptId);
+  
+  // API call context for guarding prompt selection during active API calls
+  const { isApiCallInProgress, requestNavigation } = useApiCallContext();
+  
+  // Guarded prompt selection - checks for in-progress API calls before switching
+  const handleSelectPrompt = useCallback((newPromptId) => {
+    if (!isApiCallInProgress) {
+      setSelectedPromptId(newPromptId);
+      return;
+    }
+    // API call in progress - use navigation guard dialog
+    requestNavigation(
+      `Switching prompt`, 
+      () => setSelectedPromptId(newPromptId)
+    );
+  }, [isApiCallInProgress, requestNavigation]);
   
   // Fetch messages when active thread changes
   useEffect(() => {
@@ -956,7 +973,7 @@ const MainLayout = () => {
           treeData={hierarchicalTreeData}
           isLoading={isLoadingTree}
           selectedPromptId={selectedPromptId}
-          onSelectPrompt={setSelectedPromptId}
+          onSelectPrompt={handleSelectPrompt}
           expandedFolders={expandedFolders}
           onToggleFolder={toggleFolder}
           onAddPrompt={handleAddItem}
@@ -1035,7 +1052,7 @@ const MainLayout = () => {
           templates={[...templatesHook.templates, ...jsonSchemaTemplatesHook.templates]}
           onSelectPrompt={(id) => {
             setActiveNav("prompts");
-            setSelectedPromptId(id);
+            handleSelectPrompt(id);
           }}
           onSelectTemplate={(template) => {
             setActiveNav("templates");

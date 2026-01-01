@@ -1,9 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
+import { useApiCallContext } from '@/contexts/ApiCallContext';
 
 export const usePromptFamilyChat = (promptRowId) => {
+  const { registerCall } = useApiCallContext();
+  const abortControllerRef = useRef(null);
+  
   const [threads, setThreads] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -235,6 +239,10 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsExecutingTools(false);
 
+    // Register this streaming call with ApiCallContext
+    const unregisterCall = registerCall();
+    abortControllerRef.current = new AbortController();
+
     trackEvent('prompt_family_message_sent', {
       prompt_id: promptRowId,
       thread_id: effectiveThreadId,
@@ -263,7 +271,8 @@ export const usePromptFamilyChat = (promptRowId) => {
             thread_row_id: effectiveThreadId,
             prompt_row_id: promptRowId,
             messages: apiMessages
-          })
+          }),
+          signal: abortControllerRef.current?.signal
         }
       );
 
@@ -336,6 +345,8 @@ export const usePromptFamilyChat = (promptRowId) => {
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
+      unregisterCall();
+      abortControllerRef.current = null;
 
       await supabase
         .from('q_threads')
@@ -350,16 +361,21 @@ export const usePromptFamilyChat = (promptRowId) => {
 
       return fullContent;
     } catch (error) {
-      console.error('Error sending message:', error);
-      toast.error(error.message || 'Failed to get AI response');
+      // Don't show error toast for aborted requests
+      if (error.name !== 'AbortError') {
+        console.error('Error sending message:', error);
+        toast.error(error.message || 'Failed to get AI response');
+        trackException(error, { context: 'prompt_family_chat' });
+      }
       setStreamingMessage('');
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
-      trackException(error, { context: 'prompt_family_chat' });
+      unregisterCall();
+      abortControllerRef.current = null;
       return null;
     }
-  }, [activeThreadId, promptRowId, messages, addMessage]);
+  }, [activeThreadId, promptRowId, messages, addMessage, registerCall]);
 
   // Effects
   useEffect(() => {
@@ -372,11 +388,26 @@ export const usePromptFamilyChat = (promptRowId) => {
 
   // CRITICAL FIX: Reset only when ROOT changes (different family), not individual prompts
   useEffect(() => {
+    // Abort any in-flight request when prompt family changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     setActiveThreadId(null);
     setMessages([]);
     setStreamingMessage('');
     setToolActivity([]);
+    setIsStreaming(false);
+    setIsExecutingTools(false);
   }, [rootPromptId]);
+
+  // Cancel stream function for external use
+  const cancelStream = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   return {
     threads,
@@ -396,6 +427,7 @@ export const usePromptFamilyChat = (promptRowId) => {
     addMessage,
     clearMessages,
     sendMessage,
-    setMessages
+    setMessages,
+    cancelStream
   };
 };
