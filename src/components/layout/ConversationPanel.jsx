@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
   Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare
@@ -134,6 +134,24 @@ const ConversationPanel = ({
 }) => {
   const [inputValue, setInputValue] = useState("");
   const scrollRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Auto-resize textarea based on content
+  const resizeTextarea = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    // Reset height to auto to get proper scrollHeight
+    textarea.style.height = 'auto';
+    
+    const lineHeight = 20;
+    const maxHeight = lineHeight * 20; // 20 lines max
+    const minHeight = lineHeight; // 1 line min
+    
+    // Set height based on content, clamped between min and max
+    const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+    textarea.style.height = newHeight + 'px';
+  }, []);
 
   // Use prompt family chat if available, otherwise fall back to legacy
   const usePromptFamilyMode = !!promptFamilyChat;
@@ -364,14 +382,11 @@ const ConversationPanel = ({
         <div className="flex items-end gap-1.5">
           <div className="flex-1 min-h-9 px-2.5 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-start">
             <textarea
+              ref={textareaRef}
               value={inputValue}
               onChange={(e) => {
                 setInputValue(e.target.value);
-                // Auto-resize textarea
-                e.target.style.height = 'auto';
-                const lineHeight = 20; // approx line height for text-body-sm
-                const maxHeight = lineHeight * 20; // 20 lines max
-                e.target.style.height = Math.min(e.target.scrollHeight, maxHeight) + 'px';
+                resizeTextarea();
               }}
               onKeyDown={handleKeyDown}
               placeholder={usePromptFamilyMode ? "Ask about this prompt family..." : "Type a message..."}
