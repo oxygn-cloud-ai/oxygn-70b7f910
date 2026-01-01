@@ -31,6 +31,7 @@ import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-selec
 import { VariablePicker, ResizablePromptArea } from "@/components/shared";
 import TemplateStructureEditor from "@/components/templates/TemplateStructureEditor";
 import TemplateVariablesTab from "@/components/templates/TemplateVariablesTab";
+import JsonSchemaEditor from "@/components/templates/JsonSchemaEditor";
 
 // Source options for variable mappings
 const SOURCE_OPTIONS = [
@@ -1258,12 +1259,7 @@ const TemplatesContent = ({
               <TabButton icon={Variable} label="Variables" isActive={activeEditorTab === "variables"} onClick={() => setActiveEditorTab("variables")} />
             </>
           )}
-          {activeTemplateTab === "schemas" && (
-            <>
-              <TabButton icon={Code} label="Schema" isActive={activeEditorTab === "schema"} onClick={() => setActiveEditorTab("schema")} />
-              <TabButton icon={Eye} label="Preview" isActive={activeEditorTab === "preview"} onClick={() => setActiveEditorTab("preview")} />
-            </>
-          )}
+          {/* JsonSchemaEditor has internal tabs - no external tabs needed for schemas */}
           {activeTemplateTab === "mappings" && (
             <>
               <TabButton icon={FileText} label="Fields" isActive={activeEditorTab === "fields"} onClick={() => setActiveEditorTab("fields")} />
@@ -1341,52 +1337,20 @@ const TemplatesContent = ({
           )}
         </div>
 
-        {/* Schema Tab */}
-        {activeTemplateTab === "schemas" && activeEditorTab === "schema" && (
-          <div className="space-y-3 max-w-2xl">
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">JSON Schema</label>
-              <div className="min-h-56 p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-[10px] text-on-surface whitespace-pre overflow-auto">
-                {editedTemplate?.json_schema ? (
-                  JSON.stringify(editedTemplate.json_schema, null, 2)
-                ) : (
-`{
-  "type": "object",
-  "properties": {},
-  "required": []
-}`
-                )}
-              </div>
-            </div>
-            
-            <SettingCard label="Schema Options">
-              <div className="space-y-3">
-                <SettingRow label="Strict mode" description="Enforce exact schema matching">
-                  <Switch defaultChecked />
-                </SettingRow>
-                <SettingDivider />
-                <SettingRow label="Allow additional properties">
-                  <Switch />
-                </SettingRow>
-              </div>
-            </SettingCard>
-          </div>
-        )}
-
-        {/* Schema Preview Tab */}
-        {activeTemplateTab === "schemas" && activeEditorTab === "preview" && (
-          <div className="space-y-3 max-w-2xl">
-            <span className="text-label-sm text-on-surface-variant uppercase">Sample Output</span>
-            <div className="p-3 bg-surface-container rounded-m3-md border border-outline-variant font-mono text-tree text-on-surface whitespace-pre overflow-auto">
-{`{
-  "action": "example_action",
-  "data": {}
-}`}
-            </div>
-            <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-m3-md">
-              <Check className="h-4 w-4 text-green-600" />
-              <span className="text-body-sm text-green-700">Valid against schema</span>
-            </div>
+        {/* Schema Editor - handles visual, JSON, and preview tabs internally */}
+        {activeTemplateTab === "schemas" && editedTemplate && (
+          <div className="max-w-3xl">
+            <JsonSchemaEditor 
+              template={editedTemplate}
+              onUpdate={async (rowId, updates) => {
+                if (jsonSchemaTemplatesHook?.updateTemplate) {
+                  await jsonSchemaTemplatesHook.updateTemplate(rowId, updates);
+                }
+                setEditedTemplate(prev => ({ ...prev, ...updates }));
+                setHasUnsavedChanges(false);
+                onTemplateChange?.(editedTemplate);
+              }}
+            />
           </div>
         )}
 
