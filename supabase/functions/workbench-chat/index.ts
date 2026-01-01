@@ -245,10 +245,12 @@ async function handleToolCall(
   try {
     switch (toolName) {
       case 'list_prompts': {
+        // Filter by owner_id for multi-tenant segregation
         const { data: prompts, error } = await supabase
           .from('q_prompts')
           .select('row_id, prompt_name, parent_row_id, note')
           .eq('is_deleted', false)
+          .eq('owner_id', userId)
           .order('position', { ascending: true });
 
         if (error) throw error;
@@ -266,14 +268,16 @@ async function handleToolCall(
 
       case 'get_prompt_details': {
         const { prompt_row_id } = args;
+        // Verify ownership for multi-tenant segregation
         const { data: prompt, error } = await supabase
           .from('q_prompts')
           .select('*')
           .eq('row_id', prompt_row_id)
+          .eq('owner_id', userId)
           .single();
 
         if (error) throw error;
-        if (!prompt) return JSON.stringify({ error: 'Prompt not found' });
+        if (!prompt) return JSON.stringify({ error: 'Prompt not found or access denied' });
 
         // Get variables
         const { data: variables } = await supabase
@@ -294,14 +298,16 @@ async function handleToolCall(
       case 'execute_prompt': {
         const { prompt_row_id, variables = {} } = args;
         
+        // Verify ownership for multi-tenant segregation
         const { data: prompt, error } = await supabase
           .from('q_prompts')
           .select('*')
           .eq('row_id', prompt_row_id)
+          .eq('owner_id', userId)
           .single();
 
         if (error || !prompt) {
-          return JSON.stringify({ error: 'Prompt not found' });
+          return JSON.stringify({ error: 'Prompt not found or access denied' });
         }
 
         // Get prompt variables for substitution
@@ -366,10 +372,11 @@ async function handleToolCall(
 
       case 'list_library': {
         const { category } = args;
+        // Include own items, system items (is_system=true), and public items (is_private=false)
         let query = supabase
           .from('q_prompt_library')
-          .select('row_id, name, description, category, is_private, owner_id')
-          .or(`owner_id.eq.${userId},is_private.eq.false`)
+          .select('row_id, name, description, category, is_private, owner_id, is_system, contributor_display_name')
+          .or(`owner_id.eq.${userId},is_system.eq.true,is_private.eq.false`)
           .order('name', { ascending: true });
 
         if (category) {
