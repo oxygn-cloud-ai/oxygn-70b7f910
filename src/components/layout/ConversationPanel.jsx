@@ -378,6 +378,7 @@ const ConversationPanel = ({
               rows={1}
               className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none overflow-y-auto"
               style={{ minHeight: '20px', maxHeight: '200px' }}
+            />
           </div>
           <div className="flex gap-0.5">
             <Tooltip>
