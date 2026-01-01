@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { SettingCard } from '@/components/ui/setting-card';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import { useDeletedItems } from '@/hooks/useDeletedItems';
+import { useAuth } from '@/contexts/AuthContext';
 import { trackEvent } from '@/lib/posthog';
 import {
   AlertDialog,
@@ -131,6 +132,8 @@ const EmptyState = ({ filter }) => (
 );
 
 const DeletedItemsContent = () => {
+  const { isAdmin } = useAuth();
+  
   const {
     deletedItems,
     counts,
@@ -140,7 +143,7 @@ const DeletedItemsContent = () => {
     permanentlyDeleteItem,
     restoreAll,
     permanentlyDeleteAll
-  } = useDeletedItems();
+  } = useDeletedItems(isAdmin);
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');

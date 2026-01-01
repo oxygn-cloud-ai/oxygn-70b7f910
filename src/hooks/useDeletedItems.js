@@ -5,8 +5,9 @@ import { trackEvent } from '@/lib/posthog';
 
 /**
  * Hook for managing deleted items across all types (prompts, templates, JSON schemas, export templates)
+ * @param {boolean} isAdmin - If true, fetches all deleted items across all users (admin bypass)
  */
-export const useDeletedItems = () => {
+export const useDeletedItems = (isAdmin = false) => {
   const [deletedItems, setDeletedItems] = useState({
     prompts: [],
     templates: [],
@@ -33,32 +34,44 @@ export const useDeletedItems = () => {
         return { prompts: [], templates: [], jsonSchemas: [], exportTemplates: [] };
       }
 
-      // Fetch all types in parallel with owner_id filter
+      // Build queries - admins see all, regular users see only their own
+      let promptsQuery = supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id, prompt_name, parent_row_id, updated_at, icon_name, owner_id')
+        .eq('is_deleted', true)
+        .order('updated_at', { ascending: false });
+
+      let templatesQuery = supabase
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
+        .select('row_id, template_name, category, updated_at, owner_id')
+        .eq('is_deleted', true)
+        .order('updated_at', { ascending: false });
+
+      let jsonSchemasQuery = supabase
+        .from('q_json_schema_templates')
+        .select('row_id, schema_name, category, updated_at, owner_id')
+        .eq('is_deleted', true)
+        .order('updated_at', { ascending: false });
+
+      let exportTemplatesQuery = supabase
+        .from('q_export_templates')
+        .select('row_id, template_name, export_type, updated_at, owner_id')
+        .eq('is_deleted', true)
+        .order('updated_at', { ascending: false });
+
+      // Apply owner filter for non-admins
+      if (!isAdmin) {
+        promptsQuery = promptsQuery.eq('owner_id', user.id);
+        templatesQuery = templatesQuery.eq('owner_id', user.id);
+        jsonSchemasQuery = jsonSchemasQuery.eq('owner_id', user.id);
+        exportTemplatesQuery = exportTemplatesQuery.eq('owner_id', user.id);
+      }
+
       const [promptsRes, templatesRes, jsonSchemasRes, exportTemplatesRes] = await Promise.all([
-        supabase
-          .from(import.meta.env.VITE_PROMPTS_TBL)
-          .select('row_id, prompt_name, parent_row_id, updated_at, icon_name, owner_id')
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id)
-          .order('updated_at', { ascending: false }),
-        supabase
-          .from(import.meta.env.VITE_TEMPLATES_TBL)
-          .select('row_id, template_name, category, updated_at, owner_id')
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id)
-          .order('updated_at', { ascending: false }),
-        supabase
-          .from('q_json_schema_templates')
-          .select('row_id, schema_name, category, updated_at, owner_id')
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id)
-          .order('updated_at', { ascending: false }),
-        supabase
-          .from('q_export_templates')
-          .select('row_id, template_name, export_type, updated_at, owner_id')
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id)
-          .order('updated_at', { ascending: false })
+        promptsQuery,
+        templatesQuery,
+        jsonSchemasQuery,
+        exportTemplatesQuery
       ]);
 
       const prompts = promptsRes.data || [];
@@ -233,12 +246,17 @@ export const useDeletedItems = () => {
             continue;
         }
 
-        const { error } = await supabase
+        let query = supabase
           .from(tableName)
           .update({ is_deleted: false })
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id);
+          .eq('is_deleted', true);
+        
+        // Apply owner filter for non-admins
+        if (!isAdmin) {
+          query = query.eq('owner_id', user.id);
+        }
 
+        const { error } = await query;
         if (error) throw error;
       }
 
@@ -283,12 +301,17 @@ export const useDeletedItems = () => {
             continue;
         }
 
-        const { error } = await supabase
+        let query = supabase
           .from(tableName)
           .delete()
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id);
+          .eq('is_deleted', true);
+        
+        // Apply owner filter for non-admins
+        if (!isAdmin) {
+          query = query.eq('owner_id', user.id);
+        }
 
+        const { error } = await query;
         if (error) throw error;
       }
 
@@ -312,27 +335,40 @@ export const useDeletedItems = () => {
         return { prompts: 0, templates: 0, jsonSchemas: 0, exportTemplates: 0, total: 0 };
       }
 
+      // Build count queries - admins see all, regular users see only their own
+      let promptsCountQuery = supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('row_id', { count: 'exact', head: true })
+        .eq('is_deleted', true);
+
+      let templatesCountQuery = supabase
+        .from(import.meta.env.VITE_TEMPLATES_TBL)
+        .select('row_id', { count: 'exact', head: true })
+        .eq('is_deleted', true);
+
+      let jsonSchemasCountQuery = supabase
+        .from('q_json_schema_templates')
+        .select('row_id', { count: 'exact', head: true })
+        .eq('is_deleted', true);
+
+      let exportTemplatesCountQuery = supabase
+        .from('q_export_templates')
+        .select('row_id', { count: 'exact', head: true })
+        .eq('is_deleted', true);
+
+      // Apply owner filter for non-admins
+      if (!isAdmin) {
+        promptsCountQuery = promptsCountQuery.eq('owner_id', user.id);
+        templatesCountQuery = templatesCountQuery.eq('owner_id', user.id);
+        jsonSchemasCountQuery = jsonSchemasCountQuery.eq('owner_id', user.id);
+        exportTemplatesCountQuery = exportTemplatesCountQuery.eq('owner_id', user.id);
+      }
+
       const [promptsRes, templatesRes, jsonSchemasRes, exportTemplatesRes] = await Promise.all([
-        supabase
-          .from(import.meta.env.VITE_PROMPTS_TBL)
-          .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id),
-        supabase
-          .from(import.meta.env.VITE_TEMPLATES_TBL)
-          .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id),
-        supabase
-          .from('q_json_schema_templates')
-          .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id),
-        supabase
-          .from('q_export_templates')
-          .select('row_id', { count: 'exact', head: true })
-          .eq('is_deleted', true)
-          .eq('owner_id', user.id)
+        promptsCountQuery,
+        templatesCountQuery,
+        jsonSchemasCountQuery,
+        exportTemplatesCountQuery
       ]);
 
       const newCounts = {
@@ -349,7 +385,7 @@ export const useDeletedItems = () => {
       console.error('Error fetching deleted counts:', error);
       return counts;
     }
-  }, [counts]);
+  }, [counts, isAdmin]);
 
   return {
     deletedItems,
