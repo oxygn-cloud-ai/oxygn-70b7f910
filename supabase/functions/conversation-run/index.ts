@@ -506,7 +506,7 @@ serve(async (req) => {
       // Emit started event
       emitter.emit({ type: 'started', prompt_row_id: child_prompt_row_id });
 
-      // Fetch child prompt with parent info
+      // Fetch child prompt with parent info and verify ownership
       const { data: childPrompt, error: promptError } = await supabase
         .from(TABLES.PROMPTS)
         .select('*, parent:parent_row_id(row_id, is_assistant)')
@@ -516,6 +516,16 @@ serve(async (req) => {
       if (promptError || !childPrompt) {
         emitter.emit({ type: 'error', error: 'Prompt not found', error_code: 'NOT_FOUND' });
         return;
+      }
+
+      // Verify ownership for multi-tenant segregation
+      if (childPrompt.owner_id !== validation.user?.id) {
+        // Check if user is admin
+        const { data: isAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user?.id });
+        if (!isAdmin) {
+          emitter.emit({ type: 'error', error: 'Access denied - you do not own this prompt', error_code: 'ACCESS_DENIED' });
+          return;
+        }
       }
 
       emitter.emit({ 

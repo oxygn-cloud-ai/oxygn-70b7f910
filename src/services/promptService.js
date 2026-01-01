@@ -36,15 +36,22 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
       throw new Error('VITE_PROMPTS_TBL environment variable is not set');
     }
 
-    // Fetch prompts with related assistant records
-    const { data, error } = await supabase
+    // Build query with owner_id filter for multi-tenant segregation
+    // RLS also enforces this, but we filter client-side for clarity
+    let query = supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
       .select(`
         *,
         ${import.meta.env.VITE_ASSISTANTS_TBL}!${import.meta.env.VITE_ASSISTANTS_TBL}_prompt_row_id_fkey(row_id)
       `)
-      .eq('is_deleted', false)
-      .order('position');
+      .eq('is_deleted', false);
+    
+    // Filter by owner_id if provided (multi-tenant segregation)
+    if (currentUserId) {
+      query = query.eq('owner_id', currentUserId);
+    }
+    
+    const { data, error } = await query.order('position');
 
     if (error) throw error;
 

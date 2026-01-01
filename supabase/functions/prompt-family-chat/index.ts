@@ -324,6 +324,31 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Verify ownership of the prompt for multi-tenant segregation
+    const { data: promptCheck, error: promptCheckError } = await supabase
+      .from(TABLES.PROMPTS)
+      .select('owner_id')
+      .eq('row_id', prompt_row_id)
+      .single();
+
+    if (promptCheckError || !promptCheck) {
+      return new Response(
+        JSON.stringify({ error: 'Prompt not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (promptCheck.owner_id !== validation.user?.id) {
+      // Check if user is admin
+      const { data: isAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user?.id });
+      if (!isAdmin) {
+        return new Response(
+          JSON.stringify({ error: 'Access denied - you do not own this prompt' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // ============================================================================
     // UNIFIED FAMILY THREAD RESOLUTION
     // Chat panel shares the same thread as prompt runs

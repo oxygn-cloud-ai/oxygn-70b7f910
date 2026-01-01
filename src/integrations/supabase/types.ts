@@ -583,6 +583,7 @@ export type Database = {
           action_config: Json | null
           category: string | null
           child_creation: Json | null
+          contributor_display_name: string | null
           created_at: string | null
           is_deleted: boolean | null
           is_private: boolean | null
@@ -601,6 +602,7 @@ export type Database = {
           action_config?: Json | null
           category?: string | null
           child_creation?: Json | null
+          contributor_display_name?: string | null
           created_at?: string | null
           is_deleted?: boolean | null
           is_private?: boolean | null
@@ -619,6 +621,7 @@ export type Database = {
           action_config?: Json | null
           category?: string | null
           child_creation?: Json | null
+          contributor_display_name?: string | null
           created_at?: string | null
           is_deleted?: boolean | null
           is_private?: boolean | null
@@ -911,9 +914,11 @@ export type Database = {
         Row: {
           category: string | null
           content: string | null
+          contributor_display_name: string | null
           created_at: string | null
           description: string | null
           is_private: boolean | null
+          is_system: boolean | null
           name: string
           owner_id: string | null
           row_id: string
@@ -923,9 +928,11 @@ export type Database = {
         Insert: {
           category?: string | null
           content?: string | null
+          contributor_display_name?: string | null
           created_at?: string | null
           description?: string | null
           is_private?: boolean | null
+          is_system?: boolean | null
           name: string
           owner_id?: string | null
           row_id?: string
@@ -935,9 +942,11 @@ export type Database = {
         Update: {
           category?: string | null
           content?: string | null
+          contributor_display_name?: string | null
           created_at?: string | null
           description?: string | null
           is_private?: boolean | null
+          is_system?: boolean | null
           name?: string
           owner_id?: string | null
           row_id?: string
@@ -1280,6 +1289,7 @@ export type Database = {
       q_templates: {
         Row: {
           category: string | null
+          contributor_display_name: string | null
           created_at: string | null
           is_deleted: boolean | null
           is_private: boolean | null
@@ -1294,6 +1304,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          contributor_display_name?: string | null
           created_at?: string | null
           is_deleted?: boolean | null
           is_private?: boolean | null
@@ -1308,6 +1319,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          contributor_display_name?: string | null
           created_at?: string | null
           is_deleted?: boolean | null
           is_private?: boolean | null

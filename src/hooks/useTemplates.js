@@ -13,15 +13,19 @@ export const useTemplates = () => {
   const { user } = useAuth();
 
   /**
-   * Fetch all accessible templates
+   * Fetch templates owned by the current user (multi-tenant segregation)
    */
   const fetchTemplates = useCallback(async () => {
+    if (!user?.id) return;
+    
     setIsLoading(true);
     try {
+      // Filter by owner_id for multi-tenant segregation
       const { data, error } = await supabase
         .from(import.meta.env.VITE_TEMPLATES_TBL)
         .select('*')
         .eq('is_deleted', false)
+        .eq('owner_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -32,7 +36,7 @@ export const useTemplates = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchTemplates();

@@ -8,15 +8,26 @@ export const useJsonSchemaTemplates = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch all JSON schema templates from database
+  // Fetch JSON schema templates (own + system templates)
   const fetchTemplates = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Query all non-deleted templates - RLS handles visibility
-      const { data, error } = await supabase
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Query own templates + system templates (owner_id IS NULL)
+      // RLS also handles this, but explicit query for clarity
+      let query = supabase
         .from('q_json_schema_templates')
         .select('*')
-        .eq('is_deleted', false)
+        .eq('is_deleted', false);
+      
+      // If user is logged in, filter to show own + system templates
+      if (user?.id) {
+        query = query.or(`owner_id.eq.${user.id},owner_id.is.null`);
+      }
+      
+      const { data, error } = await query
         .order('category', { ascending: true })
         .order('schema_name', { ascending: true });
 
