@@ -30,9 +30,13 @@ export const CascadeRunProvider = ({ children }) => {
   // Single run state (for non-cascade runs)
   const [singleRunPromptId, setSingleRunPromptId] = useState(null);
   
+  // Action preview state (for showing ActionPreviewDialog)
+  const [actionPreview, setActionPreview] = useState(null);
+  
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
   const errorResolverRef = useRef(null);
+  const actionPreviewResolverRef = useRef(null);
 
   const startCascade = useCallback((levels, promptCount, skippedCount = 0) => {
     setIsRunning(true);
@@ -139,6 +143,22 @@ export const CascadeRunProvider = ({ children }) => {
     }
   }, []);
 
+  // Action preview functions (for ActionPreviewDialog)
+  const showActionPreview = useCallback((previewData) => {
+    setActionPreview(previewData);
+    return new Promise((resolve) => {
+      actionPreviewResolverRef.current = resolve;
+    });
+  }, []);
+
+  const resolveActionPreview = useCallback((confirmed) => {
+    setActionPreview(null);
+    if (actionPreviewResolverRef.current) {
+      actionPreviewResolverRef.current(confirmed);
+      actionPreviewResolverRef.current = null;
+    }
+  }, []);
+
   // Single run functions (for non-cascade runs)
   const startSingleRun = useCallback((promptRowId) => {
     setSingleRunPromptId(promptRowId);
@@ -164,6 +184,7 @@ export const CascadeRunProvider = ({ children }) => {
     error,
     errorPrompt,
     singleRunPromptId,
+    actionPreview,
     
     // Actions
     startCascade,
@@ -178,6 +199,8 @@ export const CascadeRunProvider = ({ children }) => {
     checkPaused,
     showError,
     resolveError,
+    showActionPreview,
+    resolveActionPreview,
     startSingleRun,
     endSingleRun,
   };
