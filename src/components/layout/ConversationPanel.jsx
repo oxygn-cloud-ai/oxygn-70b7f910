@@ -362,15 +362,22 @@ const ConversationPanel = ({
       {/* Input */}
       <div className="p-2.5 border-t border-outline-variant">
         <div className="flex items-end gap-1.5">
-          <div className="flex-1 min-h-9 px-2.5 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-center">
+          <div className="flex-1 min-h-9 px-2.5 py-2 bg-surface-container-high rounded-m3-lg border border-outline-variant flex items-start">
             <textarea
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                // Auto-resize textarea
+                e.target.style.height = 'auto';
+                const lineHeight = 20; // approx line height for text-body-sm
+                const maxHeight = lineHeight * 10; // 10 lines max
+                e.target.style.height = Math.min(e.target.scrollHeight, maxHeight) + 'px';
+              }}
               onKeyDown={handleKeyDown}
               placeholder={usePromptFamilyMode ? "Ask about this prompt family..." : "Type a message..."}
               rows={1}
-              className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-y"
-            />
+              className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none overflow-y-auto"
+              style={{ minHeight: '20px', maxHeight: '200px' }}
           </div>
           <div className="flex gap-0.5">
             <Tooltip>
