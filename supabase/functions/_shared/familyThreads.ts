@@ -148,8 +148,18 @@ export async function getOrCreateFamilyThread(
   }
 
   if (existing) {
-    console.log('Found existing family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id);
-    return { ...existing, created: false };
+    // Validate conversation ID - must be proper conv_ format
+    if (existing.openai_conversation_id?.startsWith('conv_')) {
+      console.log('Found existing family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id);
+      return { ...existing, created: false };
+    }
+    
+    // Invalid ID (resp_ or pending-), deactivate and create new
+    console.warn('Invalid conversation ID found, deactivating thread:', existing.row_id, existing.openai_conversation_id);
+    await supabase
+      .from(TABLES.THREADS)
+      .update({ is_active: false })
+      .eq('row_id', existing.row_id);
   }
 
   // Create new thread for this family
