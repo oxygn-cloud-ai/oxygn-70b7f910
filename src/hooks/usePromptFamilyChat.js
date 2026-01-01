@@ -234,6 +234,9 @@ export const usePromptFamilyChat = (promptRowId) => {
     const userMsg = await addMessage('user', userMessage, null, effectiveThreadId);
     if (!userMsg) return null;
 
+    // Notify user message sent
+    toast.info('Message sent', { description: userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : '') });
+
     setIsStreaming(true);
     setStreamingMessage('');
     setToolActivity([]);
@@ -341,6 +344,10 @@ export const usePromptFamilyChat = (promptRowId) => {
       }
 
       await addMessage('assistant', fullContent);
+      
+      // Notify AI response received
+      toast.info('AI response received', { description: fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '') });
+      
       setStreamingMessage('');
       setIsStreaming(false);
       setToolActivity([]);
