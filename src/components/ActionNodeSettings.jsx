@@ -464,11 +464,11 @@ const ActionNodeSettings = ({
               </SelectItem>
               
               {Object.entries(groupedActions).map(([categoryId, actions]) => {
-                const category = ACTION_CATEGORIES.find(c => c.id === categoryId);
+                const category = ACTION_CATEGORIES[categoryId];
                 return (
                   <React.Fragment key={categoryId}>
                     <div className="px-2 py-1.5 text-label-sm font-semibold text-on-surface-variant">
-                      {category?.label || categoryId}
+                      {category?.name || categoryId}
                     </div>
                     {actions.map((action) => (
                       <SelectItem key={action.id} value={action.id} textValue={action.name}>
