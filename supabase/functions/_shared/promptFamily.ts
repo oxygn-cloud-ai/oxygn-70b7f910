@@ -3,16 +3,14 @@
 import { TABLES } from "./tables.ts";
 
 /**
- * OPTIMIZED: Batch fetch all prompts in a family with a single query
- * Returns a map of row_id -> prompt for fast lookup
- * EXPORTED for reuse to avoid duplicate fetches
+ * Resolve root prompt ID by walking up the parent chain
+ * Returns the root ID for a given prompt
  */
-export async function batchFetchFamilyPrompts(
+async function walkToRoot(
   supabase: any,
-  rootPromptRowId: string
-): Promise<Map<string, any>> {
-  // First find the actual root by walking up
-  let currentId = rootPromptRowId;
+  promptRowId: string
+): Promise<string> {
+  let currentId = promptRowId;
   for (let i = 0; i < 15; i++) {
     const { data: prompt } = await supabase
       .from(TABLES.PROMPTS)
@@ -24,10 +22,23 @@ export async function batchFetchFamilyPrompts(
     if (!prompt?.parent_row_id) break;
     currentId = prompt.parent_row_id;
   }
-  const actualRootId = currentId;
+  return currentId;
+}
 
-  // Now fetch ALL prompts that could be in this family with a single query
-  // We use a recursive approach but with batched fetches
+/**
+ * OPTIMIZED: Batch fetch all prompts in a family with minimal queries
+ * Returns { promptsMap, rootId } for fast lookup and tree building
+ * EXPORTED for reuse to avoid duplicate fetches
+ */
+export async function batchFetchFamilyPrompts(
+  supabase: any,
+  startPromptRowId: string,
+  knownRootId?: string  // If already resolved, skip the walk
+): Promise<{ promptsMap: Map<string, any>; rootId: string }> {
+  // Use known root or walk to find it
+  const actualRootId = knownRootId ?? await walkToRoot(supabase, startPromptRowId);
+
+  // Now fetch ALL prompts in this family with batched breadth-first traversal
   const allPrompts = new Map<string, any>();
   const toProcess = [actualRootId];
   const processed = new Set<string>();
@@ -42,7 +53,7 @@ export async function batchFetchFamilyPrompts(
     const [promptsResult, childrenResult] = await Promise.all([
       supabase
         .from(TABLES.PROMPTS)
-        .select('row_id, prompt_name, parent_row_id, node_type, model, note, position, output_response, input_admin_prompt, input_user_prompt, post_action, json_schema_template_id')
+        .select('row_id, prompt_name, parent_row_id, node_type, model, note, position, output_response, input_admin_prompt, input_user_prompt, post_action, json_schema_template_id, template_row_id')
         .in('row_id', unprocessed)
         .eq('is_deleted', false),
       supabase
@@ -65,29 +76,7 @@ export async function batchFetchFamilyPrompts(
     }
   }
 
-  return allPrompts;
-}
-
-/**
- * Find the actual root ID from a prompts map
- */
-function findRootIdFromMap(promptsMap: Map<string, any>, targetPromptId: string): string {
-  let rootId = targetPromptId;
-  for (const [id, prompt] of promptsMap) {
-    if (!prompt.parent_row_id || !promptsMap.has(prompt.parent_row_id)) {
-      // This could be the root - check if it's an ancestor of our target
-      let current = targetPromptId;
-      while (current) {
-        if (current === id) {
-          rootId = id;
-          break;
-        }
-        const p = promptsMap.get(current);
-        current = p?.parent_row_id;
-      }
-    }
-  }
-  return rootId;
+  return { promptsMap: allPrompts, rootId: actualRootId };
 }
 
 /**
@@ -137,30 +126,28 @@ function buildTreeFromMap(
 /**
  * Get the complete prompt family tree starting from a root prompt
  * OPTIMIZED: Uses batch fetching instead of N+1 queries
- * Can accept pre-fetched promptsMap to avoid duplicate fetches
+ * Can accept pre-fetched data to avoid duplicate fetches
  */
 export async function getPromptFamilyTree(
   supabase: any,
   rootPromptRowId: string,
-  prefetchedPromptsMap?: Map<string, any>
+  prefetchedData?: { promptsMap: Map<string, any>; rootId: string }
 ): Promise<any> {
-  const promptsMap = prefetchedPromptsMap ?? await batchFetchFamilyPrompts(supabase, rootPromptRowId);
+  const { promptsMap, rootId } = prefetchedData ?? await batchFetchFamilyPrompts(supabase, rootPromptRowId);
   if (promptsMap.size === 0) return null;
-
-  const rootId = findRootIdFromMap(promptsMap, rootPromptRowId);
   return buildTreeFromMap(promptsMap, rootId);
 }
 
 /**
  * Get all prompt IDs in a family tree
- * OPTIMIZED: Uses batch fetch, can accept pre-fetched map
+ * OPTIMIZED: Uses batch fetch, can accept pre-fetched data
  */
 export async function getFamilyPromptIds(
   supabase: any,
   rootPromptRowId: string,
-  prefetchedPromptsMap?: Map<string, any>
+  prefetchedData?: { promptsMap: Map<string, any>; rootId: string }
 ): Promise<string[]> {
-  const promptsMap = prefetchedPromptsMap ?? await batchFetchFamilyPrompts(supabase, rootPromptRowId);
+  const { promptsMap } = prefetchedData ?? await batchFetchFamilyPrompts(supabase, rootPromptRowId);
   return Array.from(promptsMap.keys());
 }
 
@@ -269,24 +256,20 @@ export async function getFamilyVariables(
 }
 
 /**
- * Get template info if the family was created from a template
+ * Get template info from the prompts map (already fetched)
  */
-export async function getFamilyTemplate(
+async function getFamilyTemplateFromMap(
   supabase: any,
-  rootPromptRowId: string
+  promptsMap: Map<string, any>,
+  rootId: string
 ): Promise<any | null> {
-  const { data: prompt } = await supabase
-    .from(TABLES.PROMPTS)
-    .select('template_row_id')
-    .eq('row_id', rootPromptRowId)
-    .single();
-
-  if (!prompt?.template_row_id) return null;
+  const rootPrompt = promptsMap.get(rootId);
+  if (!rootPrompt?.template_row_id) return null;
 
   const { data: template } = await supabase
     .from(TABLES.TEMPLATES)
     .select('row_id, template_name, template_description, category')
-    .eq('row_id', prompt.template_row_id)
+    .eq('row_id', rootPrompt.template_row_id)
     .single();
 
   return template;
@@ -294,7 +277,7 @@ export async function getFamilyTemplate(
 
 /**
  * Get prompt family summary for chat context
- * OPTIMIZED: Can accept pre-fetched data to avoid duplicate queries
+ * OPTIMIZED: Uses pre-fetched data to avoid duplicate queries
  */
 export async function getPromptFamilySummary(
   supabase: any,
@@ -305,6 +288,7 @@ export async function getPromptFamilySummary(
     files?: any[];
     pages?: any[];
     schemas?: any[];
+    template?: any | null;
   }
 ): Promise<string> {
   // Use prefetched data or fetch fresh
@@ -314,12 +298,14 @@ export async function getPromptFamilySummary(
   const promptIds = prefetchedData?.promptIds ?? await getFamilyPromptIds(supabase, rootPromptRowId);
   
   // Fetch remaining data in parallel if not prefetched
-  const [files, pages, schemas, template] = await Promise.all([
+  const [files, pages, schemas] = await Promise.all([
     prefetchedData?.files ?? getFamilyFiles(supabase, promptIds),
     prefetchedData?.pages ?? getFamilyConfluencePages(supabase, promptIds),
     prefetchedData?.schemas ?? getFamilyJsonSchemas(supabase, promptIds),
-    getFamilyTemplate(supabase, rootPromptRowId)
   ]);
+  
+  // Template should be prefetched or null
+  const template = prefetchedData?.template ?? null;
 
   let summary = `## Prompt Family: ${tree.name}\n\n`;
   summary += `- **Total prompts**: ${promptIds.length}\n`;
@@ -340,42 +326,46 @@ export async function getPromptFamilySummary(
 /**
  * OPTIMIZED: Get all family data in a single call with parallelization
  * This is the main entry point for the chat panel
+ * Returns rootId so callers don't need separate root resolution
  */
 export async function getFamilyDataOptimized(
   supabase: any,
-  rootPromptRowId: string
+  startPromptRowId: string,
+  knownRootId?: string  // Pass if already resolved to skip walk
 ): Promise<{
   familyPromptIds: string[];
   familySummary: string;
   tree: any;
   promptsMap: Map<string, any>;
+  rootId: string;
 }> {
   const fetchStart = Date.now();
   
-  // Step 1: Batch fetch all prompts (single optimized call)
-  const promptsMap = await batchFetchFamilyPrompts(supabase, rootPromptRowId);
+  // Step 1: Batch fetch all prompts (includes root resolution if needed)
+  const { promptsMap, rootId } = await batchFetchFamilyPrompts(supabase, startPromptRowId, knownRootId);
   const promptIds = Array.from(promptsMap.keys());
   
-  console.log(`Batch fetched ${promptIds.length} prompts in ${Date.now() - fetchStart}ms`);
+  console.log(`Batch fetched ${promptIds.length} prompts in ${Date.now() - fetchStart}ms, rootId: ${rootId}`);
   
   // Build tree from cached map (no DB call needed)
-  const rootId = findRootIdFromMap(promptsMap, rootPromptRowId);
   const tree = buildTreeFromMap(promptsMap, rootId);
   
-  // Step 2: Parallel fetch additional data
-  const [files, pages, schemas] = await Promise.all([
+  // Step 2: Parallel fetch additional data (including template)
+  const [files, pages, schemas, template] = await Promise.all([
     getFamilyFiles(supabase, promptIds),
     getFamilyConfluencePages(supabase, promptIds),
-    getFamilyJsonSchemas(supabase, promptIds)
+    getFamilyJsonSchemas(supabase, promptIds),
+    getFamilyTemplateFromMap(supabase, promptsMap, rootId)
   ]);
   
-  // Step 3: Build summary with prefetched data (no DB calls needed)
-  const familySummary = await getPromptFamilySummary(supabase, rootPromptRowId, {
+  // Step 3: Build summary with prefetched data (no additional DB calls)
+  const familySummary = await getPromptFamilySummary(supabase, rootId, {
     tree,
     promptIds,
     files,
     pages,
-    schemas
+    schemas,
+    template
   });
   
   console.log(`Total family data fetch: ${Date.now() - fetchStart}ms`);
@@ -384,7 +374,8 @@ export async function getFamilyDataOptimized(
     familyPromptIds: promptIds,
     familySummary,
     tree,
-    promptsMap  // Return for reuse in tool calls
+    promptsMap,
+    rootId  // Return so callers can use it
   };
 }
 

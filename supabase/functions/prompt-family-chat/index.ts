@@ -15,7 +15,7 @@ import {
   getFamilyDataOptimized
 } from "../_shared/promptFamily.ts";
 import { TABLES } from "../_shared/tables.ts";
-import { resolveRootPromptId, getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
+import { getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -69,7 +69,7 @@ async function handleToolCall(
     userId: string;
     promptRowId: string;
     familyPromptIds: string[];
-    cachedTree?: any;  // Pre-fetched tree to avoid re-fetching
+    cachedTree?: any;
     openAIApiKey?: string;
   }
 ): Promise<string> {
@@ -78,18 +78,14 @@ async function handleToolCall(
   try {
     switch (toolName) {
       case 'get_prompt_tree': {
-        // Use cached tree if available, otherwise fetch
+        // Use cached tree if available
         const tree = cachedTree ?? await getPromptFamilyTree(supabase, promptRowId);
-        return JSON.stringify({
-          message: 'Prompt family tree',
-          tree
-        });
+        return JSON.stringify({ message: 'Prompt family tree', tree });
       }
 
       case 'get_prompt_details': {
         const { prompt_row_id } = args;
         
-        // Verify prompt is in this family
         if (!familyPromptIds.includes(prompt_row_id)) {
           return JSON.stringify({ error: 'Prompt not in this family' });
         }
@@ -104,7 +100,6 @@ async function handleToolCall(
           return JSON.stringify({ error: 'Prompt not found' });
         }
 
-        // Get variables
         const { data: variables } = await supabase
           .from(TABLES.PROMPT_VARIABLES)
           .select('variable_name, variable_value, variable_description, is_required')
@@ -170,7 +165,6 @@ async function handleToolCall(
       case 'list_family_variables': {
         const variables = await getFamilyVariables(supabase, familyPromptIds);
         
-        // Group by prompt
         const byPrompt: Record<string, any[]> = {};
         for (const v of variables) {
           if (!byPrompt[v.prompt_row_id]) byPrompt[v.prompt_row_id] = [];
@@ -222,7 +216,6 @@ async function handleToolCall(
       case 'get_database_schema': {
         const { table_name } = args;
         
-        // Known Qonsol tables
         const knownTables = [
           'q_prompts', 'q_prompt_variables', 'q_prompt_library',
           'q_assistants', 'q_assistant_files', 'q_threads',
@@ -235,7 +228,6 @@ async function handleToolCall(
         ];
         
         if (table_name) {
-          // Get sample row to infer columns
           const { data: sample, error: sampleError } = await supabase
             .from(table_name)
             .select('*')
@@ -275,6 +267,85 @@ async function handleToolCall(
   }
 }
 
+/**
+ * Execute tool calls and submit results back to OpenAI
+ * Returns: { content: string | null, hasMoreTools: boolean, nextResult: any }
+ */
+async function executeToolsAndSubmit(
+  toolCalls: any[],
+  toolContext: any,
+  conversationId: string,
+  selectedModel: string,
+  openAIApiKey: string,
+  toolEvents: Array<{ type: string; tool?: string; args?: any }>
+): Promise<{ content: string | null; hasMoreTools: boolean; nextToolCalls: any[] }> {
+  const toolResults: any[] = [];
+  
+  for (const toolCall of toolCalls) {
+    const toolName = toolCall.name;
+    let toolArgs = {};
+    
+    try {
+      toolArgs = JSON.parse(toolCall.arguments || '{}');
+    } catch (e) {
+      console.error('Failed to parse tool arguments:', toolCall.arguments);
+    }
+
+    toolEvents.push({ type: 'tool_start', tool: toolName, args: toolArgs });
+    console.log(`Executing tool: ${toolName}`, toolArgs);
+    
+    const toolResult = await handleToolCall(toolName, toolArgs, toolContext);
+    console.log(`Tool ${toolName} result length: ${toolResult.length}`);
+
+    toolEvents.push({ type: 'tool_end', tool: toolName });
+
+    toolResults.push({
+      type: 'function_call_output',
+      call_id: toolCall.call_id,
+      output: toolResult
+    });
+  }
+
+  // Submit tool results back to OpenAI
+  const submitResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      conversation: conversationId,
+      input: toolResults,
+      store: true,
+    })
+  });
+
+  if (!submitResponse.ok) {
+    const errorText = await submitResponse.text();
+    console.error('Tool submit error:', submitResponse.status, errorText);
+    return { content: null, hasMoreTools: false, nextToolCalls: [] };
+  }
+
+  const submitResult = await submitResponse.json();
+  
+  // Extract content from response
+  let content: string | null = null;
+  const outputMessage = submitResult.output?.find((item: any) => item.type === 'message');
+  if (outputMessage?.content) {
+    for (const contentItem of outputMessage.content) {
+      if (contentItem.type === 'output_text' && contentItem.text) {
+        content = contentItem.text;
+      }
+    }
+  }
+
+  // Check for more tool calls
+  const nextToolCalls = submitResult.output?.filter((item: any) => item.type === 'function_call') || [];
+  
+  return { content, hasMoreTools: nextToolCalls.length > 0, nextToolCalls };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -292,12 +363,7 @@ serve(async (req) => {
 
     console.log('Prompt family chat request from:', validation.user?.email);
 
-    const { 
-      prompt_row_id,
-      messages, 
-      system_prompt, 
-      model 
-    } = await req.json();
+    const { prompt_row_id, messages, system_prompt, model } = await req.json();
 
     if (!prompt_row_id) {
       return new Response(
@@ -327,7 +393,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify ownership of the prompt for multi-tenant segregation
+    // Verify ownership of the prompt
     const { data: promptCheck, error: promptCheckError } = await supabase
       .from(TABLES.PROMPTS)
       .select('owner_id')
@@ -342,7 +408,6 @@ serve(async (req) => {
     }
 
     if (promptCheck.owner_id !== validation.user?.id) {
-      // Check if user is admin
       const { data: isAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user?.id });
       if (!isAdmin) {
         return new Response(
@@ -353,33 +418,17 @@ serve(async (req) => {
     }
 
     // ============================================================================
-    // UNIFIED FAMILY THREAD RESOLUTION
-    // Chat panel shares the same thread as prompt runs
+    // OPTIMIZED INITIALIZATION - Single batch fetch resolves root & gets all data
     // ============================================================================
     const initStart = Date.now();
     
-    // Step 1: Resolve root prompt (must happen first)
-    const rootPromptRowId = await resolveRootPromptId(supabase, prompt_row_id);
-    console.log('Resolved root prompt for chat:', rootPromptRowId, 'from:', prompt_row_id, `(${Date.now() - initStart}ms)`);
-
-    // Step 2: PARALLEL - Run independent queries simultaneously
-    const parallelStart = Date.now();
-    const [familyThread, familyData, knowledge, modelSetting] = await Promise.all([
-      // Get or create the unified family thread (with OpenAI Conversation)
-      getOrCreateFamilyThread(
-        supabase,
-        rootPromptRowId,
-        validation.user!.id,
-        'Chat',
-        openAIApiKey
-      ),
-      // Get all family data in one optimized call
-      getFamilyDataOptimized(supabase, rootPromptRowId),
-      // Load Qonsol knowledge for relevant topics
+    // Get family data (includes root resolution, tree, files, pages, schemas, template)
+    // Run in parallel with thread creation and knowledge loading
+    const [familyData, knowledge, modelSetting] = await Promise.all([
+      getFamilyDataOptimized(supabase, prompt_row_id),
       loadQonsolKnowledge(supabase, [
         'overview', 'prompts', 'variables', 'cascade', 'json_schemas', 'actions', 'troubleshooting'
       ], 6000),
-      // Get default model setting
       model ? Promise.resolve({ setting_value: model }) : supabase
         .from('q_settings')
         .select('setting_value')
@@ -388,18 +437,27 @@ serve(async (req) => {
         .then((r: any) => r.data)
     ]);
     
-    console.log(`Parallel queries completed in ${Date.now() - parallelStart}ms`);
-
+    const { familyPromptIds, familySummary, tree: cachedTree, rootId } = familyData;
+    
+    // Now get/create thread using the resolved rootId (avoids duplicate root walk)
+    const familyThread = await getOrCreateFamilyThread(
+      supabase,
+      rootId,
+      validation.user!.id,
+      'Chat',
+      openAIApiKey
+    );
+    
     const conversationId = familyThread.openai_conversation_id;
-    const { familyPromptIds, familySummary, tree: cachedTree } = familyData;
-
-    console.log('Using unified family thread:', {
-      thread_row_id: familyThread.row_id,
-      conversation_id: conversationId,
-      thread_created: familyThread.created,
+    
+    console.log(`Initialization complete in ${Date.now() - initStart}ms`, {
+      promptCount: familyPromptIds.length,
+      rootId,
+      conversationId,
+      threadCreated: familyThread.created
     });
 
-    // Get default model from settings
+    // Get model
     let selectedModel = model;
     if (!selectedModel && modelSetting?.setting_value) {
       selectedModel = modelSetting.setting_value;
@@ -407,10 +465,8 @@ serve(async (req) => {
     if (!selectedModel) {
       selectedModel = await getDefaultModelFromSettings(supabase);
     }
-    
-    console.log(`Total initialization time: ${Date.now() - initStart}ms`);
 
-    // Build system prompt with chat-specific tools (NOT available to prompt runs)
+    // Build system prompt
     const systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
 
 You have deep knowledge of how Qonsol works and can help users:
@@ -426,25 +482,23 @@ ${knowledge}
 Use your tools to explore the prompt family and provide helpful, accurate information.
 Be concise but thorough. When showing prompt content, format it nicely.`;
 
-    // Get tools (chat-specific - NOT available to prompt runs)
-    // Uses Responses API format (flat structure with name at top level)
+    // Get tools
     const databaseSchemaTool = {
       type: "function",
       name: "get_database_schema",
-      description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships. Use this to understand the data model.",
+      description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships.",
       parameters: {
         type: "object",
         properties: {
           table_name: {
             type: "string",
-            description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
+            description: "Optional specific table name to get details for."
           }
         },
-      required: [],
-      additionalProperties: false
-    }
-    // strict: true removed - incompatible with optional parameters
-  };
+        required: [],
+        additionalProperties: false
+      }
+    };
 
     const tools = [
       ...getPromptFamilyTools(),
@@ -452,7 +506,6 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       databaseSchemaTool
     ];
 
-    // Build the user message (last message in array)
     const lastUserMessage = messages[messages.length - 1];
     const userInput = lastUserMessage?.content || '';
 
@@ -461,141 +514,85 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       userId: validation.user!.id,
       promptRowId: prompt_row_id,
       familyPromptIds,
-      cachedTree,  // Pass pre-fetched tree to avoid re-fetching in tools
+      cachedTree,
       openAIApiKey
     };
 
     // ============================================================================
-    // RESPONSES API with conversation chaining via Conversations API
-    // This shares conversation memory with prompt runs
+    // TOOL EXECUTION LOOP - Cleaner logic with separate function
     // ============================================================================
     const MAX_TOOL_ITERATIONS = 10;
     let finalContent = '';
     const toolEvents: Array<{ type: string; tool?: string; args?: any }> = [];
 
-    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      console.log(`AI call iteration ${iteration + 1}, conversation_id:`, conversationId);
-      
-      // Build Responses API request
-      const requestBody: any = {
-        model: selectedModel,
-        input: userInput,
-        instructions: systemContent,
-        tools: tools.length > 0 ? tools : undefined,
-        store: true, // Store for conversation chaining
-      };
+    // Initial API call
+    const requestBody: any = {
+      model: selectedModel,
+      input: userInput,
+      instructions: systemContent,
+      tools: tools.length > 0 ? tools : undefined,
+      store: true,
+    };
 
-      // Chain with conversation for memory (Conversations API)
-      if (conversationId?.startsWith('conv_')) {
-        requestBody.conversation = conversationId;
-      }
+    if (conversationId?.startsWith('conv_')) {
+      requestBody.conversation = conversationId;
+    }
 
-      const response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
 
-      if (!response.ok) {
-        if (response.status === 429) {
-          return new Response(
-            JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        const errorText = await response.text();
-        console.error('Responses API error:', response.status, errorText);
+    if (!response.ok) {
+      if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'AI request failed' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      const errorText = await response.text();
+      console.error('Responses API error:', response.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'AI request failed' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-      const result = await response.json();
-      console.log('Responses API result - id:', result.id, 'status:', result.status);
+    let result = await response.json();
+    console.log('Initial response - id:', result.id, 'status:', result.status);
 
-      // No need to track response ID - Conversations API handles chaining automatically
-
-      // Check for tool calls in output
-      const toolCalls = result.output?.filter((item: any) => item.type === 'function_call') || [];
+    // Process tool calls in a loop
+    let currentToolCalls = result.output?.filter((item: any) => item.type === 'function_call') || [];
+    
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS && currentToolCalls.length > 0; iteration++) {
+      console.log(`Tool iteration ${iteration + 1}: ${currentToolCalls.length} tool(s)`);
       
-      if (toolCalls.length > 0) {
-        console.log(`Executing ${toolCalls.length} tool call(s)`);
-        
-        // Process tool calls
-        const toolResults: any[] = [];
-        for (const toolCall of toolCalls) {
-          const toolName = toolCall.name;
-          let toolArgs = {};
-          
-          try {
-            toolArgs = JSON.parse(toolCall.arguments || '{}');
-          } catch (e) {
-            console.error('Failed to parse tool arguments:', toolCall.arguments);
-          }
-
-          toolEvents.push({ type: 'tool_start', tool: toolName, args: toolArgs });
-          
-          console.log(`Executing tool: ${toolName}`, toolArgs);
-          
-          const toolResult = await handleToolCall(toolName, toolArgs, toolContext);
-          
-          console.log(`Tool ${toolName} result length: ${toolResult.length}`);
-
-          toolEvents.push({ type: 'tool_end', tool: toolName });
-
-          toolResults.push({
-            type: 'function_call_output',
-            call_id: toolCall.call_id,
-            output: toolResult
-          });
-        }
-
-        // Submit tool results back to the API
-        const toolSubmitResponse = await fetch('https://api.openai.com/v1/responses', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: selectedModel,
-            conversation: conversationId,  // Use conversation for tool results too
-            input: toolResults,
-            store: true,
-          })
-        });
-
-        if (!toolSubmitResponse.ok) {
-          const errorText = await toolSubmitResponse.text();
-          console.error('Tool submit error:', toolSubmitResponse.status, errorText);
-          break;
-        }
-
-        const toolSubmitResult = await toolSubmitResponse.json();
-
-        // Extract content from tool submission result
-        const outputContent = toolSubmitResult.output?.find((item: any) => item.type === 'message');
-        if (outputContent?.content) {
-          for (const contentItem of outputContent.content) {
-            if (contentItem.type === 'output_text' && contentItem.text) {
-              finalContent = contentItem.text;
-            }
-          }
-        }
-
-        // Check if more tool calls needed
-        const moreToolCalls = toolSubmitResult.output?.filter((item: any) => item.type === 'function_call') || [];
-        if (moreToolCalls.length === 0) {
-          break;
-        }
-        continue;
+      const { content, hasMoreTools, nextToolCalls } = await executeToolsAndSubmit(
+        currentToolCalls,
+        toolContext,
+        conversationId!,
+        selectedModel,
+        openAIApiKey,
+        toolEvents
+      );
+      
+      if (content) {
+        finalContent = content;
       }
+      
+      if (!hasMoreTools) {
+        break;
+      }
+      
+      currentToolCalls = nextToolCalls;
+    }
 
-      // Extract final content from response
+    // If no tools were called, extract content from initial response
+    if (toolEvents.length === 0) {
       const outputMessage = result.output?.find((item: any) => item.type === 'message');
       if (outputMessage?.content) {
         for (const contentItem of outputMessage.content) {
@@ -604,12 +601,9 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
           }
         }
       }
-      
-      console.log('Final content received, length:', finalContent.length);
-      break;
     }
-
-    // No need to update thread - Conversations API auto-accumulates messages
+    
+    console.log('Final content length:', finalContent.length);
 
     if (toolEvents.length > 0) {
       toolEvents.push({ type: 'tool_loop_complete' });
