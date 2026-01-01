@@ -40,6 +40,8 @@ import { useRenderPerformance } from "@/hooks/useRenderPerformance";
 import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
 import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { executePostAction } from "@/services/actionExecutors";
+import { validateActionResponse, extractJsonFromResponse } from "@/utils/actionValidation";
+import ActionPreviewDialog from "@/components/ActionPreviewDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
@@ -214,7 +216,7 @@ const MainLayout = () => {
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPrompt, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview } = useCascadeRun();
   const [isRunningCascade, setIsRunningCascade] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
@@ -303,19 +305,83 @@ const MainLayout = () => {
       // Handle action node post-actions
       if (promptData?.node_type === 'action' && result.response && promptData.post_action) {
         try {
-          // Extract JSON from markdown code blocks if present
-          let jsonString = result.response.trim();
-          const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
-          if (codeBlockMatch) {
-            jsonString = codeBlockMatch[1].trim();
-          }
-          const jsonResponse = JSON.parse(jsonString);
+          // Extract JSON from response
+          const jsonResponse = extractJsonFromResponse(result.response);
           
           // Update extracted_variables in DB
           await supabase
             .from(import.meta.env.VITE_PROMPTS_TBL)
             .update({ extracted_variables: jsonResponse })
             .eq('row_id', promptId);
+          
+          // Validate response before executing action
+          const validation = validateActionResponse(
+            jsonResponse,
+            promptData.post_action_config,
+            promptData.post_action
+          );
+          
+          if (!validation.valid) {
+            toast.error('Action validation failed', {
+              description: validation.error,
+              source: 'MainLayout.handleRunPrompt.validation',
+              details: JSON.stringify(validation, null, 2),
+            });
+            
+            // Store failed result
+            await supabase
+              .from(import.meta.env.VITE_PROMPTS_TBL)
+              .update({
+                last_action_result: {
+                  status: 'failed',
+                  error: validation.error,
+                  available_arrays: validation.availableArrays,
+                  executed_at: new Date().toISOString(),
+                }
+              })
+              .eq('row_id', promptId);
+            
+            // Refresh the prompt data if this is the selected prompt
+            if (promptId === selectedPromptId) {
+              const data = await fetchItemData(promptId);
+              setSelectedPromptData(data);
+            }
+            return result;
+          }
+          
+          // Show preview unless skip_preview is true
+          const skipPreview = promptData.post_action_config?.skip_preview === true;
+          
+          if (!skipPreview && promptData.post_action === 'create_children_json') {
+            const confirmed = await showActionPreview({
+              jsonResponse,
+              config: promptData.post_action_config,
+              promptName: promptData.prompt_name,
+            });
+            
+            if (!confirmed) {
+              toast.info('Action cancelled by user');
+              
+              // Store cancelled result
+              await supabase
+                .from(import.meta.env.VITE_PROMPTS_TBL)
+                .update({
+                  last_action_result: {
+                    status: 'cancelled',
+                    reason: 'user_cancelled',
+                    executed_at: new Date().toISOString(),
+                  }
+                })
+                .eq('row_id', promptId);
+              
+              // Refresh the prompt data if this is the selected prompt
+              if (promptId === selectedPromptId) {
+                const data = await fetchItemData(promptId);
+                setSelectedPromptData(data);
+              }
+              return result;
+            }
+          }
           
           // Execute post-action
           const actionResult = await executePostAction({
@@ -326,6 +392,21 @@ const MainLayout = () => {
             config: promptData.post_action_config,
             context: { userId: currentUser?.id },
           });
+          
+          // Store execution result
+          await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .update({
+              last_action_result: {
+                status: actionResult.success ? 'success' : 'failed',
+                created_count: actionResult.createdCount || 0,
+                target_parent_id: actionResult.targetParentRowId,
+                message: actionResult.message,
+                error: actionResult.error || null,
+                executed_at: new Date().toISOString(),
+              }
+            })
+            .eq('row_id', promptId);
           
           if (actionResult.success) {
             toast.success(`Action completed: ${actionResult.message || 'Success'}`, {
@@ -377,6 +458,18 @@ const MainLayout = () => {
               stack: jsonError.stack,
             }, null, 2),
           });
+          
+          // Store parse error result
+          await supabase
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .update({
+              last_action_result: {
+                status: 'failed',
+                error: `JSON parse error: ${jsonError.message}`,
+                executed_at: new Date().toISOString(),
+              }
+            })
+            .eq('row_id', promptId);
         }
       }
       
@@ -1156,6 +1249,18 @@ const MainLayout = () => {
           }
           refreshTreeData();
         }}
+      />
+      {/* Action Preview Dialog - for single runs and cascade runs */}
+      <ActionPreviewDialog
+        open={!!actionPreview}
+        onOpenChange={(open) => {
+          if (!open) resolveActionPreview(false);
+        }}
+        jsonResponse={actionPreview?.jsonResponse}
+        config={actionPreview?.config}
+        promptName={actionPreview?.promptName}
+        onConfirm={() => resolveActionPreview(true)}
+        onCancel={() => resolveActionPreview(false)}
       />
     </DndProvider>
   );

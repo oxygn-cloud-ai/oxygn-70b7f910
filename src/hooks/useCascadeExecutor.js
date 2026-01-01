@@ -9,6 +9,7 @@ import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiE
 import { buildSystemVariablesForRun } from '@/utils/resolveSystemVariables';
 import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { executePostAction } from '@/services/actionExecutors';
+import { validateActionResponse, extractJsonFromResponse } from '@/utils/actionValidation';
 import { trackEvent, trackException } from '@/lib/posthog';
 
 // Helper to get a usable message from a prompt
@@ -57,6 +58,7 @@ export const useCascadeExecutor = () => {
     isCancelled,
     checkPaused,
     showError,
+    showActionPreview,
   } = useCascadeRun();
 
   // Fetch hierarchy of prompts starting from a top-level prompt
@@ -514,16 +516,10 @@ export const useCascadeExecutor = () => {
                 // Handle action nodes: parse JSON response and execute post-action
                 if (prompt.node_type === 'action' && result.response) {
                   try {
-                    // Extract JSON from markdown code blocks if present
-                    let jsonString = result.response.trim();
-                    const codeBlockMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)```/);
-                    if (codeBlockMatch) {
-                      jsonString = codeBlockMatch[1].trim();
-                    }
-                    
+                    // Extract JSON from response
                     let jsonResponse;
                     try {
-                      jsonResponse = JSON.parse(jsonString);
+                      jsonResponse = extractJsonFromResponse(result.response);
                     } catch (parseError) {
                       // Provide detailed parsing error
                       const responsePreview = result.response.substring(0, 300);
@@ -544,7 +540,6 @@ export const useCascadeExecutor = () => {
                           responsePreview: responsePreview + (result.response.length > 300 ? '...' : ''),
                           responseLength: result.response.length,
                           expectedArrayPath: expectedPath,
-                          hadCodeBlock: !!codeBlockMatch,
                           tip: 'Ensure the AI prompt explicitly requests JSON output matching the schema',
                         }, null, 2),
                       });
@@ -562,51 +557,69 @@ export const useCascadeExecutor = () => {
                     
                     updateData.extracted_variables = jsonResponse;
 
-                    // Pre-validate: check if required array path exists before executing action
+                    // Execute post-action if configured
                     if (prompt.post_action) {
                       const actionConfig = prompt.post_action_config || {};
-                      const jsonPath = Array.isArray(actionConfig.json_path) 
-                        ? actionConfig.json_path[0] 
-                        : (actionConfig.json_path || 'sections');
                       
-                      // For create_children_json, validate array exists
-                      if (prompt.post_action === 'create_children_json') {
-                        const getNestedValue = (obj, path) => {
-                          if (!path || path === 'root') return obj;
-                          return path.split('.').reduce((o, k) => o?.[k], obj);
+                      // Use shared validation utility
+                      const validation = validateActionResponse(jsonResponse, actionConfig, prompt.post_action);
+                      
+                      if (!validation.valid) {
+                        toast.error(`Action validation failed`, {
+                          description: validation.error,
+                          source: 'useCascadeExecutor.preValidation',
+                          details: JSON.stringify({
+                            configuredPath: actionConfig.json_path,
+                            valueAtPath: validation.valueAtPath,
+                            availableArrays: validation.availableArrays,
+                            responseKeys: validation.responseKeys,
+                            suggestion: validation.suggestion,
+                          }, null, 2),
+                        });
+                        
+                        updateData.last_action_result = {
+                          status: 'failed',
+                          error: validation.error,
+                          available_arrays: validation.availableArrays,
+                          executed_at: new Date().toISOString(),
                         };
                         
-                        const targetArray = getNestedValue(jsonResponse, jsonPath);
-                        const availableArrays = Object.keys(jsonResponse || {})
-                          .filter(k => Array.isArray(jsonResponse[k]));
+                        // Continue to next prompt - don't execute action
+                        continue;
+                      }
+                      
+                      if (validation.isEmpty) {
+                        toast.warning(`Array at "${validation.jsonPath}" is empty - no children will be created`, {
+                          source: 'useCascadeExecutor.preValidation',
+                        });
+                      }
+                      
+                      // Show preview unless skip_preview is true
+                      const skipPreview = actionConfig.skip_preview === true;
+                      
+                      if (!skipPreview && prompt.post_action === 'create_children_json') {
+                        const confirmed = await showActionPreview({
+                          jsonResponse,
+                          config: prompt.post_action_config,
+                          promptName: prompt.prompt_name,
+                        });
                         
-                        if (!Array.isArray(targetArray)) {
-                          const errorMsg = `Path "${jsonPath}" is not an array. Available arrays: ${availableArrays.join(', ') || 'none'}`;
-                          
-                          toast.error(`Action validation failed`, {
-                            description: errorMsg,
-                            source: 'useCascadeExecutor.preValidation',
-                            details: JSON.stringify({
-                              configuredPath: jsonPath,
-                              valueAtPath: typeof targetArray,
-                              availableArrays,
-                              responseKeys: Object.keys(jsonResponse || {}),
-                              suggestion: availableArrays.length > 0 
-                                ? `Try setting json_path to "${availableArrays[0]}"` 
-                                : 'Ensure the AI response contains an array field',
-                            }, null, 2),
-                          });
+                        if (!confirmed) {
+                          toast.info('Action cancelled by user');
                           
                           updateData.last_action_result = {
-                            status: 'failed',
-                            error: errorMsg,
-                            available_arrays: availableArrays,
+                            status: 'cancelled',
+                            reason: 'user_cancelled',
                             executed_at: new Date().toISOString(),
                           };
-                        } else if (targetArray.length === 0) {
-                          toast.warning(`Array at "${jsonPath}" is empty - no children will be created`, {
-                            source: 'useCascadeExecutor.preValidation',
-                          });
+                          
+                          // Save the update and continue to next prompt
+                          await supabase
+                            .from(import.meta.env.VITE_PROMPTS_TBL)
+                            .update(updateData)
+                            .eq('row_id', prompt.row_id);
+                          
+                          continue;
                         }
                       }
                       

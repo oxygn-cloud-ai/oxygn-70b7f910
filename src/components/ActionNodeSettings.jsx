@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ResizablePromptArea } from '@/components/shared';
@@ -518,13 +519,33 @@ const ActionNodeSettings = ({
               Action Configuration
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <ActionConfigRenderer
               schema={selectedAction.configSchema}
               config={currentConfig}
               onChange={handleConfigChange}
               currentSchema={currentSchemaObject}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Skip Preview Toggle */}
+      {selectedAction && selectedAction.id === 'create_children_json' && (
+        <Card className="bg-surface-container-low border-outline-variant">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-body-sm text-on-surface">Skip Preview</div>
+                <div className="text-[10px] text-on-surface-variant">
+                  Auto-confirm child creation without showing preview dialog
+                </div>
+              </div>
+              <Switch
+                checked={currentConfig?.skip_preview ?? false}
+                onCheckedChange={(v) => handleConfigChange({ ...currentConfig, skip_preview: v })}
+              />
+            </div>
           </CardContent>
         </Card>
       )}
