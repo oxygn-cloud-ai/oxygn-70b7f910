@@ -370,14 +370,14 @@ const ConversationPanel = ({
                 // Auto-resize textarea
                 e.target.style.height = 'auto';
                 const lineHeight = 20; // approx line height for text-body-sm
-                const maxHeight = lineHeight * 10; // 10 lines max
+                const maxHeight = lineHeight * 20; // 20 lines max
                 e.target.style.height = Math.min(e.target.scrollHeight, maxHeight) + 'px';
               }}
               onKeyDown={handleKeyDown}
               placeholder={usePromptFamilyMode ? "Ask about this prompt family..." : "Type a message..."}
               rows={1}
               className="flex-1 bg-transparent text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none resize-none overflow-y-auto"
-              style={{ minHeight: '20px', maxHeight: '200px' }}
+              style={{ minHeight: '20px', maxHeight: '400px' }}
             />
           </div>
           <div className="flex gap-0.5">
