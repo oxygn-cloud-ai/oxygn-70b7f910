@@ -33,6 +33,9 @@ export const CascadeRunProvider = ({ children }) => {
   // Action preview state (for showing ActionPreviewDialog)
   const [actionPreview, setActionPreview] = useState(null);
   
+  // Skip all previews state (for bypassing all action previews during cascade)
+  const [skipAllPreviews, setSkipAllPreviews] = useState(false);
+  
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
   const errorResolverRef = useRef(null);
@@ -52,6 +55,7 @@ export const CascadeRunProvider = ({ children }) => {
     setStartTime(Date.now());
     setError(null);
     setErrorPrompt(null);
+    setSkipAllPreviews(false); // Reset skip all previews on new cascade
     cancelRef.current = false;
     pauseRef.current = false;
   }, []);
@@ -76,6 +80,7 @@ export const CascadeRunProvider = ({ children }) => {
     setIsPaused(false);
     setCurrentPromptName('');
     setCurrentPromptRowId(null);
+    setSkipAllPreviews(false); // Reset on completion
     cancelRef.current = false;
     pauseRef.current = false;
   }, []);
@@ -185,6 +190,7 @@ export const CascadeRunProvider = ({ children }) => {
     errorPrompt,
     singleRunPromptId,
     actionPreview,
+    skipAllPreviews,
     
     // Actions
     startCascade,
@@ -201,6 +207,7 @@ export const CascadeRunProvider = ({ children }) => {
     resolveError,
     showActionPreview,
     resolveActionPreview,
+    setSkipAllPreviews,
     startSingleRun,
     endSingleRun,
   };
