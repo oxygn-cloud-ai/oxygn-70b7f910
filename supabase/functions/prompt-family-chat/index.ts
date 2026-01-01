@@ -11,7 +11,8 @@ import {
   getFamilyJsonSchemas,
   getFamilyVariables,
   getPromptFamilySummary,
-  getPromptFamilyTools
+  getPromptFamilyTools,
+  getFamilyDataOptimized
 } from "../_shared/promptFamily.ts";
 import { TABLES } from "../_shared/tables.ts";
 import { resolveRootPromptId, getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
@@ -353,19 +354,42 @@ serve(async (req) => {
     // UNIFIED FAMILY THREAD RESOLUTION
     // Chat panel shares the same thread as prompt runs
     // ============================================================================
+    const initStart = Date.now();
+    
+    // Step 1: Resolve root prompt (must happen first)
     const rootPromptRowId = await resolveRootPromptId(supabase, prompt_row_id);
-    console.log('Resolved root prompt for chat:', rootPromptRowId, 'from:', prompt_row_id);
+    console.log('Resolved root prompt for chat:', rootPromptRowId, 'from:', prompt_row_id, `(${Date.now() - initStart}ms)`);
 
-    // Get or create the unified family thread (with OpenAI Conversation)
-    const familyThread = await getOrCreateFamilyThread(
-      supabase,
-      rootPromptRowId,
-      validation.user!.id,
-      'Chat',
-      openAIApiKey  // Pass API key to create real conversation
-    );
+    // Step 2: PARALLEL - Run independent queries simultaneously
+    const parallelStart = Date.now();
+    const [familyThread, familyData, knowledge, modelSetting] = await Promise.all([
+      // Get or create the unified family thread (with OpenAI Conversation)
+      getOrCreateFamilyThread(
+        supabase,
+        rootPromptRowId,
+        validation.user!.id,
+        'Chat',
+        openAIApiKey
+      ),
+      // Get all family data in one optimized call
+      getFamilyDataOptimized(supabase, rootPromptRowId),
+      // Load Qonsol knowledge for relevant topics
+      loadQonsolKnowledge(supabase, [
+        'overview', 'prompts', 'variables', 'cascade', 'json_schemas', 'actions', 'troubleshooting'
+      ], 6000),
+      // Get default model setting
+      model ? Promise.resolve({ setting_value: model }) : supabase
+        .from('q_settings')
+        .select('setting_value')
+        .eq('setting_key', 'workbench_default_model')
+        .single()
+        .then((r: any) => r.data)
+    ]);
+    
+    console.log(`Parallel queries completed in ${Date.now() - parallelStart}ms`);
 
     const conversationId = familyThread.openai_conversation_id;
+    const { familyPromptIds, familySummary } = familyData;
 
     console.log('Using unified family thread:', {
       thread_row_id: familyThread.row_id,
@@ -373,29 +397,16 @@ serve(async (req) => {
       thread_created: familyThread.created,
     });
 
-    // Get prompt family info
-    const familyPromptIds = await getFamilyPromptIds(supabase, prompt_row_id);
-    const familySummary = await getPromptFamilySummary(supabase, prompt_row_id);
-    
-    // Load Qonsol knowledge for relevant topics
-    const knowledge = await loadQonsolKnowledge(supabase, [
-      'overview', 'prompts', 'variables', 'cascade', 'json_schemas', 'actions', 'troubleshooting'
-    ], 6000);
-
     // Get default model from settings
     let selectedModel = model;
-    if (!selectedModel) {
-      const { data: modelSetting } = await supabase
-        .from('q_settings')
-        .select('setting_value')
-        .eq('setting_key', 'workbench_default_model')
-        .single();
-      if (modelSetting?.setting_value) {
-        selectedModel = modelSetting.setting_value;
-      } else {
-        selectedModel = await getDefaultModelFromSettings(supabase);
-      }
+    if (!selectedModel && modelSetting?.setting_value) {
+      selectedModel = modelSetting.setting_value;
     }
+    if (!selectedModel) {
+      selectedModel = await getDefaultModelFromSettings(supabase);
+    }
+    
+    console.log(`Total initialization time: ${Date.now() - initStart}ms`);
 
     // Build system prompt with chat-specific tools (NOT available to prompt runs)
     const systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
