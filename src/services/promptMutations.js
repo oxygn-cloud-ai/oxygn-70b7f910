@@ -162,13 +162,12 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   if (effectiveParentId) {
     const { data: parentPrompt } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('is_assistant, thread_mode, child_thread_strategy, default_child_thread_strategy, model, model_on, web_search_on, confluence_enabled')
+      .select('thread_mode, child_thread_strategy, default_child_thread_strategy, model, model_on, web_search_on, confluence_enabled')
       .eq('row_id', effectiveParentId)
       .maybeSingle();
     
     if (parentPrompt) {
       inheritedProps = {
-        is_assistant: parentPrompt.is_assistant || false,
         thread_mode: parentPrompt.thread_mode,
         // Use parent's default_child_thread_strategy for the child's child_thread_strategy
         child_thread_strategy: parentPrompt.default_child_thread_strategy || parentPrompt.child_thread_strategy,
@@ -265,7 +264,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     // Apply global model defaults first
     ...modelDefaults,
     // Then apply inherited properties from parent (overrides defaults where set)
-    is_assistant: effectiveParentId === null ? true : (inheritedProps.is_assistant || false),
+    is_assistant: true,
     thread_mode: inheritedProps.thread_mode || null,
     child_thread_strategy: inheritedProps.child_thread_strategy || null,
     default_child_thread_strategy: inheritedProps.default_child_thread_strategy || null,

@@ -559,14 +559,6 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         )}
       </div>
 
-      {/* Conversational Memory Toggle */}
-      <div className="flex items-center justify-between">
-        <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Conversational Memory</label>
-        <Switch 
-          checked={isAssistant} 
-          onCheckedChange={(checked) => onUpdateField?.('is_assistant', checked)} 
-        />
-      </div>
 
       {/* Tools Section */}
       <div className="space-y-2">
@@ -1218,13 +1210,12 @@ const PromptsContent = ({
   singleRunPromptId = null,
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
-  const [isAssistantEnabled, setIsAssistantEnabled] = useState(promptData?.is_assistant || false);
   const [confluenceModalOpen, setConfluenceModalOpen] = useState(false);
   const fileInputRef = useRef(null);
   const formattedTime = useTimer(isRunningPrompt);
 
-  // Get assistant row id from promptData if it's an assistant
-  const assistantRowId = promptData?.is_assistant ? promptData?.assistant_row_id : null;
+  // Get assistant row id from promptData (always available now - conversation mode always on)
+  const assistantRowId = promptData?.assistant_row_id;
   const promptRowId = promptData?.row_id;
 
   // File and Confluence hooks
@@ -1248,12 +1239,6 @@ const PromptsContent = ({
     e.target.value = '';
   };
 
-  // Update isAssistantEnabled when promptData changes
-  useEffect(() => {
-    if (promptData) {
-      setIsAssistantEnabled(promptData.is_assistant || false);
-    }
-  }, [promptData?.is_assistant]);
 
   const tabs = [
     { id: "prompt", icon: FileText, label: "Prompt" },
