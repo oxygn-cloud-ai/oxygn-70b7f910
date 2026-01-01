@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings, getTokenParam } from "../_shared/models.ts";
-import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponse } from "../_shared/familyThreads.ts";
+import { resolveRootPromptId, getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -83,7 +83,7 @@ function applyTemplate(template: string, variables: Record<string, string>): str
 // ============================================================================
 // OPENAI RESPONSES API
 // https://platform.openai.com/docs/api-reference/responses
-// Multi-turn conversations use previous_response_id for context chaining
+// Multi-turn conversations use OpenAI Conversations API (conversation parameter)
 // ============================================================================
 
 interface ResponsesResult {
@@ -195,12 +195,12 @@ interface ApiOptions {
   maxTokens?: number;
 }
 
-// Call OpenAI Responses API - uses previous_response_id for multi-turn context
+// Call OpenAI Responses API - uses conversation parameter for multi-turn context
 async function runResponsesAPI(
   assistantData: any,
   userMessage: string,
   systemPrompt: string,
-  previousResponseId: string | null,
+  conversationId: string | null,
   apiKey: string,
   supabase: any,
   options: ApiOptions = {},
@@ -217,12 +217,12 @@ async function runResponsesAPI(
   const requestBody: any = {
     model: modelId,
     input: userMessage,
-    store: true, // Store for multi-turn via previous_response_id
+    store: true, // Store for conversation chaining
   };
 
-  // Add previous_response_id for multi-turn conversation context
-  if (previousResponseId) {
-    requestBody.previous_response_id = previousResponseId;
+  // Add conversation parameter for multi-turn context (Conversations API)
+  if (conversationId?.startsWith('conv_')) {
+    requestBody.conversation = conversationId;
   }
 
   // Add instructions (system prompt)
@@ -308,13 +308,13 @@ async function runResponsesAPI(
       type: options.responseFormat.type,
       schema_name: options.responseFormat.json_schema?.name,
     } : undefined,
-    has_previous_response: !!previousResponseId,
+    has_conversation: !!conversationId?.startsWith('conv_'),
     has_instructions: !!systemPrompt,
   };
 
   console.log('Calling Responses API:', { 
     model: modelId, 
-    hasPreviousResponse: !!previousResponseId,
+    hasConversation: !!conversationId?.startsWith('conv_'),
     hasInstructions: !!systemPrompt,
     hasStructuredOutput: !!options.responseFormat,
     requestParams,
@@ -629,26 +629,26 @@ serve(async (req) => {
       const rootPromptRowId = await resolveRootPromptId(supabase, child_prompt_row_id);
       console.log('Resolved root prompt:', rootPromptRowId, 'from child:', child_prompt_row_id);
 
-      // Get or create the unified family thread
+      // Get or create the unified family thread (with OpenAI Conversation)
       const familyThread = await getOrCreateFamilyThread(
         supabase, 
         rootPromptRowId, 
         validation.user!.id,
-        childPrompt.prompt_name
+        childPrompt.prompt_name,
+        OPENAI_API_KEY  // Pass API key to create real conversation
       );
 
       const activeThreadRowId = familyThread.row_id;
-      const previousResponseId = familyThread.last_response_id;
+      const conversationId = familyThread.openai_conversation_id;
       
-      // If thread existed and has no previous response, context is "new" not inherited
-      // If thread existed and has previous response, context is inherited from family conversation
-      const isInheritedFromParent = !familyThread.created && !!previousResponseId;
+      // If thread existed and has valid conversation ID, context is inherited from family conversation
+      const isInheritedFromParent = !familyThread.created && !!conversationId?.startsWith('conv_');
 
       console.log('Unified thread resolution:', {
         root_prompt_row_id: rootPromptRowId,
         child_prompt_row_id: child_prompt_row_id,
         thread_row_id: activeThreadRowId,
-        previous_response_id: previousResponseId,
+        conversation_id: conversationId,
         thread_created: familyThread.created,
         inherited_context: isInheritedFromParent,
       });
@@ -658,7 +658,7 @@ serve(async (req) => {
       // (same thread continuation). When context is INHERITED from parent,
       // we still need to load files/pages as they're not in the OpenAI context.
       // ============================================================================
-      const isFollowUpMessage = !!previousResponseId && !isInheritedFromParent;
+      const isFollowUpMessage = !!conversationId?.startsWith('conv_') && !isInheritedFromParent;
       let fileContext = '';
       let confluenceContext = '';
       let filesCount = 0;
@@ -1240,7 +1240,7 @@ serve(async (req) => {
         assistantData,
         finalMessage,
         systemPrompt,
-        previousResponseId,
+        conversationId,
         OPENAI_API_KEY,
         supabase,
         apiOptions
@@ -1291,10 +1291,7 @@ serve(async (req) => {
         })
         .eq('row_id', child_prompt_row_id);
 
-      // Update family thread with new response_id for conversation chaining
-      if (activeThreadRowId && result.response_id) {
-        await updateFamilyThreadResponse(supabase, activeThreadRowId, result.response_id);
-      }
+      // No need to update thread - Conversations API auto-accumulates messages
 
       console.log('Run completed successfully');
 

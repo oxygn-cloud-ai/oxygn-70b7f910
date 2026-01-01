@@ -12,6 +12,7 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [streamingMessage, setStreamingMessage] = useState('');
   const [toolActivity, setToolActivity] = useState([]);
   const [isExecutingTools, setIsExecutingTools] = useState(false);
+  const [rootPromptId, setRootPromptId] = useState(null);
 
   // Compute root prompt ID by walking up parent chain
   const computeRootPromptId = useCallback(async (pRowId) => {
@@ -24,7 +25,6 @@ export const usePromptFamilyChat = (promptRowId) => {
         .eq('row_id', current)
         .single();
       if (!data?.parent_row_id) {
-        toast.info(`Root resolved: ${data?.prompt_name || current.slice(0, 8)}`, { duration: 2000 });
         return current;
       }
       current = data.parent_row_id;
@@ -33,9 +33,22 @@ export const usePromptFamilyChat = (promptRowId) => {
     return current;
   }, []);
 
+  // Resolve root prompt when promptRowId changes
+  useEffect(() => {
+    const resolveRoot = async () => {
+      if (!promptRowId) {
+        setRootPromptId(null);
+        return;
+      }
+      const rootId = await computeRootPromptId(promptRowId);
+      setRootPromptId(rootId);
+    };
+    resolveRoot();
+  }, [promptRowId, computeRootPromptId]);
+
   // Fetch the unified family thread (one per family)
   const fetchThreads = useCallback(async () => {
-    if (!promptRowId) {
+    if (!rootPromptId) {
       setThreads([]);
       return;
     }
@@ -43,13 +56,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const rootId = await computeRootPromptId(promptRowId);
       
       const { data, error } = await supabase
         .from('q_threads')
         .select('*')
-        .eq('root_prompt_row_id', rootId)
+        .eq('root_prompt_row_id', rootPromptId)
         .eq('owner_id', user.id)
         .eq('is_active', true)
         .order('last_message_at', { ascending: false, nullsFirst: false });
@@ -60,17 +71,13 @@ export const usePromptFamilyChat = (promptRowId) => {
       // Auto-select first thread if none selected
       if (data?.length > 0 && !activeThreadId) {
         setActiveThreadId(data[0].row_id);
-        const lastRespId = data[0].last_response_id;
-        toast.info(`Thread found: ${lastRespId ? `prev_resp: ${lastRespId.slice(0, 12)}...` : 'no history'}`, { duration: 3000 });
-      } else if (!data?.length) {
-        toast.info('No existing thread - will create on first message', { duration: 2000 });
       }
     } catch (error) {
       console.error('Error fetching threads:', error);
     }
-  }, [promptRowId, activeThreadId, computeRootPromptId]);
+  }, [rootPromptId, activeThreadId]);
 
-  // Fetch messages for active thread
+  // Fetch messages for active thread from OpenAI via thread-manager
   const fetchMessages = useCallback(async () => {
     if (!activeThreadId) {
       setMessages([]);
@@ -79,17 +86,28 @@ export const usePromptFamilyChat = (promptRowId) => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('q_prompt_family_messages')
-        .select('*')
-        .eq('thread_row_id', activeThreadId)
-        .order('created_at', { ascending: true });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      if (error) throw error;
-      setMessages(data || []);
+      const response = await supabase.functions.invoke('thread-manager', {
+        body: {
+          action: 'get_messages',
+          thread_row_id: activeThreadId,
+          limit: 100,
+        }
+      });
+
+      if (response.error) throw response.error;
+      
+      setMessages((response.data?.messages || []).map(m => ({
+        row_id: m.id,
+        role: m.role,
+        content: m.content,
+        created_at: m.created_at,
+      })));
     } catch (error) {
       console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
+      setMessages([]);
     } finally {
       setIsLoading(false);
     }
@@ -97,48 +115,45 @@ export const usePromptFamilyChat = (promptRowId) => {
 
   // Create a new thread (clears existing and creates fresh one)
   const createThread = useCallback(async (title = 'New Chat') => {
-    if (!promptRowId) return null;
+    if (!rootPromptId) return null;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const rootId = await computeRootPromptId(promptRowId);
-
       // Deactivate any existing active thread for this family
       await supabase
         .from('q_threads')
         .update({ is_active: false })
-        .eq('root_prompt_row_id', rootId)
+        .eq('root_prompt_row_id', rootPromptId)
         .eq('owner_id', user.id)
         .eq('is_active', true);
 
-      // Create new thread
-      const { data, error } = await supabase
-        .from('q_threads')
-        .insert({
-          root_prompt_row_id: rootId,
+      // Create new thread via thread-manager (creates real OpenAI conversation)
+      const response = await supabase.functions.invoke('thread-manager', {
+        body: {
+          action: 'create',
+          root_prompt_row_id: rootPromptId,
           name: title,
-          owner_id: user.id,
-          is_active: true,
-          openai_conversation_id: `pending-${Date.now()}`
-        })
-        .select()
-        .single();
+        }
+      });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
       
-      setThreads([data]);
-      setActiveThreadId(data.row_id);
-      setMessages([]);
+      const newThread = response.data?.thread;
+      if (newThread) {
+        setThreads([newThread]);
+        setActiveThreadId(newThread.row_id);
+        setMessages([]);
+      }
       
-      return data;
+      return newThread;
     } catch (error) {
       console.error('Error creating thread:', error);
       toast.error('Failed to create new chat');
       return null;
     }
-  }, [promptRowId, computeRootPromptId]);
+  }, [rootPromptId]);
 
   // Switch to a different thread
   const switchThread = useCallback((threadId) => {
@@ -174,13 +189,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [activeThreadId, threads]);
 
-  // Add a message to local state only (messages are stored in OpenAI's chain now)
-  // Accepts optional threadId to use instead of activeThreadId (for newly created threads)
+  // Add a message to local state only
   const addMessage = useCallback((role, content, toolCalls = null, threadId = null) => {
     const effectiveThreadId = threadId || activeThreadId;
     if (!effectiveThreadId) return null;
 
-    // Just add to local state - messages are in OpenAI's Responses API chain
     const localMsg = {
       row_id: `local-${Date.now()}`,
       thread_row_id: effectiveThreadId,
@@ -194,12 +207,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     return localMsg;
   }, [activeThreadId]);
 
-  // Clear messages - creates a new thread (clears OpenAI conversation chain)
+  // Clear messages - creates a new thread
   const clearMessages = useCallback(async () => {
-    if (!promptRowId) return false;
+    if (!rootPromptId) return false;
 
     try {
-      // Create new thread which clears the conversation chain
       await createThread('New Chat');
       toast.success('Conversation cleared');
       return true;
@@ -208,15 +220,13 @@ export const usePromptFamilyChat = (promptRowId) => {
       toast.error('Failed to clear conversation');
       return false;
     }
-  }, [promptRowId, createThread]);
+  }, [rootPromptId, createThread]);
 
   // Send a message and get AI response
-  // Accepts optional threadId to use instead of activeThreadId (for newly created threads)
   const sendMessage = useCallback(async (userMessage, threadId = null) => {
     const effectiveThreadId = threadId || activeThreadId;
     if (!effectiveThreadId || !userMessage.trim() || !promptRowId) return null;
 
-    // Add user message to UI immediately
     const userMsg = await addMessage('user', userMessage, null, effectiveThreadId);
     if (!userMsg) return null;
 
@@ -225,7 +235,6 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsExecutingTools(false);
 
-    // Track prompt family message sent
     trackEvent('prompt_family_message_sent', {
       prompt_id: promptRowId,
       thread_id: effectiveThreadId,
@@ -236,7 +245,6 @@ export const usePromptFamilyChat = (promptRowId) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      // Prepare messages for API
       const apiMessages = messages.map(m => ({
         role: m.role,
         content: m.content
@@ -264,7 +272,6 @@ export const usePromptFamilyChat = (promptRowId) => {
         throw new Error(errorText || 'Failed to get response');
       }
 
-      // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
@@ -289,7 +296,6 @@ export const usePromptFamilyChat = (promptRowId) => {
             try {
               const parsed = JSON.parse(data);
               
-              // Handle tool activity events
               if (parsed.type === 'tool_start') {
                 setToolActivity(prev => [...prev, {
                   name: parsed.tool,
@@ -307,7 +313,6 @@ export const usePromptFamilyChat = (promptRowId) => {
                 setIsExecutingTools(false);
               }
               
-              // Handle OpenAI streaming format
               const deltaContent = parsed.choices?.[0]?.delta?.content;
               if (deltaContent) {
                 fullContent += deltaContent;
@@ -326,23 +331,20 @@ export const usePromptFamilyChat = (promptRowId) => {
         }
       }
 
-      // Save assistant message
       await addMessage('assistant', fullContent);
       setStreamingMessage('');
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
 
-      // Update thread timestamp
       await supabase
         .from('q_threads')
         .update({ last_message_at: new Date().toISOString() })
-        .eq('row_id', activeThreadId);
+        .eq('row_id', effectiveThreadId);
 
-      // Track successful response
       trackEvent('prompt_family_response_received', {
         prompt_id: promptRowId,
-        thread_id: activeThreadId,
+        thread_id: effectiveThreadId,
         response_length: fullContent.length,
       });
 
@@ -354,10 +356,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
-      
-      // Track error
       trackException(error, { context: 'prompt_family_chat' });
-      
       return null;
     }
   }, [activeThreadId, promptRowId, messages, addMessage]);
@@ -371,13 +370,13 @@ export const usePromptFamilyChat = (promptRowId) => {
     fetchMessages();
   }, [fetchMessages]);
 
-  // Reset when prompt changes
+  // CRITICAL FIX: Reset only when ROOT changes (different family), not individual prompts
   useEffect(() => {
     setActiveThreadId(null);
     setMessages([]);
     setStreamingMessage('');
     setToolActivity([]);
-  }, [promptRowId]);
+  }, [rootPromptId]);
 
   return {
     threads,
