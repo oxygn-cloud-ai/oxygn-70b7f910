@@ -4,10 +4,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 
 const REASONING_OPTIONS = [
-  { value: 'auto', label: 'Auto', desc: 'Model decides' },
+  { value: 'auto', label: 'Auto', desc: 'Model default' },
+  { value: 'none', label: 'None', desc: 'No reasoning' },
   { value: 'low', label: 'Low', desc: 'Faster' },
   { value: 'medium', label: 'Medium', desc: 'Balanced' },
   { value: 'high', label: 'High', desc: 'Deeper' },
+  { value: 'xhigh', label: 'X-High', desc: 'Maximum' },
 ];
 
 const ModelReasoningSelector = ({
