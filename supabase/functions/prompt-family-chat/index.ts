@@ -14,7 +14,7 @@ import {
   getPromptFamilyTools
 } from "../_shared/promptFamily.ts";
 import { TABLES } from "../_shared/tables.ts";
-import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponse } from "../_shared/familyThreads.ts";
+import { resolveRootPromptId, getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -356,17 +356,20 @@ serve(async (req) => {
     const rootPromptRowId = await resolveRootPromptId(supabase, prompt_row_id);
     console.log('Resolved root prompt for chat:', rootPromptRowId, 'from:', prompt_row_id);
 
-    // Get or create the unified family thread
+    // Get or create the unified family thread (with OpenAI Conversation)
     const familyThread = await getOrCreateFamilyThread(
       supabase,
       rootPromptRowId,
       validation.user!.id,
-      'Chat'
+      'Chat',
+      openAIApiKey  // Pass API key to create real conversation
     );
+
+    const conversationId = familyThread.openai_conversation_id;
 
     console.log('Using unified family thread:', {
       thread_row_id: familyThread.row_id,
-      previous_response_id: familyThread.last_response_id,
+      conversation_id: conversationId,
       thread_created: familyThread.created,
     });
 
@@ -449,16 +452,15 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     };
 
     // ============================================================================
-    // RESPONSES API with conversation chaining via previous_response_id
+    // RESPONSES API with conversation chaining via Conversations API
     // This shares conversation memory with prompt runs
     // ============================================================================
     const MAX_TOOL_ITERATIONS = 10;
-    let previousResponseId = familyThread.last_response_id;
     let finalContent = '';
     const toolEvents: Array<{ type: string; tool?: string; args?: any }> = [];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      console.log(`AI call iteration ${iteration + 1}, previous_response_id:`, previousResponseId);
+      console.log(`AI call iteration ${iteration + 1}, conversation_id:`, conversationId);
       
       // Build Responses API request
       const requestBody: any = {
@@ -469,9 +471,9 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         store: true, // Store for conversation chaining
       };
 
-      // Chain with previous response for conversation memory
-      if (previousResponseId) {
-        requestBody.previous_response_id = previousResponseId;
+      // Chain with conversation for memory (Conversations API)
+      if (conversationId?.startsWith('conv_')) {
+        requestBody.conversation = conversationId;
       }
 
       const response = await fetch('https://api.openai.com/v1/responses', {
@@ -501,8 +503,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       const result = await response.json();
       console.log('Responses API result - id:', result.id, 'status:', result.status);
 
-      // Update previousResponseId for next iteration or final storage
-      previousResponseId = result.id;
+      // No need to track response ID - Conversations API handles chaining automatically
 
       // Check for tool calls in output
       const toolCalls = result.output?.filter((item: any) => item.type === 'function_call') || [];
@@ -548,7 +549,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
           },
           body: JSON.stringify({
             model: selectedModel,
-            previous_response_id: previousResponseId,
+            conversation: conversationId,  // Use conversation for tool results too
             input: toolResults,
             store: true,
           })
@@ -561,7 +562,6 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         }
 
         const toolSubmitResult = await toolSubmitResponse.json();
-        previousResponseId = toolSubmitResult.id;
 
         // Extract content from tool submission result
         const outputContent = toolSubmitResult.output?.find((item: any) => item.type === 'message');
@@ -595,10 +595,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       break;
     }
 
-    // Update family thread with final response ID for conversation chaining
-    if (previousResponseId) {
-      await updateFamilyThreadResponse(supabase, familyThread.row_id, previousResponseId);
-    }
+    // No need to update thread - Conversations API auto-accumulates messages
 
     if (toolEvents.length > 0) {
       toolEvents.push({ type: 'tool_loop_complete' });

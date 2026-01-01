@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
-import { resolveRootPromptId, clearFamilyThread } from "../_shared/familyThreads.ts";
+import { clearFamilyThread, createOpenAIConversation, fetchConversationHistory } from "../_shared/familyThreads.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,36 +56,12 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
-// Create OpenAI conversation
-async function createOpenAIConversation(apiKey: string, metadata?: Record<string, string>): Promise<string> {
-  console.log('Creating new OpenAI conversation...');
-  
-  const response = await fetch('https://api.openai.com/v1/conversations', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      metadata: metadata || {},
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Failed to create OpenAI conversation:', error);
-    throw new Error(error.error?.message || 'Failed to create conversation');
-  }
-
-  const data = await response.json();
-  console.log('Created OpenAI conversation:', data.id);
-  return data.id;
-}
+// Note: createOpenAIConversation is now imported from _shared/familyThreads.ts
 
 // Delete OpenAI conversation
 async function deleteOpenAIConversation(apiKey: string, conversationId: string): Promise<void> {
-  if (!conversationId || conversationId.startsWith('pending_')) {
-    console.log('Skipping deletion of pending/invalid conversation:', conversationId);
+  if (!conversationId || !conversationId.startsWith('conv_')) {
+    console.log('Skipping deletion of invalid conversation:', conversationId);
     return;
   }
 
@@ -107,76 +83,16 @@ async function deleteOpenAIConversation(apiKey: string, conversationId: string):
   }
 }
 
-// Fetch messages from OpenAI Conversations API
+// Note: fetchConversationHistory is now imported from _shared/familyThreads.ts
+// Local wrapper that transforms to expected format
 async function fetchMessagesFromOpenAI(apiKey: string, conversationId: string, limit: number = 50): Promise<any[]> {
-  if (!conversationId || conversationId.startsWith('pending_')) {
-    console.log('No valid conversation ID, returning empty messages');
-    return [];
-  }
-
-  console.log('Fetching messages from OpenAI conversation:', conversationId);
-  
-  const response = await fetch(`https://api.openai.com/v1/conversations/${conversationId}/items?limit=${limit}&order=asc`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    console.error('Failed to fetch messages from OpenAI:', error);
-    return [];
-  }
-
-  const data = await response.json();
-  const items = data.data || [];
-  
-  // Transform OpenAI items to our message format
-  const messages: any[] = [];
-  
-  for (const item of items) {
-    if (item.type === 'message') {
-      // Never show system/developer prompts in the UI message stream
-      if (item.role === 'system' || item.role === 'developer') continue;
-
-      // Extract text content from message
-      let content = '';
-      if (Array.isArray(item.content)) {
-        for (const part of item.content) {
-          if (part.type === 'output_text' || part.type === 'input_text') {
-            content += part.text || '';
-          } else if (part.type === 'text') {
-            content += part.text || '';
-          }
-        }
-      } else if (typeof item.content === 'string') {
-        content = item.content;
-      }
-
-      if (content.trim()) {
-        // Safely parse created_at - it might be missing or invalid
-        let createdAt: string;
-        try {
-          createdAt = item.created_at 
-            ? new Date(item.created_at * 1000).toISOString() 
-            : new Date().toISOString();
-        } catch {
-          createdAt = new Date().toISOString();
-        }
-        
-        messages.push({
-          id: item.id,
-          role: item.role,
-          content: content.trim(),
-          created_at: createdAt,
-        });
-      }
-    }
-  }
-
-  console.log('Fetched messages from OpenAI:', messages.length);
-  return messages;
+  const messages = await fetchConversationHistory(apiKey, conversationId, limit);
+  return messages.map(m => ({
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    role: m.role,
+    content: m.content,
+    created_at: m.created_at,
+  }));
 }
 
 serve(async (req) => {
@@ -220,8 +136,10 @@ serve(async (req) => {
       // Generate a name if not provided
       const threadName = name || `Thread ${new Date().toISOString().split('T')[0]}`;
 
-      // Use a pending placeholder - will be updated with real response_id after first API call
-      const tempConversationId = `pending-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      // Create real OpenAI conversation
+      const conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
+        root_prompt_id: root_prompt_row_id || '',
+      });
 
       // Save to database - include root_prompt_row_id for unified family threads
       const { data: savedThread, error: saveError } = await supabase
@@ -229,11 +147,11 @@ serve(async (req) => {
         .insert({
           assistant_row_id,
           child_prompt_row_id,
-          root_prompt_row_id, // New: for unified family thread lookup
-          openai_conversation_id: tempConversationId,
+          root_prompt_row_id,
+          openai_conversation_id: conversationId,
           name: threadName,
           is_active: true,
-          owner_id: validation.user?.id, // Always set owner
+          owner_id: validation.user?.id,
         })
         .select()
         .single();
