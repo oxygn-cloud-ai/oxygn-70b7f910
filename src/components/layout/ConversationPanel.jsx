@@ -7,7 +7,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SkeletonChat } from "@/components/shared/Skeletons";
 import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
+import ModelReasoningSelector from "@/components/chat/ModelReasoningSelector";
 import ReactMarkdown from "react-markdown";
+import { useModels } from "@/hooks/useModels";
 
 // Tool Activity Indicator
 const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
@@ -136,6 +138,10 @@ const ConversationPanel = ({
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // Get models for selector
+  const { getActiveModels, getModelConfig } = useModels();
+  const activeModels = getActiveModels();
+
   // Auto-resize textarea based on content
   const resizeTextarea = useCallback(() => {
     const textarea = textareaRef.current;
@@ -172,6 +178,18 @@ const ConversationPanel = ({
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
 
+  // Get session model/reasoning from hook
+  const sessionModel = usePromptFamilyMode ? promptFamilyChat.sessionModel : null;
+  const setSessionModel = usePromptFamilyMode ? promptFamilyChat.setSessionModel : () => {};
+  const sessionReasoningEffort = usePromptFamilyMode ? promptFamilyChat.sessionReasoningEffort : 'auto';
+  const setSessionReasoningEffort = usePromptFamilyMode ? promptFamilyChat.setSessionReasoningEffort : () => {};
+
+  // Calculate current model config for reasoning support
+  const currentModelId = sessionModel || activeModels[0]?.model_id;
+  const currentModelConfig = currentModelId ? getModelConfig(currentModelId) : null;
+  const supportsReasoning = currentModelConfig?.supportsReasoningEffort ?? false;
+  const defaultModelName = activeModels[0]?.model_name || 'Default';
+
 // Auto-scroll to bottom when messages change or when sending
   useEffect(() => {
     if (scrollRef.current) {
@@ -195,7 +213,10 @@ const ConversationPanel = ({
         threadId = newThread?.row_id;
       }
       if (threadId) {
-        await promptFamilyChat.sendMessage(message, threadId);
+        await promptFamilyChat.sendMessage(message, threadId, {
+          model: sessionModel,
+          reasoningEffort: sessionReasoningEffort
+        });
       }
     } else if (legacyOnSendMessage) {
       await legacyOnSendMessage(message);
@@ -394,7 +415,22 @@ const ConversationPanel = ({
             style={{ minHeight: '20px', maxHeight: '400px' }}
           />
         </div>
-        <div className="flex justify-end gap-0.5">
+        <div className="flex items-center justify-between">
+          {/* Model and Reasoning Selectors - only in prompt family mode */}
+          {usePromptFamilyMode ? (
+            <ModelReasoningSelector
+              selectedModel={sessionModel}
+              onModelChange={setSessionModel}
+              activeModels={activeModels}
+              defaultModelName={defaultModelName}
+              reasoningEffort={sessionReasoningEffort}
+              onReasoningChange={setSessionReasoningEffort}
+              supportsReasoning={supportsReasoning}
+            />
+          ) : (
+            <div />
+          )}
+          <div className="flex gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
               <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
@@ -423,6 +459,7 @@ const ConversationPanel = ({
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Send</TooltipContent>
           </Tooltip>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getDefaultModelFromSettings } from "../_shared/models.ts";
+import { getDefaultModelFromSettings, fetchModelConfig } from "../_shared/models.ts";
 import { loadQonsolKnowledge, getQonsolHelpTool, handleQonsolHelpToolCall } from "../_shared/knowledge.ts";
 import { 
   getPromptFamilyTree, 
@@ -363,7 +363,7 @@ serve(async (req) => {
 
     console.log('Prompt family chat request from:', validation.user?.email);
 
-    const { prompt_row_id, messages, system_prompt, model } = await req.json();
+    const { prompt_row_id, messages, system_prompt, model, reasoning_effort } = await req.json();
 
     if (!prompt_row_id) {
       return new Response(
@@ -466,6 +466,9 @@ serve(async (req) => {
       selectedModel = await getDefaultModelFromSettings(supabase);
     }
 
+    // Fetch model config for reasoning support check
+    const modelConfig = await fetchModelConfig(supabase, selectedModel);
+
     // Build system prompt
     const systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
 
@@ -533,6 +536,17 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       tools: tools.length > 0 ? tools : undefined,
       store: true,
     };
+
+    // Apply reasoning effort if supported and not 'auto'
+    if (reasoning_effort && reasoning_effort !== 'auto') {
+      const supportsReasoning = modelConfig?.supportsReasoningEffort ?? false;
+      const validLevels = modelConfig?.reasoningEffortLevels || ['low', 'medium', 'high'];
+      
+      if (supportsReasoning && validLevels.includes(reasoning_effort)) {
+        requestBody.reasoning = { effort: reasoning_effort };
+        console.log(`Applied reasoning effort: ${reasoning_effort}`);
+      }
+    }
 
     if (conversationId?.startsWith('conv_')) {
       requestBody.conversation = conversationId;
