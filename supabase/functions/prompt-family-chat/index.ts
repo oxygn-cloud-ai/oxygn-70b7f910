@@ -69,15 +69,17 @@ async function handleToolCall(
     userId: string;
     promptRowId: string;
     familyPromptIds: string[];
+    cachedTree?: any;  // Pre-fetched tree to avoid re-fetching
     openAIApiKey?: string;
   }
 ): Promise<string> {
-  const { supabase, promptRowId, familyPromptIds, openAIApiKey } = context;
+  const { supabase, promptRowId, familyPromptIds, cachedTree, openAIApiKey } = context;
 
   try {
     switch (toolName) {
       case 'get_prompt_tree': {
-        const tree = await getPromptFamilyTree(supabase, promptRowId);
+        // Use cached tree if available, otherwise fetch
+        const tree = cachedTree ?? await getPromptFamilyTree(supabase, promptRowId);
         return JSON.stringify({
           message: 'Prompt family tree',
           tree
@@ -389,7 +391,7 @@ serve(async (req) => {
     console.log(`Parallel queries completed in ${Date.now() - parallelStart}ms`);
 
     const conversationId = familyThread.openai_conversation_id;
-    const { familyPromptIds, familySummary } = familyData;
+    const { familyPromptIds, familySummary, tree: cachedTree } = familyData;
 
     console.log('Using unified family thread:', {
       thread_row_id: familyThread.row_id,
@@ -459,6 +461,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       userId: validation.user!.id,
       promptRowId: prompt_row_id,
       familyPromptIds,
+      cachedTree,  // Pass pre-fetched tree to avoid re-fetching in tools
       openAIApiKey
     };
 
