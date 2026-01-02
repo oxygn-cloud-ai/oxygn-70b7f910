@@ -956,7 +956,7 @@ const MainLayout = () => {
     if (activeNav === "prompts" || activeNav === "templates") {
       setActiveSubItem(null);
     } else if (activeNav === "settings" && !activeSubItem) {
-      setActiveSubItem("general");
+      setActiveSubItem("qonsol");
     } else if (activeNav === "health" && !activeSubItem) {
       setActiveSubItem("overview");
     } else if (activeNav === "workbench" && !activeSubItem) {

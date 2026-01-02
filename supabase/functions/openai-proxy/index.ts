@@ -110,17 +110,27 @@ serve(async (req) => {
       // Use default model from DB for health check
       const healthCheckModel = await getDefaultModelFromSettings(supabase);
       
+      // Fetch model config to get correct token param
+      const modelConfig = await fetchModelConfig(supabase, healthCheckModel);
+      const tokenParam = modelConfig?.tokenParam || 'max_tokens';
+      
+      console.log('Health check using model:', healthCheckModel, 'tokenParam:', tokenParam);
+      
+      const requestBody: Record<string, unknown> = {
+        model: healthCheckModel,
+        messages: [{ role: 'user', content: 'Hi' }],
+      };
+      
+      // Use the correct token parameter for this model
+      requestBody[tokenParam] = 1;
+      
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: healthCheckModel,
-          messages: [{ role: 'user', content: 'Hi' }],
-          max_tokens: 1,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const latency = Date.now() - start;
@@ -188,12 +198,19 @@ serve(async (req) => {
       const requestedModel = model || defaultModel;
       const modelId = await resolveModel(supabase, requestedModel);
       
-      console.log('Model resolution:', { requested: requestedModel, resolved: modelId });
+      // Get model config for capabilities
+      const modelConfig = await fetchModelConfig(supabase, requestedModel);
+      const tokenParam = modelConfig?.tokenParam || 'max_tokens';
+      const modelSupportsTemp = modelConfig?.supportsTemperature ?? true;
       
-      // Check if model supports temperature from DB
-      const modelSupportsTemp = await supportsTemperature(supabase, requestedModel);
+      console.log('Model resolution:', { 
+        requested: requestedModel, 
+        resolved: modelId, 
+        tokenParam,
+        supportsTemperature: modelSupportsTemp 
+      });
 
-      const requestBody: any = {
+      const requestBody: Record<string, unknown> = {
         model: modelId,
         messages,
       };
@@ -203,8 +220,9 @@ serve(async (req) => {
         requestBody.temperature = settings.temperature;
       }
       
+      // Use correct token parameter for this model
       if (settings.max_tokens !== undefined) {
-        requestBody.max_tokens = settings.max_tokens;
+        requestBody[tokenParam] = settings.max_tokens;
       }
       
       if (modelSupportsTemp && settings.top_p !== undefined) {
