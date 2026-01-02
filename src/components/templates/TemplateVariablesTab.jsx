@@ -22,7 +22,7 @@ const VARIABLE_TYPES = [
 /**
  * Variables tab for managing template variables
  */
-const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
+const TemplateVariablesTab = ({ structure, variableDefinitions, onChange, onStructureChange }) => {
   const [newVarName, setNewVarName] = useState('');
   const [editingVar, setEditingVar] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -128,6 +128,36 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
     onChange(updated);
   };
 
+  // Remove all occurrences of a variable from the template structure
+  const handleRemoveVariableFromStructure = useCallback((varName) => {
+    if (!onStructureChange) return;
+    
+    // Escape special regex characters in variable name
+    const escapedName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\{\\{\\s*${escapedName}\\s*\\}\\}`, 'g');
+    
+    const removeFromObject = (obj) => {
+      if (!obj) return obj;
+      if (typeof obj === 'string') {
+        return obj.replace(pattern, '');
+      }
+      if (Array.isArray(obj)) {
+        return obj.map(removeFromObject);
+      }
+      if (typeof obj === 'object') {
+        const result = {};
+        for (const [key, value] of Object.entries(obj)) {
+          result[key] = removeFromObject(value);
+        }
+        return result;
+      }
+      return obj;
+    };
+    
+    const newStructure = removeFromObject(structure);
+    onStructureChange(newStructure);
+  }, [structure, onStructureChange]);
+
   return (
     <TooltipProvider>
     <div className="space-y-6 max-w-3xl">
@@ -146,15 +176,31 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange }) => {
                   <p className="mb-2">The following variables are used in prompts but not defined:</p>
                   <div className="flex flex-wrap gap-2">
                     {undefinedVars.map(v => (
-                      <Badge 
-                        key={v} 
-                        variant="outline" 
-                        className="cursor-pointer hover:bg-amber-500/20"
-                        onClick={() => handleAddVariable(v)}
-                      >
-                        {`{{${v}}}`}
-                        <Plus className="h-3 w-3 ml-1" />
-                      </Badge>
+                      <div key={v} className="flex items-center gap-1 bg-amber-500/10 rounded-full pl-2 pr-1 py-0.5">
+                        <span className="text-body-sm font-mono text-amber-600 dark:text-amber-400">{`{{${v}}}`}</span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => handleAddVariable(v)}
+                              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-amber-500/20"
+                            >
+                              <Plus className="h-3 w-3 text-amber-500" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Define this variable</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => handleRemoveVariableFromStructure(v)}
+                              className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-red-500/20"
+                            >
+                              <X className="h-3 w-3 text-red-500" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Remove from all prompts</TooltipContent>
+                        </Tooltip>
+                      </div>
                     ))}
                   </div>
                 </AlertDescription>
