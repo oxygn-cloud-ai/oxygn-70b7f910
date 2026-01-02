@@ -132,6 +132,57 @@ async function handleToolCall(
         });
       }
 
+      case 'read_file_content': {
+        const { file_row_id } = args;
+        
+        const files = await getFamilyFiles(supabase, familyPromptIds);
+        const file = files.find((f: any) => f.row_id === file_row_id);
+        
+        if (!file) {
+          return JSON.stringify({ error: 'File not found in this family' });
+        }
+        
+        const textMimeTypes = [
+          'text/plain', 'text/markdown', 'text/csv', 'text/html', 'text/xml',
+          'application/json', 'application/xml', 'text/x-markdown'
+        ];
+        
+        const isTextFile = textMimeTypes.some(t => file.mime_type?.startsWith(t)) ||
+          file.original_filename?.match(/\.(txt|md|csv|json|xml|html|yml|yaml|log)$/i);
+        
+        if (!isTextFile) {
+          return JSON.stringify({ 
+            error: 'Cannot read binary file content. Only text-based files are supported.',
+            filename: file.original_filename,
+            mime_type: file.mime_type
+          });
+        }
+        
+        if (!file.storage_path) {
+          return JSON.stringify({ error: 'File has no storage path' });
+        }
+        
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('assistant-files')
+          .download(file.storage_path);
+        
+        if (downloadError || !fileData) {
+          console.error('File download error:', downloadError);
+          return JSON.stringify({ error: 'Failed to download file from storage' });
+        }
+        
+        const content = await fileData.text();
+        const truncated = content.length > 50000;
+        
+        return JSON.stringify({
+          filename: file.original_filename,
+          mime_type: file.mime_type,
+          size: file.file_size,
+          truncated,
+          content: truncated ? content.slice(0, 50000) + '\n\n[Content truncated at 50KB]' : content
+        });
+      }
+
       case 'list_family_confluence': {
         const pages = await getFamilyConfluencePages(supabase, familyPromptIds);
         return JSON.stringify({
