@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback } from 'react';
+import { toast } from '@/components/ui/sonner';
 import { Plus, Trash2, AlertCircle, CheckCircle2, Edit2, X, Check, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,16 +131,32 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange, onStru
 
   // Remove all occurrences of a variable from the template structure
   const handleRemoveVariableFromStructure = useCallback((varName) => {
-    if (!onStructureChange) return;
+    console.log('[TemplateVariablesTab] handleRemoveVariableFromStructure called with:', varName);
+    console.log('[TemplateVariablesTab] onStructureChange exists:', !!onStructureChange);
+    console.log('[TemplateVariablesTab] structure:', JSON.stringify(structure, null, 2));
+    
+    if (!onStructureChange) {
+      console.error('[TemplateVariablesTab] onStructureChange is not defined!');
+      toast.error('Cannot remove variable: structure change handler missing');
+      return;
+    }
     
     // Escape special regex characters in variable name
     const escapedName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const pattern = new RegExp(`\\{\\{\\s*${escapedName}\\s*\\}\\}`, 'g');
+    console.log('[TemplateVariablesTab] Using pattern:', pattern.toString());
+    
+    let replacementCount = 0;
     
     const removeFromObject = (obj) => {
       if (!obj) return obj;
       if (typeof obj === 'string') {
-        return obj.replace(pattern, '');
+        const newValue = obj.replace(pattern, '');
+        if (newValue !== obj) {
+          replacementCount++;
+          console.log(`[TemplateVariablesTab] Replaced in string: "${obj}" -> "${newValue}"`);
+        }
+        return newValue;
       }
       if (Array.isArray(obj)) {
         return obj.map(removeFromObject);
@@ -155,7 +172,16 @@ const TemplateVariablesTab = ({ structure, variableDefinitions, onChange, onStru
     };
     
     const newStructure = removeFromObject(structure);
+    console.log('[TemplateVariablesTab] New structure:', JSON.stringify(newStructure, null, 2));
+    console.log('[TemplateVariablesTab] Total replacements:', replacementCount);
+    
     onStructureChange(newStructure);
+    
+    if (replacementCount > 0) {
+      toast.success(`Removed {{${varName}}} from ${replacementCount} location(s)`);
+    } else {
+      toast.info(`No occurrences of {{${varName}}} found to remove`);
+    }
   }, [structure, onStructureChange]);
 
   return (
