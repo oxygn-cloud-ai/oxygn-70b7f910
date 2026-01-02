@@ -49,7 +49,14 @@ const NewPromptChoiceDialog = ({
   onCreatePlain,
   onPromptCreated 
 }) => {
-  const { templates, isLoading, extractTemplateVariables } = useTemplates();
+  const { templates, isLoading, extractTemplateVariables, fetchTemplates } = useTemplates();
+  
+  // Refetch templates when dialog opens to ensure fresh data
+  useEffect(() => {
+    if (isOpen) {
+      fetchTemplates();
+    }
+  }, [isOpen, fetchTemplates]);
   const { user, profile } = useAuth();
   const [step, setStep] = useState('select'); // 'select' | 'variables'
   const [selectedTemplate, setSelectedTemplate] = useState(null);

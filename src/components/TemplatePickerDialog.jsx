@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,14 @@ const TemplatePickerDialog = ({
   parentId = null,
   onPromptCreated 
 }) => {
-  const { templates, isLoading, extractTemplateVariables } = useTemplates();
+  const { templates, isLoading, extractTemplateVariables, fetchTemplates } = useTemplates();
+  
+  // Refetch templates when dialog opens to ensure fresh data
+  useEffect(() => {
+    if (isOpen) {
+      fetchTemplates();
+    }
+  }, [isOpen, fetchTemplates]);
   const { user } = useAuth();
   const [step, setStep] = useState('select'); // 'select' | 'variables'
   const [selectedTemplate, setSelectedTemplate] = useState(null);
