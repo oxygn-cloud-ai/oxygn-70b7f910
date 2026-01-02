@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Edit3, Check, Library, Search, Play, Loader2, ChevronRight, Copy, Save
+  Library, Search, Play, Loader2, Copy, Undo2, XCircle
 } from "lucide-react";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,9 +20,11 @@ import {
 } from "@/components/ui/popover";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { VariablePicker } from "./VariablePicker";
+import { useFieldUndo } from "@/hooks/useFieldUndo";
 
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
+const AUTOSAVE_DELAY = 500;
 
 // Variable definitions for hover tooltips
 const VARIABLE_DEFINITIONS = {
@@ -133,45 +135,6 @@ const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], o
   );
 };
 
-// Highlighted text component with clickable variables
-const HighlightedText = ({ text, variableDefinitions = {}, allVariables = [], onReplaceVariable }) => {
-  const allDefs = { ...VARIABLE_DEFINITIONS, ...variableDefinitions };
-  const variablePattern = /\{\{(\w+(?:\.\w+)?)\}\}/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = variablePattern.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>);
-    }
-    
-    const varName = match[1];
-    const matchStart = match.index;
-    const matchEnd = match.index + match[0].length;
-    
-    parts.push(
-      <ClickableVariable
-        key={`var-${match.index}`}
-        varName={varName}
-        matchStart={matchStart}
-        matchEnd={matchEnd}
-        allVariables={allVariables}
-        onReplace={onReplaceVariable}
-      />
-    );
-    
-    lastIndex = matchEnd;
-  }
-  
-  if (lastIndex < text.length) {
-    parts.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex)}</span>);
-  }
-  
-  return <>{parts}</>;
-};
-
-
 // Library Picker Dropdown
 const LibraryPickerDropdown = ({ libraryItems = [] }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -247,15 +210,13 @@ const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
 );
 
 /**
- * ResizablePromptArea - Text field with dual resize methods:
- * 1. Drag handle (bottom-right corner via CSS resize)
- * 2. Chevron buttons to jump between collapsed/min/full states
+ * ResizablePromptArea - Text field with auto-save after 500ms of inactivity
  * 
- * Now with explicit save pattern - changes are only saved on:
- * - Click save button
- * - Press Ctrl+S
- * - Blur (when user clicks away)
- * - Click "Done" editing
+ * Features:
+ * - Click to edit immediately (no edit mode toggle)
+ * - Auto-save 500ms after typing stops
+ * - Undo to previous saved version (Cmd+Z)
+ * - Discard to return to original value
  */
 const ResizablePromptArea = ({ 
   label, 
@@ -270,15 +231,13 @@ const ResizablePromptArea = ({
   variables = [],
   promptReferences = [],
   libraryItems = [],
-  storageKey, // Optional key to persist sizing in localStorage
-  readOnly = false // When true, disables editing
+  storageKey,
+  readOnly = false
 }) => {
-  // Generate storage key from label if not provided
   const persistKey = storageKey || (label ? `qonsol-prompt-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
   
-  const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value || '');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSavedValue, setLastSavedValue] = useState(value || '');
   const [expandState, setExpandState] = useState(() => {
     if (persistKey) {
       try {
@@ -303,11 +262,26 @@ const ResizablePromptArea = ({
     }
     return null;
   });
+  
   const textareaRef = useRef(null);
-  const contentRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [cursorPosition, setCursorPosition] = useState(null);
-  const [selectionEnd, setSelectionEnd] = useState(null); // Track selection end for replacing selected text
+  const [selectionEnd, setSelectionEnd] = useState(null);
+  
+  // Field undo/discard management
+  const {
+    pushPreviousValue,
+    popPreviousValue,
+    getOriginalValue,
+    hasPreviousValue,
+    hasChangedFromOriginal,
+    clearUndoStack,
+  } = useFieldUndo(value);
+  
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = editValue !== lastSavedValue;
+  const canDiscard = hasChangedFromOriginal(editValue);
   
   // Persist sizing to localStorage
   useEffect(() => {
@@ -325,57 +299,108 @@ const ResizablePromptArea = ({
     }));
   }, [variables]);
 
-  // Sync editValue when value prop changes (external update)
+  // Sync editValue when value prop changes externally
   useEffect(() => {
     setEditValue(value || '');
-    setHasUnsavedChanges(false);
+    setLastSavedValue(value || '');
   }, [value]);
-
-  // Track unsaved changes
-  useEffect(() => {
-    const normalizedEdit = editValue || '';
-    const normalizedValue = value || '';
-    setHasUnsavedChanges(normalizedEdit !== normalizedValue);
-  }, [editValue, value]);
 
   // Measure content height for 'full' state
   useEffect(() => {
-    if (textareaRef.current && isEditing) {
+    if (textareaRef.current) {
       const scrollHeight = textareaRef.current.scrollHeight;
       setContentHeight(Math.max(defaultHeight, scrollHeight));
-    } else if (contentRef.current && !isEditing) {
-      const scrollHeight = contentRef.current.scrollHeight;
-      setContentHeight(Math.max(defaultHeight, scrollHeight));
     }
-  }, [editValue, value, isEditing, defaultHeight]);
+  }, [editValue, defaultHeight]);
 
-  // Handle explicit save
-  const handleSave = useCallback(() => {
+  // Perform the actual save
+  const performSave = useCallback((valueToSave) => {
+    if (valueToSave === lastSavedValue) return;
+    
+    // Push current saved value to undo stack before saving new one
+    pushPreviousValue(lastSavedValue);
+    
+    if (onSave) {
+      onSave(valueToSave);
+    } else if (onChange) {
+      onChange(valueToSave);
+    }
+    setLastSavedValue(valueToSave);
+  }, [lastSavedValue, onSave, onChange, pushPreviousValue]);
+
+  // Cancel any pending save timeout
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Immediate save (for blur, Cmd+S)
+  const handleImmediateSave = useCallback(() => {
+    cancelPendingSave();
     if (hasUnsavedChanges) {
-      if (onSave) {
-        onSave(editValue);
-      } else if (onChange) {
-        // Fallback to onChange if onSave not provided
-        onChange(editValue);
-      }
-      setHasUnsavedChanges(false);
-      toast.success('Saved');
+      performSave(editValue);
     }
-  }, [editValue, hasUnsavedChanges, onSave, onChange]);
+  }, [cancelPendingSave, hasUnsavedChanges, editValue, performSave]);
 
-  // Keyboard shortcut for save (Ctrl+S)
+  // Handle undo - restore previous saved value
+  const handleUndo = useCallback(() => {
+    const previousValue = popPreviousValue();
+    if (previousValue !== null) {
+      cancelPendingSave();
+      setEditValue(previousValue);
+      if (onSave) {
+        onSave(previousValue);
+      } else if (onChange) {
+        onChange(previousValue);
+      }
+      setLastSavedValue(previousValue);
+      toast.success('Undone');
+    }
+  }, [popPreviousValue, cancelPendingSave, onSave, onChange]);
+
+  // Handle discard - restore to original value
+  const handleDiscard = useCallback(() => {
+    const originalValue = getOriginalValue() || '';
+    cancelPendingSave();
+    setEditValue(originalValue);
+    if (onSave) {
+      onSave(originalValue);
+    } else if (onChange) {
+      onChange(originalValue);
+    }
+    setLastSavedValue(originalValue);
+    clearUndoStack();
+    toast.success('Discarded changes');
+  }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack]);
+
+  // Keyboard shortcuts (field-scoped)
+  const handleKeyDown = useCallback((e) => {
+    // Cmd+S - immediate save
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      handleImmediateSave();
+    }
+    // Cmd+Z - undo (only when not Shift for redo)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      handleUndo();
+    }
+  }, [handleImmediateSave, handleUndo]);
+
+  // Cleanup on unmount
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's' && isEditing) {
-        e.preventDefault();
-        handleSave();
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave, isEditing]);
+  }, []);
 
-  // Helper to get selection range from contenteditable (returns both start and end)
+  // Helper to get selection range from contenteditable
   const getSelectionFromEditor = useCallback(() => {
     const editor = textareaRef.current;
     if (!editor) return { start: editValue.length, end: editValue.length };
@@ -385,7 +410,6 @@ const ResizablePromptArea = ({
     
     const range = selection.getRangeAt(0);
     
-    // Get start position
     const preCaretRangeStart = range.cloneRange();
     preCaretRangeStart.selectNodeContents(editor);
     preCaretRangeStart.setEnd(range.startContainer, range.startOffset);
@@ -394,7 +418,6 @@ const ResizablePromptArea = ({
     tempDivStart.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
     const start = tempDivStart.textContent?.length || 0;
     
-    // Get end position
     const preCaretRangeEnd = range.cloneRange();
     preCaretRangeEnd.selectNodeContents(editor);
     preCaretRangeEnd.setEnd(range.endContainer, range.endOffset);
@@ -406,24 +429,33 @@ const ResizablePromptArea = ({
     return { start, end };
   }, [editValue.length]);
 
-  // Track cursor position when textarea changes or user clicks/selects
+  // Handle textarea change with auto-save debounce
   const handleTextareaChange = (e) => {
-    setEditValue(e.target.value);
-    // HighlightedTextarea provides selectionStart in synthetic event
+    const newValue = e.target.value;
+    setEditValue(newValue);
+    
     if (e.target.selectionStart !== undefined) {
       setCursorPosition(e.target.selectionStart);
     }
+    
+    // Cancel existing timer
+    cancelPendingSave();
+    
+    // Start new auto-save timer
+    saveTimeoutRef.current = setTimeout(() => {
+      if (newValue !== lastSavedValue) {
+        performSave(newValue);
+      }
+    }, AUTOSAVE_DELAY);
   };
 
   const handleTextareaSelect = useCallback(() => {
-    // Get selection range from contenteditable
     const { start, end } = getSelectionFromEditor();
     setCursorPosition(start);
     setSelectionEnd(end);
   }, [getSelectionFromEditor]);
 
   const handleTextareaClick = useCallback(() => {
-    // Get selection range from contenteditable
     setTimeout(() => {
       const { start, end } = getSelectionFromEditor();
       setCursorPosition(start);
@@ -432,21 +464,18 @@ const ResizablePromptArea = ({
   }, [getSelectionFromEditor]);
 
   const handleTextareaKeyUp = useCallback(() => {
-    // Get selection range from contenteditable
     const { start, end } = getSelectionFromEditor();
     setCursorPosition(start);
     setSelectionEnd(end);
   }, [getSelectionFromEditor]);
 
   const handleInsertVariable = useCallback((variableText) => {
-    // variableText may already include {{ }} from VariablePicker
     const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
     
-    // Get current selection range from editor if available
     let insertStart = cursorPosition;
     let insertEnd = selectionEnd;
     
-    if (insertStart === null && textareaRef.current && isEditing) {
+    if (insertStart === null && textareaRef.current) {
       const selection = getSelectionFromEditor();
       insertStart = selection.start;
       insertEnd = selection.end;
@@ -457,60 +486,49 @@ const ResizablePromptArea = ({
       insertEnd = editValue.length;
     }
     
-    // If no selection, insertEnd should equal insertStart
     if (insertEnd === null || insertEnd < insertStart) {
       insertEnd = insertStart;
     }
     
-    // Replace selected text (or insert at cursor if no selection)
     const newValue = editValue.slice(0, insertStart) + insertion + editValue.slice(insertEnd);
     setEditValue(newValue);
     
-    // Update cursor position to after the inserted variable
     const newCursorPos = insertStart + insertion.length;
     setCursorPosition(newCursorPos);
     setSelectionEnd(newCursorPos);
     
-    // Note: We no longer call onChange here - changes are local until saved
-  }, [cursorPosition, selectionEnd, editValue, isEditing, getSelectionFromEditor]);
+    // Trigger auto-save
+    cancelPendingSave();
+    saveTimeoutRef.current = setTimeout(() => {
+      if (newValue !== lastSavedValue) {
+        performSave(newValue);
+      }
+    }, AUTOSAVE_DELAY);
+  }, [cursorPosition, selectionEnd, editValue, getSelectionFromEditor, cancelPendingSave, lastSavedValue, performSave]);
 
-  // Handle replacing a variable in the text (used by ClickableVariable)
+  // Handle replacing a variable in the text
   const handleReplaceVariable = useCallback((start, end, newText) => {
     const newValue = editValue.slice(0, start) + newText + editValue.slice(end);
     setEditValue(newValue);
-    // Note: We no longer call onChange here - changes are local until saved
-  }, [editValue]);
-
-  const handleDoneEditing = () => {
-    setIsEditing(false);
-    // Save on done if there are unsaved changes
-    if (hasUnsavedChanges) {
-      if (onSave) {
-        onSave(editValue);
-      } else if (onChange) {
-        onChange(editValue);
+    
+    // Trigger auto-save
+    cancelPendingSave();
+    saveTimeoutRef.current = setTimeout(() => {
+      if (newValue !== lastSavedValue) {
+        performSave(newValue);
       }
-      setHasUnsavedChanges(false);
-    }
-  };
+    }, AUTOSAVE_DELAY);
+  }, [editValue, cancelPendingSave, lastSavedValue, performSave]);
 
-  // Handle blur - auto-save when clicking away
+  // Handle blur - save immediately if changes exist
   const handleBlur = useCallback((e) => {
-    // Don't save if clicking within the same component (e.g., toolbar buttons)
     const relatedTarget = e.relatedTarget;
     if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
       return;
     }
     
-    if (hasUnsavedChanges) {
-      if (onSave) {
-        onSave(editValue);
-      } else if (onChange) {
-        onChange(editValue);
-      }
-      setHasUnsavedChanges(false);
-    }
-  }, [editValue, hasUnsavedChanges, onSave, onChange]);
+    handleImmediateSave();
+  }, [handleImmediateSave]);
 
   // State transitions
   const goToCollapsed = () => {
@@ -528,7 +546,7 @@ const ResizablePromptArea = ({
     setManualHeight(null);
   };
 
-  // Get height based on state (manual drag overrides chevron state)
+  // Get height based on state
   const getHeight = () => {
     if (manualHeight !== null) {
       return manualHeight;
@@ -545,8 +563,8 @@ const ResizablePromptArea = ({
     }
   };
 
-  // Handle resize via drag (detect when user manually resizes)
-  const handleResize = (e) => {
+  // Handle resize via drag
+  const handleResize = () => {
     if (textareaRef.current) {
       const newHeight = textareaRef.current.offsetHeight;
       if (newHeight !== getHeight()) {
@@ -582,7 +600,6 @@ const ResizablePromptArea = ({
               <ChevronButton icon={ChevronsUp} onClick={goToCollapsed} tooltipText="Collapse" />
             </>
           )}
-          {/* When manually resized, show reset controls */}
           {manualHeight !== null && (
             <>
               <ChevronButton icon={ChevronsUp} onClick={goToCollapsed} tooltipText="Collapse" />
@@ -599,18 +616,32 @@ const ResizablePromptArea = ({
         
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
-          {/* Save button - only show when there are unsaved changes */}
-          {hasUnsavedChanges && (
+          {/* Undo button - only show when there's history */}
+          {hasPreviousValue && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
-                  onClick={handleSave}
-                  className="w-6 h-6 flex items-center justify-center rounded-sm text-primary hover:bg-primary/10"
+                  onClick={handleUndo}
+                  className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
                 >
-                  <Save className="h-3.5 w-3.5" />
+                  <Undo2 className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Save (Ctrl+S)</TooltipContent>
+              <TooltipContent className="text-[10px]">Undo (⌘Z)</TooltipContent>
+            </Tooltip>
+          )}
+          {/* Discard button - only show when changed from original */}
+          {canDiscard && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleDiscard}
+                  className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Discard all changes</TooltipContent>
             </Tooltip>
           )}
           <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} />
@@ -631,21 +662,6 @@ const ResizablePromptArea = ({
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Copy</TooltipContent>
           </Tooltip>
-          {!readOnly && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  onClick={() => isEditing ? handleDoneEditing() : setIsEditing(true)}
-                  className={`w-6 h-6 flex items-center justify-center rounded-sm transition-colors ${
-                    isEditing ? "text-primary" : "text-on-surface-variant hover:bg-on-surface/[0.08]"
-                  }`}
-                >
-                  {isEditing ? <Check className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">{isEditing ? "Done Editing" : "Edit"}</TooltipContent>
-            </Tooltip>
-          )}
           {onPlay && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -663,44 +679,25 @@ const ResizablePromptArea = ({
         </div>
       </div>
 
-      {/* Content area */}
+      {/* Content area - always editable (no view/edit mode toggle) */}
       {!isCollapsed && (
         <>
-        {isEditing ? (
-            <HighlightedTextarea
-              ref={textareaRef}
-              value={editValue}
-              onChange={handleTextareaChange}
-              onSelect={handleTextareaSelect}
-              onClick={handleTextareaClick}
-              onKeyUp={handleTextareaKeyUp}
-              placeholder={placeholder}
-              userVariables={transformedUserVars}
-              style={{ height: `${currentHeight}px` }}
-              className={`w-full p-2.5 bg-surface-container rounded-m3-md text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y overflow-auto transition-colors ${
-                hasUnsavedChanges ? 'border-primary' : 'border-outline-variant'
-              }`}
-            />
-          ) : (
-            <div 
-              ref={contentRef}
-              style={{ height: `${currentHeight}px` }}
-              className={`p-2.5 bg-surface-container rounded-m3-md border text-body-sm text-on-surface leading-relaxed whitespace-pre-wrap overflow-auto resize-y transition-colors ${
-                hasUnsavedChanges ? 'border-primary/50' : 'border-outline-variant'
-              }`}
-              onMouseUp={handleResize}
-            >
-              {editValue ? (
-                <HighlightedText 
-                  text={editValue} 
-                  allVariables={transformedUserVars}
-                  onReplaceVariable={handleReplaceVariable}
-                />
-              ) : (
-                <span className="text-on-surface-variant opacity-50">{placeholder}</span>
-              )}
-            </div>
-          )}
+          <HighlightedTextarea
+            ref={textareaRef}
+            value={editValue}
+            onChange={handleTextareaChange}
+            onSelect={handleTextareaSelect}
+            onClick={handleTextareaClick}
+            onKeyUp={handleTextareaKeyUp}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            userVariables={transformedUserVars}
+            readOnly={readOnly}
+            style={{ height: `${currentHeight}px` }}
+            className={`w-full p-2.5 bg-surface-container rounded-m3-md text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y overflow-auto transition-colors border ${
+              hasUnsavedChanges ? 'border-primary' : 'border-outline-variant'
+            }`}
+          />
 
           {/* Bottom chevron controls */}
           <div className="flex items-center gap-1 pt-1">
