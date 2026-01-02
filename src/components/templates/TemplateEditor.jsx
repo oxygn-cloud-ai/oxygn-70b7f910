@@ -189,6 +189,7 @@ const TemplateEditor = ({ template, onUpdate, onClose }) => {
               structure={editedTemplate.structure}
               variableDefinitions={editedTemplate.variable_definitions}
               onChange={handleVariablesChange}
+              onStructureChange={handleStructureChange}
             />
           </TabsContent>
 
