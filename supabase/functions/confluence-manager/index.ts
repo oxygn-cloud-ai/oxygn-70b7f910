@@ -6,6 +6,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
+
+function isAllowedDomain(email: string | undefined): boolean {
+  if (!email) return false;
+  const domain = email.split('@')[1]?.toLowerCase();
+  return ALLOWED_DOMAINS.includes(domain);
+}
+
+async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { valid: false, error: 'Missing authorization header' };
+  }
+
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+  
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return { valid: false, error: 'Server configuration error' };
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } }
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { valid: false, error: 'Invalid or expired token' };
+  }
+
+  if (!isAllowedDomain(user.email)) {
+    return { valid: false, error: 'Access denied. Only chocfin.com and oxygn.cloud accounts are allowed.' };
+  }
+
+  return { valid: true, user };
+}
+
 // Helper to strip HTML tags and clean text for LLM consumption
 function htmlToText(html: string): string {
   if (!html) return '';
@@ -56,8 +94,22 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Validate user authentication
+    const validation = await validateUser(req);
+    if (!validation.valid) {
+      console.error('[confluence-manager] Auth validation failed:', validation.error);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = validation.user?.id;
+    console.log('[confluence-manager] Request from:', validation.user?.email);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const encryptionKey = Deno.env.get('CREDENTIALS_ENCRYPTION_KEY');
     
     // Create Supabase client with service role for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -65,24 +117,48 @@ Deno.serve(async (req) => {
     const { action, ...params } = await req.json();
     console.log(`[confluence-manager] Action: ${action}`, params);
 
-    // Get Confluence credentials from settings
+    // Get Confluence credentials - base URL from shared settings, user credentials from encrypted store
     const getConfluenceConfig = async () => {
-      const { data: settings, error } = await supabase
+      // Get shared base URL from settings
+      const { data: settings, error: settingsError } = await supabase
         .from(TABLES.SETTINGS)
         .select('setting_key, setting_value')
-        .in('setting_key', ['confluence_base_url', 'confluence_email', 'confluence_api_token']);
+        .eq('setting_key', 'confluence_base_url');
       
-      if (error) throw error;
+      if (settingsError) throw settingsError;
       
-      const config: Record<string, string> = {};
-      settings?.forEach(s => {
-        config[s.setting_key] = s.setting_value || '';
+      const baseUrl = settings?.find(s => s.setting_key === 'confluence_base_url')?.setting_value || '';
+
+      // Get user-specific credentials from encrypted store
+      if (!encryptionKey) {
+        throw new Error('Encryption key not configured. Please contact administrator.');
+      }
+
+      const { data: emailResult } = await supabase.rpc('decrypt_credential', {
+        p_user_id: userId,
+        p_service: 'confluence',
+        p_key: 'email',
+        p_encryption_key: encryptionKey
       });
-      
+
+      const { data: tokenResult } = await supabase.rpc('decrypt_credential', {
+        p_user_id: userId,
+        p_service: 'confluence',
+        p_key: 'api_token',
+        p_encryption_key: encryptionKey
+      });
+
+      const email = emailResult || '';
+      const apiToken = tokenResult || '';
+
+      if (!email || !apiToken) {
+        throw new Error('Confluence credentials not configured. Please set up your credentials in Settings > Integrations.');
+      }
+
       return {
-        baseUrl: config.confluence_base_url || '',
-        email: config.confluence_email || '',
-        apiToken: config.confluence_api_token || ''
+        baseUrl,
+        email,
+        apiToken
       };
     };
 

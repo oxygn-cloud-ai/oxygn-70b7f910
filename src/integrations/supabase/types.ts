@@ -1589,6 +1589,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_credentials: {
+        Row: {
+          created_at: string | null
+          credential_key: string
+          credential_value: string
+          row_id: string
+          service_type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credential_key: string
+          credential_value: string
+          row_id?: string
+          service_type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credential_key?: string
+          credential_value?: string
+          row_id?: string
+          service_type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1625,6 +1655,25 @@ export type Database = {
         Returns: boolean
       }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
+      decrypt_credential: {
+        Args: {
+          p_encryption_key: string
+          p_key: string
+          p_service: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      encrypt_credential: {
+        Args: {
+          p_encryption_key: string
+          p_key: string
+          p_service: string
+          p_user_id: string
+          p_value: string
+        }
+        Returns: undefined
+      }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       is_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_allowed_domain: { Args: { email: string }; Returns: boolean }

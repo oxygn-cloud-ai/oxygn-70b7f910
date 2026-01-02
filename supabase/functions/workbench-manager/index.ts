@@ -237,21 +237,58 @@ serve(async (req) => {
           );
         }
 
-        // Fetch content via confluence-manager
-        const confluenceBaseUrl = Deno.env.get('CONFLUENCE_BASE_URL');
-        const confluenceEmail = Deno.env.get('CONFLUENCE_EMAIL');
-        const confluenceToken = Deno.env.get('CONFLUENCE_API_TOKEN');
+        // Get confluence_base_url from settings (shared org-wide)
+        const { data: baseUrlSetting } = await supabase
+          .from('q_settings')
+          .select('setting_value')
+          .eq('setting_key', 'confluence_base_url')
+          .single();
+
+        const confluenceBaseUrl = baseUrlSetting?.setting_value;
+        
+        // Get user-specific credentials from encrypted store
+        const encryptionKey = Deno.env.get('CREDENTIALS_ENCRYPTION_KEY');
+
+        if (!encryptionKey) {
+          return new Response(
+            JSON.stringify({ error: 'Encryption key not configured. Please contact administrator.' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: emailResult } = await supabase.rpc('decrypt_credential', {
+          p_user_id: userId,
+          p_service: 'confluence',
+          p_key: 'email',
+          p_encryption_key: encryptionKey
+        });
+
+        const { data: tokenResult } = await supabase.rpc('decrypt_credential', {
+          p_user_id: userId,
+          p_service: 'confluence',
+          p_key: 'api_token',
+          p_encryption_key: encryptionKey
+        });
+
+        const confluenceEmail = emailResult;
+        const confluenceToken = tokenResult;
 
         if (!confluenceBaseUrl || !confluenceEmail || !confluenceToken) {
           return new Response(
-            JSON.stringify({ error: 'Confluence not configured' }),
+            JSON.stringify({ error: 'Confluence credentials not configured. Please set up your credentials in Settings > Integrations.' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
+        // Ensure baseUrl has correct format
+        let cleanBaseUrl = confluenceBaseUrl.replace(/\/+$/, '');
+        if (!cleanBaseUrl.endsWith('/wiki')) {
+          cleanBaseUrl += '/wiki';
+        }
+
         // Fetch page content
         const pageResponse = await fetch(
-          `${confluenceBaseUrl}/wiki/api/v2/pages/${link.page_id}?body-format=storage`,
+          `${cleanBaseUrl}/api/v2/pages/${link.page_id}?body-format=storage`,
           {
             headers: {
               'Authorization': `Basic ${btoa(`${confluenceEmail}:${confluenceToken}`)}`,
@@ -261,7 +298,9 @@ serve(async (req) => {
         );
 
         if (!pageResponse.ok) {
-          throw new Error('Failed to fetch Confluence page');
+          const errorText = await pageResponse.text();
+          console.error('[workbench-manager] Confluence API error:', pageResponse.status, errorText);
+          throw new Error(`Failed to fetch Confluence page: ${pageResponse.status}`);
         }
 
         const pageData = await pageResponse.json();
@@ -286,7 +325,7 @@ serve(async (req) => {
           })
           .eq('row_id', link_row_id);
 
-        console.log('Synced Confluence page:', link.page_id);
+        console.log('[workbench-manager] Synced Confluence page:', link.page_id);
 
         return new Response(
           JSON.stringify({ success: true, content_length: textContent.length }),

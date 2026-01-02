@@ -5,7 +5,8 @@ import {
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History, BookOpen
+  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History, BookOpen,
+  Plug
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
@@ -20,6 +21,7 @@ import { getThemePreference, setThemePreference } from '@/components/ui/sonner';
 import { useSupabase } from "@/hooks/useSupabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
+import { useUserCredentials } from "@/hooks/useUserCredentials";
 import { toast } from "@/components/ui/sonner";
 import { trackEvent } from '@/lib/posthog';
 
@@ -1594,41 +1596,182 @@ const ProfileSection = () => {
   );
 };
 
-// Confluence Section - Connected to real settings
-const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
-  const [editedValues, setEditedValues] = useState({});
+// Integrations Section - Per-user encrypted credentials management
+const IntegrationsSection = () => {
+  const { 
+    isLoading, 
+    credentialStatus, 
+    getCredentialStatus, 
+    setCredential, 
+    deleteCredential,
+    isServiceConfigured 
+  } = useUserCredentials();
+  
+  const [confluenceEmail, setConfluenceEmail] = useState('');
+  const [confluenceToken, setConfluenceToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Check if confluence is configured
-  const confluenceUrl = settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value;
-  const confluenceEmail = settings['CONFLUENCE_EMAIL']?.value || settings['confluence_email']?.value;
-  const confluenceToken = settings['CONFLUENCE_API_TOKEN']?.value || settings['confluence_api_token']?.value;
-  const isConnected = !!(confluenceUrl && confluenceEmail && confluenceToken);
-  
-  const autoSync = settings['confluence_auto_sync']?.value === 'true';
-  const defaultSpace = settings['confluence_default_space']?.value || '';
 
-  const handleValueChange = (key, value) => {
-    setEditedValues(prev => ({ ...prev, [key]: value }));
-  };
+  // Fetch status on mount
+  useEffect(() => {
+    getCredentialStatus('confluence');
+  }, [getCredentialStatus]);
 
-  const handleSave = async (key) => {
-    if (!onUpdateSetting) return;
+  const confluenceConfigured = isServiceConfigured('confluence');
+
+  const handleSaveConfluence = async () => {
+    if (!confluenceEmail || !confluenceToken) {
+      toast.error('Both email and API token are required');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await onUpdateSetting(key, editedValues[key]);
-      setEditedValues(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      toast.success('Setting saved');
-    } catch {
-      toast.error('Failed to save');
+      await setCredential('confluence', 'email', confluenceEmail);
+      await setCredential('confluence', 'api_token', confluenceToken);
+      toast.success('Confluence credentials saved securely');
+      setConfluenceEmail('');
+      setConfluenceToken('');
+      trackEvent('confluence_credentials_saved');
+    } catch (error) {
+      toast.error('Failed to save credentials');
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleDeleteConfluence = async () => {
+    setIsSaving(true);
+    try {
+      await deleteCredential('confluence');
+      toast.success('Confluence credentials removed');
+      trackEvent('confluence_credentials_deleted');
+    } catch (error) {
+      toast.error('Failed to remove credentials');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SettingCard label="Confluence">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 mb-3">
+            <FileText className="h-5 w-5 text-on-surface-variant" />
+            <div className="flex-1">
+              <h4 className="text-body-sm text-on-surface font-medium">
+                {confluenceConfigured ? 'Connected' : 'Not Connected'}
+              </h4>
+              <p className="text-[10px] text-on-surface-variant">Your personal Confluence credentials</p>
+            </div>
+            {confluenceConfigured ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Configured</span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
+            )}
+          </div>
+          
+          <SettingRow label="Email" description="Your Atlassian account email">
+            <input
+              type="email"
+              value={confluenceEmail}
+              onChange={(e) => setConfluenceEmail(e.target.value)}
+              placeholder={confluenceConfigured ? "••••••••" : "email@company.com"}
+              className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </SettingRow>
+          
+          <SettingDivider />
+          
+          <SettingRow label="API Token" description="Generate at id.atlassian.com">
+            <div className="flex items-center gap-2">
+              <input
+                type={showToken ? "text" : "password"}
+                value={confluenceToken}
+                onChange={(e) => setConfluenceToken(e.target.value)}
+                placeholder={confluenceConfigured ? "••••••••" : "Enter token"}
+                className="h-8 w-40 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setShowToken(!showToken)}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                  >
+                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">{showToken ? 'Hide' : 'Show'}</TooltipContent>
+              </Tooltip>
+            </div>
+          </SettingRow>
+          
+          <div className="flex items-center justify-between pt-2">
+            <a 
+              href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              Generate API Token <ExternalLink className="h-3 w-3" />
+            </a>
+            <div className="flex items-center gap-2">
+              {confluenceConfigured && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleDeleteConfluence}
+                      disabled={isSaving || isLoading}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Remove credentials</TooltipContent>
+                </Tooltip>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSaveConfluence}
+                    disabled={isSaving || isLoading || (!confluenceEmail && !confluenceToken)}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save credentials</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+          
+          <p className="text-[10px] text-on-surface-variant bg-surface-container p-2 rounded-m3-sm">
+            Your credentials are encrypted at rest and only used server-side for API calls.
+          </p>
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
+
+// Confluence Section - Connected to real settings (now uses per-user credentials)
+const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
+  const { credentialStatus, getCredentialStatus, isServiceConfigured } = useUserCredentials();
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Fetch credential status on mount
+  useEffect(() => {
+    getCredentialStatus('confluence');
+  }, [getCredentialStatus]);
+  
+  // Check if confluence is configured - base URL from settings, credentials per-user
+  const confluenceUrl = settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value || settings['confluence_base_url']?.value;
+  const hasUserCredentials = isServiceConfigured('confluence');
+  const isConnected = !!(confluenceUrl && hasUserCredentials);
+  
+  const autoSync = settings['confluence_auto_sync']?.value === 'true';
+  const defaultSpace = settings['confluence_default_space']?.value || '';
 
   const handleToggleAutoSync = async (value) => {
     if (!onUpdateSetting) return;
@@ -1638,9 +1781,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
       toast.error('Failed to save');
     }
   };
-
-  const hasChanges = (key) => editedValues[key] !== undefined;
-  const getValue = (key, fallback) => editedValues[key] ?? fallback;
 
   // Extract domain from URL for display
   let displayDomain = 'Not configured';
@@ -1677,36 +1817,11 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
             disabled={!isConnected}
           />
         </SettingRow>
-        <SettingDivider />
-        <SettingRow label="Default space">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={getValue('confluence_default_space', defaultSpace)}
-              onChange={(e) => handleValueChange('confluence_default_space', e.target.value)}
-              placeholder="e.g. ENG"
-              disabled={!isConnected}
-              className="h-7 w-28 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-            />
-            {hasChanges('confluence_default_space') && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSave('confluence_default_space')}
-                    disabled={isSaving}
-                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">Save</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </SettingRow>
         {!isConnected && (
           <p className="text-[10px] text-amber-600 bg-amber-500/10 p-2 rounded-m3-sm">
-            Configure Confluence URL, email, and API token in Database & Environment settings to enable.
+            {!confluenceUrl 
+              ? 'Configure Confluence URL in Database & Environment settings.' 
+              : 'Configure your Confluence credentials in Settings > Integrations.'}
           </p>
         )}
       </div>
@@ -2201,6 +2316,7 @@ const SETTINGS_SECTIONS = {
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
+  "integrations": { component: IntegrationsSection, icon: Plug, title: "Integrations" },
   "cost-analytics": { component: CostAnalyticsSection, icon: DollarSign, title: "Cost Analytics" },
   "openai-billing": { component: OpenAIBillingSection, icon: CreditCard, title: "OpenAI Billing" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },

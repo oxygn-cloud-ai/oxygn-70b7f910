@@ -24,7 +24,8 @@ import {
   Briefcase,
   FileText,
   Trash2,
-  BookOpen
+  BookOpen,
+  Plug
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -173,6 +174,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Page sync settings"
         isActive={activeSubItem === "confluence"}
         onClick={() => onItemClick?.("confluence")}
+      />
+      <SubmenuItem 
+        icon={Plug} 
+        label="Integrations" 
+        description="Connected services"
+        isActive={activeSubItem === "integrations"}
+        onClick={() => onItemClick?.("integrations")}
       />
       <SubmenuItem 
         icon={Briefcase} 
