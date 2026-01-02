@@ -9,7 +9,6 @@ import {
   FileJson,
   Settings,
   Database,
-  Key,
   Palette,
   Bell,
   User,
@@ -19,12 +18,11 @@ import {
   Zap,
   Type,
   Cpu,
-  DollarSign,
-  CreditCard,
   Briefcase,
   FileText,
   Trash2,
-  BookOpen
+  BookOpen,
+  Key
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -180,20 +178,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Workbench options"
         isActive={activeSubItem === "workbench"}
         onClick={() => onItemClick?.("workbench")}
-      />
-      <SubmenuItem 
-        icon={DollarSign} 
-        label="Cost Analytics" 
-        description="Usage & spending"
-        isActive={activeSubItem === "cost-analytics"}
-        onClick={() => onItemClick?.("cost-analytics")}
-      />
-      <SubmenuItem 
-        icon={CreditCard} 
-        label="OpenAI Billing" 
-        description="Subscription & credits"
-        isActive={activeSubItem === "openai-billing"}
-        onClick={() => onItemClick?.("openai-billing")}
       />
       <SubmenuItem 
         icon={Palette} 

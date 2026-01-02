@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
-  Settings, Database, Key, Palette, Bell, User, 
-  Link2, DollarSign, CreditCard, MessageSquare, Sparkles,
+  Settings, Database, Palette, Bell, User, 
+  Link2, MessageSquare, Sparkles,
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History, BookOpen
+  Code, Search, Globe, Zap, Save, XCircle, History, BookOpen
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
@@ -1832,91 +1832,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Cost Analytics Section - Connected to real cost tracking
-const CostAnalyticsSection = ({ costTracking }) => {
-  const [analytics, setAnalytics] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const fetchAnalytics = useCallback(async () => {
-    if (!costTracking?.getPlatformCosts) return;
-    setIsLoading(true);
-    try {
-      const endDate = new Date().toISOString();
-      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const data = await costTracking.getPlatformCosts({ startDate, endDate });
-      setAnalytics(data);
-    } catch (err) {
-      console.error('Error fetching analytics:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [costTracking]);
-
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
-
-  const formatCurrency = (value) => `$${(value || 0).toFixed(2)}`;
-  const formatNumber = (value) => {
-    if (!value) return '0';
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-    return value.toString();
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button onClick={fetchAnalytics} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Refresh</TooltipContent>
-        </Tooltip>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <SettingCard>
-          <div className="text-center">
-            <DollarSign className="h-5 w-5 mx-auto text-on-surface-variant mb-1" />
-            <span className="text-title-sm text-on-surface font-semibold">{formatCurrency(analytics?.totalCost)}</span>
-            <p className="text-[10px] text-on-surface-variant">Last 30 Days</p>
-          </div>
-        </SettingCard>
-        <SettingCard>
-          <div className="text-center">
-            <span className="text-title-sm text-on-surface font-semibold">{analytics?.totalCalls || 0}</span>
-            <p className="text-[10px] text-on-surface-variant">Total Calls</p>
-          </div>
-        </SettingCard>
-        <SettingCard>
-          <div className="text-center">
-            <span className="text-title-sm text-on-surface font-semibold">{formatNumber(analytics?.totalTokens)}</span>
-            <p className="text-[10px] text-on-surface-variant">Total Tokens</p>
-          </div>
-        </SettingCard>
-        <SettingCard>
-          <div className="text-center">
-            <span className="text-title-sm text-on-surface font-semibold">
-              {formatCurrency(analytics?.totalCalls ? analytics.totalCost / analytics.totalCalls : 0)}
-            </span>
-            <p className="text-[10px] text-on-surface-variant">Avg/Call</p>
-          </div>
-        </SettingCard>
-      </div>
-    </div>
-  );
-};
-
 // Workbench Settings Section - Connected to real settings
 const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] }) => {
   const [editedValues, setEditedValues] = useState({});
@@ -2163,150 +2078,6 @@ const DatabaseEnvironmentSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// OpenAI Billing Section (Enhanced to match real app)
-const OpenAIBillingSection = () => {
-  const [showData, setShowData] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleRefresh = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setShowData(true);
-      setIsLoading(false);
-    }, 800);
-  };
-
-  return (
-    <div className="space-y-4">
-      <SettingCard>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <span className="text-label-sm text-on-surface font-medium">OpenAI Billing</span>
-            <p className="text-[10px] text-on-surface-variant mt-0.5">Check your OpenAI API credits and usage</p>
-          </div>
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button 
-                  className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
-                  onClick={handleRefresh}
-                  disabled={isLoading}
-                >
-                  <RefreshCw className={`h-4 w-4 text-on-surface-variant ${isLoading ? 'animate-spin' : ''}`} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">{showData ? 'Refresh' : 'Check Balance'}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
-                  <ExternalLink className="h-4 w-4 text-on-surface-variant" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Open OpenAI Dashboard</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-
-        {!showData && !isLoading && (
-          <div className="text-center py-8">
-            <DollarSign className="h-8 w-8 text-on-surface-variant/30 mx-auto mb-2" />
-            <p className="text-body-sm text-on-surface-variant">Click refresh to fetch billing data</p>
-            <p className="text-[10px] text-on-surface-variant/70 mt-1">Note: Some endpoints require an Admin API key</p>
-          </div>
-        )}
-
-        {isLoading && (
-          <div className="text-center py-8">
-            <Loader2 className="h-6 w-6 text-on-surface-variant animate-spin mx-auto mb-2" />
-            <p className="text-body-sm text-on-surface-variant">Fetching billing data...</p>
-          </div>
-        )}
-
-        {showData && !isLoading && (
-          <div className="space-y-4">
-            {/* Subscription */}
-            <div className="p-3 bg-surface-container rounded-m3-md">
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="h-4 w-4 text-on-surface-variant" />
-                <span className="text-label-sm text-on-surface-variant uppercase">Subscription</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-body-sm">
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Plan:</span>
-                  <span className="text-on-surface font-medium">Pay As You Go</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Hard Limit:</span>
-                  <span className="text-on-surface font-medium">$120.00/mo</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-on-surface-variant">Soft Limit:</span>
-                  <span className="text-on-surface font-medium">$100.00/mo</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-on-surface-variant">Payment:</span>
-                  <span className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-600 rounded-full flex items-center gap-0.5">
-                    <Check className="h-2.5 w-2.5" />
-                    Active
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Credits */}
-            <div className="p-3 bg-surface-container rounded-m3-md">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-on-surface-variant" />
-                <span className="text-label-sm text-on-surface-variant uppercase">Credits</span>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">Available:</span>
-                  <span className="text-green-600 font-semibold">$25.00</span>
-                </div>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">Total Granted:</span>
-                  <span className="text-on-surface">$100.00</span>
-                </div>
-                <div className="flex justify-between text-body-sm">
-                  <span className="text-on-surface-variant">Total Used:</span>
-                  <span className="text-on-surface">$75.00</span>
-                </div>
-                <div className="pt-2">
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-on-surface-variant">Usage</span>
-                    <span className="text-on-surface-variant">75%</span>
-                  </div>
-                  <div className="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full" style={{ width: '75%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Usage */}
-            <div className="p-3 bg-surface-container rounded-m3-md">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-on-surface-variant" />
-                <span className="text-label-sm text-on-surface-variant uppercase">Last 30 Days</span>
-              </div>
-              <div className="flex justify-between text-body-sm">
-                <span className="text-on-surface-variant">Total Spend:</span>
-                <span className="text-on-surface font-semibold">$47.23</span>
-              </div>
-            </div>
-
-            <p className="text-[10px] text-on-surface-variant text-right">
-              Last checked: {new Date().toLocaleTimeString()}
-            </p>
-          </div>
-        )}
-      </SettingCard>
-    </div>
-  );
-};
-
 // Knowledge Base Section (Admin only)
 const KnowledgeSection = () => <KnowledgeManager />;
 
@@ -2319,8 +2090,6 @@ const SETTINGS_SECTIONS = {
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
-  "cost-analytics": { component: CostAnalyticsSection, icon: DollarSign, title: "Cost Analytics" },
-  "openai-billing": { component: OpenAIBillingSection, icon: CreditCard, title: "OpenAI Billing" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "workbench": { component: WorkbenchSettingsSection, icon: Briefcase, title: "Workbench" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
@@ -2389,8 +2158,6 @@ const SettingsContent = ({
         return commonSettingsProps;
       case 'database':
         return commonSettingsProps;
-      case 'cost-analytics':
-        return { costTracking };
       case 'notifications':
         return commonSettingsProps;
       case 'profile':
