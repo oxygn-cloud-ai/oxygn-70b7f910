@@ -522,15 +522,14 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           </div>
         )}
 
-        {/* Response Format */}
-        {hasSetting('response_format') && (
+        {/* Response Format - hidden for action nodes (controlled by JSON Schema Template picker) */}
+        {hasSetting('response_format') && promptData?.node_type !== 'action' && (
           <SettingSelect
             value={promptData?.response_format || 'text'}
             onValueChange={(value) => onUpdateField?.('response_format', value)}
             options={[
               { value: 'text', label: 'text' },
               { value: 'json_object', label: 'json object' },
-              { value: 'json_schema', label: 'json schema' },
             ]}
             label="Response Format"
           />
