@@ -1150,7 +1150,7 @@ const MainLayout = () => {
                 {/* Folder/Submenu Panel - collapsible */}
                 {folderPanelOpen && (
                   <>
-                    <ResizablePanel defaultSize={20} minSize={15} maxSize={50}>
+                    <ResizablePanel defaultSize={20} minSize={10} maxSize={60}>
                       <div className="h-full min-h-0 overflow-x-auto overflow-y-hidden">
                         {renderFolderPanelContent()}
                       </div>
@@ -1161,7 +1161,7 @@ const MainLayout = () => {
 
                 {/* Reading Pane - flexible */}
                 {readingPaneOpen && (
-                  <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={30}>
+                  <ResizablePanel defaultSize={showConversationPanel ? 50 : 80} minSize={15}>
                     <div className="h-full min-h-0 flex flex-col overflow-hidden">
                       <ReadingPane 
                         hasSelection={selectedPromptId !== null} 
@@ -1238,7 +1238,7 @@ const MainLayout = () => {
                   <>
                     <ResizableHandle withHandle className="bg-outline-variant hover:bg-primary/50 transition-colors" />
                     {/* Conversation Panel - only shown for prompts */}
-                    <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+                    <ResizablePanel defaultSize={30} minSize={10} maxSize={70}>
                       <div className="h-full">
                         <ConversationPanel 
                           onClose={() => setConversationPanelOpen(false)}
