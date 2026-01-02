@@ -511,8 +511,11 @@ export const useCascadeExecutor = () => {
 
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
 
-                // Update the prompt's user_prompt_result in database (matches UI field)
-                const updateData = { user_prompt_result: result.response };
+                // Update the prompt's user_prompt_result and output_response in database
+                const updateData = { 
+                  user_prompt_result: result.response,
+                  output_response: result.response 
+                };
 
                 // Handle action nodes: parse JSON response and execute post-action
                 // Safety: run if node_type is 'action' OR if post_action is configured (DB trigger ensures consistency)

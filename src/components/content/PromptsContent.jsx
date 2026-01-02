@@ -195,7 +195,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
   // Use real data from promptData, with fallbacks
   const systemPrompt = promptData?.input_admin_prompt || '';
   const userPrompt = promptData?.input_user_prompt || '';
-  const outputResponse = promptData?.output_response || '';
+  const outputResponse = promptData?.output_response || promptData?.user_prompt_result || '';
   const metadata = promptData?.last_ai_call_metadata;
 
   return (

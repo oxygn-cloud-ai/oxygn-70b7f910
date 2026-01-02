@@ -221,6 +221,23 @@ const MainLayout = () => {
     loadPromptData();
   }, [selectedPromptId, fetchItemData]);
   
+  // Listen for prompt-result-updated events to refresh selected prompt data
+  useEffect(() => {
+    const handlePromptResultUpdated = async (event) => {
+      const { promptRowId } = event.detail || {};
+      if (promptRowId && promptRowId === selectedPromptId) {
+        // Re-fetch the prompt data to get the updated output
+        const freshData = await fetchItemData(selectedPromptId);
+        setSelectedPromptData(freshData);
+      }
+    };
+    
+    window.addEventListener('prompt-result-updated', handlePromptResultUpdated);
+    return () => {
+      window.removeEventListener('prompt-result-updated', handlePromptResultUpdated);
+    };
+  }, [selectedPromptId, fetchItemData]);
+  
   // Handle field updates
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (!selectedPromptId) return false;
