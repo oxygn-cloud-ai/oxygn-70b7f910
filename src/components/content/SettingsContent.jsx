@@ -5,8 +5,7 @@ import {
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History, BookOpen,
-  Plug
+  Code, Search, Globe, Zap, TrendingUp, Save, XCircle, History, BookOpen
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
@@ -1317,92 +1316,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
   );
 };
 
-// API Keys Section - Connected to real settings for status check
-const APIKeysSection = ({ settings = {} }) => {
-  const [showKey, setShowKey] = useState({});
-  
-  // Derive API key status from settings
-  const apiKeys = [
-    { 
-      id: "openai", 
-      name: "OpenAI API Key", 
-      configured: !!settings['openai_api_key']?.value || !!settings['OPENAI_API_KEY']?.value,
-      description: "Required for AI completions"
-    },
-    { 
-      id: "confluence_token", 
-      name: "Confluence API Token", 
-      configured: !!settings['CONFLUENCE_API_TOKEN']?.value || !!settings['confluence_api_token']?.value,
-      description: "Required for Confluence integration"
-    },
-    { 
-      id: "confluence_email", 
-      name: "Confluence Email", 
-      configured: !!settings['CONFLUENCE_EMAIL']?.value || !!settings['confluence_email']?.value,
-      description: "Email for Confluence API authentication"
-    },
-  ];
-
-  return (
-    <div className="space-y-3">
-      <SettingCard>
-        <div className="space-y-2">
-          {apiKeys.map((apiKey, i) => (
-            <div key={apiKey.id}>
-              {i > 0 && <SettingDivider className="my-2" />}
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-body-sm text-on-surface font-medium">{apiKey.name}</span>
-                    {apiKey.configured ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">
-                        Configured
-                      </span>
-                    ) : (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">
-                        Not Set
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">{apiKey.description}</p>
-                </div>
-                <div className="flex items-center gap-0.5">
-                  {apiKey.configured && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button 
-                          onClick={() => setShowKey(prev => ({ ...prev, [apiKey.id]: !prev[apiKey.id] }))}
-                          className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                        >
-                          {showKey[apiKey.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent className="text-[10px]">
-                        {showKey[apiKey.id] ? "Hide" : "Show (masked)"}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-              {showKey[apiKey.id] && apiKey.configured && (
-                <code className="block mt-1 text-tree text-on-surface-variant font-mono px-2">
-                  •••••••••••••••••••••
-                </code>
-              )}
-            </div>
-          ))}
-        </div>
-      </SettingCard>
-
-      <div className="p-3 bg-surface-container-low rounded-m3-lg">
-        <p className="text-[10px] text-on-surface-variant">
-          API keys are managed through Lovable Cloud secrets for security. Contact your administrator to update keys.
-        </p>
-      </div>
-    </div>
-  );
-};
-
 // Theme Section - Connected to real theme persistence
 const ThemeSection = () => {
   const [theme, setTheme] = useState(getThemePreference());
@@ -1597,170 +1510,21 @@ const ProfileSection = () => {
   );
 };
 
-// Integrations Section - Per-user encrypted credentials management
-const IntegrationsSection = () => {
+// Confluence Section - Connected to real settings with integrated credential management
+const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   const { 
-    isLoading, 
     credentialStatus, 
     getCredentialStatus, 
     setCredential, 
     deleteCredential,
-    isServiceConfigured 
+    isServiceConfigured,
+    isLoading: isCredLoading 
   } = useUserCredentials();
-  
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [confluenceEmail, setConfluenceEmail] = useState('');
   const [confluenceToken, setConfluenceToken] = useState('');
   const [showToken, setShowToken] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Fetch status on mount
-  useEffect(() => {
-    getCredentialStatus('confluence');
-  }, [getCredentialStatus]);
-
-  const confluenceConfigured = isServiceConfigured('confluence');
-
-  const handleSaveConfluence = async () => {
-    if (!confluenceEmail || !confluenceToken) {
-      toast.error('Both email and API token are required');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await setCredential('confluence', 'email', confluenceEmail);
-      await setCredential('confluence', 'api_token', confluenceToken);
-      toast.success('Confluence credentials saved securely');
-      setConfluenceEmail('');
-      setConfluenceToken('');
-      trackEvent('confluence_credentials_saved');
-    } catch (error) {
-      toast.error('Failed to save credentials');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDeleteConfluence = async () => {
-    setIsSaving(true);
-    try {
-      await deleteCredential('confluence');
-      toast.success('Confluence credentials removed');
-      trackEvent('confluence_credentials_deleted');
-    } catch (error) {
-      toast.error('Failed to remove credentials');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <SettingCard label="Confluence">
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 mb-3">
-            <FileText className="h-5 w-5 text-on-surface-variant" />
-            <div className="flex-1">
-              <h4 className="text-body-sm text-on-surface font-medium">
-                {confluenceConfigured ? 'Connected' : 'Not Connected'}
-              </h4>
-              <p className="text-[10px] text-on-surface-variant">Your personal Confluence credentials</p>
-            </div>
-            {confluenceConfigured ? (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Configured</span>
-            ) : (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
-            )}
-          </div>
-          
-          <SettingRow label="Email" description="Your Atlassian account email">
-            <input
-              type="email"
-              value={confluenceEmail}
-              onChange={(e) => setConfluenceEmail(e.target.value)}
-              placeholder={confluenceConfigured ? "••••••••" : "email@company.com"}
-              className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </SettingRow>
-          
-          <SettingDivider />
-          
-          <SettingRow label="API Token" description="Generate at id.atlassian.com">
-            <div className="flex items-center gap-2">
-              <input
-                type={showToken ? "text" : "password"}
-                value={confluenceToken}
-                onChange={(e) => setConfluenceToken(e.target.value)}
-                placeholder={confluenceConfigured ? "••••••••" : "Enter token"}
-                className="h-8 w-40 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShowToken(!showToken)}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                  >
-                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">{showToken ? 'Hide' : 'Show'}</TooltipContent>
-              </Tooltip>
-            </div>
-          </SettingRow>
-          
-          <div className="flex items-center justify-between pt-2">
-            <a 
-              href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[10px] text-primary hover:underline flex items-center gap-1"
-            >
-              Generate API Token <ExternalLink className="h-3 w-3" />
-            </a>
-            <div className="flex items-center gap-2">
-              {confluenceConfigured && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleDeleteConfluence}
-                      disabled={isSaving || isLoading}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Remove credentials</TooltipContent>
-                </Tooltip>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleSaveConfluence}
-                    disabled={isSaving || isLoading || (!confluenceEmail && !confluenceToken)}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
-                  >
-                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">Save credentials</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-          
-          <p className="text-[10px] text-on-surface-variant bg-surface-container p-2 rounded-m3-sm">
-            Your credentials are encrypted at rest and only used server-side for API calls.
-          </p>
-        </div>
-      </SettingCard>
-    </div>
-  );
-};
-
-// Confluence Section - Connected to real settings (now uses per-user credentials)
-const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
-  const { credentialStatus, getCredentialStatus, isServiceConfigured } = useUserCredentials();
-  const [isSaving, setIsSaving] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [editedUrl, setEditedUrl] = useState('');
   const [hasUrlChanges, setHasUrlChanges] = useState(false);
@@ -1809,6 +1573,41 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
       await onUpdateSetting('confluence_auto_sync', value ? 'true' : 'false');
     } catch {
       toast.error('Failed to save');
+    }
+  };
+
+  const handleSaveCredentials = async () => {
+    if (!confluenceEmail || !confluenceToken) {
+      toast.error('Both email and API token are required');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await setCredential('confluence', 'email', confluenceEmail);
+      await setCredential('confluence', 'api_token', confluenceToken);
+      toast.success('Confluence credentials saved securely');
+      setConfluenceEmail('');
+      setConfluenceToken('');
+      await getCredentialStatus('confluence');
+      trackEvent('confluence_credentials_saved');
+    } catch (error) {
+      toast.error('Failed to save credentials');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCredentials = async () => {
+    setIsSaving(true);
+    try {
+      await deleteCredential('confluence');
+      toast.success('Confluence credentials removed');
+      await getCredentialStatus('confluence');
+      trackEvent('confluence_credentials_deleted');
+    } catch (error) {
+      toast.error('Failed to remove credentials');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1919,7 +1718,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
         </SettingRow>
       </SettingCard>
 
-      {/* Credentials Status Card */}
+      {/* Credentials Card */}
       <SettingCard label="Credentials">
         <div className="flex items-center gap-3 mb-3">
           <Key className="h-5 w-5 text-on-surface-variant" />
@@ -1939,11 +1738,44 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
           )}
         </div>
-        <p className="text-[10px] text-on-surface-variant mb-2">
-          Manage your Confluence credentials in the Integrations section.
-        </p>
-        <Tooltip>
-          <TooltipTrigger asChild>
+        
+        <div className="space-y-3">
+          <SettingRow label="Email" description="Your Atlassian account email">
+            <input
+              type="email"
+              value={confluenceEmail}
+              onChange={(e) => setConfluenceEmail(e.target.value)}
+              placeholder={hasUserCredentials ? "••••••••" : "email@company.com"}
+              className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </SettingRow>
+          
+          <SettingDivider />
+          
+          <SettingRow label="API Token" description="Generate at id.atlassian.com">
+            <div className="flex items-center gap-2">
+              <input
+                type={showToken ? "text" : "password"}
+                value={confluenceToken}
+                onChange={(e) => setConfluenceToken(e.target.value)}
+                placeholder={hasUserCredentials ? "••••••••" : "Enter token"}
+                className="h-8 w-40 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setShowToken(!showToken)}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                  >
+                    {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">{showToken ? 'Hide' : 'Show'}</TooltipContent>
+              </Tooltip>
+            </div>
+          </SettingRow>
+          
+          <div className="flex items-center justify-between pt-2">
             <a 
               href="https://id.atlassian.com/manage-profile/security/api-tokens" 
               target="_blank" 
@@ -1952,9 +1784,36 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
             >
               Generate API Token <ExternalLink className="h-3 w-3" />
             </a>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Open Atlassian API Tokens page</TooltipContent>
-        </Tooltip>
+            <div className="flex items-center gap-2">
+              {hasUserCredentials && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleDeleteCredentials}
+                      disabled={isSaving || isCredLoading}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Remove credentials</TooltipContent>
+                </Tooltip>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSaveCredentials}
+                    disabled={isSaving || isCredLoading || (!confluenceEmail && !confluenceToken)}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save credentials</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </div>
       </SettingCard>
 
       {/* Settings Card */}
@@ -2460,14 +2319,12 @@ const SETTINGS_SECTIONS = {
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
-  "integrations": { component: IntegrationsSection, icon: Plug, title: "Integrations" },
   "cost-analytics": { component: CostAnalyticsSection, icon: DollarSign, title: "Cost Analytics" },
   "openai-billing": { component: OpenAIBillingSection, icon: CreditCard, title: "OpenAI Billing" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "workbench": { component: WorkbenchSettingsSection, icon: Briefcase, title: "Workbench" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
-  "api-keys": { component: APIKeysSection, icon: Key, title: "API Keys" },
   "knowledge": { component: KnowledgeSection, icon: BookOpen, title: "Knowledge Base" },
 };
 
@@ -2534,8 +2391,6 @@ const SettingsContent = ({
         return commonSettingsProps;
       case 'cost-analytics':
         return { costTracking };
-      case 'api-keys':
-        return { settings };
       case 'notifications':
         return commonSettingsProps;
       case 'profile':
