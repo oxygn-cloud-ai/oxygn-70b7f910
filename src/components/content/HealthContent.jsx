@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
-  Activity, Server, Zap, Shield, Key,
+  Activity, Server, Zap, Shield, Key, Globe,
   CheckCircle, AlertCircle, XCircle, Clock, 
-  Database, Cpu, HardDrive, Wifi, RefreshCw, Loader2
+  Database, Cpu, HardDrive, Wifi, RefreshCw, Loader2, CloudCog, Wrench
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { useAllResourceHealth } from "@/hooks/useResourceHealth";
+import { toast } from "@/components/ui/sonner";
 
 // Status types and colors
 const STATUS = {
@@ -276,7 +278,137 @@ const APIHealthSection = ({ healthData, isLoading }) => {
     </div>
   );
 };
-const HealthContent = ({ activeSubItem = "overview" }) => {
+
+// OpenAI Resources Section
+const ResourcesSection = () => {
+  const { assistants, isChecking, error, checkAll, repairAssistant } = useAllResourceHealth();
+  const [repairingId, setRepairingId] = useState(null);
+
+  useEffect(() => {
+    checkAll();
+  }, []);
+
+  const handleRepair = async (assistantRowId) => {
+    setRepairingId(assistantRowId);
+    try {
+      const result = await repairAssistant(assistantRowId);
+      if (result?.success) {
+        toast.success('Resources repaired successfully');
+      } else {
+        toast.error('Repair completed with errors', { description: result?.errors?.join(', ') });
+      }
+    } catch (err) {
+      toast.error('Repair failed', { description: err.message });
+    } finally {
+      setRepairingId(null);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'healthy': return 'success';
+      case 'degraded': return 'degraded';
+      case 'broken': return 'error';
+      default: return 'unknown';
+    }
+  };
+
+  if (isChecking && assistants.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-500/10 rounded-m3-lg text-red-600">
+        <p className="text-body-sm">Error: {error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="p-3 bg-surface-container-low rounded-m3-lg">
+        <div className="flex items-center gap-2 mb-2">
+          <CloudCog className="h-4 w-4 text-on-surface-variant" />
+          <span className="text-label-sm text-on-surface font-medium">OpenAI Resources</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => checkAll()}
+                disabled={isChecking}
+                className="ml-auto w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Check All</TooltipContent>
+          </Tooltip>
+        </div>
+        <p className="text-tree text-on-surface-variant">
+          {assistants.length} assistant(s) with vector stores and files
+        </p>
+      </div>
+
+      {assistants.length === 0 ? (
+        <div className="p-4 bg-surface-container-low rounded-m3-lg text-center">
+          <p className="text-body-sm text-on-surface-variant">No assistants configured</p>
+        </div>
+      ) : (
+        <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
+          <div className="grid grid-cols-[1fr,100px,80px,80px,60px] gap-3 px-3 py-2 bg-surface-container text-compact text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
+            <span>Assistant</span>
+            <span className="text-center">Status</span>
+            <span className="text-center">Vector Store</span>
+            <span className="text-center">Files</span>
+            <span className="text-center">Action</span>
+          </div>
+          {assistants.map((assistant, i) => (
+            <div key={assistant.assistant_row_id} className={`grid grid-cols-[1fr,100px,80px,80px,60px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
+              <div className="min-w-0">
+                <span className="text-body-sm text-on-surface font-medium truncate block">{assistant.prompt_name}</span>
+                <span className="text-[10px] text-on-surface-variant truncate block">{assistant.assistant_name}</span>
+              </div>
+              <div className="flex justify-center">
+                <StatusBadge status={getStatusBadge(assistant.status)} />
+              </div>
+              <div className="flex justify-center">
+                <StatusBadge status={assistant.vector_store.status === 'exists' ? 'success' : assistant.vector_store.status === 'missing' ? 'error' : 'unknown'} />
+              </div>
+              <div className="text-center text-body-sm text-on-surface">
+                {assistant.files.healthy}/{assistant.files.total_in_db}
+              </div>
+              <div className="flex justify-center">
+                {assistant.status !== 'healthy' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        onClick={() => handleRepair(assistant.assistant_row_id)}
+                        disabled={repairingId === assistant.assistant_row_id}
+                        className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                      >
+                        {repairingId === assistant.assistant_row_id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Wrench className="h-4 w-4" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px]">Repair</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
   const [isLoading, setIsLoading] = useState(true);
   const [healthData, setHealthData] = useState({
     database: { status: 'pending', message: '' },
@@ -362,6 +494,7 @@ const HealthContent = ({ activeSubItem = "overview" }) => {
     overview: { component: OverviewSection, icon: Activity, title: "Overview" },
     database: { component: DatabaseSection, icon: Server, title: "Database" },
     "ai-services": { component: AIServicesSection, icon: Zap, title: "AI Services" },
+    resources: { component: ResourcesSection, icon: CloudCog, title: "OpenAI Resources" },
     "auth-status": { component: AuthStatusSection, icon: Shield, title: "Auth Status" },
     "api-health": { component: APIHealthSection, icon: Key, title: "API Health" },
   };

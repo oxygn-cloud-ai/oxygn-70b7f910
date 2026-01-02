@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.credentials-manager]
 verify_jwt = true
+
+[functions.resource-health]
+verify_jwt = true
