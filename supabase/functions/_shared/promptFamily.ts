@@ -179,7 +179,7 @@ export async function getFamilyFiles(
   
   const { data: files } = await supabase
     .from(TABLES.ASSISTANT_FILES)
-    .select('row_id, assistant_row_id, original_filename, mime_type, file_size, upload_status')
+    .select('row_id, assistant_row_id, original_filename, mime_type, file_size, upload_status, storage_path')
     .in('assistant_row_id', assistantIds);
 
   // Map files to their prompts
@@ -439,6 +439,23 @@ export function getPromptFamilyTools() {
         type: "object",
         properties: {},
         required: [],
+        additionalProperties: false
+      },
+      strict: true
+    },
+    {
+      type: "function",
+      name: "read_file_content",
+      description: "Read the text content of an attached file. Use list_family_files first to get the file row_id. Only works for text-based files (txt, md, csv, json, xml, html, yml, yaml, log).",
+      parameters: {
+        type: "object",
+        properties: {
+          file_row_id: {
+            type: "string",
+            description: "The row_id of the file to read"
+          }
+        },
+        required: ["file_row_id"],
         additionalProperties: false
       },
       strict: true
