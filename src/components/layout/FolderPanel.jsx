@@ -986,7 +986,12 @@ const FolderPanel = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={onClose}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClose();
+                  }}
                   className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
                 >
                   <PanelLeftClose className="h-4 w-4" />
