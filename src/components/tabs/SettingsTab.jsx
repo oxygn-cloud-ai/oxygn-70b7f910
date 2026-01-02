@@ -174,7 +174,6 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
         {localData.exclude_from_export && ((isActionNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
         {!isActionNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && 'Standard settings'}
       </span>
-      </span>
     </div>
   );
 
