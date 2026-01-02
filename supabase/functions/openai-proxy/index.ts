@@ -108,21 +108,24 @@ serve(async (req) => {
       const start = Date.now();
       
       // Use default model from DB for health check
-      const healthCheckModel = await getDefaultModelFromSettings(supabase);
-      
+      const healthCheckModelId = await getDefaultModelFromSettings(supabase);
+      // Resolve to actual API model ID (same as chat action does)
+      const healthCheckModel = await resolveModel(supabase, healthCheckModelId);
+
       // Fetch model config to get correct token param
-      const modelConfig = await fetchModelConfig(supabase, healthCheckModel);
+      const modelConfig = await fetchModelConfig(supabase, healthCheckModelId);
       const tokenParam = modelConfig?.tokenParam || 'max_tokens';
-      
-      console.log('Health check using model:', healthCheckModel, 'tokenParam:', tokenParam);
-      
+
+      console.log('Health check using model:', healthCheckModelId, '-> resolved:', healthCheckModel, 'tokenParam:', tokenParam);
+
       const requestBody: Record<string, unknown> = {
         model: healthCheckModel,
         messages: [{ role: 'user', content: 'Hi' }],
       };
-      
+
       // Use the correct token parameter for this model
-      requestBody[tokenParam] = 1;
+      // Use 50 tokens minimum - GPT-5 rejects token limits that are too restrictive
+      requestBody[tokenParam] = 50;
       
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
