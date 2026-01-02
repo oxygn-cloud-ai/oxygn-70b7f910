@@ -14,6 +14,7 @@ import ConversationPanel from "@/components/layout/ConversationPanel";
 import ExportPanel from "@/components/layout/ExportPanel";
 import SearchModal from "@/components/layout/SearchModal";
 import NewPromptChoiceDialog from "@/components/NewPromptChoiceDialog";
+import SaveAsTemplateDialog from "@/components/SaveAsTemplateDialog";
 import { useSupabase } from "@/hooks/useSupabase";
 import useTreeData from "@/hooks/useTreeData";
 import { useTreeOperations } from "@/hooks/useTreeOperations";
@@ -714,6 +715,14 @@ const MainLayout = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [saveAsTemplateDialogOpen, setSaveAsTemplateDialogOpen] = useState(false);
+  const [saveAsTemplateSource, setSaveAsTemplateSource] = useState(null); // { id, name, hasChildren }
+
+  // Handler for save as template from folder panel
+  const handleSaveAsTemplate = useCallback((promptId, promptName, hasChildren) => {
+    setSaveAsTemplateSource({ id: promptId, name: promptName, hasChildren });
+    setSaveAsTemplateDialogOpen(true);
+  }, []);
   
   // Persist panel states to localStorage
   useEffect(() => {
@@ -1037,6 +1046,7 @@ const MainLayout = () => {
           isCascadeRunning={isCascadeRunning}
           singleRunPromptId={singleRunPromptId}
           deletingPromptIds={deletingPromptIds}
+          onSaveAsTemplate={handleSaveAsTemplate}
         />
       );
     }
@@ -1095,6 +1105,20 @@ const MainLayout = () => {
           }}
           onNavigate={(navId) => {
             setActiveNav(navId);
+          }}
+        />
+
+        {/* Save As Template Dialog */}
+        <SaveAsTemplateDialog
+          open={saveAsTemplateDialogOpen}
+          onOpenChange={setSaveAsTemplateDialogOpen}
+          promptId={saveAsTemplateSource?.id}
+          promptName={saveAsTemplateSource?.name}
+          hasChildren={saveAsTemplateSource?.hasChildren}
+          onSuccess={() => {
+            setSaveAsTemplateDialogOpen(false);
+            setSaveAsTemplateSource(null);
+            templatesHook.fetchTemplates();
           }}
         />
 

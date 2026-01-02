@@ -50,7 +50,13 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
 
     setIsSaving(true);
     try {
-      const result = await createFromPrompt(promptRowId, templateName);
+      const result = await createFromPrompt(promptRowId, {
+        name: templateName,
+        description: templateDescription,
+        category: templateCategory,
+        isPrivate: false,
+        includeChildren: true,
+      });
       if (result) {
         setShowSaveDialog(false);
         setTemplateName('');
