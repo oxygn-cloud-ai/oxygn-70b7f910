@@ -325,11 +325,12 @@ const HighlightedTextarea = forwardRef(({
         placeholder={placeholder}
         className={cn(
           "relative z-10 w-full resize-y overflow-auto",
-          "bg-transparent border border-border rounded-md",
+          "border border-border rounded-md",
           "focus:ring-2 focus:ring-ring focus:border-primary",
           "disabled:cursor-not-allowed disabled:opacity-50",
           readOnly && "cursor-not-allowed opacity-50",
-          className
+          className,
+          "!bg-transparent"
         )}
         style={{
           ...textStyles,
