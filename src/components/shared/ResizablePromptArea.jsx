@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+
+// Ref to track when we're in the middle of a save operation
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
   Library, Search, Play, Loader2, Copy, Undo2, XCircle
@@ -265,6 +267,7 @@ const ResizablePromptArea = ({
   
   const textareaRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const isSavingRef = useRef(false);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [selectionEnd, setSelectionEnd] = useState(null);
@@ -300,10 +303,14 @@ const ResizablePromptArea = ({
   }, [variables]);
 
   // Sync editValue when value prop changes externally
+  // Only sync if we're not in the middle of saving (prevents race condition)
+  // and if the incoming value differs from what we last saved
   useEffect(() => {
-    setEditValue(value || '');
-    setLastSavedValue(value || '');
-  }, [value]);
+    if (!isSavingRef.current && value !== lastSavedValue) {
+      setEditValue(value || '');
+      setLastSavedValue(value || '');
+    }
+  }, [value, lastSavedValue]);
 
   // Measure content height for 'full' state
   useEffect(() => {
@@ -317,6 +324,9 @@ const ResizablePromptArea = ({
   const performSave = useCallback((valueToSave) => {
     if (valueToSave === lastSavedValue) return;
     
+    // Set saving flag to prevent race condition with useEffect
+    isSavingRef.current = true;
+    
     // Push current saved value to undo stack before saving new one
     pushPreviousValue(lastSavedValue);
     
@@ -326,6 +336,11 @@ const ResizablePromptArea = ({
       onChange(valueToSave);
     }
     setLastSavedValue(valueToSave);
+    
+    // Reset flag after a tick to allow prop updates to complete
+    setTimeout(() => {
+      isSavingRef.current = false;
+    }, 0);
   }, [lastSavedValue, onSave, onChange, pushPreviousValue]);
 
   // Cancel any pending save timeout
