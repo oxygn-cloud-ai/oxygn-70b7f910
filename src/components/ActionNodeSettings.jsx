@@ -119,6 +119,8 @@ const ActionNodeSettings = ({
     }
     return { hasIssues: false, issues: [] };
   }, [localData.post_action, localData.post_action_config]);
+
+  // Find array paths in current schema for suggestions
   const availableArrayPaths = useMemo(() => {
     if (!currentSchemaObject) return [];
     return findArrayPaths(currentSchemaObject);
@@ -253,15 +255,7 @@ const ActionNodeSettings = ({
         
         // Apply full template configuration
         const updates = applyTemplateToPrompt(fullTemplate, localData);
-        
-        // Ensure post_action_config is fully merged from template (don't overwrite with defaults)
-        if (fullTemplate.actionConfig && updates.post_action_config) {
-          updates.post_action_config = {
-            ...updates.post_action_config,
-            ...fullTemplate.actionConfig,
-          };
-          console.log('ActionNodeSettings: Applied template actionConfig:', fullTemplate.actionConfig);
-        }
+        console.log('ActionNodeSettings: Template applied, updates:', updates);
         
         // Apply all updates
         Object.entries(updates).forEach(([key, value]) => {
