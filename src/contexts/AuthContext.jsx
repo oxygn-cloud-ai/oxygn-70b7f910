@@ -104,6 +104,9 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Whitelisted email for password login (preview testing)
+  const WHITELISTED_EMAIL = 'james@oxygn.cloud';
+
   const signInWithGoogle = async () => {
     const redirectUrl = `${window.location.origin}/projects`;
     
@@ -122,6 +125,52 @@ export const AuthProvider = ({ children }) => {
       return { error };
     }
     
+    return { error: null };
+  };
+
+  const signInWithPassword = async (email, password) => {
+    // Only allow whitelisted email
+    if (email.toLowerCase() !== WHITELISTED_EMAIL.toLowerCase()) {
+      const error = { message: 'Email/password login is only available for authorized accounts' };
+      toast.error(error.message);
+      return { error };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return { error };
+    }
+
+    return { error: null };
+  };
+
+  const signUpWithPassword = async (email, password) => {
+    // Only allow whitelisted email
+    if (email.toLowerCase() !== WHITELISTED_EMAIL.toLowerCase()) {
+      const error = { message: 'Email/password signup is only available for authorized accounts' };
+      toast.error(error.message);
+      return { error };
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/projects`
+      }
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return { error };
+    }
+
+    toast.success('Account created successfully');
     return { error: null };
   };
 
@@ -148,6 +197,8 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     userProfile,
     signInWithGoogle,
+    signInWithPassword,
+    signUpWithPassword,
     signOut,
     isAuthenticated: !!user
   };
