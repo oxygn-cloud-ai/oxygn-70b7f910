@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { useUserCredentials } from "@/hooks/useUserCredentials";
+import { useBuildInfo } from "@/hooks/useBuildInfo";
 import { toast } from "@/components/ui/sonner";
 import { trackEvent } from '@/lib/posthog';
 
@@ -39,6 +40,7 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   const [isSaving, setIsSaving] = useState(false);
   const { retentionMinutes, updateRetention, undoStack, clearAllUndo } = useUndo();
   const [localRetention, setLocalRetention] = useState(retentionMinutes);
+  const { build: githubBuild, releaseUrl, releaseDate, isLoading: isBuildLoading, error: buildError } = useBuildInfo();
 
   // Sync local retention with context
   useEffect(() => {
@@ -127,28 +129,31 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
       {/* Application Settings */}
       <SettingCard label="Application">
         <div className="space-y-3">
-          <SettingRow label="Build" description="Current build identifier">
+          <SettingRow label="Build" description={releaseDate ? `Released ${releaseDate}` : "Latest GitHub release"}>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={getValue('build')}
-                onChange={(e) => handleValueChange('build', e.target.value)}
-                placeholder="e.g. 1.0.0"
-                className="h-8 w-24 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              {hasChanges('build') && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleSave('build')}
-                      disabled={isSaving}
-                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Save</TooltipContent>
-                </Tooltip>
+              {isBuildLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+              ) : buildError ? (
+                <span className="text-body-sm text-on-surface-variant">—</span>
+              ) : (
+                <>
+                  <span className="text-body-sm text-on-surface font-mono">{githubBuild || '—'}</span>
+                  {releaseUrl && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a
+                          href={releaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">View release on GitHub</TooltipContent>
+                    </Tooltip>
+                  )}
+                </>
               )}
             </div>
           </SettingRow>
