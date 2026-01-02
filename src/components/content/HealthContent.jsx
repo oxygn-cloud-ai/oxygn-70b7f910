@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
-  Activity, Server, Zap, Shield, Key, Globe, 
+  Activity, Server, Zap, Shield, Key,
   CheckCircle, AlertCircle, XCircle, Clock, 
   Database, Cpu, HardDrive, Wifi, RefreshCw, Loader2
 } from "lucide-react";
@@ -34,10 +34,6 @@ const API_ENDPOINTS = [
   { name: "workbench-chat", description: "Workbench Chat" },
 ];
 
-const ENV_VARIABLES = [
-  { name: "SUPABASE_URL", key: "VITE_SUPABASE_URL" },
-  { name: "SUPABASE_KEY", key: "VITE_SUPABASE_PUBLISHABLE_KEY" },
-];
 
 const StatusBadge = ({ status }) => {
   const s = STATUS[status] || STATUS.unknown;
@@ -280,48 +276,6 @@ const APIHealthSection = ({ healthData, isLoading }) => {
     </div>
   );
 };
-
-// Environment Section
-const EnvironmentSection = ({ healthData, isLoading }) => {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
-      </div>
-    );
-  }
-
-  const envStatus = ENV_VARIABLES.map(v => ({
-    name: v.name,
-    isSet: !!import.meta.env[v.key],
-    value: import.meta.env[v.key] ? `${import.meta.env[v.key].slice(0, 12)}...` : 'Not set',
-  }));
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-surface-container-low rounded-m3-lg overflow-hidden">
-        <div className="grid grid-cols-[1fr,80px,180px] gap-3 px-3 py-2 bg-surface-container text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
-          <span>Variable</span>
-          <span className="text-center">Status</span>
-          <span>Value</span>
-        </div>
-        {envStatus.map((envVar, i) => (
-          <div key={envVar.name} className={`grid grid-cols-[1fr,80px,180px] gap-3 px-3 py-2 items-center ${i > 0 ? "border-t border-outline-variant" : ""}`}>
-            <span className="text-body-sm text-on-surface font-mono">{envVar.name}</span>
-            <div className="flex justify-center">
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-compact ${envVar.isSet ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
-                {envVar.isSet ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                {envVar.isSet ? 'Set' : 'Missing'}
-              </span>
-            </div>
-            <span className="text-tree text-on-surface-variant font-mono">{envVar.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 const HealthContent = ({ activeSubItem = "overview" }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [healthData, setHealthData] = useState({
@@ -410,7 +364,6 @@ const HealthContent = ({ activeSubItem = "overview" }) => {
     "ai-services": { component: AIServicesSection, icon: Zap, title: "AI Services" },
     "auth-status": { component: AuthStatusSection, icon: Shield, title: "Auth Status" },
     "api-health": { component: APIHealthSection, icon: Key, title: "API Health" },
-    environment: { component: EnvironmentSection, icon: Globe, title: "Environment" },
   };
 
   const section = HEALTH_SECTIONS[activeSubItem] || HEALTH_SECTIONS.overview;
