@@ -1,6 +1,7 @@
 import React from "react";
 import { FileText, LayoutTemplate, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import {
   PromptsContent,
   WorkbenchContent,
@@ -68,57 +69,67 @@ const ReadingPane = ({
   // Workbench mode - full workbench with threads and chat (now with real data)
   if (activeNav === "workbench") {
     return (
-      <WorkbenchContent 
-        activeSubItem={activeSubItem}
-        workbenchThreads={workbenchThreads}
-        workbenchMessages={workbenchMessages}
-        workbenchFiles={workbenchFiles}
-        workbenchConfluence={workbenchConfluence}
-        promptLibrary={promptLibrary}
-      />
+      <ErrorBoundary message="Workbench encountered an error. Try navigating to another section.">
+        <WorkbenchContent 
+          activeSubItem={activeSubItem}
+          workbenchThreads={workbenchThreads}
+          workbenchMessages={workbenchMessages}
+          workbenchFiles={workbenchFiles}
+          workbenchConfluence={workbenchConfluence}
+          promptLibrary={promptLibrary}
+        />
+      </ErrorBoundary>
     );
   }
 
   // Settings mode - all settings sections (now with real data)
   if (activeNav === "settings") {
     return (
-      <SettingsContent 
-        activeSubItem={activeSubItem}
-        settings={settings}
-        isLoadingSettings={isLoadingSettings}
-        onUpdateSetting={onUpdateSetting}
-        models={models}
-        isLoadingModels={isLoadingModels}
-        onToggleModel={onToggleModel}
-        onAddModel={onAddModel}
-        onUpdateModel={onUpdateModel}
-        onDeleteModel={onDeleteModel}
-        costTracking={costTracking}
-        conversationToolDefaults={conversationToolDefaults}
-      />
+      <ErrorBoundary message="Settings encountered an error.">
+        <SettingsContent 
+          activeSubItem={activeSubItem}
+          settings={settings}
+          isLoadingSettings={isLoadingSettings}
+          onUpdateSetting={onUpdateSetting}
+          models={models}
+          isLoadingModels={isLoadingModels}
+          onToggleModel={onToggleModel}
+          onAddModel={onAddModel}
+          onUpdateModel={onUpdateModel}
+          onDeleteModel={onDeleteModel}
+          costTracking={costTracking}
+          conversationToolDefaults={conversationToolDefaults}
+        />
+      </ErrorBoundary>
     );
   }
 
   // Health mode - health check sections
   if (activeNav === "health") {
-    return <HealthContent activeSubItem={activeSubItem} />;
+    return (
+      <ErrorBoundary message="Health check encountered an error.">
+        <HealthContent activeSubItem={activeSubItem} />
+      </ErrorBoundary>
+    );
   }
 
   // Templates mode - template editor (now with real data)
   if (activeNav === "templates") {
     return (
-      <TemplatesContent 
-        selectedTemplate={selectedTemplate}
-        activeTemplateTab={activeTemplateTab}
-        templatesHook={templatesHook}
-        jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
-        models={models}
-        onTemplateChange={(template) => {
-          // Refresh templates list when template changes
-          if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
-          if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
-        }}
-      />
+      <ErrorBoundary message="Templates encountered an error.">
+        <TemplatesContent 
+          selectedTemplate={selectedTemplate}
+          activeTemplateTab={activeTemplateTab}
+          templatesHook={templatesHook}
+          jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+          models={models}
+          onTemplateChange={(template) => {
+            // Refresh templates list when template changes
+            if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
+            if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
+          }}
+        />
+      </ErrorBoundary>
     );
   }
 

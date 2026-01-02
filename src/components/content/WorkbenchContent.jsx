@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   MessageSquare, Plus, Clock, Star, Search, Send, Paperclip, 
   Mic, MoreVertical, PanelRightClose, PanelRightOpen, 
@@ -348,7 +348,7 @@ const ResourcesPanel = ({
   const [activeTab, setActiveTab] = useState("files");
   const [confluenceSearch, setConfluenceSearch] = useState("");
   const [librarySearch, setLibrarySearch] = useState("");
-  const fileInputRef = React.useRef(null);
+  const fileInputRef = useRef(null);
 
   // Destructure confluence hook
   const {

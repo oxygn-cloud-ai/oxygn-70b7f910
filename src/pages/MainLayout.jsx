@@ -677,6 +677,7 @@ const MainLayout = () => {
     }
     return pref === 'dark';
   });
+  const [layoutResetNonce, setLayoutResetNonce] = useState(0);
   const [folderPanelOpen, setFolderPanelOpen] = useState(() => {
     const saved = localStorage.getItem('qonsol-folder-panel-open');
     return saved !== null ? saved === 'true' : true; // Default open
@@ -765,6 +766,16 @@ const MainLayout = () => {
     localStorage.setItem('qonsol-folder-panel-open', 'true');
     localStorage.setItem('qonsol-reading-pane-open', 'true');
     localStorage.setItem('qonsol-conversation-panel-open', 'true');
+    
+    // Clear ResizablePanelGroup persisted layout to fix corrupted sizes
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('qonsol-panel-layout')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Force panel group to remount with fresh state
+    setLayoutResetNonce(prev => prev + 1);
     
     toast.success('Layout reset to defaults');
   }, []);
@@ -964,6 +975,14 @@ const MainLayout = () => {
     }
   }, [activeNav]);
 
+  // Auto-open reading pane for views that always need it
+  useEffect(() => {
+    const viewsRequiringReadingPane = ['templates', 'workbench', 'settings', 'health'];
+    if (viewsRequiringReadingPane.includes(activeNav) && !readingPaneOpen) {
+      setReadingPaneOpen(true);
+    }
+  }, [activeNav, readingPaneOpen]);
+
   // Render the appropriate panel content
   const renderFolderPanelContent = () => {
     // Always show the active nav's content - don't swap on hover to preserve tree state
@@ -1119,7 +1138,7 @@ const MainLayout = () => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.1 }}
             >
-              <ResizablePanelGroup direction="horizontal" autoSaveId="qonsol-panel-layout" className="flex-1 min-h-0">
+              <ResizablePanelGroup key={layoutResetNonce} direction="horizontal" autoSaveId="qonsol-panel-layout" className="flex-1 min-h-0">
                 {/* Folder/Submenu Panel - collapsible */}
                 {folderPanelOpen && (
                   <>
