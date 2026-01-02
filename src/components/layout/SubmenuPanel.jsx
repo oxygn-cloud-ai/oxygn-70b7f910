@@ -247,13 +247,6 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
         isActive={activeSubItem === "api-health"}
         onClick={() => onItemClick?.("api-health")}
       />
-      <SubmenuItem 
-        icon={Server} 
-        label="Environment" 
-        description="Variables & secrets"
-        isActive={activeSubItem === "environment"}
-        onClick={() => onItemClick?.("environment")}
-      />
     </div>
   </div>
 );
