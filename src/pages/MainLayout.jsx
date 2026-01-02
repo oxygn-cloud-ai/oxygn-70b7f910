@@ -978,18 +978,18 @@ const MainLayout = () => {
   // Auto-open reading pane for views that always need it
   useEffect(() => {
     const viewsRequiringReadingPane = ['templates', 'workbench', 'settings', 'health'];
-    if (viewsRequiringReadingPane.includes(activeNav) && !readingPaneOpen) {
+    if (viewsRequiringReadingPane.includes(activeNav)) {
       setReadingPaneOpen(true);
     }
-  }, [activeNav, readingPaneOpen]);
+  }, [activeNav]);
 
   // Auto-open folder panel for views that use it
   useEffect(() => {
     const viewsRequiringFolderPanel = ['templates', 'prompts'];
-    if (viewsRequiringFolderPanel.includes(activeNav) && !folderPanelOpen) {
+    if (viewsRequiringFolderPanel.includes(activeNav)) {
       setFolderPanelOpen(true);
     }
-  }, [activeNav, folderPanelOpen]);
+  }, [activeNav]);
 
   // Render the appropriate panel content
   const renderFolderPanelContent = () => {
