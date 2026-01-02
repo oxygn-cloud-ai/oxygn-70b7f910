@@ -409,6 +409,8 @@ const ResourcesSection = () => {
   );
 };
 
+// Main HealthContent component
+const HealthContent = ({ activeSubItem }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [healthData, setHealthData] = useState({
     database: { status: 'pending', message: '' },
