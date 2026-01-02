@@ -171,6 +171,8 @@ const KnowledgeManager = () => {
     }
     return results;
   };
+
+  if (editingItem || isCreating) {
     return (
       <KnowledgeEditor
         item={editingItem}
