@@ -515,7 +515,15 @@ export const useCascadeExecutor = () => {
                 const updateData = { user_prompt_result: result.response };
 
                 // Handle action nodes: parse JSON response and execute post-action
-                if (prompt.node_type === 'action' && result.response) {
+                // Safety: run if node_type is 'action' OR if post_action is configured (DB trigger ensures consistency)
+                const hasPostAction = !!prompt.post_action;
+                const isActionEffective = prompt.node_type === 'action' || hasPostAction;
+                
+                if (isActionEffective && result.response && hasPostAction) {
+                  // Warn if state is inconsistent
+                  if (hasPostAction && prompt.node_type !== 'action') {
+                    console.warn(`Cascade: Prompt ${prompt.row_id} has post_action but node_type='${prompt.node_type}'. Executing anyway.`);
+                  }
                   try {
                     // Extract JSON from response
                     let jsonResponse;

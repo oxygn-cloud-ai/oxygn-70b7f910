@@ -46,7 +46,7 @@ import {
   ensureStrictCompliance, 
   schemaWasModified,
   validateSchemaForAction,
-  findArrayPaths,
+  getArrayPathStrings,
 } from '@/utils/schemaUtils';
 import ActionConfigRenderer from './ActionConfigRenderer';
 import { useJsonSchemaTemplates } from '@/hooks/useJsonSchemaTemplates';
@@ -120,30 +120,37 @@ const ActionNodeSettings = ({
     return { hasIssues: false, issues: [] };
   }, [localData.post_action, localData.post_action_config]);
 
-  // Find array paths in current schema for suggestions
+  // Find array paths in current schema for suggestions (as strings)
   const availableArrayPaths = useMemo(() => {
     if (!currentSchemaObject) return [];
-    return findArrayPaths(currentSchemaObject);
+    return getArrayPathStrings(currentSchemaObject);
   }, [currentSchemaObject]);
 
   // Auto-populate json_path when there's exactly one array in the schema
+  // ONLY if config is not already "template-complete" (has name_field or content_field)
   useEffect(() => {
     // Only auto-populate for actions that use json_path (like create_children_json)
     const needsJsonPath = localData.post_action === 'create_children_json';
     if (!needsJsonPath) return;
 
+    // Don't auto-populate if config looks template-complete (already configured by a full template)
+    const isTemplateComplete = currentConfig?.name_field || currentConfig?.content_field;
+    if (isTemplateComplete) return;
+
     // Check if json_path is empty or uses a default that doesn't exist
     const currentJsonPath = currentConfig?.json_path;
-    const hasValidPath = currentJsonPath && availableArrayPaths.includes(currentJsonPath);
+    const hasValidPath = currentJsonPath && typeof currentJsonPath === 'string' && availableArrayPaths.includes(currentJsonPath);
 
     // If there's exactly one array and no valid path set, auto-populate
     if (availableArrayPaths.length === 1 && !hasValidPath) {
       const autoPath = availableArrayPaths[0];
-      const newConfig = { ...currentConfig, json_path: autoPath };
-      handleChange('post_action_config', newConfig);
-      handleSave('post_action_config', newConfig);
+      if (typeof autoPath === 'string') {
+        const newConfig = { ...currentConfig, json_path: autoPath };
+        handleChange('post_action_config', newConfig);
+        handleSave('post_action_config', newConfig);
+      }
     }
-  }, [availableArrayPaths, localData.post_action, currentConfig?.json_path]);
+  }, [availableArrayPaths, localData.post_action, currentConfig?.json_path, currentConfig?.name_field, currentConfig?.content_field]);
 
   // Separate full templates from schema-only templates (from DB)
   const fullTemplates = useMemo(() => 
