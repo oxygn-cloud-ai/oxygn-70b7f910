@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { 
-  Settings, Database, Palette, Bell, User, 
+  Settings, Palette, Bell, User, 
   Link2, MessageSquare, Sparkles,
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
@@ -1967,117 +1967,6 @@ const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] 
   );
 };
 
-// Database & Environment Section - Connected to real data
-const DatabaseEnvironmentSection = ({ settings = {}, onUpdateSetting }) => {
-  // Convert settings object to array for display
-  const settingsArray = Object.entries(settings).map(([key, data]) => ({
-    key,
-    value: data?.value || '',
-    description: data?.description || ''
-  })).filter(s => s.value); // Only show settings with values
-
-  // Real environment variables from Vite
-  const envVars = [
-    { 
-      label: 'Supabase URL', 
-      key: 'VITE_SUPABASE_URL', 
-      value: import.meta.env.VITE_SUPABASE_URL || 'Not configured'
-    },
-    { 
-      label: 'Supabase Key', 
-      key: 'VITE_SUPABASE_PUBLISHABLE_KEY', 
-      value: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? '••••••••' : 'Not configured'
-    },
-    { 
-      label: 'Project ID', 
-      key: 'VITE_SUPABASE_PROJECT_ID', 
-      value: import.meta.env.VITE_SUPABASE_PROJECT_ID || 'Not configured'
-    },
-  ];
-
-  // Known secrets from the supabase configuration
-  const secrets = [
-    { name: 'OPENAI_API_KEY', description: 'OpenAI API Key', configured: true },
-    { name: 'SUPABASE_URL', description: 'Database URL', configured: true },
-    { name: 'SUPABASE_ANON_KEY', description: 'Public API Key', configured: true },
-    { name: 'SUPABASE_SERVICE_ROLE_KEY', description: 'Service Role Key', configured: true },
-    { name: 'SUPABASE_DB_URL', description: 'Database Connection', configured: true },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Database Settings */}
-      <SettingCard>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Database Settings</span>
-          <span className="text-[10px] text-on-surface-variant">{settingsArray.length} configured</span>
-        </div>
-        <div className="space-y-2">
-          {settingsArray.length === 0 ? (
-            <p className="text-body-sm text-on-surface-variant text-center py-4">No settings configured</p>
-          ) : (
-            settingsArray.slice(0, 10).map((setting) => (
-              <div key={setting.key} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
-                <div className="min-w-0 flex-1">
-                  <div className="text-body-sm text-on-surface truncate">{setting.key}</div>
-                  {setting.description && (
-                    <div className="text-[10px] text-on-surface-variant truncate">{setting.description}</div>
-                  )}
-                </div>
-                <span className="text-body-sm text-on-surface-variant font-mono ml-2 truncate max-w-[150px]">
-                  {setting.value.length > 20 ? `${setting.value.slice(0, 20)}...` : setting.value}
-                </span>
-              </div>
-            ))
-          )}
-          {settingsArray.length > 10 && (
-            <p className="text-[10px] text-on-surface-variant text-center">+{settingsArray.length - 10} more</p>
-          )}
-        </div>
-      </SettingCard>
-
-      {/* Environment Variables */}
-      <SettingCard>
-        <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Environment Variables</span>
-        <div className="space-y-2 mt-3">
-          {envVars.map((env) => (
-            <SettingRow key={env.key} label={env.label} description={env.key}>
-              <span className="text-body-sm text-on-surface-variant font-mono">
-                {env.value === 'Not configured' ? (
-                  <span className="text-amber-500">{env.value}</span>
-                ) : (
-                  '••••••••'
-                )}
-              </span>
-            </SettingRow>
-          ))}
-        </div>
-      </SettingCard>
-
-      {/* Secrets */}
-      <SettingCard>
-        <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">Backend Secrets</span>
-        <div className="space-y-2 mt-3">
-          {secrets.map((secret) => (
-            <div key={secret.name} className="flex items-center justify-between p-2 bg-surface-container rounded-m3-sm">
-              <div>
-                <div className="text-body-sm text-on-surface">{secret.name}</div>
-                <div className="text-[10px] text-on-surface-variant">{secret.description}</div>
-              </div>
-              <span className="text-[10px] text-green-500 bg-green-500/10 px-2 py-0.5 rounded-m3-full">
-                Configured
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="text-[10px] text-on-surface-variant mt-3 italic">
-          Secrets are managed through Lovable Cloud and cannot be viewed directly.
-        </p>
-      </SettingCard>
-    </div>
-  );
-};
-
 // Knowledge Base Section (Admin only)
 const KnowledgeSection = () => <KnowledgeManager />;
 
@@ -2086,7 +1975,6 @@ const SETTINGS_SECTIONS = {
   "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
   "naming": { component: PromptNamingSection, icon: Type, title: "Prompt Naming" },
   "models": { component: AIModelsSection, icon: Cpu, title: "AI Models" },
-  "database": { component: DatabaseEnvironmentSection, icon: Database, title: "Database & Environment" },
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
@@ -2155,8 +2043,6 @@ const SettingsContent = ({
       case 'naming':
         return commonSettingsProps;
       case 'confluence':
-        return commonSettingsProps;
-      case 'database':
         return commonSettingsProps;
       case 'notifications':
         return commonSettingsProps;

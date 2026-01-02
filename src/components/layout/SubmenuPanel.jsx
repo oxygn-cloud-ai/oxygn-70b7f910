@@ -8,7 +8,6 @@ import {
   Braces,
   FileJson,
   Settings,
-  Database,
   Palette,
   Bell,
   User,
@@ -21,8 +20,7 @@ import {
   Briefcase,
   FileText,
   Trash2,
-  BookOpen,
-  Key
+  BookOpen
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -143,13 +141,6 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Model defaults & pricing"
         isActive={activeSubItem === "models"}
         onClick={() => onItemClick?.("models")}
-      />
-      <SubmenuItem 
-        icon={Database} 
-        label="Database & Environment" 
-        description="Settings & secrets"
-        isActive={activeSubItem === "database"}
-        onClick={() => onItemClick?.("database")}
       />
       <SubmenuItem 
         icon={MessageSquare} 
