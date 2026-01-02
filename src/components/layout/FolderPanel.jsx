@@ -191,6 +191,8 @@ const TreeItem = ({
   isCascadeRunning,
   // Deleting state for UI feedback
   deletingPromptIds = new Set(),
+  // Save as template
+  onSaveAsTemplate,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [menuPosition, setMenuPosition] = useState(null);
@@ -493,6 +495,11 @@ const TreeItem = ({
             <IconButton icon={Copy} label="Duplicate" onClick={() => onDuplicate?.(id)} />
             <IconButton icon={Upload} label="Export" onClick={() => onExport?.(id)} />
             <IconButton 
+              icon={LayoutTemplate} 
+              label="Save as Template" 
+              onClick={() => onSaveAsTemplate?.(id, label, hasChildren)}
+            />
+            <IconButton 
               icon={Ban} 
               label={excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
               className={excludedFromCascade ? "text-warning" : ""}
@@ -574,6 +581,8 @@ const TreeItem = ({
                 singleRunPromptId={singleRunPromptId}
                 // Deleting state for UI feedback
                 deletingPromptIds={deletingPromptIds}
+                // Save as template
+                onSaveAsTemplate={onSaveAsTemplate}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -625,6 +634,8 @@ const FolderPanel = ({
   singleRunPromptId = null,
   // Deleting state for UI feedback
   deletingPromptIds = new Set(),
+  // Save as template handler
+  onSaveAsTemplate,
 }) => {
   const supabase = useSupabase();
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
@@ -1289,6 +1300,8 @@ const FolderPanel = ({
                     singleRunPromptId={singleRunPromptId}
                     // Deleting state for UI feedback
                     deletingPromptIds={deletingPromptIds}
+                    // Save as template
+                    onSaveAsTemplate={onSaveAsTemplate}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}
