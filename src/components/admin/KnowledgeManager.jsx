@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { 
   Search, Plus, Filter, BookOpen, Tag, 
-  ChevronDown, MoreHorizontal, Edit2, Trash2, History
+  ChevronDown, Edit2, Trash2, History, Download, Upload
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SettingCard } from '@/components/ui/setting-card';
-import { SettingDivider } from '@/components/ui/setting-divider';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import KnowledgeEditor from './KnowledgeEditor';
+import { ExportKnowledgeDialog, ImportKnowledgeDialog } from './KnowledgeImportExport';
+import { toast } from '@/components/ui/sonner';
 
 const TopicBadge = ({ topic }) => {
   const colors = {
@@ -125,7 +126,10 @@ const KnowledgeManager = () => {
     createItem,
     updateItem,
     deleteItem,
-    getItemHistory
+    getItemHistory,
+    bulkImportItems,
+    regenerateEmbeddings,
+    fetchItems
   } = useKnowledge();
 
   const [editingItem, setEditingItem] = useState(null);
@@ -154,7 +158,19 @@ const KnowledgeManager = () => {
     // Could open a modal here to show history
   };
 
-  if (isCreating || editingItem) {
+  const handleBulkImport = async (importItems) => {
+    const results = await bulkImportItems(importItems);
+    if (results.created > 0 || results.updated > 0) {
+      toast.info('Regenerating embeddings in background...');
+      regenerateEmbeddings().then((res) => {
+        if (res.success) {
+          toast.success(`Embeddings regenerated: ${res.processed || 0} items`);
+        }
+      });
+      fetchItems();
+    }
+    return results;
+  };
     return (
       <KnowledgeEditor
         item={editingItem}
@@ -219,6 +235,38 @@ const KnowledgeManager = () => {
             </div>
           )}
         </div>
+
+        {/* Export Button */}
+        <ExportKnowledgeDialog
+          items={items}
+          selectedTopic={selectedTopic}
+          trigger={
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                  <Download className="h-4 w-4 text-on-surface-variant" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Export Knowledge</TooltipContent>
+            </Tooltip>
+          }
+        />
+
+        {/* Import Button */}
+        <ImportKnowledgeDialog
+          topics={topics}
+          onImport={handleBulkImport}
+          trigger={
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container">
+                  <Upload className="h-4 w-4 text-on-surface-variant" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Import Knowledge</TooltipContent>
+            </Tooltip>
+          }
+        />
 
         {/* Add Button */}
         <Tooltip>

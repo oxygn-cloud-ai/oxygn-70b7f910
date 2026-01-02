@@ -242,6 +242,124 @@ export const useKnowledge = () => {
     }
   }, []);
 
+  // Export items (with optional topic filter)
+  const exportItems = useCallback(async (topicFilter = null) => {
+    try {
+      let query = supabase
+        .from('q_app_knowledge')
+        .select('topic, title, content, keywords, priority')
+        .eq('is_active', true)
+        .order('topic')
+        .order('priority', { ascending: false });
+
+      if (topicFilter) {
+        query = query.eq('topic', topicFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return { data: data || [], error: null };
+    } catch (error) {
+      console.error('Error exporting knowledge:', error);
+      return { data: [], error };
+    }
+  }, []);
+
+  // Bulk import items with upsert logic
+  const bulkImportItems = useCallback(async (importItems) => {
+    const results = { created: 0, updated: 0, errors: [] };
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      for (const item of importItems) {
+        try {
+          // Check if item exists by topic + title
+          const { data: existing } = await supabase
+            .from('q_app_knowledge')
+            .select('row_id')
+            .eq('topic', item.topic)
+            .eq('title', item.title)
+            .eq('is_active', true)
+            .single();
+
+          if (existing) {
+            // Update existing item (skip history for bulk operations)
+            const { error } = await supabase
+              .from('q_app_knowledge')
+              .update({
+                content: item.content,
+                keywords: item.keywords || [],
+                priority: item.priority || 0,
+                embedding: null, // Clear for regeneration
+                updated_by: user.id,
+                updated_at: new Date().toISOString()
+              })
+              .eq('row_id', existing.row_id);
+
+            if (error) throw error;
+            results.updated++;
+          } else {
+            // Create new item
+            const { error } = await supabase
+              .from('q_app_knowledge')
+              .insert({
+                topic: item.topic,
+                title: item.title,
+                content: item.content,
+                keywords: item.keywords || [],
+                priority: item.priority || 0,
+                embedding: null,
+                created_by: user.id,
+                updated_by: user.id
+              });
+
+            if (error) throw error;
+            results.created++;
+          }
+        } catch (itemError) {
+          results.errors.push({ item: item.title, error: itemError.message });
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Error in bulk import:', error);
+      results.errors.push({ item: 'auth', error: error.message });
+      return results;
+    }
+  }, []);
+
+  // Trigger batch embedding regeneration
+  const regenerateEmbeddings = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/batch-embeddings`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to regenerate embeddings: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return { success: true, ...result };
+    } catch (error) {
+      console.error('Error regenerating embeddings:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
@@ -258,6 +376,9 @@ export const useKnowledge = () => {
     createItem,
     updateItem,
     deleteItem,
-    getItemHistory
+    getItemHistory,
+    exportItems,
+    bulkImportItems,
+    regenerateEmbeddings
   };
 };
