@@ -3,13 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings, getTokenParam } from "../_shared/models.ts";
 import { resolveRootPromptId, getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
+import { getBuiltinTools } from "../_shared/tools.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
 // Resolve model using DB
 async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {
@@ -28,12 +27,6 @@ async function modelSupportsTemperatureDb(supabase: any, modelId: string): Promi
   } catch {
     return true;
   }
-}
-
-function isAllowedDomain(email: string | undefined): boolean {
-  if (!email) return false;
-  const domain = email.split('@')[1]?.toLowerCase();
-  return ALLOWED_DOMAINS.includes(domain);
 }
 
 async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
@@ -57,10 +50,6 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   
   if (error || !user) {
     return { valid: false, error: 'Invalid or expired token' };
-  }
-
-  if (!isAllowedDomain(user.email)) {
-    return { valid: false, error: 'Access denied. Only chocfin.com and oxygn.cloud accounts are allowed.' };
   }
 
   return { valid: true, user };
@@ -193,6 +182,11 @@ interface ApiOptions {
   topP?: number;
   temperature?: number;
   maxTokens?: number;
+  // Tool options
+  fileSearchEnabled?: boolean;
+  codeInterpreterEnabled?: boolean;
+  webSearchEnabled?: boolean;
+  vectorStoreIds?: string[];
 }
 
 // Call OpenAI Responses API - uses conversation parameter for multi-turn context
@@ -292,7 +286,18 @@ async function runResponsesAPI(
     }
   }
 
-  // Build request params summary for notifications
+  // Build and add tools array (file_search, code_interpreter, web_search)
+  const tools = getBuiltinTools({
+    fileSearchEnabled: options.fileSearchEnabled,
+    codeInterpreterEnabled: options.codeInterpreterEnabled,
+    webSearchEnabled: options.webSearchEnabled,
+    vectorStoreIds: options.vectorStoreIds,
+  });
+  
+  if (tools.length > 0) {
+    requestBody.tools = tools;
+    console.log('Tools added to request:', tools.map((t: any) => t.type || t.name));
+  }
   const modelTokenParam = await getTokenParam(supabase, requestedModel);
   const requestParams = {
     model: modelId,
@@ -1005,8 +1010,21 @@ serve(async (req) => {
           : adminPrompt.trim();
       }
 
-      // Build API options from prompt settings
-      const apiOptions: ApiOptions = {};
+      // Build API options from prompt settings and assistant tool config
+      const apiOptions: ApiOptions = {
+        // Tool options from assistant configuration
+        fileSearchEnabled: assistantData.file_search_enabled || childPrompt.file_search_on,
+        codeInterpreterEnabled: assistantData.code_interpreter_enabled || childPrompt.code_interpreter_on,
+        webSearchEnabled: childPrompt.web_search_on,
+        vectorStoreIds: assistantData.vector_store_id ? [assistantData.vector_store_id] : [],
+      };
+      
+      console.log('Tool options:', {
+        fileSearch: apiOptions.fileSearchEnabled,
+        codeInterpreter: apiOptions.codeInterpreterEnabled,
+        webSearch: apiOptions.webSearchEnabled,
+        vectorStoreIds: apiOptions.vectorStoreIds,
+      });
 
       // Add prompt-level model override if enabled
       if (childPrompt.model_on && childPrompt.model) {

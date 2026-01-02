@@ -8,14 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
-
-function isAllowedDomain(email: string | undefined): boolean {
-  if (!email) return false;
-  const domain = email.split('@')[1]?.toLowerCase();
-  return ALLOWED_DOMAINS.includes(domain);
-}
-
 async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -37,10 +29,6 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   
   if (error || !user) {
     return { valid: false, error: 'Invalid or expired token' };
-  }
-
-  if (!isAllowedDomain(user.email)) {
-    return { valid: false, error: 'Access denied. Only chocfin.com and oxygn.cloud accounts are allowed.' };
   }
 
   return { valid: true, user };
@@ -378,16 +366,48 @@ serve(async (req) => {
     if (action === 'delete_file' || action === 'delete-file') {
       const { file_row_id, openai_file_id } = body;
 
-      // If openai_file_id is provided directly, delete from OpenAI
+      // Helper function to de-index file from vector store
+      const deIndexFromVectorStore = async (vectorStoreId: string, fileId: string) => {
+        try {
+          const deIndexRes = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          });
+          if (deIndexRes.ok) {
+            console.log('De-indexed file from vector store:', { vectorStoreId, fileId });
+          } else {
+            const err = await deIndexRes.text();
+            console.warn('Failed to de-index from vector store:', err);
+          }
+        } catch (e) {
+          console.warn('Error de-indexing from vector store:', e);
+        }
+      };
+
+      // If openai_file_id is provided directly, also use assistant_row_id to de-index
       if (openai_file_id) {
+        // Get vector store ID from assistant if assistant_row_id provided
+        if (assistant_row_id) {
+          const { data: assistant } = await supabase
+            .from(TABLES.ASSISTANTS)
+            .select('vector_store_id')
+            .eq('row_id', assistant_row_id)
+            .single();
+          
+          if (assistant?.vector_store_id) {
+            await deIndexFromVectorStore(assistant.vector_store_id, openai_file_id);
+          }
+        }
+        
+        // Then delete from OpenAI Files API
         try {
           await fetch(`https://api.openai.com/v1/files/${openai_file_id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
           });
-          console.log('Deleted file from OpenAI:', openai_file_id);
+          console.log('Deleted file from OpenAI Files API:', openai_file_id);
         } catch (e) {
-          console.warn('Failed to delete from OpenAI:', e);
+          console.warn('Failed to delete from OpenAI Files API:', e);
         }
         return new Response(
           JSON.stringify({ success: true }),
@@ -399,16 +419,30 @@ serve(async (req) => {
       if (file_row_id) {
         const { data: file } = await supabase
           .from(TABLES.ASSISTANT_FILES)
-          .select('openai_file_id')
+          .select('openai_file_id, assistant_row_id')
           .eq('row_id', file_row_id)
           .single();
 
         if (file?.openai_file_id) {
+          // Get vector store ID from assistant
+          if (file.assistant_row_id) {
+            const { data: assistant } = await supabase
+              .from(TABLES.ASSISTANTS)
+              .select('vector_store_id')
+              .eq('row_id', file.assistant_row_id)
+              .single();
+            
+            if (assistant?.vector_store_id) {
+              await deIndexFromVectorStore(assistant.vector_store_id, file.openai_file_id);
+            }
+          }
+          
+          // Delete from OpenAI Files API
           await fetch(`https://api.openai.com/v1/files/${file.openai_file_id}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
           });
-          console.log('Deleted file from OpenAI:', file.openai_file_id);
+          console.log('Deleted file from OpenAI Files API:', file.openai_file_id);
         }
 
         await supabase
@@ -605,6 +639,15 @@ serve(async (req) => {
 
       // Delete associated files first
       for (const rowId of idsToDelete) {
+        // Get assistant's vector store ID for de-indexing
+        const { data: assistant } = await supabase
+          .from(TABLES.ASSISTANTS)
+          .select('vector_store_id')
+          .eq('row_id', rowId)
+          .single();
+        
+        const vectorStoreId = assistant?.vector_store_id;
+        
         const { data: files } = await supabase
           .from(TABLES.ASSISTANT_FILES)
           .select('openai_file_id')
@@ -613,11 +656,26 @@ serve(async (req) => {
         if (files) {
           for (const file of files) {
             if (file.openai_file_id) {
+              // De-index from vector store first
+              if (vectorStoreId) {
+                try {
+                  await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${file.openai_file_id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+                  });
+                  console.log('De-indexed file from vector store:', file.openai_file_id);
+                } catch (e) {
+                  console.warn('Failed to de-index from vector store:', e);
+                }
+              }
+              
+              // Then delete from OpenAI Files API
               try {
                 await fetch(`https://api.openai.com/v1/files/${file.openai_file_id}`, {
                   method: 'DELETE',
                   headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
                 });
+                console.log('Deleted file from OpenAI Files API:', file.openai_file_id);
               } catch (e) {
                 console.warn('Failed to delete OpenAI file:', e);
               }
