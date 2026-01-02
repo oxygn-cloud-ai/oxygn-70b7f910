@@ -409,7 +409,7 @@ const HighlightedTextarea = React.forwardRef(({
         setShowAutocomplete(false);
         break;
     }
-  }, [showAutocomplete, filteredVariables, selectedIndex, insertVariable, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, promptNameMap]);
+  }, [showAutocomplete, filteredVariables, selectedIndex, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, promptNameMap]);
 
   // Insert selected variable
   const insertVariable = useCallback((variable) => {
