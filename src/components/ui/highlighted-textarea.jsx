@@ -350,8 +350,42 @@ const HighlightedTextarea = React.forwardRef(({
     document.execCommand('insertText', false, text);
   }, []);
 
-  // Handle key events for autocomplete navigation
+  // Handle key events for autocomplete navigation and Enter key
   const handleKeyDown = useCallback((e) => {
+    // Handle Enter key for normal newline insertion (when autocomplete NOT shown)
+    if (e.key === 'Enter' && !showAutocomplete) {
+      e.preventDefault(); // Stop browser's default div-wrapping behavior
+      
+      const editor = editorRef.current;
+      if (!editor) return;
+      
+      // Get current state
+      const plainText = getPlainText(editor);
+      const cursorPos = getCursorPosition();
+      
+      // Insert single newline at cursor position
+      const beforeCursor = plainText.substring(0, cursorPos);
+      const afterCursor = plainText.substring(cursorPos);
+      const newValue = beforeCursor + '\n' + afterCursor;
+      const newCursorPos = cursorPos + 1;
+      
+      // Update content with highlighting (getHighlightedHtml converts \n to <br>)
+      editor.innerHTML = getHighlightedHtml(newValue, promptNameMap) || '<br>';
+      setCursorPosition(newCursorPos);
+      
+      // Notify parent of change
+      const syntheticEvent = {
+        target: {
+          value: newValue,
+          selectionStart: newCursorPos,
+          selectionEnd: newCursorPos,
+        },
+      };
+      onChange?.(syntheticEvent);
+      return;
+    }
+    
+    // Existing autocomplete navigation logic
     if (!showAutocomplete) return;
     
     switch (e.key) {
@@ -375,7 +409,7 @@ const HighlightedTextarea = React.forwardRef(({
         setShowAutocomplete(false);
         break;
     }
-  }, [showAutocomplete, filteredVariables, selectedIndex]);
+  }, [showAutocomplete, filteredVariables, selectedIndex, getPlainText, getCursorPosition, getHighlightedHtml, setCursorPosition, onChange, promptNameMap]);
 
   // Insert selected variable
   const insertVariable = useCallback((variable) => {
