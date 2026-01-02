@@ -6,14 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
-
-function isAllowedDomain(email: string | undefined): boolean {
-  if (!email) return false;
-  const domain = email.split('@')[1]?.toLowerCase();
-  return ALLOWED_DOMAINS.includes(domain);
-}
-
 async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
@@ -35,10 +27,6 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   
   if (error || !user) {
     return { valid: false, error: 'Invalid or expired token' };
-  }
-
-  if (!isAllowedDomain(user.email)) {
-    return { valid: false, error: 'Access denied. Only chocfin.com and oxygn.cloud accounts are allowed.' };
   }
 
   return { valid: true, user };

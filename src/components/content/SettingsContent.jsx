@@ -19,6 +19,7 @@ import { SettingInput } from "@/components/ui/setting-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getThemePreference, setThemePreference } from '@/components/ui/sonner';
 import { useSupabase } from "@/hooks/useSupabase";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { useUserCredentials } from "@/hooks/useUserCredentials";
@@ -1759,6 +1760,10 @@ const IntegrationsSection = () => {
 const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   const { credentialStatus, getCredentialStatus, isServiceConfigured } = useUserCredentials();
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [editedUrl, setEditedUrl] = useState('');
+  const [hasUrlChanges, setHasUrlChanges] = useState(false);
   
   // Fetch credential status on mount
   useEffect(() => {
@@ -1766,12 +1771,37 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   }, [getCredentialStatus]);
   
   // Check if confluence is configured - base URL from settings, credentials per-user
-  const confluenceUrl = settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value || settings['confluence_base_url']?.value;
+  const confluenceUrl = settings['confluence_base_url']?.value || settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value || '';
   const hasUserCredentials = isServiceConfigured('confluence');
   const isConnected = !!(confluenceUrl && hasUserCredentials);
   
+  // Sync edited URL with settings
+  useEffect(() => {
+    setEditedUrl(confluenceUrl);
+    setHasUrlChanges(false);
+  }, [confluenceUrl]);
+  
   const autoSync = settings['confluence_auto_sync']?.value === 'true';
-  const defaultSpace = settings['confluence_default_space']?.value || '';
+
+  const handleUrlChange = (value) => {
+    setEditedUrl(value);
+    setHasUrlChanges(value !== confluenceUrl);
+  };
+
+  const handleSaveUrl = async () => {
+    if (!onUpdateSetting || !editedUrl.trim()) return;
+    setIsSaving(true);
+    try {
+      await onUpdateSetting('confluence_base_url', editedUrl.trim());
+      setHasUrlChanges(false);
+      toast.success('Confluence URL saved');
+      trackEvent('confluence_url_saved');
+    } catch {
+      toast.error('Failed to save URL');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleToggleAutoSync = async (value) => {
     if (!onUpdateSetting) return;
@@ -1779,6 +1809,28 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
       await onUpdateSetting('confluence_auto_sync', value ? 'true' : 'false');
     } catch {
       toast.error('Failed to save');
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setConnectionStatus(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('confluence-manager', {
+        body: { action: 'test-connection' }
+      });
+      if (error) {
+        setConnectionStatus({ success: false, message: error.message });
+      } else if (data?.success) {
+        setConnectionStatus({ success: true, message: `Connected! Found ${data.spaces || 0} spaces.` });
+        trackEvent('confluence_connection_test_success');
+      } else {
+        setConnectionStatus({ success: false, message: data?.message || 'Connection failed' });
+      }
+    } catch (err) {
+      setConnectionStatus({ success: false, message: err.message || 'Connection failed' });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -1794,38 +1846,130 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   }
 
   return (
-    <SettingCard>
-      <div className="flex items-center gap-3 mb-3">
-        <Link2 className="h-5 w-5 text-on-surface-variant" />
-        <div className="flex-1">
-          <h4 className="text-body-sm text-on-surface font-medium">
-            {isConnected ? 'Connected' : 'Not Connected'}
-          </h4>
-          <p className="text-[10px] text-on-surface-variant">{displayDomain}</p>
+    <div className="space-y-4">
+      {/* Connection Status Card */}
+      <SettingCard label="Connection">
+        <div className="flex items-center gap-3 mb-3">
+          <Link2 className="h-5 w-5 text-on-surface-variant" />
+          <div className="flex-1">
+            <h4 className="text-body-sm text-on-surface font-medium">
+              {isConnected ? 'Connected' : 'Not Connected'}
+            </h4>
+            <p className="text-[10px] text-on-surface-variant">{displayDomain}</p>
+          </div>
+          {isConnected ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+          ) : (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Incomplete</span>
+          )}
         </div>
-        {isConnected ? (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
-        ) : (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Incomplete</span>
+
+        {/* Test Connection */}
+        {hasUserCredentials && confluenceUrl && (
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isTesting}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] disabled:opacity-50"
+                  >
+                    {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Test Connection</TooltipContent>
+              </Tooltip>
+              {connectionStatus && (
+                <span className={`text-[10px] ${connectionStatus.success ? 'text-green-600' : 'text-red-500'}`}>
+                  {connectionStatus.message}
+                </span>
+              )}
+            </div>
+          </div>
         )}
-      </div>
-      <div className="space-y-3">
-        <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
-          <Switch 
-            checked={autoSync} 
-            onCheckedChange={handleToggleAutoSync}
-            disabled={!isConnected}
-          />
+      </SettingCard>
+
+      {/* Base URL Card */}
+      <SettingCard label="Confluence URL">
+        <SettingRow label="Base URL" description="Your Atlassian Cloud URL (e.g. https://company.atlassian.net)">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={editedUrl}
+              onChange={(e) => handleUrlChange(e.target.value)}
+              placeholder="https://company.atlassian.net"
+              className="h-8 w-56 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            {hasUrlChanges && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSaveUrl}
+                    disabled={isSaving || !editedUrl.trim()}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Save URL</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </SettingRow>
-        {!isConnected && (
-          <p className="text-[10px] text-amber-600 bg-amber-500/10 p-2 rounded-m3-sm">
-            {!confluenceUrl 
-              ? 'Configure Confluence URL in Database & Environment settings.' 
-              : 'Configure your Confluence credentials in Settings > Integrations.'}
-          </p>
-        )}
-      </div>
-    </SettingCard>
+      </SettingCard>
+
+      {/* Credentials Status Card */}
+      <SettingCard label="Credentials">
+        <div className="flex items-center gap-3 mb-3">
+          <Key className="h-5 w-5 text-on-surface-variant" />
+          <div className="flex-1">
+            <h4 className="text-body-sm text-on-surface font-medium">
+              {hasUserCredentials ? 'Configured' : 'Not Set'}
+            </h4>
+            <p className="text-[10px] text-on-surface-variant">
+              {hasUserCredentials 
+                ? 'Your Confluence credentials are stored securely' 
+                : 'Add your Atlassian email and API token'}
+            </p>
+          </div>
+          {hasUserCredentials ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Set</span>
+          ) : (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
+          )}
+        </div>
+        <p className="text-[10px] text-on-surface-variant mb-2">
+          Manage your Confluence credentials in the Integrations section.
+        </p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a 
+              href="https://id.atlassian.com/manage-profile/security/api-tokens" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              Generate API Token <ExternalLink className="h-3 w-3" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent className="text-[10px]">Open Atlassian API Tokens page</TooltipContent>
+        </Tooltip>
+      </SettingCard>
+
+      {/* Settings Card */}
+      <SettingCard label="Settings">
+        <div className="space-y-3">
+          <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
+            <Switch 
+              checked={autoSync} 
+              onCheckedChange={handleToggleAutoSync}
+              disabled={!isConnected}
+            />
+          </SettingRow>
+        </div>
+      </SettingCard>
+    </div>
   );
 };
 

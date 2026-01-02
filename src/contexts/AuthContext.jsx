@@ -3,17 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { identifyUser, resetUser, trackEvent } from '@/lib/posthog';
 
-const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
-
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
-
-const isAllowedDomain = (email) => {
-  if (!email) return false;
-  const domain = email.split('@')[1]?.toLowerCase();
-  return ALLOWED_DOMAINS.includes(domain);
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -69,44 +61,25 @@ export const AuthProvider = ({ children }) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         
-        // Check domain restriction
-        if (currentUser && !isAllowedDomain(currentUser.email)) {
-          // Defer sign out to avoid deadlock
-          setTimeout(async () => {
-            await supabase.auth.signOut();
-            toast.error('Access denied. Only chocfin.com and oxygn.cloud accounts are allowed.');
-            // Track denied login
-            trackEvent('user_login_denied', {
-              email_domain: currentUser.email?.split('@')[1],
-              reason: 'domain_not_allowed',
+        setUser(currentUser);
+        // Defer admin check and profile fetch to avoid Supabase client deadlock
+        if (currentUser) {
+          setTimeout(() => {
+            checkAdminStatus(currentUser.id);
+            fetchUserProfile(currentUser.id).then((profile) => {
+              // Identify user in PostHog after profile is fetched
+              identifyUser(currentUser, profile, isAdmin);
+              // Track successful login
+              trackEvent('user_login_success', {
+                email: currentUser.email,
+                provider: session?.user?.app_metadata?.provider || 'unknown',
+              });
             });
           }, 0);
-          setUser(null);
-          setSession(null);
+        } else {
           setIsAdmin(false);
           setUserProfile(null);
           resetUser();
-        } else {
-          setUser(currentUser);
-          // Defer admin check and profile fetch to avoid Supabase client deadlock
-          if (currentUser) {
-            setTimeout(() => {
-              checkAdminStatus(currentUser.id);
-              fetchUserProfile(currentUser.id).then((profile) => {
-                // Identify user in PostHog after profile is fetched
-                identifyUser(currentUser, profile, isAdmin);
-                // Track successful login
-                trackEvent('user_login_success', {
-                  email: currentUser.email,
-                  provider: session?.user?.app_metadata?.provider || 'unknown',
-                });
-              });
-            }, 0);
-          } else {
-            setIsAdmin(false);
-            setUserProfile(null);
-            resetUser();
-          }
         }
         setLoading(false);
       }
@@ -117,22 +90,13 @@ export const AuthProvider = ({ children }) => {
       setSession(session);
       const currentUser = session?.user ?? null;
       
-      if (currentUser && !isAllowedDomain(currentUser.email)) {
-        supabase.auth.signOut();
-        setUser(null);
-        setSession(null);
-        setIsAdmin(false);
-        setUserProfile(null);
-        resetUser();
-      } else {
-        setUser(currentUser);
-        if (currentUser) {
-          checkAdminStatus(currentUser.id);
-          fetchUserProfile(currentUser.id).then((profile) => {
-            // Identify user in PostHog
-            identifyUser(currentUser, profile, isAdmin);
-          });
-        }
+      setUser(currentUser);
+      if (currentUser) {
+        checkAdminStatus(currentUser.id);
+        fetchUserProfile(currentUser.id).then((profile) => {
+          // Identify user in PostHog
+          identifyUser(currentUser, profile, isAdmin);
+        });
       }
       setLoading(false);
     });
@@ -146,10 +110,7 @@ export const AuthProvider = ({ children }) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          hd: 'chocfin.com' // Hint for Google to show org accounts first
-        }
+        redirectTo: redirectUrl
       }
     });
     
