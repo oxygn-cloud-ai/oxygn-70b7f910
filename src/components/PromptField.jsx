@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Label } from "@/components/ui/label";
-import { RotateCcw, Save, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info } from 'lucide-react';
+import { Undo2, XCircle, ClipboardCopy, Link2, Sparkles, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { toast } from '@/components/ui/sonner';
 import {
@@ -13,15 +13,35 @@ import {
 } from "@/components/ui/tooltip";
 import VariablePicker from './VariablePicker';
 import { TOOLTIPS } from '@/config/labels';
+import { useFieldUndo } from '@/hooks/useFieldUndo';
 
-const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges, promptId, variables = [], placeholder }) => {
+const AUTOSAVE_DELAY = 500;
+
+const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges: externalUnsavedChanges, promptId, variables = [], placeholder }) => {
   const textareaRef = useRef(null);
   const containerRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [contentHeight, setContentHeight] = useState(100);
+  const [editValue, setEditValue] = useState(value || '');
+  const [lastSavedValue, setLastSavedValue] = useState(value || '');
   
   const storageKey = `promptField_expand_${promptId}_${label}`;
+  
+  // Field undo/discard management
+  const {
+    pushPreviousValue,
+    popPreviousValue,
+    getOriginalValue,
+    hasPreviousValue,
+    hasChangedFromOriginal,
+    clearUndoStack,
+  } = useFieldUndo(value);
+  
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = editValue !== lastSavedValue;
+  const canDiscard = hasChangedFromOriginal(editValue);
   
   // Default to collapsed for all fields
   const [expandState, setExpandState] = useState(() => {
@@ -39,33 +59,34 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   
   const goToCollapsed = () => {
     setExpandState('collapsed');
-    setManualHeight(null);
     localStorage.setItem(storageKey, 'collapsed');
   };
   
   const goToMin = () => {
     setExpandState('min');
-    setManualHeight(null);
     localStorage.setItem(storageKey, 'min');
   };
   
   const goToFull = () => {
     setExpandState('full');
-    setManualHeight(null);
     localStorage.setItem(storageKey, 'full');
   };
 
+  // Sync editValue when value prop changes externally
+  useEffect(() => {
+    setEditValue(value || '');
+    setLastSavedValue(value || '');
+  }, [value]);
 
   // Calculate content height when in full mode
   useEffect(() => {
     if (expandState === 'full' && textareaRef.current) {
       const element = textareaRef.current;
-      // For contenteditable divs
       if (element.scrollHeight) {
         setContentHeight(Math.max(100, element.scrollHeight));
       }
     }
-  }, [expandState, value]);
+  }, [expandState, editValue]);
 
   useEffect(() => {
     if (textareaRef.current && (label === 'Admin Result' || label === 'User Result')) {
@@ -80,7 +101,16 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, [value, label]);
+  }, [editValue, label]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const adjustHeight = () => {
     const textarea = textareaRef.current;
@@ -92,7 +122,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(editValue);
       toast.success('Copied to clipboard');
     } catch (err) {
       console.error('Failed to copy: ', err);
@@ -100,14 +130,28 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     }
   };
 
-  const handleSave = async () => {
+  // Cancel any pending save timeout
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Perform save
+  const performSave = useCallback(async (valueToSave) => {
+    if (valueToSave === lastSavedValue) return;
+    
+    // Push current saved value to undo stack before saving new one
+    pushPreviousValue(lastSavedValue);
+    
     const fieldKey = label.toLowerCase().replace(' ', '_');
     const sourceInfo = {
       [fieldKey]: {
         parts: [
           {
             type: "user_input",
-            text: value,
+            text: valueToSave,
             order: 1
           }
         ],
@@ -121,31 +165,103 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
     try {
       await onSave(sourceInfo);
-      toast.success('Saved');
+      setLastSavedValue(valueToSave);
+      // Also update parent state
+      onChange?.(valueToSave);
     } catch (err) {
       console.error('Failed to save: ', err);
       toast.error('Failed to save');
     }
+  }, [lastSavedValue, label, onSave, onChange, pushPreviousValue]);
+
+  // Immediate save (for blur, Cmd+S)
+  const handleImmediateSave = useCallback(() => {
+    cancelPendingSave();
+    if (hasUnsavedChanges) {
+      performSave(editValue);
+    }
+  }, [cancelPendingSave, hasUnsavedChanges, editValue, performSave]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    const previousValue = popPreviousValue();
+    if (previousValue !== null) {
+      cancelPendingSave();
+      setEditValue(previousValue);
+      
+      const fieldKey = label.toLowerCase().replace(' ', '_');
+      const sourceInfo = {
+        [fieldKey]: {
+          parts: [{ type: "user_input", text: previousValue, order: 1 }],
+          metadata: {
+            created_at: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            part_count: 1
+          }
+        }
+      };
+      
+      onSave?.(sourceInfo);
+      setLastSavedValue(previousValue);
+      onChange?.(previousValue);
+      toast.success('Undone');
+    }
+  }, [popPreviousValue, cancelPendingSave, label, onSave, onChange]);
+
+  // Handle discard
+  const handleDiscard = useCallback(() => {
+    const originalValue = getOriginalValue() || '';
+    cancelPendingSave();
+    setEditValue(originalValue);
+    
+    const fieldKey = label.toLowerCase().replace(' ', '_');
+    const sourceInfo = {
+      [fieldKey]: {
+        parts: [{ type: "user_input", text: originalValue, order: 1 }],
+        metadata: {
+          created_at: new Date().toISOString(),
+          last_updated: new Date().toISOString(),
+          part_count: 1
+        }
+      }
+    };
+    
+    onSave?.(sourceInfo);
+    setLastSavedValue(originalValue);
+    onChange?.(originalValue);
+    clearUndoStack();
+    toast.success('Discarded changes');
+  }, [getOriginalValue, cancelPendingSave, label, onSave, onChange, clearUndoStack]);
+
+  // Handle text change with auto-save debounce
+  const handleTextChange = (newValue) => {
+    setEditValue(newValue);
+    
+    // Cancel existing timer
+    cancelPendingSave();
+    
+    // Start new auto-save timer
+    saveTimeoutRef.current = setTimeout(() => {
+      if (newValue !== lastSavedValue) {
+        performSave(newValue);
+      }
+    }, AUTOSAVE_DELAY);
   };
 
   const handleInsertVariable = (varName) => {
     const varText = `{{${varName}}}`;
-    const currentValue = value || '';
+    const currentValue = editValue || '';
     
-    // Use stored cursor position (captured on blur or last interaction)
     const pos = cursorPosition ?? currentValue.length;
     const newValue = currentValue.slice(0, pos) + varText + currentValue.slice(pos);
-    onChange(newValue);
+    handleTextChange(newValue);
     
-    // Update cursor position to after inserted variable
     const newCursorPos = pos + varText.length;
     setCursorPosition(newCursorPos);
     
-    // Restore focus and set cursor position
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
-        // For regular textarea
         if (typeof textareaRef.current.setSelectionRange === 'function') {
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
         }
@@ -155,12 +271,10 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
 
   // Get cursor position from contenteditable or textarea
   const getCursorPositionFromElement = (element) => {
-    // For regular textarea/input
     if (element.selectionStart !== undefined) {
       return element.selectionStart;
     }
     
-    // For contenteditable (HighlightedTextarea)
     const selection = window.getSelection();
     if (!selection.rangeCount) return 0;
     
@@ -169,28 +283,43 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     preCaretRange.selectNodeContents(element);
     preCaretRange.setEnd(range.startContainer, range.startOffset);
     
-    // Create a temporary div to get the text length
     const tempDiv = document.createElement('div');
     tempDiv.appendChild(preCaretRange.cloneContents());
     
-    // Handle br tags as newlines
     const brs = tempDiv.querySelectorAll('br');
     brs.forEach(br => br.replaceWith('\n'));
     
     return tempDiv.textContent?.length || 0;
   };
 
-  // Capture cursor position on any interaction
   const handleCursorChange = (e) => {
     const pos = getCursorPositionFromElement(e.target);
     setCursorPosition(pos);
   };
   
-  // Capture cursor position when textarea loses focus (before clicking variable picker)
   const handleBlur = (e) => {
     const pos = getCursorPositionFromElement(e.target);
     setCursorPosition(pos);
+    
+    // Auto-save on blur
+    handleImmediateSave();
   };
+
+  // Keyboard shortcuts (field-scoped)
+  const handleKeyDown = useCallback((e) => {
+    // Cmd+S - immediate save
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      handleImmediateSave();
+    }
+    // Cmd+Z - undo
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      handleUndo();
+    }
+  }, [handleImmediateSave, handleUndo]);
 
   const ActionButton = ({ icon, onClick, tooltip, disabled, active, needsAttention = false }) => (
     <TooltipProvider>
@@ -219,7 +348,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     </TooltipProvider>
   );
 
-  // Chevron button component for expand/collapse controls
   const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
     <TooltipProvider>
       <Tooltip>
@@ -240,7 +368,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     </TooltipProvider>
   );
 
-  // Get textarea style based on expand state
   const getTextareaStyle = () => {
     if (expandState === 'min') {
       return 'min-h-[100px] max-h-[100px] overflow-auto';
@@ -248,7 +375,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     return 'min-h-[100px]';
   };
 
-  // Get dynamic height for full state
   const getFullHeightStyle = () => {
     if (expandState === 'full') {
       return { minHeight: `${Math.max(100, contentHeight)}px` };
@@ -369,20 +495,22 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
           
           {!isLinksPage && !isReadOnly && (
             <>
-              <ActionButton
-                icon={<Save className="h-4 w-4" />}
-                onClick={handleSave}
-                disabled={!hasUnsavedChanges}
-                tooltip="Save changes"
-                active={hasUnsavedChanges}
-              />
-              <ActionButton
-                icon={<RotateCcw className="h-4 w-4" />}
-                onClick={onReset}
-                disabled={!hasUnsavedChanges}
-                tooltip="Reset changes"
-                active={hasUnsavedChanges}
-              />
+              {/* Undo button - only show when there's history */}
+              {hasPreviousValue && (
+                <ActionButton
+                  icon={<Undo2 className="h-4 w-4" />}
+                  onClick={handleUndo}
+                  tooltip="Undo (⌘Z)"
+                />
+              )}
+              {/* Discard button - only show when changed from original */}
+              {canDiscard && (
+                <ActionButton
+                  icon={<XCircle className="h-4 w-4" />}
+                  onClick={handleDiscard}
+                  tooltip="Discard all changes"
+                />
+              )}
             </>
           )}
         </div>
@@ -395,16 +523,17 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
             {(label === TOOLTIPS?.promptFields?.inputAdminPrompt?.label || label === TOOLTIPS?.promptFields?.inputUserPrompt?.label || label === 'Context Prompt' || label === 'User Message' || label === 'System Prompt') ? (
               <HighlightedTextarea
                 id={label}
-                value={value}
+                value={editValue}
                 onChange={(e) => {
                   if (!isReadOnly) {
-                    onChange(e.target.value);
+                    handleTextChange(e.target.value);
                   }
                   handleCursorChange(e);
                 }}
                 onSelect={handleCursorChange}
                 onClick={handleCursorChange}
                 onKeyUp={handleCursorChange}
+                onKeyDown={handleKeyDown}
                 onBlur={handleBlur}
                 className={`w-full bg-background ${getTextareaStyle()}`}
                 style={getFullHeightStyle()}
@@ -417,10 +546,10 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
             ) : (
               <Textarea
                 id={label}
-                value={value}
+                value={editValue}
                 onChange={(e) => {
                   if (!isReadOnly) {
-                    onChange(e.target.value);
+                    handleTextChange(e.target.value);
                   }
                   if (label === TOOLTIPS?.promptFields?.adminResult?.label || label === TOOLTIPS?.promptFields?.userResult?.label || label === 'System Response' || label === 'AI Response') {
                     e.target.style.height = 'auto';
@@ -430,6 +559,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
                 onSelect={handleCursorChange}
                 onClick={handleCursorChange}
                 onKeyUp={handleCursorChange}
+                onKeyDown={handleKeyDown}
                 onBlur={handleBlur}
                 className={`w-full border-border bg-background focus:ring-primary focus:border-primary ${getTextareaStyle()}`}
                 style={getFullHeightStyle()}
@@ -444,7 +574,6 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
           {/* Bottom controls - chevrons */}
           <div className="pt-2 pb-2 mt-2 border-t border-border/50">
             <div className="flex items-center">
-              {/* Chevron controls */}
               <div className="flex items-center gap-1">
                 {expandState === 'full' && (
                   <>

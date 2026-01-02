@@ -17,7 +17,8 @@ import {
   Heading2,
   Heading3,
   Type,
-  Check
+  Undo2,
+  XCircle
 } from 'lucide-react';
 import {
   Tooltip,
@@ -31,6 +32,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/sonner';
+import { useFieldUndo } from '@/hooks/useFieldUndo';
+
+const AUTOSAVE_DELAY = 500;
 
 // Toolbar button component
 const ToolbarButton = ({ icon: Icon, tooltip, onClick, active = false, disabled = false }) => (
@@ -121,7 +125,7 @@ const HeadingDropdown = ({ editor }) => {
 
 /**
  * MarkdownNotesArea - A WYSIWYG notes editor using Tiptap
- * Features: formatting toolbar, real-time editing, collapsible, explicit save
+ * Features: formatting toolbar, auto-save after 500ms, undo/discard
  */
 const MarkdownNotesArea = ({
   value = '',
@@ -130,10 +134,9 @@ const MarkdownNotesArea = ({
   placeholder = 'Add notes...',
   label = 'Notes',
   defaultHeight = 80,
-  readOnly = false, // When true, disables editing
-  storageKey, // Optional key to persist collapsed state in localStorage
+  readOnly = false,
+  storageKey,
 }) => {
-  // Generate storage key from label if not provided
   const persistKey = storageKey || (label ? `qonsol-notes-collapsed-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
   
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -148,8 +151,23 @@ const MarkdownNotesArea = ({
     return false;
   });
   const [localValue, setLocalValue] = useState(value || '');
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const isInternalChange = useRef(false); // Track internal vs external changes
+  const [lastSavedValue, setLastSavedValue] = useState(value || '');
+  const isInternalChange = useRef(false);
+  const saveTimeoutRef = useRef(null);
+
+  // Field undo/discard management
+  const {
+    pushPreviousValue,
+    popPreviousValue,
+    getOriginalValue,
+    hasPreviousValue,
+    hasChangedFromOriginal,
+    clearUndoStack,
+  } = useFieldUndo(value);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = localValue !== lastSavedValue;
+  const canDiscard = hasChangedFromOriginal(localValue);
 
   // Persist collapsed state to localStorage
   useEffect(() => {
@@ -158,31 +176,94 @@ const MarkdownNotesArea = ({
     }
   }, [persistKey, isCollapsed]);
 
-  // Sync local value when prop changes (external update)
+  // Sync local value when prop changes externally
   useEffect(() => {
     setLocalValue(value || '');
-    setHasUnsavedChanges(false);
+    setLastSavedValue(value || '');
   }, [value]);
 
-  const handleSave = useCallback(() => {
-    if (hasUnsavedChanges && onSave) {
-      onSave(localValue);
-      setHasUnsavedChanges(false);
-      toast.success('Notes saved');
-    }
-  }, [localValue, hasUnsavedChanges, onSave]);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
-  // Keyboard shortcut for save (Ctrl+S)
+  // Cancel pending save
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Perform save
+  const performSave = useCallback((valueToSave) => {
+    if (valueToSave === lastSavedValue) return;
+    
+    pushPreviousValue(lastSavedValue);
+    
+    if (onSave) {
+      onSave(valueToSave);
+    }
+    setLastSavedValue(valueToSave);
+  }, [lastSavedValue, onSave, pushPreviousValue]);
+
+  // Immediate save
+  const handleImmediateSave = useCallback(() => {
+    cancelPendingSave();
+    if (hasUnsavedChanges) {
+      performSave(localValue);
+    }
+  }, [cancelPendingSave, hasUnsavedChanges, localValue, performSave]);
+
+  // Handle undo
+  const handleUndo = useCallback(() => {
+    const previousValue = popPreviousValue();
+    if (previousValue !== null) {
+      cancelPendingSave();
+      setLocalValue(previousValue);
+      editor?.commands.setContent(previousValue || '');
+      onSave?.(previousValue);
+      setLastSavedValue(previousValue);
+      toast.success('Undone');
+    }
+  }, [popPreviousValue, cancelPendingSave, onSave]);
+
+  // Handle discard
+  const handleDiscard = useCallback(() => {
+    const originalValue = getOriginalValue() || '';
+    cancelPendingSave();
+    setLocalValue(originalValue);
+    editor?.commands.setContent(originalValue || '');
+    onSave?.(originalValue);
+    setLastSavedValue(originalValue);
+    clearUndoStack();
+    toast.success('Discarded changes');
+  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        handleSave();
+        e.stopImmediatePropagation();
+        handleImmediateSave();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        // Only handle if focus is in the editor
+        if (document.activeElement?.closest('.tiptap-editor')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          handleUndo();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSave]);
+  }, [handleImmediateSave, handleUndo]);
 
   const editor = useEditor({
     extensions: [
@@ -205,35 +286,26 @@ const MarkdownNotesArea = ({
     onUpdate: ({ editor }) => {
       if (readOnly) return;
       
-      // Mark as internal change to prevent sync effect from resetting
       isInternalChange.current = true;
       
       const html = editor.getHTML();
-      // Return empty string if editor only contains empty paragraph
       const isEmpty = html === '<p></p>' || html === '';
       const newValue = isEmpty ? '' : html;
       
       setLocalValue(newValue);
-      
-      // Track unsaved changes
-      const originalIsEmpty = !value || value === '<p></p>';
-      const newIsEmpty = !newValue || newValue === '<p></p>';
-      
-      if (originalIsEmpty && newIsEmpty) {
-        setHasUnsavedChanges(false);
-      } else {
-        setHasUnsavedChanges(newValue !== value);
-      }
-      
-      // Notify parent of local change (for tracking purposes only)
       onChange?.(newValue);
+      
+      // Cancel existing timer and start new auto-save timer
+      cancelPendingSave();
+      saveTimeoutRef.current = setTimeout(() => {
+        if (newValue !== lastSavedValue) {
+          performSave(newValue);
+        }
+      }, AUTOSAVE_DELAY);
     },
     onBlur: () => {
-      // Auto-save on blur if there are unsaved changes
-      if (hasUnsavedChanges && onSave && !readOnly) {
-        onSave(localValue);
-        setHasUnsavedChanges(false);
-      }
+      // Auto-save on blur
+      handleImmediateSave();
     },
     editorProps: {
       attributes: {
@@ -244,7 +316,6 @@ const MarkdownNotesArea = ({
 
   // Sync external value changes to editor
   useEffect(() => {
-    // Skip if this is an internal change (user editing)
     if (isInternalChange.current) {
       isInternalChange.current = false;
       return;
@@ -255,11 +326,10 @@ const MarkdownNotesArea = ({
       const isEmpty = currentValue === '<p></p>' || currentValue === '';
       const newIsEmpty = !value || value === '<p></p>';
       
-      // Only update if values are actually different
       if (isEmpty !== newIsEmpty || (!isEmpty && value !== currentValue)) {
         editor.commands.setContent(value || '');
         setLocalValue(value || '');
-        setHasUnsavedChanges(false);
+        setLastSavedValue(value || '');
       }
     }
   }, [value, editor]);
@@ -277,7 +347,6 @@ const MarkdownNotesArea = ({
 
   const hasContent = localValue && localValue !== '<p></p>' && localValue.trim() !== '';
 
-  // Get plain text preview for collapsed state
   const getPlainTextPreview = () => {
     if (!localValue) return '';
     return localValue.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
@@ -309,7 +378,6 @@ const MarkdownNotesArea = ({
           <span className="text-label-sm text-on-surface-variant uppercase tracking-wider">
             {label}
           </span>
-          {/* Unsaved changes indicator */}
           {hasUnsavedChanges && (
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           )}
@@ -318,17 +386,29 @@ const MarkdownNotesArea = ({
         {/* Toolbar - visible when not collapsed and not readOnly */}
         {!isCollapsed && !readOnly && (
           <div className="flex items-center gap-0.5" data-toolbar>
-            {/* Save button - only show when there are unsaved changes */}
-            {hasUnsavedChanges && onSave && (
+            {/* Undo button - only show when there's history */}
+            {hasPreviousValue && (
               <>
                 <ToolbarButton
-                  icon={Check}
-                  tooltip="Save (Ctrl+S)"
-                  onClick={handleSave}
-                  active={true}
+                  icon={Undo2}
+                  tooltip="Undo (⌘Z)"
+                  onClick={handleUndo}
                 />
-                <div className="w-px h-4 bg-outline-variant mx-1" />
               </>
+            )}
+            {/* Discard button - only show when changed from original */}
+            {canDiscard && (
+              <>
+                <ToolbarButton
+                  icon={XCircle}
+                  tooltip="Discard all changes"
+                  onClick={handleDiscard}
+                />
+              </>
+            )}
+            
+            {(hasPreviousValue || canDiscard) && (
+              <div className="w-px h-4 bg-outline-variant mx-1" />
             )}
             
             <HeadingDropdown editor={editor} />
