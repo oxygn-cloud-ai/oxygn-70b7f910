@@ -983,6 +983,14 @@ const MainLayout = () => {
     }
   }, [activeNav, readingPaneOpen]);
 
+  // Auto-open folder panel for views that use it
+  useEffect(() => {
+    const viewsRequiringFolderPanel = ['templates', 'prompts'];
+    if (viewsRequiringFolderPanel.includes(activeNav) && !folderPanelOpen) {
+      setFolderPanelOpen(true);
+    }
+  }, [activeNav, folderPanelOpen]);
+
   // Render the appropriate panel content
   const renderFolderPanelContent = () => {
     // Always show the active nav's content - don't swap on hover to preserve tree state

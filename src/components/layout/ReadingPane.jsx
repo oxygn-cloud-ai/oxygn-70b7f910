@@ -135,6 +135,8 @@ const ReadingPane = ({
               if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
               if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
             }}
+            folderPanelOpen={folderPanelOpen}
+            onToggleFolderPanel={onToggleFolderPanel}
           />
         </ErrorBoundary>
       </div>
