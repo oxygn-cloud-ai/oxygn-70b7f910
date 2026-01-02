@@ -20,7 +20,9 @@ import {
   Briefcase,
   FileText,
   Trash2,
-  BookOpen
+  BookOpen,
+  Key,
+  CloudCog
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -232,6 +234,13 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Online"
         isActive={activeSubItem === "ai-services"}
         onClick={() => onItemClick?.("ai-services")}
+      />
+      <SubmenuItem 
+        icon={CloudCog} 
+        label="OpenAI Resources" 
+        description="Vector stores & files"
+        isActive={activeSubItem === "resources"}
+        onClick={() => onItemClick?.("resources")}
       />
       <SubmenuItem 
         icon={Shield} 
