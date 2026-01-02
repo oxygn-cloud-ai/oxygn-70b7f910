@@ -264,6 +264,22 @@ const TemplatePickerDialog = ({
         if (promptStructure.confluence_enabled !== undefined) {
           insertData.confluence_enabled = promptStructure.confluence_enabled;
         }
+        
+        // CRITICAL: Copy action node fields - DB trigger will enforce consistency
+        if (promptStructure.node_type) {
+          insertData.node_type = promptStructure.node_type;
+        }
+        if (promptStructure.post_action) {
+          insertData.post_action = promptStructure.post_action;
+          // Force node_type to action if post_action is set (DB trigger does this too, but be explicit)
+          insertData.node_type = 'action';
+        }
+        if (promptStructure.post_action_config) {
+          insertData.post_action_config = promptStructure.post_action_config;
+        }
+        if (promptStructure.json_schema_template_id) {
+          insertData.json_schema_template_id = promptStructure.json_schema_template_id;
+        }
 
         const { data, error } = await supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)

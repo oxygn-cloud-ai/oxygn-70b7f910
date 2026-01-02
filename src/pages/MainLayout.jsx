@@ -320,7 +320,15 @@ const MainLayout = () => {
       }
       
       // Handle action node post-actions
-      if (promptData?.node_type === 'action' && result.response && promptData.post_action) {
+      // Safety: run if node_type is 'action' OR if post_action is configured (DB trigger ensures consistency)
+      const hasPostAction = !!promptData?.post_action;
+      const isActionEffective = promptData?.node_type === 'action' || hasPostAction;
+      
+      if (isActionEffective && result.response && hasPostAction) {
+        // Warn if state is inconsistent (should be auto-fixed by DB trigger, but log for debugging)
+        if (hasPostAction && promptData?.node_type !== 'action') {
+          console.warn(`Prompt ${promptId} has post_action but node_type='${promptData?.node_type}'. Executing anyway.`);
+        }
         try {
           // Extract JSON from response
           const jsonResponse = extractJsonFromResponse(result.response);

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SkipForward, Upload, Zap, MessageSquare } from 'lucide-react';
+import { SkipForward, Upload, Zap, AlertTriangle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ActionNodeSettings from '../ActionNodeSettings';
 
@@ -38,117 +38,142 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
     handleChange('node_type', value);
     handleSave('node_type', value);
     
-    // Auto-set response_format based on node type
     if (value === 'action') {
-      // Set structured output format for action nodes
-      const structuredFormat = JSON.stringify({
-        type: 'json_schema',
-        json_schema: {
-          name: 'action_response',
-          strict: true,
-          schema: {
-            type: 'object',
-            properties: {
-              items: {
-                type: 'array',
+      // Only set default structured output if not already configured
+      if (!localData.response_format_on) {
+        const structuredFormat = JSON.stringify({
+          type: 'json_schema',
+          json_schema: {
+            name: 'action_response',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
                 items: {
-                  type: 'object',
-                  properties: {
-                    name: { type: 'string' },
-                    content: { type: 'string' }
-                  },
-                  required: ['name', 'content'],
-                  additionalProperties: false
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      content: { type: 'string' }
+                    },
+                    required: ['name', 'content'],
+                    additionalProperties: false
+                  }
                 }
-              }
-            },
-            required: ['items'],
-            additionalProperties: false
+              },
+              required: ['items'],
+              additionalProperties: false
+            }
           }
-        }
-      });
-      handleChange('response_format', structuredFormat);
-      handleChange('response_format_on', true);
-      handleSave('response_format', structuredFormat);
-      handleSave('response_format_on', true);
+        });
+        handleChange('response_format', structuredFormat);
+        handleChange('response_format_on', true);
+        handleSave('response_format', structuredFormat);
+        handleSave('response_format_on', true);
+      }
     } else {
-      // Reset to text format for standard nodes
-      handleChange('response_format', '{"type": "text"}');
+      // CRITICAL: Clear ALL action-related fields when switching to standard
+      // This prevents "standard node with post_action configured" state
+      handleChange('post_action', null);
+      handleChange('post_action_config', null);
+      handleChange('json_schema_template_id', null);
+      handleChange('extracted_variables', null);
+      handleChange('last_action_result', null);
       handleChange('response_format_on', false);
-      handleSave('response_format', '{"type": "text"}');
+      
+      handleSave('post_action', null);
+      handleSave('post_action_config', null);
+      handleSave('json_schema_template_id', null);
+      handleSave('extracted_variables', null);
+      handleSave('last_action_result', null);
       handleSave('response_format_on', false);
     }
   };
 
+  // Auto-fix handler for inconsistent state (post_action exists but node_type != 'action')
+  const handleAutoFixNodeType = () => {
+    handleChange('node_type', 'action');
+    handleSave('node_type', 'action');
+  };
+
   const isActionNode = localData.node_type === 'action';
+  const hasOrphanedPostAction = !!localData.post_action && localData.node_type !== 'action';
 
   // Compact toggle row for top-level prompts
   const CompactToggles = () => (
-    <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg border border-border/50 mb-4">
-      {/* Node Type Toggle */}
+    <div className="flex items-center gap-3 p-3 bg-surface-container-low rounded-m3-md border border-outline-variant mb-4">
+      {/* Auto-fix warning icon (only shows when there's orphaned post_action) */}
+      {hasOrphanedPostAction && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+              onClick={handleAutoFixNodeType}
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">Post-action configured but not an action node. Click to fix.</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* Node Type Toggle - M3 compliant icon button */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <div 
-            className={`flex items-center justify-center h-8 w-8 rounded-md cursor-pointer transition-colors ${
-              isActionNode 
-                ? 'bg-amber-500/20 text-amber-500' 
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
             onClick={() => handleNodeTypeChange(isActionNode ? 'standard' : 'action')}
           >
-            <Zap className="h-4 w-4" />
-          </div>
+            <Zap className={`h-4 w-4 ${isActionNode ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-xs">{isActionNode ? 'Action node (click to make standard)' : 'Standard node (click to make action)'}</p>
+          <p className="text-[10px]">{isActionNode ? 'Action node (click to make standard)' : 'Standard node (click to make action)'}</p>
         </TooltipContent>
       </Tooltip>
 
       {/* Exclude from Cascade Toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <div 
-            className={`flex items-center justify-center h-8 w-8 rounded-md cursor-pointer transition-colors ${
-              localData.exclude_from_cascade 
-                ? 'bg-primary/20 text-primary' 
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
             onClick={() => handleExcludeFromCascadeChange(!localData.exclude_from_cascade)}
           >
-            <SkipForward className="h-4 w-4" />
-          </div>
+            <SkipForward className={`h-4 w-4 ${localData.exclude_from_cascade ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-xs">{localData.exclude_from_cascade ? 'Excluded from cascade (click to include)' : 'Included in cascade (click to exclude)'}</p>
+          <p className="text-[10px]">{localData.exclude_from_cascade ? 'Excluded from cascade (click to include)' : 'Included in cascade (click to exclude)'}</p>
         </TooltipContent>
       </Tooltip>
 
       {/* Exclude from Export Toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <div 
-            className={`flex items-center justify-center h-8 w-8 rounded-md cursor-pointer transition-colors ${
-              localData.exclude_from_export 
-                ? 'bg-primary/20 text-primary' 
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
             onClick={() => handleExcludeFromExportChange(!localData.exclude_from_export)}
           >
-            <Upload className="h-4 w-4" />
-          </div>
+            <Upload className={`h-4 w-4 ${localData.exclude_from_export ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-xs">{localData.exclude_from_export ? 'Excluded from export (click to include)' : 'Included in export (click to exclude)'}</p>
+          <p className="text-[10px]">{localData.exclude_from_export ? 'Excluded from export (click to include)' : 'Included in export (click to exclude)'}</p>
         </TooltipContent>
       </Tooltip>
 
-      <div className="h-5 w-px bg-border mx-1" />
+      <div className="h-5 w-px bg-outline-variant mx-1" />
       
-      <span className="text-xs text-muted-foreground">
+      <span className="text-[10px] text-on-surface-variant">
+        {hasOrphanedPostAction && <span className="text-amber-500">Needs fix · </span>}
         {isActionNode && 'Action'}
         {localData.exclude_from_cascade && (isActionNode ? ' · ' : '') + 'Skip cascade'}
         {localData.exclude_from_export && ((isActionNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
-        {!isActionNode && !localData.exclude_from_cascade && !localData.exclude_from_export && 'Standard settings'}
+        {!isActionNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && 'Standard settings'}
+      </span>
       </span>
     </div>
   );
