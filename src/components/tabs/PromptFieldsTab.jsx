@@ -74,6 +74,10 @@ const PromptFieldsTab = ({
         onSuccess: (data) => {
           if (data?.response) {
             handleChange('user_prompt_result', data.response);
+            handleChange('output_response', data.response);
+            // Persist immediately so data isn't lost on prompt switch
+            handleSave('user_prompt_result');
+            handleSave('output_response');
           }
         }
       });
@@ -81,6 +85,7 @@ const PromptFieldsTab = ({
       // Also update local state from result
       if (result?.response) {
         handleChange('user_prompt_result', result.response);
+        handleChange('output_response', result.response);
       }
     } catch (error) {
       console.error('Error generating response:', error);
