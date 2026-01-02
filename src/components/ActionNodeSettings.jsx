@@ -99,7 +99,26 @@ const ActionNodeSettings = ({
     return validateSchemaForAction(currentSchemaObject, localData.post_action, currentConfig);
   }, [currentSchemaObject, localData.post_action, currentConfig]);
 
-  // Find array paths in current schema for suggestions
+  // Validate create_children_json has required config fields
+  const configValidation = useMemo(() => {
+    if (localData.post_action === 'create_children_json') {
+      const config = localData.post_action_config || {};
+      const issues = [];
+      
+      if (!config.json_path) {
+        issues.push('Missing json_path - specify which array contains children');
+      }
+      if (!config.name_field) {
+        issues.push('Missing name_field - child names will use default');
+      }
+      if (!config.content_field) {
+        issues.push('Missing content_field - child content will use default');
+      }
+      
+      return { hasIssues: issues.length > 0, issues };
+    }
+    return { hasIssues: false, issues: [] };
+  }, [localData.post_action, localData.post_action_config]);
   const availableArrayPaths = useMemo(() => {
     if (!currentSchemaObject) return [];
     return findArrayPaths(currentSchemaObject);
@@ -176,20 +195,26 @@ const ActionNodeSettings = ({
 
   const handleActionChange = (actionId) => {
     const newActionId = actionId === '_none' ? null : actionId;
+    const actionChanged = newActionId !== localData.post_action;
+    
     handleChange('post_action', newActionId);
     
-    // ALWAYS reset config to defaults for new action (clear old fields from previous action)
-    if (newActionId) {
+    if (newActionId && actionChanged) {
+      // Only reset to defaults when switching to a DIFFERENT action
       const defaultConfig = getDefaultActionConfig(newActionId);
       console.log('ActionNodeSettings: Switching to action', newActionId, 'with fresh config:', defaultConfig);
       handleChange('post_action_config', defaultConfig);
       handleSave('post_action', newActionId);
       handleSave('post_action_config', defaultConfig);
-    } else {
+    } else if (!newActionId) {
       console.log('ActionNodeSettings: Clearing action and config');
       handleChange('post_action_config', null);
       handleSave('post_action', null);
       handleSave('post_action_config', null);
+    } else {
+      // Same action selected - preserve existing config, just save action
+      console.log('ActionNodeSettings: Same action selected, preserving config');
+      handleSave('post_action', newActionId);
     }
   };
 
@@ -228,6 +253,15 @@ const ActionNodeSettings = ({
         
         // Apply full template configuration
         const updates = applyTemplateToPrompt(fullTemplate, localData);
+        
+        // Ensure post_action_config is fully merged from template (don't overwrite with defaults)
+        if (fullTemplate.actionConfig && updates.post_action_config) {
+          updates.post_action_config = {
+            ...updates.post_action_config,
+            ...fullTemplate.actionConfig,
+          };
+          console.log('ActionNodeSettings: Applied template actionConfig:', fullTemplate.actionConfig);
+        }
         
         // Apply all updates
         Object.entries(updates).forEach(([key, value]) => {
@@ -526,6 +560,16 @@ const ActionNodeSettings = ({
               onChange={handleConfigChange}
               currentSchema={currentSchemaObject}
             />
+            
+            {/* Config Validation Warning */}
+            {configValidation.hasIssues && (
+              <Alert className="mt-3 bg-amber-500/10 border-amber-500/30">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <AlertDescription className="text-[10px] text-on-surface">
+                  Config may be incomplete: {configValidation.issues.join('; ')}
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
       )}
