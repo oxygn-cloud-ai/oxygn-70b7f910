@@ -7,7 +7,7 @@ import {
   ChevronRight, ChevronDown, Settings, ArrowRight, Layers,
   Edit3, Check, X, AlertCircle, Upload, Paperclip, CheckCircle2,
   Clock, XCircle, Loader2, Save, Sliders, Play, Workflow,
-  MoreVertical, Star, Share2, PanelRightOpen, Library, Search,
+  MoreVertical, Star, Share2, PanelRightOpen, PanelLeftOpen, Library, Search,
   Bot, Thermometer, Zap, Globe, Briefcase, GitBranch, Hash,
   List, ToggleLeft, User, Database, EyeOff, RefreshCw
 } from "lucide-react";
@@ -1045,6 +1045,8 @@ const TemplatesContent = ({
   jsonSchemaTemplatesHook,
   onTemplateChange,
   models = [],
+  folderPanelOpen,
+  onToggleFolderPanel,
 }) => {
   const { items: libraryItems } = usePromptLibrary();
   const [activeEditorTab, setActiveEditorTab] = useState("prompt");
@@ -1191,11 +1193,30 @@ const TemplatesContent = ({
   // Empty state when no template selected
   if (!selectedTemplate) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-surface">
-        <div className="text-center text-on-surface-variant">
-          <LayoutTemplate className="h-16 w-16 mx-auto mb-4 opacity-30" />
-          <p className="text-body-md">Select a template to view</p>
-          <p className="text-label-md mt-1">or create a new one</p>
+      <div className="flex-1 flex flex-col bg-surface min-h-0">
+        {/* Header with toggle button */}
+        <div className="h-14 flex items-center px-3 border-b border-outline-variant shrink-0">
+          {!folderPanelOpen && onToggleFolderPanel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={onToggleFolderPanel} 
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Show templates panel</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        {/* Empty state content */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-on-surface-variant">
+            <LayoutTemplate className="h-16 w-16 mx-auto mb-4 opacity-30" />
+            <p className="text-body-md">Select a template to view</p>
+            <p className="text-label-md mt-1">or create a new one</p>
+          </div>
         </div>
       </div>
     );
