@@ -1483,6 +1483,11 @@ const PromptsContent = ({
               parentData={null}
               childrenData={[]}
               siblingsData={[]}
+              userVariables={variables}
+              isLoadingVariables={isLoadingVariables}
+              addVariable={onAddVariable}
+              updateVariable={onUpdateVariable}
+              deleteVariable={onDeleteVariable}
             />
           )}
           {activeTab === "attachments" && (

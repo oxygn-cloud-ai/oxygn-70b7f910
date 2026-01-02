@@ -11,7 +11,6 @@ import {
   resolveStaticVariables,
   getUserEditableVariables,
 } from '@/config/systemVariables';
-import { usePromptVariables } from '@/hooks/usePromptVariables';
 import { useSystemVariables } from '@/hooks/useSystemVariables';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -73,6 +72,12 @@ const VariablesTabContent = ({
   parentData = null,
   childrenData = [],
   siblingsData = [],
+  // Shared variable state from parent (MainLayout)
+  userVariables = [],
+  isLoadingVariables = false,
+  addVariable,
+  updateVariable,
+  deleteVariable,
 }) => {
   const { user } = useAuth();
   const [expandedSections, setExpandedSections] = useState({
@@ -82,15 +87,6 @@ const VariablesTabContent = ({
     hierarchy: false,
     aiResponse: false,
   });
-  
-  // User variables hook
-  const { 
-    variables: userVariables, 
-    isLoading: isLoadingVariables, 
-    addVariable, 
-    updateVariable, 
-    deleteVariable 
-  } = usePromptVariables(promptRowId);
 
   // System variables hook for editable policy variables
   const {
