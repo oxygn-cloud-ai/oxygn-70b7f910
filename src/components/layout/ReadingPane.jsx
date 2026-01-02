@@ -69,67 +69,75 @@ const ReadingPane = ({
   // Workbench mode - full workbench with threads and chat (now with real data)
   if (activeNav === "workbench") {
     return (
-      <ErrorBoundary message="Workbench encountered an error. Try navigating to another section.">
-        <WorkbenchContent 
-          activeSubItem={activeSubItem}
-          workbenchThreads={workbenchThreads}
-          workbenchMessages={workbenchMessages}
-          workbenchFiles={workbenchFiles}
-          workbenchConfluence={workbenchConfluence}
-          promptLibrary={promptLibrary}
-        />
-      </ErrorBoundary>
+      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
+        <ErrorBoundary message="Workbench encountered an error. Try navigating to another section.">
+          <WorkbenchContent 
+            activeSubItem={activeSubItem}
+            workbenchThreads={workbenchThreads}
+            workbenchMessages={workbenchMessages}
+            workbenchFiles={workbenchFiles}
+            workbenchConfluence={workbenchConfluence}
+            promptLibrary={promptLibrary}
+          />
+        </ErrorBoundary>
+      </div>
     );
   }
 
   // Settings mode - all settings sections (now with real data)
   if (activeNav === "settings") {
     return (
-      <ErrorBoundary message="Settings encountered an error.">
-        <SettingsContent 
-          activeSubItem={activeSubItem}
-          settings={settings}
-          isLoadingSettings={isLoadingSettings}
-          onUpdateSetting={onUpdateSetting}
-          models={models}
-          isLoadingModels={isLoadingModels}
-          onToggleModel={onToggleModel}
-          onAddModel={onAddModel}
-          onUpdateModel={onUpdateModel}
-          onDeleteModel={onDeleteModel}
-          costTracking={costTracking}
-          conversationToolDefaults={conversationToolDefaults}
-        />
-      </ErrorBoundary>
+      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
+        <ErrorBoundary message="Settings encountered an error.">
+          <SettingsContent 
+            activeSubItem={activeSubItem}
+            settings={settings}
+            isLoadingSettings={isLoadingSettings}
+            onUpdateSetting={onUpdateSetting}
+            models={models}
+            isLoadingModels={isLoadingModels}
+            onToggleModel={onToggleModel}
+            onAddModel={onAddModel}
+            onUpdateModel={onUpdateModel}
+            onDeleteModel={onDeleteModel}
+            costTracking={costTracking}
+            conversationToolDefaults={conversationToolDefaults}
+          />
+        </ErrorBoundary>
+      </div>
     );
   }
 
   // Health mode - health check sections
   if (activeNav === "health") {
     return (
-      <ErrorBoundary message="Health check encountered an error.">
-        <HealthContent activeSubItem={activeSubItem} />
-      </ErrorBoundary>
+      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
+        <ErrorBoundary message="Health check encountered an error.">
+          <HealthContent activeSubItem={activeSubItem} />
+        </ErrorBoundary>
+      </div>
     );
   }
 
   // Templates mode - template editor (now with real data)
   if (activeNav === "templates") {
     return (
-      <ErrorBoundary message="Templates encountered an error.">
-        <TemplatesContent 
-          selectedTemplate={selectedTemplate}
-          activeTemplateTab={activeTemplateTab}
-          templatesHook={templatesHook}
-          jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
-          models={models}
-          onTemplateChange={(template) => {
-            // Refresh templates list when template changes
-            if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
-            if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
-          }}
-        />
-      </ErrorBoundary>
+      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
+        <ErrorBoundary message="Templates encountered an error.">
+          <TemplatesContent 
+            selectedTemplate={selectedTemplate}
+            activeTemplateTab={activeTemplateTab}
+            templatesHook={templatesHook}
+            jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
+            models={models}
+            onTemplateChange={(template) => {
+              // Refresh templates list when template changes
+              if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
+              if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
+            }}
+          />
+        </ErrorBoundary>
+      </div>
     );
   }
 
