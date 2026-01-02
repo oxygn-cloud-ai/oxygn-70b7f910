@@ -387,13 +387,6 @@ export type Database = {
             foreignKeyName: "q_assistants_prompt_row_id_fkey"
             columns: ["prompt_row_id"]
             isOneToOne: false
-            referencedRelation: "prompt_owner_emails"
-            referencedColumns: ["prompt_row_id"]
-          },
-          {
-            foreignKeyName: "q_assistants_prompt_row_id_fkey"
-            columns: ["prompt_row_id"]
-            isOneToOne: false
             referencedRelation: "q_prompts"
             referencedColumns: ["row_id"]
           },
@@ -519,13 +512,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "q_assistants"
             referencedColumns: ["row_id"]
-          },
-          {
-            foreignKeyName: "q_confluence_pages_prompt_row_id_fkey"
-            columns: ["prompt_row_id"]
-            isOneToOne: false
-            referencedRelation: "prompt_owner_emails"
-            referencedColumns: ["prompt_row_id"]
           },
           {
             foreignKeyName: "q_confluence_pages_prompt_row_id_fkey"
@@ -898,13 +884,6 @@ export type Database = {
             foreignKeyName: "q_prompt_family_threads_prompt_row_id_fkey"
             columns: ["prompt_row_id"]
             isOneToOne: false
-            referencedRelation: "prompt_owner_emails"
-            referencedColumns: ["prompt_row_id"]
-          },
-          {
-            foreignKeyName: "q_prompt_family_threads_prompt_row_id_fkey"
-            columns: ["prompt_row_id"]
-            isOneToOne: false
             referencedRelation: "q_prompts"
             referencedColumns: ["row_id"]
           },
@@ -1247,13 +1226,6 @@ export type Database = {
             foreignKeyName: "q_prompts_parent_row_id_fkey"
             columns: ["parent_row_id"]
             isOneToOne: false
-            referencedRelation: "prompt_owner_emails"
-            referencedColumns: ["prompt_row_id"]
-          },
-          {
-            foreignKeyName: "q_prompts_parent_row_id_fkey"
-            columns: ["parent_row_id"]
-            isOneToOne: false
             referencedRelation: "q_prompts"
             referencedColumns: ["row_id"]
           },
@@ -1389,22 +1361,8 @@ export type Database = {
             foreignKeyName: "q_threads_child_prompt_row_id_fkey"
             columns: ["child_prompt_row_id"]
             isOneToOne: false
-            referencedRelation: "prompt_owner_emails"
-            referencedColumns: ["prompt_row_id"]
-          },
-          {
-            foreignKeyName: "q_threads_child_prompt_row_id_fkey"
-            columns: ["child_prompt_row_id"]
-            isOneToOne: false
             referencedRelation: "q_prompts"
             referencedColumns: ["row_id"]
-          },
-          {
-            foreignKeyName: "q_threads_root_prompt_row_id_fkey"
-            columns: ["root_prompt_row_id"]
-            isOneToOne: false
-            referencedRelation: "prompt_owner_emails"
-            referencedColumns: ["prompt_row_id"]
           },
           {
             foreignKeyName: "q_threads_root_prompt_row_id_fkey"
@@ -1654,24 +1612,7 @@ export type Database = {
       }
     }
     Views: {
-      prompt_owner_emails: {
-        Row: {
-          owner_email: string | null
-          owner_id: string | null
-          prompt_row_id: string | null
-        }
-        Insert: {
-          owner_email?: never
-          owner_id?: string | null
-          prompt_row_id?: string | null
-        }
-        Update: {
-          owner_email?: never
-          owner_id?: string | null
-          prompt_row_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       backfill_existing_profiles: { Args: never; Returns: undefined }

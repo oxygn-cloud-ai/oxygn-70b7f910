@@ -5,6 +5,51 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
+
+function isAllowedDomain(email: string | undefined): boolean {
+  if (!email) return false;
+  const domain = email.split('@')[1]?.toLowerCase();
+  return ALLOWED_DOMAINS.includes(domain);
+}
+
+async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; status?: number }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { valid: false, error: 'Missing authorization header', status: 401 };
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { valid: false, error: 'Server configuration error', status: 500 };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } }
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    return { valid: false, error: 'Invalid or expired token', status: 401 };
+  }
+
+  if (!isAllowedDomain(user.email)) {
+    return { valid: false, error: 'Access denied: domain not allowed', status: 403 };
+  }
+
+  // Check if user is admin (this is an admin-only utility function)
+  const { data: isAdmin } = await supabase.rpc('is_admin', { _user_id: user.id });
+  
+  if (!isAdmin) {
+    return { valid: false, error: 'Access denied: admin privileges required', status: 403 };
+  }
+
+  return { valid: true };
+}
+
 async function generateEmbedding(text: string, openAIApiKey: string): Promise<number[]> {
   const response = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
@@ -32,6 +77,16 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate user authentication, domain, and admin status
+  const validation = await validateUser(req);
+  if (!validation.valid) {
+    console.log(`Access denied: ${validation.error}`);
+    return new Response(
+      JSON.stringify({ error: validation.error }),
+      { status: validation.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
