@@ -238,6 +238,16 @@ const MainLayout = () => {
     };
   }, [selectedPromptId, fetchItemData]);
   
+  // Wrap handleAddItem to auto-select newly created prompts
+  const handleAddPrompt = useCallback(async (parentId, options) => {
+    const result = await handleAddItem(parentId, options);
+    // Auto-select the new prompt if creation succeeded
+    if (result?.[0]?.row_id) {
+      setSelectedPromptId(result[0].row_id);
+    }
+    return result;
+  }, [handleAddItem]);
+  
   // Handle field updates
   const handleUpdateField = useCallback(async (fieldName, value) => {
     if (!selectedPromptId) return false;
@@ -1037,7 +1047,7 @@ const MainLayout = () => {
           onSelectPrompt={handleSelectPrompt}
           expandedFolders={expandedFolders}
           onToggleFolder={toggleFolder}
-          onAddPrompt={handleAddItem}
+          onAddPrompt={handleAddPrompt}
           onAddFromTemplate={() => setTemplateDialogOpen(true)}
           onDeletePrompt={handleDeleteItem}
           onDuplicatePrompt={handleDuplicateItem}
@@ -1331,9 +1341,12 @@ const MainLayout = () => {
       <NewPromptChoiceDialog
         isOpen={templateDialogOpen}
         onClose={() => setTemplateDialogOpen(false)}
-        onCreatePlain={() => {
+        onCreatePlain={async () => {
           setTemplateDialogOpen(false);
-          handleAddItem(null);
+          const result = await handleAddItem(null);
+          if (result?.[0]?.row_id) {
+            setSelectedPromptId(result[0].row_id);
+          }
         }}
         onPromptCreated={(newPromptId) => {
           setTemplateDialogOpen(false);
