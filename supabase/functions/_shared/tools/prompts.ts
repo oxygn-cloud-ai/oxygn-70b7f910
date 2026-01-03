@@ -19,7 +19,10 @@ const TOOL_NAMES = [
   'create_prompt',
   'update_prompt',
   'delete_prompt',
-  'duplicate_prompt'
+  'duplicate_prompt',
+  // Execution operations
+  'run_prompt',
+  'run_cascade'
 ] as const;
 
 type PromptToolName = typeof TOOL_NAMES[number];
@@ -67,6 +70,123 @@ async function getFamilyJsonSchemas(supabase: any, familyPromptIds: string[]): P
     return [];
   }
   return schemas || [];
+}
+
+// ============================================================================
+// EXECUTION HELPERS - For run_prompt and run_cascade tools
+// ============================================================================
+
+interface ParsedSSEResult {
+  success: boolean;
+  response?: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  error?: string;
+}
+
+function parseSSEResponse(sseText: string): ParsedSSEResult {
+  const lines = sseText.split('\n');
+  let result: ParsedSSEResult = { success: false, error: 'No response received' };
+  
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || !line.startsWith('data:')) continue;
+    
+    const data = line.replace(/^data:\s?/, '').trim();
+    if (!data || data === '[DONE]') continue;
+    
+    try {
+      const event = JSON.parse(data);
+      if (event.type === 'complete') {
+        result = {
+          success: event.success !== false,
+          response: event.response || '',
+          usage: event.usage,
+        };
+      }
+      if (event.type === 'error') {
+        result = { success: false, error: event.error || 'Unknown error' };
+      }
+    } catch {
+      // Skip non-JSON lines
+    }
+  }
+  return result;
+}
+
+async function resolvePromptId(
+  supabase: any,
+  userId: string,
+  promptId: string | null,
+  promptName: string | null,
+  familyPromptIds?: string[]
+): Promise<{ row_id: string; prompt_name: string } | { error: string }> {
+  if (promptId) {
+    const { data: prompt } = await supabase
+      .from(TABLES.PROMPTS)
+      .select('row_id, prompt_name, owner_id')
+      .eq('row_id', promptId)
+      .eq('is_deleted', false)
+      .single();
+    
+    if (!prompt) return { error: `Prompt ID "${promptId}" not found` };
+    if (prompt.owner_id !== userId) return { error: 'Access denied' };
+    if (familyPromptIds && !familyPromptIds.includes(promptId)) {
+      return { error: 'Prompt not in current family' };
+    }
+    return { row_id: prompt.row_id, prompt_name: prompt.prompt_name };
+  }
+  
+  if (promptName) {
+    const { data: prompt } = await supabase
+      .from(TABLES.PROMPTS)
+      .select('row_id, prompt_name, owner_id')
+      .ilike('prompt_name', promptName)
+      .eq('owner_id', userId)
+      .eq('is_deleted', false)
+      .maybeSingle();
+    
+    if (!prompt) return { error: `Prompt "${promptName}" not found` };
+    return { row_id: prompt.row_id, prompt_name: prompt.prompt_name };
+  }
+  
+  return { error: 'Either prompt_id or prompt_name required' };
+}
+
+async function fetchCascadeHierarchy(
+  supabase: any, 
+  topLevelRowId: string,
+  maxDepth: number = 10
+): Promise<{ levels: { level: number; prompts: any[] }[]; totalPrompts: number } | null> {
+  const levels: { level: number; prompts: any[] }[] = [];
+  let currentLevelIds = [topLevelRowId];
+  let allPrompts: any[] = [];
+
+  const { data: topPrompt } = await supabase
+    .from(TABLES.PROMPTS).select('*')
+    .eq('row_id', topLevelRowId).eq('is_deleted', false).single();
+
+  if (!topPrompt) return null;
+
+  levels.push({ level: 0, prompts: [topPrompt] });
+  allPrompts.push(topPrompt);
+
+  let levelNum = 1;
+  while (currentLevelIds.length > 0 && levelNum <= maxDepth) {
+    const { data: children } = await supabase
+      .from(TABLES.PROMPTS).select('*')
+      .in('parent_row_id', currentLevelIds)
+      .eq('is_deleted', false)
+      .order('position', { ascending: true });
+
+    if (!children?.length) break;
+
+    levels.push({ level: levelNum, prompts: children });
+    allPrompts = [...allPrompts, ...children];
+    currentLevelIds = children.map((c: any) => c.row_id);
+    levelNum++;
+  }
+
+  return { levels, totalPrompts: allPrompts.length };
 }
 
 export const promptsModule: ToolModule = {
@@ -256,6 +376,65 @@ export const promptsModule: ToolModule = {
             }
           },
           required: ['prompt_row_id', 'include_children'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      // Execution operations
+      {
+        type: 'function',
+        name: 'run_prompt',
+        description: 'Execute a single prompt and get its AI-generated output. Use this to run prompts as sub-tasks within the family.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt_id: {
+              type: ['string', 'null'],
+              description: 'The UUID of the prompt to execute'
+            },
+            prompt_name: {
+              type: ['string', 'null'],
+              description: 'Alternative: find prompt by name (case-insensitive)'
+            },
+            variables: {
+              type: ['object', 'null'],
+              description: 'Variables to pass as key-value pairs'
+            },
+            user_message: {
+              type: ['string', 'null'],
+              description: 'User message to include'
+            }
+          },
+          required: ['prompt_id', 'prompt_name', 'variables', 'user_message'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      {
+        type: 'function',
+        name: 'run_cascade',
+        description: 'Execute an entire prompt cascade (parent and all children). Returns aggregated results.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt_id: {
+              type: ['string', 'null'],
+              description: 'UUID of root prompt'
+            },
+            prompt_name: {
+              type: ['string', 'null'],
+              description: 'Alternative: find root by name'
+            },
+            variables: {
+              type: ['object', 'null'],
+              description: 'Initial variables'
+            },
+            max_depth: {
+              type: ['integer', 'null'],
+              description: 'Max depth (default: 10, max: 50)'
+            }
+          },
+          required: ['prompt_id', 'prompt_name', 'variables', 'max_depth'],
           additionalProperties: false
         },
         strict: true
@@ -595,6 +774,159 @@ export const promptsModule: ToolModule = {
             success: true,
             message: `Duplicated "${source.prompt_name}" as "${newPrompt.prompt_name}"${include_children ? ` with ${childCount} children` : ''}`,
             row_id: newPrompt.row_id
+          });
+        }
+
+        // ============================================================================
+        // EXECUTION OPERATIONS
+        // ============================================================================
+
+        case 'run_prompt': {
+          const { prompt_id, prompt_name, variables, user_message } = args;
+          
+          if (!context.accessToken) {
+            return JSON.stringify({ error: 'accessToken not available for prompt execution' });
+          }
+          
+          const resolved = await resolvePromptId(supabase, context.userId, prompt_id, prompt_name, familyPromptIds);
+          if ('error' in resolved) return JSON.stringify({ error: resolved.error });
+          
+          // Recursion check
+          const executionStack = context.executionStack || [];
+          if (executionStack.includes(resolved.row_id)) {
+            return JSON.stringify({ error: `Recursion detected: "${resolved.prompt_name}" already executing` });
+          }
+          
+          console.log(`run_prompt: Executing "${resolved.prompt_name}" (${resolved.row_id})`);
+          
+          try {
+            const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/conversation-run`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${context.accessToken}`,
+              },
+              body: JSON.stringify({
+                child_prompt_row_id: resolved.row_id,
+                user_message: user_message || 'Execute this prompt',
+                template_variables: variables || {},
+                store_in_history: false,
+                thread_mode: 'new',
+              }),
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('run_prompt: conversation-run failed:', response.status, errorText);
+              return JSON.stringify({ error: `Execution failed: ${response.status}`, details: errorText.substring(0, 300) });
+            }
+            
+            const sseText = await response.text();
+            const result = parseSSEResponse(sseText);
+            
+            return JSON.stringify({
+              prompt_id: resolved.row_id,
+              prompt_name: resolved.prompt_name,
+              success: result.success,
+              output: result.response,
+              usage: result.usage,
+              error: result.error,
+            });
+          } catch (fetchError: any) {
+            console.error('run_prompt: Fetch error:', fetchError);
+            return JSON.stringify({ error: `Failed: ${fetchError.message}` });
+          }
+        }
+
+        case 'run_cascade': {
+          const { prompt_id, prompt_name, variables, max_depth } = args;
+          
+          if (!context.accessToken) {
+            return JSON.stringify({ error: 'accessToken not available for cascade execution' });
+          }
+          
+          const resolved = await resolvePromptId(supabase, context.userId, prompt_id, prompt_name, familyPromptIds);
+          if ('error' in resolved) return JSON.stringify({ error: resolved.error });
+          
+          const effectiveMaxDepth = Math.min(Math.max(max_depth || 10, 1), 50);
+          const hierarchy = await fetchCascadeHierarchy(supabase, resolved.row_id, effectiveMaxDepth);
+          
+          if (!hierarchy) return JSON.stringify({ error: 'No prompts found' });
+          
+          console.log(`run_cascade: Starting "${resolved.prompt_name}" with ${hierarchy.totalPrompts} prompts`);
+          
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+          const results: any[] = [];
+          const accumulatedVars = { ...(variables || {}) };
+          let lastOutput = '';
+          
+          for (const level of hierarchy.levels) {
+            for (const prompt of level.prompts) {
+              if (prompt.exclude_from_cascade) {
+                results.push({ prompt_id: prompt.row_id, prompt_name: prompt.prompt_name, skipped: true, reason: 'exclude_from_cascade' });
+                continue;
+              }
+              
+              try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/conversation-run`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${context.accessToken}`,
+                  },
+                  body: JSON.stringify({
+                    child_prompt_row_id: prompt.row_id,
+                    user_message: 'Execute this prompt',
+                    template_variables: accumulatedVars,
+                    store_in_history: false,
+                    thread_mode: 'new',
+                  }),
+                });
+                
+                const parsed = parseSSEResponse(await response.text());
+                results.push({
+                  prompt_id: prompt.row_id,
+                  prompt_name: prompt.prompt_name,
+                  level: level.level,
+                  success: parsed.success,
+                  output: parsed.response?.substring(0, 1000),
+                  error: parsed.error,
+                });
+                
+                if (parsed.success && parsed.response) {
+                  lastOutput = parsed.response;
+                  accumulatedVars['cascade_previous_response'] = parsed.response;
+                }
+              } catch (fetchError: any) {
+                console.error(`run_cascade: Error executing "${prompt.prompt_name}":`, fetchError);
+                results.push({
+                  prompt_id: prompt.row_id,
+                  prompt_name: prompt.prompt_name,
+                  success: false,
+                  error: fetchError.message,
+                });
+              }
+            }
+          }
+          
+          const successCount = results.filter(r => r.success).length;
+          const failCount = results.filter(r => !r.success && !r.skipped).length;
+          const skipCount = results.filter(r => r.skipped).length;
+          
+          console.log(`run_cascade: Completed. Success: ${successCount}, Failed: ${failCount}, Skipped: ${skipCount}`);
+          
+          return JSON.stringify({
+            cascade_root: resolved.row_id,
+            cascade_root_name: resolved.prompt_name,
+            total_prompts: hierarchy.totalPrompts,
+            summary: {
+              success: successCount,
+              failed: failCount,
+              skipped: skipCount,
+            },
+            results,
+            final_output: lastOutput?.substring(0, 2000),
           });
         }
 
