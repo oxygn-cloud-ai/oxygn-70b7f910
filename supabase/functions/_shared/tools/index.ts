@@ -50,3 +50,4 @@ export { knowledgeModule } from './knowledge.ts';
 export { databaseModule } from './database.ts';
 export { variablesModule } from './variables.ts';
 export { templatesModule } from './templates.ts';
+export { confluenceModule } from './confluence.ts';
