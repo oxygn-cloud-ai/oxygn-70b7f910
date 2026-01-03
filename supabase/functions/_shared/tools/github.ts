@@ -10,16 +10,16 @@ const GITHUB_TOOLS: ToolDefinition[] = [
   {
     type: 'function',
     name: 'github_list_files',
-    description: 'List files and directories at a path in the application source code. Use empty string for root directory.',
+    description: 'List files and directories at a path in the application source code.',
     parameters: {
       type: 'object',
       properties: {
         path: {
-          type: 'string',
-          description: "Directory path to list (e.g., 'src/components', 'supabase/functions'). Empty for root."
+          type: ['string', 'null'],
+          description: "Directory path to list (e.g., 'src/components', 'supabase/functions'). Null or empty string for root."
         }
       },
-      required: [],
+      required: ['path'],
       additionalProperties: false
     },
     strict: true
@@ -53,11 +53,11 @@ const GITHUB_TOOLS: ToolDefinition[] = [
           description: 'Search query - function names, variable names, text patterns, etc.'
         },
         file_extension: {
-          type: 'string',
-          description: "Optional file extension filter (e.g., 'ts', 'jsx', 'sql')"
+          type: ['string', 'null'],
+          description: "File extension filter (e.g., 'ts', 'jsx', 'sql'). Null to search all files."
         }
       },
-      required: ['query'],
+      required: ['query', 'file_extension'],
       additionalProperties: false
     },
     strict: true
@@ -70,11 +70,11 @@ const GITHUB_TOOLS: ToolDefinition[] = [
       type: 'object',
       properties: {
         path: {
-          type: 'string',
-          description: "Optional path to filter (e.g., 'src', 'supabase'). Empty for full repo structure."
+          type: ['string', 'null'],
+          description: "Path to filter (e.g., 'src', 'supabase'). Null for full repo structure."
         }
       },
-      required: [],
+      required: ['path'],
       additionalProperties: false
     },
     strict: true

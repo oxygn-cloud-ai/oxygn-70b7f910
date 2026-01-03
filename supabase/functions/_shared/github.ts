@@ -369,7 +369,9 @@ export async function handleGithubToolCall(
         if (!query) {
           return JSON.stringify({ error: 'query is required' });
         }
-        const results = await searchGithubCode(query, token, owner, repo, file_extension);
+        // file_extension can be null - only use if it's a non-empty string
+        const ext = (file_extension && typeof file_extension === 'string') ? file_extension : undefined;
+        const results = await searchGithubCode(query, token, owner, repo, ext);
         return JSON.stringify({
           query,
           count: results.length,

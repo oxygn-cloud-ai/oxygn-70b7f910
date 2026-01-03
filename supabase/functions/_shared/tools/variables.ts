@@ -39,19 +39,19 @@ export const variablesModule: ToolModule = {
               description: 'Name of the variable (use {{variable_name}} syntax in prompts)'
             },
             variable_value: {
-              type: 'string',
-              description: 'Default value for the variable'
+              type: ['string', 'null'],
+              description: 'Default value for the variable (null for no default)'
             },
             variable_description: {
-              type: 'string',
-              description: 'Description of what this variable is for'
+              type: ['string', 'null'],
+              description: 'Description of what this variable is for (null to skip)'
             },
             is_required: {
-              type: 'boolean',
-              description: 'Whether this variable must have a value (default: false)'
+              type: ['boolean', 'null'],
+              description: 'Whether this variable must have a value (default: false, null for default)'
             }
           },
-          required: ['prompt_row_id', 'variable_name'],
+          required: ['prompt_row_id', 'variable_name', 'variable_value', 'variable_description', 'is_required'],
           additionalProperties: false
         },
         strict: true
@@ -59,7 +59,7 @@ export const variablesModule: ToolModule = {
       {
         type: 'function',
         name: 'update_variable',
-        description: 'Update an existing variable in this family.',
+        description: 'Update an existing variable in this family. Pass null for fields you do not want to change.',
         parameters: {
           type: 'object',
           properties: {
@@ -68,23 +68,23 @@ export const variablesModule: ToolModule = {
               description: 'The row_id of the variable to update'
             },
             variable_name: {
-              type: 'string',
-              description: 'New name for the variable'
+              type: ['string', 'null'],
+              description: 'New name for the variable (null to keep current)'
             },
             variable_value: {
-              type: 'string',
-              description: 'New value for the variable'
+              type: ['string', 'null'],
+              description: 'New value for the variable (null to keep current)'
             },
             variable_description: {
-              type: 'string',
-              description: 'New description for the variable'
+              type: ['string', 'null'],
+              description: 'New description for the variable (null to keep current)'
             },
             is_required: {
-              type: 'boolean',
-              description: 'Whether this variable is required'
+              type: ['boolean', 'null'],
+              description: 'Whether this variable is required (null to keep current)'
             }
           },
-          required: ['variable_row_id'],
+          required: ['variable_row_id', 'variable_name', 'variable_value', 'variable_description', 'is_required'],
           additionalProperties: false
         },
         strict: true
@@ -186,18 +186,18 @@ export const variablesModule: ToolModule = {
             return JSON.stringify({ error: 'Variable does not belong to a prompt in this family' });
           }
 
-          // Build update object
+          // Build update object - filter out null values (null means "don't change")
           const updateData: Record<string, any> = {};
           const allowedFields = ['variable_name', 'variable_value', 'variable_description', 'is_required'];
           
           for (const field of allowedFields) {
-            if (updates[field] !== undefined) {
+            if (updates[field] !== undefined && updates[field] !== null) {
               updateData[field] = updates[field];
             }
           }
 
           if (Object.keys(updateData).length === 0) {
-            return JSON.stringify({ error: 'No valid fields to update' });
+            return JSON.stringify({ error: 'No valid fields to update. Pass non-null values for fields you want to change.' });
           }
 
           updateData.updated_at = new Date().toISOString();
