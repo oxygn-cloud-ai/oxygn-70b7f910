@@ -974,9 +974,231 @@ export const useCascadeExecutor = () => {
     return (count || 0) > 0;
   }, [supabase]);
 
+  /**
+   * Execute a mini-cascade on newly created child prompts (Auto-Run Children feature)
+   * 
+   * @param {Array} children - Array of newly created child prompt objects
+   * @param {Object} parentPrompt - The parent prompt that created these children
+   * @param {Object} options - Execution options
+   * @param {number} options.maxDepth - Maximum recursion depth (default 99)
+   * @param {number} options.currentDepth - Current recursion depth (default 0)
+   * @param {Object} options.inheritedVariables - Variables to pass to children
+   * @returns {Promise<{ success: boolean, results: Array, depthLimitReached?: boolean }>}
+   */
+  const executeChildCascade = useCallback(async (
+    children,
+    parentPrompt,
+    options = {}
+  ) => {
+    const { 
+      maxDepth = 99, 
+      currentDepth = 0,
+      inheritedVariables = {},
+    } = options;
+
+    if (!children || children.length === 0) {
+      return { success: true, results: [] };
+    }
+
+    // Depth limit check
+    if (currentDepth >= maxDepth) {
+      console.warn(`Auto-cascade depth limit (${maxDepth}) reached at depth ${currentDepth}, stopping recursion`);
+      toast.warning(`Auto-cascade depth limit reached (${maxDepth} levels)`);
+      trackEvent('auto_cascade_depth_limit', {
+        max_depth: maxDepth,
+        current_depth: currentDepth,
+        parent_prompt_id: parentPrompt?.row_id,
+      });
+      return { success: true, results: [], depthLimitReached: true };
+    }
+
+    // Get parent's assistant row_id for conversation context
+    const { data: parentAssistant } = await supabaseClient
+      .from('q_assistants')
+      .select('row_id')
+      .eq('prompt_row_id', parentPrompt.row_id)
+      .maybeSingle();
+
+    const parentAssistantRowId = parentAssistant?.row_id;
+    const results = [];
+
+    console.log(`executeChildCascade: Running ${children.length} children at depth ${currentDepth}`);
+
+    for (const child of children) {
+      // Check for cancellation
+      if (isCancelled()) {
+        console.log('Auto-cascade cancelled by user');
+        break;
+      }
+
+      // Wait if paused
+      const shouldContinue = await waitWhilePaused();
+      if (!shouldContinue) {
+        console.log('Auto-cascade stopped during pause');
+        break;
+      }
+
+      // Get the child's full data (in case we only have minimal data from action result)
+      const { data: childPrompt, error: fetchError } = await supabaseClient
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .select('*')
+        .eq('row_id', child.row_id)
+        .single();
+
+      if (fetchError || !childPrompt) {
+        console.error('executeChildCascade: Child prompt not found:', child.row_id, fetchError);
+        results.push({
+          promptRowId: child.row_id,
+          promptName: child.prompt_name || 'Unknown',
+          success: false,
+          error: 'Prompt not found',
+        });
+        continue;
+      }
+
+      // Build user message
+      const userMessage = getPromptMessage(childPrompt, 'Execute this prompt');
+
+      // Fetch child's variables
+      const { data: childVars } = await supabaseClient
+        .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_variables')
+        .select('variable_name, variable_value, default_value')
+        .eq('prompt_row_id', childPrompt.row_id);
+
+      const childVariablesMap = {};
+      (childVars || []).forEach(v => {
+        if (v.variable_name) {
+          childVariablesMap[v.variable_name] = v.variable_value || v.default_value || '';
+        }
+      });
+
+      // Merge inherited variables with child's own (child's take precedence)
+      const templateVariables = {
+        ...inheritedVariables,
+        ...childVariablesMap,
+      };
+
+      try {
+        // Run the child prompt
+        const result = await runConversation({
+          conversationRowId: parentAssistantRowId,
+          childPromptRowId: childPrompt.row_id,
+          userMessage,
+          threadMode: 'new',
+          childThreadStrategy: 'parent',
+          template_variables: templateVariables,
+          store_in_history: false,
+        });
+
+        const promptResult = {
+          promptRowId: childPrompt.row_id,
+          promptName: childPrompt.prompt_name,
+          success: !!result?.response,
+          response: result?.response,
+        };
+        results.push(promptResult);
+
+        // Update the child prompt's output in database
+        if (result?.response) {
+          await supabaseClient
+            .from(import.meta.env.VITE_PROMPTS_TBL)
+            .update({
+              user_prompt_result: result.response,
+              output_response: result.response,
+            })
+            .eq('row_id', childPrompt.row_id);
+
+          // If this child is an action node with post_action and has auto_run_children enabled
+          const hasPostAction = !!childPrompt.post_action;
+          const isActionNode = childPrompt.node_type === 'action' || hasPostAction;
+
+          if (isActionNode && hasPostAction && childPrompt.auto_run_children) {
+            try {
+              // Extract JSON and execute post-action
+              const { jsonData } = extractJsonFromResponse(result.response);
+              
+              if (jsonData) {
+                // Process variable assignments if configured
+                if (childPrompt.variable_assignments_config?.enabled) {
+                  const { processVariableAssignments } = await import('@/services/actionExecutors');
+                  await processVariableAssignments({
+                    supabase: supabaseClient,
+                    promptRowId: childPrompt.row_id,
+                    jsonResponse: jsonData,
+                    config: childPrompt.variable_assignments_config,
+                  });
+                }
+
+                // Execute post-action
+                const actionResult = await executePostAction({
+                  supabase: supabaseClient,
+                  prompt: childPrompt,
+                  jsonResponse: jsonData,
+                  actionId: childPrompt.post_action,
+                  config: childPrompt.post_action_config,
+                  context: { userId: childPrompt.owner_id },
+                });
+
+                // Recursive auto-cascade if children were created
+                if (actionResult.success && actionResult.children?.length > 0) {
+                  console.log(`executeChildCascade: Recursing for ${actionResult.children.length} grandchildren at depth ${currentDepth + 1}`);
+                  
+                  const recursiveResult = await executeChildCascade(
+                    actionResult.children,
+                    childPrompt,
+                    {
+                      maxDepth,
+                      currentDepth: currentDepth + 1,
+                      inheritedVariables: templateVariables,
+                    }
+                  );
+
+                  // Add recursive results
+                  results.push(...recursiveResult.results);
+                  
+                  if (recursiveResult.depthLimitReached) {
+                    return { success: true, results, depthLimitReached: true };
+                  }
+                }
+              }
+            } catch (actionError) {
+              console.error('executeChildCascade: Error in child action execution:', actionError);
+              // Continue to next child, don't fail the whole cascade
+            }
+          }
+        }
+
+        toast.success(`Auto-run: ${childPrompt.prompt_name}`, {
+          description: `Depth ${currentDepth + 1}`,
+          source: 'executeChildCascade',
+        });
+
+      } catch (error) {
+        console.error('executeChildCascade: Error running child prompt:', childPrompt.row_id, error);
+        results.push({
+          promptRowId: childPrompt.row_id,
+          promptName: childPrompt.prompt_name,
+          success: false,
+          error: error.message,
+        });
+        // Continue to next child, don't fail the whole cascade
+      }
+    }
+
+    trackEvent('auto_cascade_children_run', {
+      parent_prompt_id: parentPrompt?.row_id,
+      children_count: children.length,
+      success_count: results.filter(r => r.success).length,
+      current_depth: currentDepth,
+    });
+
+    return { success: true, results };
+  }, [runConversation, isCancelled, waitWhilePaused]);
+
   return {
     executeCascade,
     fetchCascadeHierarchy,
     hasChildren,
+    executeChildCascade,
   };
 };

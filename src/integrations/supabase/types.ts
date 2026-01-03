@@ -973,6 +973,7 @@ export type Database = {
       q_prompts: {
         Row: {
           admin_prompt_result: string | null
+          auto_run_children: boolean | null
           best_of: string | null
           best_of_on: boolean | null
           child_thread_strategy: string | null
@@ -1050,10 +1051,12 @@ export type Database = {
           top_p_on: boolean | null
           updated_at: string | null
           user_prompt_result: string | null
+          variable_assignments_config: Json | null
           web_search_on: boolean | null
         }
         Insert: {
           admin_prompt_result?: string | null
+          auto_run_children?: boolean | null
           best_of?: string | null
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
@@ -1131,10 +1134,12 @@ export type Database = {
           top_p_on?: boolean | null
           updated_at?: string | null
           user_prompt_result?: string | null
+          variable_assignments_config?: Json | null
           web_search_on?: boolean | null
         }
         Update: {
           admin_prompt_result?: string | null
+          auto_run_children?: boolean | null
           best_of?: string | null
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
@@ -1212,6 +1217,7 @@ export type Database = {
           top_p_on?: boolean | null
           updated_at?: string | null
           user_prompt_result?: string | null
+          variable_assignments_config?: Json | null
           web_search_on?: boolean | null
         }
         Relationships: [
