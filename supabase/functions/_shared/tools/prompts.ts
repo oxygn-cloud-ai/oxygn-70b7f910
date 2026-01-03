@@ -10,10 +10,8 @@ import { getPromptFamilyTree } from '../promptFamily.ts';
 const TOOL_NAMES = [
   'get_prompt_tree',
   'get_prompt_details',
-  'list_family_files',
-  'read_file_content',
-  'list_family_confluence',
-  'read_confluence_page',
+  // list_family_files, read_file_content - moved to files.ts module
+  // list_family_confluence, read_confluence_page - moved to confluence.ts module
   'list_family_variables',
   'list_json_schemas',
   'get_json_schema_details',
@@ -26,46 +24,8 @@ const TOOL_NAMES = [
 
 type PromptToolName = typeof TOOL_NAMES[number];
 
-/**
- * Get files attached to any prompt in the family
- */
-async function getFamilyFiles(supabase: any, familyPromptIds: string[]): Promise<any[]> {
-  const { data, error } = await supabase
-    .from(TABLES.ASSISTANT_FILES)
-    .select(`
-      row_id,
-      original_filename,
-      mime_type,
-      file_size,
-      upload_status,
-      storage_path,
-      assistant_row_id,
-      q_assistants!inner(prompt_row_id)
-    `)
-    .in('q_assistants.prompt_row_id', familyPromptIds);
-
-  if (error) {
-    console.error('Error fetching family files:', error);
-    return [];
-  }
-  return data || [];
-}
-
-/**
- * Get Confluence pages attached to any prompt in the family
- */
-async function getFamilyConfluencePages(supabase: any, familyPromptIds: string[]): Promise<any[]> {
-  const { data, error } = await supabase
-    .from(TABLES.CONFLUENCE_PAGES)
-    .select('row_id, page_id, page_title, page_url, content_text, sync_status, prompt_row_id')
-    .in('prompt_row_id', familyPromptIds);
-
-  if (error) {
-    console.error('Error fetching family confluence pages:', error);
-    return [];
-  }
-  return data || [];
-}
+// getFamilyFiles moved to files.ts module
+// getFamilyConfluencePages moved to confluence.ts module
 
 /**
  * Get variables from all prompts in the family
@@ -147,64 +107,8 @@ export const promptsModule: ToolModule = {
         },
         strict: true
       },
-      {
-        type: 'function',
-        name: 'list_family_files',
-        description: 'List all files attached to prompts in this family.',
-        parameters: {
-          type: 'object',
-          properties: {},
-          required: [],
-          additionalProperties: false
-        },
-        strict: true
-      },
-      {
-        type: 'function',
-        name: 'read_file_content',
-        description: 'Read the text content of an attached file. Only works for text-based files (txt, md, csv, json, etc).',
-        parameters: {
-          type: 'object',
-          properties: {
-            file_row_id: {
-              type: 'string',
-              description: 'The row_id of the file to read'
-            }
-          },
-          required: ['file_row_id'],
-          additionalProperties: false
-        },
-        strict: true
-      },
-      {
-        type: 'function',
-        name: 'list_family_confluence',
-        description: 'List all Confluence pages attached to prompts in this family.',
-        parameters: {
-          type: 'object',
-          properties: {},
-          required: [],
-          additionalProperties: false
-        },
-        strict: true
-      },
-      {
-        type: 'function',
-        name: 'read_confluence_page',
-        description: 'Read the synced content of an attached Confluence page.',
-        parameters: {
-          type: 'object',
-          properties: {
-            page_id: {
-              type: 'string',
-              description: 'The Confluence page_id to read'
-            }
-          },
-          required: ['page_id'],
-          additionalProperties: false
-        },
-        strict: true
-      },
+      // list_family_files, read_file_content - moved to files.ts module
+      // list_family_confluence, read_confluence_page - moved to confluence.ts module
       {
         type: 'function',
         name: 'list_family_variables',
@@ -414,100 +318,8 @@ export const promptsModule: ToolModule = {
           });
         }
 
-        case 'list_family_files': {
-          const files = await getFamilyFiles(supabase, familyPromptIds);
-          return JSON.stringify({
-            message: `${files.length} files attached to this family`,
-            files: files.map(f => ({
-              row_id: f.row_id,
-              filename: f.original_filename,
-              mime_type: f.mime_type,
-              size: f.file_size,
-              status: f.upload_status
-            }))
-          });
-        }
-
-        case 'read_file_content': {
-          const { file_row_id } = args;
-          
-          const files = await getFamilyFiles(supabase, familyPromptIds);
-          const file = files.find((f: any) => f.row_id === file_row_id);
-          
-          if (!file) {
-            return JSON.stringify({ error: 'File not found in this family' });
-          }
-          
-          const textMimeTypes = [
-            'text/plain', 'text/markdown', 'text/csv', 'text/html', 'text/xml',
-            'application/json', 'application/xml', 'text/x-markdown'
-          ];
-          
-          const isTextFile = textMimeTypes.some(t => file.mime_type?.startsWith(t)) ||
-            file.original_filename?.match(/\.(txt|md|csv|json|xml|html|yml|yaml|log)$/i);
-          
-          if (!isTextFile) {
-            return JSON.stringify({ 
-              error: 'Cannot read binary file content. Only text-based files are supported.',
-              filename: file.original_filename,
-              mime_type: file.mime_type
-            });
-          }
-          
-          if (!file.storage_path) {
-            return JSON.stringify({ error: 'File has no storage path' });
-          }
-          
-          const { data: fileData, error: downloadError } = await supabase.storage
-            .from('assistant-files')
-            .download(file.storage_path);
-          
-          if (downloadError || !fileData) {
-            console.error('File download error:', downloadError);
-            return JSON.stringify({ error: 'Failed to download file from storage' });
-          }
-          
-          const content = await fileData.text();
-          const truncated = content.length > 50000;
-          
-          return JSON.stringify({
-            filename: file.original_filename,
-            mime_type: file.mime_type,
-            size: file.file_size,
-            truncated,
-            content: truncated ? content.slice(0, 50000) + '\n\n[Content truncated at 50KB]' : content
-          });
-        }
-
-        case 'list_family_confluence': {
-          const pages = await getFamilyConfluencePages(supabase, familyPromptIds);
-          return JSON.stringify({
-            message: `${pages.length} Confluence pages attached`,
-            pages: pages.map(p => ({
-              row_id: p.row_id,
-              page_id: p.page_id,
-              title: p.page_title,
-              url: p.page_url,
-              sync_status: p.sync_status
-            }))
-          });
-        }
-
-        case 'read_confluence_page': {
-          const { page_id } = args;
-          const pages = await getFamilyConfluencePages(supabase, familyPromptIds);
-          const page = pages.find(p => p.page_id === page_id);
-          
-          if (!page) {
-            return JSON.stringify({ error: 'Page not found in this family' });
-          }
-
-          return JSON.stringify({
-            title: page.page_title,
-            content: page.content_text || '(Content not synced yet)',
-            url: page.page_url
-          });
-        }
+        // list_family_files, read_file_content - moved to files.ts module
+        // list_family_confluence, read_confluence_page - moved to confluence.ts module
 
         case 'list_family_variables': {
           const variables = await getFamilyVariables(supabase, familyPromptIds);

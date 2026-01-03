@@ -123,6 +123,9 @@ export function getToolsForScope(
   scope: ToolScope,
   context: ToolContext
 ): ToolDefinition[] {
+  // Build handler cache proactively for O(1) lookups
+  buildHandlerCache();
+  
   const tools: ToolDefinition[] = [];
   
   for (const module of MODULES) {
