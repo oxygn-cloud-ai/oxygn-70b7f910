@@ -1,11 +1,7 @@
 /**
  * GitHub API utilities for Qonsol AI workbench
- * Provides read-only access to the Qonsol repository
+ * Provides read-only access to the application source code repository
  */
-
-// Default repo configuration - can be overridden via env vars
-const DEFAULT_OWNER = 'chocolate-funding';
-const DEFAULT_REPO = 'qonsol';
 
 interface GitHubFile {
   name: string;
@@ -35,8 +31,8 @@ interface GitHubSearchResult {
 export async function listGithubFiles(
   path: string = '',
   token: string,
-  owner: string = Deno.env.get('GITHUB_OWNER') || DEFAULT_OWNER,
-  repo: string = Deno.env.get('GITHUB_REPO') || DEFAULT_REPO
+  owner: string,
+  repo: string
 ): Promise<GitHubFile[]> {
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
   
@@ -82,8 +78,8 @@ export async function listGithubFiles(
 export async function readGithubFile(
   filePath: string,
   token: string,
-  owner: string = Deno.env.get('GITHUB_OWNER') || DEFAULT_OWNER,
-  repo: string = Deno.env.get('GITHUB_REPO') || DEFAULT_REPO,
+  owner: string,
+  repo: string,
   maxSize: number = 50000  // 50KB default limit
 ): Promise<GitHubFileContent> {
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
@@ -139,8 +135,8 @@ export async function readGithubFile(
 export async function searchGithubCode(
   query: string,
   token: string,
-  owner: string = Deno.env.get('GITHUB_OWNER') || DEFAULT_OWNER,
-  repo: string = Deno.env.get('GITHUB_REPO') || DEFAULT_REPO,
+  owner: string,
+  repo: string,
   fileExtension?: string,
   maxResults: number = 10
 ): Promise<GitHubSearchResult[]> {
@@ -184,8 +180,8 @@ export async function searchGithubCode(
  */
 export async function getRepositoryTree(
   token: string,
-  owner: string = Deno.env.get('GITHUB_OWNER') || DEFAULT_OWNER,
-  repo: string = Deno.env.get('GITHUB_REPO') || DEFAULT_REPO,
+  owner: string,
+  repo: string,
   path: string = '',
   recursive: boolean = false
 ): Promise<GitHubFile[]> {
@@ -246,7 +242,7 @@ export function getGithubTools() {
     {
       type: "function",
       name: "github_list_files",
-      description: "List files and directories at a path in the Qonsol source code repository. Use empty string for root directory.",
+      description: "List files and directories at a path in the application source code. Use empty string for root directory.",
       parameters: {
         type: "object",
         properties: {
@@ -262,7 +258,7 @@ export function getGithubTools() {
     {
       type: "function",
       name: "github_read_file",
-      description: "Read the content of a source code file from the Qonsol repository. Large files are automatically truncated.",
+      description: "Read the content of a source code file. Large files are automatically truncated.",
       parameters: {
         type: "object",
         properties: {
@@ -278,7 +274,7 @@ export function getGithubTools() {
     {
       type: "function",
       name: "github_search_code",
-      description: "Search for code patterns, function names, or text in the Qonsol repository.",
+      description: "Search for code patterns, function names, or text in the application source code.",
       parameters: {
         type: "object",
         properties: {
@@ -298,7 +294,7 @@ export function getGithubTools() {
     {
       type: "function",
       name: "github_get_structure",
-      description: "Get the full directory structure of the Qonsol repository or a subdirectory. Useful for understanding codebase organization.",
+      description: "Get the full directory structure of the application source code or a subdirectory. Useful for understanding codebase organization.",
       parameters: {
         type: "object",
         properties: {
@@ -320,13 +316,20 @@ export function getGithubTools() {
 export async function handleGithubToolCall(
   toolName: string,
   args: any,
-  token: string
+  token: string,
+  owner: string,
+  repo: string
 ): Promise<string> {
+  // Validate required parameters
+  if (!owner || !repo) {
+    return JSON.stringify({ error: 'GitHub repository not configured' });
+  }
+
   try {
     switch (toolName) {
       case 'github_list_files': {
         const { path = '' } = args;
-        const files = await listGithubFiles(path, token);
+        const files = await listGithubFiles(path, token, owner, repo);
         return JSON.stringify({
           path: path || '/',
           count: files.length,
@@ -344,7 +347,7 @@ export async function handleGithubToolCall(
         if (!file_path) {
           return JSON.stringify({ error: 'file_path is required' });
         }
-        const file = await readGithubFile(file_path, token);
+        const file = await readGithubFile(file_path, token, owner, repo);
         return JSON.stringify({
           path: file_path,
           size: file.size,
@@ -358,7 +361,7 @@ export async function handleGithubToolCall(
         if (!query) {
           return JSON.stringify({ error: 'query is required' });
         }
-        const results = await searchGithubCode(query, token, undefined, undefined, file_extension);
+        const results = await searchGithubCode(query, token, owner, repo, file_extension);
         return JSON.stringify({
           query,
           count: results.length,
@@ -371,7 +374,7 @@ export async function handleGithubToolCall(
 
       case 'github_get_structure': {
         const { path = '' } = args;
-        const files = await getRepositoryTree(token, undefined, undefined, path, true);
+        const files = await getRepositoryTree(token, owner, repo, path, true);
         
         // Group by directory for cleaner output
         const structure: Record<string, string[]> = {};
