@@ -52,3 +52,4 @@ export { variablesModule } from './variables.ts';
 export { templatesModule } from './templates.ts';
 export { confluenceModule } from './confluence.ts';
 export { filesModule } from './files.ts';
+export { githubModule } from './github.ts';
