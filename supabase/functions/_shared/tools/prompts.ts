@@ -83,6 +83,24 @@ interface ParsedSSEResult {
   error?: string;
 }
 
+/**
+ * Fetch with timeout using AbortController
+ */
+async function fetchWithTimeout(
+  url: string, 
+  options: RequestInit, 
+  timeoutMs: number = 120000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function parseSSEResponse(sseText: string): ParsedSSEResult {
   const lines = sseText.split('\n');
   let result: ParsedSSEResult = { success: false, error: 'No response received' };
@@ -137,16 +155,21 @@ async function resolvePromptId(
   }
   
   if (promptName) {
-    const { data: prompt } = await supabase
+    const { data: prompts } = await supabase
       .from(TABLES.PROMPTS)
       .select('row_id, prompt_name, owner_id')
       .ilike('prompt_name', promptName)
       .eq('owner_id', userId)
-      .eq('is_deleted', false)
-      .maybeSingle();
+      .eq('is_deleted', false);
     
-    if (!prompt) return { error: `Prompt "${promptName}" not found` };
-    return { row_id: prompt.row_id, prompt_name: prompt.prompt_name };
+    if (!prompts || prompts.length === 0) {
+      return { error: `Prompt "${promptName}" not found` };
+    }
+    if (prompts.length > 1) {
+      const names = prompts.map((p: any) => p.prompt_name).join(', ');
+      return { error: `Multiple prompts match "${promptName}": ${names}. Use prompt_id instead.` };
+    }
+    return { row_id: prompts[0].row_id, prompt_name: prompts[0].prompt_name };
   }
   
   return { error: 'Either prompt_id or prompt_name required' };
@@ -798,23 +821,28 @@ export const promptsModule: ToolModule = {
           }
           
           console.log(`run_prompt: Executing "${resolved.prompt_name}" (${resolved.row_id})`);
+          // Note: Recursion prevention is limited to single-level - nested AI tool calls not tracked across edge function boundaries
           
           try {
             const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/conversation-run`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${context.accessToken}`,
+            const response = await fetchWithTimeout(
+              `${SUPABASE_URL}/functions/v1/conversation-run`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${context.accessToken}`,
+                },
+                body: JSON.stringify({
+                  child_prompt_row_id: resolved.row_id,
+                  user_message: user_message || 'Execute this prompt',
+                  template_variables: variables || {},
+                  store_in_history: false,
+                  thread_mode: 'new',
+                }),
               },
-              body: JSON.stringify({
-                child_prompt_row_id: resolved.row_id,
-                user_message: user_message || 'Execute this prompt',
-                template_variables: variables || {},
-                store_in_history: false,
-                thread_mode: 'new',
-              }),
-            });
+              120000 // 2 minute timeout for single prompt
+            );
             
             if (!response.ok) {
               const errorText = await response.text();
@@ -869,20 +897,24 @@ export const promptsModule: ToolModule = {
               }
               
               try {
-                const response = await fetch(`${SUPABASE_URL}/functions/v1/conversation-run`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${context.accessToken}`,
+                const response = await fetchWithTimeout(
+                  `${SUPABASE_URL}/functions/v1/conversation-run`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${context.accessToken}`,
+                    },
+                    body: JSON.stringify({
+                      child_prompt_row_id: prompt.row_id,
+                      user_message: 'Execute this prompt',
+                      template_variables: accumulatedVars,
+                      store_in_history: false,
+                      thread_mode: 'new',
+                    }),
                   },
-                  body: JSON.stringify({
-                    child_prompt_row_id: prompt.row_id,
-                    user_message: 'Execute this prompt',
-                    template_variables: accumulatedVars,
-                    store_in_history: false,
-                    thread_mode: 'new',
-                  }),
-                });
+                  180000 // 3 minute timeout per prompt in cascade
+                );
                 
                 const parsed = parseSSEResponse(await response.text());
                 results.push({
@@ -897,6 +929,7 @@ export const promptsModule: ToolModule = {
                 if (parsed.success && parsed.response) {
                   lastOutput = parsed.response;
                   accumulatedVars['cascade_previous_response'] = parsed.response;
+                  accumulatedVars[`output_${prompt.row_id}`] = parsed.response;
                 }
               } catch (fetchError: any) {
                 console.error(`run_cascade: Error executing "${prompt.prompt_name}":`, fetchError);
@@ -916,6 +949,13 @@ export const promptsModule: ToolModule = {
           
           console.log(`run_cascade: Completed. Success: ${successCount}, Failed: ${failCount}, Skipped: ${skipCount}`);
           
+          // Limit output size for large cascades to avoid response size issues
+          const MAX_RESULTS_WITH_OUTPUT = 20;
+          const limitedResults = results.map((r, idx) => ({
+            ...r,
+            output: idx < MAX_RESULTS_WITH_OUTPUT ? r.output : (r.output ? '[output omitted - cascade too large]' : undefined)
+          }));
+          
           return JSON.stringify({
             cascade_root: resolved.row_id,
             cascade_root_name: resolved.prompt_name,
@@ -925,7 +965,7 @@ export const promptsModule: ToolModule = {
               failed: failCount,
               skipped: skipCount,
             },
-            results,
+            results: limitedResults,
             final_output: lastOutput?.substring(0, 2000),
           });
         }
