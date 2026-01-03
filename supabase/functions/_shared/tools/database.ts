@@ -52,16 +52,16 @@ export const databaseModule: ToolModule = {
       {
         type: 'function',
         name: 'get_database_schema',
-        description: 'Get information about database tables. Call without parameters to list all tables, or with table_name to get column details for a specific table.',
+        description: 'Get information about database tables. Pass null to list all tables, or pass a table name to get column details for that specific table.',
         parameters: {
           type: 'object',
           properties: {
             table_name: {
-              type: 'string',
-              description: 'Optional: specific table name to get column details for'
+              type: ['string', 'null'],
+              description: 'Specific table name to get column details for, or null to list all tables'
             }
           },
-          required: [],
+          required: ['table_name'],
           additionalProperties: false
         },
         strict: true
@@ -83,7 +83,8 @@ export const databaseModule: ToolModule = {
     const { table_name } = args;
 
     try {
-      if (table_name) {
+      // table_name can be null (list all tables) or a string (get specific table schema)
+      if (table_name && typeof table_name === 'string') {
         // Get schema for specific table by sampling data
         const { data: sample, error: sampleError } = await supabase
           .from(table_name)

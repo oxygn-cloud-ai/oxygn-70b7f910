@@ -31,11 +31,11 @@ export const templatesModule: ToolModule = {
           type: 'object',
           properties: {
             category: {
-              type: 'string',
-              description: 'Filter by category (optional)'
+              type: ['string', 'null'],
+              description: 'Filter by category (null to list all categories)'
             }
           },
-          required: [],
+          required: ['category'],
           additionalProperties: false
         },
         strict: true
