@@ -19,6 +19,7 @@ import { databaseModule } from './database.ts';
 import { variablesModule } from './variables.ts';
 import { templatesModule } from './templates.ts';
 import { confluenceModule } from './confluence.ts';
+import { filesModule } from './files.ts';
 
 /**
  * All registered tool modules
@@ -31,6 +32,7 @@ const MODULES: ToolModule[] = [
   variablesModule,
   templatesModule,
   confluenceModule,
+  filesModule,
 ];
 
 // Handler cache for O(1) lookups
