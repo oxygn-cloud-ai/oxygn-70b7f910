@@ -531,6 +531,22 @@ serve(async (req) => {
     
     const { familyPromptIds, familySummary, tree: cachedTree, rootId } = familyData;
     
+    // Build promptsMap for delete/duplicate operations to find children
+    const promptsMap = new Map<string, { row_id: string; parent_row_id: string | null }>();
+    function buildPromptsMap(node: any) {
+      if (!node) return;
+      promptsMap.set(node.row_id, { 
+        row_id: node.row_id, 
+        parent_row_id: node.parent_row_id || null 
+      });
+      if (node.children) {
+        for (const child of node.children) {
+          buildPromptsMap(child);
+        }
+      }
+    }
+    if (cachedTree) buildPromptsMap(cachedTree);
+    
     // Now get/create thread using the resolved rootId (avoids duplicate root walk)
     const familyThread = await getOrCreateFamilyThread(
       supabase,
@@ -602,7 +618,8 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         familyContext: {
           promptRowId: prompt_row_id,
           familyPromptIds,
-          cachedTree
+          cachedTree,
+          promptsMap
         },
         credentials: {
           openAIApiKey
