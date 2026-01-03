@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Menu,
   FileText, 
-  MessageSquare, 
   LayoutTemplate, 
   Settings, 
   Heart,
@@ -101,9 +100,8 @@ const NavigationRail = ({
   const navItems = [
     { id: "prompts", icon: FileText, label: "Prompts", shortcut: "1" },
     { id: "templates", icon: LayoutTemplate, label: "Templates", shortcut: "2" },
-    { id: "workbench", icon: MessageSquare, label: "Workbench", shortcut: "3" },
-    { id: "settings", icon: Settings, label: "Settings", shortcut: "4" },
-    { id: "health", icon: Heart, label: "Health", shortcut: "5" },
+    { id: "settings", icon: Settings, label: "Settings", shortcut: "3" },
+    { id: "health", icon: Heart, label: "Health", shortcut: "4" },
   ];
 
   const [hoveredId, setHoveredId] = useState(null);

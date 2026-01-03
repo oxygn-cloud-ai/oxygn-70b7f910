@@ -24,10 +24,6 @@ import { useThreads } from "@/hooks/useThreads";
 import { useExport } from "@/hooks/useExport";
 import { useSettings } from "@/hooks/useSettings";
 import { useModels } from "@/hooks/useModels";
-import { useWorkbenchThreads } from "@/hooks/useWorkbenchThreads";
-import { useWorkbenchMessages } from "@/hooks/useWorkbenchMessages";
-import { useWorkbenchFiles } from "@/hooks/useWorkbenchFiles";
-import { useWorkbenchConfluence } from "@/hooks/useWorkbenchConfluence";
 import { usePromptLibrary } from "@/hooks/usePromptLibrary";
 import { useTemplates } from "@/hooks/useTemplates";
 import { useJsonSchemaTemplates } from "@/hooks/useJsonSchemaTemplates";
@@ -163,11 +159,7 @@ const MainLayout = () => {
   // Models hook - Phase 6
   const { models, isLoading: isLoadingModels, toggleModelActive, addModel, updateModel, deleteModel } = useModels();
   
-  // Workbench hooks - Phase 3
-  const workbenchThreads = useWorkbenchThreads();
-  const workbenchMessages = useWorkbenchMessages();
-  const workbenchFiles = useWorkbenchFiles();
-  const workbenchConfluence = useWorkbenchConfluence();
+  // Prompt library hook (used by templates/prompts)
   const promptLibrary = usePromptLibrary();
   
   // Template hooks - Phase 8-9
@@ -1073,14 +1065,12 @@ const MainLayout = () => {
       setActiveSubItem("qonsol");
     } else if (activeNav === "health" && !activeSubItem) {
       setActiveSubItem("overview");
-    } else if (activeNav === "workbench" && !activeSubItem) {
-      setActiveSubItem("new-conversation");
     }
   }, [activeNav]);
 
   // Auto-open reading pane for views that always need it
   useEffect(() => {
-    const viewsRequiringReadingPane = ['templates', 'workbench', 'settings', 'health'];
+    const viewsRequiringReadingPane = ['templates', 'settings', 'health'];
     if (viewsRequiringReadingPane.includes(activeNav)) {
       setReadingPaneOpen(true);
     }
@@ -1328,11 +1318,7 @@ const MainLayout = () => {
                         // Phase 4 - Cost analytics and conversation defaults
                         costTracking={costTracking}
                         conversationToolDefaults={conversationToolDefaults}
-                        // Workbench props for Phase 3
-                        workbenchThreads={workbenchThreads}
-                        workbenchMessages={workbenchMessages}
-                        workbenchFiles={workbenchFiles}
-                        workbenchConfluence={workbenchConfluence}
+                        // Prompt library for templates
                         promptLibrary={promptLibrary}
                         // Templates props for Phase 8-9
                         templatesHook={templatesHook}
