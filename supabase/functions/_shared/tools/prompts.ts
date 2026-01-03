@@ -167,20 +167,20 @@ export const promptsModule: ToolModule = {
               description: 'Name for the new prompt'
             },
             input_admin_prompt: {
-              type: 'string',
-              description: 'System/admin prompt content (optional)'
+              type: ['string', 'null'],
+              description: 'System/admin prompt content (optional, pass null to skip)'
             },
             input_user_prompt: {
-              type: 'string',
-              description: 'User prompt content (optional)'
+              type: ['string', 'null'],
+              description: 'User prompt content (optional, pass null to skip)'
             },
             node_type: {
-              type: 'string',
-              enum: ['standard', 'action'],
-              description: 'Type of prompt node (default: standard)'
+              type: ['string', 'null'],
+              enum: ['standard', 'action', null],
+              description: 'Type of prompt node (default: standard, pass null for default)'
             }
           },
-          required: ['parent_row_id', 'prompt_name'],
+          required: ['parent_row_id', 'prompt_name', 'input_admin_prompt', 'input_user_prompt', 'node_type'],
           additionalProperties: false
         },
         strict: true
@@ -188,7 +188,7 @@ export const promptsModule: ToolModule = {
       {
         type: 'function',
         name: 'update_prompt',
-        description: 'Update fields of an existing prompt in this family.',
+        description: 'Update fields of an existing prompt in this family. Pass null for fields you do not want to update.',
         parameters: {
           type: 'object',
           properties: {
@@ -197,27 +197,27 @@ export const promptsModule: ToolModule = {
               description: 'The row_id of the prompt to update'
             },
             prompt_name: {
-              type: 'string',
-              description: 'New name for the prompt'
+              type: ['string', 'null'],
+              description: 'New name for the prompt (null to keep current)'
             },
             input_admin_prompt: {
-              type: 'string',
-              description: 'New system/admin prompt content'
+              type: ['string', 'null'],
+              description: 'New system/admin prompt content (null to keep current)'
             },
             input_user_prompt: {
-              type: 'string',
-              description: 'New user prompt content'
+              type: ['string', 'null'],
+              description: 'New user prompt content (null to keep current)'
             },
             note: {
-              type: 'string',
-              description: 'Note/documentation for the prompt'
+              type: ['string', 'null'],
+              description: 'Note/documentation for the prompt (null to keep current)'
             },
             model: {
-              type: 'string',
-              description: 'Model to use (e.g., gpt-4o, gpt-4o-mini)'
+              type: ['string', 'null'],
+              description: 'Model to use (e.g., gpt-4o, gpt-4o-mini) (null to keep current)'
             }
           },
-          required: ['prompt_row_id'],
+          required: ['prompt_row_id', 'prompt_name', 'input_admin_prompt', 'input_user_prompt', 'note', 'model'],
           additionalProperties: false
         },
         strict: true
@@ -251,11 +251,11 @@ export const promptsModule: ToolModule = {
               description: 'The row_id of the prompt to duplicate'
             },
             include_children: {
-              type: 'boolean',
-              description: 'Whether to also duplicate child prompts (default: false)'
+              type: ['boolean', 'null'],
+              description: 'Whether to also duplicate child prompts (default: false, pass null for default)'
             }
           },
-          required: ['prompt_row_id'],
+          required: ['prompt_row_id', 'include_children'],
           additionalProperties: false
         },
         strict: true
@@ -433,18 +433,18 @@ export const promptsModule: ToolModule = {
             return JSON.stringify({ error: 'Prompt not in this family' });
           }
 
-          // Filter out undefined values and build update object
+          // Filter out null/undefined values and build update object
           const updateData: Record<string, any> = {};
           const allowedFields = ['prompt_name', 'input_admin_prompt', 'input_user_prompt', 'note', 'model'];
           
           for (const field of allowedFields) {
-            if (updates[field] !== undefined) {
+            if (updates[field] !== undefined && updates[field] !== null) {
               updateData[field] = updates[field];
             }
           }
 
           if (Object.keys(updateData).length === 0) {
-            return JSON.stringify({ error: 'No valid fields to update' });
+            return JSON.stringify({ error: 'No valid fields to update. Pass non-null values for fields you want to change.' });
           }
 
           updateData.updated_at = new Date().toISOString();
