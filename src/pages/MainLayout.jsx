@@ -668,6 +668,7 @@ const MainLayout = () => {
         userMessage: message,
         threadMode: selectedPromptData?.thread_mode || 'reuse',
         existingThreadRowId: threadToUse?.row_id,
+        store_in_history: true,
       });
       
       // Refresh messages for the active thread
