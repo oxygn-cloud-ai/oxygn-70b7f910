@@ -67,7 +67,7 @@ const NewPromptChoiceDialog = ({
   const isTopLevel = parentId === null;
 
   const filteredTemplates = templates.filter(t => 
-    t.template_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.template_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
