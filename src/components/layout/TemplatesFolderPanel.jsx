@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useDrag, useDrop } from "react-dnd";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { trackEvent } from "@/lib/posthog";
+import { toast } from "@/components/ui/sonner";
 
 const ITEM_TYPE = "TEMPLATE_ITEM";
 
@@ -259,11 +260,13 @@ const TemplatesFolderPanel = ({
       const newTemplate = await onDuplicateTemplate(template);
       if (newTemplate) {
         onSelectTemplate?.(newTemplate);
+        toast.success(`Template "${newTemplate.template_name}" created`);
       }
     } else if (activeType === "schemas" && onDuplicateSchema) {
       const newSchema = await onDuplicateSchema(template);
       if (newSchema) {
         onSelectTemplate?.(newSchema);
+        toast.success(`Schema "${newSchema.schema_name}" created`);
       }
     }
   };
