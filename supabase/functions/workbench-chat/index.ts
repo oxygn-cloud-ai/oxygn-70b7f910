@@ -48,7 +48,7 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user, supabase };
 }
 
-// Tool definitions for workbench
+// Tool definitions for workbench - Using Chat Completions API format (nested function property)
 function getWorkbenchTools(config: {
   hasPrompts: boolean;
   hasLibrary: boolean;
@@ -64,140 +64,156 @@ function getWorkbenchTools(config: {
     tools.push(getQonsolHelpTool());
   }
 
-  // Prompt tools - Using Responses API flat format (name at top level)
+  // Prompt tools
   if (config.hasPrompts) {
     tools.push({
       type: "function",
-      name: "list_prompts",
-      description: "List all prompts in the project tree with their names and IDs. Use this to discover available prompts before executing them.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false
+      function: {
+        name: "list_prompts",
+        description: "List all prompts in the project tree with their names and IDs. Use this to discover available prompts before executing them.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        }
       }
     });
 
     tools.push({
       type: "function",
-      name: "get_prompt_details",
-      description: "Get detailed information about a specific prompt including its system prompt, user prompt template, and variables.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt_row_id: {
-            type: "string",
-            description: "The row_id of the prompt to retrieve"
-          }
-        },
-        required: ["prompt_row_id"],
-        additionalProperties: false
-      }
-    });
-
-    tools.push({
-      type: "function",
-      name: "execute_prompt",
-      description: "Execute a prompt with optional variable substitutions and return the AI response.",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt_row_id: {
-            type: "string",
-            description: "The row_id of the prompt to execute"
+      function: {
+        name: "get_prompt_details",
+        description: "Get detailed information about a specific prompt including its system prompt, user prompt template, and variables.",
+        parameters: {
+          type: "object",
+          properties: {
+            prompt_row_id: {
+              type: "string",
+              description: "The row_id of the prompt to retrieve"
+            }
           },
-          variables: {
-            type: "object",
-            description: "Key-value pairs to substitute in the prompt template",
-            additionalProperties: { type: "string" }
-          }
-        },
-        required: ["prompt_row_id"],
-        additionalProperties: false
+          required: ["prompt_row_id"],
+          additionalProperties: false
+        }
+      }
+    });
+
+    tools.push({
+      type: "function",
+      function: {
+        name: "execute_prompt",
+        description: "Execute a prompt with optional variable substitutions and return the AI response.",
+        parameters: {
+          type: "object",
+          properties: {
+            prompt_row_id: {
+              type: "string",
+              description: "The row_id of the prompt to execute"
+            },
+            variables: {
+              type: "object",
+              description: "Key-value pairs to substitute in the prompt template",
+              additionalProperties: { type: "string" }
+            }
+          },
+          required: ["prompt_row_id"],
+          additionalProperties: false
+        }
       }
     });
   }
 
-  // Library tools - Using Responses API flat format
+  // Library tools
   if (config.hasLibrary) {
     tools.push({
       type: "function",
-      name: "list_library",
-      description: "List all items in the user's prompt library including shared items.",
-      parameters: {
-        type: "object",
-        properties: {
-          category: {
-            type: "string",
-            description: "Optional category to filter by"
-          }
-        },
-        required: [],
-        additionalProperties: false
+      function: {
+        name: "list_library",
+        description: "List all items in the user's prompt library including shared items.",
+        parameters: {
+          type: "object",
+          properties: {
+            category: {
+              type: "string",
+              description: "Optional category to filter by"
+            }
+          },
+          required: [],
+          additionalProperties: false
+        }
       }
     });
 
     tools.push({
       type: "function",
-      name: "get_library_item",
-      description: "Get the full content of a library item by its ID.",
-      parameters: {
-        type: "object",
-        properties: {
-          row_id: {
-            type: "string",
-            description: "The row_id of the library item"
-          }
-        },
-        required: ["row_id"],
-        additionalProperties: false
+      function: {
+        name: "get_library_item",
+        description: "Get the full content of a library item by its ID.",
+        parameters: {
+          type: "object",
+          properties: {
+            row_id: {
+              type: "string",
+              description: "The row_id of the library item"
+            }
+          },
+          required: ["row_id"],
+          additionalProperties: false
+        }
       }
     });
   }
 
-  // Confluence tools - Using Responses API flat format
+  // Confluence tools
   if (config.hasConfluence) {
     tools.push({
       type: "function",
-      name: "confluence_list_attached",
-      description: "List all Confluence pages attached to this workbench thread.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false
+      function: {
+        name: "confluence_list_attached",
+        description: "List all Confluence pages attached to this workbench thread.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        }
       }
     });
 
     tools.push({
       type: "function",
-      name: "confluence_read_attached",
-      description: "Read the content of an attached Confluence page.",
-      parameters: {
-        type: "object",
-        properties: {
-          page_id: {
-            type: "string",
-            description: "The Confluence page ID"
-          }
-        },
-        required: ["page_id"],
-        additionalProperties: false
+      function: {
+        name: "confluence_read_attached",
+        description: "Read the content of an attached Confluence page.",
+        parameters: {
+          type: "object",
+          properties: {
+            page_id: {
+              type: "string",
+              description: "The Confluence page ID"
+            }
+          },
+          required: ["page_id"],
+          additionalProperties: false
+        }
       }
     });
   }
 
-  // File tools - Using Responses API flat format
+  // File tools
   if (config.hasFiles) {
     tools.push({
       type: "function",
-      name: "list_files",
-      description: "List all files attached to this workbench thread.",
-      parameters: {
-        type: "object",
-        properties: {},
-        required: [],
-        additionalProperties: false
+      function: {
+        name: "list_files",
+        description: "List all files attached to this workbench thread.",
+        parameters: {
+          type: "object",
+          properties: {},
+          required: [],
+          additionalProperties: false
+        }
       }
     });
   }
@@ -207,21 +223,23 @@ function getWorkbenchTools(config: {
     tools.push(...getGithubTools());
   }
 
-  // Database schema tool - always available, using Responses API flat format
+  // Database schema tool - always available
   tools.push({
     type: "function",
-    name: "get_database_schema",
-    description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships. Use this to understand the data model.",
-    parameters: {
-      type: "object",
-      properties: {
-        table_name: {
-          type: "string",
-          description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
-        }
-      },
-      required: [],
-      additionalProperties: false
+    function: {
+      name: "get_database_schema",
+      description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships. Use this to understand the data model.",
+      parameters: {
+        type: "object",
+        properties: {
+          table_name: {
+            type: "string",
+            description: "Optional specific table name to get details for. If not provided, returns all q_* tables."
+          }
+        },
+        required: [],
+        additionalProperties: false
+      }
     }
   });
 
