@@ -16,7 +16,12 @@ const TOOL_NAMES = [
   'read_confluence_page',
   'list_family_variables',
   'list_json_schemas',
-  'get_json_schema_details'
+  'get_json_schema_details',
+  // Write operations
+  'create_prompt',
+  'update_prompt',
+  'delete_prompt',
+  'duplicate_prompt'
 ] as const;
 
 type PromptToolName = typeof TOOL_NAMES[number];
@@ -240,6 +245,116 @@ export const promptsModule: ToolModule = {
           additionalProperties: false
         },
         strict: true
+      },
+      // Write operations
+      {
+        type: 'function',
+        name: 'create_prompt',
+        description: 'Create a new child prompt under an existing prompt in this family. Returns the new prompt row_id.',
+        parameters: {
+          type: 'object',
+          properties: {
+            parent_row_id: {
+              type: 'string',
+              description: 'The row_id of the parent prompt to create the child under'
+            },
+            prompt_name: {
+              type: 'string',
+              description: 'Name for the new prompt'
+            },
+            input_admin_prompt: {
+              type: 'string',
+              description: 'System/admin prompt content (optional)'
+            },
+            input_user_prompt: {
+              type: 'string',
+              description: 'User prompt content (optional)'
+            },
+            node_type: {
+              type: 'string',
+              enum: ['standard', 'action'],
+              description: 'Type of prompt node (default: standard)'
+            }
+          },
+          required: ['parent_row_id', 'prompt_name'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      {
+        type: 'function',
+        name: 'update_prompt',
+        description: 'Update fields of an existing prompt in this family.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt_row_id: {
+              type: 'string',
+              description: 'The row_id of the prompt to update'
+            },
+            prompt_name: {
+              type: 'string',
+              description: 'New name for the prompt'
+            },
+            input_admin_prompt: {
+              type: 'string',
+              description: 'New system/admin prompt content'
+            },
+            input_user_prompt: {
+              type: 'string',
+              description: 'New user prompt content'
+            },
+            note: {
+              type: 'string',
+              description: 'Note/documentation for the prompt'
+            },
+            model: {
+              type: 'string',
+              description: 'Model to use (e.g., gpt-4o, gpt-4o-mini)'
+            }
+          },
+          required: ['prompt_row_id'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      {
+        type: 'function',
+        name: 'delete_prompt',
+        description: 'Soft-delete a prompt and all its children. Use with caution.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt_row_id: {
+              type: 'string',
+              description: 'The row_id of the prompt to delete'
+            }
+          },
+          required: ['prompt_row_id'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      {
+        type: 'function',
+        name: 'duplicate_prompt',
+        description: 'Create a copy of an existing prompt (and optionally its children).',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt_row_id: {
+              type: 'string',
+              description: 'The row_id of the prompt to duplicate'
+            },
+            include_children: {
+              type: 'boolean',
+              description: 'Whether to also duplicate child prompts (default: false)'
+            }
+          },
+          required: ['prompt_row_id'],
+          additionalProperties: false
+        },
+        strict: true
       }
     ];
   },
@@ -438,6 +553,236 @@ export const promptsModule: ToolModule = {
             json_schema: schema.json_schema,
             action_config: schema.action_config,
             child_creation: schema.child_creation
+          });
+        }
+
+        // Write operations
+        case 'create_prompt': {
+          const { parent_row_id, prompt_name, input_admin_prompt, input_user_prompt, node_type } = args;
+          
+          // Validate parent is in family
+          if (!familyPromptIds.includes(parent_row_id)) {
+            return JSON.stringify({ error: 'Parent prompt not in this family' });
+          }
+
+          // Get parent to inherit settings
+          const { data: parent } = await supabase
+            .from(TABLES.PROMPTS)
+            .select('model, thread_mode, owner_id')
+            .eq('row_id', parent_row_id)
+            .single();
+
+          // Calculate position (append at end)
+          const { data: siblings } = await supabase
+            .from(TABLES.PROMPTS)
+            .select('position')
+            .eq('parent_row_id', parent_row_id)
+            .eq('is_deleted', false)
+            .order('position', { ascending: false })
+            .limit(1);
+
+          const newPosition = (siblings?.[0]?.position ?? 0) + 1;
+
+          // Create the prompt
+          const { data: newPrompt, error: insertError } = await supabase
+            .from(TABLES.PROMPTS)
+            .insert({
+              parent_row_id,
+              prompt_name,
+              input_admin_prompt: input_admin_prompt || null,
+              input_user_prompt: input_user_prompt || null,
+              node_type: node_type || 'standard',
+              model: parent?.model || 'gpt-4o',
+              thread_mode: parent?.thread_mode || 'inherit',
+              owner_id: context.userId,
+              position: newPosition,
+              is_deleted: false
+            })
+            .select('row_id, prompt_name')
+            .single();
+
+          if (insertError || !newPrompt) {
+            console.error('Create prompt error:', insertError);
+            return JSON.stringify({ error: 'Failed to create prompt' });
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: `Created prompt "${newPrompt.prompt_name}"`,
+            row_id: newPrompt.row_id
+          });
+        }
+
+        case 'update_prompt': {
+          const { prompt_row_id, ...updates } = args;
+          
+          // Validate prompt is in family
+          if (!familyPromptIds.includes(prompt_row_id)) {
+            return JSON.stringify({ error: 'Prompt not in this family' });
+          }
+
+          // Filter out undefined values and build update object
+          const updateData: Record<string, any> = {};
+          const allowedFields = ['prompt_name', 'input_admin_prompt', 'input_user_prompt', 'note', 'model'];
+          
+          for (const field of allowedFields) {
+            if (updates[field] !== undefined) {
+              updateData[field] = updates[field];
+            }
+          }
+
+          if (Object.keys(updateData).length === 0) {
+            return JSON.stringify({ error: 'No valid fields to update' });
+          }
+
+          updateData.updated_at = new Date().toISOString();
+
+          const { error: updateError } = await supabase
+            .from(TABLES.PROMPTS)
+            .update(updateData)
+            .eq('row_id', prompt_row_id);
+
+          if (updateError) {
+            console.error('Update prompt error:', updateError);
+            return JSON.stringify({ error: 'Failed to update prompt' });
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: `Updated prompt with fields: ${Object.keys(updateData).join(', ')}`,
+            updated_fields: Object.keys(updateData)
+          });
+        }
+
+        case 'delete_prompt': {
+          const { prompt_row_id } = args;
+          
+          // Validate prompt is in family
+          if (!familyPromptIds.includes(prompt_row_id)) {
+            return JSON.stringify({ error: 'Prompt not in this family' });
+          }
+
+          // Don't allow deleting the root prompt
+          const { data: prompt } = await supabase
+            .from(TABLES.PROMPTS)
+            .select('parent_row_id, prompt_name')
+            .eq('row_id', prompt_row_id)
+            .single();
+
+          if (!prompt?.parent_row_id) {
+            return JSON.stringify({ error: 'Cannot delete root prompt. Delete the entire family from the UI instead.' });
+          }
+
+          // Soft delete the prompt and all children
+          const { error: deleteError } = await supabase
+            .from(TABLES.PROMPTS)
+            .update({ is_deleted: true, updated_at: new Date().toISOString() })
+            .eq('row_id', prompt_row_id);
+
+          if (deleteError) {
+            console.error('Delete prompt error:', deleteError);
+            return JSON.stringify({ error: 'Failed to delete prompt' });
+          }
+
+          // Also soft-delete children (recursive via parent_row_id)
+          const childIds = familyPromptIds.filter(id => {
+            const p = familyContext.promptsMap?.get(id);
+            return p?.parent_row_id === prompt_row_id;
+          });
+
+          if (childIds.length > 0) {
+            await supabase
+              .from(TABLES.PROMPTS)
+              .update({ is_deleted: true, updated_at: new Date().toISOString() })
+              .in('row_id', childIds);
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: `Deleted prompt "${prompt.prompt_name}" and ${childIds.length} children`
+          });
+        }
+
+        case 'duplicate_prompt': {
+          const { prompt_row_id, include_children } = args;
+          
+          // Validate prompt is in family
+          if (!familyPromptIds.includes(prompt_row_id)) {
+            return JSON.stringify({ error: 'Prompt not in this family' });
+          }
+
+          // Get the source prompt
+          const { data: source, error: sourceError } = await supabase
+            .from(TABLES.PROMPTS)
+            .select('*')
+            .eq('row_id', prompt_row_id)
+            .single();
+
+          if (sourceError || !source) {
+            return JSON.stringify({ error: 'Source prompt not found' });
+          }
+
+          // Calculate new position
+          const { data: siblings } = await supabase
+            .from(TABLES.PROMPTS)
+            .select('position')
+            .eq('parent_row_id', source.parent_row_id)
+            .eq('is_deleted', false)
+            .order('position', { ascending: false })
+            .limit(1);
+
+          const newPosition = (siblings?.[0]?.position ?? 0) + 1;
+
+          // Create the duplicate
+          const { row_id: _oldId, created_at: _created, updated_at: _updated, ...copyData } = source;
+          
+          const { data: newPrompt, error: insertError } = await supabase
+            .from(TABLES.PROMPTS)
+            .insert({
+              ...copyData,
+              prompt_name: `${source.prompt_name} (copy)`,
+              position: newPosition,
+              owner_id: context.userId
+            })
+            .select('row_id, prompt_name')
+            .single();
+
+          if (insertError || !newPrompt) {
+            console.error('Duplicate prompt error:', insertError);
+            return JSON.stringify({ error: 'Failed to duplicate prompt' });
+          }
+
+          let childCount = 0;
+          if (include_children) {
+            // Get direct children from the family
+            const children = familyPromptIds.filter(id => {
+              const p = familyContext.promptsMap?.get(id);
+              return p?.parent_row_id === prompt_row_id;
+            });
+
+            for (const childId of children) {
+              const { data: childSource } = await supabase
+                .from(TABLES.PROMPTS)
+                .select('*')
+                .eq('row_id', childId)
+                .single();
+
+              if (childSource) {
+                const { row_id: _cid, created_at: _cc, updated_at: _cu, ...childCopy } = childSource;
+                await supabase.from(TABLES.PROMPTS).insert({
+                  ...childCopy,
+                  parent_row_id: newPrompt.row_id,
+                  owner_id: context.userId
+                });
+                childCount++;
+              }
+            }
+          }
+
+          return JSON.stringify({
+            success: true,
+            message: `Duplicated "${source.prompt_name}" as "${newPrompt.prompt_name}"${include_children ? ` with ${childCount} children` : ''}`,
+            row_id: newPrompt.row_id
           });
         }
 

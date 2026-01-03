@@ -16,6 +16,8 @@ import type {
 import { promptsModule } from './prompts.ts';
 import { knowledgeModule } from './knowledge.ts';
 import { databaseModule } from './database.ts';
+import { variablesModule } from './variables.ts';
+import { templatesModule } from './templates.ts';
 
 /**
  * All registered tool modules
@@ -25,6 +27,8 @@ const MODULES: ToolModule[] = [
   promptsModule,
   knowledgeModule,
   databaseModule,
+  variablesModule,
+  templatesModule,
 ];
 
 // Handler cache for O(1) lookups
