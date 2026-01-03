@@ -622,7 +622,8 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
           promptsMap
         },
         credentials: {
-          openAIApiKey
+          openAIApiKey,
+          githubToken: Deno.env.get('GITHUB_TOKEN')
         }
       };
       
