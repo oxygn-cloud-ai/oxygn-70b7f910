@@ -187,6 +187,7 @@ interface ApiOptions {
   codeInterpreterEnabled?: boolean;
   webSearchEnabled?: boolean;
   vectorStoreIds?: string[];
+  storeInHistory?: boolean;
 }
 
 // Call OpenAI Responses API - uses conversation parameter for multi-turn context
@@ -211,7 +212,7 @@ async function runResponsesAPI(
   const requestBody: any = {
     model: modelId,
     input: userMessage,
-    store: true, // Store for conversation chaining
+    store: options.storeInHistory !== false, // Store for conversation chaining (default true)
   };
 
   // Add conversation parameter for multi-turn context (Conversations API)
@@ -499,6 +500,7 @@ serve(async (req) => {
         thread_mode,
         child_thread_strategy,
         existing_thread_row_id,
+        store_in_history,
       } = await req.json();
 
       console.log('Conversation run request:', { 
@@ -1017,6 +1019,7 @@ serve(async (req) => {
         codeInterpreterEnabled: assistantData.code_interpreter_enabled || childPrompt.code_interpreter_on,
         webSearchEnabled: childPrompt.web_search_on,
         vectorStoreIds: assistantData.vector_store_id ? [assistantData.vector_store_id] : [],
+        storeInHistory: store_in_history !== false, // Default true for backward compatibility
       };
       
       console.log('Tool options:', {

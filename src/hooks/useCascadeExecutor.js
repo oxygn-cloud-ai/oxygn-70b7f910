@@ -487,6 +487,7 @@ export const useCascadeExecutor = () => {
                 threadMode: 'new', // Force new thread for cascade isolation
                 childThreadStrategy: 'parent', // Use parent thread for context continuity
                 template_variables: extendedTemplateVars,
+                store_in_history: false,
               });
 
               if (result?.response) {

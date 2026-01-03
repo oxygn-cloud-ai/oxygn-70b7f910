@@ -167,6 +167,7 @@ export const useConversationRun = () => {
               child_prompt_row_id: childPromptRowId,
               user_message: userMessage,
               template_variables: templateVariables,
+              store_in_history: false,
             }),
             signal: abortControllerRef.current.signal,
           }
@@ -297,6 +298,7 @@ export const useConversationRun = () => {
       childThreadStrategy,
       existingThreadRowId,
       template_variables,
+      store_in_history = true,
       onSuccess,
       onProgress,
     }) => {
@@ -334,6 +336,7 @@ export const useConversationRun = () => {
               child_thread_strategy: childThreadStrategy,
               existing_thread_row_id: existingThreadRowId,
               template_variables: template_variables,
+              store_in_history: store_in_history,
             }),
             signal: abortControllerRef.current.signal,
           }
