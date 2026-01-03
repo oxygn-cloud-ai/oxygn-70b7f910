@@ -1,10 +1,10 @@
 import React, { useState, useRef, useMemo } from "react";
-import { 
-  LayoutTemplate, 
-  Star, 
-  Clock, 
-  ChevronRight, 
-  ChevronDown, 
+import {
+  LayoutTemplate,
+  Star,
+  Clock,
+  ChevronRight,
+  ChevronDown,
   FileText,
   Braces,
   Link2,
@@ -13,13 +13,14 @@ import {
   Trash2,
   Upload,
   GripVertical,
-  Loader2
+  Loader2,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
 import { LabelBadge } from "@/components/ui/label-badge";
 import { trackEvent } from "@/lib/posthog";
 import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const ITEM_TYPE = "TEMPLATE_ITEM";
 
@@ -59,18 +60,19 @@ const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
   </Tooltip>
 );
 
-const TemplateTreeItem = ({ 
+const TemplateTreeItem = ({
   id,
-  icon: Icon, 
-  label, 
+  icon: Icon,
+  label,
   isActive = false,
   starred = false,
   labels = [],
+  canDelete = true,
   onMove,
   index,
   onClick,
   onDelete,
-  onDuplicate
+  onDuplicate,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef(null);
@@ -126,7 +128,7 @@ const TemplateTreeItem = ({
           <IconButton icon={Star} label="Star" className={starred ? "text-amber-500" : ""} />
           <IconButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
           <IconButton icon={Upload} label="Export" />
-          <IconButton icon={Trash2} label="Delete" onClick={onDelete} />
+          {canDelete && <IconButton icon={Trash2} label="Delete" onClick={onDelete} />}
         </div>
       ) : (
         <div className="flex items-center gap-1">
@@ -161,8 +163,8 @@ const TemplatesFolderPanel = ({
   onDuplicateTemplate,
   onDuplicateSchema,
 }) => {
+  const { user, isAdmin } = useAuth();
   const [activeFolder, setActiveFolder] = useState("all");
-
   // Use controlled state if provided, otherwise internal
   const activeType = activeTemplateTab;
   const setActiveType = (type) => {
@@ -248,6 +250,12 @@ const TemplatesFolderPanel = ({
   };
 
   const handleDelete = async (template) => {
+    const canDelete = !!isAdmin || (!!user?.id && template.owner_id === user.id);
+    if (!canDelete) {
+      toast.error("You can only delete templates you own");
+      return;
+    }
+
     if (activeType === "prompts" && onDeleteTemplate) {
       await onDeleteTemplate(template.row_id);
     } else if (activeType === "schemas" && onDeleteSchema) {
@@ -375,6 +383,7 @@ const TemplatesFolderPanel = ({
                   labels={template.labels || []}
                   starred={template.starred}
                   isActive={selectedTemplateId === template.id || selectedTemplateId === template.row_id}
+                  canDelete={!!isAdmin || (!!user?.id && template.owner_id === user.id)}
                   onMove={handleMove}
                   index={index}
                   onClick={() => onSelectTemplate?.(template)}
