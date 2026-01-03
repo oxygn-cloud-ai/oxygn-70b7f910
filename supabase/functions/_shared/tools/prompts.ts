@@ -101,6 +101,13 @@ async function fetchWithTimeout(
   }
 }
 
+/**
+ * Small delay between operations to prevent rate limiting
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function parseSSEResponse(sseText: string): ParsedSSEResult {
   const lines = sseText.split('\n');
   let result: ParsedSSEResult = { success: false, error: 'No response received' };
@@ -455,9 +462,13 @@ export const promptsModule: ToolModule = {
             max_depth: {
               type: ['integer', 'null'],
               description: 'Max depth (default: 10, max: 50)'
+            },
+            stop_on_error: {
+              type: ['boolean', 'null'],
+              description: 'Stop cascade on first prompt failure (default: false - continues all prompts)'
             }
           },
-          required: ['prompt_id', 'prompt_name', 'variables', 'max_depth'],
+          required: ['prompt_id', 'prompt_name', 'variables', 'max_depth', 'stop_on_error'],
           additionalProperties: false
         },
         strict: true
@@ -811,6 +822,13 @@ export const promptsModule: ToolModule = {
             return JSON.stringify({ error: 'accessToken not available for prompt execution' });
           }
           
+          // Validate SUPABASE_URL is configured
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+          if (!SUPABASE_URL) {
+            console.error('run_prompt: SUPABASE_URL environment variable not set');
+            return JSON.stringify({ error: 'Server configuration error: SUPABASE_URL not configured' });
+          }
+          
           const resolved = await resolvePromptId(supabase, context.userId, prompt_id, prompt_name, familyPromptIds);
           if ('error' in resolved) return JSON.stringify({ error: resolved.error });
           
@@ -824,7 +842,6 @@ export const promptsModule: ToolModule = {
           // Note: Recursion prevention is limited to single-level - nested AI tool calls not tracked across edge function boundaries
           
           try {
-            const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
             const response = await fetchWithTimeout(
               `${SUPABASE_URL}/functions/v1/conversation-run`,
               {
@@ -863,15 +880,33 @@ export const promptsModule: ToolModule = {
             });
           } catch (fetchError: any) {
             console.error('run_prompt: Fetch error:', fetchError);
+            
+            // Translate AbortError to user-friendly timeout message
+            if (fetchError.name === 'AbortError') {
+              return JSON.stringify({ 
+                error: `Prompt execution timed out after 2 minutes`,
+                prompt_name: resolved.prompt_name,
+                suggestion: 'The prompt may be too complex or the model is overloaded. Try again or simplify the prompt.',
+                timed_out: true
+              });
+            }
+            
             return JSON.stringify({ error: `Failed: ${fetchError.message}` });
           }
         }
 
         case 'run_cascade': {
-          const { prompt_id, prompt_name, variables, max_depth } = args;
+          const { prompt_id, prompt_name, variables, max_depth, stop_on_error } = args;
           
           if (!context.accessToken) {
             return JSON.stringify({ error: 'accessToken not available for cascade execution' });
+          }
+          
+          // Validate SUPABASE_URL is configured
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+          if (!SUPABASE_URL) {
+            console.error('run_cascade: SUPABASE_URL environment variable not set');
+            return JSON.stringify({ error: 'Server configuration error: SUPABASE_URL not configured' });
           }
           
           const resolved = await resolvePromptId(supabase, context.userId, prompt_id, prompt_name, familyPromptIds);
@@ -884,17 +919,27 @@ export const promptsModule: ToolModule = {
           
           console.log(`run_cascade: Starting "${resolved.prompt_name}" with ${hierarchy.totalPrompts} prompts`);
           
-          const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
           const results: any[] = [];
           const accumulatedVars = { ...(variables || {}) };
           let lastOutput = '';
+          let cascadeStopped = false;
+          let stoppedReason = '';
           
+          // Calculate total prompts for determining if this is the last one
+          let processedCount = 0;
+          const totalToProcess = hierarchy.levels.reduce((acc, level) => 
+            acc + level.prompts.filter(p => !p.exclude_from_cascade).length, 0);
+          
+          outerLoop:
           for (const level of hierarchy.levels) {
             for (const prompt of level.prompts) {
               if (prompt.exclude_from_cascade) {
                 results.push({ prompt_id: prompt.row_id, prompt_name: prompt.prompt_name, skipped: true, reason: 'exclude_from_cascade' });
                 continue;
               }
+              
+              processedCount++;
+              const isLastPrompt = processedCount >= totalToProcess;
               
               try {
                 const response = await fetchWithTimeout(
@@ -916,6 +961,30 @@ export const promptsModule: ToolModule = {
                   180000 // 3 minute timeout per prompt in cascade
                 );
                 
+                // Check HTTP status before parsing
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  console.error(`run_cascade: HTTP ${response.status} for "${prompt.prompt_name}":`, errorText);
+                  
+                  results.push({
+                    prompt_id: prompt.row_id,
+                    prompt_name: prompt.prompt_name,
+                    level: level.level,
+                    success: false,
+                    error: `HTTP ${response.status}: ${errorText.substring(0, 200)}`,
+                  });
+                  
+                  if (stop_on_error) {
+                    cascadeStopped = true;
+                    stoppedReason = `HTTP ${response.status} at "${prompt.prompt_name}"`;
+                    break outerLoop;
+                  }
+                  
+                  // Add delay before next prompt (rate limiting prevention)
+                  if (!isLastPrompt) await delay(500);
+                  continue;
+                }
+                
                 const parsed = parseSSEResponse(await response.text());
                 results.push({
                   prompt_id: prompt.row_id,
@@ -931,14 +1000,43 @@ export const promptsModule: ToolModule = {
                   accumulatedVars['cascade_previous_response'] = parsed.response;
                   accumulatedVars[`output_${prompt.row_id}`] = parsed.response;
                 }
+                
+                // Check if we should stop on error
+                if (!parsed.success && stop_on_error) {
+                  cascadeStopped = true;
+                  stoppedReason = `Error at "${prompt.prompt_name}": ${parsed.error || 'Unknown error'}`;
+                  break outerLoop;
+                }
+                
+                // Add delay between prompts to prevent rate limiting (except after last prompt)
+                if (!isLastPrompt) {
+                  await delay(500);
+                }
               } catch (fetchError: any) {
                 console.error(`run_cascade: Error executing "${prompt.prompt_name}":`, fetchError);
+                
+                // Translate AbortError to user-friendly timeout message
+                const errorMessage = fetchError.name === 'AbortError' 
+                  ? `Timed out after 3 minutes`
+                  : fetchError.message;
+                
                 results.push({
                   prompt_id: prompt.row_id,
                   prompt_name: prompt.prompt_name,
+                  level: level.level,
                   success: false,
-                  error: fetchError.message,
+                  error: errorMessage,
+                  timed_out: fetchError.name === 'AbortError',
                 });
+                
+                if (stop_on_error) {
+                  cascadeStopped = true;
+                  stoppedReason = `${errorMessage} at "${prompt.prompt_name}"`;
+                  break outerLoop;
+                }
+                
+                // Add delay before next prompt
+                if (!isLastPrompt) await delay(500);
               }
             }
           }
@@ -947,7 +1045,7 @@ export const promptsModule: ToolModule = {
           const failCount = results.filter(r => !r.success && !r.skipped).length;
           const skipCount = results.filter(r => r.skipped).length;
           
-          console.log(`run_cascade: Completed. Success: ${successCount}, Failed: ${failCount}, Skipped: ${skipCount}`);
+          console.log(`run_cascade: Completed. Success: ${successCount}, Failed: ${failCount}, Skipped: ${skipCount}${cascadeStopped ? ', Stopped early' : ''}`);
           
           // Limit output size for large cascades to avoid response size issues
           const MAX_RESULTS_WITH_OUTPUT = 20;
@@ -967,6 +1065,8 @@ export const promptsModule: ToolModule = {
             },
             results: limitedResults,
             final_output: lastOutput?.substring(0, 2000),
+            stopped_early: cascadeStopped,
+            stopped_reason: stoppedReason || undefined,
           });
         }
 
