@@ -595,6 +595,138 @@ const ActionNodeSettings = ({
         </Card>
       )}
 
+      {/* Variable Assignments Configuration */}
+      {selectedAction && (
+        <Card className="bg-surface-container-low border-outline-variant">
+          <Collapsible defaultOpen={localData.variable_assignments_config?.enabled || false}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="py-2 px-3 cursor-pointer hover:bg-surface-container transition-colors">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-on-surface-variant" />
+                  <CardTitle className="text-body-sm font-medium text-on-surface">Variable Assignments</CardTitle>
+                  <ChevronDown className="h-4 w-4 ml-auto text-on-surface-variant" />
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-body-sm text-on-surface">Enable Variable Assignments</div>
+                    <div className="text-[10px] text-on-surface-variant">
+                      Allow AI response to update prompt variables
+                    </div>
+                  </div>
+                  <Switch
+                    checked={localData.variable_assignments_config?.enabled || false}
+                    onCheckedChange={(checked) => {
+                      const newConfig = {
+                        ...localData.variable_assignments_config,
+                        enabled: checked,
+                        json_path: localData.variable_assignments_config?.json_path || 'variable_assignments',
+                      };
+                      handleChange('variable_assignments_config', newConfig);
+                      handleSave('variable_assignments_config', newConfig);
+                    }}
+                  />
+                </div>
+
+                {localData.variable_assignments_config?.enabled && (
+                  <>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-body-sm text-on-surface">JSON Path</div>
+                        <div className="text-[10px] text-on-surface-variant">
+                          Path to assignments array in response
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        className="w-40 bg-surface-container rounded-m3-sm px-2 py-1 text-body-sm border border-outline-variant text-on-surface"
+                        value={localData.variable_assignments_config?.json_path || 'variable_assignments'}
+                        onChange={(e) => {
+                          const newConfig = {
+                            ...localData.variable_assignments_config,
+                            json_path: e.target.value,
+                          };
+                          handleChange('variable_assignments_config', newConfig);
+                          handleSave('variable_assignments_config', newConfig);
+                        }}
+                        placeholder="variable_assignments"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-body-sm text-on-surface">Auto-Create Variables</div>
+                        <div className="text-[10px] text-on-surface-variant">
+                          Create new variables if they don't exist
+                        </div>
+                      </div>
+                      <Switch
+                        checked={localData.variable_assignments_config?.auto_create_variables || false}
+                        onCheckedChange={(checked) => {
+                          const newConfig = {
+                            ...localData.variable_assignments_config,
+                            auto_create_variables: checked,
+                          };
+                          handleChange('variable_assignments_config', newConfig);
+                          handleSave('variable_assignments_config', newConfig);
+                        }}
+                      />
+                    </div>
+
+                    <Alert className="bg-surface-container border-outline-variant">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-[10px] text-on-surface-variant">
+                        AI response should include an array at "{localData.variable_assignments_config?.json_path || 'variable_assignments'}" 
+                        with objects containing "name" and "value" fields.
+                      </AlertDescription>
+                    </Alert>
+                  </>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
+      )}
+
+      {/* Auto-Run Children Configuration */}
+      {selectedAction && ['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action) && (
+        <Card className="bg-surface-container-low border-outline-variant">
+          <CardContent className="py-3 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-body-sm text-on-surface flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  Auto-Run Created Children
+                </div>
+                <div className="text-[10px] text-on-surface-variant">
+                  Immediately execute created child prompts as a cascade
+                </div>
+              </div>
+              <Switch
+                checked={localData.auto_run_children || false}
+                onCheckedChange={(checked) => {
+                  handleChange('auto_run_children', checked);
+                  handleSave('auto_run_children', checked);
+                }}
+              />
+            </div>
+            
+            {localData.auto_run_children && (
+              <Alert className="bg-amber-500/10 border-amber-500/30">
+                <Zap className="h-4 w-4 text-amber-500" />
+                <AlertDescription className="text-[10px] text-on-surface">
+                  Created children will run automatically after this action completes.
+                  Supports up to 99 levels of recursion. Children with their own auto-run enabled will also cascade.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Extracted Variables Display */}
       {localData.extracted_variables && Object.keys(localData.extracted_variables).length > 0 && (
         <Card className="bg-surface-container-low border-outline-variant">

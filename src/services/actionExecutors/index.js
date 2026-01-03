@@ -9,7 +9,11 @@ import { executeCreateChildrenText } from './createChildrenText';
 import { executeCreateChildrenJson } from './createChildrenJson';
 import { executeCreateChildrenSections } from './createChildrenSections';
 import { executeCreateTemplate } from './createTemplate';
+import { processVariableAssignments } from './processVariableAssignments';
 import { trackEvent, trackException } from '@/lib/posthog';
+
+// Re-export for convenience
+export { processVariableAssignments };
 
 /**
  * Registry of action executors

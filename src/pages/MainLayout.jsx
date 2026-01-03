@@ -40,7 +40,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useRenderPerformance } from "@/hooks/useRenderPerformance";
 import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
 import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
-import { executePostAction } from "@/services/actionExecutors";
+import { executePostAction, processVariableAssignments } from "@/services/actionExecutors";
 import { validateActionResponse, extractJsonFromResponse } from "@/utils/actionValidation";
 import ActionPreviewDialog from "@/components/ActionPreviewDialog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -260,7 +260,7 @@ const MainLayout = () => {
   
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPrompt, progress: runProgress } = useConversationRun();
-  const { executeCascade, hasChildren: checkHasChildren } = useCascadeExecutor();
+  const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
   const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview } = useCascadeRun();
   const [isRunningCascade, setIsRunningCascade] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -483,6 +483,64 @@ const MainLayout = () => {
                     : promptData.parent_row_id);
               if (parentId) {
                 setExpandedFolders(prev => ({ ...prev, [parentId]: true }));
+              }
+            }
+
+            // Process variable assignments if configured
+            if (promptData.variable_assignments_config?.enabled && jsonResponse) {
+              try {
+                const varResult = await processVariableAssignments({
+                  supabase,
+                  promptRowId: promptData.row_id,
+                  jsonResponse,
+                  config: promptData.variable_assignments_config,
+                });
+                if (varResult.processed > 0) {
+                  toast.success(`Updated ${varResult.processed} variable(s)`, {
+                    source: 'MainLayout.handleRunPrompt.variableAssignments',
+                  });
+                }
+                if (varResult.errors.length > 0) {
+                  console.warn('Variable assignment errors:', varResult.errors);
+                }
+              } catch (varError) {
+                console.error('Variable assignment processing failed:', varError);
+                // Don't fail the whole operation for variable assignment errors
+              }
+            }
+
+            // Auto-run created children if enabled
+            if (
+              promptData.auto_run_children && 
+              actionResult.children?.length > 0
+            ) {
+              toast.info(`Auto-running ${actionResult.children.length} created child prompt(s)...`, {
+                source: 'MainLayout.handleRunPrompt.autoCascade',
+              });
+              
+              try {
+                const cascadeResult = await executeChildCascade(
+                  actionResult.children,
+                  promptData,
+                  { maxDepth: 99 }
+                );
+                
+                if (cascadeResult.depthLimitReached) {
+                  toast.warning('Auto-cascade depth limit reached (99 levels)');
+                } else {
+                  const successCount = cascadeResult.results.filter(r => r.success).length;
+                  toast.success(`Auto-cascade complete: ${successCount}/${cascadeResult.results.length} succeeded`, {
+                    source: 'MainLayout.handleRunPrompt.autoCascade',
+                  });
+                }
+                
+                // Refresh tree after auto-cascade
+                await refreshTreeData();
+              } catch (cascadeError) {
+                console.error('Auto-cascade error:', cascadeError);
+                toast.error('Auto-cascade failed: ' + cascadeError.message, {
+                  source: 'MainLayout.handleRunPrompt.autoCascade',
+                });
               }
             }
           } else {
