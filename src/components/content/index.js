@@ -1,5 +1,4 @@
 export { default as PromptsContent } from './PromptsContent';
-export { default as WorkbenchContent } from './WorkbenchContent';
 export { default as TemplatesContent } from './TemplatesContent';
 export { default as SettingsContent } from './SettingsContent';
 export { default as HealthContent } from './HealthContent';

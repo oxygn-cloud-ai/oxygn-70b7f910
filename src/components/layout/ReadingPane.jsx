@@ -4,7 +4,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import ErrorBoundary from "@/components/ErrorBoundary";
 import {
   PromptsContent,
-  WorkbenchContent,
   TemplatesContent,
   SettingsContent,
   HealthContent,
@@ -55,34 +54,13 @@ const ReadingPane = ({
   // Phase 4 - Cost analytics and conversation defaults
   costTracking,
   conversationToolDefaults,
-  // Workbench props - Phase 3
-  workbenchThreads,
-  workbenchMessages,
-  workbenchFiles,
-  workbenchConfluence,
+  // Prompt library for templates
   promptLibrary,
   // Templates props - Phase 8-9
   templatesHook,
   jsonSchemaTemplatesHook,
   onEditSchema,
 }) => {
-  // Workbench mode - full workbench with threads and chat (now with real data)
-  if (activeNav === "workbench") {
-    return (
-      <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
-        <ErrorBoundary message="Workbench encountered an error. Try navigating to another section.">
-          <WorkbenchContent 
-            activeSubItem={activeSubItem}
-            workbenchThreads={workbenchThreads}
-            workbenchMessages={workbenchMessages}
-            workbenchFiles={workbenchFiles}
-            workbenchConfluence={workbenchConfluence}
-            promptLibrary={promptLibrary}
-          />
-        </ErrorBoundary>
-      </div>
-    );
-  }
 
   // Settings mode - all settings sections (now with real data)
   if (activeNav === "settings") {
