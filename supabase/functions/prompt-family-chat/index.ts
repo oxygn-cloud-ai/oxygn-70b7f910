@@ -17,6 +17,17 @@ import {
 import { TABLES } from "../_shared/tables.ts";
 import { getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
 
+// Tool Registry imports (Phase 2)
+import { 
+  getToolsForScope, 
+  executeToolCall as registryExecuteToolCall,
+  validateRegistry,
+  type ToolContext 
+} from "../_shared/tools/index.ts";
+
+// Feature flag for gradual rollout - set to 'true' to enable new registry
+const USE_TOOL_REGISTRY = Deno.env.get('USE_TOOL_REGISTRY') === 'true';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -75,6 +86,7 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
 }
 
 // Handle tool calls for prompt family exploration
+// This is the legacy handler - when USE_TOOL_REGISTRY is true, the registry handles calls instead
 async function handleToolCall(
   toolName: string,
   args: any,
@@ -85,8 +97,15 @@ async function handleToolCall(
     familyPromptIds: string[];
     cachedTree?: any;
     openAIApiKey?: string;
+    registryContext?: ToolContext | null;
   }
 ): Promise<string> {
+  // If registry context is available, use the registry
+  if (USE_TOOL_REGISTRY && context.registryContext) {
+    return registryExecuteToolCall(toolName, args, context.registryContext);
+  }
+  
+  // Legacy path
   const { supabase, promptRowId, familyPromptIds, cachedTree, openAIApiKey } = context;
 
   try {
@@ -558,32 +577,71 @@ ${knowledge}
 Use your tools to explore the prompt family and provide helpful, accurate information.
 Be concise but thorough. When showing prompt content, format it nicely.`;
 
-    // Get tools
-    const databaseSchemaTool = {
-      type: "function",
-      name: "get_database_schema",
-      description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships.",
-      parameters: {
-        type: "object",
-        properties: {
-          table_name: {
-            type: "string",
-            description: "Optional specific table name to get details for."
-          }
-        },
-        required: [],
-        additionalProperties: false
+    // Get tools - use registry if feature flag is enabled
+    let tools: any[];
+    let registryContext: ToolContext | null = null;
+    
+    if (USE_TOOL_REGISTRY) {
+      // New registry-based tool loading
+      console.log('Using tool registry (feature flag enabled)');
+      
+      // Validate registry on first use (cached after)
+      const registryValidation = validateRegistry();
+      if (!registryValidation.valid) {
+        console.error('Tool registry validation errors:', registryValidation.errors);
       }
-    };
+      if (registryValidation.warnings.length > 0) {
+        console.warn('Tool registry warnings:', registryValidation.warnings);
+      }
+      console.log(`Registry: ${registryValidation.moduleCount} modules, ${registryValidation.toolCount} tools`);
+      
+      // Build registry context
+      registryContext = {
+        supabase,
+        userId: validation.user!.id,
+        familyContext: {
+          promptRowId: prompt_row_id,
+          familyPromptIds,
+          cachedTree
+        },
+        credentials: {
+          openAIApiKey
+        }
+      };
+      
+      // Get tools for family scope
+      tools = getToolsForScope('family', registryContext);
+      console.log('Registry tools loaded:', tools.map(t => t.name));
+    } else {
+      // Legacy tool loading
+      console.log('Using legacy tool loading');
+      
+      const databaseSchemaTool = {
+        type: "function",
+        name: "get_database_schema",
+        description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships.",
+        parameters: {
+          type: "object",
+          properties: {
+            table_name: {
+              type: "string",
+              description: "Optional specific table name to get details for."
+            }
+          },
+          required: [],
+          additionalProperties: false
+        }
+      };
 
-    const rawTools = [
-      ...getPromptFamilyTools(),
-      getQonsolHelpTool(),
-      databaseSchemaTool
-    ];
+      const rawTools = [
+        ...getPromptFamilyTools(),
+        getQonsolHelpTool(),
+        databaseSchemaTool
+      ];
 
-    // Normalize all tools to Responses API format (flat structure with top-level name)
-    const tools = rawTools.map(normalizeToolForResponsesApi);
+      // Normalize all tools to Responses API format (flat structure with top-level name)
+      tools = rawTools.map(normalizeToolForResponsesApi);
+    }
 
     // Defensive validation
     const invalidTools = tools
@@ -605,13 +663,16 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     const lastUserMessage = messages[messages.length - 1];
     const userInput = lastUserMessage?.content || '';
 
+    // Tool context - unified for both registry and legacy paths
     const toolContext = {
       supabase,
       userId: validation.user!.id,
       promptRowId: prompt_row_id,
       familyPromptIds,
       cachedTree,
-      openAIApiKey
+      openAIApiKey,
+      // Registry-specific fields (used when USE_TOOL_REGISTRY is true)
+      registryContext
     };
 
     // ============================================================================
