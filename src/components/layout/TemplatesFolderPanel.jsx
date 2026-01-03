@@ -252,7 +252,7 @@ const TemplatesFolderPanel = ({
   const handleDelete = async (template) => {
     const canDelete = !!isAdmin || (!!user?.id && template.owner_id === user.id);
     if (!canDelete) {
-      toast.error("You can only delete templates you own");
+      toast.info("This template belongs to another user and cannot be deleted");
       return;
     }
 
