@@ -238,9 +238,11 @@ async function handleToolCall(
     threadRowId: string;
     openAIApiKey: string;
     githubToken?: string;
+    githubOwner?: string;
+    githubRepo?: string;
   }
 ): Promise<string> {
-  const { supabase, userId, threadRowId, openAIApiKey, githubToken } = context;
+  const { supabase, userId, threadRowId, openAIApiKey, githubToken, githubOwner, githubRepo } = context;
 
   try {
     switch (toolName) {
@@ -470,10 +472,10 @@ async function handleToolCall(
       case 'github_read_file':
       case 'github_search_code':
       case 'github_get_structure': {
-        if (!githubToken) {
-          return JSON.stringify({ error: 'GitHub access not configured' });
+        if (!githubToken || !githubOwner || !githubRepo) {
+          return JSON.stringify({ error: 'GitHub integration not configured' });
         }
-        return await handleGithubToolCall(toolName, args, githubToken);
+        return await handleGithubToolCall(toolName, args, githubToken, githubOwner, githubRepo);
       }
 
       case 'get_database_schema': {
@@ -646,8 +648,18 @@ serve(async (req) => {
 
     // Check what resources are available
     const hasThread = !!thread_row_id;
+    
+    // GitHub configuration from environment variables (infrastructure-only)
     const githubToken = Deno.env.get('GITHUB_TOKEN');
-    const hasGithub = !!githubToken;
+    const githubOwner = Deno.env.get('GITHUB_OWNER');
+    const githubRepo = Deno.env.get('GITHUB_REPO');
+    const hasGithub = !!(githubToken && githubOwner && githubRepo);
+    
+    if (hasGithub) {
+      console.log('[workbench-chat] GitHub configured:', githubOwner, '/', githubRepo);
+    } else {
+      console.log('[workbench-chat] GitHub not configured - token:', !!githubToken, 'owner:', !!githubOwner, 'repo:', !!githubRepo);
+    }
     
     // Load Qonsol knowledge for the system prompt
     const knowledge = await loadQonsolKnowledge(supabase, ['overview', 'prompts', 'workbench', 'troubleshooting']);
@@ -688,7 +700,9 @@ Use the search_qonsol_help tool to find more specific information about Qonsol f
       userId: validation.user!.id,
       threadRowId: thread_row_id || '',
       openAIApiKey: openAIApiKey || '',
-      githubToken: githubToken || undefined
+      githubToken: githubToken || undefined,
+      githubOwner,
+      githubRepo
     };
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
