@@ -235,76 +235,84 @@ export async function getRepositoryTree(
 }
 
 /**
- * Tool definitions for GitHub access - Using Responses API flat format
+ * Tool definitions for GitHub access - Using Chat Completions API format
  */
 export function getGithubTools() {
   return [
     {
       type: "function",
-      name: "github_list_files",
-      description: "List files and directories at a path in the application source code. Use empty string for root directory.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "Directory path to list (e.g., 'src/components', 'supabase/functions'). Empty for root."
-          }
-        },
-        required: [],
-        additionalProperties: false
-      }
-    },
-    {
-      type: "function",
-      name: "github_read_file",
-      description: "Read the content of a source code file. Large files are automatically truncated.",
-      parameters: {
-        type: "object",
-        properties: {
-          file_path: {
-            type: "string",
-            description: "Full path to the file (e.g., 'src/App.jsx', 'supabase/functions/workbench-chat/index.ts')"
-          }
-        },
-        required: ["file_path"],
-        additionalProperties: false
-      }
-    },
-    {
-      type: "function",
-      name: "github_search_code",
-      description: "Search for code patterns, function names, or text in the application source code.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "Search query - function names, variable names, text patterns, etc."
+      function: {
+        name: "github_list_files",
+        description: "List files and directories at a path in the application source code. Use empty string for root directory.",
+        parameters: {
+          type: "object",
+          properties: {
+            path: {
+              type: "string",
+              description: "Directory path to list (e.g., 'src/components', 'supabase/functions'). Empty for root."
+            }
           },
-          file_extension: {
-            type: "string",
-            description: "Optional file extension filter (e.g., 'ts', 'jsx', 'sql')"
-          }
-        },
-        required: ["query"],
-        additionalProperties: false
+          required: [],
+          additionalProperties: false
+        }
       }
     },
     {
       type: "function",
-      name: "github_get_structure",
-      description: "Get the full directory structure of the application source code or a subdirectory. Useful for understanding codebase organization.",
-      parameters: {
-        type: "object",
-        properties: {
-          path: {
-            type: "string",
-            description: "Optional path to filter (e.g., 'src', 'supabase'). Empty for full repo structure."
-          }
-        },
-        required: [],
-        additionalProperties: false
+      function: {
+        name: "github_read_file",
+        description: "Read the content of a source code file. Large files are automatically truncated.",
+        parameters: {
+          type: "object",
+          properties: {
+            file_path: {
+              type: "string",
+              description: "Full path to the file (e.g., 'src/App.jsx', 'supabase/functions/workbench-chat/index.ts')"
+            }
+          },
+          required: ["file_path"],
+          additionalProperties: false
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "github_search_code",
+        description: "Search for code patterns, function names, or text in the application source code.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Search query - function names, variable names, text patterns, etc."
+            },
+            file_extension: {
+              type: "string",
+              description: "Optional file extension filter (e.g., 'ts', 'jsx', 'sql')"
+            }
+          },
+          required: ["query"],
+          additionalProperties: false
+        }
+      }
+    },
+    {
+      type: "function",
+      function: {
+        name: "github_get_structure",
+        description: "Get the full directory structure of the application source code or a subdirectory. Useful for understanding codebase organization.",
+        parameters: {
+          type: "object",
+          properties: {
+            path: {
+              type: "string",
+              description: "Optional path to filter (e.g., 'src', 'supabase'). Empty for full repo structure."
+            }
+          },
+          required: [],
+          additionalProperties: false
+        }
       }
     }
   ];
