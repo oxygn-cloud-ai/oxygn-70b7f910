@@ -53,6 +53,12 @@ export interface ToolContext {
   supabase: any;
   userId: string;
   
+  // Auth token for internal edge function calls (e.g., run_prompt, run_cascade)
+  accessToken?: string;
+  
+  // Recursion prevention - tracks prompt IDs currently being executed
+  executionStack?: string[];
+  
   // Family mode context (populated when scope is 'family')
   familyContext?: {
     promptRowId: string;

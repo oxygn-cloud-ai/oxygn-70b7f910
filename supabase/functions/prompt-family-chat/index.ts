@@ -654,10 +654,16 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
       console.log(`Registry: ${registryValidation.moduleCount} modules, ${registryValidation.toolCount} tools`);
       
+      // Extract access token from Authorization header for internal edge function calls
+      const authHeader = req.headers.get('Authorization');
+      const accessToken = authHeader?.replace('Bearer ', '');
+      
       // Build registry context
       registryContext = {
         supabase,
         userId: validation.user!.id,
+        accessToken,
+        executionStack: [],
         familyContext: {
           promptRowId: prompt_row_id,
           familyPromptIds,
