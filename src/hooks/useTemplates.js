@@ -68,7 +68,6 @@ export const useTemplates = () => {
       if (error) throw error;
       
       setTemplates(prev => [data, ...prev]);
-      toast.success('Template created');
       
       // Track template creation
       trackEvent('template_created', {
