@@ -117,15 +117,23 @@ export const useExportTemplates = () => {
         .update({ is_deleted: true })
         .eq('row_id', rowId);
 
-      if (error) throw error;
+      if (error) {
+        // RLS policy violation - user doesn't have permission
+        if (error.code === '42501') {
+          toast.info('This template belongs to another user and cannot be deleted');
+          return false;
+        }
+        throw error;
+      }
 
       setTemplates(prev => prev.filter(t => t.row_id !== rowId));
       toast.success('Template deleted');
       trackEvent('export_template_deleted', { row_id: rowId });
+      return true;
     } catch (error) {
       console.error('Error deleting export template:', error);
       toast.error('Failed to delete template');
-      throw error;
+      return false;
     }
   }, []);
 

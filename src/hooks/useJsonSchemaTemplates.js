@@ -144,14 +144,22 @@ export const useJsonSchemaTemplates = () => {
         .update({ is_deleted: true })
         .eq('row_id', rowId);
 
-      if (error) throw error;
+      if (error) {
+        // RLS policy violation - user doesn't have permission
+        if (error.code === '42501') {
+          toast.info('This schema template belongs to another user and cannot be deleted');
+          return false;
+        }
+        throw error;
+      }
 
       setTemplates(prev => prev.filter(t => t.row_id !== rowId));
       toast.success('Schema template deleted');
+      return true;
     } catch (error) {
       console.error('Error deleting schema template:', error);
       toast.error('Failed to delete schema template');
-      throw error;
+      return false;
     }
   }, []);
 

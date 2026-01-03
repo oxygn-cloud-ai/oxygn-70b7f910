@@ -129,7 +129,14 @@ export const useTemplates = () => {
         .update({ is_deleted: true })
         .eq('row_id', rowId);
 
-      if (error) throw error;
+      if (error) {
+        // RLS policy violation - user doesn't have permission
+        if (error.code === '42501') {
+          toast.info('This template belongs to another user and cannot be deleted');
+          return false;
+        }
+        throw error;
+      }
       
       setTemplates(prev => prev.filter(t => t.row_id !== rowId));
       toast.success('Template deleted');
