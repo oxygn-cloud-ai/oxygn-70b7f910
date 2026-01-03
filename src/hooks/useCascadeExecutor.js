@@ -1115,7 +1115,7 @@ export const useCascadeExecutor = () => {
           if (isActionNode && hasPostAction && childPrompt.auto_run_children) {
             try {
               // Extract JSON and execute post-action
-              const { jsonData } = extractJsonFromResponse(result.response);
+              const jsonData = extractJsonFromResponse(result.response);
               
               if (jsonData) {
                 // Process variable assignments if configured
