@@ -47,6 +47,49 @@ function normalizeToolForResponsesApi(tool: any): any {
   return tool;
 }
 
+// The Responses API requires strict JSON Schema for tool parameters.
+// In particular: `required` must be present and must include EVERY key in `properties`.
+function ensureStrictSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+
+  // Handle combinators
+  for (const key of ['anyOf', 'oneOf', 'allOf'] as const) {
+    if (Array.isArray(schema[key])) {
+      return {
+        ...schema,
+        [key]: schema[key].map((s: any) => ensureStrictSchema(s))
+      };
+    }
+  }
+
+  // Arrays
+  if (schema.type === 'array' && schema.items) {
+    return {
+      ...schema,
+      items: ensureStrictSchema(schema.items)
+    };
+  }
+
+  // Objects (some schemas omit `type: object` but still define `properties`)
+  if (schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
+    const nextProps: Record<string, any> = {};
+    for (const [k, v] of Object.entries(schema.properties)) {
+      nextProps[k] = ensureStrictSchema(v);
+    }
+
+    return {
+      ...schema,
+      type: schema.type ?? 'object',
+      properties: nextProps,
+      additionalProperties: false,
+      required: Object.keys(nextProps)
+    };
+  }
+
+  return schema;
+}
+
+
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
 function isAllowedDomain(email: string | undefined): boolean {
@@ -661,6 +704,13 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       tools = rawTools.map(normalizeToolForResponsesApi);
     }
 
+    // Enforce strict tool schemas (prevents 400s like "Missing 'table_name'")
+    tools = tools.map((t) => {
+      if (!t || typeof t !== 'object') return t;
+      if (!t.parameters) return t;
+      return { ...t, parameters: ensureStrictSchema(t.parameters) };
+    });
+
     // Defensive validation
     const invalidTools = tools
       .map((t, i) => ({ index: i, name: t.name }))
@@ -677,6 +727,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     }
 
     console.log('Tools prepared:', tools.map(t => t.name));
+
 
     const lastUserMessage = messages[messages.length - 1];
     const userInput = lastUserMessage?.content || '';
