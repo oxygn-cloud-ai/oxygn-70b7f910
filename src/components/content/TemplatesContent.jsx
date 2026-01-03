@@ -1178,7 +1178,10 @@ const TemplatesContent = ({
         variable_definitions: editedTemplate.variable_definitions,
         category: editedTemplate.category,
       });
-      onTemplateChange?.(newTemplate);
+      if (newTemplate) {
+        onTemplateChange?.(newTemplate);
+        toast.success(`Template "${newTemplate.template_name}" created`);
+      }
     } else if (activeTemplateTab === "schemas" && jsonSchemaTemplatesHook?.createTemplate) {
       const newTemplate = await jsonSchemaTemplatesHook.createTemplate({
         schemaName: `${templateName} (copy)`,
@@ -1186,7 +1189,10 @@ const TemplatesContent = ({
         jsonSchema: editedTemplate.json_schema,
         category: editedTemplate.category,
       });
-      onTemplateChange?.(newTemplate);
+      if (newTemplate) {
+        onTemplateChange?.(newTemplate);
+        toast.success(`Schema "${newTemplate.schema_name}" created`);
+      }
     }
   }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, templateName, templateDescription, onTemplateChange]);
 
