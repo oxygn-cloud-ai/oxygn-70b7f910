@@ -139,6 +139,8 @@ serve(async (req) => {
       const latency = Date.now() - start;
       console.log('Health check response:', response.status, 'latency:', latency);
 
+      const responseData = await response.json().catch(() => ({}));
+
       if (response.ok) {
         return new Response(
           JSON.stringify({ status: 'success', message: `Connected (${latency}ms)`, latency }),
@@ -146,8 +148,17 @@ serve(async (req) => {
         );
       }
 
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Health check failed:', errorData);
+      console.error('Health check failed:', responseData);
+
+      // Handle max_tokens limit error as a success - it means we connected and got a response
+      if (responseData.error?.message?.includes('max_tokens') || 
+          responseData.error?.message?.includes('model output limit')) {
+        console.log('Health check hit token limit but connection is valid');
+        return new Response(
+          JSON.stringify({ status: 'success', message: `Connected (${latency}ms)`, latency }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       if (response.status === 401) {
         return new Response(
@@ -156,7 +167,7 @@ serve(async (req) => {
         );
       }
       if (response.status === 429) {
-        const message = errorData.error?.code === 'insufficient_quota' 
+        const message = responseData.error?.code === 'insufficient_quota' 
           ? 'Quota exceeded - check billing' 
           : 'Rate limited - try again later';
         return new Response(
@@ -172,7 +183,7 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ status: 'error', message: errorData.error?.message || 'Unknown error' }),
+        JSON.stringify({ status: 'error', message: responseData.error?.message || 'Unknown error' }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
