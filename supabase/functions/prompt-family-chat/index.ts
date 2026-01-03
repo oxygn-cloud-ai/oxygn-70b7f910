@@ -22,6 +22,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Normalize tools from Chat Completions format to Responses API format
+function normalizeToolForResponsesApi(tool: any): any {
+  if (tool.function && typeof tool.function === 'object') {
+    return {
+      type: tool.type || 'function',
+      name: tool.function.name,
+      description: tool.function.description,
+      parameters: tool.function.parameters,
+      ...(tool.function.strict !== undefined && { strict: tool.function.strict })
+    };
+  }
+  return tool;
+}
+
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
 function isAllowedDomain(email: string | undefined): boolean {
@@ -562,11 +576,31 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
     };
 
-    const tools = [
+    const rawTools = [
       ...getPromptFamilyTools(),
       getQonsolHelpTool(),
       databaseSchemaTool
     ];
+
+    // Normalize all tools to Responses API format (flat structure with top-level name)
+    const tools = rawTools.map(normalizeToolForResponsesApi);
+
+    // Defensive validation
+    const invalidTools = tools
+      .map((t, i) => ({ index: i, name: t.name }))
+      .filter(t => !t.name);
+    if (invalidTools.length > 0) {
+      console.error('Invalid tool definitions - missing name:', invalidTools);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid tool configuration', 
+          details: `Tools at indices ${invalidTools.map(t => t.index).join(', ')} missing name` 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Tools prepared:', tools.map(t => t.name));
 
     const lastUserMessage = messages[messages.length - 1];
     const userInput = lastUserMessage?.content || '';
@@ -629,8 +663,21 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
       const errorText = await response.text();
       console.error('Responses API error:', response.status, errorText);
+      
+      let upstreamError = 'Unknown error';
+      try {
+        const parsed = JSON.parse(errorText);
+        upstreamError = parsed.error?.message || parsed.message || errorText;
+      } catch {
+        upstreamError = errorText.slice(0, 200);
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'AI request failed' }),
+        JSON.stringify({ 
+          error: 'AI request failed', 
+          upstream_status: response.status,
+          details: upstreamError 
+        }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

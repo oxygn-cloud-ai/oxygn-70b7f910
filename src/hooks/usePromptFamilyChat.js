@@ -288,7 +288,15 @@ export const usePromptFamilyChat = (promptRowId) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || 'Failed to get response');
+        let errorMessage = 'Failed to get response';
+        try {
+          const parsed = JSON.parse(errorText);
+          errorMessage = parsed.error || parsed.message || errorMessage;
+          if (parsed.details) console.error('AI error details:', parsed.details);
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const reader = response.body?.getReader();
