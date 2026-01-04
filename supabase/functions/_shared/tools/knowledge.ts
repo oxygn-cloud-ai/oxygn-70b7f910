@@ -85,12 +85,39 @@ function escapeHtml(text: string): string {
 
 /**
  * Generate a sanitized anchor ID from title
+ * Issue #8 Fix: Handle non-latin titles with fallback
  */
 function toAnchorId(title: string): string {
-  return title
+  const sanitized = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+  
+  // Fallback for non-latin titles that produce empty string
+  if (!sanitized) {
+    return `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+  return sanitized;
+}
+
+/**
+ * Safely slice text without breaking multi-byte characters (emoji, etc.)
+ * Issue #9 Fix: Use Array.from to handle multi-byte chars properly
+ */
+function safeSlice(text: string, maxChars: number): string {
+  if (!text) return '';
+  const chars = Array.from(text);
+  if (chars.length <= maxChars) return text;
+  return chars.slice(0, maxChars).join('') + '...';
+}
+
+/**
+ * Validate priority is within valid range
+ * Issue #7 Fix: Clamp priority to 0-100
+ */
+function validatePriority(priority: number | undefined): number {
+  if (priority === undefined || priority === null) return 50;
+  return Math.max(0, Math.min(100, Math.round(priority)));
 }
 
 /**
@@ -103,12 +130,13 @@ function markdownToStorageFormat(markdown: string): string {
   // First escape HTML in the raw markdown to prevent injection
   let text = markdown;
   
-  // Process code blocks first (preserve content)
+  // Issue #6 Fix: Process code blocks first with better regex for nested backticks
+  // Use a more robust pattern that handles edge cases
   const codeBlocks: string[] = [];
-  text = text.replace(/```(\w+)?\n([\s\S]+?)```/g, (_match, lang, code) => {
+  text = text.replace(/```(\w*)\n([\s\S]*?)(?:\n```|```$)/g, (_match, lang, code) => {
     const index = codeBlocks.length;
-    // Code content goes in CDATA, no escaping needed
-    codeBlocks.push(`<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">${lang || ''}</ac:parameter><ac:plain-text-body><![CDATA[${code}]]></ac:plain-text-body></ac:structured-macro>`);
+    // Code content goes in CDATA, no escaping needed - CDATA handles nested backticks
+    codeBlocks.push(`<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">${escapeHtml(lang || '')}</ac:parameter><ac:plain-text-body><![CDATA[${code}]]></ac:plain-text-body></ac:structured-macro>`);
     return `__CODE_BLOCK_${index}__`;
   });
   
@@ -335,7 +363,8 @@ export const knowledgeModule: ToolModule = {
             results: keywordResults.map((r: { title: string; topic: string; content: string }) => ({
               title: r.title,
               topic: r.topic,
-              content: r.content?.slice(0, 1000)
+              // Issue #9 Fix: Use safeSlice for multi-byte char safety
+              content: safeSlice(r.content, 1000)
             }))
           });
         }
@@ -370,7 +399,8 @@ export const knowledgeModule: ToolModule = {
           results: semanticResults.map((r: any) => ({
             title: r.title,
             topic: r.topic,
-            content: r.content?.slice(0, 1000),
+            // Issue #9 Fix: Use safeSlice for multi-byte char safety
+            content: safeSlice(r.content, 1000),
             relevance: Math.round(r.similarity * 100)
           }))
         });
@@ -450,7 +480,7 @@ export const knowledgeModule: ToolModule = {
           .select('*')
           .eq('row_id', row_id);
         
-        // Issue #2 Fix: Only return active items unless explicitly asked for deleted
+        // Only return active items unless explicitly asked for deleted
         if (!include_deleted) {
           query = query.eq('is_active', true);
         }
@@ -463,16 +493,26 @@ export const knowledgeModule: ToolModule = {
           }
           return JSON.stringify({ error: error.message });
         }
+        
+        // Issue #1 Fix: Warn when returning deleted item
+        if (include_deleted && data && !data.is_active) {
+          return JSON.stringify({ 
+            item: data, 
+            warning: 'This item is deleted. Other tools (update, delete) will reject operations on it unless restored.'
+          });
+        }
+        
         return JSON.stringify({ item: data });
       }
 
       case 'update_knowledge_item': {
         const { row_id, title, content, topic, keywords, priority } = args;
         
-        // Issue #4 Fix: Check item exists and is active before updating
+        // Issue #2 Fix: Use optimistic locking with version check in UPDATE
+        // First get current state
         const { data: existing, error: existError } = await supabase
           .from('q_app_knowledge')
-          .select('row_id, version, is_active')
+          .select('row_id, version, is_active, content')
           .eq('row_id', row_id)
           .single();
         
@@ -484,50 +524,76 @@ export const knowledgeModule: ToolModule = {
           return JSON.stringify({ error: 'Cannot update a deleted knowledge item. Restore it first.' });
         }
         
+        const currentVersion = existing.version || 1;
+        const newVersion = currentVersion + 1;
+        
         // Build update object with only provided fields
         const updates: Record<string, any> = {
           updated_at: new Date().toISOString(),
           updated_by: userId,
-          // Issue #9 Fix: Atomic version increment by using existing.version
-          version: (existing.version || 1) + 1
+          version: newVersion
         };
         if (title !== undefined) updates.title = title;
         if (content !== undefined) updates.content = content;
         if (topic !== undefined) updates.topic = topic;
         if (keywords !== undefined) updates.keywords = keywords;
-        if (priority !== undefined) updates.priority = priority;
+        // Issue #7 Fix: Validate priority
+        if (priority !== undefined) updates.priority = validatePriority(priority);
 
+        // Issue #2 Fix: Optimistic locking - only update if version matches
         const { data, error } = await supabase
           .from('q_app_knowledge')
           .update(updates)
           .eq('row_id', row_id)
-          .eq('is_active', true) // Extra safety: only update if still active
+          .eq('is_active', true)
+          .eq('version', currentVersion) // Optimistic lock
           .select()
           .single();
         
-        if (error) return JSON.stringify({ error: error.message });
+        if (error) {
+          if (error.code === 'PGRST116') {
+            return JSON.stringify({ 
+              error: 'Concurrent update detected. Item was modified by another process. Please retry.',
+              hint: 'Fetch the latest version and try again'
+            });
+          }
+          return JSON.stringify({ error: error.message });
+        }
         
-        // Issue #1 Fix: Use proper pgvector format for embedding
-        if (content !== undefined && credentials.openAIApiKey) {
+        // Issue #4 Fix: Only regenerate embedding if content actually changed
+        const contentChanged = content !== undefined && content !== existing.content;
+        let embeddingUpdated = false;
+        
+        if (contentChanged && credentials.openAIApiKey) {
           try {
             const embedding = await generateEmbedding(content, credentials.openAIApiKey);
             if (embedding) {
-              await supabase
+              const { error: embError } = await supabase
                 .from('q_app_knowledge')
                 .update({ embedding: formatEmbeddingForStorage(embedding) })
                 .eq('row_id', row_id);
+              embeddingUpdated = !embError;
+              if (embError) {
+                console.error('Embedding update failed:', embError);
+              }
             }
           } catch (e) {
             console.error('Failed to regenerate embedding:', e);
-            // Non-fatal - item was still updated
           }
         }
         
-        return JSON.stringify({ success: true, item: data });
+        return JSON.stringify({ 
+          success: true, 
+          item: data,
+          embeddingUpdated: contentChanged ? embeddingUpdated : undefined
+        });
       }
 
       case 'create_knowledge_item': {
         const { title, content, topic, keywords, priority } = args;
+        
+        // Issue #7 Fix: Validate priority
+        const validatedPriority = validatePriority(priority);
         
         const { data, error } = await supabase
           .from('q_app_knowledge')
@@ -536,7 +602,7 @@ export const knowledgeModule: ToolModule = {
             content,
             topic,
             keywords: keywords || [],
-            priority: priority ?? 50,
+            priority: validatedPriority,
             is_active: true,
             version: 1,
             created_by: userId,
@@ -547,25 +613,29 @@ export const knowledgeModule: ToolModule = {
         
         if (error) return JSON.stringify({ error: error.message });
         
-        // Issue #1 Fix: Use proper pgvector format for embedding
+        // Generate embedding
+        let embeddingGenerated = false;
         if (credentials.openAIApiKey) {
           try {
             const embedding = await generateEmbedding(content, credentials.openAIApiKey);
             if (embedding) {
-              await supabase
+              const { error: embError } = await supabase
                 .from('q_app_knowledge')
                 .update({ embedding: formatEmbeddingForStorage(embedding) })
                 .eq('row_id', data.row_id);
+              embeddingGenerated = !embError;
+              if (embError) {
+                console.error('Embedding storage failed:', embError);
+              }
             }
           } catch (e) {
             console.error('Failed to generate embedding:', e);
           }
         } else {
-          // Issue #10: Warn if no API key for embeddings
           console.warn('OpenAI API key not available - embedding not generated for new knowledge item');
         }
         
-        return JSON.stringify({ success: true, item: data, embeddingGenerated: !!credentials.openAIApiKey });
+        return JSON.stringify({ success: true, item: data, embeddingGenerated });
       }
 
       case 'delete_knowledge_item': {
@@ -605,7 +675,15 @@ export const knowledgeModule: ToolModule = {
       case 'export_knowledge_to_confluence': {
         const { row_ids, space_key, parent_id, page_title } = args;
         
-        // Issue #6 Fix: Verify Confluence credentials are available
+        // Issue #5 Fix: Verify accessToken is available
+        if (!accessToken) {
+          return JSON.stringify({ 
+            error: 'Authentication token not available for Confluence export',
+            hint: 'This may be a session issue. Try refreshing and retry.'
+          });
+        }
+        
+        // Verify Confluence credentials are available
         if (!credentials.confluenceApiToken || !credentials.confluenceEmail || !credentials.confluenceBaseUrl) {
           const missing = [];
           if (!credentials.confluenceApiToken) missing.push('API token');
