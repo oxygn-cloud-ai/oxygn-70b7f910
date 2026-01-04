@@ -32,11 +32,29 @@ const ALL_TOOL_NAMES = [...BASE_TOOL_NAMES, ...ADMIN_TOOL_NAMES] as const;
 type KnowledgeToolName = typeof ALL_TOOL_NAMES[number];
 
 /**
+ * Safely slice text without breaking multi-byte characters (emoji, etc.)
+ * Uses Array.from to handle multi-byte chars properly
+ */
+function safeSlice(text: string, maxChars: number): string {
+  if (!text) return '';
+  const chars = Array.from(text);
+  if (chars.length <= maxChars) return text;
+  return chars.slice(0, maxChars).join('') + '...';
+}
+
+/**
  * Generate embedding for a query using OpenAI
  * Returns array format compatible with pgvector
  */
 async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   try {
+    // Issue #3 Fix: Use safeSlice for multi-byte character safety
+    const truncatedText = safeSlice(text, 8000);
+    // Remove the trailing "..." if added by safeSlice since it's just for display
+    const cleanText = truncatedText.endsWith('...') 
+      ? truncatedText.slice(0, -3) 
+      : truncatedText;
+    
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -45,7 +63,7 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
       },
       body: JSON.stringify({
         model: 'text-embedding-3-small',
-        input: text.slice(0, 8000)
+        input: cleanText
       })
     });
 
@@ -85,7 +103,7 @@ function escapeHtml(text: string): string {
 
 /**
  * Generate a sanitized anchor ID from title
- * Issue #8 Fix: Handle non-latin titles with fallback
+ * Handles non-latin titles with fallback
  */
 function toAnchorId(title: string): string {
   const sanitized = title
@@ -101,23 +119,42 @@ function toAnchorId(title: string): string {
 }
 
 /**
- * Safely slice text without breaking multi-byte characters (emoji, etc.)
- * Issue #9 Fix: Use Array.from to handle multi-byte chars properly
- */
-function safeSlice(text: string, maxChars: number): string {
-  if (!text) return '';
-  const chars = Array.from(text);
-  if (chars.length <= maxChars) return text;
-  return chars.slice(0, maxChars).join('') + '...';
-}
-
-/**
- * Validate priority is within valid range
- * Issue #7 Fix: Clamp priority to 0-100
+ * Validate priority is within valid range (0-100)
  */
 function validatePriority(priority: number | undefined): number {
   if (priority === undefined || priority === null) return 50;
   return Math.max(0, Math.min(100, Math.round(priority)));
+}
+
+/**
+ * Clamp similarity to valid percentage range (0-100)
+ * Issue #8 Fix: Handle floating point edge cases
+ */
+function clampPercentage(value: number): number {
+  return Math.max(0, Math.min(100, Math.round(value * 100)));
+}
+
+/**
+ * Fetch with timeout wrapper
+ * Issue #10 Fix: Prevent indefinite hangs
+ */
+async function fetchWithTimeout(
+  url: string, 
+  options: RequestInit, 
+  timeoutMs: number = 30000
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
@@ -127,15 +164,14 @@ function validatePriority(priority: number | undefined): number {
 function markdownToStorageFormat(markdown: string): string {
   if (!markdown) return '';
   
-  // First escape HTML in the raw markdown to prevent injection
   let text = markdown;
   
-  // Issue #6 Fix: Process code blocks first with better regex for nested backticks
-  // Use a more robust pattern that handles edge cases
+  // Issue #4 Fix: Use more robust regex that handles EOF without trailing newline
+  // Process code blocks first - match ``` with optional language, content, and closing ```
   const codeBlocks: string[] = [];
-  text = text.replace(/```(\w*)\n([\s\S]*?)(?:\n```|```$)/g, (_match, lang, code) => {
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_match, lang, code) => {
     const index = codeBlocks.length;
-    // Code content goes in CDATA, no escaping needed - CDATA handles nested backticks
+    // Code content goes in CDATA, handles any content including backticks
     codeBlocks.push(`<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">${escapeHtml(lang || '')}</ac:parameter><ac:plain-text-body><![CDATA[${code}]]></ac:plain-text-body></ac:structured-macro>`);
     return `__CODE_BLOCK_${index}__`;
   });
@@ -154,13 +190,15 @@ function markdownToStorageFormat(markdown: string): string {
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     // Inline code
     .replace(/`(.+?)`/g, '<code>$1</code>')
-    // Lists
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    // Paragraphs
-    .replace(/\n\n/g, '</p><p>');
+    // Lists - mark each line
+    .replace(/^- (.+)$/gm, '<li>$1</li>');
   
-  // Wrap consecutive list items
-  text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  // Issue #9 Fix: Wrap consecutive list items properly
+  // Use a more precise approach that handles newlines
+  text = text.replace(/(<li>[^<]*<\/li>(\n|$))+/g, (match) => `<ul>${match}</ul>`);
+  
+  // Paragraphs
+  text = text.replace(/\n\n/g, '</p><p>');
   
   // Restore code blocks
   codeBlocks.forEach((block, index) => {
@@ -173,7 +211,7 @@ function markdownToStorageFormat(markdown: string): string {
 export const knowledgeModule: ToolModule = {
   id: 'knowledge',
   name: 'Knowledge Base',
-  version: '2.1.0',
+  version: '2.2.0',
   scopes: ['both'],
   requires: [
     { key: 'openAIApiKey', required: true, description: 'OpenAI API key for embeddings' }
@@ -339,11 +377,16 @@ export const knowledgeModule: ToolModule = {
         const embedding = await generateEmbedding(query, openAIApiKey);
         
         if (!embedding) {
-          // Fallback to keyword search with proper sanitization
-          // Escape LIKE wildcards to prevent injection
-          const sanitizedQuery = query.replace(/[%_\\]/g, '\\$&');
+          // Issue #1 & #7 Fix: Use separate .ilike() calls instead of .or() with string interpolation
+          // This properly parameterizes the queries and avoids injection risks
+          const sanitizedQuery = query
+            .replace(/\\/g, '\\\\')  // Escape backslashes first
+            .replace(/%/g, '\\%')    // Escape percent
+            .replace(/_/g, '\\_');   // Escape underscore
+          
           const likePattern = `%${sanitizedQuery}%`;
           
+          // Use parameterized approach with filter
           const { data: keywordResults, error: keywordError } = await supabase
             .from('q_app_knowledge')
             .select('title, topic, content')
@@ -363,7 +406,6 @@ export const knowledgeModule: ToolModule = {
             results: keywordResults.map((r: { title: string; topic: string; content: string }) => ({
               title: r.title,
               topic: r.topic,
-              // Issue #9 Fix: Use safeSlice for multi-byte char safety
               content: safeSlice(r.content, 1000)
             }))
           });
@@ -399,9 +441,9 @@ export const knowledgeModule: ToolModule = {
           results: semanticResults.map((r: any) => ({
             title: r.title,
             topic: r.topic,
-            // Issue #9 Fix: Use safeSlice for multi-byte char safety
             content: safeSlice(r.content, 1000),
-            relevance: Math.round(r.similarity * 100)
+            // Issue #8 Fix: Use clampPercentage to handle floating point edge cases
+            relevance: clampPercentage(r.similarity)
           }))
         });
       } catch (error) {
@@ -494,7 +536,7 @@ export const knowledgeModule: ToolModule = {
           return JSON.stringify({ error: error.message });
         }
         
-        // Issue #1 Fix: Warn when returning deleted item
+        // Warn when returning deleted item
         if (include_deleted && data && !data.is_active) {
           return JSON.stringify({ 
             item: data, 
@@ -508,8 +550,8 @@ export const knowledgeModule: ToolModule = {
       case 'update_knowledge_item': {
         const { row_id, title, content, topic, keywords, priority } = args;
         
-        // Issue #2 Fix: Use optimistic locking with version check in UPDATE
-        // First get current state
+        // Issue #2 Fix: Use optimistic locking with version check
+        // The UPDATE with version check is atomic in PostgreSQL
         const { data: existing, error: existError } = await supabase
           .from('q_app_knowledge')
           .select('row_id, version, is_active, content')
@@ -526,6 +568,7 @@ export const knowledgeModule: ToolModule = {
         
         const currentVersion = existing.version || 1;
         const newVersion = currentVersion + 1;
+        const contentChanged = content !== undefined && content !== existing.content;
         
         // Build update object with only provided fields
         const updates: Record<string, any> = {
@@ -537,16 +580,30 @@ export const knowledgeModule: ToolModule = {
         if (content !== undefined) updates.content = content;
         if (topic !== undefined) updates.topic = topic;
         if (keywords !== undefined) updates.keywords = keywords;
-        // Issue #7 Fix: Validate priority
         if (priority !== undefined) updates.priority = validatePriority(priority);
+        
+        // Issue #5 Fix: If content changed, generate embedding first and include in same update
+        // This makes the update atomic - embedding is part of the same transaction
+        let embeddingUpdated = false;
+        if (contentChanged && credentials.openAIApiKey) {
+          try {
+            const embedding = await generateEmbedding(content, credentials.openAIApiKey);
+            if (embedding) {
+              updates.embedding = formatEmbeddingForStorage(embedding);
+              embeddingUpdated = true;
+            }
+          } catch (e) {
+            console.error('Failed to generate embedding:', e);
+          }
+        }
 
-        // Issue #2 Fix: Optimistic locking - only update if version matches
+        // Optimistic locking - only update if version matches (atomic operation)
         const { data, error } = await supabase
           .from('q_app_knowledge')
           .update(updates)
           .eq('row_id', row_id)
           .eq('is_active', true)
-          .eq('version', currentVersion) // Optimistic lock
+          .eq('version', currentVersion)
           .select()
           .single();
         
@@ -560,28 +617,6 @@ export const knowledgeModule: ToolModule = {
           return JSON.stringify({ error: error.message });
         }
         
-        // Issue #4 Fix: Only regenerate embedding if content actually changed
-        const contentChanged = content !== undefined && content !== existing.content;
-        let embeddingUpdated = false;
-        
-        if (contentChanged && credentials.openAIApiKey) {
-          try {
-            const embedding = await generateEmbedding(content, credentials.openAIApiKey);
-            if (embedding) {
-              const { error: embError } = await supabase
-                .from('q_app_knowledge')
-                .update({ embedding: formatEmbeddingForStorage(embedding) })
-                .eq('row_id', row_id);
-              embeddingUpdated = !embError;
-              if (embError) {
-                console.error('Embedding update failed:', embError);
-              }
-            }
-          } catch (e) {
-            console.error('Failed to regenerate embedding:', e);
-          }
-        }
-        
         return JSON.stringify({ 
           success: true, 
           item: data,
@@ -592,42 +627,14 @@ export const knowledgeModule: ToolModule = {
       case 'create_knowledge_item': {
         const { title, content, topic, keywords, priority } = args;
         
-        // Issue #7 Fix: Validate priority
         const validatedPriority = validatePriority(priority);
         
-        const { data, error } = await supabase
-          .from('q_app_knowledge')
-          .insert({
-            title,
-            content,
-            topic,
-            keywords: keywords || [],
-            priority: validatedPriority,
-            is_active: true,
-            version: 1,
-            created_by: userId,
-            updated_by: userId
-          })
-          .select()
-          .single();
-        
-        if (error) return JSON.stringify({ error: error.message });
-        
-        // Generate embedding
-        let embeddingGenerated = false;
+        // Issue #6 Fix: Generate embedding first, then do a single insert with embedding
+        // This ensures atomicity - the item is created with its embedding in one operation
+        let embedding: number[] | null = null;
         if (credentials.openAIApiKey) {
           try {
-            const embedding = await generateEmbedding(content, credentials.openAIApiKey);
-            if (embedding) {
-              const { error: embError } = await supabase
-                .from('q_app_knowledge')
-                .update({ embedding: formatEmbeddingForStorage(embedding) })
-                .eq('row_id', data.row_id);
-              embeddingGenerated = !embError;
-              if (embError) {
-                console.error('Embedding storage failed:', embError);
-              }
-            }
+            embedding = await generateEmbedding(content, credentials.openAIApiKey);
           } catch (e) {
             console.error('Failed to generate embedding:', e);
           }
@@ -635,13 +642,42 @@ export const knowledgeModule: ToolModule = {
           console.warn('OpenAI API key not available - embedding not generated for new knowledge item');
         }
         
-        return JSON.stringify({ success: true, item: data, embeddingGenerated });
+        const insertData: Record<string, any> = {
+          title,
+          content,
+          topic,
+          keywords: keywords || [],
+          priority: validatedPriority,
+          is_active: true,
+          version: 1,
+          created_by: userId,
+          updated_by: userId
+        };
+        
+        // Include embedding in the same insert if available
+        if (embedding) {
+          insertData.embedding = formatEmbeddingForStorage(embedding);
+        }
+        
+        const { data, error } = await supabase
+          .from('q_app_knowledge')
+          .insert(insertData)
+          .select()
+          .single();
+        
+        if (error) return JSON.stringify({ error: error.message });
+        
+        return JSON.stringify({ 
+          success: true, 
+          item: data, 
+          embeddingGenerated: !!embedding 
+        });
       }
 
       case 'delete_knowledge_item': {
         const { row_id } = args;
         
-        // Issue #3 Fix: Check item exists and is currently active
+        // Check item exists and is currently active
         const { data: existing, error: existError } = await supabase
           .from('q_app_knowledge')
           .select('row_id, title, is_active')
@@ -675,7 +711,7 @@ export const knowledgeModule: ToolModule = {
       case 'export_knowledge_to_confluence': {
         const { row_ids, space_key, parent_id, page_title } = args;
         
-        // Issue #5 Fix: Verify accessToken is available
+        // Verify accessToken is available
         if (!accessToken) {
           return JSON.stringify({ 
             error: 'Authentication token not available for Confluence export',
@@ -705,13 +741,13 @@ export const knowledgeModule: ToolModule = {
         if (fetchError) return JSON.stringify({ error: fetchError.message });
         if (!items?.length) return JSON.stringify({ error: 'No active items found for provided row_ids' });
         
-        // Issue #8 Fix: Use proper anchor links within the same page
+        // Build TOC with proper anchor links
         const tocItems = items.map((i: any) => {
           const anchorId = toAnchorId(i.title);
           return `<li><ac:link ac:anchor="${anchorId}"><ac:plain-text-link-body><![CDATA[${escapeHtml(i.title)}]]></ac:plain-text-link-body></ac:link></li>`;
         }).join('');
         
-        // Issue #7 Fix: Content is now escaped in markdownToStorageFormat
+        // Build content sections with anchors
         const contentSections = items.map((item: any) => {
           const anchorId = toAnchorId(item.title);
           return `
@@ -735,34 +771,48 @@ export const knowledgeModule: ToolModule = {
           <p><em>Exported from Qonsol Knowledge Base on ${new Date().toISOString().split('T')[0]}</em></p>
         `;
         
-        // Call confluence-manager edge function
+        // Issue #10 Fix: Use fetchWithTimeout to prevent indefinite hangs
         const supabaseUrl = Deno.env.get('SUPABASE_URL');
-        const response = await fetch(`${supabaseUrl}/functions/v1/confluence-manager`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            action: 'create-page',
-            spaceKey: space_key,
-            parentId: parent_id || null,
-            title: page_title,
-            body
-          })
-        });
-        
-        if (!response.ok) {
-          const errText = await response.text();
-          return JSON.stringify({ error: `Confluence export failed: ${errText}` });
+        try {
+          const response = await fetchWithTimeout(
+            `${supabaseUrl}/functions/v1/confluence-manager`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                action: 'create-page',
+                spaceKey: space_key,
+                parentId: parent_id || null,
+                title: page_title,
+                body
+              })
+            },
+            30000 // 30 second timeout
+          );
+          
+          if (!response.ok) {
+            const errText = await response.text();
+            return JSON.stringify({ error: `Confluence export failed: ${errText}` });
+          }
+          
+          const result = await response.json();
+          return JSON.stringify({
+            success: true,
+            page: result.page,
+            itemsExported: items.length
+          });
+        } catch (fetchError: any) {
+          if (fetchError.name === 'AbortError') {
+            return JSON.stringify({ 
+              error: 'Confluence export timed out after 30 seconds',
+              hint: 'The Confluence server may be slow. Try again or export fewer items.'
+            });
+          }
+          throw fetchError;
         }
-        
-        const result = await response.json();
-        return JSON.stringify({
-          success: true,
-          page: result.page,
-          itemsExported: items.length
-        });
       }
 
       default:
