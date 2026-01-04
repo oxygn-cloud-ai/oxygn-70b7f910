@@ -910,7 +910,6 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [], onEditSc
   // Read action type from database, map null/undefined to "none" for display
   const actionType = promptData?.post_action || "none";
   const actionConfig = promptData?.post_action_config || {};
-  const actionConfig = promptData?.post_action_config || {};
 
   // Local state for text inputs (for immediate UI feedback)
   const [localValues, setLocalValues] = useState({});
