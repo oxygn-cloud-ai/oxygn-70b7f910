@@ -426,16 +426,16 @@ export const promptsModule: ToolModule = {
               type: ['string', 'null'],
               description: 'Alternative: find prompt by name (case-insensitive)'
             },
-            variables: {
-              type: ['object', 'null'],
-              description: 'Variables to pass as key-value pairs'
+            variables_json: {
+              type: ['string', 'null'],
+              description: 'Variables to pass as JSON string of key-value pairs, e.g. {"key": "value"}'
             },
             user_message: {
               type: ['string', 'null'],
               description: 'User message to include'
             }
           },
-          required: ['prompt_id', 'prompt_name', 'variables', 'user_message'],
+          required: ['prompt_id', 'prompt_name', 'variables_json', 'user_message'],
           additionalProperties: false
         },
         strict: true
@@ -455,9 +455,9 @@ export const promptsModule: ToolModule = {
               type: ['string', 'null'],
               description: 'Alternative: find root by name'
             },
-            variables: {
-              type: ['object', 'null'],
-              description: 'Initial variables'
+            variables_json: {
+              type: ['string', 'null'],
+              description: 'Initial variables as JSON string, e.g. {"key": "value"}'
             },
             max_depth: {
               type: ['integer', 'null'],
@@ -468,7 +468,7 @@ export const promptsModule: ToolModule = {
               description: 'Stop cascade on first prompt failure (default: false - continues all prompts)'
             }
           },
-          required: ['prompt_id', 'prompt_name', 'variables', 'max_depth', 'stop_on_error'],
+          required: ['prompt_id', 'prompt_name', 'variables_json', 'max_depth', 'stop_on_error'],
           additionalProperties: false
         },
         strict: true
@@ -816,7 +816,17 @@ export const promptsModule: ToolModule = {
         // ============================================================================
 
         case 'run_prompt': {
-          const { prompt_id, prompt_name, variables, user_message } = args;
+          const { prompt_id, prompt_name, variables_json, user_message } = args;
+          
+          // Parse variables from JSON string
+          let variables: Record<string, any> = {};
+          if (variables_json) {
+            try {
+              variables = JSON.parse(variables_json);
+            } catch (e) {
+              return JSON.stringify({ error: `Invalid variables_json: ${e instanceof Error ? e.message : 'parse error'}` });
+            }
+          }
           
           if (!context.accessToken) {
             return JSON.stringify({ error: 'accessToken not available for prompt execution' });
@@ -896,7 +906,17 @@ export const promptsModule: ToolModule = {
         }
 
         case 'run_cascade': {
-          const { prompt_id, prompt_name, variables, max_depth, stop_on_error } = args;
+          const { prompt_id, prompt_name, variables_json, max_depth, stop_on_error } = args;
+          
+          // Parse variables from JSON string
+          let variables: Record<string, any> = {};
+          if (variables_json) {
+            try {
+              variables = JSON.parse(variables_json);
+            } catch (e) {
+              return JSON.stringify({ error: `Invalid variables_json: ${e instanceof Error ? e.message : 'parse error'}` });
+            }
+          }
           
           if (!context.accessToken) {
             return JSON.stringify({ error: 'accessToken not available for cascade execution' });
