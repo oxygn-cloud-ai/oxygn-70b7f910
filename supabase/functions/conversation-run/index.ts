@@ -927,10 +927,20 @@ serve(async (req) => {
       if (referencedIds.length > 0) {
         console.log(`Found ${referencedIds.length} q.ref references to resolve:`, referencedIds);
         
+        // SECURITY FIX: Add owner_id and is_deleted filters to prevent cross-tenant data leaks
         const { data: refPrompts } = await supabase
           .from(TABLES.PROMPTS)
           .select('row_id, prompt_name, output_response, user_prompt_result, input_admin_prompt, input_user_prompt, system_variables')
-          .in('row_id', referencedIds);
+          .in('row_id', referencedIds)
+          .eq('owner_id', validation.user.id)  // Only allow access to own prompts
+          .eq('is_deleted', false);            // Exclude deleted prompts
+        
+        // Log any blocked access attempts for security monitoring
+        const foundIds = new Set(refPrompts?.map((p: any) => p.row_id) || []);
+        const blockedIds = referencedIds.filter(id => !foundIds.has(id));
+        if (blockedIds.length > 0) {
+          console.warn('SECURITY: q.ref access blocked for IDs not owned by user or deleted:', blockedIds);
+        }
         
         if (refPrompts && refPrompts.length > 0) {
           refPrompts.forEach((p: any) => {
@@ -946,7 +956,7 @@ serve(async (req) => {
               });
             }
           });
-          console.log(`Resolved ${refPrompts.length} referenced prompts`);
+          console.log(`Resolved ${refPrompts.length} referenced prompts (${blockedIds.length} blocked)`);
         }
       }
 

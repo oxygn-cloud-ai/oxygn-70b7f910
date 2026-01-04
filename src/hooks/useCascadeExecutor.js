@@ -3,6 +3,7 @@ import { useSupabase } from './useSupabase';
 import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { useExecutionTracing } from './useExecutionTracing';
 import { toast } from '@/components/ui/sonner';
 import { notify } from '@/contexts/ToastHistoryContext';
 import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
@@ -49,6 +50,7 @@ export const useCascadeExecutor = () => {
   const supabase = useSupabase();
   const { runConversation } = useConversationRun();
   const { registerCall } = useApiCallContext();
+  const { startTrace, createSpan, completeSpan, failSpan, completeTrace } = useExecutionTracing();
   const {
     startCascade,
     updateProgress,
@@ -344,6 +346,33 @@ export const useCascadeExecutor = () => {
       excluded_prompts: excludedPrompts.length,
     });
 
+    // Start execution trace for the cascade
+    let traceId = null;
+    let contextSnapshot = {};
+    try {
+      const traceResult = await startTrace({
+        entry_prompt_row_id: topLevelRowId,
+        execution_type: 'cascade_top',
+      });
+      
+      if (traceResult.success) {
+        traceId = traceResult.trace_id;
+        contextSnapshot = traceResult.context_snapshot || {};
+        console.log('Execution trace started:', traceId);
+      } else if (traceResult.code === 'CONCURRENT_EXECUTION') {
+        toast.error('Cannot start cascade', {
+          description: traceResult.error,
+          source: 'useCascadeExecutor',
+        });
+        cleanupCall();
+        return;
+      } else {
+        console.warn('Failed to start trace, continuing without tracing:', traceResult.error);
+      }
+    } catch (traceErr) {
+      console.warn('Trace start failed, continuing without tracing:', traceErr);
+    }
+
     // Mark excluded prompts as skipped immediately
     for (const excludedPrompt of excludedPrompts) {
       markPromptSkipped(excludedPrompt.row_id, excludedPrompt.prompt_name);
@@ -455,11 +484,30 @@ export const useCascadeExecutor = () => {
           let success = false;
           let retryCount = 0;
           const maxRetries = 3;
+          let currentSpanId = null;
 
           let rateLimitWaits = 0;
           const maxRateLimitWaits = 12;
 
           while (!success && retryCount < maxRetries) {
+            // Create span for this attempt
+            if (traceId) {
+              try {
+                const spanResult = await createSpan({
+                  trace_id: traceId,
+                  prompt_row_id: prompt.row_id,
+                  span_type: retryCount > 0 ? 'retry' : 'generation',
+                  attempt_number: retryCount + 1,
+                  previous_attempt_span_id: currentSpanId,
+                });
+                if (spanResult.success) {
+                  currentSpanId = spanResult.span_id;
+                }
+              } catch (spanErr) {
+                console.warn('Failed to create span:', spanErr);
+              }
+            }
+
             try {
               // Refresh the auth session before each prompt to prevent token expiration
               try {
@@ -492,6 +540,28 @@ export const useCascadeExecutor = () => {
 
               if (result?.response) {
                 const promptElapsedMs = Date.now() - promptStartTime;
+                
+                // Complete the span successfully
+                if (traceId && currentSpanId) {
+                  try {
+                    await completeSpan({
+                      span_id: currentSpanId,
+                      status: 'success',
+                      openai_response_id: result.response_id,
+                      output: result.response,
+                      latency_ms: promptElapsedMs,
+                      usage_tokens: result.usage ? {
+                        input: result.usage.prompt_tokens || 0,
+                        output: result.usage.completion_tokens || 0,
+                        total: result.usage.total_tokens || 0,
+                      } : undefined,
+                    });
+                    // Update context snapshot for subsequent prompts
+                    contextSnapshot[prompt.row_id] = result.response;
+                  } catch (spanErr) {
+                    console.warn('Failed to complete span:', spanErr);
+                  }
+                }
                 
                 accumulatedResponses.push({
                   level: levelIdx,
@@ -879,6 +949,15 @@ export const useCascadeExecutor = () => {
       }
 
       const totalElapsedMs = Date.now() - cascadeStartTime;
+
+      // Complete execution trace
+      if (traceId) {
+        try {
+          await completeTrace({ trace_id: traceId, status: 'completed' });
+        } catch (traceErr) {
+          console.warn('Failed to complete trace:', traceErr);
+        }
+      }
 
       // Complete cascade
       completeCascade();
