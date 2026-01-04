@@ -546,7 +546,7 @@ const ActionNodeSettings = ({
       </Card>
 
       {/* Auto-Run Created Children - Prominent Position */}
-      {selectedAction && ['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action) && (
+      {['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action) && (
         <Card className="bg-surface-container-low border-outline-variant">
           <CardContent className="py-3 space-y-3">
             <div className="flex items-center justify-between gap-4">
