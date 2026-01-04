@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
@@ -17,6 +17,14 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [toolActivity, setToolActivity] = useState([]);
   const [isExecutingTools, setIsExecutingTools] = useState(false);
   const [rootPromptId, setRootPromptId] = useState(null);
+  
+  // Ref to track activeThreadId without causing callback re-creation
+  const activeThreadIdRef = useRef(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
   
   // Session-level model and reasoning effort state
   const [sessionModel, setSessionModel] = useState(null); // null = use default
@@ -76,14 +84,14 @@ export const usePromptFamilyChat = (promptRowId) => {
       if (error) throw error;
       setThreads(data || []);
       
-      // Auto-select first thread if none selected
-      if (data?.length > 0 && !activeThreadId) {
+      // Auto-select first thread if none selected (use ref to avoid dependency)
+      if (data?.length > 0 && !activeThreadIdRef.current) {
         setActiveThreadId(data[0].row_id);
       }
     } catch (error) {
       console.error('Error fetching threads:', error);
     }
-  }, [rootPromptId, activeThreadId]);
+  }, [rootPromptId]);
 
   // Fetch messages for active thread from OpenAI via thread-manager
   const fetchMessages = useCallback(async () => {
@@ -200,7 +208,15 @@ export const usePromptFamilyChat = (promptRowId) => {
   // Add a message to local state only
   const addMessage = useCallback((role, content, toolCalls = null, threadId = null) => {
     const effectiveThreadId = threadId || activeThreadId;
-    if (!effectiveThreadId) return null;
+    if (!effectiveThreadId) {
+      console.warn('[usePromptFamilyChat] addMessage failed: no threadId', { 
+        role, 
+        passedThreadId: threadId, 
+        activeThreadId,
+        contentPreview: content?.slice(0, 50) 
+      });
+      return null;
+    }
 
     const localMsg = {
       row_id: `local-${Date.now()}`,
@@ -358,7 +374,7 @@ export const usePromptFamilyChat = (promptRowId) => {
         }
       }
 
-      await addMessage('assistant', fullContent);
+      await addMessage('assistant', fullContent, null, effectiveThreadId);
       
       // Notify AI response received
       toast.info('AI response received', { description: fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '') });
