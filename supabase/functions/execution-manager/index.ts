@@ -493,6 +493,49 @@ async function completeTrace(supabase: any, userId: string, params: CompleteTrac
   return { success: true };
 }
 
+/**
+ * Cleanup orphaned traces that have been 'running' for more than 30 minutes
+ */
+async function cleanupOrphanedTraces(supabase: any, userId: string) {
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  
+  const { data: orphanedTraces, error: selectError } = await supabase
+    .from('q_execution_traces')
+    .select('trace_id')
+    .eq('owner_id', userId)
+    .eq('status', 'running')
+    .lt('started_at', thirtyMinutesAgo);
+  
+  if (selectError) throw selectError;
+  
+  if (!orphanedTraces || orphanedTraces.length === 0) {
+    return { success: true, cleaned_up: 0, message: 'No orphaned traces found' };
+  }
+  
+  const traceIds = orphanedTraces.map((t: any) => t.trace_id);
+  
+  const { error: updateError } = await supabase
+    .from('q_execution_traces')
+    .update({
+      status: 'failed',
+      error_summary: 'Orphaned trace - marked as failed after 30 minutes',
+      completed_at: new Date().toISOString(),
+    })
+    .in('trace_id', traceIds)
+    .eq('owner_id', userId);
+  
+  if (updateError) throw updateError;
+  
+  console.log(JSON.stringify({
+    event: 'orphaned_traces_cleaned',
+    count: traceIds.length,
+    trace_ids: traceIds,
+    timestamp: new Date().toISOString(),
+  }));
+  
+  return { success: true, cleaned_up: traceIds.length };
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -541,6 +584,10 @@ serve(async (req) => {
         break;
       case 'complete_trace':
         result = await completeTrace(supabase, user.id, params as CompleteTraceParams);
+        break;
+      case 'cleanup_orphaned':
+        // Mark traces stuck in 'running' for > 30 minutes as 'failed'
+        result = await cleanupOrphanedTraces(supabase, user.id);
         break;
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
