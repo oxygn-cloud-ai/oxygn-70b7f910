@@ -522,6 +522,215 @@ export type Database = {
           },
         ]
       }
+      q_execution_artefacts: {
+        Row: {
+          artefact_id: string
+          artefact_type: string
+          content: string
+          content_hash: string
+          created_at: string
+          metadata: Json | null
+          size_bytes: number | null
+          span_id: string
+        }
+        Insert: {
+          artefact_id?: string
+          artefact_type: string
+          content: string
+          content_hash: string
+          created_at?: string
+          metadata?: Json | null
+          size_bytes?: number | null
+          span_id: string
+        }
+        Update: {
+          artefact_id?: string
+          artefact_type?: string
+          content?: string
+          content_hash?: string
+          created_at?: string
+          metadata?: Json | null
+          size_bytes?: number | null
+          span_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_execution_artefacts_span_id_fkey"
+            columns: ["span_id"]
+            isOneToOne: false
+            referencedRelation: "q_execution_spans"
+            referencedColumns: ["span_id"]
+          },
+        ]
+      }
+      q_execution_spans: {
+        Row: {
+          attempt_number: number
+          completed_at: string | null
+          created_at: string
+          error_evidence: Json | null
+          input_hash: string | null
+          latency_ms: number | null
+          openai_response_id: string | null
+          output_artefact_id: string | null
+          output_preview: string | null
+          parent_span_id: string | null
+          previous_attempt_span_id: string | null
+          prompt_row_id: string | null
+          sequence_order: number
+          span_id: string
+          span_type: string
+          status: string
+          trace_id: string
+          usage_tokens: Json | null
+        }
+        Insert: {
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          error_evidence?: Json | null
+          input_hash?: string | null
+          latency_ms?: number | null
+          openai_response_id?: string | null
+          output_artefact_id?: string | null
+          output_preview?: string | null
+          parent_span_id?: string | null
+          previous_attempt_span_id?: string | null
+          prompt_row_id?: string | null
+          sequence_order: number
+          span_id?: string
+          span_type: string
+          status?: string
+          trace_id: string
+          usage_tokens?: Json | null
+        }
+        Update: {
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          error_evidence?: Json | null
+          input_hash?: string | null
+          latency_ms?: number | null
+          openai_response_id?: string | null
+          output_artefact_id?: string | null
+          output_preview?: string | null
+          parent_span_id?: string | null
+          previous_attempt_span_id?: string | null
+          prompt_row_id?: string | null
+          sequence_order?: number
+          span_id?: string
+          span_type?: string
+          status?: string
+          trace_id?: string
+          usage_tokens?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_execution_spans_parent_span_id_fkey"
+            columns: ["parent_span_id"]
+            isOneToOne: false
+            referencedRelation: "q_execution_spans"
+            referencedColumns: ["span_id"]
+          },
+          {
+            foreignKeyName: "q_execution_spans_previous_attempt_span_id_fkey"
+            columns: ["previous_attempt_span_id"]
+            isOneToOne: false
+            referencedRelation: "q_execution_spans"
+            referencedColumns: ["span_id"]
+          },
+          {
+            foreignKeyName: "q_execution_spans_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_execution_spans_trace_id_fkey"
+            columns: ["trace_id"]
+            isOneToOne: false
+            referencedRelation: "q_execution_traces"
+            referencedColumns: ["trace_id"]
+          },
+        ]
+      }
+      q_execution_traces: {
+        Row: {
+          completed_at: string | null
+          context_snapshot: Json
+          entry_prompt_row_id: string
+          error_summary: string | null
+          execution_type: string
+          family_version_at_start: number
+          metadata: Json | null
+          owner_id: string
+          prompt_ids_at_start: Json
+          root_prompt_row_id: string
+          started_at: string
+          status: string
+          thread_row_id: string | null
+          tool_schema_hash: string | null
+          trace_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          context_snapshot?: Json
+          entry_prompt_row_id: string
+          error_summary?: string | null
+          execution_type: string
+          family_version_at_start?: number
+          metadata?: Json | null
+          owner_id: string
+          prompt_ids_at_start?: Json
+          root_prompt_row_id: string
+          started_at?: string
+          status?: string
+          thread_row_id?: string | null
+          tool_schema_hash?: string | null
+          trace_id?: string
+        }
+        Update: {
+          completed_at?: string | null
+          context_snapshot?: Json
+          entry_prompt_row_id?: string
+          error_summary?: string | null
+          execution_type?: string
+          family_version_at_start?: number
+          metadata?: Json | null
+          owner_id?: string
+          prompt_ids_at_start?: Json
+          root_prompt_row_id?: string
+          started_at?: string
+          status?: string
+          thread_row_id?: string | null
+          tool_schema_hash?: string | null
+          trace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_execution_traces_entry_prompt_row_id_fkey"
+            columns: ["entry_prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_execution_traces_root_prompt_row_id_fkey"
+            columns: ["root_prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_execution_traces_thread_row_id_fkey"
+            columns: ["thread_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_threads"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
       q_export_templates: {
         Row: {
           confluence_config: Json | null
@@ -988,6 +1197,7 @@ export type Database = {
           exclude_from_cascade: boolean | null
           exclude_from_export: boolean | null
           extracted_variables: Json | null
+          family_version: number | null
           file_search_on: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
@@ -1029,6 +1239,7 @@ export type Database = {
           reasoning_effort_on: boolean | null
           response_format: string | null
           response_format_on: boolean | null
+          root_prompt_row_id: string | null
           row_id: string
           seed: string | null
           seed_on: boolean | null
@@ -1071,6 +1282,7 @@ export type Database = {
           exclude_from_cascade?: boolean | null
           exclude_from_export?: boolean | null
           extracted_variables?: Json | null
+          family_version?: number | null
           file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
@@ -1112,6 +1324,7 @@ export type Database = {
           reasoning_effort_on?: boolean | null
           response_format?: string | null
           response_format_on?: boolean | null
+          root_prompt_row_id?: string | null
           row_id?: string
           seed?: string | null
           seed_on?: boolean | null
@@ -1154,6 +1367,7 @@ export type Database = {
           exclude_from_cascade?: boolean | null
           exclude_from_export?: boolean | null
           extracted_variables?: Json | null
+          family_version?: number | null
           file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
@@ -1195,6 +1409,7 @@ export type Database = {
           reasoning_effort_on?: boolean | null
           response_format?: string | null
           response_format_on?: boolean | null
+          root_prompt_row_id?: string | null
           row_id?: string
           seed?: string | null
           seed_on?: boolean | null
@@ -1235,7 +1450,38 @@ export type Database = {
             referencedRelation: "q_prompts"
             referencedColumns: ["row_id"]
           },
+          {
+            foreignKeyName: "q_prompts_root_prompt_row_id_fkey"
+            columns: ["root_prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
         ]
+      }
+      q_rate_limits: {
+        Row: {
+          endpoint: string
+          id: string
+          request_count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          endpoint: string
+          id?: string
+          request_count?: number
+          user_id: string
+          window_start?: string
+        }
+        Update: {
+          endpoint?: string
+          id?: string
+          request_count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: []
       }
       q_settings: {
         Row: {
@@ -1660,6 +1906,8 @@ export type Database = {
         Args: { _resource_id: string; _resource_type: string }
         Returns: boolean
       }
+      cleanup_old_rate_limits: { Args: never; Returns: undefined }
+      cleanup_orphaned_traces: { Args: never; Returns: undefined }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
       decrypt_credential: {
         Args: {

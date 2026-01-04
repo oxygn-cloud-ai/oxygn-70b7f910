@@ -151,8 +151,10 @@ const getNestedValue = (obj, path) => {
  *   - parentData: Parent prompt data
  *   - childrenData: Array of child prompts
  *   - siblingsData: Array of sibling prompts (for named variable access)
- *   - fetchPromptById: Async function to fetch prompt by ID
- *   - fetchPromptByName: Async function to fetch prompt by name
+ *   - fetchPromptById: Async function to fetch prompt by ID (should accept owner_id context)
+ *   - fetchPromptByName: Async function to fetch prompt by name (should accept owner_id context)
+ *   - owner_id: Current user's ID for security filtering
+ *   - root_prompt_row_id: Current prompt family root for scoping
  * @returns {Promise<string>}
  */
 export const resolveVariable = async (variableName, context = {}) => {
@@ -165,6 +167,8 @@ export const resolveVariable = async (variableName, context = {}) => {
     siblingsData = [],
     fetchPromptById = null,
     fetchPromptByName = null,
+    owner_id = null,           // SECURITY: Owner context for filtering
+    root_prompt_row_id = null, // SECURITY: Family scope for filtering
   } = context;
   
   // System variables (q.*)
@@ -209,9 +213,13 @@ export const resolveVariable = async (variableName, context = {}) => {
         }
         
         // Try to fetch by name if function provided
+        // SECURITY: Pass owner_id context for filtering
         if (fetchPromptByName) {
           try {
-            const prompt = await fetchPromptByName(nodeName);
+            const prompt = await fetchPromptByName(nodeName, {
+              owner_id,
+              root_prompt_row_id,
+            });
             if (prompt?.extracted_variables) {
               const value = getNestedValue(prompt.extracted_variables, keyPath);
               if (value !== undefined) {
@@ -296,9 +304,13 @@ export const resolveVariable = async (variableName, context = {}) => {
     }
     
     // Fetch from database if function provided
+    // SECURITY: Pass owner_id context for filtering
     if (fetchPromptById) {
       try {
-        const prompt = await fetchPromptById(parsed.promptId);
+        const prompt = await fetchPromptById(parsed.promptId, {
+          owner_id,
+          root_prompt_row_id,
+        });
         if (prompt) {
           return prompt[parsed.fieldName] ?? `{{${variableName}}}`;
         }
