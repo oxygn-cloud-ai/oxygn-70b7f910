@@ -4,6 +4,7 @@ import { useTimer } from '../../hooks/useTimer';
 import { useProjectData } from '../../hooks/useProjectData';
 import { useConversationRun } from '../../hooks/useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
+import { useExecutionTracing } from '@/hooks/useExecutionTracing';
 import PromptField from '../PromptField';
 import { Bot, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const PromptFieldsTab = ({
   const supabase = useSupabase();
   const { runPrompt, isRunning } = useConversationRun();
   const { startSingleRun, endSingleRun } = useCascadeRun();
+  const { startTrace, createSpan, completeSpan, failSpan, completeTrace } = useExecutionTracing();
   const [isGenerating, setIsGenerating] = useState(false);
   const formattedTime = useTimer(isGenerating || isRunning);
 
@@ -65,7 +67,33 @@ const PromptFieldsTab = ({
 
     setIsGenerating(true);
     startSingleRun(projectRowId);
+    
+    let traceId = null;
+    let spanId = null;
+    const startTime = Date.now();
+    
     try {
+      // Start execution trace for single prompt run
+      const traceResult = await startTrace({
+        entry_prompt_row_id: projectRowId,
+        execution_type: 'single',
+      });
+      
+      if (traceResult.success) {
+        traceId = traceResult.trace_id;
+        
+        // Create span for this generation
+        const spanResult = await createSpan({
+          trace_id: traceId,
+          prompt_row_id: projectRowId,
+          span_type: 'generation',
+        });
+        
+        if (spanResult.success) {
+          spanId = spanResult.span_id;
+        }
+      }
+      
       // Edge function automatically uses:
       // - input_admin_prompt from DB as system context
       // - input_user_prompt from DB as user message
@@ -86,15 +114,77 @@ const PromptFieldsTab = ({
       if (result?.response) {
         handleChange('user_prompt_result', result.response);
         handleChange('output_response', result.response);
+        
+        // Complete span with success
+        if (spanId) {
+          await completeSpan({
+            span_id: spanId,
+            status: 'success',
+            openai_response_id: result.response_id,
+            output: result.response,
+            latency_ms: Date.now() - startTime,
+            usage_tokens: result.usage ? {
+              input: result.usage.input_tokens || 0,
+              output: result.usage.output_tokens || 0,
+              total: (result.usage.input_tokens || 0) + (result.usage.output_tokens || 0),
+            } : undefined,
+          });
+        }
+        
+        // Complete trace with success
+        if (traceId) {
+          await completeTrace({
+            trace_id: traceId,
+            status: 'completed',
+          });
+        }
+      } else {
+        // No result - mark as failed
+        if (spanId) {
+          await failSpan({
+            span_id: spanId,
+            error_evidence: {
+              error_type: 'no_response',
+              error_message: 'No response received from API',
+              retry_recommended: true,
+            },
+          });
+        }
+        if (traceId) {
+          await completeTrace({
+            trace_id: traceId,
+            status: 'failed',
+            error_summary: 'No response received',
+          });
+        }
       }
     } catch (error) {
       console.error('Error generating response:', error);
+      
+      // Record failure in tracing
+      if (spanId) {
+        await failSpan({
+          span_id: spanId,
+          error_evidence: {
+            error_type: 'execution_error',
+            error_message: error.message || 'Unknown error',
+            retry_recommended: true,
+          },
+        });
+      }
+      if (traceId) {
+        await completeTrace({
+          trace_id: traceId,
+          status: 'failed',
+          error_summary: error.message || 'Execution failed',
+        });
+      }
       // Error toast already shown by runPrompt
     } finally {
       setIsGenerating(false);
       endSingleRun();
     }
-  }, [isTopLevel, selectedItemData?.is_assistant, parentAssistantRowId, projectRowId, runPrompt, handleChange, startSingleRun, endSingleRun]);
+  }, [isTopLevel, selectedItemData?.is_assistant, parentAssistantRowId, projectRowId, runPrompt, handleChange, handleSave, startSingleRun, endSingleRun, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
 
   const handleCascade = useCallback((fieldName) => {
     if (onCascade) {
