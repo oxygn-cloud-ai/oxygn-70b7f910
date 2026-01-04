@@ -545,6 +545,42 @@ const ActionNodeSettings = ({
         </CardContent>
       </Card>
 
+      {/* Auto-Run Created Children - Prominent Position */}
+      {selectedAction && ['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action) && (
+        <Card className="bg-surface-container-low border-outline-variant">
+          <CardContent className="py-3 space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-body-sm text-on-surface flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  Auto-Run Created Children
+                </div>
+                <div className="text-[10px] text-on-surface-variant">
+                  Immediately execute created child prompts as a cascade
+                </div>
+              </div>
+              <Switch
+                checked={localData.auto_run_children || false}
+                onCheckedChange={(checked) => {
+                  handleChange('auto_run_children', checked);
+                  handleSave('auto_run_children', checked);
+                }}
+              />
+            </div>
+            
+            {localData.auto_run_children && (
+              <Alert className="bg-amber-500/10 border-amber-500/30">
+                <Zap className="h-4 w-4 text-amber-500" />
+                <AlertDescription className="text-[10px] text-on-surface">
+                  Created children will run automatically after this action completes.
+                  Supports up to 99 levels of recursion.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Action Configuration */}
       {selectedAction?.configSchema && (
         <Card className="bg-surface-container-low border-outline-variant">
@@ -688,42 +724,6 @@ const ActionNodeSettings = ({
               </CardContent>
             </CollapsibleContent>
           </Collapsible>
-        </Card>
-      )}
-
-      {/* Auto-Run Children Configuration */}
-      {selectedAction && ['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action) && (
-        <Card className="bg-surface-container-low border-outline-variant">
-          <CardContent className="py-3 space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="text-body-sm text-on-surface flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-amber-500" />
-                  Auto-Run Created Children
-                </div>
-                <div className="text-[10px] text-on-surface-variant">
-                  Immediately execute created child prompts as a cascade
-                </div>
-              </div>
-              <Switch
-                checked={localData.auto_run_children || false}
-                onCheckedChange={(checked) => {
-                  handleChange('auto_run_children', checked);
-                  handleSave('auto_run_children', checked);
-                }}
-              />
-            </div>
-            
-            {localData.auto_run_children && (
-              <Alert className="bg-amber-500/10 border-amber-500/30">
-                <Zap className="h-4 w-4 text-amber-500" />
-                <AlertDescription className="text-[10px] text-on-surface">
-                  Created children will run automatically after this action completes.
-                  Supports up to 99 levels of recursion. Children with their own auto-run enabled will also cascade.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
         </Card>
       )}
 
