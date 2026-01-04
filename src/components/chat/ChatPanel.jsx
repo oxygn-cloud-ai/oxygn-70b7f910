@@ -113,7 +113,7 @@ const ChatPanel = ({
           <div className="divide-y divide-border/30">
             {messages.map((message) => (
               <MessageBubble 
-                key={message.id} 
+                key={message.row_id || message.id} 
                 message={message} 
                 userProfile={userProfile}
                 conversationName={conversationName}
