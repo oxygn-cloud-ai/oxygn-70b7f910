@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
@@ -174,6 +174,7 @@ export const usePromptFamilyChat = (promptRowId) => {
   // Switch to a different thread
   const switchThread = useCallback((threadId) => {
     setActiveThreadId(threadId);
+    setMessages([]); // Clear old messages immediately to prevent flash
     setStreamingMessage('');
     setToolActivity([]);
     setIsExecutingTools(false);
@@ -189,12 +190,15 @@ export const usePromptFamilyChat = (promptRowId) => {
 
       if (error) throw error;
 
-      setThreads(prev => prev.filter(t => t.row_id !== threadId));
-      
-      if (activeThreadId === threadId) {
-        const remaining = threads.filter(t => t.row_id !== threadId);
-        setActiveThreadId(remaining[0]?.row_id || null);
-      }
+      // Use functional update to get fresh threads state
+      setThreads(prev => {
+        const remaining = prev.filter(t => t.row_id !== threadId);
+        // If deleting current thread, switch to first remaining
+        if (activeThreadId === threadId) {
+          setActiveThreadId(remaining[0]?.row_id || null);
+        }
+        return remaining;
+      });
       
       toast.success('Conversation cleared');
       return true;
@@ -203,7 +207,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       toast.error('Failed to delete chat');
       return false;
     }
-  }, [activeThreadId, threads]);
+  }, [activeThreadId]);
 
   // Add a message to local state only
   const addMessage = useCallback((role, content, toolCalls = null, threadId = null) => {
