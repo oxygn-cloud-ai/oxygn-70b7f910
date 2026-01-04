@@ -805,6 +805,23 @@ export const useCascadeExecutor = () => {
             } catch (error) {
               console.error('Cascade prompt error:', error);
 
+              // Fail the span with error evidence
+              if (traceId && currentSpanId) {
+                try {
+                  await failSpan({
+                    span_id: currentSpanId,
+                    error_evidence: {
+                      error_type: error.name || 'Error',
+                      error_message: error.message,
+                      error_code: error.code || error.status?.toString(),
+                      retry_recommended: retryCount < maxRetries,
+                    },
+                  });
+                } catch (spanErr) {
+                  console.warn('Failed to fail span:', spanErr);
+                }
+              }
+
               const delayMs = getRetryDelayMs(error);
               if (delayMs > 0) {
                 rateLimitWaits++;
@@ -989,6 +1006,20 @@ export const useCascadeExecutor = () => {
 
     } catch (error) {
       console.error('Cascade execution error:', error);
+      
+      // Complete trace with failed status
+      if (traceId) {
+        try {
+          await completeTrace({ 
+            trace_id: traceId, 
+            status: 'failed',
+            error_summary: error.message,
+          });
+        } catch (traceErr) {
+          console.warn('Failed to complete trace on error:', traceErr);
+        }
+      }
+      
       completeCascade();
       toast.error(`Cascade failed: ${error.message}`, {
         source: 'useCascadeExecutor',
