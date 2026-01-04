@@ -178,12 +178,39 @@ export const useExecutionTracing = () => {
     }
   }, []);
 
+  /**
+   * Cleanup orphaned traces that have been running for too long
+   */
+  const cleanupOrphanedTraces = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('execution-manager', {
+        body: {
+          action: 'cleanup_orphaned',
+        },
+      });
+
+      if (error) {
+        console.error('Failed to cleanup orphaned traces:', error);
+        return { success: false, error: error.message };
+      }
+
+      return {
+        success: true,
+        cleaned_up: data.cleaned_up,
+      };
+    } catch (err) {
+      console.error('Exception cleaning up traces:', err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  }, []);
+
   return {
     startTrace,
     createSpan,
     completeSpan,
     failSpan,
     completeTrace,
+    cleanupOrphanedTraces,
   };
 };
 
