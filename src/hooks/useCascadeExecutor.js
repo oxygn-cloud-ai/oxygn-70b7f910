@@ -1064,6 +1064,13 @@ export const useCascadeExecutor = () => {
     showError,
     getRetryDelayMs,
     registerCall,
+    startTrace,
+    createSpan,
+    completeSpan,
+    failSpan,
+    completeTrace,
+    showActionPreview,
+    skipAllPreviews,
   ]);
 
   // Check if a prompt has children (for showing cascade button)
@@ -1104,6 +1111,7 @@ export const useCascadeExecutor = () => {
       maxDepth = 99, 
       currentDepth = 0,
       inheritedVariables = {},
+      traceId = null, // Optional: trace ID from parent cascade for unified tracing
     } = options;
 
     if (!children || children.length === 0) {
@@ -1188,6 +1196,25 @@ export const useCascadeExecutor = () => {
         ...childVariablesMap,
       };
 
+      // Create span for this child execution if we have a trace
+      let childSpanId = null;
+      if (traceId) {
+        try {
+          const spanResult = await createSpan({
+            trace_id: traceId,
+            prompt_row_id: childPrompt.row_id,
+            span_type: 'generation',
+          });
+          if (spanResult.success) {
+            childSpanId = spanResult.span_id;
+          }
+        } catch (spanErr) {
+          console.warn('Failed to create span for child:', spanErr);
+        }
+      }
+      
+      const childStartTime = Date.now();
+
       try {
         // Run the child prompt
         const result = await runConversation({
@@ -1207,6 +1234,23 @@ export const useCascadeExecutor = () => {
           response: result?.response,
         };
         results.push(promptResult);
+        
+        // Complete span with success
+        if (childSpanId) {
+          const latencyMs = Date.now() - childStartTime;
+          await completeSpan({
+            span_id: childSpanId,
+            status: result?.response ? 'success' : 'failed',
+            openai_response_id: result?.response_id,
+            output: result?.response,
+            latency_ms: latencyMs,
+            usage_tokens: result?.usage ? {
+              input: result.usage.prompt_tokens || 0,
+              output: result.usage.completion_tokens || 0,
+              total: result.usage.total_tokens || 0,
+            } : undefined,
+          }).catch(err => console.warn('Failed to complete child span:', err));
+        }
 
         // Update the child prompt's output in database
         if (result?.response) {
@@ -1260,6 +1304,7 @@ export const useCascadeExecutor = () => {
                       maxDepth,
                       currentDepth: currentDepth + 1,
                       inheritedVariables: templateVariables,
+                      traceId, // Pass trace ID for unified tracing
                     }
                   );
 
@@ -1285,6 +1330,19 @@ export const useCascadeExecutor = () => {
 
       } catch (error) {
         console.error('executeChildCascade: Error running child prompt:', childPrompt.row_id, error);
+        
+        // Fail span if we have one
+        if (childSpanId) {
+          await failSpan({
+            span_id: childSpanId,
+            error_evidence: {
+              error_type: error.name || 'Error',
+              error_message: error.message,
+              retry_recommended: false,
+            },
+          }).catch(err => console.warn('Failed to fail child span:', err));
+        }
+        
         results.push({
           promptRowId: childPrompt.row_id,
           promptName: childPrompt.prompt_name,
@@ -1303,7 +1361,7 @@ export const useCascadeExecutor = () => {
     });
 
     return { success: true, results };
-  }, [runConversation, isCancelled, waitWhilePaused]);
+  }, [runConversation, isCancelled, waitWhilePaused, createSpan, completeSpan, failSpan]);
 
   return {
     executeCascade,

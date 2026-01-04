@@ -94,41 +94,73 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
 async function checkRateLimit(supabase: any, userId: string, endpoint: string): Promise<{ allowed: boolean; remaining: number }> {
   const windowStart = new Date(Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS).toISOString();
   
-  // Try to increment existing rate limit record
-  const { data: existing } = await supabase
-    .from('q_rate_limits')
-    .select('request_count')
-    .eq('user_id', userId)
-    .eq('endpoint', endpoint)
-    .eq('window_start', windowStart)
-    .maybeSingle();
+  // Use upsert with ON CONFLICT to atomically increment counter (race-condition safe)
+  // First, try to insert. If conflict, update atomically.
+  const { data: result, error } = await supabase.rpc('increment_rate_limit', {
+    p_user_id: userId,
+    p_endpoint: endpoint,
+    p_window_start: windowStart,
+    p_max_requests: MAX_REQUESTS_PER_WINDOW,
+  });
   
-  if (existing) {
-    if (existing.request_count >= MAX_REQUESTS_PER_WINDOW) {
-      return { allowed: false, remaining: 0 };
+  // Fallback if RPC doesn't exist: use the original logic but with ON CONFLICT
+  if (error) {
+    // Fallback: Try insert, on conflict update
+    const { data: upserted, error: upsertError } = await supabase
+      .from('q_rate_limits')
+      .upsert({
+        user_id: userId,
+        endpoint,
+        window_start: windowStart,
+        request_count: 1,
+      }, {
+        onConflict: 'user_id,endpoint,window_start',
+        ignoreDuplicates: false,
+      })
+      .select('request_count')
+      .single();
+    
+    if (upsertError) {
+      // If upsert failed, try select + update as last resort
+      const { data: existing } = await supabase
+        .from('q_rate_limits')
+        .select('request_count')
+        .eq('user_id', userId)
+        .eq('endpoint', endpoint)
+        .eq('window_start', windowStart)
+        .maybeSingle();
+      
+      if (existing) {
+        if (existing.request_count >= MAX_REQUESTS_PER_WINDOW) {
+          return { allowed: false, remaining: 0 };
+        }
+        
+        await supabase
+          .from('q_rate_limits')
+          .update({ request_count: existing.request_count + 1 })
+          .eq('user_id', userId)
+          .eq('endpoint', endpoint)
+          .eq('window_start', windowStart);
+        
+        return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - existing.request_count - 1 };
+      }
+      
+      // No existing record, must be first request
+      return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1 };
     }
     
-    await supabase
-      .from('q_rate_limits')
-      .update({ request_count: existing.request_count + 1 })
-      .eq('user_id', userId)
-      .eq('endpoint', endpoint)
-      .eq('window_start', windowStart);
-    
-    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - existing.request_count - 1 };
+    const count = upserted?.request_count || 1;
+    if (count > MAX_REQUESTS_PER_WINDOW) {
+      return { allowed: false, remaining: 0 };
+    }
+    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - count };
   }
   
-  // Create new rate limit record
-  await supabase
-    .from('q_rate_limits')
-    .insert({
-      user_id: userId,
-      endpoint,
-      window_start: windowStart,
-      request_count: 1,
-    });
-  
-  return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1 };
+  // RPC succeeded
+  if (!result.allowed) {
+    return { allowed: false, remaining: 0 };
+  }
+  return { allowed: true, remaining: result.remaining };
 }
 
 async function startTrace(supabase: any, userId: string, params: TraceParams) {
@@ -158,33 +190,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
   
   const familyVersion = rootPrompt?.family_version || 1;
   
-  // 3. Check for existing running trace (mutex)
-  const { data: existingRunning } = await supabase
-    .from('q_execution_traces')
-    .select('trace_id')
-    .eq('entry_prompt_row_id', entry_prompt_row_id)
-    .eq('execution_type', execution_type)
-    .eq('owner_id', userId)
-    .eq('status', 'running')
-    .maybeSingle();
-  
-  if (existingRunning) {
-    throw new Error('Another execution is already running for this prompt');
-  }
-  
-  // 4. Find previous trace to mark as replaced
-  const { data: previousTrace } = await supabase
-    .from('q_execution_traces')
-    .select('trace_id')
-    .eq('entry_prompt_row_id', entry_prompt_row_id)
-    .eq('execution_type', execution_type)
-    .eq('owner_id', userId)
-    .in('status', ['completed', 'failed'])
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  
-  // 5. Fetch all family prompts for context snapshot
+  // 3. Fetch all family prompts for context snapshot (do this before insert)
   const { data: familyPrompts } = await supabase
     .from(TABLES.PROMPTS)
     .select('row_id, output_response')
@@ -199,7 +205,8 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
     }
   });
   
-  // 6. Create new trace
+  // 4. Try to insert new trace - unique partial index enforces mutex at DB level
+  // If another trace is running, the insert will fail with unique violation
   const { data: newTrace, error: createError } = await supabase
     .from('q_execution_traces')
     .insert({
@@ -216,7 +223,26 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
     .select('trace_id, context_snapshot, family_version_at_start')
     .single();
   
-  if (createError) throw createError;
+  // Check if insert failed due to unique constraint (another trace is running)
+  if (createError) {
+    if (createError.code === '23505' || createError.message?.includes('unique') || createError.message?.includes('duplicate')) {
+      throw new Error('Another execution is already running for this prompt');
+    }
+    throw createError;
+  }
+  
+  // 5. Find previous trace to mark as replaced (after successful insert)
+  const { data: previousTrace } = await supabase
+    .from('q_execution_traces')
+    .select('trace_id')
+    .eq('entry_prompt_row_id', entry_prompt_row_id)
+    .eq('execution_type', execution_type)
+    .eq('owner_id', userId)
+    .neq('trace_id', newTrace.trace_id)
+    .in('status', ['completed', 'failed'])
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
   
   // 7. If there's a previous trace, mark it as replaced
   if (previousTrace) {
@@ -404,8 +430,8 @@ async function completeSpan(supabase: any, userId: string, params: CompleteSpanP
     })
     .eq('span_id', span_id);
   
-  // Update context snapshot in trace if successful
-  if (status === 'success' && output && span.prompt_row_id) {
+  // Update context snapshot in trace if successful or skipped (skipped prompts may have placeholder outputs)
+  if ((status === 'success' || status === 'skipped') && output && span.prompt_row_id) {
     const updatedSnapshot = { ...trace.context_snapshot };
     updatedSnapshot[span.prompt_row_id] = output;
     
