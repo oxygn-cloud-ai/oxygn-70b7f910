@@ -893,8 +893,12 @@ const ACTION_TYPES = [
   { id: "none", label: "None", description: "No post-action" },
   { id: "create_children_text", label: "Create Children (Text)", description: "Parse output and create child prompts from text" },
   { id: "create_children_json", label: "Create Children (JSON)", description: "Parse JSON output to create child prompts" },
+  { id: "create_children_sections", label: "Create Children (Sections)", description: "Create child prompts from JSON object keys" },
   { id: "create_template", label: "Create Template", description: "Generate a template from the output" },
 ];
+
+// Child-creation action types that support auto-run
+const CHILD_CREATION_ACTIONS = ['create_children_text', 'create_children_json', 'create_children_sections'];
 
 const TEMPLATE_SOURCE_OPTIONS = [
   { value: "output", label: "JSON Output Format" },
@@ -903,8 +907,9 @@ const TEMPLATE_SOURCE_OPTIONS = [
 ];
 
 const ActionConfigSection = ({ promptData, onUpdateField, schemas = [], onEditSchema }) => {
-  // Read action type from database, default to "none"
+  // Read action type from database, map null/undefined to "none" for display
   const actionType = promptData?.post_action || "none";
+  const actionConfig = promptData?.post_action_config || {};
   const actionConfig = promptData?.post_action_config || {};
 
   // Local state for text inputs (for immediate UI feedback)
@@ -965,11 +970,25 @@ const ActionConfigSection = ({ promptData, onUpdateField, schemas = [], onEditSc
       {/* Action Type Selector */}
       <SettingSelect
         value={actionType}
-        onValueChange={(value) => onUpdateField?.('post_action', value)}
+        onValueChange={(value) => onUpdateField?.('post_action', value === 'none' ? null : value)}
         options={ACTION_TYPES.map(a => ({ value: a.id, label: a.label, description: a.description }))}
         label="Post Action"
         contentClassName="w-64"
       />
+
+      {/* Auto-Run Created Children Toggle - shown for child-creation actions */}
+      {CHILD_CREATION_ACTIONS.includes(actionType) && (
+        <div className="flex items-center justify-between p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
+          <div className="flex-1 min-w-0">
+            <div className="text-body-sm text-on-surface">Auto-run created children</div>
+            <div className="text-[10px] text-on-surface-variant">Automatically run child prompts after creation</div>
+          </div>
+          <Switch 
+            checked={promptData?.auto_run_children || false}
+            onCheckedChange={(checked) => onUpdateField?.('auto_run_children', checked)}
+          />
+        </div>
+      )}
 
       {/* Action Configuration (shown when action type is not none) */}
       {actionType !== "none" && (
