@@ -43,6 +43,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
 import { useApiCallContext } from "@/contexts/ApiCallContext";
+import { useExecutionTracing } from "@/hooks/useExecutionTracing";
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -178,6 +179,16 @@ const MainLayout = () => {
   // API call context for guarding prompt selection during active API calls
   const { isApiCallInProgress, requestNavigation } = useApiCallContext();
   
+  // Execution tracing for single prompt runs
+  const { startTrace, createSpan, completeSpan, failSpan, completeTrace, cleanupOrphanedTraces } = useExecutionTracing();
+  
+  // Cleanup orphaned traces on mount (once per session)
+  useEffect(() => {
+    if (currentUser?.id) {
+      cleanupOrphanedTraces().catch(err => console.warn('Failed to cleanup orphaned traces:', err));
+    }
+  }, [currentUser?.id, cleanupOrphanedTraces]);
+  
   // Guarded prompt selection - checks for in-progress API calls before switching
   const handleSelectPrompt = useCallback((newPromptId) => {
     if (!isApiCallInProgress) {
@@ -271,6 +282,31 @@ const MainLayout = () => {
     // Fetch prompt data to check if it's an action node
     const promptData = await fetchItemData(promptId);
     const startTime = Date.now();
+    
+    // Start execution trace
+    let traceId = null;
+    let spanId = null;
+    try {
+      const traceResult = await startTrace({
+        entry_prompt_row_id: promptId,
+        execution_type: 'single',
+      });
+      if (traceResult.success) {
+        traceId = traceResult.trace_id;
+        // Create span for the prompt execution
+        const spanResult = await createSpan({
+          trace_id: traceId,
+          prompt_row_id: promptId,
+          span_type: 'generation',
+        });
+        if (spanResult.success) {
+          spanId = spanResult.span_id;
+        }
+      }
+    } catch (traceErr) {
+      console.warn('Failed to start execution trace:', traceErr);
+      // Continue with execution even if tracing fails
+    }
 
     // Determine response format - action nodes with schema template use structured output
     const getResponseFormat = () => {
@@ -302,9 +338,50 @@ const MainLayout = () => {
       details: JSON.stringify(requestDetails, null, 2),
     });
     
-    const result = await runPrompt(promptId);
+    let result;
+    try {
+      result = await runPrompt(promptId);
+    } catch (runError) {
+      // Fail span and trace if error occurred
+      if (spanId) {
+        await failSpan({
+          span_id: spanId,
+          error_evidence: {
+            error_type: runError.name || 'Error',
+            error_message: runError.message,
+            error_code: runError.code || runError.status?.toString(),
+            retry_recommended: false,
+          },
+        }).catch(err => console.warn('Failed to fail span:', err));
+      }
+      if (traceId) {
+        await completeTrace({
+          trace_id: traceId,
+          status: 'failed',
+          error_summary: runError.message,
+        }).catch(err => console.warn('Failed to complete trace:', err));
+      }
+      throw runError;
+    }
+    
     if (result) {
       const latencyMs = Date.now() - startTime;
+      
+      // Complete the span with success
+      if (spanId) {
+        await completeSpan({
+          span_id: spanId,
+          status: 'success',
+          openai_response_id: result.response_id,
+          output: result.response,
+          latency_ms: latencyMs,
+          usage_tokens: result.usage ? {
+            input: result.usage.prompt_tokens || 0,
+            output: result.usage.completion_tokens || 0,
+            total: result.usage.total_tokens || 0,
+          } : undefined,
+        }).catch(err => console.warn('Failed to complete span:', err));
+      }
       
       // Show API response details toast
       const responseDetails = {
@@ -582,8 +659,16 @@ const MainLayout = () => {
         setSelectedPromptData(data);
       }
       refreshTreeData();
+      
+      // Complete trace on success
+      if (traceId) {
+        await completeTrace({
+          trace_id: traceId,
+          status: 'completed',
+        }).catch(err => console.warn('Failed to complete trace:', err));
+      }
     }
-  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking]);
+  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {

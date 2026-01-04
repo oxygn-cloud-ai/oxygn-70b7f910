@@ -1907,6 +1907,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
+      cleanup_old_traces: { Args: never; Returns: undefined }
       cleanup_orphaned_traces: { Args: never; Returns: undefined }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
       decrypt_credential: {
