@@ -373,9 +373,31 @@ export const useCascadeExecutor = () => {
       console.warn('Trace start failed, continuing without tracing:', traceErr);
     }
 
-    // Mark excluded prompts as skipped immediately
+    // Mark excluded prompts as skipped immediately and create skipped spans
     for (const excludedPrompt of excludedPrompts) {
       markPromptSkipped(excludedPrompt.row_id, excludedPrompt.prompt_name);
+      
+      // Create a skipped span for tracing completeness
+      if (traceId) {
+        try {
+          const skipSpanResult = await createSpan({
+            trace_id: traceId,
+            prompt_row_id: excludedPrompt.row_id,
+            span_type: 'generation',
+          });
+          if (skipSpanResult.success) {
+            await completeSpan({
+              span_id: skipSpanResult.span_id,
+              status: 'skipped',
+              output: 'Excluded from cascade via exclude_from_cascade flag',
+              latency_ms: 0,
+            });
+          }
+        } catch (spanErr) {
+          console.warn('Failed to create skipped span for excluded prompt:', spanErr);
+        }
+      }
+      
       toast.info(`Skipped: ${excludedPrompt.prompt_name}`, {
         description: 'Excluded from cascade',
         source: 'useCascadeExecutor',
@@ -551,9 +573,9 @@ export const useCascadeExecutor = () => {
                       output: result.response,
                       latency_ms: promptElapsedMs,
                       usage_tokens: result.usage ? {
-                        input: result.usage.prompt_tokens || 0,
-                        output: result.usage.completion_tokens || 0,
-                        total: result.usage.total_tokens || 0,
+                        input: result.usage.input_tokens || result.usage.prompt_tokens || 0,
+                        output: result.usage.output_tokens || result.usage.completion_tokens || 0,
+                        total: result.usage.total_tokens || ((result.usage.input_tokens || result.usage.prompt_tokens || 0) + (result.usage.output_tokens || result.usage.completion_tokens || 0)),
                       } : undefined,
                     });
                     // Update context snapshot for subsequent prompts
@@ -950,6 +972,7 @@ export const useCascadeExecutor = () => {
                   success = true;
                 } else if (action === 'retry') {
                   retryCount = 0; // Reset retry count and try again
+                  rateLimitWaits = 0; // Also reset rate limit waits on user retry
                   toast.info(`Retrying: ${prompt.prompt_name}`, {
                     description: 'User requested retry',
                     source: 'useCascadeExecutor',

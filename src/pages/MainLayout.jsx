@@ -376,9 +376,9 @@ const MainLayout = () => {
           output: result.response,
           latency_ms: latencyMs,
           usage_tokens: result.usage ? {
-            input: result.usage.prompt_tokens || 0,
-            output: result.usage.completion_tokens || 0,
-            total: result.usage.total_tokens || 0,
+            input: result.usage.input_tokens || result.usage.prompt_tokens || 0,
+            output: result.usage.output_tokens || result.usage.completion_tokens || 0,
+            total: result.usage.total_tokens || ((result.usage.input_tokens || result.usage.prompt_tokens || 0) + (result.usage.output_tokens || result.usage.completion_tokens || 0)),
           } : undefined,
         }).catch(err => console.warn('Failed to complete span:', err));
       }

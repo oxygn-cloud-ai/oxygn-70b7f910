@@ -94,73 +94,56 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
 async function checkRateLimit(supabase: any, userId: string, endpoint: string): Promise<{ allowed: boolean; remaining: number }> {
   const windowStart = new Date(Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS).toISOString();
   
-  // Use upsert with ON CONFLICT to atomically increment counter (race-condition safe)
-  // First, try to insert. If conflict, update atomically.
-  const { data: result, error } = await supabase.rpc('increment_rate_limit', {
-    p_user_id: userId,
-    p_endpoint: endpoint,
-    p_window_start: windowStart,
-    p_max_requests: MAX_REQUESTS_PER_WINDOW,
-  });
+  // Atomic upsert with ON CONFLICT to safely increment counter
+  // This handles race conditions by using the unique constraint
+  const { data: upserted, error: upsertError } = await supabase
+    .from('q_rate_limits')
+    .upsert({
+      user_id: userId,
+      endpoint,
+      window_start: windowStart,
+      request_count: 1,
+    }, {
+      onConflict: 'user_id,endpoint,window_start',
+      ignoreDuplicates: false,
+    })
+    .select('request_count')
+    .single();
   
-  // Fallback if RPC doesn't exist: use the original logic but with ON CONFLICT
-  if (error) {
-    // Fallback: Try insert, on conflict update
-    const { data: upserted, error: upsertError } = await supabase
+  if (upsertError) {
+    // If upsert failed, try select + update as last resort
+    const { data: existing } = await supabase
       .from('q_rate_limits')
-      .upsert({
-        user_id: userId,
-        endpoint,
-        window_start: windowStart,
-        request_count: 1,
-      }, {
-        onConflict: 'user_id,endpoint,window_start',
-        ignoreDuplicates: false,
-      })
       .select('request_count')
-      .single();
+      .eq('user_id', userId)
+      .eq('endpoint', endpoint)
+      .eq('window_start', windowStart)
+      .maybeSingle();
     
-    if (upsertError) {
-      // If upsert failed, try select + update as last resort
-      const { data: existing } = await supabase
-        .from('q_rate_limits')
-        .select('request_count')
-        .eq('user_id', userId)
-        .eq('endpoint', endpoint)
-        .eq('window_start', windowStart)
-        .maybeSingle();
-      
-      if (existing) {
-        if (existing.request_count >= MAX_REQUESTS_PER_WINDOW) {
-          return { allowed: false, remaining: 0 };
-        }
-        
-        await supabase
-          .from('q_rate_limits')
-          .update({ request_count: existing.request_count + 1 })
-          .eq('user_id', userId)
-          .eq('endpoint', endpoint)
-          .eq('window_start', windowStart);
-        
-        return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - existing.request_count - 1 };
+    if (existing) {
+      if (existing.request_count >= MAX_REQUESTS_PER_WINDOW) {
+        return { allowed: false, remaining: 0 };
       }
       
-      // No existing record, must be first request
-      return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1 };
+      await supabase
+        .from('q_rate_limits')
+        .update({ request_count: existing.request_count + 1 })
+        .eq('user_id', userId)
+        .eq('endpoint', endpoint)
+        .eq('window_start', windowStart);
+      
+      return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - existing.request_count - 1 };
     }
     
-    const count = upserted?.request_count || 1;
-    if (count > MAX_REQUESTS_PER_WINDOW) {
-      return { allowed: false, remaining: 0 };
-    }
-    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - count };
+    // No existing record, must be first request
+    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1 };
   }
   
-  // RPC succeeded
-  if (!result.allowed) {
+  const count = upserted?.request_count || 1;
+  if (count > MAX_REQUESTS_PER_WINDOW) {
     return { allowed: false, remaining: 0 };
   }
-  return { allowed: true, remaining: result.remaining };
+  return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - count };
 }
 
 async function startTrace(supabase: any, userId: string, params: TraceParams) {
