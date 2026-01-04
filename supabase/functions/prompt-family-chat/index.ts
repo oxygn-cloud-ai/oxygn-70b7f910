@@ -636,6 +636,10 @@ ${knowledge}
 Use your tools to explore the prompt family and provide helpful, accurate information.
 Be concise but thorough. When showing prompt content, format it nicely.`;
 
+    // Check admin status for tool access (server-side via RPC function)
+    const { data: isUserAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user!.id });
+    console.log('Admin status check for tools:', { userId: validation.user!.id, isAdmin: !!isUserAdmin });
+
     // Get tools - use registry if feature flag is enabled
     let tools: any[];
     let registryContext: ToolContext | null = null;
@@ -658,12 +662,13 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       const authHeader = req.headers.get('Authorization');
       const accessToken = authHeader?.replace('Bearer ', '');
       
-      // Build registry context
+      // Build registry context with admin status
       registryContext = {
         supabase,
         userId: validation.user!.id,
         accessToken,
         executionStack: [],
+        isAdmin: !!isUserAdmin,
         familyContext: {
           promptRowId: prompt_row_id,
           familyPromptIds,

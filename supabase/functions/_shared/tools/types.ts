@@ -59,6 +59,10 @@ export interface ToolContext {
   // Recursion prevention - tracks prompt IDs currently being executed
   executionStack?: string[];
   
+  // Admin status - checked server-side via is_admin RPC function
+  // Determines access to admin-only tools (knowledge management, etc.)
+  isAdmin?: boolean;
+  
   // Family mode context (populated when scope is 'family')
   familyContext?: {
     promptRowId: string;
