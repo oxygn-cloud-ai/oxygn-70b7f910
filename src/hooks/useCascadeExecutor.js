@@ -1224,6 +1224,14 @@ export const useCascadeExecutor = () => {
         current_depth: currentDepth,
         parent_prompt_id: parentPrompt?.row_id,
       });
+      // Complete our own trace before early return
+      if (ownTrace && traceId) {
+        try {
+          await completeTrace({ trace_id: traceId, status: 'completed' });
+        } catch (err) {
+          console.warn('Failed to complete trace on depth limit:', err);
+        }
+      }
       return { success: true, results: [], depthLimitReached: true };
     }
 
