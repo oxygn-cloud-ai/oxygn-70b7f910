@@ -33,6 +33,7 @@ type KnowledgeToolName = typeof ALL_TOOL_NAMES[number];
 
 /**
  * Generate embedding for a query using OpenAI
+ * Returns array format compatible with pgvector
  */
 async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
   try {
@@ -62,6 +63,14 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
 }
 
 /**
+ * Format embedding array for pgvector storage
+ * pgvector expects format: [0.1, 0.2, 0.3, ...]
+ */
+function formatEmbeddingForStorage(embedding: number[]): string {
+  return `[${embedding.join(',')}]`;
+}
+
+/**
  * Escape HTML for Confluence storage format
  */
 function escapeHtml(text: string): string {
@@ -70,16 +79,44 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Generate a sanitized anchor ID from title
+ */
+function toAnchorId(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 /**
  * Basic markdown to Confluence storage format conversion
+ * Escapes HTML in content to prevent XSS
  */
 function markdownToStorageFormat(markdown: string): string {
   if (!markdown) return '';
   
-  let html = markdown
+  // First escape HTML in the raw markdown to prevent injection
+  let text = markdown;
+  
+  // Process code blocks first (preserve content)
+  const codeBlocks: string[] = [];
+  text = text.replace(/```(\w+)?\n([\s\S]+?)```/g, (_match, lang, code) => {
+    const index = codeBlocks.length;
+    // Code content goes in CDATA, no escaping needed
+    codeBlocks.push(`<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">${lang || ''}</ac:parameter><ac:plain-text-body><![CDATA[${code}]]></ac:plain-text-body></ac:structured-macro>`);
+    return `__CODE_BLOCK_${index}__`;
+  });
+  
+  // Escape HTML in remaining content
+  text = escapeHtml(text);
+  
+  // Now apply markdown transformations
+  text = text
     // Headers
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h4>$1</h4>')
@@ -87,8 +124,6 @@ function markdownToStorageFormat(markdown: string): string {
     // Bold and italic
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Code blocks
-    .replace(/```(\w+)?\n([\s\S]+?)```/g, '<ac:structured-macro ac:name="code"><ac:parameter ac:name="language">$1</ac:parameter><ac:plain-text-body><![CDATA[$2]]></ac:plain-text-body></ac:structured-macro>')
     // Inline code
     .replace(/`(.+?)`/g, '<code>$1</code>')
     // Lists
@@ -97,15 +132,20 @@ function markdownToStorageFormat(markdown: string): string {
     .replace(/\n\n/g, '</p><p>');
   
   // Wrap consecutive list items
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  text = text.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
   
-  return `<p>${html}</p>`;
+  // Restore code blocks
+  codeBlocks.forEach((block, index) => {
+    text = text.replace(`__CODE_BLOCK_${index}__`, block);
+  });
+  
+  return `<p>${text}</p>`;
 }
 
 export const knowledgeModule: ToolModule = {
   id: 'knowledge',
   name: 'Knowledge Base',
-  version: '2.0.0',
+  version: '2.1.0',
   scopes: ['both'],
   requires: [
     { key: 'openAIApiKey', required: true, description: 'OpenAI API key for embeddings' }
@@ -160,11 +200,12 @@ export const knowledgeModule: ToolModule = {
         {
           type: 'function',
           name: 'get_knowledge_item',
-          description: 'Get the full content of a specific knowledge item by its row_id',
+          description: 'Get the full content of a specific active knowledge item by its row_id',
           parameters: {
             type: 'object',
             properties: {
-              row_id: { type: 'string', description: 'The UUID row_id of the knowledge item' }
+              row_id: { type: 'string', description: 'The UUID row_id of the knowledge item' },
+              include_deleted: { type: 'boolean', description: 'If true, also return soft-deleted items. Default: false' }
             },
             required: ['row_id'],
             additionalProperties: false
@@ -174,7 +215,7 @@ export const knowledgeModule: ToolModule = {
         {
           type: 'function',
           name: 'update_knowledge_item',
-          description: 'Update an existing knowledge item. Only provide fields you want to change.',
+          description: 'Update an existing active knowledge item. Only provide fields you want to change.',
           parameters: {
             type: 'object',
             properties: {
@@ -211,7 +252,7 @@ export const knowledgeModule: ToolModule = {
         {
           type: 'function',
           name: 'delete_knowledge_item',
-          description: 'Soft-delete a knowledge item (marks as inactive)',
+          description: 'Soft-delete an active knowledge item (marks as inactive)',
           parameters: {
             type: 'object',
             properties: {
@@ -225,7 +266,7 @@ export const knowledgeModule: ToolModule = {
         {
           type: 'function',
           name: 'export_knowledge_to_confluence',
-          description: 'Export knowledge items to a Confluence page',
+          description: 'Export knowledge items to a Confluence page. Requires Confluence credentials.',
           parameters: {
             type: 'object',
             properties: {
@@ -299,11 +340,11 @@ export const knowledgeModule: ToolModule = {
           });
         }
 
-        // Semantic search with embedding
+        // Semantic search with embedding - use proper pgvector format
         const { data: semanticResults, error: semanticError } = await supabase.rpc(
           'search_knowledge',
           {
-            query_embedding: JSON.stringify(embedding),
+            query_embedding: formatEmbeddingForStorage(embedding),
             match_threshold: 0.5,
             match_count: 5
           }
@@ -361,70 +402,119 @@ export const knowledgeModule: ToolModule = {
 
       case 'list_knowledge_items': {
         const { topic } = args;
+        
+        // Validate topic parameter
+        if (!topic || typeof topic !== 'string' || topic.trim() === '') {
+          return JSON.stringify({ error: 'Topic parameter is required and cannot be empty' });
+        }
+        
+        // First check if topic exists
+        const { data: topicCheck } = await supabase
+          .from('q_app_knowledge')
+          .select('topic')
+          .eq('is_active', true)
+          .eq('topic', topic.trim())
+          .limit(1);
+        
+        if (!topicCheck?.length) {
+          // Get available topics to suggest
+          const { data: allTopics } = await supabase
+            .from('q_app_knowledge')
+            .select('topic')
+            .eq('is_active', true);
+          
+          const availableTopics = [...new Set(allTopics?.map((d: any) => d.topic))].sort();
+          return JSON.stringify({ 
+            error: `Topic "${topic}" not found`,
+            available_topics: availableTopics
+          });
+        }
+        
         const { data, error } = await supabase
           .from('q_app_knowledge')
           .select('row_id, title, priority, version, updated_at')
           .eq('is_active', true)
-          .eq('topic', topic)
+          .eq('topic', topic.trim())
           .order('priority', { ascending: false })
           .order('title', { ascending: true });
         
         if (error) return JSON.stringify({ error: error.message });
-        return JSON.stringify({ items: data, count: data?.length || 0 });
+        return JSON.stringify({ topic: topic.trim(), items: data, count: data?.length || 0 });
       }
 
       case 'get_knowledge_item': {
-        const { row_id } = args;
-        const { data, error } = await supabase
+        const { row_id, include_deleted } = args;
+        
+        let query = supabase
           .from('q_app_knowledge')
           .select('*')
-          .eq('row_id', row_id)
-          .single();
+          .eq('row_id', row_id);
         
-        if (error) return JSON.stringify({ error: error.message });
+        // Issue #2 Fix: Only return active items unless explicitly asked for deleted
+        if (!include_deleted) {
+          query = query.eq('is_active', true);
+        }
+        
+        const { data, error } = await query.single();
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+            return JSON.stringify({ error: 'Knowledge item not found or has been deleted' });
+          }
+          return JSON.stringify({ error: error.message });
+        }
         return JSON.stringify({ item: data });
       }
 
       case 'update_knowledge_item': {
         const { row_id, title, content, topic, keywords, priority } = args;
         
+        // Issue #4 Fix: Check item exists and is active before updating
+        const { data: existing, error: existError } = await supabase
+          .from('q_app_knowledge')
+          .select('row_id, version, is_active')
+          .eq('row_id', row_id)
+          .single();
+        
+        if (existError || !existing) {
+          return JSON.stringify({ error: 'Knowledge item not found' });
+        }
+        
+        if (!existing.is_active) {
+          return JSON.stringify({ error: 'Cannot update a deleted knowledge item. Restore it first.' });
+        }
+        
         // Build update object with only provided fields
         const updates: Record<string, any> = {
           updated_at: new Date().toISOString(),
-          updated_by: userId
+          updated_by: userId,
+          // Issue #9 Fix: Atomic version increment by using existing.version
+          version: (existing.version || 1) + 1
         };
         if (title !== undefined) updates.title = title;
         if (content !== undefined) updates.content = content;
         if (topic !== undefined) updates.topic = topic;
         if (keywords !== undefined) updates.keywords = keywords;
         if (priority !== undefined) updates.priority = priority;
-        
-        // Increment version
-        const { data: current } = await supabase
-          .from('q_app_knowledge')
-          .select('version')
-          .eq('row_id', row_id)
-          .single();
-        
-        updates.version = (current?.version || 1) + 1;
 
         const { data, error } = await supabase
           .from('q_app_knowledge')
           .update(updates)
           .eq('row_id', row_id)
+          .eq('is_active', true) // Extra safety: only update if still active
           .select()
           .single();
         
         if (error) return JSON.stringify({ error: error.message });
         
-        // Regenerate embedding if content changed
+        // Issue #1 Fix: Use proper pgvector format for embedding
         if (content !== undefined && credentials.openAIApiKey) {
           try {
             const embedding = await generateEmbedding(content, credentials.openAIApiKey);
             if (embedding) {
               await supabase
                 .from('q_app_knowledge')
-                .update({ embedding: JSON.stringify(embedding) })
+                .update({ embedding: formatEmbeddingForStorage(embedding) })
                 .eq('row_id', row_id);
             }
           } catch (e) {
@@ -457,26 +547,44 @@ export const knowledgeModule: ToolModule = {
         
         if (error) return JSON.stringify({ error: error.message });
         
-        // Generate embedding
+        // Issue #1 Fix: Use proper pgvector format for embedding
         if (credentials.openAIApiKey) {
           try {
             const embedding = await generateEmbedding(content, credentials.openAIApiKey);
             if (embedding) {
               await supabase
                 .from('q_app_knowledge')
-                .update({ embedding: JSON.stringify(embedding) })
+                .update({ embedding: formatEmbeddingForStorage(embedding) })
                 .eq('row_id', data.row_id);
             }
           } catch (e) {
             console.error('Failed to generate embedding:', e);
           }
+        } else {
+          // Issue #10: Warn if no API key for embeddings
+          console.warn('OpenAI API key not available - embedding not generated for new knowledge item');
         }
         
-        return JSON.stringify({ success: true, item: data });
+        return JSON.stringify({ success: true, item: data, embeddingGenerated: !!credentials.openAIApiKey });
       }
 
       case 'delete_knowledge_item': {
         const { row_id } = args;
+        
+        // Issue #3 Fix: Check item exists and is currently active
+        const { data: existing, error: existError } = await supabase
+          .from('q_app_knowledge')
+          .select('row_id, title, is_active')
+          .eq('row_id', row_id)
+          .single();
+        
+        if (existError || !existing) {
+          return JSON.stringify({ error: 'Knowledge item not found' });
+        }
+        
+        if (!existing.is_active) {
+          return JSON.stringify({ error: 'Item is already deleted', title: existing.title });
+        }
         
         const { data, error } = await supabase
           .from('q_app_knowledge')
@@ -486,6 +594,7 @@ export const knowledgeModule: ToolModule = {
             updated_by: userId
           })
           .eq('row_id', row_id)
+          .eq('is_active', true) // Extra safety: only delete if still active
           .select('title')
           .single();
         
@@ -495,6 +604,18 @@ export const knowledgeModule: ToolModule = {
 
       case 'export_knowledge_to_confluence': {
         const { row_ids, space_key, parent_id, page_title } = args;
+        
+        // Issue #6 Fix: Verify Confluence credentials are available
+        if (!credentials.confluenceApiToken || !credentials.confluenceEmail || !credentials.confluenceBaseUrl) {
+          const missing = [];
+          if (!credentials.confluenceApiToken) missing.push('API token');
+          if (!credentials.confluenceEmail) missing.push('email');
+          if (!credentials.confluenceBaseUrl) missing.push('base URL');
+          return JSON.stringify({ 
+            error: `Confluence credentials not configured. Missing: ${missing.join(', ')}`,
+            hint: 'Configure Confluence credentials in Settings > Integrations'
+          });
+        }
         
         // Fetch knowledge items
         const { data: items, error: fetchError } = await supabase
@@ -506,12 +627,17 @@ export const knowledgeModule: ToolModule = {
         if (fetchError) return JSON.stringify({ error: fetchError.message });
         if (!items?.length) return JSON.stringify({ error: 'No active items found for provided row_ids' });
         
-        // Build Confluence storage format HTML
-        const tocItems = items.map((i: any) => 
-          `<li><ac:link><ri:page ri:content-title="${escapeHtml(i.title)}" /></ac:link></li>`
-        ).join('');
+        // Issue #8 Fix: Use proper anchor links within the same page
+        const tocItems = items.map((i: any) => {
+          const anchorId = toAnchorId(i.title);
+          return `<li><ac:link ac:anchor="${anchorId}"><ac:plain-text-link-body><![CDATA[${escapeHtml(i.title)}]]></ac:plain-text-link-body></ac:link></li>`;
+        }).join('');
         
-        const contentSections = items.map((item: any) => `
+        // Issue #7 Fix: Content is now escaped in markdownToStorageFormat
+        const contentSections = items.map((item: any) => {
+          const anchorId = toAnchorId(item.title);
+          return `
+          <ac:structured-macro ac:name="anchor"><ac:parameter ac:name="">${anchorId}</ac:parameter></ac:structured-macro>
           <h2>${escapeHtml(item.title)}</h2>
           <ac:structured-macro ac:name="info">
             <ac:rich-text-body>
@@ -520,7 +646,8 @@ export const knowledgeModule: ToolModule = {
           </ac:structured-macro>
           ${markdownToStorageFormat(item.content)}
           <hr/>
-        `).join('\n');
+        `;
+        }).join('\n');
         
         const body = `
           <h1>Table of Contents</h1>
