@@ -697,6 +697,27 @@ export const useCascadeExecutor = () => {
                         toast.warning(`Array at "${validation.jsonPath}" is empty - no children will be created`, {
                           source: 'useCascadeExecutor.preValidation',
                         });
+                        
+                        // Create a span to track the empty array case
+                        if (traceId) {
+                          try {
+                            const emptySpanResult = await createSpan({
+                              trace_id: traceId,
+                              prompt_row_id: prompt.row_id,
+                              span_type: 'action',
+                            });
+                            if (emptySpanResult.success) {
+                              await completeSpan({
+                                span_id: emptySpanResult.span_id,
+                                status: 'success',
+                                output: `Action skipped: Array at "${validation.jsonPath}" is empty`,
+                                latency_ms: 0,
+                              });
+                            }
+                          } catch (spanErr) {
+                            console.warn('Failed to create span for empty array case:', spanErr);
+                          }
+                        }
                       }
                       
                       // Show preview unless skip_preview is true or skipAllPreviews is enabled
@@ -827,8 +848,11 @@ export const useCascadeExecutor = () => {
             } catch (error) {
               console.error('Cascade prompt error:', error);
 
-              // Fail the span with error evidence
-              if (traceId && currentSpanId) {
+              const delayMs = getRetryDelayMs(error);
+              const isRateLimited = delayMs > 0;
+
+              // Fail the span with error evidence (only if not rate limited, to avoid double-fail)
+              if (traceId && currentSpanId && !isRateLimited) {
                 try {
                   await failSpan({
                     span_id: currentSpanId,
@@ -844,8 +868,7 @@ export const useCascadeExecutor = () => {
                 }
               }
 
-              const delayMs = getRetryDelayMs(error);
-              if (delayMs > 0) {
+              if (isRateLimited) {
                 rateLimitWaits++;
                 if (rateLimitWaits > maxRateLimitWaits) {
                   toast.error(`Rate limit exceeded for: ${prompt.prompt_name}`, {
@@ -876,16 +899,20 @@ export const useCascadeExecutor = () => {
                 });
                 
                 // Fail the current span before retrying to avoid orphaned running spans
-                if (currentSpanId) {
-                  await failSpan({
-                    span_id: currentSpanId,
-                    error_evidence: {
-                      error_type: 'RATE_LIMITED',
-                      error_message: `Rate limited, waiting ${Math.round(delayMs / 1000)}s before retry`,
-                      error_code: '429',
-                      retry_recommended: true,
-                    },
-                  });
+                if (traceId && currentSpanId) {
+                  try {
+                    await failSpan({
+                      span_id: currentSpanId,
+                      error_evidence: {
+                        error_type: 'RATE_LIMITED',
+                        error_message: `Rate limited, waiting ${Math.round(delayMs / 1000)}s before retry`,
+                        error_code: '429',
+                        retry_recommended: true,
+                      },
+                    });
+                  } catch (spanErr) {
+                    console.warn('Failed to fail span for rate limit:', spanErr);
+                  }
                 }
                 
                 console.log(`Rate limited; waiting ${delayMs}ms before retrying...`);
@@ -965,6 +992,20 @@ export const useCascadeExecutor = () => {
                   completeCascade();
                   return;
                 } else if (action === 'skip') {
+                  // Complete the span as skipped before continuing
+                  if (traceId && currentSpanId) {
+                    try {
+                      await completeSpan({
+                        span_id: currentSpanId,
+                        status: 'skipped',
+                        output: `User skipped after error: ${error.message}`,
+                        latency_ms: Date.now() - promptStartTime,
+                      });
+                    } catch (spanErr) {
+                      console.warn('Failed to complete span as skipped:', spanErr);
+                    }
+                  }
+                  
                   // Skip this prompt and continue
                   accumulatedResponses.push({
                     level: levelIdx,
@@ -1148,11 +1189,30 @@ export const useCascadeExecutor = () => {
       maxDepth = 99, 
       currentDepth = 0,
       inheritedVariables = {},
-      traceId = null, // Optional: trace ID from parent cascade for unified tracing
+      traceId: passedTraceId = null, // Optional: trace ID from parent cascade for unified tracing
     } = options;
 
     if (!children || children.length === 0) {
       return { success: true, results: [] };
+    }
+    
+    // Start our own trace if none was passed (standalone executeChildCascade call)
+    let traceId = passedTraceId;
+    let ownTrace = false;
+    if (!traceId && parentPrompt?.row_id) {
+      try {
+        const traceResult = await startTrace({
+          entry_prompt_row_id: parentPrompt.row_id,
+          execution_type: 'cascade_child',
+        });
+        if (traceResult.success) {
+          traceId = traceResult.trace_id;
+          ownTrace = true;
+          console.log('Started standalone child cascade trace:', traceId);
+        }
+      } catch (traceErr) {
+        console.warn('Failed to start child cascade trace:', traceErr);
+      }
     }
 
     // Depth limit check
@@ -1282,9 +1342,9 @@ export const useCascadeExecutor = () => {
             output: result?.response,
             latency_ms: latencyMs,
             usage_tokens: result?.usage ? {
-              input: result.usage.prompt_tokens || 0,
-              output: result.usage.completion_tokens || 0,
-              total: result.usage.total_tokens || 0,
+              input: result.usage.input_tokens || result.usage.prompt_tokens || 0,
+              output: result.usage.output_tokens || result.usage.completion_tokens || 0,
+              total: result.usage.total_tokens || ((result.usage.input_tokens || result.usage.prompt_tokens || 0) + (result.usage.output_tokens || result.usage.completion_tokens || 0)),
             } : undefined,
           }).catch(err => console.warn('Failed to complete child span:', err));
         }
@@ -1397,8 +1457,22 @@ export const useCascadeExecutor = () => {
       current_depth: currentDepth,
     });
 
+    // Complete our own trace if we started one
+    if (ownTrace && traceId) {
+      const hasErrors = results.some(r => !r.success);
+      try {
+        await completeTrace({
+          trace_id: traceId,
+          status: hasErrors ? 'failed' : 'completed',
+          error_summary: hasErrors ? `${results.filter(r => !r.success).length} child prompts failed` : undefined,
+        });
+      } catch (traceErr) {
+        console.warn('Failed to complete child cascade trace:', traceErr);
+      }
+    }
+
     return { success: true, results };
-  }, [runConversation, isCancelled, waitWhilePaused, createSpan, completeSpan, failSpan]);
+  }, [runConversation, isCancelled, waitWhilePaused, createSpan, completeSpan, failSpan, startTrace, completeTrace]);
 
   return {
     executeCascade,
