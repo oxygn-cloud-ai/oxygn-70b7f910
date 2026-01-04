@@ -874,6 +874,20 @@ export const useCascadeExecutor = () => {
                     maxRateLimitWaits,
                   }, null, 2),
                 });
+                
+                // Fail the current span before retrying to avoid orphaned running spans
+                if (currentSpanId) {
+                  await failSpan({
+                    span_id: currentSpanId,
+                    error_evidence: {
+                      error_type: 'RATE_LIMITED',
+                      error_message: `Rate limited, waiting ${Math.round(delayMs / 1000)}s before retry`,
+                      error_code: '429',
+                      retry_recommended: true,
+                    },
+                  });
+                }
+                
                 console.log(`Rate limited; waiting ${delayMs}ms before retrying...`);
                 await new Promise(resolve => setTimeout(resolve, delayMs));
                 continue;

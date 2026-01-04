@@ -124,9 +124,9 @@ const PromptFieldsTab = ({
             output: result.response,
             latency_ms: Date.now() - startTime,
             usage_tokens: result.usage ? {
-              input: result.usage.input_tokens || 0,
-              output: result.usage.output_tokens || 0,
-              total: (result.usage.input_tokens || 0) + (result.usage.output_tokens || 0),
+              input: result.usage.input_tokens || result.usage.prompt_tokens || 0,
+              output: result.usage.output_tokens || result.usage.completion_tokens || 0,
+              total: (result.usage.input_tokens || result.usage.prompt_tokens || 0) + (result.usage.output_tokens || result.usage.completion_tokens || 0),
             } : undefined,
           });
         }
