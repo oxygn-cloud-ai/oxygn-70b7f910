@@ -240,7 +240,7 @@ const MarkdownNotesArea = ({
       setLastSavedValue(previousValue);
       toast.success('Undone');
     }
-  }, [popPreviousValue, cancelPendingSave, onSave, registerSave]);
+  }, [popPreviousValue, cancelPendingSave, onSave, registerSave, editor]);
 
   // Handle discard
   const handleDiscard = useCallback(() => {
@@ -256,7 +256,7 @@ const MarkdownNotesArea = ({
     setLastSavedValue(originalValue);
     clearUndoStack();
     toast.success('Discarded changes');
-  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack, registerSave]);
+  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack, registerSave, editor]);
 
   // Keyboard shortcuts
   useEffect(() => {
