@@ -27,18 +27,8 @@ export const ALL_SETTINGS = {
     step: 1,
     defaultValue: '4096'
   },
-  max_completion_tokens: { 
-    label: 'Max Completion Tokens', 
-    shortLabel: 'Max Comp',
-    description: 'Maximum response length (GPT-5/O-series)',
-    details: 'The maximum number of tokens to generate. Used by GPT-5 and O-series models instead of max_tokens.',
-    docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-max_completion_tokens',
-    type: 'number',
-    min: 1,
-    max: 100000,
-    step: 1,
-    defaultValue: '4096'
-  },
+  // NOTE: max_completion_tokens removed - edge function handles API param mapping
+  // All models use max_tokens column in DB, edge function translates to correct API param
   frequency_penalty: { 
     label: 'Frequency Penalty', 
     shortLabel: 'Freq Pen',
