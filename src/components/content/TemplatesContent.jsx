@@ -282,9 +282,8 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
 
   const handleModelChange = (modelId) => {
     onUpdateField?.('structure.model', modelId);
-    const newConfig = getModelConfig(modelId);
-    setMaxTokens(String(newConfig.maxTokens));
-    onUpdateField?.(`structure.${newConfig.tokenParam}`, String(newConfig.maxTokens));
+    // Don't auto-reset max_tokens - preserve user's setting
+    // Edge function uses model defaults if needed
   };
   
   // Debounced slider change handler
@@ -347,7 +346,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           type="number"
           value={maxTokens}
           onChange={(e) => setMaxTokens(e.target.value)}
-          onBlur={(e) => onUpdateField?.(`structure.${modelConfig.tokenParam}`, e.target.value)}
+          onBlur={(e) => onUpdateField?.('structure.max_tokens', e.target.value)}
           max={modelConfig.maxTokens}
           min={1}
           className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
@@ -360,7 +359,6 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           value={templateData?.structure?.reasoning_effort || 'medium'}
           onValueChange={(value) => onUpdateField?.('structure.reasoning_effort', value)}
           options={[
-            { value: 'minimal', label: 'minimal' },
             { value: 'low', label: 'low' },
             { value: 'medium', label: 'medium' },
             { value: 'high', label: 'high' },

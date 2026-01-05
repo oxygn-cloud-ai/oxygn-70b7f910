@@ -43,7 +43,7 @@ const getModelDefaults = async (supabase, modelId) => {
 
   const defaults = { model: modelId, model_on: true };
   // All model settings fields that can have defaults
-  const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
+  const fields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
     'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
 
   fields.forEach(field => {

@@ -267,7 +267,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   const supportedSettings = currentModelData?.supported_settings || modelConfig.supportedSettings || [];
   
   const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
-  const currentMaxTokens = promptData?.max_tokens || promptData?.max_completion_tokens || String(modelConfig.maxTokens || 4096);
+  const currentMaxTokens = promptData?.max_tokens || String(modelConfig.maxTokens || 4096);
   const isAssistant = promptData?.is_assistant || false;
 
   const [temperature, setTemperature] = useState([currentTemp]);
@@ -297,13 +297,12 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   }, [promptData?.temperature]);
   
   useEffect(() => {
-    const tokenValue = promptData?.max_tokens || promptData?.max_completion_tokens;
-    if (tokenValue) {
-      setMaxTokens(tokenValue);
+    if (promptData?.max_tokens) {
+      setMaxTokens(promptData.max_tokens);
     } else if (modelConfig.maxTokens) {
       setMaxTokens(String(modelConfig.maxTokens));
     }
-  }, [promptData?.max_tokens, promptData?.max_completion_tokens, modelConfig.maxTokens]);
+  }, [promptData?.max_tokens, modelConfig.maxTokens]);
   
   // Sync other slider states when promptData changes
   useEffect(() => {
@@ -462,7 +461,6 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
                 value={promptData?.reasoning_effort || 'medium'}
                 onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
                 options={[
-                  { value: 'minimal', label: 'minimal' },
                   { value: 'low', label: 'low' },
                   { value: 'medium', label: 'medium' },
                   { value: 'high', label: 'high' },
