@@ -39,7 +39,7 @@ const STATIC_VARIABLE_GROUPS = [
     id: 'prompt',
     label: 'Prompt Context',
     icon: FileText,
-    variables: ['q.prompt.name', 'q.policy.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name'],
+    variables: ['q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name'],
   },
 ];
 

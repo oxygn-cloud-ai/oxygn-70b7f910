@@ -330,7 +330,17 @@ export const useExport = () => {
   // Get export data based on selections
   // IMPORTANT: Include ALL variables (not just selected) for {{variable}} resolution
   // Also include system_variables for q.ref[UUID] resolution
+  // Filter out context variables that should not be exported (they're stale snapshots)
   const getExportData = useMemo(() => {
+    // Context variables to filter out - these are runtime-resolved, not stored
+    const CONTEXT_VARIABLE_KEYS = [
+      'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
+      'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
+      'q.user.name', 'q.user.email',
+      'q.today', 'q.now', 'q.year', 'q.month',
+      'q.policy.name', // DEPRECATED
+    ];
+    
     // Build a map of all prompts for q.ref[UUID] resolution
     const promptRefMap = new Map();
     promptsData.forEach(prompt => {
@@ -338,11 +348,21 @@ export const useExport = () => {
     });
 
     return promptsData.map(prompt => {
+      // Filter out context variables from system_variables
+      const filteredSystemVars = {};
+      if (prompt.system_variables && typeof prompt.system_variables === 'object') {
+        Object.entries(prompt.system_variables).forEach(([key, val]) => {
+          if (!CONTEXT_VARIABLE_KEYS.includes(key)) {
+            filteredSystemVars[key] = val;
+          }
+        });
+      }
+      
       const data = { 
         promptId: prompt.row_id,
         row_id: prompt.row_id,  // Required for resolveSourceValue lookup
         prompt_name: prompt.prompt_name,  // Always include prompt_name for reference
-        system_variables: prompt.system_variables || {},  // Include system_variables for q.ref resolution
+        system_variables: filteredSystemVars,  // Filtered system_variables for q.ref resolution
         _promptRefMap: promptRefMap  // Pass reference map for q.ref resolution
       };
       

@@ -37,7 +37,7 @@ const SYSTEM_VAR_GROUPS = [
     id: 'policy',
     label: 'Policy',
     icon: Briefcase,
-    variables: ['q.policy.name', 'q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.client.name', 'q.jurisdiction', 'q.topic'],
+    variables: ['q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.client.name', 'q.jurisdiction', 'q.topic'],
   },
 ];
 

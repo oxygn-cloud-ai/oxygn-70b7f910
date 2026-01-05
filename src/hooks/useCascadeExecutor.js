@@ -162,6 +162,15 @@ export const useCascadeExecutor = () => {
     });
 
     // Add q.ref[UUID] variables from already-executed prompts in this cascade
+    // IMPORTANT: Skip context variables - they should use runtime values, not stale stored snapshots
+    const CONTEXT_VARIABLE_KEYS = [
+      'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
+      'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
+      'q.user.name', 'q.user.email',
+      'q.today', 'q.now', 'q.year', 'q.month',
+      'q.policy.name', // DEPRECATED
+    ];
+    
     promptDataMap.forEach((data, promptId) => {
       vars[`q.ref[${promptId}].output_response`] = data.output_response || '';
       vars[`q.ref[${promptId}].user_prompt_result`] = data.user_prompt_result || '';
@@ -169,10 +178,13 @@ export const useCascadeExecutor = () => {
       vars[`q.ref[${promptId}].input_admin_prompt`] = data.input_admin_prompt || '';
       vars[`q.ref[${promptId}].input_user_prompt`] = data.input_user_prompt || '';
       
-      // Include system variables from referenced prompt
+      // Include system variables from referenced prompt, but skip context variables
       if (data.system_variables && typeof data.system_variables === 'object') {
         Object.entries(data.system_variables).forEach(([key, val]) => {
-          vars[`q.ref[${promptId}].${key}`] = String(val || '');
+          // Skip context variables from q.ref resolution
+          if (!CONTEXT_VARIABLE_KEYS.includes(key)) {
+            vars[`q.ref[${promptId}].${key}`] = String(val || '');
+          }
         });
       }
     });

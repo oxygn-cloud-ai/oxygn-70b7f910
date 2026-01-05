@@ -80,14 +80,6 @@ export const SYSTEM_VARIABLES = {
     getValue: (context) => context?.parentPromptName || '',
   },
 
-  // Policy name is STATIC - derived from top-level prompt name
-  'q.policy.name': {
-    type: SYSTEM_VARIABLE_TYPES.STATIC,
-    label: 'Policy Name',
-    description: 'Derived from the top-level prompt name in the tree',
-    getValue: (context) => context?.topLevelPromptName || context?.promptName || '',
-  },
-
   // User-editable policy variables (stored in prompt's system_variables field)
   'q.policy.version': {
     type: SYSTEM_VARIABLE_TYPES.USER_EDITABLE,

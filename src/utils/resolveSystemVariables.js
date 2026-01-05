@@ -43,7 +43,7 @@ export const buildSystemVariablesForRun = ({
   });
   
   // 2. Add stored variables from the prompt's system_variables field
-  // These are user-input variables like q.policy.name that were set when the prompt was created
+  // These are user-editable variables like q.policy.version, q.client.name that were set when the prompt was created
   if (storedVariables && typeof storedVariables === 'object') {
     Object.entries(storedVariables).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
