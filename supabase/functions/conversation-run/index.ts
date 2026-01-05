@@ -721,9 +721,10 @@ interface SSEEmitter {
   close: () => void;
 }
 
-function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter } {
+function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter & { isClosed: () => boolean } } {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController<Uint8Array>;
+  let streamClosed = false;
   
   const stream = new ReadableStream({
     start(c) {
@@ -731,15 +732,25 @@ function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter } {
     },
   });
   
-  const emitter: SSEEmitter = {
+  const emitter = {
     emit: (event: any) => {
+      if (streamClosed) {
+        console.warn('Attempted to emit after stream closed:', event.type);
+        return;
+      }
       try {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       } catch (e) {
         console.warn('SSE emit error:', e);
+        streamClosed = true;
       }
     },
     close: () => {
+      if (streamClosed) {
+        console.warn('SSE stream already closed, skipping duplicate close');
+        return;
+      }
+      streamClosed = true;
       try {
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
@@ -747,6 +758,7 @@ function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter } {
         console.warn('SSE close error:', e);
       }
     },
+    isClosed: () => streamClosed,
   };
   
   return { stream, emitter };
