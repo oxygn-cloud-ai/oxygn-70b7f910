@@ -250,12 +250,15 @@ const MainLayout = () => {
   }, [selectedPromptId, updateField]);
   
   // Phase 1: Run prompt and cascade hooks
-  const { runPrompt, runConversation, cancelRun, isRunning: isRunningPrompt, progress: runProgress } = useConversationRun();
+  const { runPrompt, runConversation, cancelRun, isRunning: isRunningPromptInternal, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun } = useCascadeRun();
   // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
+  
+  // Combined running state: true if hook is running OR we have an immediate single run request
+  const isRunningPrompt = isRunningPromptInternal || singleRunPromptId !== null;
   
   // Helper to truncate long text for toast display
   const truncateForLog = (text, maxLen = 50) => {
@@ -277,7 +280,9 @@ const MainLayout = () => {
       return;
     }
     
+    // IMMEDIATE: Set single run state for instant UI feedback via context
     setRunStartingFor(promptId);
+    startSingleRun(promptId);
     
     try {
       // CRITICAL: Wait for any pending field saves to complete before fetching
@@ -288,30 +293,30 @@ const MainLayout = () => {
       const promptData = await fetchItemData(promptId);
     const startTime = Date.now();
     
-    // Start execution trace
-    let traceId = null;
-    let spanId = null;
-    try {
-      const traceResult = await startTrace({
-        entry_prompt_row_id: promptId,
-        execution_type: 'single',
-      });
-      if (traceResult.success) {
-        traceId = traceResult.trace_id;
-        // Create span for the prompt execution
-        const spanResult = await createSpan({
-          trace_id: traceId,
-          prompt_row_id: promptId,
-          span_type: 'generation',
+    // Start execution trace in background (non-blocking for UI)
+    // We'll await the result after runPrompt completes
+    const tracingPromise = (async () => {
+      try {
+        const traceResult = await startTrace({
+          entry_prompt_row_id: promptId,
+          execution_type: 'single',
         });
-        if (spanResult.success) {
-          spanId = spanResult.span_id;
+        if (traceResult.success) {
+          const spanResult = await createSpan({
+            trace_id: traceResult.trace_id,
+            prompt_row_id: promptId,
+            span_type: 'generation',
+          });
+          return {
+            traceId: traceResult.trace_id,
+            spanId: spanResult.success ? spanResult.span_id : null,
+          };
         }
+      } catch (traceErr) {
+        console.warn('Failed to start execution trace:', traceErr);
       }
-    } catch (traceErr) {
-      console.warn('Failed to start execution trace:', traceErr);
-      // Continue with execution even if tracing fails
-    }
+      return { traceId: null, spanId: null };
+    })();
 
     // Determine response format - action nodes with schema template use structured output
     const getResponseFormat = () => {
@@ -344,9 +349,15 @@ const MainLayout = () => {
     });
     
     let result;
+    let tracingResult = { traceId: null, spanId: null };
     try {
       result = await runPrompt(promptId);
+      // Now await tracing promise after run completes
+      tracingResult = await tracingPromise;
     } catch (runError) {
+      // Wait for tracing to complete before failing
+      tracingResult = await tracingPromise;
+      const { traceId, spanId } = tracingResult;
       // Fail span and trace if error occurred
       if (spanId) {
         await failSpan({
@@ -368,6 +379,8 @@ const MainLayout = () => {
       }
       throw runError;
     }
+    
+    const { traceId, spanId } = tracingResult;
     
     if (result) {
       const latencyMs = Date.now() - startTime;
@@ -674,10 +687,12 @@ const MainLayout = () => {
       }
     }
     } finally {
+      // Clear single run state via context
+      endSingleRun();
       // Reset debounce state after 1 second to prevent accidental double-clicks
       setTimeout(() => setRunStartingFor(null), 1000);
     }
-  }, [runStartingFor, flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
+  }, [runStartingFor, flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace, startSingleRun, endSingleRun]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {
