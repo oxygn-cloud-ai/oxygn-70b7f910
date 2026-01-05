@@ -281,6 +281,14 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   // Debounce ref for slider saves
   const sliderDebounceRef = useRef({});
 
+  // Cleanup slider debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sliderDebounceRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
   // Sync state when promptData or model changes
   useEffect(() => {
     if (promptData?.temperature) {

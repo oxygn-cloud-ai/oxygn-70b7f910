@@ -114,10 +114,15 @@ const SettingsPanel = ({
     }
   };
 
-  const handleValueChange = async (fieldName, value) => {
+  // For Input fields - only update local state, save on blur
+  const handleInputChange = (fieldName, value) => {
     handleChange(fieldName, value);
-    
-    // For select fields, save immediately (no blur event like inputs)
+    // No database save - that happens on blur via handleValueBlur
+  };
+
+  // For Select fields - save immediately (no blur event)
+  const handleSelectChange = async (fieldName, value) => {
+    handleChange(fieldName, value);
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -242,7 +247,7 @@ const SettingsPanel = ({
                 {setting.type === 'select' ? (
                     <Select
                       value={value || setting.defaultValue}
-                      onValueChange={(v) => handleValueChange(settingKey, v)}
+                      onValueChange={(v) => handleSelectChange(settingKey, v)}
                       disabled={!isEnabled || !supported}
                     >
                       <SelectTrigger className="h-6 text-[10px] px-1.5 border-0 bg-transparent">
@@ -260,7 +265,7 @@ const SettingsPanel = ({
                     <Input
                       type={setting.type === 'number' ? 'number' : 'text'}
                       value={value}
-                      onChange={(e) => handleValueChange(settingKey, e.target.value)}
+                      onChange={(e) => handleInputChange(settingKey, e.target.value)}
                       onBlur={() => handleValueBlur(settingKey)}
                       disabled={!isEnabled || !supported}
                       placeholder={setting.shortLabel}

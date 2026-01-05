@@ -851,6 +851,15 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
   const { getModelConfig } = useModels();
   const sliderDebounceRef = useRef({});
 
+  // Cleanup slider debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sliderDebounceRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
+
   const currentModel = node?.model || '';
   const modelConfig = getModelConfig(currentModel);
   const currentModelData = models?.find(m => m.model_id === currentModel);

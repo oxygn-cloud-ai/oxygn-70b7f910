@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from '@/lib/posthog';
@@ -6,6 +6,12 @@ import { trackEvent } from '@/lib/posthog';
 export const useModelDefaults = () => {
   const [modelDefaults, setModelDefaults] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const fetchModelDefaults = useCallback(async () => {
     try {
@@ -23,16 +29,18 @@ export const useModelDefaults = () => {
         });
       }
       
-      setModelDefaults(defaultsObj);
+      if (isMountedRef.current) setModelDefaults(defaultsObj);
     } catch (error) {
       console.error('Error fetching model defaults:', error);
-      toast.error('Failed to fetch model defaults', {
-        source: 'useModelDefaults.fetchModelDefaults',
-        errorCode: error?.code || 'MODEL_DEFAULTS_FETCH_ERROR',
-        details: JSON.stringify({ error: error?.message, stack: error?.stack }, null, 2),
-      });
+      if (isMountedRef.current) {
+        toast.error('Failed to fetch model defaults', {
+          source: 'useModelDefaults.fetchModelDefaults',
+          errorCode: error?.code || 'MODEL_DEFAULTS_FETCH_ERROR',
+          details: JSON.stringify({ error: error?.message, stack: error?.stack }, null, 2),
+        });
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, []);
 
