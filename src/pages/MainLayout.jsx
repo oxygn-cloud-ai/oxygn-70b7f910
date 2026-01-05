@@ -925,8 +925,6 @@ const MainLayout = () => {
   
   // Determine if conversation panel should be shown based on active nav
   const showConversationPanel = activeNav === "prompts" && conversationPanelOpen;
-  const submenuRef = useRef(null);
-  const hoverTimeoutRef = useRef(null);
 
   // Toggle dark mode on the document and sync with theme preference changes
   useEffect(() => {
