@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -8,10 +8,16 @@ export const useModelUsage = (options = {}) => {
   const { period = 'all' } = options; // 'all' | '30days' | '7days'
   const [usage, setUsage] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const fetchUsage = useCallback(async () => {
     try {
-      setIsLoading(true);
+      if (isMountedRef.current) setIsLoading(true);
       
       let query = supabase
         .from(import.meta.env.VITE_AI_COSTS_TBL || 'q_ai_costs')
@@ -52,12 +58,12 @@ export const useModelUsage = (options = {}) => {
         aggregated[modelId].callCount += 1;
       });
       
-      setUsage(aggregated);
+      if (isMountedRef.current) setUsage(aggregated);
     } catch (error) {
       console.error('Error fetching model usage:', error);
-      setUsage({});
+      if (isMountedRef.current) setUsage({});
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [period]);
 

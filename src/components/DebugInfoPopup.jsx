@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,12 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
   const [lifetimeCosts, setLifetimeCosts] = useState(null);
   const [isLoadingCosts, setIsLoadingCosts] = useState(false);
   const { getLifetimeCosts } = useCostTracking();
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   // Fetch lifetime costs when dialog opens
   useEffect(() => {
@@ -24,12 +30,16 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
       trackEvent('debug_info_viewed', { prompt_id: item.id, prompt_name: item.prompt_name });
       setIsLoadingCosts(true);
       getLifetimeCosts(item.id)
-        .then(costs => setLifetimeCosts(costs))
+        .then(costs => {
+          if (isMountedRef.current) setLifetimeCosts(costs);
+        })
         .catch(err => {
           console.error('Error fetching costs:', err);
-          toast.error('Failed to load cost data');
+          if (isMountedRef.current) toast.error('Failed to load cost data');
         })
-        .finally(() => setIsLoadingCosts(false));
+        .finally(() => {
+          if (isMountedRef.current) setIsLoadingCosts(false);
+        });
     }
   }, [isOpen, item?.id, getLifetimeCosts]);
 

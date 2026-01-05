@@ -63,10 +63,14 @@ export const usePromptSelection = (fetchItemData, isApiCallInProgress, requestNa
   // Listen for prompt-result-updated events to refresh selected prompt data
   useEffect(() => {
     const handlePromptResultUpdated = async (event) => {
-      const { promptRowId } = event.detail || {};
-      if (promptRowId && promptRowId === selectedPromptId) {
-        const freshData = await fetchItemData(selectedPromptId);
-        setSelectedPromptData(freshData);
+      try {
+        const { promptRowId } = event.detail || {};
+        if (promptRowId && promptRowId === selectedPromptId) {
+          const freshData = await fetchItemData(selectedPromptId);
+          setSelectedPromptData(freshData);
+        }
+      } catch (error) {
+        console.error('Error refreshing prompt data:', error);
       }
     };
     

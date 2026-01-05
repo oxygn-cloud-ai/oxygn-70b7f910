@@ -134,6 +134,14 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   // Debounce refs for slider values
   const sliderDebounceRef = useRef({});
 
+  // Cleanup slider debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sliderDebounceRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
   const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
     const settingInfo = ALL_SETTINGS[field];
     const supported = isSettingSupported(field, currentModel);
