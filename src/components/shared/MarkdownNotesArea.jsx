@@ -225,59 +225,7 @@ const MarkdownNotesArea = ({
     }
   }, [cancelPendingSave, hasUnsavedChanges, localValue, performSave]);
 
-  // Handle undo
-  const handleUndo = useCallback(() => {
-    const previousValue = popPreviousValue();
-    if (previousValue !== null) {
-      cancelPendingSave();
-      setLocalValue(previousValue);
-      editor?.commands.setContent(previousValue || '');
-      if (onSave) {
-        // Register the save so it can be awaited before runs
-        const savePromise = Promise.resolve(onSave(previousValue));
-        registerSave(savePromise);
-      }
-      setLastSavedValue(previousValue);
-      toast.success('Undone');
-    }
-  }, [popPreviousValue, cancelPendingSave, onSave, registerSave, editor]);
-
-  // Handle discard
-  const handleDiscard = useCallback(() => {
-    const originalValue = getOriginalValue() || '';
-    cancelPendingSave();
-    setLocalValue(originalValue);
-    editor?.commands.setContent(originalValue || '');
-    if (onSave) {
-      // Register the save so it can be awaited before runs
-      const savePromise = Promise.resolve(onSave(originalValue));
-      registerSave(savePromise);
-    }
-    setLastSavedValue(originalValue);
-    clearUndoStack();
-    toast.success('Discarded changes');
-  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack, registerSave, editor]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        handleImmediateSave();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        // Only handle if focus is in the editor
-        if (document.activeElement?.closest('.tiptap-editor')) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          handleUndo();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleImmediateSave, handleUndo]);
+  // Undo/discard handlers + keyboard shortcuts are defined below after editor initialization.
 
   const editor = useEditor({
     extensions: [
@@ -328,7 +276,62 @@ const MarkdownNotesArea = ({
     },
   });
 
+  // Handle undo (requires editor initialization)
+  const handleUndo = useCallback(() => {
+    const previousValue = popPreviousValue();
+    if (previousValue !== null) {
+      cancelPendingSave();
+      setLocalValue(previousValue);
+      editor?.commands.setContent(previousValue || '');
+      if (onSave) {
+        // Register the save so it can be awaited before runs
+        const savePromise = Promise.resolve(onSave(previousValue));
+        registerSave(savePromise);
+      }
+      setLastSavedValue(previousValue);
+      toast.success('Undone');
+    }
+  }, [popPreviousValue, cancelPendingSave, onSave, registerSave, editor]);
+
+  // Handle discard (revert to original value)
+  const handleDiscard = useCallback(() => {
+    const originalValue = getOriginalValue() || '';
+    cancelPendingSave();
+    setLocalValue(originalValue);
+    editor?.commands.setContent(originalValue || '');
+    if (onSave) {
+      // Register the save so it can be awaited before runs
+      const savePromise = Promise.resolve(onSave(originalValue));
+      registerSave(savePromise);
+    }
+    setLastSavedValue(originalValue);
+    clearUndoStack();
+    toast.success('Discarded changes');
+  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack, registerSave, editor]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        handleImmediateSave();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        // Only handle if focus is in the editor
+        if (document.activeElement?.closest('.tiptap-editor')) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          handleUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleImmediateSave, handleUndo]);
+
   // Sync external value changes to editor
+
   useEffect(() => {
     if (isInternalChange.current) {
       isInternalChange.current = false;
