@@ -356,11 +356,15 @@ export const executeCreateChildrenJson = async ({
       .from(PROMPTS_TABLE)
       .insert(childData)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error creating child node from JSON:', error);
       throw error;
+    }
+    
+    if (!data) {
+      throw new Error(`Failed to create child node from JSON item ${i + 1} - no data returned`);
     }
 
     createdChildren.push(data);

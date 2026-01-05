@@ -616,7 +616,7 @@ serve(async (req) => {
         .from('q_settings')
         .select('setting_value')
         .eq('setting_key', 'workbench_default_model')
-        .single()
+        .maybeSingle()
         .then((r: any) => r.data)
     ]);
     

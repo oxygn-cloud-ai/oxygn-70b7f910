@@ -1115,9 +1115,9 @@ serve(async (req) => {
             owner_id: validation.user?.id,
           })
           .select()
-          .single();
+          .maybeSingle();
         
-        if (createAssistantError) {
+        if (createAssistantError || !newAssistant) {
           console.error('Failed to create assistant:', createAssistantError);
           emitter.emit({ type: 'error', error: 'Failed to create assistant configuration', error_code: 'ASSISTANT_CREATE_FAILED' });
           return;

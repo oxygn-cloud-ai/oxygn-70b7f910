@@ -606,7 +606,7 @@ export const knowledgeModule: ToolModule = {
           .eq('is_active', true)
           .eq('version', currentVersion)
           .select()
-          .single();
+          .maybeSingle();
         
         if (error) {
           if (error.code === 'PGRST116') {
@@ -664,9 +664,10 @@ export const knowledgeModule: ToolModule = {
           .from('q_app_knowledge')
           .insert(insertData)
           .select()
-          .single();
+          .maybeSingle();
         
         if (error) return JSON.stringify({ error: error.message });
+        if (!data) return JSON.stringify({ error: 'Failed to create knowledge item' });
         
         return JSON.stringify({ 
           success: true, 
@@ -703,7 +704,7 @@ export const knowledgeModule: ToolModule = {
           .eq('row_id', row_id)
           .eq('is_active', true) // Extra safety: only delete if still active
           .select('title')
-          .single();
+          .maybeSingle();
         
         if (error) return JSON.stringify({ error: error.message });
         return JSON.stringify({ success: true, deleted: data?.title });

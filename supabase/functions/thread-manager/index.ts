@@ -154,9 +154,9 @@ serve(async (req) => {
           owner_id: validation.user?.id,
         })
         .select()
-        .single();
+        .maybeSingle();
 
-      if (saveError) {
+      if (saveError || !savedThread) {
         console.error('Failed to save thread:', saveError);
         return new Response(
           JSON.stringify({ error: 'Failed to save thread' }),

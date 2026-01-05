@@ -142,11 +142,15 @@ export const executeCreateTemplate = async ({
     .from(TEMPLATES_TABLE)
     .insert(templateData)
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Error creating template:', error);
     throw error;
+  }
+  
+  if (!data) {
+    throw new Error('Failed to create template - no data returned');
   }
 
   return {
