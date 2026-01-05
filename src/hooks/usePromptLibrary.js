@@ -68,7 +68,7 @@ export const usePromptLibrary = () => {
           user_id: user.id
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -124,7 +124,7 @@ export const usePromptLibrary = () => {
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('row_id', rowId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

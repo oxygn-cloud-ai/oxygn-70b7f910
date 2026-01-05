@@ -71,7 +71,7 @@ export const usePromptVariables = (promptRowId) => {
           variable_description: description,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       

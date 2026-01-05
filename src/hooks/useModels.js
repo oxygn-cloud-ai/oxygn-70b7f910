@@ -73,7 +73,7 @@ export const useModels = () => {
           api_model_id: modelData.api_model_id || modelData.model_id,
         }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

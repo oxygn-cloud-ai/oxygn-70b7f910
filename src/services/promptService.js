@@ -153,7 +153,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
         prompt_name: `New Prompt ${timestamp}` // Add a default prompt name
       }])
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data.row_id;

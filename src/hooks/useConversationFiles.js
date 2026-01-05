@@ -101,7 +101,7 @@ export const useConversationFiles = (assistantRowId) => {
             upload_status: 'pending',
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (dbError) {
           console.error('Error creating file record:', file.name, dbError);

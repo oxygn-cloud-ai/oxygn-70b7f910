@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 
@@ -149,32 +149,41 @@ serve(async (req) => {
     const assistantData = assistant as any;
 
     // Determine which thread/conversation to use
-    let conversationId: string | null = null;
+    let lastResponseId: string | null = null;
     let activeThreadRowId: string | null = thread_row_id || null;
 
-    // Try to get existing thread's conversation ID
+    // Try to get existing thread's last_response_id (for chaining) and verify ownership
     if (activeThreadRowId) {
       const { data: existingThread } = await supabase
         .from(TABLES.THREADS)
-        .select('openai_conversation_id')
+        .select('openai_conversation_id, last_response_id, owner_id')
         .eq('row_id', activeThreadRowId)
         .maybeSingle();
       
-      if (existingThread?.openai_conversation_id) {
-        conversationId = existingThread.openai_conversation_id;
-        console.log('Using existing conversation:', conversationId);
+      // Enforce ownership - only owner can use this thread
+      if (existingThread && existingThread.owner_id !== validation.user?.id) {
+        console.warn('Unauthorized thread access attempt:', { thread_row_id: activeThreadRowId, owner: existingThread.owner_id, requester: validation.user?.id });
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (existingThread?.last_response_id?.startsWith('resp_')) {
+        lastResponseId = existingThread.last_response_id;
+        console.log('Using last_response_id for chaining:', lastResponseId);
       }
     }
 
-    // Create new conversation if needed
-    if (!conversationId) {
-      conversationId = await createOpenAIConversation(openAIApiKey, {
+    // Create new thread if no valid existing thread
+    if (!activeThreadRowId) {
+      const conversationId = await createOpenAIConversation(openAIApiKey, {
         assistant_row_id: assistant_row_id,
         type: 'studio_chat',
       });
 
       // Create thread record
-      const { data: newThread } = await supabase
+      const { data: newThread, error: newThreadError } = await supabase
         .from(TABLES.THREADS)
         .insert({
           assistant_row_id: assistant_row_id,
@@ -185,12 +194,18 @@ serve(async (req) => {
           owner_id: validation.user?.id,
         })
         .select()
-        .single();
+        .maybeSingle();
 
-      if (newThread) {
-        activeThreadRowId = newThread.row_id;
-        console.log('Created new thread:', activeThreadRowId);
+      if (newThreadError || !newThread) {
+        console.error('Failed to create thread:', newThreadError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to create conversation thread' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+      
+      activeThreadRowId = newThread.row_id;
+      console.log('Created new thread:', activeThreadRowId);
     }
 
     // Build child prompt context if enabled
@@ -265,8 +280,15 @@ serve(async (req) => {
     const requestBody: any = {
       model: modelId,
       input: user_message,
-      conversation: conversationId,
     };
+
+    // Use previous_response_id for multi-turn chaining (GPT-5 safe)
+    if (lastResponseId?.startsWith('resp_')) {
+      requestBody.previous_response_id = lastResponseId;
+      console.log('Continuing from previous response:', lastResponseId);
+    } else {
+      console.log('No previous_response_id - starting fresh conversation turn');
+    }
 
     // Add instructions if present
     if (systemContent && systemContent.trim()) {
@@ -290,7 +312,7 @@ serve(async (req) => {
 
     console.log('Calling Responses API for Studio chat:', { 
       model: modelId, 
-      conversation: conversationId,
+      previous_response_id: lastResponseId,
       hasInstructions: !!requestBody.instructions,
     });
 
@@ -359,7 +381,6 @@ serve(async (req) => {
         success: true,
         response: responseText,
         thread_row_id: activeThreadRowId,
-        conversation_id: conversationId,
         context_included: contextIncluded,
         usage,
         model: modelId,

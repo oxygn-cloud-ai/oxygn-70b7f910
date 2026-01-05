@@ -134,18 +134,21 @@ export async function getOrCreateFamilyThread(
   promptName?: string,
   openAIApiKey?: string
 ): Promise<{ row_id: string; openai_conversation_id: string | null; last_response_id: string | null; created: boolean }> {
-  // Try to find existing active thread for this family
-  const { data: existing, error: findError } = await supabase
+  // Try to find existing active thread for this family (deterministic: order by last_message_at desc, limit 1)
+  const { data: existingThreads, error: findError } = await supabase
     .from(TABLES.THREADS)
     .select('row_id, openai_conversation_id, last_response_id')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
     .eq('is_active', true)
-    .maybeSingle();
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(1);
 
   if (findError) {
     console.error('Error finding family thread:', findError);
   }
+
+  const existing = existingThreads?.[0] || null;
 
   if (existing) {
     // Validate conversation ID - must be proper conv_ format
@@ -189,7 +192,7 @@ export async function getOrCreateFamilyThread(
       openai_conversation_id: conversationId,
     })
     .select('row_id, openai_conversation_id, last_response_id')
-    .single();
+    .maybeSingle();
 
   if (createError) {
     console.error('Failed to create family thread:', createError);

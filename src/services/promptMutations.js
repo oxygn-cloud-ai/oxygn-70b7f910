@@ -344,7 +344,7 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
       owner_id: userId || sourcePrompt.owner_id,
     }])
     .select()
-    .single();
+    .maybeSingle();
 
   if (insertError) {
     trackException(insertError, { context: 'promptMutations.duplicatePrompt' });
@@ -412,7 +412,7 @@ const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userI
       owner_id: userId || sourcePrompt.owner_id,
     }])
     .select()
-    .single();
+    .maybeSingle();
 
   if (insertError) throw insertError;
 

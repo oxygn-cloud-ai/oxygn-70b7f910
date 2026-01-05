@@ -66,7 +66,7 @@ export const useExportTemplates = () => {
           confluence_config: confluenceConfig
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -92,7 +92,7 @@ export const useExportTemplates = () => {
         .update(updates)
         .eq('row_id', rowId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

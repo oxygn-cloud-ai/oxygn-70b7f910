@@ -74,7 +74,7 @@ export const useSettings = (supabase) => {
           .from(import.meta.env.VITE_SETTINGS_TBL)
           .insert({ setting_key: key, setting_value: value })
           .select()
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
         
@@ -102,7 +102,7 @@ export const useSettings = (supabase) => {
         .from(import.meta.env.VITE_SETTINGS_TBL)
         .insert({ setting_key: key, setting_value: value, setting_description: description })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

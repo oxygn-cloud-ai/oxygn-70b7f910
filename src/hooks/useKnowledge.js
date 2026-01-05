@@ -114,7 +114,7 @@ export const useKnowledge = () => {
           updated_by: user.id
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       
@@ -198,7 +198,7 @@ export const useKnowledge = () => {
         .update(updateData)
         .eq('row_id', rowId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       

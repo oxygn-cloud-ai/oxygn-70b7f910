@@ -82,7 +82,7 @@ export const useJsonSchemaTemplates = () => {
           sample_output: sampleOutput || null
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -120,7 +120,7 @@ export const useJsonSchemaTemplates = () => {
         })
         .eq('row_id', rowId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

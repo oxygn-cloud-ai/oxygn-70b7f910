@@ -20,6 +20,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
+
+function isAllowedDomain(email: string | undefined): boolean {
+  if (!email) return false;
+  const domain = email.split('@')[1]?.toLowerCase();
+  return ALLOWED_DOMAINS.includes(domain);
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -68,6 +76,15 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token', error_code: 'AUTH_FAILED' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Enforce domain allowlist
+    if (!isAllowedDomain(user.email)) {
+      console.warn('Domain not allowed:', user.email);
+      return new Response(
+        JSON.stringify({ error: 'Access denied', error_code: 'DOMAIN_NOT_ALLOWED' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
