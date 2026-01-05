@@ -94,7 +94,7 @@ export const useModels = () => {
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('row_id', rowId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

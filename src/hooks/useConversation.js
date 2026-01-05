@@ -33,7 +33,7 @@ export const useConversation = (promptRowId) => {
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('prompt_name')
           .eq('row_id', promptRowId)
-          .single();
+          .maybeSingle();
         
         // For Responses API, conversations are always "active" - no instantiation needed
         const { data: newConversation, error: createError } = await supabase
