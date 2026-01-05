@@ -303,11 +303,15 @@ export const executeCreateChildrenSections = async ({
       .from(PROMPTS_TABLE)
       .insert(childData)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error creating child node from section:', error);
       throw error;
+    }
+    
+    if (!data) {
+      throw new Error(`Failed to create child node from section "${sectionKey}" - no data returned`);
     }
 
     createdChildren.push(data);

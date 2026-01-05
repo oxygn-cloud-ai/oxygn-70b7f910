@@ -624,7 +624,7 @@ export const promptsModule: ToolModule = {
               is_deleted: false
             })
             .select('row_id, prompt_name')
-            .single();
+            .maybeSingle();
 
           if (insertError || !newPrompt) {
             console.error('Create prompt error:', insertError);
@@ -773,7 +773,7 @@ export const promptsModule: ToolModule = {
               owner_id: context.userId
             })
             .select('row_id, prompt_name')
-            .single();
+            .maybeSingle();
 
           if (insertError || !newPrompt) {
             console.error('Duplicate prompt error:', insertError);

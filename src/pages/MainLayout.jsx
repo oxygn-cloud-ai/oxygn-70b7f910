@@ -284,14 +284,17 @@ const MainLayout = () => {
     setRunStartingFor(promptId);
     startSingleRun(promptId);
     
+    let promptData;
+    let startTime;
+    
     try {
       // CRITICAL: Wait for any pending field saves to complete before fetching
       // This ensures we get the latest system prompt, user prompt, etc. from the database
       await flushPendingSaves();
     
       // Fetch prompt data to check if it's an action node
-      const promptData = await fetchItemData(promptId);
-    const startTime = Date.now();
+      promptData = await fetchItemData(promptId);
+      startTime = Date.now();
     
     // Start execution trace in background (non-blocking for UI)
     // We'll await the result after runPrompt completes
@@ -686,6 +689,18 @@ const MainLayout = () => {
         }).catch(err => console.warn('Failed to complete trace:', err));
       }
     }
+    } catch (outerError) {
+      // Catch errors from flushPendingSaves, fetchItemData, or any uncaught errors
+      console.error('Run prompt failed:', outerError);
+      toast.error('Failed to run prompt', {
+        description: outerError.message || 'An unexpected error occurred',
+        source: 'MainLayout.handleRunPrompt',
+        details: JSON.stringify({
+          promptId,
+          error: outerError.message,
+          stack: outerError.stack,
+        }, null, 2),
+      });
     } finally {
       // Clear single run state via context
       endSingleRun();

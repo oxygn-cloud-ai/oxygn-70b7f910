@@ -417,9 +417,10 @@ async function createSpan(supabase: any, userId: string, params: SpanParams) {
       status: 'running',
     })
     .select('span_id')
-    .single();
+    .maybeSingle();
   
   if (error) throw error;
+  if (!span) throw new Error('Failed to create span - no data returned');
   
   console.log(JSON.stringify({
     event: 'span_created',
@@ -479,7 +480,7 @@ async function completeSpan(supabase: any, userId: string, params: CompleteSpanP
           content: output,
         })
         .select('artefact_id')
-        .single();
+        .maybeSingle();
       
       outputArtefactId = artefact?.artefact_id;
     }

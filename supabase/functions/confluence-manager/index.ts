@@ -895,9 +895,10 @@ Deno.serve(async (req) => {
             sync_status: 'synced'
           })
           .select()
-          .single();
+          .maybeSingle();
         
         if (error) throw error;
+        if (!inserted) throw new Error('Failed to attach page - no data returned');
         
         // Auto-enable confluence_enabled on the assistant for live browsing
         if (assistantRowId) {
@@ -964,9 +965,10 @@ Deno.serve(async (req) => {
           })
           .eq('row_id', rowId)
           .select()
-          .single();
+          .maybeSingle();
         
         if (updateError) throw updateError;
+        if (!updated) throw new Error('Failed to sync page - no data returned');
         
         result = { success: true, page: updated };
         break;

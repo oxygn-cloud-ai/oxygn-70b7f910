@@ -192,11 +192,15 @@ export const executeCreateChildrenText = async ({
       .from(PROMPTS_TABLE)
       .insert(childData)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error creating child node:', error);
       throw error;
+    }
+    
+    if (!data) {
+      throw new Error(`Failed to create child node ${i + 1} - no data returned`);
     }
 
     createdChildren.push(data);
