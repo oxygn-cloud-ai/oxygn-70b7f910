@@ -451,8 +451,23 @@ async function runResponsesAPI(
   // Step 3: Stream the response using GET /v1/responses/{id}?stream=true
   console.log('Starting response stream for:', responseId);
   
+  // Rolling idle timeout - resets every time data is received
+  const IDLE_TIMEOUT_MS = 120000; // 2 minutes of no activity
   const streamController = new AbortController();
-  const streamTimeoutId = setTimeout(() => streamController.abort(), 300000); // 5 minute streaming timeout
+  let idleTimeoutId: number | null = null;
+  let abortReason: 'idle' | null = null;
+
+  const resetIdleTimeout = () => {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+    idleTimeoutId = setTimeout(() => {
+      abortReason = 'idle';
+      console.error('Stream idle timeout - no data received for 2 minutes');
+      streamController.abort();
+    }, IDLE_TIMEOUT_MS);
+  };
+
+  // Start initial idle timeout
+  resetIdleTimeout();
   
   let streamResponse: Response;
   try {
@@ -467,8 +482,17 @@ async function runResponsesAPI(
       }
     );
   } catch (streamError: unknown) {
-    clearTimeout(streamTimeoutId);
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     if (streamError instanceof Error && streamError.name === 'AbortError') {
+      if (abortReason === 'idle') {
+        console.error('Stream connection timed out due to inactivity');
+        return {
+          success: false,
+          error: 'No response data received for 2 minutes - connection may have stalled',
+          error_code: 'IDLE_TIMEOUT',
+          response_id: responseId,
+        };
+      }
       console.error('Response stream timed out');
       return {
         success: false,
@@ -481,7 +505,7 @@ async function runResponsesAPI(
   }
 
   if (!streamResponse.ok) {
-    clearTimeout(streamTimeoutId);
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     const errorText = await streamResponse.text();
     console.error('Stream response error:', streamResponse.status, errorText);
     return {
@@ -495,7 +519,7 @@ async function runResponsesAPI(
   // Parse the SSE stream from OpenAI
   const reader = streamResponse.body?.getReader();
   if (!reader) {
-    clearTimeout(streamTimeoutId);
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     return {
       success: false,
       error: 'No stream body available',
@@ -509,11 +533,32 @@ async function runResponsesAPI(
   let finalResponse: any = null;
   let accumulatedText = '';
   let finalUsage: any = null;
+  
+  // Progress tracking
+  const streamStartTime = Date.now();
+  let chunkCount = 0;
+  let lastLogTime = Date.now();
 
   try {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+
+      // Reset idle timeout on activity
+      resetIdleTimeout();
+      chunkCount++;
+      
+      const now = Date.now();
+      // Log progress every 30 seconds
+      if (now - lastLogTime > 30000) {
+        console.log('Stream progress:', {
+          responseId,
+          chunkCount,
+          elapsedMs: now - streamStartTime,
+          accumulatedTextLength: accumulatedText.length,
+        });
+        lastLogTime = now;
+      }
 
       buffer += decoder.decode(value, { stream: true });
 
@@ -535,7 +580,7 @@ async function runResponsesAPI(
           // Track the response status
           if (event.status === 'cancelled') {
             console.log('Response was cancelled during streaming');
-            clearTimeout(streamTimeoutId);
+            if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
             reader.cancel();
             return {
               success: false,
@@ -548,7 +593,7 @@ async function runResponsesAPI(
           if (event.status === 'failed') {
             const errorMsg = event.error?.message || 'Response failed during streaming';
             console.error('Response failed during streaming:', errorMsg);
-            clearTimeout(streamTimeoutId);
+            if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
             reader.cancel();
             return {
               success: false,
@@ -586,8 +631,19 @@ async function runResponsesAPI(
       }
     }
   } catch (streamReadError: unknown) {
-    clearTimeout(streamTimeoutId);
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     if (streamReadError instanceof Error && streamReadError.name === 'AbortError') {
+      // Check if this was an idle timeout
+      if (abortReason === 'idle') {
+        console.error('Stream failed due to idle timeout');
+        return {
+          success: false,
+          error: 'No response data received for 2 minutes - connection may have stalled',
+          error_code: 'IDLE_TIMEOUT',
+          response_id: responseId,
+        };
+      }
+      
       console.log('Stream read was aborted (possibly cancelled)');
       // Check final status via API
       try {
@@ -617,7 +673,7 @@ async function runResponsesAPI(
     }
     throw streamReadError;
   } finally {
-    clearTimeout(streamTimeoutId);
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
   }
 
   // Extract final response text
