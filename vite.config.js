@@ -1,3 +1,4 @@
+// Vite config - cache bust v2 (2025-01-05)
 import { fileURLToPath, URL } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -43,9 +44,46 @@ export default defineConfig(({ mode }) => ({
       "zod-to-json-schema",
       "framer-motion",
       "react-dnd",
-      "react-dnd-html5-backend"
+      "react-dnd-html5-backend",
+      // Router
+      "react-router-dom",
+      // TipTap editor and all its extensions
+      "@tiptap/react",
+      "@tiptap/core",
+      "@tiptap/pm",
+      "@tiptap/starter-kit",
+      "@tiptap/extension-link",
+      "@tiptap/extension-placeholder",
+      // Radix UI primitives (commonly cause React duplication)
+      "@radix-ui/react-tooltip",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-accordion",
+      "@radix-ui/react-switch",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-scroll-area",
+      // React Query
+      "@tanstack/react-query",
+      // Supabase
+      "@supabase/supabase-js",
     ],
     force: true,
+    // Ensure React is not externalized
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
+  // Ensure a single copy of React in the build
+  build: {
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
   },
 }));
 

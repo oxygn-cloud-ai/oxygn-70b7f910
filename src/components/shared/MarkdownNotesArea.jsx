@@ -153,8 +153,14 @@ const MarkdownNotesArea = ({
   });
   const [localValue, setLocalValue] = useState(value || '');
   const [lastSavedValue, setLastSavedValue] = useState(value || '');
+  const lastSavedValueRef = useRef(value || ''); // Ref to avoid stale closure in autosave timeout
   const isInternalChange = useRef(false);
   const saveTimeoutRef = useRef(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    lastSavedValueRef.current = lastSavedValue;
+  }, [lastSavedValue]);
 
   // Field undo/discard management
   const {
@@ -260,7 +266,8 @@ const MarkdownNotesArea = ({
       // Cancel existing timer and start new auto-save timer
       cancelPendingSave();
       saveTimeoutRef.current = setTimeout(() => {
-        if (newValue !== lastSavedValue) {
+        // Use ref to avoid stale closure - lastSavedValue from closure may be stale
+        if (newValue !== lastSavedValueRef.current) {
           performSave(newValue);
         }
       }, AUTOSAVE_DELAY);
