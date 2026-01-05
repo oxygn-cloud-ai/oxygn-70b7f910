@@ -85,6 +85,9 @@ const LiveApiDashboard = () => {
   const mode = isCascadeRunning ? 'cascade' : (hasActiveCalls ? 'single' : 'idle');
   const currentCall = activeCalls[0];
   const thinkingText = currentCall?.thinkingSummary || '';
+  
+  // Show "Thinking..." placeholder when status is in_progress but no thinking text yet
+  const isThinking = currentCall?.status === 'in_progress' && !thinkingText;
 
   // Idle mode
   if (mode === 'idle') {
@@ -135,9 +138,11 @@ const LiveApiDashboard = () => {
         </span>
 
         {/* Live thinking (if available) */}
-        {thinkingText && (
+        {(thinkingText || isThinking) && (
           <span className="text-[10px] text-on-surface-variant italic truncate max-w-[150px] opacity-70">
-            {thinkingText.length > 50 ? '...' + thinkingText.slice(-50) : thinkingText}
+            {thinkingText 
+              ? (thinkingText.length > 50 ? '...' + thinkingText.slice(-50) : thinkingText) 
+              : 'Thinking...'}
           </span>
         )}
 
@@ -246,9 +251,11 @@ const LiveApiDashboard = () => {
       )}
 
       {/* Live thinking */}
-      {thinkingText && (
+      {(thinkingText || isThinking) && (
         <span className="text-[10px] text-on-surface-variant italic truncate max-w-[150px] opacity-70">
-          {thinkingText.length > 50 ? '...' + thinkingText.slice(-50) : thinkingText}
+          {thinkingText 
+            ? (thinkingText.length > 50 ? '...' + thinkingText.slice(-50) : thinkingText) 
+            : 'Thinking...'}
         </span>
       )}
 

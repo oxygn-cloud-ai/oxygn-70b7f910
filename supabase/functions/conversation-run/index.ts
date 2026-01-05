@@ -307,11 +307,20 @@ async function runResponsesAPI(
   }
 
   // Add reasoning effort if model supports it (get valid levels from DB)
-  if (options.reasoningEffort) {
-    const validLevels = modelConfig?.reasoningEffortLevels || [];
-    if (validLevels.length > 0 && validLevels.includes(options.reasoningEffort)) {
-      requestBody.reasoning = { effort: options.reasoningEffort };
-      console.log('Using reasoning effort:', options.reasoningEffort);
+  // Auto-enable reasoning for capable models if not explicitly set
+  const validLevels = modelConfig?.reasoningEffortLevels || [];
+  let reasoningEffortToUse = options.reasoningEffort;
+  
+  if (!reasoningEffortToUse && validLevels.length > 0) {
+    // Auto-enable with 'medium' for models that support reasoning
+    reasoningEffortToUse = 'medium';
+    console.log('Auto-enabling reasoning effort: medium (model supports reasoning)');
+  }
+  
+  if (reasoningEffortToUse) {
+    if (validLevels.length > 0 && validLevels.includes(reasoningEffortToUse)) {
+      requestBody.reasoning = { effort: reasoningEffortToUse };
+      console.log('Using reasoning effort:', reasoningEffortToUse);
     } else {
       console.log(`Skipping reasoning_effort - not supported by model ${requestedModel}`);
     }
@@ -713,6 +722,9 @@ async function runResponsesAPI(
         });
         lastLogTime = now;
       }
+      
+      // Debug: Log every 10th chunk's event types to understand what OpenAI sends
+      const shouldLogEvent = chunkCount <= 5 || chunkCount % 50 === 0;
 
       buffer += decoder.decode(value, { stream: true });
 
@@ -730,6 +742,20 @@ async function runResponsesAPI(
 
         try {
           const event = JSON.parse(data);
+          
+          // Debug logging for understanding OpenAI event structure
+          if (shouldLogEvent) {
+            console.log('OpenAI SSE event:', {
+              type: event.type,
+              status: event.status,
+              hasOutput: !!event.output,
+              outputTypes: event.output?.map((o: any) => o.type),
+              hasItem: !!event.item,
+              itemType: event.item?.type,
+              hasDelta: !!event.delta,
+              hasPart: !!event.part,
+            });
+          }
           
           // Track the response status
           if (event.status === 'cancelled') {
@@ -772,18 +798,51 @@ async function runResponsesAPI(
                   }
                 }
               }
-              // Handle reasoning/thinking content for dashboard display
+              // Handle reasoning/thinking content from completed output
               if (item.type === 'reasoning' && emitter) {
-                // Emit when a new reasoning item is added
                 emitter.emit({
                   type: 'thinking_started',
                   item_id: item.id,
                 });
+                // Extract reasoning summary if already available in completed output
+                if (item.summary && Array.isArray(item.summary)) {
+                  for (const summaryPart of item.summary) {
+                    if (summaryPart.text) {
+                      emitter.emit({
+                        type: 'thinking_delta',
+                        delta: summaryPart.text,
+                        item_id: item.id,
+                      });
+                    }
+                  }
+                }
               }
             }
           }
           
-          // Handle reasoning summary text (for models that provide it)
+          // Handle streaming reasoning events from OpenAI
+          // Event: response.output_item.added (new reasoning item started)
+          if (event.type === 'response.output_item.added' && event.item?.type === 'reasoning' && emitter) {
+            console.log('Reasoning item started:', event.item.id);
+            emitter.emit({
+              type: 'thinking_started',
+              item_id: event.item.id,
+            });
+          }
+          
+          // Event: response.reasoning_summary_part.added (reasoning summary chunk)
+          if (event.type === 'response.reasoning_summary_part.added' && emitter) {
+            const partText = event.part?.text || '';
+            if (partText) {
+              emitter.emit({
+                type: 'thinking_delta',
+                delta: partText,
+                item_id: event.item_id,
+              });
+            }
+          }
+          
+          // Event: response.reasoning_summary_text.delta (streaming reasoning text)
           if (event.type === 'response.reasoning_summary_text.delta' && emitter) {
             emitter.emit({
               type: 'thinking_delta',
@@ -792,6 +851,7 @@ async function runResponsesAPI(
             });
           }
           
+          // Event: response.reasoning_summary_text.done (reasoning complete)
           if (event.type === 'response.reasoning_summary_text.done' && emitter) {
             emitter.emit({
               type: 'thinking_done',
