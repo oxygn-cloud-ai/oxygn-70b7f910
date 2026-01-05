@@ -372,14 +372,16 @@ const ResizablePromptArea = ({
       cancelPendingSave();
       setEditValue(previousValue);
       if (onSave) {
-        onSave(previousValue);
+        // Register the save so it can be awaited before runs
+        const savePromise = Promise.resolve(onSave(previousValue));
+        registerSave(savePromise);
       } else if (onChange) {
         onChange(previousValue);
       }
       setLastSavedValue(previousValue);
       toast.success('Undone');
     }
-  }, [popPreviousValue, cancelPendingSave, onSave, onChange]);
+  }, [popPreviousValue, cancelPendingSave, onSave, onChange, registerSave]);
 
   // Handle discard - restore to original value
   const handleDiscard = useCallback(() => {
@@ -387,14 +389,16 @@ const ResizablePromptArea = ({
     cancelPendingSave();
     setEditValue(originalValue);
     if (onSave) {
-      onSave(originalValue);
+      // Register the save so it can be awaited before runs
+      const savePromise = Promise.resolve(onSave(originalValue));
+      registerSave(savePromise);
     } else if (onChange) {
       onChange(originalValue);
     }
     setLastSavedValue(originalValue);
     clearUndoStack();
     toast.success('Discarded changes');
-  }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack]);
+  }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack, registerSave]);
 
   // Keyboard shortcuts (field-scoped)
   const handleKeyDown = useCallback((e) => {
