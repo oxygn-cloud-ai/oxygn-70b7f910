@@ -15,6 +15,7 @@ const CascadeRunProgress = () => {
   const {
     isRunning,
     isPaused,
+    isCancelling,
     currentLevel,
     totalLevels,
     currentPromptName,
@@ -64,13 +65,15 @@ const CascadeRunProgress = () => {
       <div className="flex items-center gap-4">
         {/* Status Icon */}
         <div className="flex items-center gap-2">
-          {isPaused ? (
+          {isCancelling ? (
+            <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+          ) : isPaused ? (
             <Pause className="h-4 w-4 text-amber-500" />
           ) : (
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
           )}
           <span className="text-sm font-medium">
-            {isPaused ? 'Paused' : 'Cascade Running'}
+            {isCancelling ? 'Cancelling...' : isPaused ? 'Paused' : 'Cascade Running'}
           </span>
         </div>
 
@@ -158,9 +161,14 @@ const CascadeRunProgress = () => {
             size="icon"
             className="h-7 w-7 text-destructive hover:text-destructive"
             onClick={cancel}
-            title="Cancel"
+            disabled={isCancelling}
+            title={isCancelling ? 'Cancelling...' : 'Cancel'}
           >
-            <X className="h-3.5 w-3.5" />
+            {isCancelling ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <X className="h-3.5 w-3.5" />
+            )}
           </Button>
         </div>
       </div>
