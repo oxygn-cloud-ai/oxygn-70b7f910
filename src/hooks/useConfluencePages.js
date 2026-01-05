@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
@@ -52,19 +52,27 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isCreatingPage, setIsCreatingPage] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
+  
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const fetchAttachedPages = useCallback(async () => {
     if (!conversationRowId && !promptRowId) return;
     
-    setIsLoading(true);
+    if (isMountedRef.current) setIsLoading(true);
     try {
       const data = await invokeFunction('list-attached', { assistantRowId: conversationRowId, promptRowId });
-      setPages(data.pages || []);
+      if (isMountedRef.current) setPages(data.pages || []);
     } catch (error) {
       console.error('Error fetching attached pages:', error);
-      toast.error('Failed to fetch Confluence pages');
+      if (isMountedRef.current) toast.error('Failed to fetch Confluence pages');
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [conversationRowId, promptRowId]);
 
@@ -75,11 +83,11 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
   const testConnection = useCallback(async () => {
     try {
       const data = await invokeFunction('test-connection');
-      setConnectionStatus(data);
+      if (isMountedRef.current) setConnectionStatus(data);
       return data;
     } catch (error) {
       const status = { success: false, message: error.message };
-      setConnectionStatus(status);
+      if (isMountedRef.current) setConnectionStatus(status);
       return status;
     }
   }, []);
@@ -87,54 +95,54 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
   const listSpaces = useCallback(async () => {
     try {
       const data = await invokeFunction('list-spaces');
-      setSpaces(data.spaces || []);
+      if (isMountedRef.current) setSpaces(data.spaces || []);
       return data.spaces;
     } catch (error) {
       console.error('Error listing spaces:', error);
-      toast.error('Failed to list Confluence spaces');
+      if (isMountedRef.current) toast.error('Failed to list Confluence spaces');
       return [];
     }
   }, []);
 
   const listTemplates = useCallback(async (spaceKey) => {
     if (!spaceKey) {
-      setTemplates([]);
+      if (isMountedRef.current) setTemplates([]);
       return [];
     }
     
-    setIsLoadingTemplates(true);
+    if (isMountedRef.current) setIsLoadingTemplates(true);
     try {
       const data = await invokeFunction('list-templates', { spaceKey });
-      setTemplates(data.templates || []);
+      if (isMountedRef.current) setTemplates(data.templates || []);
       return data.templates || [];
     } catch (error) {
       console.error('Error listing templates:', error);
-      toast.error('Failed to load Confluence templates');
+      if (isMountedRef.current) toast.error('Failed to load Confluence templates');
       return [];
     } finally {
-      setIsLoadingTemplates(false);
+      if (isMountedRef.current) setIsLoadingTemplates(false);
     }
   }, []);
 
   const getSpaceTree = useCallback(async (spaceKey, abortSignal) => {
     if (!spaceKey) {
-      setSpaceTree([]);
+      if (isMountedRef.current) setSpaceTree([]);
       return [];
     }
     
-    setIsLoadingTree(true);
+    if (isMountedRef.current) setIsLoadingTree(true);
     try {
       const data = await invokeFunction('get-space-tree', { spaceKey });
-      if (abortSignal?.aborted) return [];
+      if (abortSignal?.aborted || !isMountedRef.current) return [];
       setSpaceTree(data.tree || []);
       return data.tree;
     } catch (error) {
-      if (abortSignal?.aborted) return [];
+      if (abortSignal?.aborted || !isMountedRef.current) return [];
       console.error('Error getting space tree:', error);
       toast.error('Failed to load space pages');
       return [];
     } finally {
-      if (!abortSignal?.aborted) {
+      if (!abortSignal?.aborted && isMountedRef.current) {
         setIsLoadingTree(false);
       }
     }
@@ -156,36 +164,38 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
   }, []);
 
   const cancelTreeLoading = useCallback(() => {
-    setIsLoadingTree(false);
-    setSpaceTree([]);
+    if (isMountedRef.current) {
+      setIsLoadingTree(false);
+      setSpaceTree([]);
+    }
   }, []);
 
   const searchPages = useCallback(async (query, spaceKey = null) => {
     if (!query || query.length < 2) {
-      setSearchResults([]);
+      if (isMountedRef.current) setSearchResults([]);
       return [];
     }
     
-    setIsSearching(true);
+    if (isMountedRef.current) setIsSearching(true);
     try {
       const data = await invokeFunction('search-pages', { query, spaceKey });
-      setSearchResults(data.pages || []);
+      if (isMountedRef.current) setSearchResults(data.pages || []);
       return data.pages;
     } catch (error) {
       console.error('Error searching pages:', error);
-      toast.error('Failed to search Confluence');
+      if (isMountedRef.current) toast.error('Failed to search Confluence');
       return [];
     } finally {
-      setIsSearching(false);
+      if (isMountedRef.current) setIsSearching(false);
     }
   }, []);
 
   const createPage = useCallback(async ({ spaceKey, parentId, title, body }) => {
     console.log('[useConfluencePages] Creating page:', { spaceKey, parentId, title, bodyLength: body?.length });
-    setIsCreatingPage(true);
+    if (isMountedRef.current) setIsCreatingPage(true);
     try {
       const data = await invokeFunction('create-page', { spaceKey, parentId, title, body });
-      if (data.success) {
+      if (data.success && isMountedRef.current) {
         toast.success('Page created successfully');
         trackEvent('confluence_page_created', { space_key: spaceKey, has_parent: !!parentId });
       }
@@ -194,10 +204,10 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       console.error('[useConfluencePages] Error creating page:', error);
       trackException(error, { action: 'confluence_create_page', space_key: spaceKey });
       const errorMessage = error?.message || error?.error || 'Failed to create page';
-      toast.error(errorMessage);
+      if (isMountedRef.current) toast.error(errorMessage);
       throw error;
     } finally {
-      setIsCreatingPage(false);
+      if (isMountedRef.current) setIsCreatingPage(false);
     }
   }, []);
 
@@ -227,7 +237,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
         contentType
       });
       
-      if (data.success) {
+      if (data.success && isMountedRef.current) {
         setPages(prev => [data.page, ...prev]);
         toast.success('Page attached successfully');
         trackEvent('confluence_page_attached', { page_id: pageId, content_type: contentType });
@@ -235,7 +245,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       return data;
     } catch (error) {
       console.error('Error attaching page:', error);
-      toast.error('Failed to attach page');
+      if (isMountedRef.current) toast.error('Failed to attach page');
       throw error;
     }
   };
@@ -243,21 +253,23 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
   const detachPage = async (rowId) => {
     try {
       await invokeFunction('detach-page', { rowId });
-      setPages(prev => prev.filter(p => p.row_id !== rowId));
-      toast.success('Page detached');
+      if (isMountedRef.current) {
+        setPages(prev => prev.filter(p => p.row_id !== rowId));
+        toast.success('Page detached');
+      }
       trackEvent('confluence_page_detached', { row_id: rowId });
     } catch (error) {
       console.error('Error detaching page:', error);
-      toast.error('Failed to detach page');
+      if (isMountedRef.current) toast.error('Failed to detach page');
       throw error;
     }
   };
 
   const syncPage = async (rowId) => {
-    setIsSyncing(true);
+    if (isMountedRef.current) setIsSyncing(true);
     try {
       const data = await invokeFunction('sync-page', { rowId });
-      if (data.success) {
+      if (data.success && isMountedRef.current) {
         setPages(prev => prev.map(p => 
           p.row_id === rowId ? data.page : p
         ));
@@ -266,18 +278,18 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       return data;
     } catch (error) {
       console.error('Error syncing page:', error);
-      toast.error('Failed to sync page');
+      if (isMountedRef.current) toast.error('Failed to sync page');
       throw error;
     } finally {
-      setIsSyncing(false);
+      if (isMountedRef.current) setIsSyncing(false);
     }
   };
 
   const syncToVectorStore = async (rowId, assistantId) => {
-    setIsSyncing(true);
+    if (isMountedRef.current) setIsSyncing(true);
     try {
       const data = await invokeFunction('sync-to-vector-store', { rowId, assistantId });
-      if (data.success) {
+      if (data.success && isMountedRef.current) {
         setPages(prev => prev.map(p => 
           p.row_id === rowId ? { ...p, openai_file_id: data.openaiFileId } : p
         ));
@@ -286,10 +298,10 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       return data;
     } catch (error) {
       console.error('Error syncing to vector store:', error);
-      toast.error('Failed to index page');
+      if (isMountedRef.current) toast.error('Failed to index page');
       throw error;
     } finally {
-      setIsSyncing(false);
+      if (isMountedRef.current) setIsSyncing(false);
     }
   };
 

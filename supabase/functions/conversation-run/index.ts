@@ -525,6 +525,7 @@ async function runResponsesAPI(
             error: data.error?.message || 'Response failed',
             error_code: 'API_CALL_FAILED',
             response_id: responseId,
+            requestParams,
           };
         }
         
@@ -534,6 +535,7 @@ async function runResponsesAPI(
             error: 'Request was cancelled',
             error_code: 'CANCELLED',
             response_id: responseId,
+            requestParams,
           };
         }
         
@@ -552,6 +554,7 @@ async function runResponsesAPI(
       error: 'Polling timed out after 10 minutes',
       error_code: 'POLL_TIMEOUT',
       response_id: responseId,
+      requestParams,
     };
   };
 
@@ -593,6 +596,7 @@ async function runResponsesAPI(
         error: 'Response streaming timed out',
         error_code: 'STREAM_TIMEOUT',
         response_id: responseId,
+        requestParams,
       };
     }
     throw streamError;

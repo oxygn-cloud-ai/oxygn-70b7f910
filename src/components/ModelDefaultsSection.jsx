@@ -23,6 +23,9 @@ const ModelDefaultsSection = ({
   const [isOpen, setIsOpen] = useState(false);
   const modelDefaults = defaults || {};
   const { isSettingSupported } = useModels();
+  
+  // Local state for input values to enable blur-based saving
+  const [localValues, setLocalValues] = useState({});
 
   const handleCheckChange = useCallback(async (field, checked) => {
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
@@ -45,9 +48,16 @@ const ModelDefaultsSection = ({
     }
   }, [model.model_id, modelDefaults, onUpdateDefault]);
 
-  const handleValueChange = useCallback(async (field, value) => {
-    await onUpdateDefault(model.model_id, field, value);
-  }, [model.model_id, onUpdateDefault]);
+  const handleValueChange = useCallback((field, value) => {
+    setLocalValues(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  const handleValueBlur = useCallback(async (field) => {
+    const value = localValues[field];
+    if (value !== undefined && value !== modelDefaults[field]) {
+      await onUpdateDefault(model.model_id, field, value);
+    }
+  }, [model.model_id, localValues, modelDefaults, onUpdateDefault]);
 
   const settingKeys = Object.keys(ALL_SETTINGS);
   const enabledCount = settingKeys.filter(key => modelDefaults[`${key}_on`]).length;
@@ -81,7 +91,9 @@ const ModelDefaultsSection = ({
                 const settingInfo = ALL_SETTINGS[field];
                 const supported = isSettingSupported(field, model.model_id);
                 const isEnabled = modelDefaults[`${field}_on`] || false;
-                const value = modelDefaults[field] || '';
+                const dbValue = modelDefaults[field] || '';
+                // Use local value if exists, otherwise use database value
+                const value = localValues[field] !== undefined ? localValues[field] : dbValue;
 
                 return (
                   <div 
@@ -141,6 +153,7 @@ const ModelDefaultsSection = ({
                       id={`${model.model_id}-${field}`}
                       value={value}
                       onChange={(e) => handleValueChange(field, e.target.value)}
+                      onBlur={() => handleValueBlur(field)}
                       disabled={!isEnabled || !supported}
                       className="w-full text-sm"
                       placeholder={!supported ? "Not supported" : settingInfo.description}
