@@ -57,23 +57,34 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         
         setUser(currentUser);
         // Defer admin check and profile fetch to avoid Supabase client deadlock
         if (currentUser) {
-          setTimeout(() => {
-            checkAdminStatus(currentUser.id);
-            fetchUserProfile(currentUser.id).then((profile) => {
-              // Identify user in PostHog after profile is fetched
-              identifyUser(currentUser, profile, isAdmin);
-              // Track successful login
-              trackEvent('user_login_success', {
-                email: currentUser.email,
-                provider: session?.user?.app_metadata?.provider || 'unknown',
-              });
+          setTimeout(async () => {
+            // Check admin status and get result for PostHog identification
+            let adminStatus = false;
+            try {
+              const { data, error } = await supabase.rpc('is_admin', { _user_id: currentUser.id });
+              if (!error) {
+                adminStatus = !!data;
+                setIsAdmin(adminStatus);
+              }
+            } catch (err) {
+              console.error('Error checking admin status:', err);
+              setIsAdmin(false);
+            }
+            
+            const profile = await fetchUserProfile(currentUser.id);
+            // Identify user in PostHog with fresh admin status
+            identifyUser(currentUser, profile, adminStatus);
+            // Track successful login
+            trackEvent('user_login_success', {
+              email: currentUser.email,
+              provider: session?.user?.app_metadata?.provider || 'unknown',
             });
           }, 0);
         } else {
@@ -86,17 +97,28 @@ export const AuthProvider = ({ children }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       const currentUser = session?.user ?? null;
       
       setUser(currentUser);
       if (currentUser) {
-        checkAdminStatus(currentUser.id);
-        fetchUserProfile(currentUser.id).then((profile) => {
-          // Identify user in PostHog
-          identifyUser(currentUser, profile, isAdmin);
-        });
+        // Check admin status and get result for PostHog identification
+        let adminStatus = false;
+        try {
+          const { data, error } = await supabase.rpc('is_admin', { _user_id: currentUser.id });
+          if (!error) {
+            adminStatus = !!data;
+            setIsAdmin(adminStatus);
+          }
+        } catch (err) {
+          console.error('Error checking admin status:', err);
+          setIsAdmin(false);
+        }
+        
+        const profile = await fetchUserProfile(currentUser.id);
+        // Identify user in PostHog with fresh admin status
+        identifyUser(currentUser, profile, adminStatus);
       }
       setLoading(false);
     });
