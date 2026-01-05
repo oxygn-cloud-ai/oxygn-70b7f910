@@ -185,7 +185,7 @@ export const useJsonSchemaTemplates = () => {
         .from('q_json_schema_templates')
         .select('*')
         .eq('row_id', rowId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;

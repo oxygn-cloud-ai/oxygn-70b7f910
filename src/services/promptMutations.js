@@ -310,7 +310,7 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .select('*')
     .eq('row_id', sourcePromptId)
-    .single();
+    .maybeSingle();
 
   if (fetchError) throw fetchError;
   if (!sourcePrompt) throw new Error('Source prompt not found');
@@ -397,9 +397,10 @@ const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userI
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .select('*')
     .eq('row_id', sourcePromptId)
-    .single();
+    .maybeSingle();
 
   if (fetchError) throw fetchError;
+  if (!sourcePrompt) throw new Error('Source prompt not found');
 
   const { row_id, created_at, updated_at, parent_row_id, ...promptFields } = sourcePrompt;
   

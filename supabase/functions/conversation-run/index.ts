@@ -908,11 +908,6 @@ serve(async (req) => {
   const startTime = Date.now();
   let heartbeatInterval: number | null = null;
 
-  // Start heartbeat immediately
-  heartbeatInterval = setInterval(() => {
-    emitter.emit({ type: 'heartbeat', elapsed_ms: Date.now() - startTime });
-  }, 10000);
-
   // Process request in background while streaming progress
   (async () => {
     try {
@@ -923,6 +918,11 @@ serve(async (req) => {
         emitter.emit({ type: 'error', error: validation.error, error_code: 'AUTH_FAILED' });
         return;
       }
+
+      // Start heartbeat AFTER validation succeeds (prevents resource leak on early failures)
+      heartbeatInterval = setInterval(() => {
+        emitter.emit({ type: 'heartbeat', elapsed_ms: Date.now() - startTime });
+      }, 10000);
 
       console.log('User validated:', validation.user?.email);
 
@@ -1013,7 +1013,7 @@ serve(async (req) => {
         .from(TABLES.PROMPTS)
         .select('*, parent:parent_row_id(row_id, is_assistant)')
         .eq('row_id', child_prompt_row_id)
-        .single();
+        .maybeSingle();
 
       if (promptError || !childPrompt) {
         emitter.emit({ type: 'error', error: 'Prompt not found', error_code: 'NOT_FOUND' });
@@ -1047,7 +1047,7 @@ serve(async (req) => {
         .from(TABLES.ASSISTANTS)
         .select('*')
         .eq('prompt_row_id', child_prompt_row_id)
-        .single();
+        .maybeSingle();
       
       if (selfAssistant) {
         assistantData = selfAssistant;
@@ -1068,7 +1068,7 @@ serve(async (req) => {
           .from(TABLES.ASSISTANTS)
           .select('*')
           .eq('prompt_row_id', currentPromptId)
-          .single();
+          .maybeSingle();
         
         if (parentAssistant) {
           allAssistantRowIds.push(parentAssistant.row_id);
@@ -1085,7 +1085,7 @@ serve(async (req) => {
           .from(TABLES.PROMPTS)
           .select('parent_row_id')
           .eq('row_id', currentPromptId)
-          .single();
+          .maybeSingle();
         
         currentPromptId = parentPrompt?.parent_row_id || null;
       }
@@ -1187,7 +1187,7 @@ serve(async (req) => {
             .from(TABLES.PROMPTS)
             .select('parent_row_id')
             .eq('row_id', walkPromptId)
-            .single();
+            .maybeSingle();
           walkPromptId = walkPrompt?.parent_row_id || null;
           walkDepth++;
         }
@@ -1333,7 +1333,7 @@ serve(async (req) => {
           .from(TABLES.PROMPTS)
           .select('prompt_name, parent_row_id')
           .eq('row_id', childPrompt.parent_row_id)
-          .single();
+          .maybeSingle();
         
         if (parentPrompt) {
           parentPromptName = parentPrompt.prompt_name || '';
@@ -1347,7 +1347,7 @@ serve(async (req) => {
               .from(TABLES.PROMPTS)
               .select('prompt_name, parent_row_id')
               .eq('row_id', currentParentId)
-              .single();
+              .maybeSingle();
             
             if (ancestorPrompt) {
               topLevelPromptName = ancestorPrompt.prompt_name || topLevelPromptName;
@@ -1592,13 +1592,77 @@ serve(async (req) => {
         console.log('Using prompt-level reasoning_effort:', childPrompt.reasoning_effort);
       }
       
+      // ============================================================================
+      // MODEL DEFAULTS FALLBACK CHAIN
+      // Priority: 1) Prompt-level, 2) Assistant override, 3) Model defaults, 4) Model config
+      // ============================================================================
+      const resolvedModelId = apiOptions.model || assistantData.model_override || await getDefaultModelFromSettings(supabase);
+      
+      // Fetch model defaults from q_model_defaults table
+      const { data: modelDefaults } = await supabase
+        .from(TABLES.MODEL_DEFAULTS)
+        .select('*')
+        .eq('model_id', resolvedModelId)
+        .maybeSingle();
+      
+      // Apply model defaults as fallback for settings not set at prompt level
+      if (apiOptions.maxTokens === undefined) {
+        // Try model defaults table first
+        if (modelDefaults?.max_tokens_on && modelDefaults?.max_tokens) {
+          const defaultMaxT = parseInt(modelDefaults.max_tokens, 10);
+          if (!isNaN(defaultMaxT) && defaultMaxT > 0) {
+            apiOptions.maxTokens = defaultMaxT;
+            console.log('Using model default max_tokens:', defaultMaxT);
+          }
+        }
+        // Final fallback: use model's max_output_tokens from q_models
+        if (apiOptions.maxTokens === undefined) {
+          const modelConfig = await fetchModelConfig(supabase, resolvedModelId);
+          if (modelConfig?.maxOutputTokens) {
+            apiOptions.maxTokens = modelConfig.maxOutputTokens;
+            console.log('Using model config max_output_tokens:', modelConfig.maxOutputTokens);
+          }
+        }
+      }
+      
+      // Temperature fallback chain
+      if (apiOptions.temperature === undefined) {
+        if (modelDefaults?.temperature_on && modelDefaults?.temperature) {
+          const defaultTemp = parseFloat(modelDefaults.temperature);
+          if (!isNaN(defaultTemp)) {
+            apiOptions.temperature = defaultTemp;
+            console.log('Using model default temperature:', defaultTemp);
+          }
+        }
+      }
+      
+      // Top P fallback chain
+      if (apiOptions.topP === undefined) {
+        if (modelDefaults?.top_p_on && modelDefaults?.top_p) {
+          const defaultTopP = parseFloat(modelDefaults.top_p);
+          if (!isNaN(defaultTopP)) {
+            apiOptions.topP = defaultTopP;
+            console.log('Using model default top_p:', defaultTopP);
+          }
+        }
+      }
+      
+      // Reasoning effort fallback chain
+      if (apiOptions.reasoningEffort === undefined) {
+        if (modelDefaults?.reasoning_effort_on && modelDefaults?.reasoning_effort) {
+          apiOptions.reasoningEffort = modelDefaults.reasoning_effort;
+          console.log('Using model default reasoning_effort:', modelDefaults.reasoning_effort);
+        }
+      }
+      
       // Log all extracted apiOptions for debugging
-      console.log('Extracted apiOptions from prompt:', {
+      console.log('Extracted apiOptions from prompt (after model defaults fallback):', {
         model: apiOptions.model,
         temperature: apiOptions.temperature,
         maxTokens: apiOptions.maxTokens,
         reasoningEffort: apiOptions.reasoningEffort,
         toolChoice: apiOptions.toolChoice,
+        resolvedModelId,
       });
 
       // Handle action nodes - prepend action system prompt and set structured output
@@ -1623,7 +1687,7 @@ serve(async (req) => {
               .from(TABLES.JSON_SCHEMA_TEMPLATES)
               .select('json_schema, schema_name')
               .eq('row_id', childPrompt.json_schema_template_id)
-              .single();
+              .maybeSingle();
             
             if (schemaTemplate?.json_schema) {
               schemaToUse = typeof schemaTemplate.json_schema === 'string'
@@ -1680,18 +1744,14 @@ serve(async (req) => {
           const schemaDesc = formatSchemaForPrompt(schemaToUse);
           
           let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
-          try {
-            const { data: customPrompt } = await supabase
-              .from(TABLES.SETTINGS)
-              .select('setting_value')
-              .eq('setting_key', 'default_action_system_prompt')
-              .single();
-            
-            if (customPrompt?.setting_value) {
-              actionSystemPrompt = customPrompt.setting_value;
-            }
-          } catch {
-            console.log('Using default action system prompt');
+          const { data: customPrompt } = await supabase
+            .from(TABLES.SETTINGS)
+            .select('setting_value')
+            .eq('setting_key', 'default_action_system_prompt')
+            .maybeSingle();
+          
+          if (customPrompt?.setting_value) {
+            actionSystemPrompt = customPrompt.setting_value;
           }
           
           actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
@@ -1741,18 +1801,14 @@ serve(async (req) => {
           
           // Still apply the action system prompt
           let actionSystemPrompt = DEFAULT_ACTION_SYSTEM_PROMPT;
-          try {
-            const { data: customPrompt } = await supabase
-              .from(TABLES.SETTINGS)
-              .select('setting_value')
-              .eq('setting_key', 'default_action_system_prompt')
-              .single();
-            
-            if (customPrompt?.setting_value) {
-              actionSystemPrompt = customPrompt.setting_value;
-            }
-          } catch {
-            console.log('Using default action system prompt');
+          const { data: customPrompt } = await supabase
+            .from(TABLES.SETTINGS)
+            .select('setting_value')
+            .eq('setting_key', 'default_action_system_prompt')
+            .maybeSingle();
+          
+          if (customPrompt?.setting_value) {
+            actionSystemPrompt = customPrompt.setting_value;
           }
           
           actionSystemPrompt = actionSystemPrompt.replace('{{schema_description}}', schemaDesc);
