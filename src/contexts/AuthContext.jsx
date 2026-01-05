@@ -127,8 +127,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Whitelisted emails for password login (preview testing)
-  // Read from env variable, fallback to default for backwards compatibility
-  const WHITELISTED_EMAILS = (import.meta.env.VITE_WHITELISTED_EMAILS || 'james@oxygn.cloud')
+  // Read from env variable - no hardcoded fallback for security
+  const WHITELISTED_EMAILS = (import.meta.env.VITE_WHITELISTED_EMAILS || '')
     .split(',')
     .map(e => e.trim().toLowerCase())
     .filter(Boolean);
