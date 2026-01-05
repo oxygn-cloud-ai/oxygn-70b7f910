@@ -4,6 +4,7 @@ import { toast } from '@/components/ui/sonner';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
 import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
+import logger from '@/utils/logger';
 
 export const useConversationRun = () => {
   const supabase = useSupabase();
@@ -49,7 +50,7 @@ export const useConversationRun = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.access_token) {
-          console.log('Cancelling OpenAI response:', responseId);
+          logger.debug('Cancelling OpenAI response:', responseId);
           const { data, error } = await supabase.functions.invoke('conversation-cancel', {
             body: { response_id: responseId }
           });
@@ -63,7 +64,7 @@ export const useConversationRun = () => {
             // Response finished before cancel took effect
             toast.info('Request already completed');
           } else if (data?.success) {
-            console.log('OpenAI response cancelled:', responseId);
+            logger.debug('OpenAI response cancelled:', responseId);
           }
         }
       } catch (e) {
@@ -121,7 +122,7 @@ export const useConversationRun = () => {
           // NEW: Store response_id for cancellation support
           if (event.response_id) {
             currentResponseIdRef.current = event.response_id;
-            console.log('Stored response_id for cancellation:', event.response_id);
+            logger.debug('Stored response_id for cancellation:', event.response_id);
           }
           onProgress?.({ type: 'api_started', response_id: event.response_id, status: event.status });
         } else if (event.type === 'complete') {
@@ -137,7 +138,7 @@ export const useConversationRun = () => {
         }
       } catch (parseErr) {
         // If parsing fails, keep going; stream may contain non-JSON data lines.
-        console.warn('Failed to parse SSE event:', data, parseErr);
+        logger.warn('Failed to parse SSE event:', data, parseErr);
       }
     };
 

@@ -11,12 +11,15 @@ const MAX_UNDO_STACK = 10;
 export const useFieldUndo = (initialValue) => {
   const [undoStack, setUndoStack] = useState([]);
   const originalValueRef = useRef(initialValue);
+  const prevInitialValueRef = useRef(initialValue);
   
-  // Update original value when prop changes externally
+  // Update original value only when prop ACTUALLY changes (not just re-renders)
   useEffect(() => {
-    originalValueRef.current = initialValue;
-    // Clear undo stack when external value changes
-    setUndoStack([]);
+    if (prevInitialValueRef.current !== initialValue) {
+      originalValueRef.current = initialValue;
+      setUndoStack([]);
+      prevInitialValueRef.current = initialValue;
+    }
   }, [initialValue]);
   
   // Push a value onto the undo stack (call before saving new value)
