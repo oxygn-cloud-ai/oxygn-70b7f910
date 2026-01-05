@@ -1526,14 +1526,13 @@ serve(async (req) => {
         const topP = parseFloat(childPrompt.top_p);
         if (!isNaN(topP)) apiOptions.topP = topP;
       }
-      // Handle max tokens - check both max_tokens and max_completion_tokens based on what's enabled
+      // Handle max tokens - database only has max_tokens column
       if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
         const maxT = parseInt(childPrompt.max_tokens, 10);
-        if (!isNaN(maxT)) apiOptions.maxTokens = maxT;
-      } else if (childPrompt.max_completion_tokens) {
-        // max_completion_tokens doesn't have a separate _on toggle - if it's set, use it
-        const maxT = parseInt(childPrompt.max_completion_tokens, 10);
-        if (!isNaN(maxT)) apiOptions.maxTokens = maxT;
+        if (!isNaN(maxT)) {
+          apiOptions.maxTokens = maxT;
+          console.log('Using prompt-level max_tokens:', maxT);
+        }
       }
       if (childPrompt.frequency_penalty_on && childPrompt.frequency_penalty) {
         const fp = parseFloat(childPrompt.frequency_penalty);
@@ -1546,6 +1545,20 @@ serve(async (req) => {
       if (childPrompt.tool_choice_on && childPrompt.tool_choice) {
         apiOptions.toolChoice = childPrompt.tool_choice;
       }
+      // Handle reasoning effort - check if enabled and model supports it
+      if (childPrompt.reasoning_effort_on && childPrompt.reasoning_effort) {
+        apiOptions.reasoningEffort = childPrompt.reasoning_effort;
+        console.log('Using prompt-level reasoning_effort:', childPrompt.reasoning_effort);
+      }
+      
+      // Log all extracted apiOptions for debugging
+      console.log('Extracted apiOptions from prompt:', {
+        model: apiOptions.model,
+        temperature: apiOptions.temperature,
+        maxTokens: apiOptions.maxTokens,
+        reasoningEffort: apiOptions.reasoningEffort,
+        toolChoice: apiOptions.toolChoice,
+      });
 
       // Handle action nodes - prepend action system prompt and set structured output
       if (childPrompt.node_type === 'action') {
