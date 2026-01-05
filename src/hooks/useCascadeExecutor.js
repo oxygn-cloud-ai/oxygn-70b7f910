@@ -48,7 +48,7 @@ const validatePromptContent = (prompts) => {
 
 export const useCascadeExecutor = () => {
   const supabase = useSupabase();
-  const { runConversation } = useConversationRun();
+  const { runConversation, cancelRun } = useConversationRun();
   const { registerCall } = useApiCallContext();
   const { startTrace, createSpan, completeSpan, failSpan, completeTrace } = useExecutionTracing();
   const {
@@ -62,6 +62,7 @@ export const useCascadeExecutor = () => {
     showError,
     showActionPreview,
     skipAllPreviews,
+    registerCancelHandler, // For true OpenAI cancellation
   } = useCascadeRun();
 
   // Fetch hierarchy of prompts starting from a top-level prompt
@@ -209,6 +210,9 @@ export const useCascadeExecutor = () => {
   const executeCascade = useCallback(async (topLevelRowId, parentAssistantRowId) => {
     // Register with ApiCallContext for NavigationGuard protection
     const cleanupCall = registerCall();
+    
+    // Register cancel handler for true OpenAI cancellation
+    const unregisterCancel = registerCancelHandler(cancelRun);
     
     if (!supabase) {
       cleanupCall();
@@ -559,6 +563,27 @@ export const useCascadeExecutor = () => {
                 template_variables: extendedTemplateVars,
                 store_in_history: false,
               });
+
+              // Check if cancelled during the call
+              if (result?.cancelled) {
+                console.log('Prompt was cancelled by user');
+                if (traceId) {
+                  try {
+                    await completeTrace({ trace_id: traceId, status: 'cancelled' });
+                  } catch (traceErr) {
+                    console.warn('Failed to complete trace as cancelled:', traceErr);
+                  }
+                }
+                completeCascade();
+                return;
+              }
+
+              // Also check the cancel flag (user might have clicked stop)
+              if (isCancelled()) {
+                console.log('Cascade cancelled by user');
+                completeCascade();
+                return;
+              }
 
               if (result?.response) {
                 const promptElapsedMs = Date.now() - promptStartTime;
@@ -1124,7 +1149,8 @@ export const useCascadeExecutor = () => {
         top_level_prompt_id: topLevelRowId,
       });
     } finally {
-      // Unregister from ApiCallContext
+      // Unregister cancel handler and ApiCallContext
+      unregisterCancel();
       cleanupCall();
     }
   }, [
@@ -1139,9 +1165,11 @@ export const useCascadeExecutor = () => {
     waitWhilePaused,
     buildCascadeVariables,
     runConversation,
+    cancelRun,
     showError,
     getRetryDelayMs,
     registerCall,
+    registerCancelHandler,
     startTrace,
     createSpan,
     completeSpan,

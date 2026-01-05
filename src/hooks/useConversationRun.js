@@ -13,6 +13,9 @@ export const useConversationRun = () => {
   const [progress, setProgress] = useState(null);
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef(null);
+  
+  // Store the current response_id for true OpenAI cancellation
+  const currentResponseIdRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -29,15 +32,41 @@ export const useConversationRun = () => {
     if (isMountedRef.current) setter(value);
   }, []);
 
-  // Cancel any in-flight request
-  const cancelRun = useCallback(() => {
+  // Cancel any in-flight request - now calls OpenAI cancel endpoint
+  const cancelRun = useCallback(async () => {
+    // Step 1: Abort client stream immediately (instant UX feedback)
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    
+    // Step 2: Call OpenAI cancel endpoint if we have a response_id
+    const responseId = currentResponseIdRef.current;
+    if (responseId && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          console.log('Cancelling OpenAI response:', responseId);
+          const { data, error } = await supabase.functions.invoke('conversation-cancel', {
+            body: { response_id: responseId }
+          });
+          
+          if (error) {
+            console.warn('Cancel request failed:', error);
+          } else {
+            console.log('Cancel response:', data);
+          }
+        }
+      } catch (e) {
+        console.warn('Cancel request failed (may already be completed):', e);
+      }
+      currentResponseIdRef.current = null;
+    }
+    
+    // Step 3: Reset state
     safeSetState(setIsRunning, false);
     safeSetState(setProgress, null);
-  }, [safeSetState]);
+  }, [safeSetState, supabase]);
 
   // Parse SSE stream and return final result
   const parseSSEStream = useCallback(async (response, onProgress) => {
@@ -77,12 +106,23 @@ export const useConversationRun = () => {
           onProgress?.(event);
         } else if (event.type === 'started') {
           onProgress?.({ type: 'started', prompt_row_id: event.prompt_row_id });
+        } else if (event.type === 'api_started') {
+          // NEW: Store response_id for cancellation support
+          if (event.response_id) {
+            currentResponseIdRef.current = event.response_id;
+            console.log('Stored response_id for cancellation:', event.response_id);
+          }
+          onProgress?.({ type: 'api_started', response_id: event.response_id, status: event.status });
         } else if (event.type === 'complete') {
           result = event;
           onProgress?.(event);
+          // Clear response_id on completion
+          currentResponseIdRef.current = null;
         } else if (event.type === 'error') {
           error = event;
           onProgress?.({ type: 'error', error: event.error });
+          // Clear response_id on error
+          currentResponseIdRef.current = null;
         }
       } catch (parseErr) {
         // If parsing fails, keep going; stream may contain non-JSON data lines.
@@ -123,6 +163,10 @@ export const useConversationRun = () => {
     }
 
     if (error) {
+      // Check if this was a cancellation
+      if (error.error_code === 'CANCELLED') {
+        return { response: null, cancelled: true };
+      }
       const err = new Error(error.error || 'Edge Function call failed');
       err.error_code = error.error_code;
       err.prompt_name = error.prompt_name;
@@ -142,6 +186,8 @@ export const useConversationRun = () => {
 
       // Create abort controller for this request
       abortControllerRef.current = new AbortController();
+      // Reset response_id
+      currentResponseIdRef.current = null;
 
       safeSetState(setIsRunning, true);
       safeSetState(setProgress, { type: 'started' });
@@ -193,6 +239,14 @@ export const useConversationRun = () => {
 
         if (!data) {
           throw new Error('No response received from edge function');
+        }
+        
+        // Handle cancellation response
+        if (data.cancelled) {
+          toast.info('Request cancelled', {
+            source: 'useConversationRun.runPrompt',
+          });
+          return null;
         }
 
         safeSetState(setLastResponse, data);
@@ -281,6 +335,7 @@ export const useConversationRun = () => {
         return null;
       } finally {
         abortControllerRef.current = null;
+        currentResponseIdRef.current = null;
         unregisterCall();
         safeSetState(setIsRunning, false);
         safeSetState(setProgress, null);
@@ -308,6 +363,8 @@ export const useConversationRun = () => {
 
       // Create abort controller for this request
       abortControllerRef.current = new AbortController();
+      // Reset response_id
+      currentResponseIdRef.current = null;
 
       safeSetState(setIsRunning, true);
       safeSetState(setProgress, { type: 'started' });
@@ -363,6 +420,11 @@ export const useConversationRun = () => {
         if (!data) {
           throw new Error('No response received from edge function');
         }
+        
+        // Handle cancellation response
+        if (data.cancelled) {
+          return { response: null, cancelled: true };
+        }
 
         safeSetState(setLastResponse, data);
 
@@ -390,6 +452,7 @@ export const useConversationRun = () => {
         throw error;
       } finally {
         abortControllerRef.current = null;
+        currentResponseIdRef.current = null;
         unregisterCall();
         safeSetState(setIsRunning, false);
         safeSetState(setProgress, null);

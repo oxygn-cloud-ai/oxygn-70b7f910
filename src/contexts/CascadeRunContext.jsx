@@ -40,6 +40,9 @@ export const CascadeRunProvider = ({ children }) => {
   const pauseRef = useRef(false);
   const errorResolverRef = useRef(null);
   const actionPreviewResolverRef = useRef(null);
+  
+  // Cancel handler ref for true OpenAI cancellation
+  const cancelHandlerRef = useRef(null);
 
   const startCascade = useCallback((levels, promptCount, skippedCount = 0) => {
     setIsRunning(true);
@@ -83,12 +86,29 @@ export const CascadeRunProvider = ({ children }) => {
     setSkipAllPreviews(false); // Reset on completion
     cancelRef.current = false;
     pauseRef.current = false;
+    cancelHandlerRef.current = null; // Clear cancel handler
   }, []);
 
-  const cancel = useCallback(() => {
+  // Register a cancel handler for true OpenAI cancellation
+  const registerCancelHandler = useCallback((handler) => {
+    cancelHandlerRef.current = handler;
+    return () => { cancelHandlerRef.current = null; };
+  }, []);
+
+  const cancel = useCallback(async () => {
     cancelRef.current = true;
     setIsRunning(false);
     setIsPaused(false);
+    
+    // Call the actual cancel handler (OpenAI cancel endpoint)
+    if (cancelHandlerRef.current) {
+      try {
+        await cancelHandlerRef.current();
+      } catch (e) {
+        console.warn('Cancel handler error:', e);
+      }
+      cancelHandlerRef.current = null;
+    }
     
     // Show cancellation toast
     toast.info('Cascade run cancelled', {
@@ -210,6 +230,7 @@ export const CascadeRunProvider = ({ children }) => {
     setSkipAllPreviews,
     startSingleRun,
     endSingleRun,
+    registerCancelHandler, // For true OpenAI cancellation
   };
 
   return (
