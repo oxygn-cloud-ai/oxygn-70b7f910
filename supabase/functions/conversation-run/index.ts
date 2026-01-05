@@ -762,7 +762,7 @@ async function runResponsesAPI(
             finalUsage = event.usage;
           }
           
-          // Capture output content
+          // Capture output content and emit reasoning/thinking events
           if (event.output && Array.isArray(event.output)) {
             for (const item of event.output) {
               if (item.type === 'message' && item.content) {
@@ -772,7 +772,40 @@ async function runResponsesAPI(
                   }
                 }
               }
+              // Handle reasoning/thinking content for dashboard display
+              if (item.type === 'reasoning' && emitter) {
+                // Emit when a new reasoning item is added
+                emitter.emit({
+                  type: 'thinking_started',
+                  item_id: item.id,
+                });
+              }
             }
+          }
+          
+          // Handle reasoning summary text (for models that provide it)
+          if (event.type === 'response.reasoning_summary_text.delta' && emitter) {
+            emitter.emit({
+              type: 'thinking_delta',
+              delta: event.delta || '',
+              item_id: event.item_id,
+            });
+          }
+          
+          if (event.type === 'response.reasoning_summary_text.done' && emitter) {
+            emitter.emit({
+              type: 'thinking_done',
+              text: event.text || '',
+              item_id: event.item_id,
+            });
+          }
+          
+          // Emit status updates for dashboard
+          if (event.status && emitter && ['queued', 'in_progress', 'completed', 'failed', 'cancelled'].includes(event.status)) {
+            emitter.emit({
+              type: 'status_update',
+              status: event.status,
+            });
           }
           
           // Track final completed state

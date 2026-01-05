@@ -8,7 +8,7 @@ import Auth from "./pages/Auth";
 import MainLayout from "./pages/MainLayout";
 import { ApiCallProvider } from "@/contexts/ApiCallContext";
 import NavigationGuard from "@/components/NavigationGuard";
-import BackgroundCallsIndicator from "@/components/BackgroundCallsIndicator";
+import { LiveApiDashboardProvider } from "@/contexts/LiveApiDashboardContext";
 import { CreatePromptProvider } from "@/contexts/CreatePromptContext";
 import { TooltipSettingsProvider } from "@/contexts/TooltipContext";
 import { ToastHistoryProvider } from "@/contexts/ToastHistoryContext";
@@ -33,23 +33,24 @@ const App = () => (
                     <BrowserRouter>
                     <PostHogPageView />
                     <ApiCallProvider>
-                      <AuthProvider>
-                        <NavigationGuard />
-                        <BackgroundCallsIndicator />
-                        <ErrorBoundary message="This page encountered an error.">
-                          <Routes>
-                            <Route path="/auth" element={<Auth />} />
-                            <Route
-                              path="/*"
-                              element={
-                                <ProtectedRoute>
-                                  <MainLayout />
-                                </ProtectedRoute>
-                              }
-                            />
-                          </Routes>
-                        </ErrorBoundary>
-                      </AuthProvider>
+                      <LiveApiDashboardProvider>
+                        <AuthProvider>
+                          <NavigationGuard />
+                          <ErrorBoundary message="This page encountered an error.">
+                            <Routes>
+                              <Route path="/auth" element={<Auth />} />
+                              <Route
+                                path="/*"
+                                element={
+                                  <ProtectedRoute>
+                                    <MainLayout />
+                                  </ProtectedRoute>
+                                }
+                              />
+                            </Routes>
+                          </ErrorBoundary>
+                        </AuthProvider>
+                      </LiveApiDashboardProvider>
                     </ApiCallProvider>
                     </BrowserRouter>
                   </CascadeRunProvider>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
 import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 import logger from '@/utils/logger';
@@ -9,6 +10,7 @@ import logger from '@/utils/logger';
 export const useConversationRun = () => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
+  const { addCall, updateCall, appendThinking, removeCall } = useLiveApiDashboard();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -119,12 +121,24 @@ export const useConversationRun = () => {
         } else if (event.type === 'started') {
           onProgress?.({ type: 'started', prompt_row_id: event.prompt_row_id });
         } else if (event.type === 'api_started') {
-          // NEW: Store response_id for cancellation support
+          // Store response_id for cancellation support
           if (event.response_id) {
             currentResponseIdRef.current = event.response_id;
             logger.debug('Stored response_id for cancellation:', event.response_id);
           }
           onProgress?.({ type: 'api_started', response_id: event.response_id, status: event.status });
+        } else if (event.type === 'status_update') {
+          // NEW: Handle status updates for dashboard
+          onProgress?.({ type: 'status_update', status: event.status });
+        } else if (event.type === 'thinking_started') {
+          // NEW: Handle reasoning/thinking started
+          onProgress?.({ type: 'thinking_started', item_id: event.item_id });
+        } else if (event.type === 'thinking_delta') {
+          // NEW: Handle streaming reasoning text
+          onProgress?.({ type: 'thinking_delta', delta: event.delta, item_id: event.item_id });
+        } else if (event.type === 'thinking_done') {
+          // NEW: Handle reasoning complete
+          onProgress?.({ type: 'thinking_done', text: event.text, item_id: event.item_id });
         } else if (event.type === 'complete') {
           result = event;
           onProgress?.(event);
@@ -200,6 +214,34 @@ export const useConversationRun = () => {
       abortControllerRef.current = new AbortController();
       // Reset response_id
       currentResponseIdRef.current = null;
+      
+      // Create per-call cancel function with captured refs
+      const callResponseIdRef = { current: null };
+      const cancelThisCall = async () => {
+        const responseId = callResponseIdRef.current;
+        abortControllerRef.current?.abort();
+        if (responseId && supabase) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              await supabase.functions.invoke('conversation-cancel', {
+                body: { response_id: responseId }
+              });
+            }
+          } catch (e) {
+            console.warn('Cancel call failed:', e);
+          }
+        }
+      };
+      
+      // Register with LiveApiDashboard
+      const dashboardCallId = addCall({
+        promptName: options.promptName || 'Running...',
+        promptRowId: childPromptRowId,
+        model: options.model || 'loading...',
+        cancelFn: cancelThisCall,
+        isCascadeCall: options.isCascadeCall || false,
+      });
 
       safeSetState(setIsRunning, true);
       safeSetState(setProgress, { type: 'started' });
@@ -243,10 +285,23 @@ export const useConversationRun = () => {
           throw new Error(errorMessage);
         }
 
-        // Parse SSE stream with progress callbacks
+        // Parse SSE stream with progress callbacks - integrate with dashboard
         const data = await parseSSEStream(response, (progressEvent) => {
           safeSetState(setProgress, progressEvent);
           onProgress?.(progressEvent);
+          
+          // Update dashboard based on event type
+          if (progressEvent.type === 'api_started') {
+            callResponseIdRef.current = progressEvent.response_id;
+            updateCall(dashboardCallId, { 
+              status: 'in_progress',
+              responseId: progressEvent.response_id,
+            });
+          } else if (progressEvent.type === 'status_update') {
+            updateCall(dashboardCallId, { status: progressEvent.status });
+          } else if (progressEvent.type === 'thinking_delta') {
+            appendThinking(dashboardCallId, progressEvent.delta);
+          }
         });
 
         if (!data) {
@@ -361,6 +416,8 @@ export const useConversationRun = () => {
         
         return null;
       } finally {
+        // Remove from dashboard
+        removeCall(dashboardCallId);
         abortControllerRef.current = null;
         currentResponseIdRef.current = null;
         unregisterCall();
@@ -368,7 +425,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, removeCall]
   );
 
   const runConversation = useCallback(
@@ -383,6 +440,10 @@ export const useConversationRun = () => {
       store_in_history = true,
       onSuccess,
       onProgress,
+      // Dashboard options
+      promptName,
+      model,
+      isCascadeCall = false,
     }) => {
       if (!supabase || !childPromptRowId) return { response: null };
 
@@ -392,6 +453,34 @@ export const useConversationRun = () => {
       abortControllerRef.current = new AbortController();
       // Reset response_id
       currentResponseIdRef.current = null;
+      
+      // Create per-call cancel function with captured refs
+      const callResponseIdRef = { current: null };
+      const cancelThisCall = async () => {
+        const responseId = callResponseIdRef.current;
+        abortControllerRef.current?.abort();
+        if (responseId && supabase) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              await supabase.functions.invoke('conversation-cancel', {
+                body: { response_id: responseId }
+              });
+            }
+          } catch (e) {
+            console.warn('Cancel call failed:', e);
+          }
+        }
+      };
+      
+      // Register with LiveApiDashboard
+      const dashboardCallId = addCall({
+        promptName: promptName || 'Running...',
+        promptRowId: childPromptRowId,
+        model: model || 'loading...',
+        cancelFn: cancelThisCall,
+        isCascadeCall,
+      });
 
       safeSetState(setIsRunning, true);
       safeSetState(setProgress, { type: 'started' });
@@ -438,10 +527,23 @@ export const useConversationRun = () => {
           throw new Error(errorMessage);
         }
 
-        // Parse SSE stream with progress callbacks
+        // Parse SSE stream with progress callbacks - integrate with dashboard
         const data = await parseSSEStream(response, (progressEvent) => {
           safeSetState(setProgress, progressEvent);
           onProgress?.(progressEvent);
+          
+          // Update dashboard based on event type
+          if (progressEvent.type === 'api_started') {
+            callResponseIdRef.current = progressEvent.response_id;
+            updateCall(dashboardCallId, { 
+              status: 'in_progress',
+              responseId: progressEvent.response_id,
+            });
+          } else if (progressEvent.type === 'status_update') {
+            updateCall(dashboardCallId, { status: progressEvent.status });
+          } else if (progressEvent.type === 'thinking_delta') {
+            appendThinking(dashboardCallId, progressEvent.delta);
+          }
         });
 
         if (!data) {
@@ -478,6 +580,8 @@ export const useConversationRun = () => {
         console.error('Error running conversation:', error);
         throw error;
       } finally {
+        // Remove from dashboard
+        removeCall(dashboardCallId);
         abortControllerRef.current = null;
         currentResponseIdRef.current = null;
         unregisterCall();
@@ -485,7 +589,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, removeCall]
   );
 
   return {

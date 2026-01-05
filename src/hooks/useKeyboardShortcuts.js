@@ -4,8 +4,9 @@ import { trackEvent } from '@/lib/posthog';
 /**
  * Global keyboard shortcuts hook for the Mockup page
  * 
+ * NOTE: Cmd+K search removed - replaced by LiveApiDashboard in TopBar
+ * 
  * @param {Object} config - Shortcut configuration
- * @param {Function} config.onSearch - Cmd+K - Open search
  * @param {Function} config.onToggleFolderPanel - Cmd+B - Toggle folder panel
  * @param {Function} config.onToggleConversationPanel - Cmd+J - Toggle conversation panel
  * @param {Function} config.onSave - Cmd+S - Save current item
@@ -15,7 +16,6 @@ import { trackEvent } from '@/lib/posthog';
  * @param {boolean} config.enabled - Whether shortcuts are enabled
  */
 export const useKeyboardShortcuts = ({
-  onSearch,
   onToggleFolderPanel,
   onToggleConversationPanel,
   onSave,
@@ -30,14 +30,6 @@ export const useKeyboardShortcuts = ({
     // Check if user is typing in an input/textarea
     const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
                      e.target.isContentEditable;
-
-    // Cmd/Ctrl + K - Search (works even when typing)
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
-      trackEvent('keyboard_shortcut_used', { shortcut: 'cmd+k', action: 'search' });
-      onSearch?.();
-      return;
-    }
 
     // Cmd/Ctrl + B - Toggle folder panel (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
@@ -86,7 +78,7 @@ export const useKeyboardShortcuts = ({
       onUndo?.();
       return;
     }
-  }, [enabled, onSearch, onToggleFolderPanel, onToggleConversationPanel, onSave, onRun, onEscape, onUndo]);
+  }, [enabled, onToggleFolderPanel, onToggleConversationPanel, onSave, onRun, onEscape, onUndo]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

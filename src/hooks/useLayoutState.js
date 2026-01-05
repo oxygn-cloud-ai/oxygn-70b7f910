@@ -71,9 +71,6 @@ export const useLayoutState = () => {
   // Template state
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [activeTemplateTab, setActiveTemplateTab] = useState('prompts');
-  
-  // Modal/dialog states
-  const [searchOpen, setSearchOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [saveAsTemplateDialogOpen, setSaveAsTemplateDialogOpen] = useState(false);
   const [saveAsTemplateSource, setSaveAsTemplateSource] = useState(null);
@@ -179,9 +176,7 @@ export const useLayoutState = () => {
     activeTemplateTab,
     setActiveTemplateTab,
     
-    // Dialogs/Modals
-    searchOpen,
-    setSearchOpen,
+    // Dialogs/Modals (search removed - replaced by LiveApiDashboard)
     templateDialogOpen,
     setTemplateDialogOpen,
     saveAsTemplateDialogOpen,
