@@ -40,7 +40,10 @@ export default defineConfig(({ mode }) => ({
       "react/jsx-runtime", 
       "react/jsx-dev-runtime",
       "zod",
-      "zod-to-json-schema"
+      "zod-to-json-schema",
+      "framer-motion",
+      "react-dnd",
+      "react-dnd-html5-backend"
     ],
     force: true,
   },

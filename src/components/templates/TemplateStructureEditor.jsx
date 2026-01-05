@@ -14,8 +14,7 @@ import { SettingCard } from '@/components/ui/setting-card';
 import { SettingRow } from '@/components/ui/setting-row';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import { SettingModelSelect, SettingSelect } from '@/components/ui/setting-select';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { useDrag, useDrop } from 'react-dnd';
 
 const DRAG_TYPE = 'TEMPLATE_NODE';
 
@@ -637,7 +636,6 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
     <TooltipProvider>
     <div className="h-full flex">
       {/* Tree View */}
@@ -683,7 +681,6 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       </div>
     </div>
     </TooltipProvider>
-    </DndProvider>
   );
 };
 
