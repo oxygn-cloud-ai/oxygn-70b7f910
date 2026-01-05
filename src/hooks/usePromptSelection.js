@@ -3,8 +3,11 @@ import { useState, useEffect, useCallback } from 'react';
 /**
  * Hook to manage selected prompt state with localStorage persistence.
  * Handles prompt selection, data loading, and tree expansion state.
+ * 
+ * NOTE: API calls now continue in background when switching prompts.
+ * The LiveApiDashboard in TopBar shows active call status.
  */
-export const usePromptSelection = (fetchItemData, isApiCallInProgress, requestNavigation) => {
+export const usePromptSelection = (fetchItemData) => {
   // Selected prompt state - persisted to localStorage
   const [selectedPromptId, setSelectedPromptId] = useState(() => {
     try {
@@ -32,18 +35,10 @@ export const usePromptSelection = (fetchItemData, isApiCallInProgress, requestNa
     setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
   }, []);
   
-  // Guarded prompt selection - checks for in-progress API calls before switching
+  // Direct prompt selection - API calls continue in background
   const handleSelectPrompt = useCallback((newPromptId) => {
-    if (!isApiCallInProgress) {
-      setSelectedPromptId(newPromptId);
-      return;
-    }
-    // API call in progress - use navigation guard dialog
-    requestNavigation(
-      'Switching prompt',
-      () => setSelectedPromptId(newPromptId)
-    );
-  }, [isApiCallInProgress, requestNavigation]);
+    setSelectedPromptId(newPromptId);
+  }, []);
   
   // Fetch prompt data when selection changes
   useEffect(() => {

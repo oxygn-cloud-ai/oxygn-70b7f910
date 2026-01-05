@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Command, MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
+import { MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -8,11 +8,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { UndoHistoryPopover } from "@/components/UndoHistoryPopover";
 import { useTooltipSettings } from "@/contexts/TooltipContext";
+import LiveApiDashboard from "@/components/LiveApiDashboard";
 
 const TopBar = ({ 
   isDark = false, 
   onToggleDark,
-  onOpenSearch,
   onUndoAction
 }) => {
   const { tooltipsEnabled, toggleTooltips } = useTooltipSettings();
@@ -58,29 +58,14 @@ const TopBar = ({
         />
       </motion.div>
 
-      {/* Center - Search Bar */}
+      {/* Center - Live API Dashboard (replaces search bar) */}
       <motion.div 
         className="flex-1 max-w-xl mx-auto"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
       >
-        <motion.button
-          onClick={onOpenSearch}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className="w-full h-10 flex items-center gap-2 px-3 bg-surface-container-high rounded-m3-xl cursor-pointer hover:bg-surface-container-highest hover:shadow-sm transition-all duration-200"
-          style={{ height: "40px", borderRadius: "20px" }}
-        >
-          <Search className="h-4 w-4 text-on-surface-variant" />
-          <span className="flex-1 text-left text-body-sm text-on-surface-variant">
-            Search prompts, templates...
-          </span>
-          <div className="flex items-center gap-0.5 text-[10px] text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded-m3-sm">
-            <Command className="h-3 w-3" />
-            <span>K</span>
-          </div>
-        </motion.button>
+        <LiveApiDashboard />
       </motion.div>
 
       {/* Trailing - Toggles, Notifications & Avatar */}

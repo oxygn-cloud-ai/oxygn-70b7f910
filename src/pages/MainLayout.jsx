@@ -12,7 +12,7 @@ import SubmenuPanel from "@/components/layout/SubmenuPanel";
 import ReadingPane from "@/components/layout/ReadingPane";
 import ConversationPanel from "@/components/layout/ConversationPanel";
 import ExportPanel from "@/components/layout/ExportPanel";
-import SearchModal from "@/components/layout/SearchModal";
+// SearchModal removed - replaced by LiveApiDashboard in TopBar
 import NewPromptChoiceDialog from "@/components/NewPromptChoiceDialog";
 import SaveAsTemplateDialog from "@/components/SaveAsTemplateDialog";
 import { useSupabase } from "@/hooks/useSupabase";
@@ -105,8 +105,7 @@ const MainLayout = () => {
   // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
   const hierarchicalTreeData = treeData || [];
   
-  // API call context for navigation guarding
-  const { isApiCallInProgress, requestNavigation } = useApiCallContext();
+  // API call context (navigation guard removed - calls continue in background)
   
   // Layout state from extracted hook
   const {
@@ -132,8 +131,7 @@ const MainLayout = () => {
     setSelectedTemplate,
     activeTemplateTab,
     setActiveTemplateTab,
-    searchOpen,
-    setSearchOpen,
+    // searchOpen removed - replaced by LiveApiDashboard
     templateDialogOpen,
     setTemplateDialogOpen,
     saveAsTemplateDialogOpen,
@@ -158,7 +156,7 @@ const MainLayout = () => {
     setExpandedFolders,
     toggleFolder,
     handleSelectPrompt,
-  } = usePromptSelection(fetchItemData, isApiCallInProgress, requestNavigation);
+  } = usePromptSelection(fetchItemData);
   
   // Prompt variables for selected prompt
   const { 
@@ -926,9 +924,8 @@ const MainLayout = () => {
     }
   }, [handleRestoreDeleted, handleRestoreMove]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts (search removed - replaced by LiveApiDashboard)
   useKeyboardShortcuts({
-    onSearch: () => setSearchOpen(true),
     onToggleFolderPanel: () => setFolderPanelOpen(prev => !prev),
     onToggleConversationPanel: () => {
       if (activeNav === "prompts") {
@@ -1189,24 +1186,7 @@ const MainLayout = () => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0">
-        {/* Search Modal */}
-        <SearchModal
-          isOpen={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          treeData={hierarchicalTreeData}
-          templates={[...templatesHook.templates, ...jsonSchemaTemplatesHook.templates]}
-          onSelectPrompt={(id) => {
-            setActiveNav("prompts");
-            handleSelectPrompt(id);
-          }}
-          onSelectTemplate={(template) => {
-            setActiveNav("templates");
-            setSelectedTemplate(template);
-          }}
-          onNavigate={(navId) => {
-            setActiveNav(navId);
-          }}
-        />
+        {/* SearchModal removed - replaced by LiveApiDashboard in TopBar */}
 
         {/* Save As Template Dialog */}
         <SaveAsTemplateDialog
@@ -1263,11 +1243,10 @@ const MainLayout = () => {
 
           {/* Content Area */}
           <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            {/* Top Bar - 64dp */}
+            {/* Top Bar - 64dp (search replaced by LiveApiDashboard) */}
             <TopBar 
               isDark={isDark}
               onToggleDark={() => setIsDark(!isDark)}
-              onOpenSearch={() => setSearchOpen(true)}
               onUndoAction={handleUndoAction}
             />
 
