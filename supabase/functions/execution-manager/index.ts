@@ -228,9 +228,9 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
       status: 'running',
     })
     .select('trace_id, context_snapshot, family_version_at_start')
-    .single();
+    .maybeSingle();
   
-  // Check if insert failed due to unique constraint (another trace is running)
+  // Check if insert failed or no data returned
   if (createError) {
     if (createError.code === '23505' || createError.message?.includes('unique') || createError.message?.includes('duplicate')) {
       // One more attempt: force-clean any running trace for this prompt (edge case: very recent conflict)
@@ -275,7 +275,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
               status: 'running',
             })
             .select('trace_id, context_snapshot, family_version_at_start')
-            .single();
+            .maybeSingle();
           
           if (!retryError && retryTrace) {
             return finishStartTrace(supabase, retryTrace, entry_prompt_row_id, execution_type, userId, familyVersion);
