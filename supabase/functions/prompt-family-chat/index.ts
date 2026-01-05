@@ -836,14 +836,13 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     }
 
     // Use previous_response_id to continue the conversation (avoids reasoning item issues)
-    // This is preferred over the 'conversation' parameter for chaining responses
+    // DO NOT use conversation parameter - causes "reasoning item" errors with gpt-5/o-series models
+    // If no previous_response_id exists, start fresh (first message in thread)
     if (lastResponseId?.startsWith('resp_')) {
       requestBody.previous_response_id = lastResponseId;
       console.log('Continuing from previous response:', lastResponseId);
-    } else if (conversationId?.startsWith('conv_')) {
-      // Fallback to conversation if no previous response (first message)
-      requestBody.conversation = { id: conversationId };
-      console.log('Starting new conversation:', conversationId);
+    } else {
+      console.log('No previous_response_id - starting fresh conversation turn');
     }
 
     const response = await fetch('https://api.openai.com/v1/responses', {
@@ -922,7 +921,10 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     
     // Save the last response ID to the thread for next conversation turn
     if (latestResponseId?.startsWith('resp_')) {
-      await updateFamilyThreadResponseId(supabase, threadRowId, latestResponseId);
+      const updated = await updateFamilyThreadResponseId(supabase, threadRowId, latestResponseId);
+      if (!updated) {
+        console.warn('Failed to persist response_id - next turn may lose conversation context');
+      }
     }
 
     // If no tools were called, extract content from initial response

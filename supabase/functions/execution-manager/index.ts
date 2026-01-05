@@ -156,7 +156,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
     .eq('row_id', entry_prompt_row_id)
     .eq('owner_id', userId)
     .eq('is_deleted', false)
-    .single();
+    .maybeSingle();
   
   if (promptError || !prompt) {
     throw new Error('Prompt not found or access denied');
@@ -169,7 +169,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
     .from(TABLES.PROMPTS)
     .select('family_version')
     .eq('row_id', rootPromptRowId)
-    .single();
+    .maybeSingle();
   
   const familyVersion = rootPrompt?.family_version || 1;
   
