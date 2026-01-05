@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+// Hook for managing user-defined prompt variables
+// Force single React instance by using the canonical React import
+import * as React from 'react';
+const { useState, useEffect, useCallback } = React;
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { validateVariableName } from '@/utils/variableResolver';

@@ -794,6 +794,16 @@ serve(async (req) => {
       }
 
       const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+      
+      // Parse and validate request body
+      let requestBody: any;
+      try {
+        requestBody = await req.json();
+      } catch (parseError) {
+        emitter.emit({ type: 'error', error: 'Invalid JSON in request body', error_code: 'INVALID_REQUEST' });
+        return;
+      }
+      
       const { 
         child_prompt_row_id, 
         user_message, 
@@ -803,7 +813,48 @@ serve(async (req) => {
         child_thread_strategy,
         existing_thread_row_id,
         store_in_history,
-      } = await req.json();
+      } = requestBody;
+      
+      // Validate required fields
+      if (!child_prompt_row_id || typeof child_prompt_row_id !== 'string') {
+        emitter.emit({ type: 'error', error: 'child_prompt_row_id is required and must be a string', error_code: 'INVALID_REQUEST' });
+        return;
+      }
+      
+      // Validate UUID format for child_prompt_row_id
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(child_prompt_row_id)) {
+        emitter.emit({ type: 'error', error: 'child_prompt_row_id must be a valid UUID', error_code: 'INVALID_REQUEST' });
+        return;
+      }
+      
+      // Validate user_message if provided (limit to 100KB to prevent abuse)
+      const MAX_MESSAGE_LENGTH = 100000;
+      if (user_message !== undefined && user_message !== null) {
+        if (typeof user_message !== 'string') {
+          emitter.emit({ type: 'error', error: 'user_message must be a string', error_code: 'INVALID_REQUEST' });
+          return;
+        }
+        if (user_message.length > MAX_MESSAGE_LENGTH) {
+          emitter.emit({ type: 'error', error: `user_message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters`, error_code: 'INVALID_REQUEST' });
+          return;
+        }
+      }
+      
+      // Validate template_variables if provided
+      if (template_variables !== undefined && template_variables !== null) {
+        if (typeof template_variables !== 'object' || Array.isArray(template_variables)) {
+          emitter.emit({ type: 'error', error: 'template_variables must be an object', error_code: 'INVALID_REQUEST' });
+          return;
+        }
+      }
+      
+      // Validate thread_mode if provided
+      const validThreadModes = ['new', 'continue', 'none', undefined, null];
+      if (!validThreadModes.includes(thread_mode)) {
+        emitter.emit({ type: 'error', error: 'thread_mode must be one of: new, continue, none', error_code: 'INVALID_REQUEST' });
+        return;
+      }
 
       console.log('Conversation run request:', { 
         child_prompt_row_id, 

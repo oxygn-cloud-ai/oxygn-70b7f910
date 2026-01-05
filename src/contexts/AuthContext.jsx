@@ -126,8 +126,12 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Whitelisted email for password login (preview testing)
-  const WHITELISTED_EMAIL = 'james@oxygn.cloud';
+  // Whitelisted emails for password login (preview testing)
+  // Read from env variable, fallback to default for backwards compatibility
+  const WHITELISTED_EMAILS = (import.meta.env.VITE_WHITELISTED_EMAILS || 'james@oxygn.cloud')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
 
   const signInWithGoogle = async () => {
     const redirectUrl = `${window.location.origin}/projects`;
@@ -151,8 +155,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signInWithPassword = async (email, password) => {
-    // Only allow whitelisted email
-    if (email.toLowerCase() !== WHITELISTED_EMAIL.toLowerCase()) {
+    // Only allow whitelisted emails
+    if (!WHITELISTED_EMAILS.includes(email.toLowerCase())) {
       const error = { message: 'Email/password login is only available for authorized accounts' };
       toast.error(error.message);
       return { error };
@@ -172,8 +176,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signUpWithPassword = async (email, password) => {
-    // Only allow whitelisted email
-    if (email.toLowerCase() !== WHITELISTED_EMAIL.toLowerCase()) {
+    // Only allow whitelisted emails
+    if (!WHITELISTED_EMAILS.includes(email.toLowerCase())) {
       const error = { message: 'Email/password signup is only available for authorized accounts' };
       toast.error(error.message);
       return { error };

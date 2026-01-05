@@ -46,19 +46,27 @@ export const PendingSaveProvider = ({ children }) => {
     console.log(`[PendingSave] Flushing ${pending.length} pending save(s)...`);
     
     // Use Promise.allSettled to wait for all, even if some fail
-    // Add a 10-second timeout as a safety net
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Pending saves timeout')), 10000)
-    );
+    // Add a 30-second timeout as a safety net (increased from 10s for large operations)
+    const TIMEOUT_MS = 30000;
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Pending saves timeout')), TIMEOUT_MS);
+    });
     
     try {
       await Promise.race([
         Promise.allSettled(pending),
         timeout
       ]);
+      clearTimeout(timeoutId);
       console.log(`[PendingSave] All saves flushed successfully`);
     } catch (err) {
       console.warn('[PendingSave] Flush timed out or failed:', err.message);
+      // Log which saves are still pending for debugging
+      const stillPending = pendingSavesRef.current.size;
+      if (stillPending > 0) {
+        console.warn(`[PendingSave] ${stillPending} save(s) still pending after timeout`);
+      }
       // Continue anyway - don't block the run forever
     }
   }, []);
