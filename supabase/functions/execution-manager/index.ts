@@ -173,7 +173,31 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
   
   const familyVersion = rootPrompt?.family_version || 1;
   
-  // 3. Fetch all family prompts for context snapshot (do this before insert)
+  // 3. Clean up stale traces BEFORE attempting insert (traces running > 2 minutes are likely dead)
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const { data: staleTraces } = await supabase
+    .from('q_execution_traces')
+    .select('trace_id')
+    .eq('entry_prompt_row_id', entry_prompt_row_id)
+    .eq('owner_id', userId)
+    .eq('status', 'running')
+    .lt('started_at', twoMinutesAgo);
+  
+  if (staleTraces && staleTraces.length > 0) {
+    const staleIds = staleTraces.map((t: any) => t.trace_id);
+    console.log(`Cleaning up ${staleIds.length} stale traces for prompt ${entry_prompt_row_id}`);
+    
+    await supabase
+      .from('q_execution_traces')
+      .update({
+        status: 'failed',
+        error_summary: 'Stale trace - auto-cleaned before new execution',
+        completed_at: new Date().toISOString(),
+      })
+      .in('trace_id', staleIds);
+  }
+  
+  // 4. Fetch all family prompts for context snapshot (do this before insert)
   const { data: familyPrompts } = await supabase
     .from(TABLES.PROMPTS)
     .select('row_id, output_response')
@@ -188,7 +212,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
     }
   });
   
-  // 4. Try to insert new trace - unique partial index enforces mutex at DB level
+  // 5. Try to insert new trace - unique partial index enforces mutex at DB level
   // If another trace is running, the insert will fail with unique violation
   const { data: newTrace, error: createError } = await supabase
     .from('q_execution_traces')
@@ -209,10 +233,72 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
   // Check if insert failed due to unique constraint (another trace is running)
   if (createError) {
     if (createError.code === '23505' || createError.message?.includes('unique') || createError.message?.includes('duplicate')) {
+      // One more attempt: force-clean any running trace for this prompt (edge case: very recent conflict)
+      const { data: conflictTrace } = await supabase
+        .from('q_execution_traces')
+        .select('trace_id, started_at')
+        .eq('entry_prompt_row_id', entry_prompt_row_id)
+        .eq('owner_id', userId)
+        .eq('status', 'running')
+        .maybeSingle();
+      
+      if (conflictTrace) {
+        const startedAt = new Date(conflictTrace.started_at).getTime();
+        const now = Date.now();
+        const ageSeconds = (now - startedAt) / 1000;
+        
+        // If the conflicting trace is older than 30 seconds, force clean it and retry once
+        if (ageSeconds > 30) {
+          console.log(`Force-cleaning stuck trace ${conflictTrace.trace_id} (age: ${ageSeconds.toFixed(0)}s)`);
+          
+          await supabase
+            .from('q_execution_traces')
+            .update({
+              status: 'failed',
+              error_summary: 'Force-cleaned due to conflict during new execution',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('trace_id', conflictTrace.trace_id);
+          
+          // Retry the insert once
+          const { data: retryTrace, error: retryError } = await supabase
+            .from('q_execution_traces')
+            .insert({
+              root_prompt_row_id: rootPromptRowId,
+              entry_prompt_row_id,
+              execution_type,
+              owner_id: userId,
+              thread_row_id,
+              family_version_at_start: familyVersion,
+              prompt_ids_at_start: promptIdsAtStart,
+              context_snapshot: contextSnapshot,
+              status: 'running',
+            })
+            .select('trace_id, context_snapshot, family_version_at_start')
+            .single();
+          
+          if (!retryError && retryTrace) {
+            return finishStartTrace(supabase, retryTrace, entry_prompt_row_id, execution_type, userId, familyVersion);
+          }
+        }
+      }
+      
       throw new Error('Another execution is already running for this prompt');
     }
     throw createError;
   }
+  
+  return finishStartTrace(supabase, newTrace, entry_prompt_row_id, execution_type, userId, familyVersion);
+}
+
+async function finishStartTrace(
+  supabase: any, 
+  newTrace: any, 
+  entry_prompt_row_id: string, 
+  execution_type: string, 
+  userId: string, 
+  familyVersion: number
+) {
   
   // 5. Find previous trace to mark as replaced (after successful insert)
   const { data: previousTrace } = await supabase
