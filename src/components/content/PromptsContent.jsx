@@ -452,6 +452,7 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
                 value={promptData?.reasoning_effort || 'medium'}
                 onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
                 options={[
+                  { value: 'minimal', label: 'minimal' },
                   { value: 'low', label: 'low' },
                   { value: 'medium', label: 'medium' },
                   { value: 'high', label: 'high' },
