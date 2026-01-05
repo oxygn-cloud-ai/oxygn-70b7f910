@@ -325,46 +325,45 @@ async function runResponsesAPI(
   }
   const modelTokenParam = await getTokenParam(supabase, requestedModel);
   
-  // Helper to truncate strings to 20 chars for prompt previews
-  const truncate = (str: string | undefined, len = 20) => 
+  // Helper to truncate prompts only (100 chars for better context)
+  const truncate = (str: string | undefined, len = 100) => 
     str ? (str.length > len ? str.substring(0, len) + '...' : str) : undefined;
 
+  // Include ALL parameters sent to the API - only prompts are truncated
   const requestParams = {
-    // Model settings
-    model: modelId,
-    model_token_param: modelTokenParam,
+    // === MODEL ===
+    model: requestBody.model,
     
-    // Generation parameters (all values sent to API)
+    // === PROMPTS (truncated for readability) ===
+    instructions: truncate(requestBody.instructions),
+    input: truncate(typeof requestBody.input === 'string' ? requestBody.input : JSON.stringify(requestBody.input)),
+    
+    // === MULTI-TURN CONTEXT ===
+    previous_response_id: requestBody.previous_response_id,
+    
+    // === GENERATION PARAMETERS ===
     temperature: requestBody.temperature,
     top_p: requestBody.top_p,
-    max_output_tokens: requestBody.max_output_tokens,
     frequency_penalty: requestBody.frequency_penalty,
     presence_penalty: requestBody.presence_penalty,
     seed: requestBody.seed,
-    reasoning_effort: requestBody.reasoning?.effort,
     
-    // Tool settings
-    tool_choice: options.toolChoice,
-    tools_enabled: {
-      file_search: options.fileSearchEnabled || false,
-      code_interpreter: options.codeInterpreterEnabled || false,
-      web_search: options.webSearchEnabled || false,
-    },
+    // === TOKEN LIMIT (dynamic param from database) ===
+    [modelTokenParam]: requestBody[modelTokenParam],
     
-    // Structured output
-    response_format: options.responseFormat ? {
-      type: options.responseFormat.type,
-      schema_name: options.responseFormat.json_schema?.name,
-    } : undefined,
+    // === REASONING ===
+    reasoning: requestBody.reasoning,
     
-    // Prompts (truncated to 20 chars)
-    instructions_preview: truncate(systemPrompt),
-    input_preview: truncate(userMessage),
+    // === STRUCTURED OUTPUT (full schema) ===
+    text: requestBody.text,
     
-    // Context flags
-    has_conversation: !!conversationId?.startsWith('conv_'),
-    store_in_history: requestBody.store,
-    background_mode: true,
+    // === TOOLS (full array) ===
+    tools: requestBody.tools,
+    tool_choice: requestBody.tool_choice,
+    
+    // === STORAGE/BACKGROUND ===
+    store: requestBody.store,
+    background: requestBody.background,
   };
 
   console.log('Calling Responses API (background mode):', { 
