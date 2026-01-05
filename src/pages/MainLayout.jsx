@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { motion, AnimatePresence } from "framer-motion";
@@ -105,27 +105,56 @@ const MainLayout = () => {
   // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
   const hierarchicalTreeData = treeData || [];
   
-  // Selected prompt state and data - persisted to localStorage
-  const [selectedPromptId, setSelectedPromptId] = useState(() => {
-    const saved = localStorage.getItem('qonsol-selected-prompt-id');
-    return saved || null;
-  });
-  const [selectedPromptData, setSelectedPromptData] = useState(null);
-  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false);
+  // Layout state from extracted hook
+  const {
+    isDark,
+    setIsDark,
+    layoutResetNonce,
+    handleResetLayout: baseHandleResetLayout,
+    folderPanelOpen,
+    setFolderPanelOpen,
+    navRailOpen,
+    setNavRailOpen,
+    readingPaneOpen,
+    setReadingPaneOpen,
+    conversationPanelOpen,
+    setConversationPanelOpen,
+    activeNav,
+    setActiveNav,
+    activeSubItem,
+    setActiveSubItem,
+    hoveredNav,
+    setHoveredNav,
+    selectedTemplate,
+    setSelectedTemplate,
+    activeTemplateTab,
+    setActiveTemplateTab,
+    searchOpen,
+    setSearchOpen,
+    templateDialogOpen,
+    setTemplateDialogOpen,
+    saveAsTemplateDialogOpen,
+    setSaveAsTemplateDialogOpen,
+    saveAsTemplateSource,
+    handleSaveAsTemplate,
+    isInitialLoad,
+    setIsInitialLoad,
+    submenuRef,
+    hoverTimeoutRef,
+  } = useLayoutState();
   
-  // Tree expanded/collapsed state - persisted to localStorage
-  const [expandedFolders, setExpandedFolders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('qonsol-expanded-folders');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
-  
-  const toggleFolder = useCallback((id) => {
-    setExpandedFolders(prev => ({ ...prev, [id]: !prev[id] }));
-  }, []);
+  // Selected prompt state from extracted hook
+  const {
+    selectedPromptId,
+    setSelectedPromptId,
+    selectedPromptData,
+    setSelectedPromptData,
+    isLoadingPrompt,
+    expandedFolders,
+    setExpandedFolders,
+    toggleFolder,
+    handleSelectPrompt,
+  } = usePromptSelection(fetchItemData, isApiCallInProgress, requestNavigation);
   
   // Prompt variables for selected prompt
   const { 
@@ -179,9 +208,6 @@ const MainLayout = () => {
   // Prompt Family Chat hook - for knowledge-enhanced conversations about prompt families
   const promptFamilyChat = usePromptFamilyChat(selectedPromptId);
   
-  // API call context for guarding prompt selection during active API calls
-  const { isApiCallInProgress, requestNavigation } = useApiCallContext();
-  
   // Execution tracing for single prompt runs
   const { startTrace, createSpan, completeSpan, failSpan, completeTrace, cleanupOrphanedTraces } = useExecutionTracing();
   
@@ -192,57 +218,12 @@ const MainLayout = () => {
     }
   }, [currentUser?.id, cleanupOrphanedTraces]);
   
-  // Guarded prompt selection - checks for in-progress API calls before switching
-  const handleSelectPrompt = useCallback((newPromptId) => {
-    if (!isApiCallInProgress) {
-      setSelectedPromptId(newPromptId);
-      return;
-    }
-    // API call in progress - use navigation guard dialog
-    requestNavigation(
-      `Switching prompt`, 
-      () => setSelectedPromptId(newPromptId)
-    );
-  }, [isApiCallInProgress, requestNavigation]);
-  
   // Fetch messages when active thread changes
   useEffect(() => {
     if (activeThread?.row_id) {
       fetchMessages(activeThread.row_id);
     }
   }, [activeThread?.row_id, fetchMessages]);
-  
-  // Fetch prompt data when selection changes
-  useEffect(() => {
-    const loadPromptData = async () => {
-      if (!selectedPromptId) {
-        setSelectedPromptData(null);
-        return;
-      }
-      setIsLoadingPrompt(true);
-      const data = await fetchItemData(selectedPromptId);
-      setSelectedPromptData(data);
-      setIsLoadingPrompt(false);
-    };
-    loadPromptData();
-  }, [selectedPromptId, fetchItemData]);
-  
-  // Listen for prompt-result-updated events to refresh selected prompt data
-  useEffect(() => {
-    const handlePromptResultUpdated = async (event) => {
-      const { promptRowId } = event.detail || {};
-      if (promptRowId && promptRowId === selectedPromptId) {
-        // Re-fetch the prompt data to get the updated output
-        const freshData = await fetchItemData(selectedPromptId);
-        setSelectedPromptData(freshData);
-      }
-    };
-    
-    window.addEventListener('prompt-result-updated', handlePromptResultUpdated);
-    return () => {
-      window.removeEventListener('prompt-result-updated', handlePromptResultUpdated);
-    };
-  }, [selectedPromptId, fetchItemData]);
   
   // Wrap handleAddItem to auto-select newly created prompts
   const handleAddPrompt = useCallback(async (parentId, options) => {
@@ -868,88 +849,15 @@ const MainLayout = () => {
     return hasChildren === true;
   }, [selectedPromptId, treeData]);
 
+  // Get undo context for keyboard shortcut
+  const { undoStack, clearUndo } = useUndo();
+  
+  // Wrap baseHandleResetLayout to add toast
+  const handleResetLayout = useCallback(() => {
+    baseHandleResetLayout();
+    toast.success('Layout reset to defaults');
+  }, [baseHandleResetLayout]);
 
-  // Initialize isDark from stored theme preference
-  const [isDark, setIsDark] = useState(() => {
-    const pref = getThemePreference();
-    if (pref === 'system') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return pref === 'dark';
-  });
-  const [layoutResetNonce, setLayoutResetNonce] = useState(0);
-  const [folderPanelOpen, setFolderPanelOpen] = useState(() => {
-    const saved = localStorage.getItem('qonsol-folder-panel-open');
-    return saved !== null ? saved === 'true' : true; // Default open
-  });
-  const [navRailOpen, setNavRailOpen] = useState(() => {
-    const saved = localStorage.getItem('qonsol-nav-rail-open');
-    return saved !== null ? saved === 'true' : true; // Default open
-  });
-  const [readingPaneOpen, setReadingPaneOpen] = useState(() => {
-    const saved = localStorage.getItem('qonsol-reading-pane-open');
-    return saved !== null ? saved === 'true' : true; // Default open
-  });
-  const [conversationPanelOpen, setConversationPanelOpen] = useState(() => {
-    const saved = localStorage.getItem('qonsol-conversation-panel-open');
-    return saved !== null ? saved === 'true' : false; // Default closed
-  });
-  const [activeNav, setActiveNav] = useState(() => {
-    const saved = localStorage.getItem('qonsol-active-nav');
-    return saved || "prompts"; // Default to prompts
-  });
-  const [activeSubItem, setActiveSubItem] = useState(null);
-  const [hoveredNav, setHoveredNav] = useState(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [activeTemplateTab, setActiveTemplateTab] = useState("prompts");
-  // exportPanelOpen is now driven by exportState.isOpen from useExport hook
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
-  const [saveAsTemplateDialogOpen, setSaveAsTemplateDialogOpen] = useState(false);
-  const [saveAsTemplateSource, setSaveAsTemplateSource] = useState(null); // { id, name, hasChildren }
-
-  // Handler for save as template from folder panel
-  const handleSaveAsTemplate = useCallback((promptId, promptName, hasChildren) => {
-    setSaveAsTemplateSource({ id: promptId, name: promptName, hasChildren });
-    setSaveAsTemplateDialogOpen(true);
-  }, []);
-  
-  // Persist panel states to localStorage
-  useEffect(() => {
-    localStorage.setItem('qonsol-folder-panel-open', String(folderPanelOpen));
-  }, [folderPanelOpen]);
-  
-  useEffect(() => {
-    localStorage.setItem('qonsol-nav-rail-open', String(navRailOpen));
-  }, [navRailOpen]);
-  
-  useEffect(() => {
-    localStorage.setItem('qonsol-reading-pane-open', String(readingPaneOpen));
-  }, [readingPaneOpen]);
-  
-  useEffect(() => {
-    localStorage.setItem('qonsol-conversation-panel-open', String(conversationPanelOpen));
-  }, [conversationPanelOpen]);
-  
-  useEffect(() => {
-    localStorage.setItem('qonsol-active-nav', activeNav);
-  }, [activeNav]);
-  
-  // Persist selected prompt to localStorage
-  useEffect(() => {
-    if (selectedPromptId) {
-      localStorage.setItem('qonsol-selected-prompt-id', selectedPromptId);
-    } else {
-      localStorage.removeItem('qonsol-selected-prompt-id');
-    }
-  }, [selectedPromptId]);
-  
-  // Persist expanded folders to localStorage
-  useEffect(() => {
-    localStorage.setItem('qonsol-expanded-folders', JSON.stringify(expandedFolders));
-  }, [expandedFolders]);
-  
   // Initial load state
   useEffect(() => {
     if (!isLoadingTree && !isLoadingSettings) {
@@ -957,36 +865,7 @@ const MainLayout = () => {
       const timer = setTimeout(() => setIsInitialLoad(false), 500);
       return () => clearTimeout(timer);
     }
-  }, [isLoadingTree, isLoadingSettings]);
-  
-  // Get undo context for keyboard shortcut
-  const { undoStack, clearUndo } = useUndo();
-
-  // Reset all panel states to defaults
-  const handleResetLayout = useCallback(() => {
-    setNavRailOpen(true);
-    setFolderPanelOpen(true);
-    setReadingPaneOpen(true);
-    setConversationPanelOpen(true);
-    
-    // Clear localStorage for panel states
-    localStorage.setItem('qonsol-nav-rail-open', 'true');
-    localStorage.setItem('qonsol-folder-panel-open', 'true');
-    localStorage.setItem('qonsol-reading-pane-open', 'true');
-    localStorage.setItem('qonsol-conversation-panel-open', 'true');
-    
-    // Clear ResizablePanelGroup persisted layout to fix corrupted sizes
-    Object.keys(localStorage).forEach(key => {
-      if (key.includes('qonsol-panel-layout')) {
-        localStorage.removeItem(key);
-      }
-    });
-    
-    // Force panel group to remount with fresh state
-    setLayoutResetNonce(prev => prev + 1);
-    
-    toast.success('Layout reset to defaults');
-  }, []);
+  }, [isLoadingTree, isLoadingSettings, setIsInitialLoad]);
 
   // Handle undo via keyboard shortcut (undoes last action)
   const handleUndo = useCallback(async () => {
