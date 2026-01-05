@@ -133,11 +133,11 @@ export async function getOrCreateFamilyThread(
   ownerId: string,
   promptName?: string,
   openAIApiKey?: string
-): Promise<{ row_id: string; openai_conversation_id: string | null; created: boolean }> {
+): Promise<{ row_id: string; openai_conversation_id: string | null; last_response_id: string | null; created: boolean }> {
   // Try to find existing active thread for this family
   const { data: existing, error: findError } = await supabase
     .from(TABLES.THREADS)
-    .select('row_id, openai_conversation_id')
+    .select('row_id, openai_conversation_id, last_response_id')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
     .eq('is_active', true)
@@ -150,7 +150,7 @@ export async function getOrCreateFamilyThread(
   if (existing) {
     // Validate conversation ID - must be proper conv_ format
     if (existing.openai_conversation_id?.startsWith('conv_')) {
-      console.log('Found existing family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id);
+      console.log('Found existing family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id, 'last_response_id:', existing.last_response_id);
       return { ...existing, created: false };
     }
     
@@ -188,7 +188,7 @@ export async function getOrCreateFamilyThread(
       is_active: true,
       openai_conversation_id: conversationId,
     })
-    .select('row_id, openai_conversation_id')
+    .select('row_id, openai_conversation_id, last_response_id')
     .single();
 
   if (createError) {
@@ -233,10 +233,10 @@ export async function getFamilyThread(
   supabase: any,
   rootPromptRowId: string,
   ownerId: string
-): Promise<{ row_id: string; openai_conversation_id: string | null } | null> {
+): Promise<{ row_id: string; openai_conversation_id: string | null; last_response_id: string | null } | null> {
   const { data, error } = await supabase
     .from(TABLES.THREADS)
-    .select('row_id, openai_conversation_id')
+    .select('row_id, openai_conversation_id, last_response_id')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
     .eq('is_active', true)
@@ -248,4 +248,30 @@ export async function getFamilyThread(
   }
 
   return data;
+}
+
+/**
+ * Update the last_response_id for a family thread
+ * This is used to chain responses together using previous_response_id
+ */
+export async function updateFamilyThreadResponseId(
+  supabase: any,
+  threadRowId: string,
+  responseId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from(TABLES.THREADS)
+    .update({ 
+      last_response_id: responseId,
+      last_message_at: new Date().toISOString()
+    })
+    .eq('row_id', threadRowId);
+
+  if (error) {
+    console.error('Failed to update thread response ID:', error);
+    return false;
+  }
+  
+  console.log('Updated thread response ID:', threadRowId, '->', responseId);
+  return true;
 }

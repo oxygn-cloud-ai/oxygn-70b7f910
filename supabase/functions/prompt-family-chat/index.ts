@@ -15,7 +15,7 @@ import {
   getFamilyDataOptimized
 } from "../_shared/promptFamily.ts";
 import { TABLES } from "../_shared/tables.ts";
-import { getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
+import { getOrCreateFamilyThread, updateFamilyThreadResponseId } from "../_shared/familyThreads.ts";
 
 // Tool Registry imports (Phase 2)
 import { 
@@ -396,16 +396,16 @@ async function handleToolCall(
 
 /**
  * Execute tool calls and submit results back to OpenAI
- * Returns: { content: string | null, hasMoreTools: boolean, nextResult: any }
+ * Returns: { content: string | null, hasMoreTools: boolean, nextToolCalls: any[], responseId: string | null }
  */
 async function executeToolsAndSubmit(
   toolCalls: any[],
   toolContext: any,
-  conversationId: string,
+  previousResponseId: string,  // Changed from conversationId to use response chaining
   selectedModel: string,
   openAIApiKey: string,
   toolEvents: Array<{ type: string; tool?: string; args?: any }>
-): Promise<{ content: string | null; hasMoreTools: boolean; nextToolCalls: any[] }> {
+): Promise<{ content: string | null; hasMoreTools: boolean; nextToolCalls: any[]; responseId: string | null }> {
   const toolResults: any[] = [];
   
   for (const toolCall of toolCalls) {
@@ -433,18 +433,19 @@ async function executeToolsAndSubmit(
     });
   }
 
-  // Submit tool results back to OpenAI
-  // Only include conversation if it's a valid conv_ ID (not resp_ or pending-)
+  // Submit tool results back to OpenAI using previous_response_id for chaining
   const requestBody: any = {
     model: selectedModel,
     input: toolResults,
     store: true,
   };
   
-  if (conversationId?.startsWith('conv_')) {
-    requestBody.conversation = conversationId;
+  // Use previous_response_id to chain the response (avoids reasoning item issues)
+  if (previousResponseId?.startsWith('resp_')) {
+    requestBody.previous_response_id = previousResponseId;
+    console.log('Tool submit chaining from response:', previousResponseId);
   } else {
-    console.warn('Invalid conversation ID in tool submit, omitting:', conversationId);
+    console.warn('Invalid previous response ID in tool submit:', previousResponseId);
   }
   
   const submitResponse = await fetch('https://api.openai.com/v1/responses', {
@@ -459,10 +460,12 @@ async function executeToolsAndSubmit(
   if (!submitResponse.ok) {
     const errorText = await submitResponse.text();
     console.error('Tool submit error:', submitResponse.status, errorText);
-    return { content: null, hasMoreTools: false, nextToolCalls: [] };
+    return { content: null, hasMoreTools: false, nextToolCalls: [], responseId: null };
   }
 
   const submitResult = await submitResponse.json();
+  const responseId = submitResult.id || null;
+  console.log('Tool submit response id:', responseId);
   
   // Extract content from response
   let content: string | null = null;
@@ -478,7 +481,7 @@ async function executeToolsAndSubmit(
   // Check for more tool calls
   const nextToolCalls = submitResult.output?.filter((item: any) => item.type === 'function_call') || [];
   
-  return { content, hasMoreTools: nextToolCalls.length > 0, nextToolCalls };
+  return { content, hasMoreTools: nextToolCalls.length > 0, nextToolCalls, responseId };
 }
 
 serve(async (req) => {
@@ -645,13 +648,18 @@ serve(async (req) => {
     );
     
     const conversationId = familyThread.openai_conversation_id;
+    const lastResponseId = familyThread.last_response_id;
     
     console.log(`Initialization complete in ${Date.now() - initStart}ms`, {
       promptCount: familyPromptIds.length,
       rootId,
       conversationId,
-      threadCreated: familyThread.created
+      lastResponseId,
+      threadCreated: familyThread.created,
+      threadRowId: familyThread.row_id
     });
+    
+    const threadRowId = familyThread.row_id;
 
     // Get model
     let selectedModel = model;
@@ -827,8 +835,15 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
     }
 
-    if (conversationId?.startsWith('conv_')) {
-      requestBody.conversation = conversationId;
+    // Use previous_response_id to continue the conversation (avoids reasoning item issues)
+    // This is preferred over the 'conversation' parameter for chaining responses
+    if (lastResponseId?.startsWith('resp_')) {
+      requestBody.previous_response_id = lastResponseId;
+      console.log('Continuing from previous response:', lastResponseId);
+    } else if (conversationId?.startsWith('conv_')) {
+      // Fallback to conversation if no previous response (first message)
+      requestBody.conversation = { id: conversationId };
+      console.log('Starting new conversation:', conversationId);
     }
 
     const response = await fetch('https://api.openai.com/v1/responses', {
@@ -870,6 +885,9 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
     let result = await response.json();
     console.log('Initial response - id:', result.id, 'status:', result.status);
+    
+    // Track the latest response ID for chaining
+    let latestResponseId = result.id;
 
     // Process tool calls in a loop
     let currentToolCalls = result.output?.filter((item: any) => item.type === 'function_call') || [];
@@ -877,14 +895,19 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS && currentToolCalls.length > 0; iteration++) {
       console.log(`Tool iteration ${iteration + 1}: ${currentToolCalls.length} tool(s)`);
       
-      const { content, hasMoreTools, nextToolCalls } = await executeToolsAndSubmit(
+      const { content, hasMoreTools, nextToolCalls, responseId } = await executeToolsAndSubmit(
         currentToolCalls,
         toolContext,
-        conversationId!,
+        latestResponseId,  // Pass the previous response ID for chaining
         selectedModel,
         openAIApiKey,
         toolEvents
       );
+      
+      // Update latest response ID from tool submission result
+      if (responseId) {
+        latestResponseId = responseId;
+      }
       
       if (content) {
         finalContent = content;
@@ -895,6 +918,11 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
       
       currentToolCalls = nextToolCalls;
+    }
+    
+    // Save the last response ID to the thread for next conversation turn
+    if (latestResponseId?.startsWith('resp_')) {
+      await updateFamilyThreadResponseId(supabase, threadRowId, latestResponseId);
     }
 
     // If no tools were called, extract content from initial response
