@@ -82,6 +82,7 @@ interface ResponsesResult {
   error?: string;
   error_code?: string;
   response_id?: string;
+  requestParams?: any;
 }
 
 // Default system prompt for action nodes - instructs AI to respond with JSON
@@ -452,16 +453,113 @@ async function runResponsesAPI(
   console.log('Starting response stream for:', responseId);
   
   // Rolling idle timeout - resets every time data is received
-  const IDLE_TIMEOUT_MS = 120000; // 2 minutes of no activity
+  const IDLE_TIMEOUT_MS = 300000; // 5 minutes of no activity (increased for complex reasoning)
   const streamController = new AbortController();
   let idleTimeoutId: number | null = null;
   let abortReason: 'idle' | null = null;
+
+  // Polling fallback function for when streaming stalls
+  const pollForCompletion = async (): Promise<ResponsesResult> => {
+    const maxWaitMs = 600000; // 10 minutes max
+    const intervalMs = 3000; // Poll every 3 seconds
+    const startTime = Date.now();
+    let pollCount = 0;
+    
+    console.log('Falling back to polling for response:', responseId);
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        pollCount++;
+        const response = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+        
+        if (!response.ok) {
+          console.error('Polling request failed:', response.status);
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+          continue;
+        }
+        
+        const data = await response.json();
+        const elapsed = Date.now() - startTime;
+        
+        // Log progress every 10 polls (~30 seconds)
+        if (pollCount % 10 === 0) {
+          console.log('Polling progress:', { responseId, status: data.status, pollCount, elapsedMs: elapsed });
+        }
+        
+        if (data.status === 'completed') {
+          let responseText = '';
+          if (data.output && Array.isArray(data.output)) {
+            for (const item of data.output) {
+              if (item.type === 'message' && item.content) {
+                for (const contentItem of item.content) {
+                  if (contentItem.type === 'output_text' && contentItem.text) {
+                    responseText += contentItem.text;
+                  }
+                }
+              }
+            }
+          }
+          
+          const usage = {
+            prompt_tokens: data.usage?.input_tokens || 0,
+            completion_tokens: data.usage?.output_tokens || 0,
+            total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+          };
+          
+          console.log('Polling completed successfully:', { responseId, textLength: responseText.length, pollCount, elapsedMs: elapsed });
+          
+          return {
+            success: true,
+            response: responseText,
+            usage,
+            response_id: responseId,
+            requestParams,
+          };
+        }
+        
+        if (data.status === 'failed') {
+          return {
+            success: false,
+            error: data.error?.message || 'Response failed',
+            error_code: 'API_CALL_FAILED',
+            response_id: responseId,
+          };
+        }
+        
+        if (data.status === 'cancelled') {
+          return {
+            success: false,
+            error: 'Request was cancelled',
+            error_code: 'CANCELLED',
+            response_id: responseId,
+          };
+        }
+        
+        // Still queued or in_progress, continue polling
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+        
+      } catch (pollError) {
+        console.error('Polling error:', pollError);
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+    }
+    
+    console.error('Polling timed out after 10 minutes');
+    return {
+      success: false,
+      error: 'Polling timed out after 10 minutes',
+      error_code: 'POLL_TIMEOUT',
+      response_id: responseId,
+    };
+  };
 
   const resetIdleTimeout = () => {
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     idleTimeoutId = setTimeout(() => {
       abortReason = 'idle';
-      console.error('Stream idle timeout - no data received for 2 minutes');
+      console.error('Stream idle timeout - no data received for 5 minutes');
       streamController.abort();
     }, IDLE_TIMEOUT_MS);
   };
@@ -485,13 +583,9 @@ async function runResponsesAPI(
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     if (streamError instanceof Error && streamError.name === 'AbortError') {
       if (abortReason === 'idle') {
-        console.error('Stream connection timed out due to inactivity');
-        return {
-          success: false,
-          error: 'No response data received for 2 minutes - connection may have stalled',
-          error_code: 'IDLE_TIMEOUT',
-          response_id: responseId,
-        };
+        console.warn('Stream connection stalled, falling back to polling...');
+        // Fall back to polling instead of failing
+        return await pollForCompletion();
       }
       console.error('Response stream timed out');
       return {
@@ -633,15 +727,10 @@ async function runResponsesAPI(
   } catch (streamReadError: unknown) {
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     if (streamReadError instanceof Error && streamReadError.name === 'AbortError') {
-      // Check if this was an idle timeout
+      // Check if this was an idle timeout - fall back to polling
       if (abortReason === 'idle') {
-        console.error('Stream failed due to idle timeout');
-        return {
-          success: false,
-          error: 'No response data received for 2 minutes - connection may have stalled',
-          error_code: 'IDLE_TIMEOUT',
-          response_id: responseId,
-        };
+        console.warn('Stream read stalled, falling back to polling...');
+        return await pollForCompletion();
       }
       
       console.log('Stream read was aborted (possibly cancelled)');
