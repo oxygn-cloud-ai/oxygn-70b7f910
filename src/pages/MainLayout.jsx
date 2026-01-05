@@ -34,7 +34,9 @@ import { useConversationToolDefaults } from "@/hooks/useConversationToolDefaults
 import { usePromptFamilyChat } from "@/hooks/usePromptFamilyChat";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useRenderPerformance } from "@/hooks/useRenderPerformance";
-import { toast, getThemePreference, setThemePreference } from "@/components/ui/sonner";
+import { useLayoutState } from "@/hooks/useLayoutState";
+import { usePromptSelection } from "@/hooks/usePromptSelection";
+import { toast, setThemePreference } from "@/components/ui/sonner";
 import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { executePostAction, processVariableAssignments } from "@/services/actionExecutors";
 import { validateActionResponse, extractJsonFromResponse } from "@/utils/actionValidation";
@@ -268,6 +270,7 @@ const MainLayout = () => {
   const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview } = useCascadeRun();
   const [isRunningCascade, setIsRunningCascade] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
   
   // Helper to truncate long text for toast display
   const truncateForLog = (text, maxLen = 50) => {
@@ -283,12 +286,21 @@ const MainLayout = () => {
   const handleRunPrompt = useCallback(async (promptId) => {
     if (!promptId) return;
     
-    // CRITICAL: Wait for any pending field saves to complete before fetching
-    // This ensures we get the latest system prompt, user prompt, etc. from the database
-    await flushPendingSaves();
+    // Debounce: prevent rapid clicking
+    if (runStartingFor === promptId) {
+      toast.info('Run already starting...', { duration: 2000 });
+      return;
+    }
     
-    // Fetch prompt data to check if it's an action node
-    const promptData = await fetchItemData(promptId);
+    setRunStartingFor(promptId);
+    
+    try {
+      // CRITICAL: Wait for any pending field saves to complete before fetching
+      // This ensures we get the latest system prompt, user prompt, etc. from the database
+      await flushPendingSaves();
+    
+      // Fetch prompt data to check if it's an action node
+      const promptData = await fetchItemData(promptId);
     const startTime = Date.now();
     
     // Start execution trace
@@ -676,7 +688,11 @@ const MainLayout = () => {
         }).catch(err => console.warn('Failed to complete trace:', err));
       }
     }
-  }, [flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
+    } finally {
+      // Reset debounce state after 1 second to prevent accidental double-clicks
+      setTimeout(() => setRunStartingFor(null), 1000);
+    }
+  }, [runStartingFor, flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {

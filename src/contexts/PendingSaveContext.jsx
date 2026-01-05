@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useRef, useCallback } from 'react';
+import logger from '@/utils/logger';
 
 const PendingSaveContext = createContext(null);
 
@@ -43,7 +44,7 @@ export const PendingSaveProvider = ({ children }) => {
       return;
     }
     
-    console.log(`[PendingSave] Flushing ${pending.length} pending save(s)...`);
+    logger.debug(`[PendingSave] Flushing ${pending.length} pending save(s)...`);
     
     // Use Promise.allSettled to wait for all, even if some fail
     // Add a 30-second timeout as a safety net (increased from 10s for large operations)
@@ -59,13 +60,13 @@ export const PendingSaveProvider = ({ children }) => {
         timeout
       ]);
       clearTimeout(timeoutId);
-      console.log(`[PendingSave] All saves flushed successfully`);
+      logger.debug('[PendingSave] All saves flushed successfully');
     } catch (err) {
-      console.warn('[PendingSave] Flush timed out or failed:', err.message);
+      logger.warn('[PendingSave] Flush timed out or failed:', err.message);
       // Log which saves are still pending for debugging
       const stillPending = pendingSavesRef.current.size;
       if (stillPending > 0) {
-        console.warn(`[PendingSave] ${stillPending} save(s) still pending after timeout`);
+        logger.warn(`[PendingSave] ${stillPending} save(s) still pending after timeout`);
       }
       // Continue anyway - don't block the run forever
     }
@@ -87,7 +88,7 @@ export const usePendingSaves = () => {
   
   if (!context) {
     // Fallback for components outside provider - return no-op functions
-    console.warn('usePendingSaves called outside PendingSaveProvider');
+    logger.warn('usePendingSaves called outside PendingSaveProvider');
     return {
       registerSave: () => {},
       flushPendingSaves: async () => {},

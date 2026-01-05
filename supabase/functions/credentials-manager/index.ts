@@ -49,10 +49,10 @@ serve(async (req) => {
     }
 
     const userId = validation.user?.id;
-    console.log('[credentials-manager] Request from:', validation.user?.email);
+    // Removed verbose email logging for security
 
     const { action, ...params } = await req.json();
-    console.log('[credentials-manager] Action:', action);
+    // Action logged only in error cases below
 
     // Service role client for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -108,7 +108,7 @@ serve(async (req) => {
           });
         }
 
-        console.log('[credentials-manager] Status for', service, ':', status);
+        // Status check successful - no logging needed
 
         return new Response(
           JSON.stringify({ success: true, status }),
@@ -141,7 +141,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log('[credentials-manager] Saved encrypted credential:', service, key);
+        // Credential saved successfully - no logging of keys
 
         return new Response(
           JSON.stringify({ success: true }),
@@ -177,7 +177,7 @@ serve(async (req) => {
           throw error;
         }
 
-        console.log('[credentials-manager] Deleted credential(s):', service, key || '(all)');
+        // Credential deleted successfully - no logging of keys
 
         return new Response(
           JSON.stringify({ success: true }),
@@ -199,8 +199,6 @@ serve(async (req) => {
 
         // Get unique service types
         const services = [...new Set(data?.map(c => c.service_type) || [])];
-        
-        console.log('[credentials-manager] Configured services:', services);
 
         return new Response(
           JSON.stringify({ success: true, services }),
