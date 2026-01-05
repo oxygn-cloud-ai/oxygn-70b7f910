@@ -41,7 +41,6 @@ export default defineConfig(({ mode }) => ({
       "react/jsx-runtime", 
       "react/jsx-dev-runtime",
       "zod",
-      "zod-to-json-schema",
       "framer-motion",
       "react-dnd",
       "react-dnd-html5-backend",
@@ -49,8 +48,6 @@ export default defineConfig(({ mode }) => ({
       "react-router-dom",
       // TipTap editor and all its extensions
       "@tiptap/react",
-      "@tiptap/core",
-      "@tiptap/pm",
       "@tiptap/starter-kit",
       "@tiptap/extension-link",
       "@tiptap/extension-placeholder",
