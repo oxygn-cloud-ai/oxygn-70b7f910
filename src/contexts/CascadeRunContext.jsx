@@ -15,6 +15,7 @@ export const useCascadeRun = () => {
 export const CascadeRunProvider = ({ children }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [currentLevel, setCurrentLevel] = useState(0);
   const [totalLevels, setTotalLevels] = useState(0);
   const [currentPromptName, setCurrentPromptName] = useState('');
@@ -96,11 +97,11 @@ export const CascadeRunProvider = ({ children }) => {
   }, []);
 
   const cancel = useCallback(async () => {
+    // Set cancel flag immediately (for loop checks)
     cancelRef.current = true;
-    setIsRunning(false);
-    setIsPaused(false);
+    setIsCancelling(true);
     
-    // Call the actual cancel handler (OpenAI cancel endpoint)
+    // Call the actual cancel handler FIRST and wait for it
     if (cancelHandlerRef.current) {
       try {
         await cancelHandlerRef.current();
@@ -109,6 +110,11 @@ export const CascadeRunProvider = ({ children }) => {
       }
       cancelHandlerRef.current = null;
     }
+    
+    // NOW update UI state (after cancellation attempt completes)
+    setIsCancelling(false);
+    setIsRunning(false);
+    setIsPaused(false);
     
     // Show cancellation toast
     toast.info('Cascade run cancelled', {
@@ -197,6 +203,7 @@ export const CascadeRunProvider = ({ children }) => {
     // State
     isRunning,
     isPaused,
+    isCancelling,
     currentLevel,
     totalLevels,
     currentPromptName,

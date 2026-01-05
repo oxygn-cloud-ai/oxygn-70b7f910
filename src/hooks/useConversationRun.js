@@ -34,14 +34,17 @@ export const useConversationRun = () => {
 
   // Cancel any in-flight request - now calls OpenAI cancel endpoint
   const cancelRun = useCallback(async () => {
-    // Step 1: Abort client stream immediately (instant UX feedback)
+    // Step 1: Capture and clear response_id FIRST to prevent race conditions
+    const responseId = currentResponseIdRef.current;
+    currentResponseIdRef.current = null;
+    
+    // Step 2: Abort client stream immediately (instant UX feedback)
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     
-    // Step 2: Call OpenAI cancel endpoint if we have a response_id
-    const responseId = currentResponseIdRef.current;
+    // Step 3: Call OpenAI cancel endpoint if we have a response_id
     if (responseId && supabase) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -53,17 +56,25 @@ export const useConversationRun = () => {
           
           if (error) {
             console.warn('Cancel request failed:', error);
-          } else {
-            console.log('Cancel response:', data);
+            toast.warning('Request stopped locally', {
+              description: 'Server cancellation failed - generation may continue briefly',
+            });
+          } else if (data?.status === 'completed') {
+            // Response finished before cancel took effect
+            toast.info('Request already completed');
+          } else if (data?.success) {
+            console.log('OpenAI response cancelled:', responseId);
           }
         }
       } catch (e) {
-        console.warn('Cancel request failed (may already be completed):', e);
+        console.warn('Cancel request error:', e);
+        toast.warning('Request stopped locally', {
+          description: 'Could not confirm server cancellation',
+        });
       }
-      currentResponseIdRef.current = null;
     }
     
-    // Step 3: Reset state
+    // Step 4: Reset state
     safeSetState(setIsRunning, false);
     safeSetState(setProgress, null);
   }, [safeSetState, supabase]);
