@@ -1176,15 +1176,29 @@ serve(async (req) => {
       console.log('Resolved static system variables:', Object.keys(staticSystemVariables));
       
       // Extract stored system variables from prompt's system_variables JSONB field
-      // These are user-input variables like q.policy.name set by the user
+      // These are user-editable variables like q.policy.version, q.client.name set by the user
+      // IMPORTANT: Skip context variables - they should use runtime-resolved values, not stale stored snapshots
+      const CONTEXT_VARIABLE_KEYS = [
+        'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
+        'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
+        'q.user.name', 'q.user.email',
+        'q.today', 'q.now', 'q.year', 'q.month',
+        'q.policy.name', // DEPRECATED - ignore if present
+      ];
+      
       const storedSystemVariables: Record<string, string> = {};
       if (childPrompt.system_variables && typeof childPrompt.system_variables === 'object') {
         Object.entries(childPrompt.system_variables).forEach(([key, value]) => {
+          // Skip context variables - they must use runtime-resolved values
+          if (CONTEXT_VARIABLE_KEYS.includes(key)) {
+            console.log(`Skipping stored context variable ${key} - using runtime value instead`);
+            return;
+          }
           if (value !== undefined && value !== null && value !== '') {
             storedSystemVariables[key] = String(value);
           }
         });
-        console.log(`Found ${Object.keys(storedSystemVariables).length} stored system variables:`, Object.keys(storedSystemVariables));
+        console.log(`Using ${Object.keys(storedSystemVariables).length} stored user-editable variables:`, Object.keys(storedSystemVariables));
       }
 
 // Build template variables from prompt fields + user variables + system variables

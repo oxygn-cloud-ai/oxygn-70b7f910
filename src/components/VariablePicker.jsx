@@ -56,12 +56,12 @@ const VariablePicker = ({
     prompt: {
       label: 'Prompt Context',
       icon: FileText,
-      vars: ['q.toplevel.prompt.name', 'q.parent.prompt.name'],
+      vars: ['q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name'],
     },
     policy: {
       label: 'Policy',
       icon: Braces,
-      vars: ['q.policy.name', 'q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.topic'],
+      vars: ['q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.topic'],
     },
     other: {
       label: 'Other',

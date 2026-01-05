@@ -51,7 +51,6 @@ const SYSTEM_VARIABLE_GROUPS = [
     icon: FileText,
     variables: [
       { name: "q.prompt.name", label: "Prompt Name", isStatic: true },
-      { name: "q.policy.name", label: "Policy Name", isStatic: true },
       { name: "q.toplevel.prompt.name", label: "Top Level Prompt", isStatic: true },
       { name: "q.parent.prompt.name", label: "Parent Prompt", isStatic: true },
     ]

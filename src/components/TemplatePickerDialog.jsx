@@ -32,6 +32,7 @@ const TemplatePickerDialog = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [promptNameOverride, setPromptNameOverride] = useState('');
+  const [policyBaseName, setPolicyBaseName] = useState(''); // Dedicated input for policy name
   const isTopLevel = parentId === null;
 
   const filteredTemplates = templates.filter(t => 
@@ -39,16 +40,16 @@ const TemplatePickerDialog = ({
     t.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Generate the computed prompt name based on q.policy.name
+  // Generate the computed prompt name based on policyBaseName
   const computedPromptName = React.useMemo(() => {
-    const policyName = variableValues['q.policy.name']?.trim() || '';
-    if (!policyName) return '';
+    const baseName = policyBaseName.trim();
+    if (!baseName) return '';
     
     if (isTopLevel) {
-      return `${policyName} (Master) (DRAFT)`;
+      return `${baseName} (Master) (DRAFT)`;
     }
-    return policyName;
-  }, [variableValues['q.policy.name'], isTopLevel]);
+    return baseName;
+  }, [policyBaseName, isTopLevel]);
 
   // Use override if set, otherwise use computed
   const finalPromptName = promptNameOverride || computedPromptName;
@@ -61,13 +62,10 @@ const TemplatePickerDialog = ({
     const initialValues = {};
     variables.forEach(v => { initialValues[v] = ''; });
     
-    // For top-level prompts, always include q.policy.name
-    if (isTopLevel) {
-      initialValues['q.policy.name'] = '';
-    }
-    
-    setVariableValues(initialValues);
+    // Reset policyBaseName when selecting new template
+    setPolicyBaseName('');
     setPromptNameOverride('');
+    setVariableValues(initialValues);
     
     // Always show variables step for top-level (need policy name) or if there are variables
     if (isTopLevel || variables.length > 0) {
@@ -85,7 +83,9 @@ const TemplatePickerDialog = ({
     if (!text || typeof text !== 'string') return text;
     let result = text;
     Object.entries(values).forEach(([name, value]) => {
-      result = result.replace(new RegExp(`\\{\\{${name}\\}\\}`, 'g'), value);
+      // Escape special regex characters in variable name (for names with dots like q.policy.version)
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value);
     });
     return result;
   };
@@ -202,11 +202,22 @@ const TemplatePickerDialog = ({
           promptName = replaceVariables(promptStructure.prompt_name, vars);
         }
 
-// Build system_variables object with q.* INPUT variables for runtime resolution
+// Build system_variables object - ONLY store user-editable variables, NOT context variables
+        // Context variables (q.prompt.name, q.toplevel.prompt.name, etc.) should be resolved at runtime
+        const CONTEXT_VARIABLES = [
+          'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
+          'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
+          'q.user.name', 'q.user.email',
+          'q.today', 'q.now', 'q.year', 'q.month',
+          'q.policy.name', // DEPRECATED - no longer used
+        ];
+        
         const systemVariables = {};
         Object.entries(vars).forEach(([key, value]) => {
-          // Only store q.* variables that have values (these are user-input variables like q.policy.*)
-          if (key.startsWith('q.') && value !== undefined && value !== null && value !== '') {
+          // Only store user-editable q.* variables, skip context variables
+          if (key.startsWith('q.') && 
+              value !== undefined && value !== null && value !== '' &&
+              !CONTEXT_VARIABLES.includes(key)) {
             systemVariables[key] = String(value);
           }
         });
@@ -359,6 +370,8 @@ const TemplatePickerDialog = ({
     setSelectedTemplate(null);
     setVariableValues({});
     setSearchQuery('');
+    setPolicyBaseName('');
+    setPromptNameOverride('');
     onClose();
   };
 
@@ -459,21 +472,21 @@ const TemplatePickerDialog = ({
                 {isTopLevel && (
                   <div className="space-y-3 pb-3 border-b border-border">
                     <div className="space-y-2">
-                      <Label htmlFor="policy-name" className="flex items-center gap-2">
+                      <Label htmlFor="policy-base-name" className="flex items-center gap-2">
                         <Badge variant="default" className="font-mono text-xs">Policy Name</Badge>
                         <span className="text-destructive text-xs">*</span>
                       </Label>
                       <Input
-                        id="policy-name"
-                        value={variableValues['q.policy.name'] || ''}
+                        id="policy-base-name"
+                        value={policyBaseName}
                         onChange={(e) => {
-                          handleVariableChange('q.policy.name', e.target.value);
+                          setPolicyBaseName(e.target.value);
                           setPromptNameOverride('');
                         }}
                         placeholder="Enter policy name"
                       />
                     </div>
-                    {variableValues['q.policy.name']?.trim() && (
+                    {policyBaseName.trim() && (
                       <div className="space-y-2">
                         <Label htmlFor="final-prompt-name">
                           <Badge variant="secondary" className="font-mono text-xs">Final Prompt Name</Badge>
@@ -488,7 +501,7 @@ const TemplatePickerDialog = ({
                   </div>
                 )}
                 
-                {templateVariables.filter(v => !(isTopLevel && v === 'q.policy.name')).map(varName => (
+                {templateVariables.map(varName => (
                   <div key={varName} className="space-y-2">
                     <Label htmlFor={varName} className="flex items-center gap-2">
                       <Badge variant="outline" className="font-mono text-xs">{`{{${varName}}}`}</Badge>
@@ -512,7 +525,7 @@ const TemplatePickerDialog = ({
                 variant="ghost"
                 size="icon"
                 onClick={() => handleCreateFromTemplate(selectedTemplate, variableValues)}
-                disabled={isCreating || (isTopLevel && !variableValues['q.policy.name']?.trim())}
+                disabled={isCreating || (isTopLevel && !policyBaseName.trim())}
                 title="Create"
               >
                 {isCreating ? (
