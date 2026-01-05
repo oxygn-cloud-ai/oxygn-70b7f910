@@ -25,11 +25,20 @@ const ERROR_PATTERNS = [
     message: 'Too many requests. The system will automatically retry.',
     recoverable: true,
   },
+  // IDLE_TIMEOUT must come BEFORE NETWORK_ERROR to avoid false matches on "timeout"/"connection"
   {
-    pattern: /conversation_locked/i,
-    code: 'CONVERSATION_LOCKED',
+    pattern: /idle.?timeout|no response data received|connection may have stalled/i,
+    code: 'IDLE_TIMEOUT',
+    title: 'Response Timeout',
+    message: 'The AI took too long to respond. This may happen with complex prompts or when the service is busy. Please try again.',
+    recoverable: true,
+  },
+  // Match actual OpenAI error message, not just the error code
+  {
+    pattern: /conversation_locked|another process.*operating|conversation.*currently in use/i,
+    code: 'CONVERSATION_BUSY',
     title: 'Conversation Busy',
-    message: 'The conversation is currently in use. Retrying...',
+    message: 'The conversation is processing another request. Please wait a moment and try again.',
     recoverable: true,
   },
   {
@@ -60,8 +69,9 @@ const ERROR_PATTERNS = [
     message: 'The prompt has no content. Add text to the user or admin prompt field.',
     recoverable: false,
   },
+  // More specific pattern to avoid false positives from "timeout" or "connection" in other errors
   {
-    pattern: /network|fetch|connection|timeout/i,
+    pattern: /failed to fetch|network error|ERR_NETWORK|ECONNREFUSED|ENOTFOUND|net::ERR_|NetworkError/i,
     code: 'NETWORK_ERROR',
     title: 'Network Error',
     message: 'Unable to connect. Please check your internet connection.',
