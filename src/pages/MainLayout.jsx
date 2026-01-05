@@ -139,6 +139,7 @@ const MainLayout = () => {
     saveAsTemplateDialogOpen,
     setSaveAsTemplateDialogOpen,
     saveAsTemplateSource,
+    setSaveAsTemplateSource,
     handleSaveAsTemplate,
     isInitialLoad,
     setIsInitialLoad,
@@ -1093,7 +1094,7 @@ const MainLayout = () => {
           onAddFromTemplate={() => setTemplateDialogOpen(true)}
           onDeletePrompt={handleDeleteItem}
           onDuplicatePrompt={handleDuplicateItem}
-          onExportPrompt={(id) => { setSelectedPromptId(id); setExportPanelOpen(true); }}
+          onExportPrompt={(id) => exportState.openExport([id])}
           onMovePrompt={handleMoveItem}
           onRefresh={refreshTreeData}
           onClose={() => setFolderPanelOpen(false)}
