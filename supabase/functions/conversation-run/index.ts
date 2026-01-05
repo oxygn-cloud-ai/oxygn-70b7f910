@@ -268,12 +268,12 @@ async function runResponsesAPI(
   if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
     requestBody.top_p = topP;
   }
-  // Use model's token_param to determine correct API parameter name
+  // Use model's token_param from database to determine correct API parameter name
   if (maxTokens !== undefined && !isNaN(maxTokens)) {
     const tokenParam = await getTokenParam(supabase, requestedModel);
-    // OpenAI Responses API uses max_output_tokens, but we track which param type was used
-    requestBody.max_output_tokens = maxTokens;
-    console.log(`Using token param: ${tokenParam} -> max_output_tokens = ${maxTokens}`);
+    // Use the database-configured parameter name (e.g., max_output_tokens, max_tokens)
+    requestBody[tokenParam] = maxTokens;
+    console.log(`Using token param: ${tokenParam} = ${maxTokens}`);
   }
   // Fetch model config once for parameter validation
   const modelConfig = await fetchModelConfig(supabase, requestedModel);
