@@ -221,7 +221,7 @@ serve(async (req) => {
         .from(TABLES.THREADS)
         .select('openai_conversation_id')
         .eq('row_id', thread_row_id)
-        .single();
+        .maybeSingle();
 
       // Delete from OpenAI
       if (thread?.openai_conversation_id) {

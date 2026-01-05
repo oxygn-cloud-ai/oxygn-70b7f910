@@ -39,7 +39,7 @@ export const usePromptFamilyChat = (promptRowId) => {
         .from('q_prompts')
         .select('parent_row_id, prompt_name')
         .eq('row_id', current)
-        .single();
+        .maybeSingle();
       if (!data?.parent_row_id) {
         return current;
       }

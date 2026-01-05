@@ -136,7 +136,7 @@ const useToastPosition = () => {
           .from('q_settings')
           .select('setting_value')
           .eq('setting_key', `toast_position_${user.id}`)
-          .single();
+          .maybeSingle();
         
         if (data?.setting_value) {
           try {

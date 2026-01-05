@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
         .from(import.meta.env.VITE_PROFILES_TBL || 'profiles')
         .select('display_name, avatar_url, email')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
       if (!error && data) {
         setUserProfile(data);

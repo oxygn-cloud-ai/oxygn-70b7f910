@@ -356,8 +356,8 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   // Helper to check if a setting is supported
   const hasSetting = (setting) => supportedSettings.includes(setting);
 
-  // Determine token parameter type
-  const tokenParamLabel = hasSetting('max_completion_tokens') ? 'Max Completion Tokens' : 'Max Tokens';
+  // Token setting - always use max_tokens (edge function handles API param)
+  const tokenParamLabel = 'Max Tokens';
   const hasTokenSetting = hasSetting('max_tokens') || hasSetting('max_completion_tokens');
 
   return (

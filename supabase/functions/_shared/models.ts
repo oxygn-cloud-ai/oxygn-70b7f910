@@ -79,7 +79,7 @@ export async function fetchModelConfig(
     .from('q_models')
     .select('*')
     .eq('model_id', modelId)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     console.warn(`Model config not found for ${modelId}, using defaults`);
@@ -153,7 +153,7 @@ export async function getDefaultModelFromSettings(
     .from('q_settings')
     .select('setting_value')
     .eq('setting_key', 'default_model')
-    .single();
+    .maybeSingle();
 
   if (settingData?.setting_value) {
     // Verify the model exists and is active
@@ -162,7 +162,7 @@ export async function getDefaultModelFromSettings(
       .select('model_id')
       .eq('model_id', settingData.setting_value)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (modelData?.model_id) {
       return modelData.model_id;
