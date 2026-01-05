@@ -17,7 +17,7 @@ async function walkToRoot(
       .select('row_id, parent_row_id')
       .eq('row_id', currentId)
       .eq('is_deleted', false)
-      .single();
+      .maybeSingle();
     
     if (!prompt?.parent_row_id) break;
     currentId = prompt.parent_row_id;
@@ -270,7 +270,7 @@ async function getFamilyTemplateFromMap(
     .from(TABLES.TEMPLATES)
     .select('row_id, template_name, template_description, category')
     .eq('row_id', rootPrompt.template_row_id)
-    .single();
+    .maybeSingle();
 
   return template;
 }

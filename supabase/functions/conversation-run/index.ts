@@ -1480,7 +1480,7 @@ serve(async (req) => {
           .from(TABLES.SETTINGS)
           .select('setting_value')
           .eq('setting_key', 'cascade_empty_prompt_fallback')
-          .single();
+          .maybeSingle();
         
         if (fallbackSetting?.setting_value) {
           emptyPromptFallback = fallbackSetting.setting_value;

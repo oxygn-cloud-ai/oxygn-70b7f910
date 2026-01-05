@@ -16,9 +16,9 @@ const buildTemplateStructure = async (supabase, promptRowId, includeChildren = t
     .from(PROMPTS_TABLE)
     .select('*')
     .eq('row_id', promptRowId)
-    .single();
+    .maybeSingle();
 
-  if (promptError) throw promptError;
+  if (promptError || !prompt) throw promptError || new Error('Prompt not found');
 
   // Build base structure
   const structure = {

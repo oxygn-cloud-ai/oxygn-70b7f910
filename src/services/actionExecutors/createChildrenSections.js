@@ -71,7 +71,7 @@ const getPromptSettings = async (supabase, promptRowId) => {
       presence_penalty_on, input_admin_prompt, response_format, response_format_on
     `)
     .eq('row_id', promptRowId)
-    .single();
+    .maybeSingle();
 
   return data || {};
 };
@@ -86,7 +86,7 @@ const getLibraryPrompt = async (supabase, libraryPromptId) => {
     .from('q_prompt_library')
     .select('content, name')
     .eq('row_id', libraryPromptId)
-    .single();
+    .maybeSingle();
 
   return data;
 };

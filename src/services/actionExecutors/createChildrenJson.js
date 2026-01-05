@@ -93,7 +93,7 @@ const getParentSettings = async (supabase, parentRowId) => {
       temperature, temperature_on, max_tokens, max_tokens_on
     `)
     .eq('row_id', parentRowId)
-    .single();
+    .maybeSingle();
 
   return data || {};
 };
@@ -108,7 +108,7 @@ const getLibraryPrompt = async (supabase, libraryPromptId) => {
     .from('q_prompt_library')
     .select('content, name')
     .eq('row_id', libraryPromptId)
-    .single();
+    .maybeSingle();
 
   return data;
 };

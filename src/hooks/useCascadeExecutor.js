@@ -82,7 +82,7 @@ export const useCascadeExecutor = () => {
       .select('*')
       .eq('row_id', topLevelRowId)
       .eq('is_deleted', false)
-      .single();
+      .maybeSingle();
 
     if (topError || !topPrompt) {
       console.error('Error fetching top-level prompt:', topError);
@@ -251,7 +251,7 @@ export const useCascadeExecutor = () => {
         .from(import.meta.env.VITE_SETTINGS_TBL)
         .select('setting_value')
         .eq('setting_key', 'cascade_empty_prompt_fallback')
-        .single();
+        .maybeSingle();
       
       if (settingsData?.setting_value) {
         cascadeFallbackMessage = settingsData.setting_value;

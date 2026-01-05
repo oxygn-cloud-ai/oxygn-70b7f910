@@ -556,7 +556,7 @@ export const knowledgeModule: ToolModule = {
           .from('q_app_knowledge')
           .select('row_id, version, is_active, content')
           .eq('row_id', row_id)
-          .single();
+          .maybeSingle();
         
         if (existError || !existing) {
           return JSON.stringify({ error: 'Knowledge item not found' });
@@ -682,7 +682,7 @@ export const knowledgeModule: ToolModule = {
           .from('q_app_knowledge')
           .select('row_id, title, is_active')
           .eq('row_id', row_id)
-          .single();
+          .maybeSingle();
         
         if (existError || !existing) {
           return JSON.stringify({ error: 'Knowledge item not found' });

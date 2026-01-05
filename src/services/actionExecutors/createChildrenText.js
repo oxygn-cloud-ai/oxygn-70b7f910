@@ -66,7 +66,7 @@ const getParentSettings = async (supabase, parentRowId) => {
     .from(PROMPTS_TABLE)
     .select('model, model_on, web_search_on, confluence_enabled, thread_mode, child_thread_strategy')
     .eq('row_id', parentRowId)
-    .single();
+    .maybeSingle();
 
   return data || {};
 };
@@ -81,7 +81,7 @@ const getLibraryPrompt = async (supabase, libraryPromptId) => {
     .from('q_prompt_library')
     .select('content, name')
     .eq('row_id', libraryPromptId)
-    .single();
+    .maybeSingle();
 
   return data;
 };

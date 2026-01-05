@@ -176,7 +176,7 @@ export const variablesModule: ToolModule = {
             .from(TABLES.PROMPT_VARIABLES)
             .select('prompt_row_id, variable_name')
             .eq('row_id', variable_row_id)
-            .single();
+            .maybeSingle();
 
           if (varError || !variable) {
             return JSON.stringify({ error: 'Variable not found' });
@@ -227,7 +227,7 @@ export const variablesModule: ToolModule = {
             .from(TABLES.PROMPT_VARIABLES)
             .select('prompt_row_id, variable_name')
             .eq('row_id', variable_row_id)
-            .single();
+            .maybeSingle();
 
           if (varError || !variable) {
             return JSON.stringify({ error: 'Variable not found' });
