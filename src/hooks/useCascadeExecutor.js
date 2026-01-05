@@ -1306,7 +1306,7 @@ export const useCascadeExecutor = () => {
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('*')
         .eq('row_id', child.row_id)
-        .single();
+        .maybeSingle();
 
       if (fetchError || !childPrompt) {
         console.error('executeChildCascade: Child prompt not found:', child.row_id, fetchError);

@@ -84,11 +84,11 @@ async function deleteOpenAIConversation(apiKey: string, conversationId: string):
 }
 
 // Note: fetchConversationHistory is now imported from _shared/familyThreads.ts
-// Local wrapper that transforms to expected format
+// Local wrapper that transforms to expected format with stable IDs
 async function fetchMessagesFromOpenAI(apiKey: string, conversationId: string, limit: number = 50): Promise<any[]> {
   const messages = await fetchConversationHistory(apiKey, conversationId, limit);
-  return messages.map(m => ({
-    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  return messages.map((m, index) => ({
+    id: `${conversationId}-${index}`, // Stable ID based on conversation + index
     role: m.role,
     content: m.content,
     created_at: m.created_at,
@@ -216,12 +216,29 @@ serve(async (req) => {
     if (action === 'delete') {
       const { thread_row_id } = body;
 
-      // First, get the thread to get the conversation ID
-      const { data: thread } = await supabase
+      // First, get the thread and verify ownership
+      const { data: thread, error: threadError } = await supabase
         .from(TABLES.THREADS)
-        .select('openai_conversation_id')
+        .select('openai_conversation_id, owner_id')
         .eq('row_id', thread_row_id)
         .maybeSingle();
+
+      if (threadError || !thread) {
+        console.error('Thread not found for delete:', thread_row_id);
+        return new Response(
+          JSON.stringify({ error: 'Thread not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Enforce ownership - only owner can delete
+      if (thread.owner_id !== validation.user?.id) {
+        console.warn('Unauthorized delete attempt:', { thread_row_id, owner: thread.owner_id, requester: validation.user?.id });
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Delete from OpenAI
       if (thread?.openai_conversation_id) {
@@ -246,10 +263,10 @@ serve(async (req) => {
     if (action === 'get_messages') {
       const { thread_row_id, limit = 50 } = body;
 
-      // Get the thread to get the conversation ID
+      // Get the thread and verify ownership
       const { data: thread, error: threadError } = await supabase
         .from(TABLES.THREADS)
-        .select('openai_conversation_id')
+        .select('openai_conversation_id, owner_id')
         .eq('row_id', thread_row_id)
         .maybeSingle();
 
@@ -258,6 +275,15 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ error: 'Thread not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Enforce ownership - only owner can read messages
+      if (thread.owner_id !== validation.user?.id) {
+        console.warn('Unauthorized get_messages attempt:', { thread_row_id, owner: thread.owner_id, requester: validation.user?.id });
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -275,6 +301,29 @@ serve(async (req) => {
     // RENAME - Rename a thread
     if (action === 'rename') {
       const { thread_row_id, name } = body;
+
+      // Verify ownership first
+      const { data: thread, error: threadError } = await supabase
+        .from(TABLES.THREADS)
+        .select('owner_id')
+        .eq('row_id', thread_row_id)
+        .maybeSingle();
+
+      if (threadError || !thread) {
+        return new Response(
+          JSON.stringify({ error: 'Thread not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Enforce ownership - only owner can rename
+      if (thread.owner_id !== validation.user?.id) {
+        console.warn('Unauthorized rename attempt:', { thread_row_id, owner: thread.owner_id, requester: validation.user?.id });
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       await supabase
         .from(TABLES.THREADS)

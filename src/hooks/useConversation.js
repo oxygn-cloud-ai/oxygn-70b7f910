@@ -47,7 +47,7 @@ export const useConversation = (promptRowId) => {
             api_version: 'responses',
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (createError) {
           console.error('Error creating conversation record:', createError);
@@ -89,7 +89,7 @@ export const useConversation = (promptRowId) => {
           api_version: 'responses',
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setConversation(data);

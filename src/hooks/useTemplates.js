@@ -63,7 +63,7 @@ export const useTemplates = () => {
           owner_id: user?.id,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       
