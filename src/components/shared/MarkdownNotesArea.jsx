@@ -209,11 +209,12 @@ const MarkdownNotesArea = ({
     }
   }, []);
 
-  // Perform save
+  // Perform save - uses ref to avoid stale closure issues
   const performSave = useCallback((valueToSave) => {
-    if (valueToSave === lastSavedValue) return;
+    // Use ref for comparison to avoid stale closure
+    if (valueToSave === lastSavedValueRef.current) return;
     
-    pushPreviousValue(lastSavedValue);
+    pushPreviousValue(lastSavedValueRef.current);
     
     if (onSave) {
       // Wrap in Promise.resolve to ensure we get a promise, then register it
@@ -221,7 +222,7 @@ const MarkdownNotesArea = ({
       registerSave(savePromise);
     }
     setLastSavedValue(valueToSave);
-  }, [lastSavedValue, onSave, pushPreviousValue, registerSave]);
+  }, [onSave, pushPreviousValue, registerSave]);
 
   // Immediate save
   const handleImmediateSave = useCallback(() => {
