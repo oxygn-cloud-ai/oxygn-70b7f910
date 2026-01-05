@@ -233,10 +233,10 @@ serve(async (req) => {
           upload_status: 'uploaded',
         })
         .select()
-        .single();
+        .maybeSingle();
 
-      if (saveError) {
-        console.error('Failed to save file record:', saveError);
+      if (saveError || !savedFile) {
+        console.error('Failed to save file record:', saveError || 'No data returned');
       }
 
       return new Response(

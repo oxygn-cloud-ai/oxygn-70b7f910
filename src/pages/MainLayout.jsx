@@ -296,7 +296,7 @@ const MainLayout = () => {
       promptData = await fetchItemData(promptId);
       startTime = Date.now();
     
-    // Start execution trace in background (non-blocking for UI)
+      // Start execution trace in background (non-blocking for UI)
     // We'll await the result after runPrompt completes
     const tracingPromise = (async () => {
       try {
@@ -707,7 +707,7 @@ const MainLayout = () => {
       // Reset debounce state after 1 second to prevent accidental double-clicks
       setTimeout(() => setRunStartingFor(null), 1000);
     }
-  }, [runStartingFor, flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace, startSingleRun, endSingleRun]);
+  }, [runStartingFor, flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace, startSingleRun, endSingleRun, showActionPreview]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {
