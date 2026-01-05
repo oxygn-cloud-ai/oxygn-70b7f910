@@ -130,7 +130,7 @@ serve(async (req) => {
         .from(TABLES.ASSISTANTS)
         .select('*')
         .eq('row_id', assistant_row_id)
-        .single();
+        .maybeSingle();
 
       if (fetchError || !assistant) {
         console.error('Failed to fetch assistant:', fetchError);
@@ -392,7 +392,7 @@ serve(async (req) => {
             .from(TABLES.ASSISTANTS)
             .select('vector_store_id')
             .eq('row_id', assistant_row_id)
-            .single();
+            .maybeSingle();
           
           if (assistant?.vector_store_id) {
             await deIndexFromVectorStore(assistant.vector_store_id, openai_file_id);
@@ -421,7 +421,7 @@ serve(async (req) => {
           .from(TABLES.ASSISTANT_FILES)
           .select('openai_file_id, assistant_row_id')
           .eq('row_id', file_row_id)
-          .single();
+          .maybeSingle();
 
         if (file?.openai_file_id) {
           // Get vector store ID from assistant
@@ -430,7 +430,7 @@ serve(async (req) => {
               .from(TABLES.ASSISTANTS)
               .select('vector_store_id')
               .eq('row_id', file.assistant_row_id)
-              .single();
+              .maybeSingle();
             
             if (assistant?.vector_store_id) {
               await deIndexFromVectorStore(assistant.vector_store_id, file.openai_file_id);
@@ -471,9 +471,9 @@ serve(async (req) => {
         .from(TABLES.ASSISTANTS)
         .select('vector_store_id')
         .eq('row_id', assistant_row_id)
-        .single();
+        .maybeSingle();
 
-      if (assistantError) {
+      if (assistantError || !assistant) {
         console.error('Failed to fetch assistant:', assistantError);
         return new Response(
           JSON.stringify({ error: 'Assistant not found' }),

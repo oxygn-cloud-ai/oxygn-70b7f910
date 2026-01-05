@@ -140,7 +140,7 @@ export const useKnowledge = () => {
         .from('q_app_knowledge')
         .select('*')
         .eq('row_id', rowId)
-        .single();
+        .maybeSingle();
 
       // Save to history
       if (currentItem) {
@@ -291,7 +291,7 @@ export const useKnowledge = () => {
             .eq('topic', item.topic)
             .eq('title', item.title)
             .eq('is_active', true)
-            .single();
+            .maybeSingle();
 
           if (existing) {
             // Update existing item (skip history for bulk operations)
