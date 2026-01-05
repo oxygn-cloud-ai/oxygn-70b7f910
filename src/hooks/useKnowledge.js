@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
@@ -26,6 +26,13 @@ export const useKnowledge = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const isMountedRef = useRef(true);
+
+  // Reset mounted ref on mount/unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   // Fetch all knowledge items
   const fetchItems = useCallback(async () => {
@@ -55,12 +62,14 @@ export const useKnowledge = () => {
         );
       }
       
-      setItems(filtered);
+      if (isMountedRef.current) setItems(filtered);
     } catch (error) {
-      console.error('Error fetching knowledge:', error);
-      toast.error('Failed to load knowledge items');
+      if (isMountedRef.current) {
+        console.error('Error fetching knowledge:', error);
+        toast.error('Failed to load knowledge items');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [selectedTopic, searchQuery]);
 
