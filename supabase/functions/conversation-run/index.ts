@@ -221,14 +221,14 @@ async function runResponsesAPI(
     background: true, // Enable background mode for cancellation support
   };
 
-  // Add multi-turn context: prefer previous_response_id (avoids reasoning item issues)
-  // Fall back to conversation parameter for threads without a stored response_id
+  // Add multi-turn context using previous_response_id only
+  // DO NOT use conversation parameter - causes "reasoning item" errors with gpt-5/o-series models
+  // If no previous_response_id exists, start fresh (first message in thread)
   if (lastResponseId?.startsWith('resp_')) {
     requestBody.previous_response_id = lastResponseId;
     console.log('Using previous_response_id for multi-turn context:', lastResponseId);
-  } else if (conversationId?.startsWith('conv_')) {
-    requestBody.conversation = conversationId;
-    console.log('Falling back to conversation parameter:', conversationId);
+  } else {
+    console.log('No previous_response_id - starting fresh conversation turn');
   }
 
   // Add instructions (system prompt)
@@ -1912,7 +1912,10 @@ serve(async (req) => {
 
       // Update thread with new response_id for multi-turn context chaining
       if (result.response_id?.startsWith('resp_')) {
-        await updateFamilyThreadResponseId(supabase, activeThreadRowId, result.response_id);
+        const updated = await updateFamilyThreadResponseId(supabase, activeThreadRowId, result.response_id);
+        if (!updated) {
+          console.warn('Failed to persist response_id - next turn may lose conversation context');
+        }
       }
 
       console.log('Run completed successfully');

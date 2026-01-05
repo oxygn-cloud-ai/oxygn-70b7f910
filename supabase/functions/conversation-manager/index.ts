@@ -644,7 +644,7 @@ serve(async (req) => {
           .from(TABLES.ASSISTANTS)
           .select('vector_store_id')
           .eq('row_id', rowId)
-          .single();
+          .maybeSingle();
         
         const vectorStoreId = assistant?.vector_store_id;
         

@@ -151,7 +151,7 @@ async function resolvePromptId(
       .select('row_id, prompt_name, owner_id')
       .eq('row_id', promptId)
       .eq('is_deleted', false)
-      .single();
+      .maybeSingle();
     
     if (!prompt) return { error: `Prompt ID "${promptId}" not found` };
     if (prompt.owner_id !== userId) return { error: 'Access denied' };
@@ -193,7 +193,7 @@ async function fetchCascadeHierarchy(
 
   const { data: topPrompt } = await supabase
     .from(TABLES.PROMPTS).select('*')
-    .eq('row_id', topLevelRowId).eq('is_deleted', false).single();
+    .eq('row_id', topLevelRowId).eq('is_deleted', false).maybeSingle();
 
   if (!topPrompt) return null;
 
@@ -507,7 +507,7 @@ export const promptsModule: ToolModule = {
             .from(TABLES.PROMPTS)
             .select('*')
             .eq('row_id', prompt_row_id)
-            .single();
+            .maybeSingle();
 
           if (error || !prompt) {
             return JSON.stringify({ error: 'Prompt not found' });
@@ -595,7 +595,7 @@ export const promptsModule: ToolModule = {
             .from(TABLES.PROMPTS)
             .select('model, thread_mode, owner_id')
             .eq('row_id', parent_row_id)
-            .single();
+            .maybeSingle();
 
           // Calculate position (append at end)
           const { data: siblings } = await supabase
@@ -692,9 +692,12 @@ export const promptsModule: ToolModule = {
             .from(TABLES.PROMPTS)
             .select('parent_row_id, prompt_name')
             .eq('row_id', prompt_row_id)
-            .single();
+            .maybeSingle();
 
-          if (!prompt?.parent_row_id) {
+          if (!prompt) {
+            return JSON.stringify({ error: 'Prompt not found' });
+          }
+          if (!prompt.parent_row_id) {
             return JSON.stringify({ error: 'Cannot delete root prompt. Delete the entire family from the UI instead.' });
           }
 
@@ -741,7 +744,7 @@ export const promptsModule: ToolModule = {
             .from(TABLES.PROMPTS)
             .select('*')
             .eq('row_id', prompt_row_id)
-            .single();
+            .maybeSingle();
 
           if (sourceError || !source) {
             return JSON.stringify({ error: 'Source prompt not found' });
@@ -790,7 +793,7 @@ export const promptsModule: ToolModule = {
                 .from(TABLES.PROMPTS)
                 .select('*')
                 .eq('row_id', childId)
-                .single();
+                .maybeSingle();
 
               if (childSource) {
                 const { row_id: _cid, created_at: _cc, updated_at: _cu, ...childCopy } = childSource;

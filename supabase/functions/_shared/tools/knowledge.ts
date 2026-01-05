@@ -527,13 +527,14 @@ export const knowledgeModule: ToolModule = {
           query = query.eq('is_active', true);
         }
         
-        const { data, error } = await query.single();
+        const { data, error } = await query.maybeSingle();
         
         if (error) {
-          if (error.code === 'PGRST116') {
-            return JSON.stringify({ error: 'Knowledge item not found or has been deleted' });
-          }
           return JSON.stringify({ error: error.message });
+        }
+        
+        if (!data) {
+          return JSON.stringify({ error: 'Knowledge item not found or has been deleted' });
         }
         
         // Warn when returning deleted item
