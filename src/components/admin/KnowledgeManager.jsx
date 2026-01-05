@@ -162,11 +162,16 @@ const KnowledgeManager = () => {
     const results = await bulkImportItems(importItems);
     if (results.created > 0 || results.updated > 0) {
       toast.info('Regenerating embeddings in background...');
-      regenerateEmbeddings().then((res) => {
-        if (res.success) {
-          toast.success(`Embeddings regenerated: ${res.processed || 0} items`);
-        }
-      });
+      regenerateEmbeddings()
+        .then((res) => {
+          if (res.success) {
+            toast.success(`Embeddings regenerated: ${res.processed || 0} items`);
+          }
+        })
+        .catch((err) => {
+          console.error('Background embedding regeneration failed:', err);
+          toast.error('Failed to regenerate embeddings');
+        });
       fetchItems();
     }
     return results;

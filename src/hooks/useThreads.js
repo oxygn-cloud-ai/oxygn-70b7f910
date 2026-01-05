@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
@@ -10,6 +10,13 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const isMountedRef = useRef(true);
+
+  // Reset mounted ref on mount/unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
 
   const fetchThreads = useCallback(async () => {
     if (!supabase) return;
@@ -26,18 +33,22 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
 
-      setThreads(data.threads || []);
+      if (isMountedRef.current) {
+        setThreads(data.threads || []);
 
-      // Set active thread if one exists
-      if (data.threads?.length > 0 && !activeThread) {
-        const active = data.threads.find(t => t.is_active);
-        setActiveThread(active || data.threads[0]);
+        // Set active thread if one exists
+        if (data.threads?.length > 0 && !activeThread) {
+          const active = data.threads.find(t => t.is_active);
+          setActiveThread(active || data.threads[0]);
+        }
       }
     } catch (error) {
-      console.error('Error fetching threads:', error);
-      toast.error('Failed to load threads');
+      if (isMountedRef.current) {
+        console.error('Error fetching threads:', error);
+        toast.error('Failed to load threads');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) setIsLoading(false);
     }
   }, [supabase, assistantRowId, childPromptRowId, activeThread]);
 

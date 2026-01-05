@@ -116,6 +116,19 @@ const SettingsPanel = ({
 
   const handleValueChange = async (fieldName, value) => {
     handleChange(fieldName, value);
+    
+    // For select fields, save immediately (no blur event like inputs)
+    try {
+      const { error } = await supabase
+        .from(import.meta.env.VITE_PROMPTS_TBL)
+        .update({ [fieldName]: value })
+        .eq('row_id', selectedItemData.row_id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving field:', error);
+      toast.error(`Failed to save ${fieldName}`);
+    }
   };
 
   const handleValueBlur = async (fieldName) => {
