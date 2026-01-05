@@ -263,11 +263,6 @@ const NewPromptChoiceDialog = ({
           promptName = overridePromptName;
         } else {
           promptName = replaceVariables(promptStructure.prompt_name, vars);
-          
-          // For child prompts, prefix with q.policy.name if set
-          if (!isTopLevelPrompt && vars['q.policy.name'] && vars['q.policy.name'].trim()) {
-            // Child prompts can still use the policy name in their template if needed
-          }
         }
         
         // Store for context variables

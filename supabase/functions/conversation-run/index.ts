@@ -1266,9 +1266,13 @@ serve(async (req) => {
             variables[`q.ref[${p.row_id}].input_user_prompt`] = p.input_user_prompt || '';
             variables[`q.ref[${p.row_id}].prompt_name`] = p.prompt_name || '';
             
+            // Include system variables from referenced prompt, but skip context variables
             if (p.system_variables && typeof p.system_variables === 'object') {
               Object.entries(p.system_variables).forEach(([key, val]) => {
-                variables[`q.ref[${p.row_id}].${key}`] = String(val ?? '');
+                // Skip context variables - they contain stale data
+                if (!CONTEXT_VARIABLE_KEYS.includes(key)) {
+                  variables[`q.ref[${p.row_id}].${key}`] = String(val ?? '');
+                }
               });
             }
           });
