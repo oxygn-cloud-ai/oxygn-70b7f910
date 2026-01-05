@@ -251,7 +251,7 @@ serve(async (req) => {
         .from(TABLES.THREADS)
         .select('openai_conversation_id')
         .eq('row_id', thread_row_id)
-        .single();
+        .maybeSingle();
 
       if (threadError || !thread) {
         console.error('Thread not found:', threadError);

@@ -184,7 +184,7 @@ async function checkAssistantHealth(
     .from('q_assistants')
     .select('row_id, name, vector_store_id, prompt_row_id, q_prompts!inner(prompt_name)')
     .eq('row_id', assistantRowId)
-    .single();
+    .maybeSingle();
   
   if (assistantError || !assistant) {
     return {
@@ -283,7 +283,7 @@ async function repairAssistant(
     .from('q_assistants')
     .select('row_id, name, vector_store_id')
     .eq('row_id', assistantRowId)
-    .single();
+    .maybeSingle();
   
   if (assistantError || !assistant) {
     return {

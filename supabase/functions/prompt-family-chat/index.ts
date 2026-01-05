@@ -578,7 +578,7 @@ serve(async (req) => {
       .from(TABLES.PROMPTS)
       .select('owner_id')
       .eq('row_id', prompt_row_id)
-      .single();
+      .maybeSingle();
 
     if (promptCheckError || !promptCheck) {
       return new Response(

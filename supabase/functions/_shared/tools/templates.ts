@@ -140,7 +140,7 @@ export const templatesModule: ToolModule = {
             .select('*')
             .eq('row_id', template_row_id)
             .eq('is_deleted', false)
-            .single();
+            .maybeSingle();
 
           if (error || !template) {
             return JSON.stringify({ error: 'Template not found' });
@@ -175,7 +175,7 @@ export const templatesModule: ToolModule = {
             .select('*')
             .eq('row_id', template_row_id)
             .eq('is_deleted', false)
-            .single();
+            .maybeSingle();
 
           if (templateError || !template) {
             return JSON.stringify({ error: 'Template not found' });

@@ -940,9 +940,9 @@ Deno.serve(async (req) => {
           .from(TABLES.CONFLUENCE_PAGES)
           .select('page_id')
           .eq('row_id', rowId)
-          .single();
+          .maybeSingle();
         
-        if (fetchError) throw fetchError;
+        if (fetchError || !existing) throw fetchError || new Error('Page record not found');
         
         // Fetch fresh content from Confluence
         const data = await confluenceRequest(`/content/${existing.page_id}?expand=body.storage,space`, config);
@@ -987,9 +987,9 @@ Deno.serve(async (req) => {
           .from(TABLES.CONFLUENCE_PAGES)
           .select('*')
           .eq('row_id', rowId)
-          .single();
+          .maybeSingle();
         
-        if (fetchError) throw fetchError;
+        if (fetchError || !page) throw fetchError || new Error('Page not found');
         
         // Upload content as a file for vector store indexing
         const fileContent = `# ${page.page_title}\n\nSpace: ${page.space_name || page.space_key}\nSource: ${page.page_url}\n\n---\n\n${page.content_text}`;

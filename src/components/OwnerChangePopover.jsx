@@ -47,7 +47,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('is_private')
         .eq('row_id', promptRowId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setIsPrivate(data?.is_private ?? false);
