@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings, getTokenParam } from "../_shared/models.ts";
-import { resolveRootPromptId, getOrCreateFamilyThread } from "../_shared/familyThreads.ts";
+import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponseId } from "../_shared/familyThreads.ts";
 import { getBuiltinTools } from "../_shared/tools.ts";
 
 const corsHeaders = {
@@ -191,13 +191,15 @@ interface ApiOptions {
   storeInHistory?: boolean;
 }
 
-// Call OpenAI Responses API - uses conversation parameter for multi-turn context
+// Call OpenAI Responses API - uses previous_response_id for multi-turn context
+// Falls back to conversation parameter only for legacy threads without response_id
 // Supports background mode for cancellation support
 async function runResponsesAPI(
   assistantData: any,
   userMessage: string,
   systemPrompt: string,
   conversationId: string | null,
+  lastResponseId: string | null,
   apiKey: string,
   supabase: any,
   options: ApiOptions = {},
@@ -219,9 +221,14 @@ async function runResponsesAPI(
     background: true, // Enable background mode for cancellation support
   };
 
-  // Add conversation parameter for multi-turn context (Conversations API)
-  if (conversationId?.startsWith('conv_')) {
+  // Add multi-turn context: prefer previous_response_id (avoids reasoning item issues)
+  // Fall back to conversation parameter for threads without a stored response_id
+  if (lastResponseId?.startsWith('resp_')) {
+    requestBody.previous_response_id = lastResponseId;
+    console.log('Using previous_response_id for multi-turn context:', lastResponseId);
+  } else if (conversationId?.startsWith('conv_')) {
     requestBody.conversation = conversationId;
+    console.log('Falling back to conversation parameter:', conversationId);
   }
 
   // Add instructions (system prompt)
@@ -1845,11 +1852,13 @@ serve(async (req) => {
       });
 
       // Call OpenAI Responses API (with emitter for api_started event)
+      // Pass last_response_id for multi-turn context (avoids reasoning item issues)
       const result = await runResponsesAPI(
         assistantData,
         finalMessage,
         systemPrompt,
         conversationId,
+        familyThread.last_response_id,
         OPENAI_API_KEY,
         supabase,
         apiOptions,
@@ -1901,7 +1910,10 @@ serve(async (req) => {
         })
         .eq('row_id', child_prompt_row_id);
 
-      // No need to update thread - Conversations API auto-accumulates messages
+      // Update thread with new response_id for multi-turn context chaining
+      if (result.response_id?.startsWith('resp_')) {
+        await updateFamilyThreadResponseId(supabase, activeThreadRowId, result.response_id);
+      }
 
       console.log('Run completed successfully');
 
