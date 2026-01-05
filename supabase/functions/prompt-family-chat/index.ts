@@ -498,11 +498,22 @@ serve(async (req) => {
 
     console.log('Prompt family chat request from:', validation.user?.email);
 
-    const { prompt_row_id, messages, system_prompt, model, reasoning_effort } = await req.json();
+    const body = await req.json();
+    const { prompt_row_id, messages, system_prompt, model, reasoning_effort } = body;
 
+    // Input validation
     if (!prompt_row_id) {
       return new Response(
         JSON.stringify({ error: 'prompt_row_id is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate UUID format for prompt_row_id
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (typeof prompt_row_id !== 'string' || !uuidRegex.test(prompt_row_id)) {
+      return new Response(
+        JSON.stringify({ error: 'prompt_row_id must be a valid UUID' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -512,6 +523,40 @@ serve(async (req) => {
         JSON.stringify({ error: 'messages array is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Validate message content length (100KB total limit)
+    const totalContentLength = messages.reduce((acc: number, msg: any) => {
+      return acc + (typeof msg?.content === 'string' ? msg.content.length : 0);
+    }, 0);
+    if (totalContentLength > 100000) {
+      return new Response(
+        JSON.stringify({ error: 'Total message content exceeds 100KB limit' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate individual message structure
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (!msg || typeof msg !== 'object') {
+        return new Response(
+          JSON.stringify({ error: `Invalid message at index ${i}: must be an object` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!msg.role || !['user', 'assistant', 'system'].includes(msg.role)) {
+        return new Response(
+          JSON.stringify({ error: `Invalid message at index ${i}: role must be 'user', 'assistant', or 'system'` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (msg.content !== undefined && typeof msg.content !== 'string') {
+        return new Response(
+          JSON.stringify({ error: `Invalid message at index ${i}: content must be a string` }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');

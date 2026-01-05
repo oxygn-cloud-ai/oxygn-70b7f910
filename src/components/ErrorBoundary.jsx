@@ -28,18 +28,28 @@ class ErrorBoundary extends Component {
       context: 'error_boundary',
     });
     
-    // Report to parent window if available (Lovable's error reporting)
+    // Report to parent window if in iframe (Lovable's error reporting)
+    // Use specific origins for security, fallback to same-origin check
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({
-          type: 'error',
-          message: error?.message || 'Unknown error',
-          stack: error?.stack,
-          componentStack: errorInfo?.componentStack,
-        }, '*');
+        // Only send to known trusted origins or same origin
+        const trustedOrigins = ['https://lovable.dev', 'https://www.lovable.dev'];
+        const currentOrigin = window.location.origin;
+        const targetOrigin = trustedOrigins.includes(currentOrigin) ? currentOrigin : 
+          (document.referrer ? new URL(document.referrer).origin : currentOrigin);
+        
+        // Only post if target is trusted or same origin
+        if (trustedOrigins.includes(targetOrigin) || targetOrigin === currentOrigin) {
+          window.parent.postMessage({
+            type: 'error',
+            message: error?.message || 'Unknown error',
+            stack: error?.stack,
+            componentStack: errorInfo?.componentStack,
+          }, targetOrigin);
+        }
       }
     } catch (e) {
-      // Ignore postMessage errors
+      // Ignore postMessage errors (cross-origin restrictions, etc.)
     }
   }
 
