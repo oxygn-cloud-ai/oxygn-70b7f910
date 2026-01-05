@@ -31,6 +31,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/sonner';
 import { useFieldUndo } from '@/hooks/useFieldUndo';
 import { usePendingSaves } from '@/contexts/PendingSaveContext';
@@ -147,7 +156,9 @@ const MarkdownNotesArea = ({
         if (saved !== null) {
           return saved === 'true';
         }
-      } catch {}
+      } catch (e) {
+        console.warn('localStorage access failed:', e.message);
+      }
     }
     return false;
   });
@@ -156,6 +167,11 @@ const MarkdownNotesArea = ({
   const lastSavedValueRef = useRef(value || ''); // Ref to avoid stale closure in autosave timeout
   const isInternalChange = useRef(false);
   const saveTimeoutRef = useRef(null);
+  
+  // Link dialog state
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkError, setLinkError] = useState('');
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -179,7 +195,11 @@ const MarkdownNotesArea = ({
   // Persist collapsed state to localStorage
   useEffect(() => {
     if (persistKey) {
-      localStorage.setItem(persistKey, String(isCollapsed));
+      try {
+        localStorage.setItem(persistKey, String(isCollapsed));
+      } catch (e) {
+        console.warn('localStorage write failed:', e.message);
+      }
     }
   }, [persistKey, isCollapsed]);
 
@@ -359,11 +379,37 @@ const MarkdownNotesArea = ({
     }
   }, [value, editor]);
 
-  const handleAddLink = () => {
-    const url = window.prompt('Enter URL:');
-    if (url) {
-      editor?.chain().focus().setLink({ href: url }).run();
+  // URL validation function
+  const validateUrl = (url) => {
+    if (!url || !url.trim()) return 'URL is required';
+    try {
+      const parsed = new URL(url.trim());
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return 'URL must start with http:// or https://';
+      }
+      return null; // Valid
+    } catch {
+      return 'Invalid URL format';
     }
+  };
+
+  const handleAddLink = () => {
+    // Reset dialog state and open
+    setLinkUrl('');
+    setLinkError('');
+    setLinkDialogOpen(true);
+  };
+
+  const handleInsertLink = () => {
+    const error = validateUrl(linkUrl);
+    if (error) {
+      setLinkError(error);
+      return;
+    }
+    editor?.chain().focus().setLink({ href: linkUrl.trim() }).run();
+    setLinkDialogOpen(false);
+    setLinkUrl('');
+    setLinkError('');
   };
 
   const handleRemoveLink = () => {
@@ -514,6 +560,51 @@ const MarkdownNotesArea = ({
           </p>
         </div>
       )}
+
+      {/* Link Dialog */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-surface-container-high border-outline-variant">
+          <DialogHeader>
+            <DialogTitle className="text-title-sm text-on-surface">Add Link</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              value={linkUrl}
+              onChange={(e) => {
+                setLinkUrl(e.target.value);
+                setLinkError(''); // Clear error on input
+              }}
+              placeholder="https://example.com"
+              className="text-body-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleInsertLink();
+                }
+              }}
+              autoFocus
+            />
+            {linkError && (
+              <p className="text-[10px] text-red-500">{linkError}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="ghost" 
+              onClick={() => setLinkDialogOpen(false)}
+              className="text-body-sm"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleInsertLink}
+              className="text-body-sm"
+            >
+              Insert Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
