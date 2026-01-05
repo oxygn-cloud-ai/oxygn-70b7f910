@@ -105,6 +105,9 @@ const MainLayout = () => {
   // treeData is already hierarchical from useTreeData (buildTree is called in fetchPrompts)
   const hierarchicalTreeData = treeData || [];
   
+  // API call context for navigation guarding
+  const { isApiCallInProgress, requestNavigation } = useApiCallContext();
+  
   // Layout state from extracted hook
   const {
     isDark,
