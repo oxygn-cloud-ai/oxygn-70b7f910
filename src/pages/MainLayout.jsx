@@ -253,7 +253,7 @@ const MainLayout = () => {
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPrompt, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
   const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview } = useCascadeRun();
-  const [isRunningCascade, setIsRunningCascade] = useState(false);
+  // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
   
@@ -697,7 +697,7 @@ const MainLayout = () => {
       return;
     }
     
-    setIsRunningCascade(true);
+    // Cascade running state is managed by useCascadeRun context
     try {
       await executeCascade(topLevelPromptId, null);
       // Note: Success toast with details is handled by useCascadeExecutor
@@ -715,7 +715,7 @@ const MainLayout = () => {
         }, null, 2),
       });
     } finally {
-      setIsRunningCascade(false);
+      // State cleanup handled by context
     }
   }, [executeCascade, checkHasChildren, refreshTreeData, flushPendingSaves]);
   
@@ -1106,7 +1106,7 @@ const MainLayout = () => {
           onToggleExcludeCascade={handleToggleExcludeCascade}
           onToggleExcludeExport={handleToggleExcludeExport}
           isRunningPrompt={isRunningPrompt}
-          isRunningCascade={isRunningCascade}
+          isRunningCascade={isCascadeRunning}
           onBatchDelete={handleBatchDelete}
           onBatchDuplicate={handleBatchDuplicate}
           onBatchStar={handleBatchStar}
@@ -1291,7 +1291,7 @@ const MainLayout = () => {
                         onRunPrompt={handleRunPrompt}
                         onRunCascade={handleRunCascade}
                         isRunningPrompt={isRunningPrompt}
-                        isRunningCascade={isRunningCascade}
+                        isRunningCascade={isCascadeRunning}
                         onCancelRun={cancelRun}
                         runProgress={runProgress}
                         isCascadeRunning={isCascadeRunning}

@@ -93,7 +93,12 @@ export const useBuildInfo = () => {
       }
 
     } catch (err) {
-      console.error('Error fetching build info:', err);
+      // Downgrade to warn for expected conditions like no releases
+      if (err.message === 'No releases found') {
+        console.warn('No GitHub releases found yet');
+      } else {
+        console.error('Error fetching build info:', err);
+      }
       setError(err.message);
     } finally {
       setIsLoading(false);
