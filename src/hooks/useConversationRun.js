@@ -282,13 +282,20 @@ export const useConversationRun = () => {
         toast.success('Run completed', {
           source: 'useConversationRun.runPrompt',
           details: JSON.stringify({
-            promptRowId: childPromptRowId,
+            // Summary
             promptName: data?.child_prompt_name,
             model: data?.model,
-            usage: data?.usage,
-            responseId: data?.response_id,
             elapsedMs: data?.elapsed_ms,
-            requestParams: data?.request_params,
+            
+            // Usage
+            usage: data?.usage,
+            
+            // All API request parameters
+            apiRequest: data?.request_params,
+            
+            // IDs for debugging
+            promptRowId: childPromptRowId,
+            responseId: data?.response_id,
           }, null, 2),
         });
         
@@ -319,12 +326,20 @@ export const useConversationRun = () => {
           source: 'useConversationRun.runPrompt',
           errorCode: formatted.code,
           details: JSON.stringify({
-            promptRowId: childPromptRowId,
+            // Error info
             errorMessage: error.message,
             errorCode: error.error_code,
-            promptName: error.prompt_name,
             retryAfter: error.retry_after_s,
-            stack: error.stack,
+            
+            // Context
+            promptRowId: childPromptRowId,
+            promptName: error.prompt_name,
+            
+            // API request params (if available from error)
+            apiRequest: error.requestParams,
+            
+            // Stack trace (first 5 lines)
+            stack: error.stack?.split?.('\n')?.slice?.(0, 5)?.join?.('\n'),
           }, null, 2),
         });
         

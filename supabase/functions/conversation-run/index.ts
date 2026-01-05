@@ -304,9 +304,17 @@ async function runResponsesAPI(
     console.log('Tools added to request:', tools.map((t: any) => t.type || t.name));
   }
   const modelTokenParam = await getTokenParam(supabase, requestedModel);
+  
+  // Helper to truncate strings to 20 chars for prompt previews
+  const truncate = (str: string | undefined, len = 20) => 
+    str ? (str.length > len ? str.substring(0, len) + '...' : str) : undefined;
+
   const requestParams = {
+    // Model settings
     model: modelId,
     model_token_param: modelTokenParam,
+    
+    // Generation parameters (all values sent to API)
     temperature: requestBody.temperature,
     top_p: requestBody.top_p,
     max_output_tokens: requestBody.max_output_tokens,
@@ -314,12 +322,28 @@ async function runResponsesAPI(
     presence_penalty: requestBody.presence_penalty,
     seed: requestBody.seed,
     reasoning_effort: requestBody.reasoning?.effort,
+    
+    // Tool settings
+    tool_choice: options.toolChoice,
+    tools_enabled: {
+      file_search: options.fileSearchEnabled || false,
+      code_interpreter: options.codeInterpreterEnabled || false,
+      web_search: options.webSearchEnabled || false,
+    },
+    
+    // Structured output
     response_format: options.responseFormat ? {
       type: options.responseFormat.type,
       schema_name: options.responseFormat.json_schema?.name,
     } : undefined,
+    
+    // Prompts (truncated to 20 chars)
+    instructions_preview: truncate(systemPrompt),
+    input_preview: truncate(userMessage),
+    
+    // Context flags
     has_conversation: !!conversationId?.startsWith('conv_'),
-    has_instructions: !!systemPrompt,
+    store_in_history: requestBody.store,
     background_mode: true,
   };
 
