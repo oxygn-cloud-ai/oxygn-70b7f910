@@ -210,8 +210,14 @@ async function runResponsesAPI(
   const defaultModel = await getDefaultModelFromSettings(supabase);
   const requestedModel = options.model || assistantData.model_override || defaultModel;
   const modelId = await resolveModelFromDb(supabase, requestedModel);
-  const modelSupportsTemp = await modelSupportsTemperatureDb(supabase, requestedModel);
-  console.log('Model resolution:', { optionsModel: options.model, assistantOverride: assistantData.model_override, default: defaultModel, resolved: requestedModel });
+  
+  // Fetch model config ONCE for all parameter decisions
+  const modelConfig = await fetchModelConfig(supabase, requestedModel);
+  const modelSupportsTemp = modelConfig?.supportsTemperature ?? true;
+  const modelTokenParam = modelConfig?.tokenParam ?? 'max_tokens';
+  const supportedSettings = modelConfig?.supportedSettings || [];
+  
+  console.log('Model resolution:', { optionsModel: options.model, assistantOverride: assistantData.model_override, default: defaultModel, resolved: requestedModel, tokenParam: modelTokenParam });
   
   // Build request body for Responses API
   const requestBody: any = {
@@ -270,14 +276,9 @@ async function runResponsesAPI(
   }
   // Use model's token_param from database to determine correct API parameter name
   if (maxTokens !== undefined && !isNaN(maxTokens)) {
-    const tokenParam = await getTokenParam(supabase, requestedModel);
-    // Use the database-configured parameter name (e.g., max_output_tokens, max_tokens)
-    requestBody[tokenParam] = maxTokens;
-    console.log(`Using token param: ${tokenParam} = ${maxTokens}`);
+    requestBody[modelTokenParam] = maxTokens;
+    console.log(`Using token param: ${modelTokenParam} = ${maxTokens}`);
   }
-  // Fetch model config once for parameter validation
-  const modelConfig = await fetchModelConfig(supabase, requestedModel);
-  const supportedSettings = modelConfig?.supportedSettings || [];
 
   // Add frequency and presence penalty only if model supports them
   // Note: OpenAI Responses API for o-series/gpt-5 models does NOT support these
@@ -300,6 +301,8 @@ async function runResponsesAPI(
   if (options.seed !== undefined && !isNaN(options.seed)) {
     if (supportedSettings.includes('seed')) {
       requestBody.seed = options.seed;
+    } else {
+      console.log(`Skipping seed - not supported by model ${requestedModel}`);
     }
   }
 
@@ -308,6 +311,9 @@ async function runResponsesAPI(
     const validLevels = modelConfig?.reasoningEffortLevels || [];
     if (validLevels.length > 0 && validLevels.includes(options.reasoningEffort)) {
       requestBody.reasoning = { effort: options.reasoningEffort };
+      console.log('Using reasoning effort:', options.reasoningEffort);
+    } else {
+      console.log(`Skipping reasoning_effort - not supported by model ${requestedModel}`);
     }
   }
 
@@ -322,8 +328,13 @@ async function runResponsesAPI(
   if (tools.length > 0) {
     requestBody.tools = tools;
     console.log('Tools added to request:', tools.map((t: any) => t.type || t.name));
+    
+    // Add tool_choice if specified and tools are present
+    if (options.toolChoice && supportedSettings.includes('tool_choice')) {
+      requestBody.tool_choice = options.toolChoice;
+      console.log('Using tool_choice:', options.toolChoice);
+    }
   }
-  const modelTokenParam = await getTokenParam(supabase, requestedModel);
   
   // Helper to truncate prompts only (100 chars for better context)
   const truncate = (str: string | undefined, len = 100) => 
@@ -348,8 +359,10 @@ async function runResponsesAPI(
     presence_penalty: requestBody.presence_penalty,
     seed: requestBody.seed,
     
-    // === TOKEN LIMIT (dynamic param from database) ===
-    [modelTokenParam]: requestBody[modelTokenParam],
+    // === TOKEN LIMIT (only included if set) ===
+    ...(requestBody[modelTokenParam] !== undefined && {
+      [modelTokenParam]: requestBody[modelTokenParam],
+    }),
     
     // === REASONING ===
     reasoning: requestBody.reasoning,
