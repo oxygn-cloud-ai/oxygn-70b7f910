@@ -682,6 +682,10 @@ const MainLayout = () => {
   const handleRunCascade = useCallback(async (topLevelPromptId) => {
     if (!topLevelPromptId) return;
     
+    // CRITICAL: Wait for any pending field saves to complete before cascade
+    // This ensures we get the latest prompts from the database
+    await flushPendingSaves();
+    
     // Check if prompt has children
     const hasKids = await checkHasChildren(topLevelPromptId);
     if (!hasKids) {
@@ -712,7 +716,7 @@ const MainLayout = () => {
     } finally {
       setIsRunningCascade(false);
     }
-  }, [executeCascade, checkHasChildren, refreshTreeData]);
+  }, [executeCascade, checkHasChildren, refreshTreeData, flushPendingSaves]);
   
   // Handler for starring/unstarring a prompt
   const handleToggleStar = useCallback(async (promptId) => {

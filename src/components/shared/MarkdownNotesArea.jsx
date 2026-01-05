@@ -232,11 +232,15 @@ const MarkdownNotesArea = ({
       cancelPendingSave();
       setLocalValue(previousValue);
       editor?.commands.setContent(previousValue || '');
-      onSave?.(previousValue);
+      if (onSave) {
+        // Register the save so it can be awaited before runs
+        const savePromise = Promise.resolve(onSave(previousValue));
+        registerSave(savePromise);
+      }
       setLastSavedValue(previousValue);
       toast.success('Undone');
     }
-  }, [popPreviousValue, cancelPendingSave, onSave]);
+  }, [popPreviousValue, cancelPendingSave, onSave, registerSave]);
 
   // Handle discard
   const handleDiscard = useCallback(() => {
@@ -244,11 +248,15 @@ const MarkdownNotesArea = ({
     cancelPendingSave();
     setLocalValue(originalValue);
     editor?.commands.setContent(originalValue || '');
-    onSave?.(originalValue);
+    if (onSave) {
+      // Register the save so it can be awaited before runs
+      const savePromise = Promise.resolve(onSave(originalValue));
+      registerSave(savePromise);
+    }
     setLastSavedValue(originalValue);
     clearUndoStack();
     toast.success('Discarded changes');
-  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack]);
+  }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack, registerSave]);
 
   // Keyboard shortcuts
   useEffect(() => {
