@@ -340,19 +340,15 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   const handleMaxTokensChange = (e) => {
     const value = e.target.value;
     setMaxTokens(value);
-    const tokenParam = supportedSettings.includes('max_completion_tokens') ? 'max_completion_tokens' : 'max_tokens';
-    onUpdateField?.(tokenParam, value);
+    // Always save to max_tokens column - edge function determines API param
+    onUpdateField?.('max_tokens', value);
   };
 
   const handleModelChange = (modelId) => {
     onUpdateField?.('model', modelId);
-    const newConfig = getModelConfig(modelId);
-    if (newConfig.maxTokens) {
-      setMaxTokens(String(newConfig.maxTokens));
-      const newModelData = models.find(m => m.model_id === modelId);
-      const tokenParam = newModelData?.supported_settings?.includes('max_completion_tokens') ? 'max_completion_tokens' : 'max_tokens';
-      onUpdateField?.(tokenParam, String(newConfig.maxTokens));
-    }
+    onUpdateField?.('model_on', true);
+    // Don't auto-reset max_tokens - preserve user's setting
+    // Edge function uses model defaults if max_tokens_on is false
   };
 
   // Get display name for current model
@@ -419,35 +415,52 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{tokenParamLabel}</label>
-              <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
+              <Switch 
+                checked={promptData?.max_tokens_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('max_tokens_on', checked)} 
+              />
             </div>
-            <input
-              type="number"
-              value={maxTokens}
-              onChange={handleMaxTokensChange}
-              max={modelConfig.maxTokens}
-              min={1}
-              className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+            {promptData?.max_tokens_on && (
+              <>
+                <input
+                  type="number"
+                  value={maxTokens}
+                  onChange={handleMaxTokensChange}
+                  max={modelConfig.maxTokens}
+                  min={1}
+                  className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
+              </>
+            )}
+            <p className="text-[10px] text-on-surface-variant">Limits response length</p>
           </div>
         )}
 
         {/* Reasoning Effort - only for models that support it */}
         {hasSetting('reasoning_effort') && (
-          <SettingSelect
-            value={promptData?.reasoning_effort || 'medium'}
-            onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
-            options={[
-              { value: 'none', label: 'none' },
-              { value: 'minimal', label: 'minimal' },
-              { value: 'low', label: 'low' },
-              { value: 'medium', label: 'medium' },
-              { value: 'high', label: 'high' },
-              { value: 'xhigh', label: 'xhigh' },
-            ]}
-            label="Reasoning Effort"
-            hint="Higher = better reasoning, but slower & more expensive"
-          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Reasoning Effort</label>
+              <Switch 
+                checked={promptData?.reasoning_effort_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('reasoning_effort_on', checked)} 
+              />
+            </div>
+            {promptData?.reasoning_effort_on && (
+              <SettingSelect
+                value={promptData?.reasoning_effort || 'medium'}
+                onValueChange={(value) => onUpdateField?.('reasoning_effort', value)}
+                options={[
+                  { value: 'low', label: 'low' },
+                  { value: 'medium', label: 'medium' },
+                  { value: 'high', label: 'high' },
+                ]}
+                label=""
+                hint="Higher = better reasoning, but slower & more expensive"
+              />
+            )}
+          </div>
         )}
 
         {/* Frequency Penalty */}
