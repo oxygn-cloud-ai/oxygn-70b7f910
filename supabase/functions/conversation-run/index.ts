@@ -268,23 +268,36 @@ async function runResponsesAPI(
     requestBody.max_output_tokens = maxTokens;
     console.log(`Using token param: ${tokenParam} -> max_output_tokens = ${maxTokens}`);
   }
+  // Fetch model config once for parameter validation
+  const modelConfig = await fetchModelConfig(supabase, requestedModel);
+  const supportedSettings = modelConfig?.supportedSettings || [];
 
-  // Add frequency and presence penalty if provided
+  // Add frequency and presence penalty only if model supports them
+  // Note: OpenAI Responses API for o-series/gpt-5 models does NOT support these
   if (options.frequencyPenalty !== undefined && !isNaN(options.frequencyPenalty)) {
-    requestBody.frequency_penalty = options.frequencyPenalty;
+    if (supportedSettings.includes('frequency_penalty')) {
+      requestBody.frequency_penalty = options.frequencyPenalty;
+    } else {
+      console.log(`Skipping frequency_penalty - not supported by model ${requestedModel}`);
+    }
   }
   if (options.presencePenalty !== undefined && !isNaN(options.presencePenalty)) {
-    requestBody.presence_penalty = options.presencePenalty;
+    if (supportedSettings.includes('presence_penalty')) {
+      requestBody.presence_penalty = options.presencePenalty;
+    } else {
+      console.log(`Skipping presence_penalty - not supported by model ${requestedModel}`);
+    }
   }
 
-  // Add seed if provided
+  // Add seed if provided and supported
   if (options.seed !== undefined && !isNaN(options.seed)) {
-    requestBody.seed = options.seed;
+    if (supportedSettings.includes('seed')) {
+      requestBody.seed = options.seed;
+    }
   }
 
   // Add reasoning effort if model supports it (get valid levels from DB)
   if (options.reasoningEffort) {
-    const modelConfig = await fetchModelConfig(supabase, requestedModel);
     const validLevels = modelConfig?.reasoningEffortLevels || [];
     if (validLevels.length > 0 && validLevels.includes(options.reasoningEffort)) {
       requestBody.reasoning = { effort: options.reasoningEffort };
