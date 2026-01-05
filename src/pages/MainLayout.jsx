@@ -36,7 +36,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useRenderPerformance } from "@/hooks/useRenderPerformance";
 import { useLayoutState } from "@/hooks/useLayoutState";
 import { usePromptSelection } from "@/hooks/usePromptSelection";
-import { toast, setThemePreference } from "@/components/ui/sonner";
+import { toast, setThemePreference, getThemePreference } from "@/components/ui/sonner";
 import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { executePostAction, processVariableAssignments } from "@/services/actionExecutors";
 import { validateActionResponse, extractJsonFromResponse } from "@/utils/actionValidation";
