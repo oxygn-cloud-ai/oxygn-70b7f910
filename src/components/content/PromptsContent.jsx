@@ -207,7 +207,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         placeholder="Enter system prompt..."
         defaultHeight={160}
         onLibraryPick
-        onSave={isLocked ? undefined : (value) => onUpdateField?.('input_admin_prompt', value)}
+        onSave={isLocked ? undefined : (value) => onUpdateField('input_admin_prompt', value)}
         variables={variables}
         readOnly={isLocked}
       />
@@ -219,7 +219,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         placeholder="Enter user prompt..."
         defaultHeight={64}
         onLibraryPick
-        onSave={isLocked ? undefined : (value) => onUpdateField?.('input_user_prompt', value)}
+        onSave={isLocked ? undefined : (value) => onUpdateField('input_user_prompt', value)}
         variables={variables}
         readOnly={isLocked}
       />
@@ -245,7 +245,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         value={promptData?.note || ''}
         placeholder="Add notes about this prompt..."
         defaultHeight={80}
-        onSave={isLocked ? undefined : (value) => onUpdateField?.('note', value)}
+        onSave={isLocked ? undefined : (value) => onUpdateField('note', value)}
         readOnly={isLocked}
       />
     </div>
