@@ -95,7 +95,7 @@ export const useTemplates = () => {
         .from(import.meta.env.VITE_TEMPLATES_TBL)
         .select('version')
         .eq('row_id', rowId)
-        .single();
+        .maybeSingle();
 
       const { error } = await supabase
         .from(import.meta.env.VITE_TEMPLATES_TBL)
@@ -157,10 +157,10 @@ export const useTemplates = () => {
         .from(import.meta.env.VITE_TEMPLATES_TBL)
         .select('*')
         .eq('row_id', rowId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data; // May be null if not found
     } catch (error) {
       console.error('Error fetching template:', error);
       return null;
@@ -193,9 +193,10 @@ export const useTemplates = () => {
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('*')
           .eq('row_id', rowId)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        if (!prompt) throw new Error(`Prompt not found: ${rowId}`);
 
         let childStructures = [];
         

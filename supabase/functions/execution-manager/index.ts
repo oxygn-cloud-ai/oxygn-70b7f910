@@ -389,7 +389,7 @@ async function createSpan(supabase: any, userId: string, params: SpanParams) {
     .select('trace_id, status')
     .eq('trace_id', trace_id)
     .eq('owner_id', userId)
-    .single();
+    .maybeSingle();
   
   if (!trace) throw new Error('Trace not found or access denied');
   if (trace.status !== 'running') throw new Error('Trace is not running');
@@ -442,7 +442,7 @@ async function completeSpan(supabase: any, userId: string, params: CompleteSpanP
     .from('q_execution_spans')
     .select('span_id, trace_id, prompt_row_id')
     .eq('span_id', span_id)
-    .single();
+    .maybeSingle();
   
   if (!span) throw new Error('Span not found');
   
@@ -451,7 +451,7 @@ async function completeSpan(supabase: any, userId: string, params: CompleteSpanP
     .select('trace_id, context_snapshot')
     .eq('trace_id', span.trace_id)
     .eq('owner_id', userId)
-    .single();
+    .maybeSingle();
   
   if (!trace) throw new Error('Access denied');
   
@@ -529,7 +529,7 @@ async function failSpan(supabase: any, userId: string, params: FailSpanParams) {
     .from('q_execution_spans')
     .select('span_id, trace_id')
     .eq('span_id', span_id)
-    .single();
+    .maybeSingle();
   
   if (!span) throw new Error('Span not found');
   
@@ -538,7 +538,7 @@ async function failSpan(supabase: any, userId: string, params: FailSpanParams) {
     .select('trace_id')
     .eq('trace_id', span.trace_id)
     .eq('owner_id', userId)
-    .single();
+    .maybeSingle();
   
   if (!trace) throw new Error('Access denied');
   

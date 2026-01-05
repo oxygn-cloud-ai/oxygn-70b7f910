@@ -1773,10 +1773,6 @@ serve(async (req) => {
         }
       }
 
-      // Add reasoning effort for o1/o3 models
-      if (childPrompt.reasoning_effort_on && childPrompt.reasoning_effort) {
-        apiOptions.reasoningEffort = childPrompt.reasoning_effort;
-      }
 
       // Get model for display - respect prompt-level override
       const defaultModel = await getDefaultModelFromSettings(supabase);
