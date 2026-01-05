@@ -44,6 +44,7 @@ import { useUndo } from "@/contexts/UndoContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
 import { useApiCallContext } from "@/contexts/ApiCallContext";
 import { useExecutionTracing } from "@/hooks/useExecutionTracing";
+import { usePendingSaves } from "@/contexts/PendingSaveContext";
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -275,9 +276,16 @@ const MainLayout = () => {
     return `${text.slice(0, maxLen)}...`;
   };
 
+  // Access pending save registry for flushing before runs
+  const { flushPendingSaves } = usePendingSaves();
+
   // Handler for running a single prompt
   const handleRunPrompt = useCallback(async (promptId) => {
     if (!promptId) return;
+    
+    // CRITICAL: Wait for any pending field saves to complete before fetching
+    // This ensures we get the latest system prompt, user prompt, etc. from the database
+    await flushPendingSaves();
     
     // Fetch prompt data to check if it's an action node
     const promptData = await fetchItemData(promptId);
@@ -668,7 +676,7 @@ const MainLayout = () => {
         }).catch(err => console.warn('Failed to complete trace:', err));
       }
     }
-  }, [runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
+  }, [flushPendingSaves, runPrompt, selectedPromptId, fetchItemData, refreshTreeData, supabase, currentUser?.id, costTracking, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
   
   // Handler for running a cascade
   const handleRunCascade = useCallback(async (topLevelPromptId) => {

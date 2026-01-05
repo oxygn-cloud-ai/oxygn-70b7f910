@@ -23,6 +23,7 @@ import {
 import { LabelBadge } from "@/components/ui/label-badge";
 import { VariablePicker } from "./VariablePicker";
 import { useFieldUndo } from "@/hooks/useFieldUndo";
+import { usePendingSaves } from "@/contexts/PendingSaveContext";
 
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
@@ -320,6 +321,9 @@ const ResizablePromptArea = ({
     }
   }, [editValue, defaultHeight]);
 
+  // Access pending save registry
+  const { registerSave } = usePendingSaves();
+
   // Perform the actual save
   const performSave = useCallback((valueToSave) => {
     if (valueToSave === lastSavedValue) return;
@@ -331,7 +335,9 @@ const ResizablePromptArea = ({
     pushPreviousValue(lastSavedValue);
     
     if (onSave) {
-      onSave(valueToSave);
+      // Wrap in Promise.resolve to ensure we get a promise, then register it
+      const savePromise = Promise.resolve(onSave(valueToSave));
+      registerSave(savePromise);
     } else if (onChange) {
       onChange(valueToSave);
     }
@@ -341,7 +347,7 @@ const ResizablePromptArea = ({
     setTimeout(() => {
       isSavingRef.current = false;
     }, 0);
-  }, [lastSavedValue, onSave, onChange, pushPreviousValue]);
+  }, [lastSavedValue, onSave, onChange, pushPreviousValue, registerSave]);
 
   // Cancel any pending save timeout
   const cancelPendingSave = useCallback(() => {

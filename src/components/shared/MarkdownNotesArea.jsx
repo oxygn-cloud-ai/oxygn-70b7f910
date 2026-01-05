@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/sonner';
 import { useFieldUndo } from '@/hooks/useFieldUndo';
+import { usePendingSaves } from '@/contexts/PendingSaveContext';
 
 const AUTOSAVE_DELAY = 500;
 
@@ -191,6 +192,9 @@ const MarkdownNotesArea = ({
     };
   }, []);
 
+  // Access pending save registry
+  const { registerSave } = usePendingSaves();
+
   // Cancel pending save
   const cancelPendingSave = useCallback(() => {
     if (saveTimeoutRef.current) {
@@ -206,10 +210,12 @@ const MarkdownNotesArea = ({
     pushPreviousValue(lastSavedValue);
     
     if (onSave) {
-      onSave(valueToSave);
+      // Wrap in Promise.resolve to ensure we get a promise, then register it
+      const savePromise = Promise.resolve(onSave(valueToSave));
+      registerSave(savePromise);
     }
     setLastSavedValue(valueToSave);
-  }, [lastSavedValue, onSave, pushPreviousValue]);
+  }, [lastSavedValue, onSave, pushPreviousValue, registerSave]);
 
   // Immediate save
   const handleImmediateSave = useCallback(() => {

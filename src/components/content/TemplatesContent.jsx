@@ -197,7 +197,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
         defaultHeight={160}
         onLibraryPick
         libraryItems={libraryItems}
-        onSave={(value) => onUpdateField?.('structure.input_admin_prompt', value)}
+        onSave={(value) => onUpdateField('structure.input_admin_prompt', value)}
         storageKey={`template-${templateData?.row_id || 'new'}-system`}
       />
 
@@ -208,7 +208,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
         defaultHeight={64}
         onLibraryPick
         libraryItems={libraryItems}
-        onSave={(value) => onUpdateField?.('structure.input_user_prompt', value)}
+        onSave={(value) => onUpdateField('structure.input_user_prompt', value)}
         storageKey={`template-${templateData?.row_id || 'new'}-user`}
       />
 

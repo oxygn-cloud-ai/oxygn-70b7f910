@@ -15,6 +15,7 @@ import { ToastHistoryProvider } from "@/contexts/ToastHistoryContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { CascadeRunProvider } from "@/contexts/CascadeRunContext";
 import { UndoProvider } from "@/contexts/UndoContext";
+import { PendingSaveProvider } from "@/contexts/PendingSaveContext";
 import PostHogPageView from "@/components/PostHogPageView";
 
 const queryClient = new QueryClient();
@@ -24,11 +25,12 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <ToastHistoryProvider>
         <UndoProvider>
-          <CreatePromptProvider>
-            <TooltipSettingsProvider>
-              <TooltipProvider>
-                <CascadeRunProvider>
-                  <BrowserRouter>
+          <PendingSaveProvider>
+            <CreatePromptProvider>
+              <TooltipSettingsProvider>
+                <TooltipProvider>
+                  <CascadeRunProvider>
+                    <BrowserRouter>
                     <PostHogPageView />
                     <ApiCallProvider>
                       <AuthProvider>
@@ -49,11 +51,12 @@ const App = () => (
                         </ErrorBoundary>
                       </AuthProvider>
                     </ApiCallProvider>
-                  </BrowserRouter>
-                </CascadeRunProvider>
-              </TooltipProvider>
-            </TooltipSettingsProvider>
-          </CreatePromptProvider>
+                    </BrowserRouter>
+                  </CascadeRunProvider>
+                </TooltipProvider>
+              </TooltipSettingsProvider>
+            </CreatePromptProvider>
+          </PendingSaveProvider>
         </UndoProvider>
       </ToastHistoryProvider>
     </QueryClientProvider>
