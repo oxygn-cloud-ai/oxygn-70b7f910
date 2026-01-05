@@ -136,7 +136,7 @@ serve(async (req) => {
       .from(TABLES.ASSISTANTS)
       .select('*')
       .eq('row_id', assistant_row_id)
-      .single();
+      .maybeSingle();
 
     if (assistantError || !assistant) {
       console.error('Error fetching assistant:', assistantError);
@@ -158,7 +158,7 @@ serve(async (req) => {
         .from(TABLES.THREADS)
         .select('openai_conversation_id')
         .eq('row_id', activeThreadRowId)
-        .single();
+        .maybeSingle();
       
       if (existingThread?.openai_conversation_id) {
         conversationId = existingThread.openai_conversation_id;

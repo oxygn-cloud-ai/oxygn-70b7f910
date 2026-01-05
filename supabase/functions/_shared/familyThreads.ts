@@ -109,7 +109,7 @@ export async function resolveRootPromptId(
       .from(TABLES.PROMPTS)
       .select('parent_row_id')
       .eq('row_id', current)
-      .single();
+      .maybeSingle();
 
     if (!prompt?.parent_row_id) {
       return current; // This is the root

@@ -334,11 +334,11 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         </div>
       )}
 
-      {/* Max Tokens - dynamic label based on model */}
+      {/* Max Tokens - always use max_tokens (edge function handles API param) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-            {modelConfig.tokenParam === 'max_completion_tokens' ? 'Max Completion Tokens' : 'Max Tokens'}
+            Max Tokens
           </label>
           <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
         </div>
