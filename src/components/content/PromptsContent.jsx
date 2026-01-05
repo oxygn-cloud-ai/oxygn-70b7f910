@@ -391,22 +391,32 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
         {/* Temperature - only show if model supports it */}
         {hasSetting('temperature') && currentModelData?.supports_temperature !== false && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Temperature</label>
-              <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+              <Switch 
+                checked={promptData?.temperature_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('temperature_on', checked)} 
+              />
             </div>
-            <Slider
-              value={temperature}
-              onValueChange={handleTemperatureChange}
-              max={2}
-              step={0.1}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-on-surface-variant">
-              <span>Precise</span>
-              <span>Creative</span>
-            </div>
+            {promptData?.temperature_on && (
+              <>
+                <div className="flex items-center justify-end">
+                  <span className="text-body-sm text-on-surface font-mono">{temperature[0]}</span>
+                </div>
+                <Slider
+                  value={temperature}
+                  onValueChange={handleTemperatureChange}
+                  max={2}
+                  step={0.1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-on-surface-variant">
+                  <span>Precise</span>
+                  <span>Creative</span>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -469,16 +479,26 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Frequency Penalty</label>
-              <span className="text-body-sm text-on-surface font-mono">{frequencyPenalty[0]}</span>
+              <Switch 
+                checked={promptData?.frequency_penalty_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('frequency_penalty_on', checked)} 
+              />
             </div>
-            <Slider
-              value={frequencyPenalty}
-              onValueChange={(v) => handleDebouncedSliderChange('frequency_penalty', v, setFrequencyPenalty)}
-              min={-2}
-              max={2}
-              step={0.1}
-              className="w-full"
-            />
+            {promptData?.frequency_penalty_on && (
+              <>
+                <div className="flex items-center justify-end">
+                  <span className="text-body-sm text-on-surface font-mono">{frequencyPenalty[0]}</span>
+                </div>
+                <Slider
+                  value={frequencyPenalty}
+                  onValueChange={(v) => handleDebouncedSliderChange('frequency_penalty', v, setFrequencyPenalty)}
+                  min={-2}
+                  max={2}
+                  step={0.1}
+                  className="w-full"
+                />
+              </>
+            )}
             <p className="text-[10px] text-on-surface-variant">Reduce repetition of token sequences</p>
           </div>
         )}
@@ -488,16 +508,26 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Presence Penalty</label>
-              <span className="text-body-sm text-on-surface font-mono">{presencePenalty[0]}</span>
+              <Switch 
+                checked={promptData?.presence_penalty_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('presence_penalty_on', checked)} 
+              />
             </div>
-            <Slider
-              value={presencePenalty}
-              onValueChange={(v) => handleDebouncedSliderChange('presence_penalty', v, setPresencePenalty)}
-              min={-2}
-              max={2}
-              step={0.1}
-              className="w-full"
-            />
+            {promptData?.presence_penalty_on && (
+              <>
+                <div className="flex items-center justify-end">
+                  <span className="text-body-sm text-on-surface font-mono">{presencePenalty[0]}</span>
+                </div>
+                <Slider
+                  value={presencePenalty}
+                  onValueChange={(v) => handleDebouncedSliderChange('presence_penalty', v, setPresencePenalty)}
+                  min={-2}
+                  max={2}
+                  step={0.1}
+                  className="w-full"
+                />
+              </>
+            )}
             <p className="text-[10px] text-on-surface-variant">Encourage new topics</p>
           </div>
         )}
@@ -507,16 +537,26 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Top P</label>
-              <span className="text-body-sm text-on-surface font-mono">{topP[0]}</span>
+              <Switch 
+                checked={promptData?.top_p_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('top_p_on', checked)} 
+              />
             </div>
-            <Slider
-              value={topP}
-              onValueChange={(v) => handleDebouncedSliderChange('top_p', v, setTopP)}
-              min={0}
-              max={1}
-              step={0.05}
-              className="w-full"
-            />
+            {promptData?.top_p_on && (
+              <>
+                <div className="flex items-center justify-end">
+                  <span className="text-body-sm text-on-surface font-mono">{topP[0]}</span>
+                </div>
+                <Slider
+                  value={topP}
+                  onValueChange={(v) => handleDebouncedSliderChange('top_p', v, setTopP)}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  className="w-full"
+                />
+              </>
+            )}
             <p className="text-[10px] text-on-surface-variant">Nucleus sampling threshold</p>
           </div>
         )}
@@ -559,17 +599,28 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
         {/* Tool Choice - only if supported */}
         {hasSetting('tool_choice') && (
-          <SettingSelect
-            value={promptData?.tool_choice || 'auto'}
-            onValueChange={(value) => onUpdateField?.('tool_choice', value)}
-            options={[
-              { value: 'auto', label: 'auto' },
-              { value: 'none', label: 'none' },
-              { value: 'required', label: 'required' },
-            ]}
-            label="Tool Choice"
-            hint="Controls when the model uses tools"
-          />
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Tool Choice</label>
+              <Switch 
+                checked={promptData?.tool_choice_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('tool_choice_on', checked)} 
+              />
+            </div>
+            {promptData?.tool_choice_on && (
+              <SettingSelect
+                value={promptData?.tool_choice || 'auto'}
+                onValueChange={(value) => onUpdateField?.('tool_choice', value)}
+                options={[
+                  { value: 'auto', label: 'auto' },
+                  { value: 'none', label: 'none' },
+                  { value: 'required', label: 'required' },
+                ]}
+                label=""
+                hint="Controls when the model uses tools"
+              />
+            )}
+          </div>
         )}
 
         {/* No settings available message */}

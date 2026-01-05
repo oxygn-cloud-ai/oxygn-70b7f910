@@ -264,6 +264,15 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
   // Debounce ref for slider saves
   const sliderDebounceRef = useRef({});
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sliderDebounceRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
+
   // Update max tokens when model changes
   useEffect(() => {
     if (!templateData?.structure?.max_tokens) {
@@ -337,10 +346,8 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         <input
           type="number"
           value={maxTokens}
-          onChange={(e) => {
-            setMaxTokens(e.target.value);
-            onUpdateField?.(`structure.${modelConfig.tokenParam}`, e.target.value);
-          }}
+          onChange={(e) => setMaxTokens(e.target.value)}
+          onBlur={(e) => onUpdateField?.(`structure.${modelConfig.tokenParam}`, e.target.value)}
           max={modelConfig.maxTokens}
           min={1}
           className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
@@ -353,12 +360,10 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           value={templateData?.structure?.reasoning_effort || 'medium'}
           onValueChange={(value) => onUpdateField?.('structure.reasoning_effort', value)}
           options={[
-            { value: 'none', label: 'none' },
             { value: 'minimal', label: 'minimal' },
             { value: 'low', label: 'low' },
             { value: 'medium', label: 'medium' },
             { value: 'high', label: 'high' },
-            { value: 'xhigh', label: 'xhigh' },
           ]}
           label="Reasoning Effort"
         />
