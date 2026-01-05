@@ -191,6 +191,7 @@ interface ApiOptions {
 }
 
 // Call OpenAI Responses API - uses conversation parameter for multi-turn context
+// Supports background mode for cancellation support
 async function runResponsesAPI(
   assistantData: any,
   userMessage: string,
@@ -199,6 +200,7 @@ async function runResponsesAPI(
   apiKey: string,
   supabase: any,
   options: ApiOptions = {},
+  emitter?: SSEEmitter,
 ): Promise<ResponsesResult & { requestParams?: any }> {
   // Use DB for model resolution
   // Priority: 1) options.model (prompt-level), 2) assistant override, 3) default
@@ -213,6 +215,7 @@ async function runResponsesAPI(
     model: modelId,
     input: userMessage,
     store: options.storeInHistory !== false, // Store for conversation chaining (default true)
+    background: true, // Enable background mode for cancellation support
   };
 
   // Add conversation parameter for multi-turn context (Conversations API)
@@ -316,9 +319,10 @@ async function runResponsesAPI(
     } : undefined,
     has_conversation: !!conversationId?.startsWith('conv_'),
     has_instructions: !!systemPrompt,
+    background_mode: true,
   };
 
-  console.log('Calling Responses API:', { 
+  console.log('Calling Responses API (background mode):', { 
     model: modelId, 
     hasConversation: !!conversationId?.startsWith('conv_'),
     hasInstructions: !!systemPrompt,
@@ -326,13 +330,13 @@ async function runResponsesAPI(
     requestParams,
   });
 
-  // Call Responses API with timeout (5 minutes max)
+  // Step 1: Start background request
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
   
-  let response: Response;
+  let initialResponse: Response;
   try {
-    response = await fetch('https://api.openai.com/v1/responses', {
+    initialResponse = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -352,13 +356,12 @@ async function runResponsesAPI(
       };
     }
     throw fetchError;
-  } finally {
-    clearTimeout(timeoutId);
   }
+  clearTimeout(timeoutId);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Responses API error:', response.status, errorText);
+  if (!initialResponse.ok) {
+    const errorText = await initialResponse.text();
+    console.error('Responses API error:', initialResponse.status, errorText);
     
     let errorMessage = 'Responses API call failed';
     try {
@@ -368,7 +371,7 @@ async function runResponsesAPI(
       errorMessage = errorText || errorMessage;
     }
     
-    const isRateLimit = response.status === 429;
+    const isRateLimit = initialResponse.status === 429;
     
     return { 
       success: false, 
@@ -377,13 +380,253 @@ async function runResponsesAPI(
     };
   }
 
-  const responseData = await response.json();
-  console.log('Responses API response received:', responseData.id);
+  const initialData = await initialResponse.json();
+  const responseId = initialData.id;
+  const initialStatus = initialData.status; // 'queued', 'in_progress', 'completed', 'failed', 'cancelled'
+  
+  console.log('Background request started:', { responseId, status: initialStatus });
 
-  // Extract response content from output array
-  let responseText = '';
-  if (responseData.output && Array.isArray(responseData.output)) {
-    for (const item of responseData.output) {
+  // Step 2: Emit api_started event with response_id for cancellation support
+  if (emitter) {
+    emitter.emit({ 
+      type: 'api_started', 
+      response_id: responseId,
+      status: initialStatus,
+    });
+  }
+
+  // If already completed (rare, very fast responses), extract result directly
+  if (initialStatus === 'completed') {
+    console.log('Response completed immediately (no polling needed)');
+    let responseText = '';
+    if (initialData.output && Array.isArray(initialData.output)) {
+      for (const item of initialData.output) {
+        if (item.type === 'message' && item.content) {
+          for (const contentItem of item.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              responseText += contentItem.text;
+            }
+          }
+        }
+      }
+    }
+    
+    const usage = {
+      prompt_tokens: initialData.usage?.input_tokens || 0,
+      completion_tokens: initialData.usage?.output_tokens || 0,
+      total_tokens: (initialData.usage?.input_tokens || 0) + (initialData.usage?.output_tokens || 0),
+    };
+    
+    return {
+      success: true,
+      response: responseText,
+      usage,
+      response_id: responseId,
+      requestParams,
+    };
+  }
+
+  // Handle immediate failure or cancellation
+  if (initialStatus === 'failed') {
+    const errorMsg = initialData.error?.message || 'Response failed immediately';
+    console.error('Response failed immediately:', errorMsg);
+    return {
+      success: false,
+      error: errorMsg,
+      error_code: 'API_CALL_FAILED',
+      response_id: responseId,
+    };
+  }
+  
+  if (initialStatus === 'cancelled') {
+    console.log('Response was cancelled before processing');
+    return {
+      success: false,
+      error: 'Request was cancelled',
+      error_code: 'CANCELLED',
+      response_id: responseId,
+    };
+  }
+
+  // Step 3: Stream the response using GET /v1/responses/{id}?stream=true
+  console.log('Starting response stream for:', responseId);
+  
+  const streamController = new AbortController();
+  const streamTimeoutId = setTimeout(() => streamController.abort(), 300000); // 5 minute streaming timeout
+  
+  let streamResponse: Response;
+  try {
+    streamResponse = await fetch(
+      `https://api.openai.com/v1/responses/${responseId}?stream=true`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        signal: streamController.signal,
+      }
+    );
+  } catch (streamError: unknown) {
+    clearTimeout(streamTimeoutId);
+    if (streamError instanceof Error && streamError.name === 'AbortError') {
+      console.error('Response stream timed out');
+      return {
+        success: false,
+        error: 'Response streaming timed out',
+        error_code: 'STREAM_TIMEOUT',
+        response_id: responseId,
+      };
+    }
+    throw streamError;
+  }
+
+  if (!streamResponse.ok) {
+    clearTimeout(streamTimeoutId);
+    const errorText = await streamResponse.text();
+    console.error('Stream response error:', streamResponse.status, errorText);
+    return {
+      success: false,
+      error: 'Failed to stream response',
+      error_code: 'STREAM_FAILED',
+      response_id: responseId,
+    };
+  }
+
+  // Parse the SSE stream from OpenAI
+  const reader = streamResponse.body?.getReader();
+  if (!reader) {
+    clearTimeout(streamTimeoutId);
+    return {
+      success: false,
+      error: 'No stream body available',
+      error_code: 'STREAM_FAILED',
+      response_id: responseId,
+    };
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalResponse: any = null;
+  let accumulatedText = '';
+  let finalUsage: any = null;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process complete SSE events
+      let newlineIndex;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+
+        if (!line || line.startsWith(':')) continue;
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.replace(/^data:\s?/, '').trim();
+        if (!data || data === '[DONE]') continue;
+
+        try {
+          const event = JSON.parse(data);
+          
+          // Track the response status
+          if (event.status === 'cancelled') {
+            console.log('Response was cancelled during streaming');
+            clearTimeout(streamTimeoutId);
+            reader.cancel();
+            return {
+              success: false,
+              error: 'Request was cancelled',
+              error_code: 'CANCELLED',
+              response_id: responseId,
+            };
+          }
+          
+          if (event.status === 'failed') {
+            const errorMsg = event.error?.message || 'Response failed during streaming';
+            console.error('Response failed during streaming:', errorMsg);
+            clearTimeout(streamTimeoutId);
+            reader.cancel();
+            return {
+              success: false,
+              error: errorMsg,
+              error_code: 'API_CALL_FAILED',
+              response_id: responseId,
+            };
+          }
+          
+          // Capture usage when available
+          if (event.usage) {
+            finalUsage = event.usage;
+          }
+          
+          // Capture output content
+          if (event.output && Array.isArray(event.output)) {
+            for (const item of event.output) {
+              if (item.type === 'message' && item.content) {
+                for (const contentItem of item.content) {
+                  if (contentItem.type === 'output_text' && contentItem.text) {
+                    accumulatedText = contentItem.text; // Full text in each event
+                  }
+                }
+              }
+            }
+          }
+          
+          // Track final completed state
+          if (event.status === 'completed') {
+            finalResponse = event;
+          }
+        } catch (parseErr) {
+          console.warn('Failed to parse stream event:', data, parseErr);
+        }
+      }
+    }
+  } catch (streamReadError: unknown) {
+    clearTimeout(streamTimeoutId);
+    if (streamReadError instanceof Error && streamReadError.name === 'AbortError') {
+      console.log('Stream read was aborted (possibly cancelled)');
+      // Check final status via API
+      try {
+        const statusResponse = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          if (statusData.status === 'cancelled') {
+            return {
+              success: false,
+              error: 'Request was cancelled',
+              error_code: 'CANCELLED',
+              response_id: responseId,
+            };
+          }
+        }
+      } catch {
+        // Ignore status check errors
+      }
+      return {
+        success: false,
+        error: 'Stream was aborted',
+        error_code: 'STREAM_ABORTED',
+        response_id: responseId,
+      };
+    }
+    throw streamReadError;
+  } finally {
+    clearTimeout(streamTimeoutId);
+  }
+
+  // Extract final response text
+  let responseText = accumulatedText;
+  
+  // If we got a final response object, extract from there
+  if (finalResponse?.output && Array.isArray(finalResponse.output)) {
+    responseText = '';
+    for (const item of finalResponse.output) {
       if (item.type === 'message' && item.content) {
         for (const contentItem of item.content) {
           if (contentItem.type === 'output_text' && contentItem.text) {
@@ -394,18 +637,21 @@ async function runResponsesAPI(
     }
   }
 
-  // Extract usage
+  // Build usage from final response or tracked usage
+  const usageSource = finalResponse?.usage || finalUsage;
   const usage = {
-    prompt_tokens: responseData.usage?.input_tokens || 0,
-    completion_tokens: responseData.usage?.output_tokens || 0,
-    total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
+    prompt_tokens: usageSource?.input_tokens || 0,
+    completion_tokens: usageSource?.output_tokens || 0,
+    total_tokens: (usageSource?.input_tokens || 0) + (usageSource?.output_tokens || 0),
   };
+
+  console.log('Response streaming completed:', { responseId, textLength: responseText.length, usage });
 
   return {
     success: true,
     response: responseText,
     usage,
-    response_id: responseData.id,
+    response_id: responseId,
     requestParams,
   };
 }
@@ -1266,7 +1512,7 @@ serve(async (req) => {
         elapsed_ms: Date.now() - startTime 
       });
 
-      // Call OpenAI Responses API
+      // Call OpenAI Responses API (with emitter for api_started event)
       const result = await runResponsesAPI(
         assistantData,
         finalMessage,
@@ -1274,7 +1520,8 @@ serve(async (req) => {
         conversationId,
         OPENAI_API_KEY,
         supabase,
-        apiOptions
+        apiOptions,
+        emitter, // Pass emitter for api_started event with response_id
       );
 
       if (!result.success) {

@@ -12,16 +12,13 @@ verify_jwt = true
 [functions.conversation-run]
 verify_jwt = true
 
+[functions.conversation-cancel]
+verify_jwt = true
+
 [functions.studio-chat]
 verify_jwt = true
 
 [functions.confluence-manager]
-verify_jwt = true
-
-[functions.workbench-chat]
-verify_jwt = true
-
-[functions.workbench-manager]
 verify_jwt = true
 
 [functions.prompt-family-chat]
