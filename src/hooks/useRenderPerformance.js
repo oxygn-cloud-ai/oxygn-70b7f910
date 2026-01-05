@@ -13,21 +13,12 @@ import { trackRenderPerformance } from '@/lib/posthog';
 export const useRenderPerformance = (componentName, options = {}) => {
   const { slowThresholdMs = 100, trackMountOnly = true } = options;
   
-  // Defensive: ensure React hooks are available (can fail during HMR or SSR)
-  let mountTimeRef, renderCountRef, hasTrackedMountRef;
-  try {
-    mountTimeRef = useRef(performance.now());
-    renderCountRef = useRef(0);
-    hasTrackedMountRef = useRef(false);
-  } catch (e) {
-    // React not fully initialized, skip tracking
-    console.warn('useRenderPerformance: React hooks not available, skipping', e);
-    return;
-  }
+  // Always call hooks unconditionally to follow Rules of Hooks
+  const mountTimeRef = useRef(performance.now());
+  const renderCountRef = useRef(0);
+  const hasTrackedMountRef = useRef(false);
 
   useEffect(() => {
-    if (!mountTimeRef?.current) return;
-    
     const renderTime = performance.now() - mountTimeRef.current;
     renderCountRef.current += 1;
     
