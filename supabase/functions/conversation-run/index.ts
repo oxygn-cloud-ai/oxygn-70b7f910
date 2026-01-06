@@ -661,6 +661,30 @@ async function runResponsesAPI(
                   }
                 }
               }
+              // Handle reasoning items from polled response (background mode)
+              if (item.type === 'reasoning' && emitter) {
+                emitter.emit({
+                  type: 'thinking_started',
+                  item_id: item.id,
+                });
+                // Extract reasoning summary from completed output
+                if (item.summary && Array.isArray(item.summary)) {
+                  for (const summaryPart of item.summary) {
+                    if (summaryPart.text) {
+                      emitter.emit({
+                        type: 'thinking_delta',
+                        delta: summaryPart.text,
+                        item_id: item.id,
+                      });
+                    }
+                  }
+                }
+                emitter.emit({
+                  type: 'thinking_done',
+                  text: '',
+                  item_id: item.id,
+                });
+              }
             }
           }
           
