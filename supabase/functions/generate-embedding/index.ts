@@ -86,18 +86,36 @@ serve(async (req) => {
 
     console.log('Generating embedding for text length:', text.length);
 
-    // Generate embedding
-    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: text.slice(0, 8000) // Limit input size
-      })
-    });
+    // Generate embedding with timeout (30 seconds)
+    const embeddingController = new AbortController();
+    const embeddingTimeoutId = setTimeout(() => embeddingController.abort(), 30000);
+    
+    let embeddingResponse: Response;
+    try {
+      embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'text-embedding-3-small',
+          input: text.slice(0, 8000) // Limit input size
+        }),
+        signal: embeddingController.signal,
+      });
+    } catch (fetchError: unknown) {
+      clearTimeout(embeddingTimeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('Embedding request timed out after 30 seconds');
+        return new Response(
+          JSON.stringify({ error: 'Embedding request timed out after 30 seconds' }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw fetchError;
+    }
+    clearTimeout(embeddingTimeoutId);
 
     if (!embeddingResponse.ok) {
       const error = await embeddingResponse.json();

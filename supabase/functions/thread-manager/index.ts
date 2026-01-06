@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { clearFamilyThread, createOpenAIConversation, fetchConversationHistory } from "../_shared/familyThreads.ts";
+import { validateThreadManagerInput } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -125,7 +126,27 @@ serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
-    const { action, ...body } = await req.json();
+    
+    let requestBody: any;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { action, ...body } = requestBody;
+    
+    // Validate input
+    const validation_result = validateThreadManagerInput({ action, ...body });
+    if (!validation_result.valid) {
+      return new Response(
+        JSON.stringify({ error: validation_result.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('Thread manager request:', { action, user: validation.user?.email });
 

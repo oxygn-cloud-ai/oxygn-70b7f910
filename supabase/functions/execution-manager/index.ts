@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
+import { validateExecutionManagerInput } from "../_shared/validation.ts";
 
 /**
  * Execution Manager Edge Function
@@ -671,8 +672,27 @@ serve(async (req) => {
     }
 
     const { user, supabase } = validation;
-    const body = await req.json();
-    const { action, ...params } = body;
+    
+    let parsedBody: any;
+    try {
+      parsedBody = await req.json();
+    } catch (parseError) {
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const { action, ...params } = parsedBody;
+    
+    // Validate input
+    const validation_result = validateExecutionManagerInput({ action, ...params });
+    if (!validation_result.valid) {
+      return new Response(JSON.stringify({ error: validation_result.error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Check rate limit
     const rateLimit = await checkRateLimit(supabase, user.id, 'execution-manager');
