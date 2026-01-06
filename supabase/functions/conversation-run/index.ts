@@ -329,8 +329,11 @@ async function runResponsesAPI(
   
   if (reasoningEffortToUse) {
     if (validLevels.length > 0 && validLevels.includes(reasoningEffortToUse)) {
-      requestBody.reasoning = { effort: reasoningEffortToUse };
-      console.log('Using reasoning effort:', reasoningEffortToUse);
+      requestBody.reasoning = { 
+        effort: reasoningEffortToUse,
+        summary: "auto"  // Request reasoning summaries from OpenAI
+      };
+      console.log('Using reasoning effort:', reasoningEffortToUse, 'with summary: auto');
     } else {
       console.log(`Skipping reasoning_effort - not supported by model ${requestedModel}`);
     }
