@@ -651,6 +651,18 @@ async function runResponsesAPI(
         }
         
         if (data.status === 'completed') {
+          // Log output item types for debugging reasoning issues
+          const itemTypes = (data.output || []).map((item: any) => item.type);
+          const hasReasoning = itemTypes.includes('reasoning');
+          console.log('Polling response completed:', { 
+            responseId, 
+            itemCount: data.output?.length || 0, 
+            itemTypes,
+            hasReasoning,
+            pollCount,
+            elapsedMs: elapsed,
+          });
+          
           let responseText = '';
           if (data.output && Array.isArray(data.output)) {
             for (const item of data.output) {
@@ -663,6 +675,10 @@ async function runResponsesAPI(
               }
               // Handle reasoning items from polled response (background mode)
               if (item.type === 'reasoning' && emitter) {
+                console.log('Processing reasoning item from poll:', { 
+                  itemId: item.id, 
+                  summaryParts: item.summary?.length || 0,
+                });
                 emitter.emit({
                   type: 'thinking_started',
                   item_id: item.id,
@@ -1034,6 +1050,10 @@ async function runResponsesAPI(
               }
               // Handle reasoning/thinking content from completed output
               if (item.type === 'reasoning' && emitter) {
+                console.log('Processing reasoning item from streaming output:', { 
+                  itemId: item.id, 
+                  summaryParts: item.summary?.length || 0,
+                });
                 emitter.emit({
                   type: 'thinking_started',
                   item_id: item.id,
@@ -1049,6 +1069,17 @@ async function runResponsesAPI(
                       });
                     }
                   }
+                }
+                // Emit thinking_done with full summary
+                const fullSummaryText = (item.summary || [])
+                  .map((s: { text?: string }) => s.text || '')
+                  .join('');
+                if (fullSummaryText) {
+                  emitter.emit({
+                    type: 'thinking_done',
+                    text: fullSummaryText,
+                    item_id: item.id,
+                  });
                 }
               }
             }
