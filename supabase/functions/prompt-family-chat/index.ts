@@ -1097,8 +1097,11 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         const validLevels = modelConfig?.reasoningEffortLevels || ['low', 'medium', 'high'];
         
         if (supportsReasoning && validLevels.includes(reasoning_effort)) {
-          requestBody.reasoning = { effort: reasoning_effort };
-          console.log(`Applied reasoning effort: ${reasoning_effort}`);
+          requestBody.reasoning = { 
+            effort: reasoning_effort,
+            summary: "auto"  // Request reasoning summaries from OpenAI
+          };
+          console.log(`Applied reasoning effort: ${reasoning_effort} with summary: auto`);
         }
       }
 

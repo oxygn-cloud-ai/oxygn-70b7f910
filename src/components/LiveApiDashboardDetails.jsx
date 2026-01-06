@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -8,12 +8,14 @@ import {
   Cpu, 
   TrendingUp,
   ChevronRight,
-  Brain
+  Brain,
+  Copy
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatTokenCount, calculateContextUsage } from '@/utils/tokenizer';
 import { formatCost, formatTokensPerSecond, calculateTokensPerSecond } from '@/utils/costEstimator';
+import { toast } from 'sonner';
 
 /**
  * Expanded details popover for LiveApiDashboard.
@@ -22,10 +24,20 @@ import { formatCost, formatTokensPerSecond, calculateTokensPerSecond } from '@/u
 const LiveApiDashboardDetails = ({ 
   call, 
   elapsed,
+  liveEstimatedCost,
   onCancel,
   isOpen,
   onOpenChange,
 }) => {
+  const reasoningRef = useRef(null);
+  
+  // Auto-scroll reasoning to bottom
+  useEffect(() => {
+    if (reasoningRef.current && call?.thinkingSummary) {
+      reasoningRef.current.scrollTop = reasoningRef.current.scrollHeight;
+    }
+  }, [call?.thinkingSummary]);
+
   if (!call) return null;
 
   const tokensPerSecond = calculateTokensPerSecond(
@@ -38,6 +50,11 @@ const LiveApiDashboardDetails = ({
     (call.estimatedInputTokens || 0) + (call.outputTokens || 0),
     call.contextWindow
   );
+
+  const handleCopyReasoning = () => {
+    navigator.clipboard.writeText(call.thinkingSummary || '');
+    toast.success('Reasoning copied');
+  };
 
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
@@ -102,13 +119,13 @@ const LiveApiDashboardDetails = ({
                 />
               </div>
 
-              {/* Cost Estimate */}
+              {/* Cost Estimate - use live cost */}
               <div className="grid grid-cols-2 gap-2">
                 <MetricCard
                   icon={<DollarSign className="h-3.5 w-3.5" />}
                   label="Est. Cost"
-                  value={formatCost(call.estimatedCost)}
-                  sublabel="approx"
+                  value={formatCost(liveEstimatedCost || 0)}
+                  sublabel="live"
                 />
                 <MetricCard
                   icon={<Brain className="h-3.5 w-3.5" />}
@@ -140,16 +157,30 @@ const LiveApiDashboardDetails = ({
                 </div>
               </div>
 
-              {/* Thinking Summary (if available) */}
+              {/* Reasoning Section - Enhanced */}
               {call.thinkingSummary && (
                 <div className="space-y-1">
-                  <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">
-                    Reasoning
-                  </span>
-                  <div className="text-[11px] text-on-surface bg-surface-container rounded-m3-sm p-2 max-h-24 overflow-y-auto">
-                    {call.thinkingSummary.length > 200 
-                      ? '...' + call.thinkingSummary.slice(-200) 
-                      : call.thinkingSummary}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">
+                      Reasoning
+                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button 
+                          onClick={handleCopyReasoning}
+                          className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+                        >
+                          <Copy className="h-3 w-3 text-on-surface-variant" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">Copy reasoning</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div 
+                    ref={reasoningRef}
+                    className="text-[11px] text-on-surface bg-surface-container rounded-m3-sm p-2 max-h-48 overflow-y-auto whitespace-pre-wrap"
+                  >
+                    {call.thinkingSummary}
                   </div>
                 </div>
               )}
