@@ -16,8 +16,12 @@ export const useLiveApiDashboard = () => {
       addCall: () => 0,
       updateCall: () => {},
       appendThinking: () => {},
+      incrementOutputTokens: () => {},
       removeCall: () => {},
       cancelCall: () => {},
+      // Cumulative stats for cascade mode
+      cumulativeStats: { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 },
+      resetCumulativeStats: () => {},
     };
   }
   return ctx;
@@ -25,13 +29,21 @@ export const useLiveApiDashboard = () => {
 
 /**
  * Provider for tracking active API calls with detailed status.
- * Replaces the old navigation guard dialog with a live dashboard.
+ * Includes token tracking, cost estimation, and streaming speed metrics.
  */
 export const LiveApiDashboardProvider = ({ children }) => {
   const [activeCalls, setActiveCalls] = useState([]);
   const callIdRef = useRef(0);
+  
+  // Cumulative stats for cascade mode
+  const [cumulativeStats, setCumulativeStats] = useState({
+    inputTokens: 0,
+    outputTokens: 0,
+    totalCost: 0,
+    callCount: 0,
+  });
 
-  // Add a new call to the dashboard
+  // Add a new call to the dashboard with extended metrics
   const addCall = useCallback((callInfo) => {
     const id = ++callIdRef.current;
     const newCall = {
@@ -41,6 +53,17 @@ export const LiveApiDashboardProvider = ({ children }) => {
       thinkingSummary: '',
       responseId: null,
       isCascadeCall: false,
+      // Token tracking
+      estimatedInputTokens: callInfo.estimatedInputTokens || 0,
+      outputTokens: 0,
+      // Speed tracking
+      firstTokenAt: null,
+      lastTokenAt: null,
+      tokenCount: 0, // For calculating tokens per second
+      // Cost tracking (will be calculated from model pricing)
+      estimatedCost: 0,
+      // Context window
+      contextWindow: callInfo.contextWindow || 128000, // Default to 128k
       ...callInfo,
     };
     setActiveCalls((prev) => [...prev, newCall]);
@@ -65,9 +88,43 @@ export const LiveApiDashboardProvider = ({ children }) => {
     );
   }, []);
 
-  // Remove a call from the dashboard
+  // Increment output tokens (called during streaming)
+  const incrementOutputTokens = useCallback((id, tokenDelta = 1) => {
+    const now = Date.now();
+    setActiveCalls((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        return {
+          ...c,
+          outputTokens: (c.outputTokens || 0) + tokenDelta,
+          tokenCount: (c.tokenCount || 0) + tokenDelta,
+          firstTokenAt: c.firstTokenAt || now,
+          lastTokenAt: now,
+        };
+      })
+    );
+  }, []);
+
+  // Remove a call from the dashboard and update cumulative stats
   const removeCall = useCallback((id) => {
-    setActiveCalls((prev) => prev.filter((c) => c.id !== id));
+    setActiveCalls((prev) => {
+      const call = prev.find((c) => c.id === id);
+      if (call && call.isCascadeCall) {
+        // Add to cumulative stats when cascade call completes
+        setCumulativeStats((stats) => ({
+          inputTokens: stats.inputTokens + (call.estimatedInputTokens || 0),
+          outputTokens: stats.outputTokens + (call.outputTokens || 0),
+          totalCost: stats.totalCost + (call.estimatedCost || 0),
+          callCount: stats.callCount + 1,
+        }));
+      }
+      return prev.filter((c) => c.id !== id);
+    });
+  }, []);
+
+  // Reset cumulative stats (call when cascade starts)
+  const resetCumulativeStats = useCallback(() => {
+    setCumulativeStats({ inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 });
   }, []);
 
   // Cancel a specific call
@@ -92,8 +149,11 @@ export const LiveApiDashboardProvider = ({ children }) => {
     addCall,
     updateCall,
     appendThinking,
+    incrementOutputTokens,
     removeCall,
     cancelCall,
+    cumulativeStats,
+    resetCumulativeStats,
   };
 
   return (

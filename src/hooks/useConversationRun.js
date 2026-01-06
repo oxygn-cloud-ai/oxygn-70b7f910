@@ -6,11 +6,13 @@ import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
 import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 import logger from '@/utils/logger';
+import { estimateRequestTokens, getModelContextWindow } from '@/utils/tokenizer';
+import { estimateCost } from '@/utils/costEstimator';
 
 export const useConversationRun = () => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
-  const { addCall, updateCall, appendThinking, removeCall } = useLiveApiDashboard();
+  const { addCall, updateCall, appendThinking, incrementOutputTokens, removeCall } = useLiveApiDashboard();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -234,6 +236,13 @@ export const useConversationRun = () => {
         }
       };
       
+      // Estimate input tokens for dashboard
+      const estimatedInputTokens = estimateRequestTokens({
+        systemPrompt: options.systemPrompt || '',
+        userMessage: userMessage || '',
+      });
+      const contextWindow = getModelContextWindow(options.model);
+      
       // Register with LiveApiDashboard
       const dashboardCallId = addCall({
         promptName: options.promptName || 'Running...',
@@ -241,6 +250,8 @@ export const useConversationRun = () => {
         model: options.model || 'loading...',
         cancelFn: cancelThisCall,
         isCascadeCall: options.isCascadeCall || false,
+        estimatedInputTokens,
+        contextWindow,
       });
 
       safeSetState(setIsRunning, true);
@@ -301,6 +312,17 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
+          } else if (progressEvent.type === 'text_delta') {
+            // Increment output tokens (rough estimate: 1 token per ~4 chars)
+            const tokenDelta = Math.ceil((progressEvent.delta?.length || 0) / 4);
+            if (tokenDelta > 0) {
+              incrementOutputTokens(dashboardCallId, tokenDelta);
+            }
+          } else if (progressEvent.type === 'usage_delta') {
+            // Direct usage update from server
+            if (progressEvent.output_tokens) {
+              incrementOutputTokens(dashboardCallId, progressEvent.output_tokens);
+            }
           }
         });
 
@@ -425,7 +447,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, removeCall]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, incrementOutputTokens, removeCall]
   );
 
   const runConversation = useCallback(
@@ -473,6 +495,12 @@ export const useConversationRun = () => {
         }
       };
       
+      // Estimate input tokens for dashboard
+      const estimatedInputTokens = estimateRequestTokens({
+        userMessage: userMessage || '',
+      });
+      const contextWindow = getModelContextWindow(model);
+      
       // Register with LiveApiDashboard
       const dashboardCallId = addCall({
         promptName: promptName || 'Running...',
@@ -480,6 +508,8 @@ export const useConversationRun = () => {
         model: model || 'loading...',
         cancelFn: cancelThisCall,
         isCascadeCall,
+        estimatedInputTokens,
+        contextWindow,
       });
 
       safeSetState(setIsRunning, true);
@@ -543,6 +573,17 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
+          } else if (progressEvent.type === 'text_delta') {
+            // Increment output tokens (rough estimate: 1 token per ~4 chars)
+            const tokenDelta = Math.ceil((progressEvent.delta?.length || 0) / 4);
+            if (tokenDelta > 0) {
+              incrementOutputTokens(dashboardCallId, tokenDelta);
+            }
+          } else if (progressEvent.type === 'usage_delta') {
+            // Direct usage update from server
+            if (progressEvent.output_tokens) {
+              incrementOutputTokens(dashboardCallId, progressEvent.output_tokens);
+            }
           }
         });
 
@@ -589,7 +630,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, removeCall]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, incrementOutputTokens, removeCall]
   );
 
   return {
