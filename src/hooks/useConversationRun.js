@@ -588,7 +588,9 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
-          } else if (progressEvent.type === 'text_delta') {
+          } else if (progressEvent.type === 'output_text_delta') {
+            // Append output text to dashboard
+            appendOutputText(dashboardCallId, progressEvent.delta);
             // Increment output tokens (rough estimate: 1 token per ~4 chars)
             const tokenDelta = Math.ceil((progressEvent.delta?.length || 0) / 4);
             if (tokenDelta > 0) {

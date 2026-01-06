@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { 
-  LayoutDashboard, Brain, Zap, Clock, DollarSign, 
+  Brain, Zap, Clock, DollarSign, 
   Gauge, Activity, Globe, FileSearch, Code, MessageSquare,
-  Copy, Expand, X, Pause, Play, SkipForward, Loader2,
+  Copy, X, Pause, Play, SkipForward, Loader2,
   Thermometer, Hash, Percent, Settings2, Wrench
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
