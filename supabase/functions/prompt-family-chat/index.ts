@@ -713,6 +713,7 @@ async function executeToolsAndSubmitStreaming(
   selectedModel: string,
   openAIApiKey: string,
   emitter: SSEEmitter,
+  maxOutputTokens?: number,
 ): Promise<{ content: string | null; hasMoreTools: boolean; nextToolCalls: any[]; responseId: string | null }> {
   const toolResults: any[] = [];
   
@@ -748,6 +749,12 @@ async function executeToolsAndSubmitStreaming(
     store: true,
     background: true,
   };
+  
+  // CRITICAL: Include max_output_tokens in tool submission to prevent uncapped output
+  if (maxOutputTokens !== undefined) {
+    requestBody.max_output_tokens = maxOutputTokens;
+    console.log('Tool submit using max_output_tokens:', maxOutputTokens);
+  }
   
   if (previousResponseId?.startsWith('resp_')) {
     requestBody.previous_response_id = previousResponseId;
@@ -1184,7 +1191,8 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
           latestResponseId,
           selectedModel,
           openAIApiKey,
-          emitter
+          emitter,
+          modelConfig?.maxOutputTokens
         );
         
         if (result.responseId) {

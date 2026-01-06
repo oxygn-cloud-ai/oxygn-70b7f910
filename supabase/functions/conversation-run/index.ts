@@ -1825,14 +1825,27 @@ serve(async (req) => {
       // GPT-4 uses max_tokens, GPT-5/o-series uses max_completion_tokens
       // For Responses API: map either token setting to maxOutputTokens
       // Responses API uses max_output_tokens for ALL models (different from Chat Completions API)
-      if (childPrompt.max_completion_tokens_on && childPrompt.max_completion_tokens) {
+      // 
+      // PRECEDENCE: If BOTH are enabled, prefer the one matching the model's native param
+      // GPT-5/o-series: prefer max_completion_tokens
+      // GPT-4: prefer max_tokens
+      const hasMCT = childPrompt.max_completion_tokens_on && childPrompt.max_completion_tokens;
+      const hasMT = childPrompt.max_tokens_on && childPrompt.max_tokens;
+      
+      if (hasMCT && hasMT) {
+        // Both enabled - use max_completion_tokens (newer, preferred for Responses API)
+        const maxOT = parseInt(childPrompt.max_completion_tokens, 10);
+        if (!isNaN(maxOT)) {
+          apiOptions.maxOutputTokens = maxOT;
+          console.log('Using max_output_tokens from max_completion_tokens (preferred when both set):', maxOT);
+        }
+      } else if (hasMCT) {
         const maxOT = parseInt(childPrompt.max_completion_tokens, 10);
         if (!isNaN(maxOT)) {
           apiOptions.maxOutputTokens = maxOT;
           console.log('Using max_output_tokens from max_completion_tokens setting:', maxOT);
         }
-      }
-      if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
+      } else if (hasMT) {
         const maxOT = parseInt(childPrompt.max_tokens, 10);
         if (!isNaN(maxOT)) {
           apiOptions.maxOutputTokens = maxOT;
