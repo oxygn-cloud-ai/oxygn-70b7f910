@@ -222,10 +222,14 @@ export function validateExecutionManagerInput(body: any): ValidationResult {
 export function validateConfluenceManagerInput(body: any): ValidationResult {
   const { action } = body;
   
+  // All valid actions from confluence-manager switch statement
   const validActions = [
     'test-connection', 'list-spaces', 'search-pages', 'get-space-tree',
-    'get-children', 'get-page', 'create-page', 'update-page', 
-    'get-templates', 'get-template', 'find-unique-title'
+    'get-page-children', 'get-folder-children', 'get-page', 
+    'list-templates', 'create-page', 'update-page',
+    'attach-page', 'detach-page', 'sync-page', 
+    'sync-to-vector-store', 'sync-to-openai', 'list-attached',
+    'find-unique-title'
   ];
   if (!isValidAction(action, validActions)) {
     return { valid: false, error: `Invalid action. Use: ${validActions.join(', ')}` };
@@ -240,18 +244,55 @@ export function validateConfluenceManagerInput(body: any): ValidationResult {
       break;
       
     case 'get-space-tree':
-    case 'get-templates':
+    case 'list-templates':
       if (!isNonEmptyString(body.spaceKey, 50)) {
         return { valid: false, error: 'spaceKey is required' };
       }
       break;
       
-    case 'get-children':
+    case 'get-page-children':
     case 'get-page':
     case 'update-page':
-    case 'get-template':
       if (!isNonEmptyString(body.pageId, 50)) {
         return { valid: false, error: 'pageId is required' };
+      }
+      break;
+      
+    case 'get-folder-children':
+      if (!isNonEmptyString(body.folderId, 50)) {
+        return { valid: false, error: 'folderId is required' };
+      }
+      break;
+      
+    case 'attach-page':
+      if (!isNonEmptyString(body.pageId, 50)) {
+        return { valid: false, error: 'pageId is required' };
+      }
+      // Optional: assistantRowId or promptRowId
+      if (body.assistantRowId && !isValidUUID(body.assistantRowId)) {
+        return { valid: false, error: 'assistantRowId must be a valid UUID' };
+      }
+      if (body.promptRowId && !isValidUUID(body.promptRowId)) {
+        return { valid: false, error: 'promptRowId must be a valid UUID' };
+      }
+      break;
+      
+    case 'detach-page':
+    case 'sync-page':
+    case 'sync-to-vector-store':
+    case 'sync-to-openai':
+      if (!isValidUUID(body.rowId)) {
+        return { valid: false, error: 'rowId is required and must be a valid UUID' };
+      }
+      break;
+      
+    case 'list-attached':
+      // Optional filters
+      if (body.assistantRowId && !isValidUUID(body.assistantRowId)) {
+        return { valid: false, error: 'assistantRowId must be a valid UUID' };
+      }
+      if (body.promptRowId && !isValidUUID(body.promptRowId)) {
+        return { valid: false, error: 'promptRowId must be a valid UUID' };
       }
       break;
       
