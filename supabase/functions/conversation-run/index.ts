@@ -858,9 +858,16 @@ async function runResponsesAPI(
             };
           }
           
-          // Capture usage when available
+          // Capture usage when available and emit for live dashboard
           if (event.usage) {
             finalUsage = event.usage;
+            if (emitter) {
+              emitter.emit({
+                type: 'usage_delta',
+                input_tokens: event.usage.input_tokens || 0,
+                output_tokens: event.usage.output_tokens || 0,
+              });
+            }
           }
           
           // Capture output content and emit reasoning/thinking events
