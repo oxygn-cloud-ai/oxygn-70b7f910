@@ -94,6 +94,8 @@ const TemplatePickerDialog = ({
       const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value);
     });
+    // Strip any TEMPLATE_REF placeholders (created by sanitization during template creation)
+    result = result.replace(/\{\{q\.ref\[TEMPLATE_REF\]\.[a-z_]+\}\}/gi, '');
     return result;
   };
 

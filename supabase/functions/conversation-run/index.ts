@@ -679,9 +679,13 @@ async function runResponsesAPI(
                     }
                   }
                 }
+                // Build full summary text for thinking_done
+                const fullSummaryText = (item.summary || [])
+                  .map((s: { text?: string }) => s.text || '')
+                  .join('');
                 emitter.emit({
                   type: 'thinking_done',
-                  text: '',
+                  text: fullSummaryText,
                   item_id: item.id,
                 });
               }
