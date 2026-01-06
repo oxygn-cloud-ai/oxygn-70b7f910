@@ -162,7 +162,7 @@ export function validateExecutionManagerInput(body: any): ValidationResult {
   
   const validActions = [
     'start_trace', 'create_span', 'complete_span', 'fail_span', 
-    'complete_trace', 'check_rate_limit', 'cancel_response', 'cleanup'
+    'complete_trace', 'check_rate_limit', 'cancel_response', 'cleanup', 'cleanup_orphaned'
   ];
   if (!isValidAction(action, validActions)) {
     return { valid: false, error: `Invalid action. Use: ${validActions.join(', ')}` };
