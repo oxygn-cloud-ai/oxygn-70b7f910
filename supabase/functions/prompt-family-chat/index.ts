@@ -500,7 +500,7 @@ serve(async (req) => {
     console.log('Prompt family chat request from:', validation.user?.email);
 
     const body = await req.json();
-    const { prompt_row_id, messages, system_prompt, model, reasoning_effort } = body;
+    const { prompt_row_id, user_message, system_prompt, model, reasoning_effort } = body;
 
     // Input validation
     if (!prompt_row_id) {
@@ -519,45 +519,21 @@ serve(async (req) => {
       );
     }
 
-    if (!messages || !Array.isArray(messages)) {
+    // Validate user_message - accept string directly instead of messages array
+    // This reduces payload size since OpenAI Responses API maintains history via previous_response_id
+    if (!user_message || typeof user_message !== 'string') {
       return new Response(
-        JSON.stringify({ error: 'messages array is required' }),
+        JSON.stringify({ error: 'user_message is required and must be a string' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate message content length (100KB total limit)
-    const totalContentLength = messages.reduce((acc: number, msg: any) => {
-      return acc + (typeof msg?.content === 'string' ? msg.content.length : 0);
-    }, 0);
-    if (totalContentLength > 100000) {
+    // Validate single message length (100KB limit per message)
+    if (user_message.length > 100000) {
       return new Response(
-        JSON.stringify({ error: 'Total message content exceeds 100KB limit' }),
+        JSON.stringify({ error: 'Message exceeds 100KB limit' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    }
-
-    // Validate individual message structure
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i];
-      if (!msg || typeof msg !== 'object') {
-        return new Response(
-          JSON.stringify({ error: `Invalid message at index ${i}: must be an object` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (!msg.role || !['user', 'assistant', 'system'].includes(msg.role)) {
-        return new Response(
-          JSON.stringify({ error: `Invalid message at index ${i}: role must be 'user', 'assistant', or 'system'` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (msg.content !== undefined && typeof msg.content !== 'string') {
-        return new Response(
-          JSON.stringify({ error: `Invalid message at index ${i}: content must be a string` }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
     }
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
@@ -791,8 +767,8 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
     console.log('Tools prepared:', tools.map(t => t.name));
 
 
-    const lastUserMessage = messages[messages.length - 1];
-    const userInput = lastUserMessage?.content || '';
+    // Use user_message directly - no need to extract from array
+    const userInput = user_message;
 
     // Tool context - unified for both registry and legacy paths
     const toolContext = {

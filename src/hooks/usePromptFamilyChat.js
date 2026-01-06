@@ -281,12 +281,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
-      const apiMessages = messages.map(m => ({
-        role: m.role,
-        content: m.content
-      }));
-      apiMessages.push({ role: 'user', content: userMessage });
-
+      // Only send the new user message - OpenAI Responses API maintains history via previous_response_id
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/prompt-family-chat`,
         {
@@ -296,9 +291,8 @@ export const usePromptFamilyChat = (promptRowId) => {
             'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify({
-            thread_row_id: effectiveThreadId,
             prompt_row_id: promptRowId,
-            messages: apiMessages,
+            user_message: userMessage,
             model: model || sessionModel || null,
             reasoning_effort: reasoningEffort || sessionReasoningEffort
           }),
