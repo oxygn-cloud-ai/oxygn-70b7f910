@@ -348,7 +348,8 @@ const TreeItem = ({
         }}
         onMouseLeave={(e) => {
           const next = e.relatedTarget;
-          if (menuRef.current && next && menuRef.current.contains(next)) return;
+          // Check if next is a valid DOM node before calling contains()
+          if (menuRef.current && next instanceof Node && menuRef.current.contains(next)) return;
           setIsHovered(false);
         }}
         className={`
@@ -465,7 +466,8 @@ const TreeItem = ({
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={(e) => {
               const next = e.relatedTarget;
-              if (ref.current && next && ref.current.contains(next)) return;
+              // Check if next is a valid DOM node before calling contains()
+              if (ref.current && next instanceof Node && ref.current.contains(next)) return;
               setIsHovered(false);
             }}
           >
