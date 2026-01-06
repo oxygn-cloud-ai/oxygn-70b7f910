@@ -83,6 +83,7 @@ interface ResponsesResult {
   error_code?: string;
   response_id?: string;
   requestParams?: any;
+  incomplete_reason?: string;
 }
 
 // Default system prompt for action nodes - instructs AI to respond with JSON
@@ -272,11 +273,9 @@ async function runResponsesAPI(
   const topP = options.topP ?? (assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined);
   
   // RESPONSES API: Always uses max_output_tokens for ALL models
-  // This is different from Chat Completions API which uses max_tokens (GPT-4) / max_completion_tokens (GPT-5)
-  // Map from either assistant override to max_output_tokens
+  // Priority: options.maxOutputTokens (from prompt) > assistant.max_output_tokens_override
   const maxOutputTokens = options.maxOutputTokens ?? 
-    (assistantData.max_completion_tokens_override ? parseInt(assistantData.max_completion_tokens_override, 10) : undefined) ??
-    (assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined);
+    (assistantData.max_output_tokens_override ? parseInt(assistantData.max_output_tokens_override, 10) : undefined);
 
   if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
     requestBody.temperature = temperature;
@@ -717,6 +716,60 @@ async function runResponsesAPI(
           };
         }
         
+        // Handle incomplete status - return partial content
+        if (data.status === 'incomplete') {
+          let responseText = '';
+          if (data.output && Array.isArray(data.output)) {
+            for (const item of data.output) {
+              if (item.type === 'message' && item.content) {
+                for (const contentItem of item.content) {
+                  if (contentItem.type === 'output_text' && contentItem.text) {
+                    responseText += contentItem.text;
+                  }
+                }
+              }
+            }
+          }
+          
+          const usage = {
+            prompt_tokens: data.usage?.input_tokens || 0,
+            completion_tokens: data.usage?.output_tokens || 0,
+            total_tokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+          };
+          
+          const reason = data.incomplete_details?.reason || 'unknown';
+          console.warn('Response incomplete:', { responseId, reason, textLength: responseText.length });
+          
+          // Emit partial content
+          if (emitter && responseText) {
+            emitter.emit({ type: 'output_text_done', text: responseText, item_id: 'polling_incomplete' });
+          }
+          if (emitter && data.usage) {
+            emitter.emit({ type: 'usage_delta', input_tokens: data.usage.input_tokens || 0, output_tokens: data.usage.output_tokens || 0 });
+          }
+          
+          return {
+            success: true,
+            response: responseText,
+            usage,
+            response_id: responseId,
+            requestParams,
+            incomplete_reason: reason,
+          };
+        }
+        
+        // Handle requires_action status - not supported in this endpoint
+        if (data.status === 'requires_action') {
+          console.error('Response requires tool action (not supported in cascade runs):', responseId);
+          return {
+            success: false,
+            error: 'Model attempted to use tools, which are not supported in this context',
+            error_code: 'REQUIRES_ACTION_UNSUPPORTED',
+            response_id: responseId,
+            requestParams,
+          };
+        }
+        
         // Still queued or in_progress, continue polling
         await new Promise(resolve => setTimeout(resolve, intervalMs));
         
@@ -902,6 +955,26 @@ async function runResponsesAPI(
               success: false,
               error: errorMsg,
               error_code: 'API_CALL_FAILED',
+              response_id: responseId,
+            };
+          }
+          
+          // Handle incomplete status during streaming - let stream finish extracting partial content
+          if (event.status === 'incomplete') {
+            const reason = event.incomplete_details?.reason || 'unknown';
+            console.warn('Response incomplete during streaming:', { responseId, reason });
+            // Don't abort - continue to extract whatever text was generated
+          }
+          
+          // Handle requires_action status - not supported
+          if (event.status === 'requires_action') {
+            console.error('Response requires action during streaming (not supported)');
+            if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+            reader.cancel();
+            return {
+              success: false,
+              error: 'Model attempted to use tools, which are not supported in this context',
+              error_code: 'REQUIRES_ACTION_UNSUPPORTED',
               response_id: responseId,
             };
           }
@@ -1855,35 +1928,12 @@ serve(async (req) => {
         const topP = parseFloat(childPrompt.top_p);
         if (!isNaN(topP)) apiOptions.topP = topP;
       }
-      // CRITICAL: max_tokens and max_completion_tokens are separate settings
-      // GPT-4 uses max_tokens, GPT-5/o-series uses max_completion_tokens
-      // For Responses API: map either token setting to maxOutputTokens
-      // Responses API uses max_output_tokens for ALL models (different from Chat Completions API)
-      // 
-      // PRECEDENCE: If BOTH are enabled, prefer the one matching the model's native param
-      // GPT-5/o-series: prefer max_completion_tokens
-      // GPT-4: prefer max_tokens
-      const hasMCT = childPrompt.max_completion_tokens_on && childPrompt.max_completion_tokens;
-      const hasMT = childPrompt.max_tokens_on && childPrompt.max_tokens;
-      
-      if (hasMCT && hasMT) {
-        // Both enabled - use max_completion_tokens (newer, preferred for Responses API)
-        const maxOT = parseInt(childPrompt.max_completion_tokens, 10);
+      // RESPONSES API: Use max_output_tokens directly - no mapping from legacy fields
+      if (childPrompt.max_output_tokens_on && childPrompt.max_output_tokens) {
+        const maxOT = parseInt(childPrompt.max_output_tokens, 10);
         if (!isNaN(maxOT)) {
           apiOptions.maxOutputTokens = maxOT;
-          console.log('Using max_output_tokens from max_completion_tokens (preferred when both set):', maxOT);
-        }
-      } else if (hasMCT) {
-        const maxOT = parseInt(childPrompt.max_completion_tokens, 10);
-        if (!isNaN(maxOT)) {
-          apiOptions.maxOutputTokens = maxOT;
-          console.log('Using max_output_tokens from max_completion_tokens setting:', maxOT);
-        }
-      } else if (hasMT) {
-        const maxOT = parseInt(childPrompt.max_tokens, 10);
-        if (!isNaN(maxOT)) {
-          apiOptions.maxOutputTokens = maxOT;
-          console.log('Using max_output_tokens from max_tokens setting:', maxOT);
+          console.log('Using max_output_tokens setting:', maxOT);
         }
       }
       if (childPrompt.frequency_penalty_on && childPrompt.frequency_penalty) {
@@ -1918,19 +1968,12 @@ serve(async (req) => {
       
       // Apply model defaults as fallback for maxOutputTokens (Responses API)
       if (apiOptions.maxOutputTokens === undefined) {
-        // Try model defaults table first (check both max_completion_tokens and max_tokens)
-        if (modelDefaults?.max_completion_tokens_on && modelDefaults?.max_completion_tokens) {
-          const defaultMaxOT = parseInt(modelDefaults.max_completion_tokens, 10);
+        // Use max_output_tokens from model defaults table
+        if (modelDefaults?.max_output_tokens_on && modelDefaults?.max_output_tokens) {
+          const defaultMaxOT = parseInt(modelDefaults.max_output_tokens, 10);
           if (!isNaN(defaultMaxOT) && defaultMaxOT > 0) {
             apiOptions.maxOutputTokens = defaultMaxOT;
-            console.log('Using model default max_output_tokens (from max_completion_tokens):', defaultMaxOT);
-          }
-        }
-        if (apiOptions.maxOutputTokens === undefined && modelDefaults?.max_tokens_on && modelDefaults?.max_tokens) {
-          const defaultMaxOT = parseInt(modelDefaults.max_tokens, 10);
-          if (!isNaN(defaultMaxOT) && defaultMaxOT > 0) {
-            apiOptions.maxOutputTokens = defaultMaxOT;
-            console.log('Using model default max_output_tokens (from max_tokens):', defaultMaxOT);
+            console.log('Using model default max_output_tokens:', defaultMaxOT);
           }
         }
         // Final fallback: use model's max_output_tokens from q_models

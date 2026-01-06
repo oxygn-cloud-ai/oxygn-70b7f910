@@ -127,6 +127,20 @@ export const ALL_SETTINGS = {
     step: 0.05,
     defaultValue: '1'
   },
+  // RESPONSES API: max_output_tokens is the ONLY token parameter for prompt runs/cascades
+  // This is different from Chat Completions API which uses max_tokens (GPT-4) / max_completion_tokens (GPT-5)
+  max_output_tokens: { 
+    label: 'Max Output Tokens', 
+    shortLabel: 'Max Out',
+    description: 'Maximum response length',
+    details: 'The maximum number of tokens to generate in the response. Used by all models when calling the OpenAI Responses API for prompt runs and cascades.',
+    docUrl: 'https://platform.openai.com/docs/api-reference/responses/create#responses-create-max_output_tokens',
+    type: 'number',
+    min: 1,
+    max: 128000,
+    step: 1,
+    defaultValue: '4096'
+  },
 };
 
 // All available tools
