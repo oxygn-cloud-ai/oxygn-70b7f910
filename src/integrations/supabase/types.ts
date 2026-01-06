@@ -315,6 +315,7 @@ export type Database = {
           last_error: string | null
           last_instantiated_at: string | null
           max_completion_tokens_override: string | null
+          max_output_tokens_override: string | null
           max_tokens_override: string | null
           model_override: string | null
           name: string | null
@@ -342,6 +343,7 @@ export type Database = {
           last_error?: string | null
           last_instantiated_at?: string | null
           max_completion_tokens_override?: string | null
+          max_output_tokens_override?: string | null
           max_tokens_override?: string | null
           model_override?: string | null
           name?: string | null
@@ -369,6 +371,7 @@ export type Database = {
           last_error?: string | null
           last_instantiated_at?: string | null
           max_completion_tokens_override?: string | null
+          max_output_tokens_override?: string | null
           max_tokens_override?: string | null
           model_override?: string | null
           name?: string | null
@@ -845,6 +848,8 @@ export type Database = {
           logit_bias_on: boolean | null
           max_completion_tokens: string | null
           max_completion_tokens_on: boolean | null
+          max_output_tokens: string | null
+          max_output_tokens_on: boolean | null
           max_tokens: string | null
           max_tokens_on: boolean | null
           model_id: string | null
@@ -875,6 +880,8 @@ export type Database = {
           logit_bias_on?: boolean | null
           max_completion_tokens?: string | null
           max_completion_tokens_on?: boolean | null
+          max_output_tokens?: string | null
+          max_output_tokens_on?: boolean | null
           max_tokens?: string | null
           max_tokens_on?: boolean | null
           model_id?: string | null
@@ -905,6 +912,8 @@ export type Database = {
           logit_bias_on?: boolean | null
           max_completion_tokens?: string | null
           max_completion_tokens_on?: boolean | null
+          max_output_tokens?: string | null
+          max_output_tokens_on?: boolean | null
           max_tokens?: string | null
           max_tokens_on?: boolean | null
           model_id?: string | null
@@ -1227,6 +1236,8 @@ export type Database = {
           logprobs_on: boolean | null
           max_completion_tokens: string | null
           max_completion_tokens_on: boolean | null
+          max_output_tokens: string | null
+          max_output_tokens_on: boolean | null
           max_tokens: string | null
           max_tokens_on: boolean | null
           model: string | null
@@ -1314,6 +1325,8 @@ export type Database = {
           logprobs_on?: boolean | null
           max_completion_tokens?: string | null
           max_completion_tokens_on?: boolean | null
+          max_output_tokens?: string | null
+          max_output_tokens_on?: boolean | null
           max_tokens?: string | null
           max_tokens_on?: boolean | null
           model?: string | null
@@ -1401,6 +1414,8 @@ export type Database = {
           logprobs_on?: boolean | null
           max_completion_tokens?: string | null
           max_completion_tokens_on?: boolean | null
+          max_output_tokens?: string | null
+          max_output_tokens_on?: boolean | null
           max_tokens?: string | null
           max_tokens_on?: boolean | null
           model?: string | null

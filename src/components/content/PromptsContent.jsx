@@ -269,19 +269,12 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   const currentTemp = promptData?.temperature ? parseFloat(promptData.temperature) : 0.7;
   const isAssistant = promptData?.is_assistant || false;
 
-  // STRICT SEPARATION: Determine which token setting applies to this model
-  // GPT-5/o-series use max_completion_tokens, GPT-4 and earlier use max_tokens
-  const isGpt5Class = currentModel?.match(/^(gpt-5|o\d)/i);
-  const tokenSettingKey = isGpt5Class ? 'max_completion_tokens' : 'max_tokens';
-  const tokenParamLabel = isGpt5Class ? 'Max Completion Tokens' : 'Max Tokens';
-  
-  // Initialize BOTH token states separately - they are never collapsed
-  const currentMaxTokens = promptData?.max_tokens || String(modelConfig.maxTokens || 4096);
-  const currentMaxCompletionTokens = promptData?.max_completion_tokens || String(modelConfig.maxTokens || 4096);
+  // RESPONSES API: Only max_output_tokens is used for prompt runs/cascades
+  // No need to distinguish between GPT-4 and GPT-5 - all use max_output_tokens
+  const currentMaxOutputTokens = promptData?.max_output_tokens || String(modelConfig.maxTokens || 4096);
 
   const [temperature, setTemperature] = useState([currentTemp]);
-  const [maxTokens, setMaxTokens] = useState(currentMaxTokens);
-  const [maxCompletionTokens, setMaxCompletionTokens] = useState(currentMaxCompletionTokens);
+  const [maxOutputTokens, setMaxOutputTokens] = useState(currentMaxOutputTokens);
   
   // Local state for sliders to enable immediate visual feedback
   const [frequencyPenalty, setFrequencyPenalty] = useState([parseFloat(promptData?.frequency_penalty || '0')]);
@@ -306,22 +299,14 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
     }
   }, [promptData?.temperature]);
   
+  // Sync max_output_tokens when promptData changes
   useEffect(() => {
-    if (promptData?.max_tokens) {
-      setMaxTokens(promptData.max_tokens);
+    if (promptData?.max_output_tokens) {
+      setMaxOutputTokens(promptData.max_output_tokens);
     } else if (modelConfig.maxTokens) {
-      setMaxTokens(String(modelConfig.maxTokens));
+      setMaxOutputTokens(String(modelConfig.maxTokens));
     }
-  }, [promptData?.max_tokens, modelConfig.maxTokens]);
-  
-  // Sync max_completion_tokens separately (NEVER collapse with max_tokens)
-  useEffect(() => {
-    if (promptData?.max_completion_tokens) {
-      setMaxCompletionTokens(promptData.max_completion_tokens);
-    } else if (modelConfig.maxTokens) {
-      setMaxCompletionTokens(String(modelConfig.maxTokens));
-    }
-  }, [promptData?.max_completion_tokens, modelConfig.maxTokens]);
+  }, [promptData?.max_output_tokens, modelConfig.maxTokens]);
   
   // Sync other slider states when promptData changes
   useEffect(() => {
@@ -355,17 +340,11 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
     handleDebouncedSliderChange('temperature', value, setTemperature);
   };
 
-  // STRICT SEPARATION: Separate handlers for each token type - NEVER collapse
-  const handleMaxTokensChange = (e) => {
+  // Single handler for max_output_tokens (Responses API)
+  const handleMaxOutputTokensChange = (e) => {
     const value = e.target.value;
-    setMaxTokens(value);
-    onUpdateField?.('max_tokens', value);
-  };
-  
-  const handleMaxCompletionTokensChange = (e) => {
-    const value = e.target.value;
-    setMaxCompletionTokens(value);
-    onUpdateField?.('max_completion_tokens', value);
+    setMaxOutputTokens(value);
+    onUpdateField?.('max_output_tokens', value);
   };
 
   const handleModelChange = (modelId) => {
@@ -380,11 +359,6 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
 
   // Helper to check if a setting is supported
   const hasSetting = (setting) => supportedSettings.includes(setting);
-
-  // STRICT SEPARATION: Show the token setting that matches the model class
-  // GPT-5/o-series: show max_completion_tokens only
-  // GPT-4 and earlier: show max_tokens only
-  const hasTokenSetting = isGpt5Class ? hasSetting('max_completion_tokens') : hasSetting('max_tokens');
 
   return (
     <div className="space-y-4">
@@ -445,22 +419,22 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
           </div>
         )}
 
-        {/* STRICT SEPARATION: Max Tokens OR Max Completion Tokens - NEVER both */}
-        {hasTokenSetting && (
+        {/* Max Output Tokens - only show if model supports it */}
+        {hasSetting('max_output_tokens') && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">{tokenParamLabel}</label>
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Max Output Tokens</label>
               <Switch 
-                checked={promptData?.[`${tokenSettingKey}_on`] || false}
-                onCheckedChange={(checked) => onUpdateField?.(`${tokenSettingKey}_on`, checked)} 
+                checked={promptData?.max_output_tokens_on || false}
+                onCheckedChange={(checked) => onUpdateField?.('max_output_tokens_on', checked)} 
               />
             </div>
-            {promptData?.[`${tokenSettingKey}_on`] && (
+            {promptData?.max_output_tokens_on && (
               <>
                 <input
                   type="number"
-                  value={isGpt5Class ? maxCompletionTokens : maxTokens}
-                  onChange={isGpt5Class ? handleMaxCompletionTokensChange : handleMaxTokensChange}
+                  value={maxOutputTokens}
+                  onChange={handleMaxOutputTokensChange}
                   max={modelConfig.maxTokens}
                   min={1}
                   className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
