@@ -3,6 +3,7 @@ import { useSupabase } from './useSupabase';
 import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { useExecutionTracing } from './useExecutionTracing';
 import { toast } from '@/components/ui/sonner';
 import { notify } from '@/contexts/ToastHistoryContext';
@@ -50,6 +51,7 @@ export const useCascadeExecutor = () => {
   const supabase = useSupabase();
   const { runConversation, cancelRun } = useConversationRun();
   const { registerCall } = useApiCallContext();
+  const { resetCumulativeStats } = useLiveApiDashboard();
   const { startTrace, createSpan, completeSpan, failSpan, completeTrace } = useExecutionTracing();
   const {
     startCascade,
@@ -351,6 +353,7 @@ export const useCascadeExecutor = () => {
     }
 
     // Initialize cascade state with correct count
+    resetCumulativeStats(); // Reset cumulative token/cost stats for dashboard
     startCascade(hierarchy.totalLevels, nonExcludedPrompts.length);
     
     // Track cascade start

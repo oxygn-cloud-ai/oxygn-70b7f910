@@ -8,20 +8,27 @@ import {
   Play, 
   MoreHorizontal,
   FastForward,
-  ChevronDown
+  ChevronDown,
+  Zap,
+  Brain,
+  TrendingUp
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
+import LiveApiDashboardDetails from './LiveApiDashboardDetails';
+import { formatTokenCount, calculateContextUsage } from '@/utils/tokenizer';
+import { formatCost, formatTokensPerSecond, calculateTokensPerSecond, estimateCost } from '@/utils/costEstimator';
 
 /**
  * Unified Live API Dashboard - replaces both search bar and CascadeRunProgress.
  * Displays active API calls, cascade progress, and streaming thinking content.
+ * Now includes live token counts, cost estimation, and streaming speed.
  */
 const LiveApiDashboard = () => {
-  const { activeCalls, hasActiveCalls, cancelCall } = useLiveApiDashboard();
+  const { activeCalls, hasActiveCalls, cancelCall, cumulativeStats } = useLiveApiDashboard();
   const {
     isRunning: isCascadeRunning,
     isPaused,
@@ -43,6 +50,7 @@ const LiveApiDashboard = () => {
   // Elapsed time state
   const [elapsedTimes, setElapsedTimes] = useState({});
   const [cascadeElapsed, setCascadeElapsed] = useState(0);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const activeCallsRef = useRef([]);
 
   // Update ref when activeCalls changes (for stable timer)
@@ -86,6 +94,19 @@ const LiveApiDashboard = () => {
   const currentCall = activeCalls[0];
   const thinkingText = currentCall?.thinkingSummary || '';
   
+  // Calculate live metrics
+  const tokensPerSecond = currentCall ? calculateTokensPerSecond(
+    currentCall.tokenCount,
+    currentCall.firstTokenAt,
+    currentCall.lastTokenAt
+  ) : 0;
+  
+  const liveEstimatedCost = currentCall ? estimateCost({
+    model: currentCall.model,
+    inputTokens: currentCall.estimatedInputTokens || 0,
+    outputTokens: currentCall.outputTokens || 0,
+  }) : 0;
+  
   // Show "Thinking..." placeholder when status is in_progress but no thinking text yet
   const isThinking = currentCall?.status === 'in_progress' && !thinkingText;
 
@@ -107,6 +128,9 @@ const LiveApiDashboard = () => {
   // Cascade mode
   if (mode === 'cascade') {
     const progressText = `${completedPrompts.length}/${totalPrompts}`;
+    const totalTokens = cumulativeStats.inputTokens + cumulativeStats.outputTokens + 
+      (currentCall?.estimatedInputTokens || 0) + (currentCall?.outputTokens || 0);
+    const totalCost = cumulativeStats.totalCost + liveEstimatedCost;
     
     return (
       <motion.div
@@ -133,15 +157,38 @@ const LiveApiDashboard = () => {
 
         {/* Current level and prompt */}
         <span className="text-[10px] text-on-surface-variant shrink-0">L{currentLevel}</span>
-        <span className="text-body-sm text-on-surface truncate max-w-[120px]">
+        <span className="text-body-sm text-on-surface truncate max-w-[100px]">
           {currentPromptName || 'Starting...'}
+        </span>
+
+        {/* Live token counter */}
+        {currentCall && (
+          <>
+            <div className="h-4 w-px bg-outline-variant shrink-0" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 text-[10px] text-on-surface-variant shrink-0">
+                  <Zap className="h-3 w-3" />
+                  <span>{formatTokenCount(totalTokens)}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">
+                Total tokens (cumulative)
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
+
+        {/* Live cost */}
+        <span className="text-[10px] text-on-surface-variant shrink-0">
+          {formatCost(totalCost)}
         </span>
 
         {/* Live thinking (if available) */}
         {(thinkingText || isThinking) && (
-          <span className="text-[10px] text-on-surface-variant italic truncate max-w-[150px] opacity-70">
+          <span className="text-[10px] text-on-surface-variant italic truncate max-w-[100px] opacity-70">
             {thinkingText 
-              ? (thinkingText.length > 50 ? '...' + thinkingText.slice(-50) : thinkingText) 
+              ? (thinkingText.length > 40 ? '...' + thinkingText.slice(-40) : thinkingText) 
               : 'Thinking...'}
           </span>
         )}
@@ -212,6 +259,21 @@ const LiveApiDashboard = () => {
                 </span>
               </div>
             )}
+            {/* Cumulative stats */}
+            <div className="mt-2 pt-2 border-t border-outline-variant space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-on-surface-variant">Completed calls</span>
+                <span className="text-on-surface">{cumulativeStats.callCount}</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-on-surface-variant">Total tokens</span>
+                <span className="text-on-surface">{formatTokenCount(cumulativeStats.inputTokens + cumulativeStats.outputTokens)}</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-on-surface-variant">Total cost</span>
+                <span className="text-on-surface">{formatCost(cumulativeStats.totalCost)}</span>
+              </div>
+            </div>
           </PopoverContent>
         </Popover>
       </motion.div>
@@ -221,6 +283,12 @@ const LiveApiDashboard = () => {
   // Single run mode (or multiple single calls)
   const callCount = activeCalls.length;
   const elapsed = currentCall ? (elapsedTimes[currentCall.id] || 0) : 0;
+  
+  // Context usage for progress bar
+  const contextUsage = currentCall ? calculateContextUsage(
+    (currentCall.estimatedInputTokens || 0) + (currentCall.outputTokens || 0),
+    currentCall.contextWindow
+  ) : 0;
 
   return (
     <motion.div
@@ -232,35 +300,80 @@ const LiveApiDashboard = () => {
       {/* Spinning loader */}
       <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
 
-      {/* Count badge */}
-      <span className="text-body-sm text-primary font-medium shrink-0">
-        {callCount} active
-      </span>
-
-      <div className="h-4 w-px bg-outline-variant shrink-0" />
-
-      {/* First call info */}
-      <span className="text-body-sm text-on-surface truncate max-w-[140px]">
-        {currentCall?.promptName || 'Running...'}
-      </span>
-      
+      {/* Model badge */}
       {currentCall?.model && (
-        <span className="text-[10px] text-on-surface-variant shrink-0">
-          {currentCall.model}
+        <span className="text-[10px] text-primary font-medium shrink-0 max-w-[80px] truncate">
+          {currentCall.model.replace('gpt-', '').replace('-', '')}
         </span>
       )}
 
-      {/* Live thinking */}
-      {(thinkingText || isThinking) && (
-        <span className="text-[10px] text-on-surface-variant italic truncate max-w-[150px] opacity-70">
-          {thinkingText 
-            ? (thinkingText.length > 50 ? '...' + thinkingText.slice(-50) : thinkingText) 
-            : 'Thinking...'}
+      <div className="h-4 w-px bg-outline-variant shrink-0" />
+
+      {/* Token flow: input → output */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1 text-[10px] shrink-0">
+            <TrendingUp className="h-3 w-3 text-on-surface-variant" />
+            <span className="text-on-surface-variant">~{formatTokenCount(currentCall?.estimatedInputTokens || 0)}</span>
+            <span className="text-on-surface-variant">→</span>
+            <span className="text-primary font-medium">{formatTokenCount(currentCall?.outputTokens || 0)}↑</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="text-[10px]">
+          Input tokens (est.) → Output tokens (live)
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Cost */}
+      <span className="text-[10px] text-on-surface-variant shrink-0">
+        {formatCost(liveEstimatedCost)}
+      </span>
+
+      {/* Speed */}
+      {tokensPerSecond > 0 && (
+        <span className="text-[10px] text-on-surface-variant shrink-0">
+          {formatTokensPerSecond(tokensPerSecond)} tok/s
         </span>
+      )}
+
+      {/* Live thinking indicator */}
+      {(thinkingText || isThinking) && (
+        <>
+          <div className="h-4 w-px bg-outline-variant shrink-0" />
+          <div className="flex items-center gap-1 shrink-0">
+            <Brain className="h-3 w-3 text-primary animate-pulse" />
+            <span className="text-[10px] text-on-surface-variant italic truncate max-w-[100px]">
+              {thinkingText 
+                ? (thinkingText.length > 40 ? '...' + thinkingText.slice(-40) : thinkingText) 
+                : 'Thinking...'}
+            </span>
+          </div>
+        </>
       )}
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Context usage mini bar */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="w-12 h-1.5 bg-surface-container rounded-full overflow-hidden shrink-0">
+            <motion.div
+              className={`h-full rounded-full ${
+                contextUsage > 80 ? 'bg-red-500' : 
+                contextUsage > 50 ? 'bg-amber-500' : 
+                'bg-primary'
+              }`}
+              initial={{ width: 0 }}
+              animate={{ width: `${contextUsage}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="text-[10px]">
+          Context: {contextUsage}%
+        </TooltipContent>
+      </Tooltip>
 
       {/* Timer */}
       <span className="font-mono text-[11px] text-on-surface-variant shrink-0">
@@ -280,8 +393,8 @@ const LiveApiDashboard = () => {
         <TooltipContent className="text-[10px]">Cancel</TooltipContent>
       </Tooltip>
 
-      {/* Multiple calls popover */}
-      {callCount > 1 && (
+      {/* Details popover or multiple calls indicator */}
+      {callCount > 1 ? (
         <Popover>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-on-surface-variant bg-surface-container rounded-m3-sm hover:bg-surface-container-highest">
@@ -289,32 +402,61 @@ const LiveApiDashboard = () => {
               <ChevronDown className="h-3 w-3" />
             </button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-64 p-2 bg-surface-container-high border-outline-variant">
+          <PopoverContent align="end" className="w-72 p-2 bg-surface-container-high border-outline-variant">
             <div className="space-y-1">
-              {activeCalls.map((call) => (
-                <div
-                  key={call.id}
-                  className="flex items-center justify-between gap-2 p-2 rounded-m3-sm bg-surface-container"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-body-sm text-on-surface truncate">
-                      {call.promptName}
-                    </div>
-                    <div className="text-[10px] text-on-surface-variant">
-                      {call.model} • {formatTime(elapsedTimes[call.id] || 0)}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => cancelCall(call.id)}
-                    className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-highest text-on-surface-variant"
+              {activeCalls.map((call) => {
+                const callTokPerSec = calculateTokensPerSecond(
+                  call.tokenCount, call.firstTokenAt, call.lastTokenAt
+                );
+                const callCost = estimateCost({
+                  model: call.model,
+                  inputTokens: call.estimatedInputTokens || 0,
+                  outputTokens: call.outputTokens || 0,
+                });
+                
+                return (
+                  <div
+                    key={call.id}
+                    className="flex items-center justify-between gap-2 p-2 rounded-m3-sm bg-surface-container"
                   >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-body-sm text-on-surface truncate">
+                        {call.promptName}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-on-surface-variant">
+                        <span>{call.model}</span>
+                        <span>•</span>
+                        <span>{formatTokenCount(call.outputTokens || 0)}↑</span>
+                        <span>•</span>
+                        <span>{formatCost(callCost)}</span>
+                        {callTokPerSec > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{formatTokensPerSecond(callTokPerSec)} tok/s</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => cancelCall(call.id)}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-surface-container-highest text-on-surface-variant"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </PopoverContent>
         </Popover>
+      ) : (
+        <LiveApiDashboardDetails
+          call={currentCall}
+          elapsed={elapsed}
+          onCancel={cancelCall}
+          isOpen={detailsOpen}
+          onOpenChange={setDetailsOpen}
+        />
       )}
     </motion.div>
   );

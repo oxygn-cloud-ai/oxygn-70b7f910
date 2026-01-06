@@ -4,10 +4,12 @@ import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
+import { estimateRequestTokens, getModelContextWindow } from '@/utils/tokenizer';
+import { estimateCost } from '@/utils/costEstimator';
 
 export const usePromptFamilyChat = (promptRowId) => {
   const { registerCall } = useApiCallContext();
-  const { addCall, updateCall, appendThinking, removeCall } = useLiveApiDashboard();
+  const { addCall, updateCall, appendThinking, incrementOutputTokens, removeCall } = useLiveApiDashboard();
   const abortControllerRef = useRef(null);
   const dashboardCallIdRef = useRef(null);
   
@@ -274,11 +276,18 @@ export const usePromptFamilyChat = (promptRowId) => {
     const unregisterCall = registerCall();
     abortControllerRef.current = new AbortController();
 
+    // Estimate input tokens for dashboard
+    const estimatedInputTokens = estimateRequestTokens({
+      userMessage: userMessage || '',
+    });
+    const effectiveModel = model || sessionModel || 'gpt-4o';
+    const contextWindow = getModelContextWindow(effectiveModel);
+
     // Register with LiveApiDashboard for real-time status
     const dashboardId = addCall({
       promptName: 'Prompt Family Chat',
       promptRowId,
-      model: model || sessionModel || 'default',
+      model: effectiveModel,
       status: 'queued',
       cancelFn: async () => {
         if (abortControllerRef.current) {
@@ -286,6 +295,8 @@ export const usePromptFamilyChat = (promptRowId) => {
         }
       },
       isCascadeCall: false,
+      estimatedInputTokens,
+      contextWindow,
     });
     dashboardCallIdRef.current = dashboardId;
 
@@ -414,6 +425,11 @@ export const usePromptFamilyChat = (promptRowId) => {
               if (deltaContent) {
                 fullContent += deltaContent;
                 setStreamingMessage(fullContent);
+                // Increment output tokens (rough estimate: 1 token per ~4 chars)
+                const tokenDelta = Math.ceil(deltaContent.length / 4);
+                if (tokenDelta > 0) {
+                  incrementOutputTokens(dashboardId, tokenDelta);
+                }
               }
               
             } catch (e) {
@@ -475,7 +491,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       
       return null;
     }
-  }, [activeThreadId, promptRowId, addMessage, registerCall, addCall, updateCall, appendThinking, removeCall, sessionModel, sessionReasoningEffort]);
+  }, [activeThreadId, promptRowId, addMessage, registerCall, addCall, updateCall, appendThinking, incrementOutputTokens, removeCall, sessionModel, sessionReasoningEffort]);
 
   // Effects
   useEffect(() => {
