@@ -99,6 +99,11 @@ export const LiveApiDashboardProvider = ({ children }) => {
   // Append thinking text delta
   const appendThinking = useCallback((id, delta) => {
     if (!delta) return; // Guard against null/undefined
+    // Guard against objects being passed as delta - only accept strings
+    if (typeof delta !== 'string') {
+      console.warn('appendThinking received non-string delta:', typeof delta, delta);
+      return;
+    }
     setActiveCalls((prev) =>
       prev.map((c) =>
         c.id === id
@@ -111,6 +116,11 @@ export const LiveApiDashboardProvider = ({ children }) => {
   // Append output text delta (streaming main response)
   const appendOutputText = useCallback((id, delta) => {
     if (!delta) return; // Guard against null/undefined
+    // Guard against objects being passed as delta - only accept strings
+    if (typeof delta !== 'string') {
+      console.warn('appendOutputText received non-string delta:', typeof delta, delta);
+      return;
+    }
     setActiveCalls((prev) =>
       prev.map((c) =>
         c.id === id
