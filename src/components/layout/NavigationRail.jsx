@@ -13,12 +13,6 @@ import {
   RotateCcw,
   Info
 } from "lucide-react";
-
-// ForwardRef wrapper for motion.button to work with DropdownMenuTrigger
-const MotionMenuButton = React.forwardRef((props, ref) => (
-  <motion.button ref={ref} {...props} />
-));
-MotionMenuButton.displayName = "MotionMenuButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -34,6 +28,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { trackEvent } from '@/lib/posthog';
+
+// ForwardRef wrapper for motion.button to work with DropdownMenuTrigger
+const MotionMenuButton = React.forwardRef((props, ref) => (
+  <motion.button ref={ref} {...props} />
+));
+MotionMenuButton.displayName = "MotionMenuButton";
 
 const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onClick, onMouseEnter, onMouseLeave, shortcut }) => (
   <Tooltip>

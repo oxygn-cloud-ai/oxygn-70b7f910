@@ -154,7 +154,7 @@ export const variablesModule: ToolModule = {
               is_required: is_required || false
             })
             .select('row_id, variable_name')
-            .single();
+            .maybeSingle();
 
           if (insertError || !newVar) {
             console.error('Create variable error:', insertError);
