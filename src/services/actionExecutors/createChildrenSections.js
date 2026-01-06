@@ -43,7 +43,7 @@ const getModelDefaults = async (supabase, modelId) => {
 
   const defaults = { model: modelId, model_on: true };
   // All model settings fields that can have defaults
-  const fields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+  const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
     'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
 
   fields.forEach(field => {
@@ -67,6 +67,7 @@ const getPromptSettings = async (supabase, promptRowId) => {
     .select(`
       model, model_on, web_search_on, confluence_enabled, thread_mode, 
       child_thread_strategy, temperature, temperature_on, max_tokens, max_tokens_on,
+      max_completion_tokens, max_completion_tokens_on,
       top_p, top_p_on, frequency_penalty, frequency_penalty_on, presence_penalty, 
       presence_penalty_on, input_admin_prompt, response_format, response_format_on
     `)
@@ -283,6 +284,8 @@ export const executeCreateChildrenSections = async ({
       temperature_on: actionPromptSettings.temperature_on ?? modelDefaults.temperature_on,
       max_tokens: actionPromptSettings.max_tokens ?? modelDefaults.max_tokens,
       max_tokens_on: actionPromptSettings.max_tokens_on ?? modelDefaults.max_tokens_on,
+      max_completion_tokens: actionPromptSettings.max_completion_tokens ?? modelDefaults.max_completion_tokens,
+      max_completion_tokens_on: actionPromptSettings.max_completion_tokens_on ?? modelDefaults.max_completion_tokens_on,
       web_search_on: actionPromptSettings.web_search_on,
       confluence_enabled: actionPromptSettings.confluence_enabled,
       thread_mode: actionPromptSettings.thread_mode,
