@@ -182,7 +182,9 @@ interface ApiOptions {
   presencePenalty?: number;
   topP?: number;
   temperature?: number;
-  maxTokens?: number;
+  // CRITICAL: max_tokens and max_completion_tokens are separate - GPT-4 vs GPT-5
+  maxTokens?: number;           // For GPT-4 models
+  maxCompletionTokens?: number; // For GPT-5/o-series models
   // Tool options
   fileSearchEnabled?: boolean;
   codeInterpreterEnabled?: boolean;
@@ -268,7 +270,12 @@ async function runResponsesAPI(
   // Add model parameters - prefer options (from prompt settings) over assistant overrides
   const temperature = options.temperature ?? (assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined);
   const topP = options.topP ?? (assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined);
+  
+  // CRITICAL: max_tokens and max_completion_tokens are completely separate
+  // GPT-4 uses max_tokens, GPT-5/o-series uses max_completion_tokens
+  // Never harmonize or alias between them
   const maxTokens = options.maxTokens ?? (assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined);
+  const maxCompletionTokens = options.maxCompletionTokens ?? (assistantData.max_completion_tokens_override ? parseInt(assistantData.max_completion_tokens_override, 10) : undefined);
 
   if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
     requestBody.temperature = temperature;
@@ -276,10 +283,15 @@ async function runResponsesAPI(
   if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
     requestBody.top_p = topP;
   }
-  // Use model's token_param from database to determine correct API parameter name
-  if (maxTokens !== undefined && !isNaN(maxTokens)) {
-    requestBody[modelTokenParam] = maxTokens;
-    console.log(`Using token param: ${modelTokenParam} = ${maxTokens}`);
+  
+  // Use model's token_param to determine which token setting to use
+  // Only set the token param that matches what the model expects
+  if (modelTokenParam === 'max_tokens' && maxTokens !== undefined && !isNaN(maxTokens)) {
+    requestBody.max_tokens = maxTokens;
+    console.log(`Using max_tokens = ${maxTokens}`);
+  } else if (modelTokenParam === 'max_completion_tokens' && maxCompletionTokens !== undefined && !isNaN(maxCompletionTokens)) {
+    requestBody.max_completion_tokens = maxCompletionTokens;
+    console.log(`Using max_completion_tokens = ${maxCompletionTokens}`);
   }
 
   // Add frequency and presence penalty only if model supports them
@@ -370,10 +382,9 @@ async function runResponsesAPI(
     presence_penalty: requestBody.presence_penalty,
     seed: requestBody.seed,
     
-    // === TOKEN LIMIT (only included if set) ===
-    ...(requestBody[modelTokenParam] !== undefined && {
-      [modelTokenParam]: requestBody[modelTokenParam],
-    }),
+    // === TOKEN LIMITS (separate - GPT-4 vs GPT-5) ===
+    ...(requestBody.max_tokens !== undefined && { max_tokens: requestBody.max_tokens }),
+    ...(requestBody.max_completion_tokens !== undefined && { max_completion_tokens: requestBody.max_completion_tokens }),
     
     // === REASONING ===
     reasoning: requestBody.reasoning,
@@ -1771,12 +1782,21 @@ serve(async (req) => {
         const topP = parseFloat(childPrompt.top_p);
         if (!isNaN(topP)) apiOptions.topP = topP;
       }
-      // Handle max tokens - database only has max_tokens column
+      // CRITICAL: max_tokens and max_completion_tokens are separate settings
+      // GPT-4 uses max_tokens, GPT-5/o-series uses max_completion_tokens
+      // Never harmonize or alias between them
       if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
         const maxT = parseInt(childPrompt.max_tokens, 10);
         if (!isNaN(maxT)) {
           apiOptions.maxTokens = maxT;
-          console.log('Using prompt-level max_tokens:', maxT);
+          console.log('Using prompt-level max_tokens (GPT-4):', maxT);
+        }
+      }
+      if (childPrompt.max_completion_tokens_on && childPrompt.max_completion_tokens) {
+        const maxCT = parseInt(childPrompt.max_completion_tokens, 10);
+        if (!isNaN(maxCT)) {
+          apiOptions.maxCompletionTokens = maxCT;
+          console.log('Using prompt-level max_completion_tokens (GPT-5):', maxCT);
         }
       }
       if (childPrompt.frequency_penalty_on && childPrompt.frequency_penalty) {

@@ -246,13 +246,13 @@ serve(async (req) => {
         requestBody.temperature = settings.temperature;
       }
       
-      // Use correct token parameter for this model
-      // GPT-4 sends max_tokens, GPT-5 sends max_completion_tokens
-      if (settings.max_tokens !== undefined) {
-        requestBody[tokenParam] = settings.max_tokens;
-      }
-      if (settings.max_completion_tokens !== undefined) {
-        requestBody[tokenParam] = settings.max_completion_tokens;
+      // CRITICAL: max_tokens and max_completion_tokens are completely separate settings
+      // GPT-4 models use max_tokens, GPT-5/o-series use max_completion_tokens
+      // Only use the token param that matches the model's expected parameter
+      if (tokenParam === 'max_tokens' && settings.max_tokens !== undefined) {
+        requestBody.max_tokens = settings.max_tokens;
+      } else if (tokenParam === 'max_completion_tokens' && settings.max_completion_tokens !== undefined) {
+        requestBody.max_completion_tokens = settings.max_completion_tokens;
       }
       
       if (modelSupportsTemp && settings.top_p !== undefined) {

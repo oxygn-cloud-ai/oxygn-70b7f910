@@ -16,10 +16,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const IconButton = ({ icon: Icon, label, onClick, className = "" }) => (
+const IconButton = React.forwardRef(({ icon: Icon, label, onClick, className = "" }, ref) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
+        ref={ref}
         onClick={(e) => {
           e.stopPropagation();
           onClick?.();
@@ -34,7 +35,8 @@ const IconButton = ({ icon: Icon, label, onClick, className = "" }) => (
       {label}
     </TooltipContent>
   </Tooltip>
-);
+));
+IconButton.displayName = 'IconButton';
 
 const OwnerAvatar = ({ initials, color }) => (
   <div 

@@ -31,10 +31,12 @@ const ModelDefaultsSection = ({
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
     
     // Set default value if enabling and no value exists
-    if (checked && !modelDefaults[field]) {
+      if (checked && !modelDefaults[field]) {
+      // CRITICAL: max_tokens (GPT-4) and max_completion_tokens (GPT-5) are separate settings
       const defaultValues = {
         temperature: '0.7',
         max_tokens: '2048',
+        max_completion_tokens: '4096',
         top_p: '1',
         frequency_penalty: '0',
         presence_penalty: '0',

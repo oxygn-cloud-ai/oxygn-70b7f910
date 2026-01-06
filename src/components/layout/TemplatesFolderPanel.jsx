@@ -41,10 +41,11 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick }) =>
   </button>
 );
 
-const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
+const IconButton = React.forwardRef(({ icon: Icon, label, className = "", onClick }, ref) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
+        ref={ref}
         onClick={(e) => {
           e.stopPropagation();
           onClick?.();
@@ -56,7 +57,8 @@ const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
     </TooltipTrigger>
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
   </Tooltip>
-);
+));
+IconButton.displayName = 'IconButton';
 
 const TemplateTreeItem = ({ 
   id,
