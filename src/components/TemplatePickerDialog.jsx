@@ -58,6 +58,13 @@ const TemplatePickerDialog = ({
     setSelectedTemplate(template);
     const variables = extractTemplateVariables(template.structure);
     
+    // Check for cross-family q.ref patterns (legacy templates may have these)
+    const crossFamilyWarnings = detectCrossFamilyRefs(template.structure);
+    if (crossFamilyWarnings.length > 0) {
+      console.warn('Template contains hardcoded q.ref UUIDs that may cause cross-family data issues:', crossFamilyWarnings);
+      toast.warning('This template contains hardcoded references that may not work correctly. Consider re-creating it from a clean prompt.');
+    }
+    
     // Initialize variable values
     const initialValues = {};
     variables.forEach(v => { initialValues[v] = ''; });
@@ -88,6 +95,29 @@ const TemplatePickerDialog = ({
       result = result.replace(new RegExp(`\\{\\{${escapedName}\\}\\}`, 'g'), value);
     });
     return result;
+  };
+
+  // Detect and warn about cross-family q.ref patterns in templates
+  const detectCrossFamilyRefs = (structure) => {
+    const qRefPattern = /\{\{q\.ref\[[a-f0-9-]{36}\]\.[a-z_]+\}\}/gi;
+    const warnings = [];
+    
+    const scanObject = (obj, path = '') => {
+      if (!obj) return;
+      if (typeof obj === 'string') {
+        const matches = obj.match(qRefPattern);
+        if (matches) {
+          warnings.push({ path, refs: matches });
+        }
+      } else if (Array.isArray(obj)) {
+        obj.forEach((item, i) => scanObject(item, `${path}[${i}]`));
+      } else if (typeof obj === 'object') {
+        Object.entries(obj).forEach(([key, value]) => scanObject(value, path ? `${path}.${key}` : key));
+      }
+    };
+    
+    scanObject(structure);
+    return warnings;
   };
 
   const handleCreateFromTemplate = async (template, values) => {

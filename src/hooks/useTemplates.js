@@ -217,12 +217,22 @@ export const useTemplates = () => {
           }
         }
 
+        // CRITICAL: Sanitize q.ref[UUID] patterns to prevent cross-family data leakage
+        // Templates should NOT contain hardcoded UUIDs from the source family
+        const sanitizeQRef = (text) => {
+          if (!text || typeof text !== 'string') return text;
+          // Replace {{q.ref[UUID].field}} with {{q.ref[TEMPLATE_REF].field}} placeholder
+          // The placeholder indicates this was a reference that needs remapping on instantiation
+          return text.replace(/\{\{q\.ref\[[a-f0-9-]{36}\]\.([a-z_]+)\}\}/gi, '{{q.ref[TEMPLATE_REF].$1}}');
+        };
+
         // Include ALL relevant prompt fields in the template structure
+        // REMOVED: _id field - embedding source UUIDs causes cross-family leakage
         return {
-          _id: prompt.row_id, // Use original ID for reference
+          // NO _id FIELD - this was the root cause of template-based cross-family leaks
           prompt_name: prompt.prompt_name,
-          input_admin_prompt: prompt.input_admin_prompt,
-          input_user_prompt: prompt.input_user_prompt,
+          input_admin_prompt: sanitizeQRef(prompt.input_admin_prompt),
+          input_user_prompt: sanitizeQRef(prompt.input_user_prompt),
           note: prompt.note,
           icon_name: prompt.icon_name,
           // Model settings
@@ -272,7 +282,7 @@ export const useTemplates = () => {
           post_action: prompt.post_action,
           post_action_config: prompt.post_action_config,
           json_schema_template_id: prompt.json_schema_template_id,
-          extracted_variables: prompt.extracted_variables,
+          // REMOVED: extracted_variables - contains runtime data from source family
           // Exclusion flags
           exclude_from_cascade: prompt.exclude_from_cascade,
           exclude_from_export: prompt.exclude_from_export,
