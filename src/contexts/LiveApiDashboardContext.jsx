@@ -16,6 +16,7 @@ export const useLiveApiDashboard = () => {
       hasActiveCalls: false,
       addCall: () => 0,
       updateCall: () => {},
+      updateResolvedSettings: () => {},
       appendThinking: () => {},
       appendOutputText: () => {},
       incrementOutputTokens: () => {},
@@ -67,10 +68,25 @@ export const LiveApiDashboardProvider = ({ children }) => {
       estimatedCost: 0,
       // Context window
       contextWindow: callInfo.contextWindow || 128000, // Default to 128k
+      // Resolved settings (populated via settings_resolved SSE event)
+      resolvedSettings: null,
+      resolvedTools: null,
       ...callInfo,
     };
     setActiveCalls((prev) => [...prev, newCall]);
     return id;
+  }, []);
+
+  // Update resolved settings from SSE event
+  const updateResolvedSettings = useCallback((id, settings, tools) => {
+    setActiveCalls((prev) =>
+      prev.map((c) => (c.id === id ? { 
+        ...c, 
+        resolvedSettings: settings,
+        resolvedTools: tools,
+        model: settings?.model || c.model, // Update model from resolved settings
+      } : c))
+    );
   }, []);
 
   // Update call properties
@@ -171,6 +187,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
     hasActiveCalls: activeCalls.length > 0,
     addCall,
     updateCall,
+    updateResolvedSettings,
     appendThinking,
     appendOutputText,
     incrementOutputTokens,

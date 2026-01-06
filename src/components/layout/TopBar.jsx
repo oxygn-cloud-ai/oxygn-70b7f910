@@ -8,7 +8,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { UndoHistoryPopover } from "@/components/UndoHistoryPopover";
 import { useTooltipSettings } from "@/contexts/TooltipContext";
-import LiveApiDashboard from "@/components/LiveApiDashboard";
 
 const TopBar = ({ 
   isDark = false, 
@@ -58,15 +57,8 @@ const TopBar = ({
         />
       </motion.div>
 
-      {/* Center - Live API Dashboard (replaces search bar) */}
-      <motion.div 
-        className="flex-1 max-w-xl mx-auto"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-      >
-        <LiveApiDashboard />
-      </motion.div>
+      {/* Center - spacer */}
+      <div className="flex-1" />
 
       {/* Trailing - Toggles, Notifications & Avatar */}
       <motion.div 

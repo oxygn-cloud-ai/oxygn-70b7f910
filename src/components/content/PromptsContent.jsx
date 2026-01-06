@@ -10,12 +10,13 @@ import {
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
-  Paperclip, Upload, Square, Target, Minimize2
+  Paperclip, Upload, Square, Target, Minimize2, LayoutDashboard
 } from "lucide-react";
 import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
 import { useConfluencePages } from "@/hooks/useConfluencePages";
 import VariablesTabContent from "./VariablesTabContent";
+import DashboardTabContent from "./DashboardTabContent";
 import FilesPagesSection from "@/components/FilesPagesSection";
 import ConfluencePagesSection from "@/components/ConfluencePagesSection";
 
@@ -1332,6 +1333,7 @@ const PromptsContent = ({
     { id: "prompt", icon: FileText, label: "Prompt" },
     { id: "settings", icon: Sliders, label: "Settings" },
     { id: "variables", icon: Braces, label: "Variables" },
+    { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
   ];
 
   if (!hasSelection) {
@@ -1586,6 +1588,9 @@ const PromptsContent = ({
                 promptRowId={promptRowId} 
               />
             </div>
+          )}
+          {activeTab === "dashboard" && (
+            <DashboardTabContent />
           )}
         </div>
       </div>

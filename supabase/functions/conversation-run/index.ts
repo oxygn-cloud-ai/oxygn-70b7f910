@@ -2208,6 +2208,29 @@ serve(async (req) => {
         elapsed_ms: Date.now() - startTime 
       });
 
+      // Emit resolved settings for dashboard display (before API call)
+      emitter.emit({
+        type: 'settings_resolved',
+        settings: {
+          model: modelUsedForMetadata,
+          temperature: apiOptions.temperature,
+          max_output_tokens: apiOptions.maxOutputTokens,
+          top_p: apiOptions.topP,
+          frequency_penalty: apiOptions.frequencyPenalty,
+          presence_penalty: apiOptions.presencePenalty,
+          reasoning_effort: apiOptions.reasoningEffort,
+          tool_choice: apiOptions.toolChoice,
+          seed: apiOptions.seed,
+          response_format: apiOptions.responseFormat?.type || null,
+        },
+        tools: {
+          web_search: !!apiOptions.webSearchEnabled,
+          confluence: !!confluenceContext,
+          code_interpreter: !!apiOptions.codeInterpreterEnabled,
+          file_search: !!apiOptions.fileSearchEnabled,
+        },
+      });
+
       // Call OpenAI Responses API (with emitter for api_started event)
       // Pass last_response_id for multi-turn context (avoids reasoning item issues)
       const result = await runResponsesAPI(
