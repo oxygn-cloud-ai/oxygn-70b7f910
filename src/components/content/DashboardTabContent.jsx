@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { 
-  Brain, Zap, Clock, DollarSign, 
+  Brain, Zap, Clock, DollarSign, LayoutDashboard,
   Gauge, Activity, Globe, FileSearch, Code, MessageSquare,
   Copy, X, Pause, Play, SkipForward, Loader2,
   Thermometer, Hash, Percent, Settings2, Wrench
