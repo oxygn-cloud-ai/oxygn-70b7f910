@@ -112,10 +112,19 @@ export const useExportTemplates = () => {
   // Delete a template (soft delete)
   const deleteTemplate = useCallback(async (rowId) => {
     try {
-      const { error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Not authenticated');
+        return false;
+      }
+
+      const { data, error } = await supabase
         .from('q_export_templates')
         .update({ is_deleted: true })
-        .eq('row_id', rowId);
+        .eq('row_id', rowId)
+        .eq('owner_id', user.id)
+        .select('row_id')
+        .maybeSingle();
 
       if (error) {
         // RLS policy violation - user doesn't have permission
@@ -124,6 +133,12 @@ export const useExportTemplates = () => {
           return false;
         }
         throw error;
+      }
+
+      // Check if any row was actually updated
+      if (!data) {
+        toast.info('This template belongs to another user and cannot be deleted');
+        return false;
       }
 
       setTemplates(prev => prev.filter(t => t.row_id !== rowId));

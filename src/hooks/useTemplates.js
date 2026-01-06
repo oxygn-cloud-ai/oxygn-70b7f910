@@ -124,10 +124,18 @@ export const useTemplates = () => {
    */
   const deleteTemplate = useCallback(async (rowId) => {
     try {
-      const { error } = await supabase
+      if (!user?.id) {
+        toast.error('Not authenticated');
+        return false;
+      }
+
+      const { data, error } = await supabase
         .from(import.meta.env.VITE_TEMPLATES_TBL)
         .update({ is_deleted: true })
-        .eq('row_id', rowId);
+        .eq('row_id', rowId)
+        .eq('owner_id', user.id)
+        .select('row_id')
+        .maybeSingle();
 
       if (error) {
         // RLS policy violation - user doesn't have permission
@@ -136,6 +144,12 @@ export const useTemplates = () => {
           return false;
         }
         throw error;
+      }
+
+      // Check if any row was actually updated
+      if (!data) {
+        toast.info('This template belongs to another user and cannot be deleted');
+        return false;
       }
       
       setTemplates(prev => prev.filter(t => t.row_id !== rowId));
@@ -146,7 +160,7 @@ export const useTemplates = () => {
       toast.error('Failed to delete template');
       return false;
     }
-  }, []);
+  }, [user]);
 
   /**
    * Get a template by ID

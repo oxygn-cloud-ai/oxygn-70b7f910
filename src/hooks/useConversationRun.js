@@ -324,6 +324,11 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
+          } else if (progressEvent.type === 'thinking_done') {
+            // Set final thinking summary if provided (for polling fallback)
+            if (progressEvent.text) {
+              updateCall(dashboardCallId, { thinkingSummary: progressEvent.text });
+            }
           } else if (progressEvent.type === 'output_text_delta') {
             appendOutputText(dashboardCallId, progressEvent.delta);
           } else if (progressEvent.type === 'output_text_done') {
