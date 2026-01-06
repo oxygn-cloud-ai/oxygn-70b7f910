@@ -957,6 +957,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
       output_cost_per_million: '',
       supports_temperature: true,
       api_model_id: '',
+      token_param: 'max_tokens',
     });
     setShowAddForm(false);
     setEditingModel(null);
@@ -974,6 +975,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
       output_cost_per_million: model.output_cost_per_million?.toString() || '',
       supports_temperature: model.supports_temperature ?? true,
       api_model_id: model.api_model_id || '',
+      token_param: model.token_param || 'max_tokens',
     });
     setShowAddForm(false);
   };
@@ -994,6 +996,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
       output_cost_per_million: formData.output_cost_per_million ? parseFloat(formData.output_cost_per_million) : null,
       supports_temperature: formData.supports_temperature,
       api_model_id: formData.api_model_id || formData.model_id,
+      token_param: formData.token_param || 'max_tokens',
     };
 
     if (editingModel) {
@@ -1088,6 +1091,17 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             placeholder="4096"
             className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
           />
+        </div>
+        <div>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Token Param</label>
+          <select
+            value={formData.token_param}
+            onChange={(e) => setFormData(prev => ({ ...prev, token_param: e.target.value }))}
+            className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="max_tokens">max_tokens (GPT-4)</option>
+            <option value="max_completion_tokens">max_completion_tokens (GPT-5)</option>
+          </select>
         </div>
         <div>
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Input Cost ($/1M tokens)</label>
@@ -1299,6 +1313,10 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
                           <span className={`ml-1 font-medium ${model.supports_temperature ? 'text-green-600' : 'text-red-500'}`}>
                             {model.supports_temperature ? 'Supported' : 'Not Supported'}
                           </span>
+                        </div>
+                        <div>
+                          <span className="text-on-surface-variant">Token Param:</span>
+                          <span className="text-on-surface ml-1 font-mono">{model.token_param || 'max_tokens'}</span>
                         </div>
                         <div>
                           <span className="text-on-surface-variant">Input Cost:</span>

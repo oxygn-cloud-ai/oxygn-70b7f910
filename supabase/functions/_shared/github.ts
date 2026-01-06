@@ -1,5 +1,5 @@
 /**
- * GitHub API utilities for Qonsol AI workbench
+ * GitHub API utilities for Qonsol
  * Provides read-only access to the application source code repository
  */
 

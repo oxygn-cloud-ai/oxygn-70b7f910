@@ -1849,6 +1849,26 @@ serve(async (req) => {
         }
       }
       
+      // maxCompletionTokens fallback chain (for GPT-5+ models)
+      if (apiOptions.maxCompletionTokens === undefined) {
+        // Try model defaults table first
+        if (modelDefaults?.max_completion_tokens_on && modelDefaults?.max_completion_tokens) {
+          const defaultMaxCT = parseInt(modelDefaults.max_completion_tokens, 10);
+          if (!isNaN(defaultMaxCT) && defaultMaxCT > 0) {
+            apiOptions.maxCompletionTokens = defaultMaxCT;
+            console.log('Using model default max_completion_tokens:', defaultMaxCT);
+          }
+        }
+        // Final fallback: use model's max_output_tokens from q_models if token_param is max_completion_tokens
+        if (apiOptions.maxCompletionTokens === undefined) {
+          const modelConfigForCT = await fetchModelConfig(supabase, resolvedModelId);
+          if (modelConfigForCT?.tokenParam === 'max_completion_tokens' && modelConfigForCT?.maxOutputTokens) {
+            apiOptions.maxCompletionTokens = modelConfigForCT.maxOutputTokens;
+            console.log('Using model config max_output_tokens as max_completion_tokens:', modelConfigForCT.maxOutputTokens);
+          }
+        }
+      }
+      
       // Temperature fallback chain
       if (apiOptions.temperature === undefined) {
         if (modelDefaults?.temperature_on && modelDefaults?.temperature) {

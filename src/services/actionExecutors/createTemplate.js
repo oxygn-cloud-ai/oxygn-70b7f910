@@ -28,6 +28,7 @@ const buildTemplateStructure = async (supabase, promptRowId, includeChildren = t
     model: prompt.model,
     temperature: prompt.temperature,
     max_tokens: prompt.max_tokens,
+    max_completion_tokens: prompt.max_completion_tokens,
     node_type: prompt.node_type || 'standard',
     post_action: prompt.post_action,
     post_action_config: prompt.post_action_config,
