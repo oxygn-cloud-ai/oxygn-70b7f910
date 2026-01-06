@@ -152,7 +152,14 @@ serve(async (req) => {
       // Handle specific error cases
       if (cancelResponse.status === 400) {
         // Response may already be completed or in a non-cancellable state
-        if (errorMessage.includes('already completed') || errorMessage.includes('cannot be cancelled')) {
+        const lowerMessage = errorMessage.toLowerCase();
+        const isAlreadyCompleted = 
+          lowerMessage.includes('completed') ||
+          lowerMessage.includes('cannot cancel') ||
+          lowerMessage.includes('cannot be cancelled') ||
+          lowerMessage.includes('already finished');
+        
+        if (isAlreadyCompleted) {
           console.log('Response already completed, treating as success:', response_id);
           return new Response(
             JSON.stringify({ 
