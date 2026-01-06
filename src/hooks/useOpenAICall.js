@@ -129,6 +129,14 @@ export const useOpenAICall = () => {
           }
         }
 
+        // Handle max_completion_tokens for GPT-5+ models
+        if (projectSettings?.max_completion_tokens_on && projectSettings?.max_completion_tokens) {
+          const maxCompletionTokens = parseInt(projectSettings.max_completion_tokens);
+          if (!isNaN(maxCompletionTokens) && maxCompletionTokens > 0) {
+            requestBody.max_completion_tokens = maxCompletionTokens;
+          }
+        }
+
         if (projectSettings?.top_p_on && projectSettings?.top_p) {
           const topP = parseFloat(projectSettings.top_p);
           if (!isNaN(topP) && topP >= 0 && topP <= 1) {

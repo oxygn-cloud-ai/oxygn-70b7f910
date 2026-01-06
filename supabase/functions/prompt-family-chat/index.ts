@@ -613,7 +613,7 @@ serve(async (req) => {
       model ? Promise.resolve({ setting_value: model }) : supabase
         .from('q_settings')
         .select('setting_value')
-        .eq('setting_key', 'workbench_default_model')
+        .eq('setting_key', 'default_model')
         .maybeSingle()
         .then((r: any) => r.data)
     ]);
