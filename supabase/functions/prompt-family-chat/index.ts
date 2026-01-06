@@ -33,7 +33,68 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Normalize tools from Chat Completions format to Responses API format
+// ============================================================================
+// SSE STREAMING INFRASTRUCTURE
+// ============================================================================
+
+interface SSEEmitter {
+  emit: (event: any) => void;
+  close: () => void;
+  dispose: () => void;
+  isClosed: () => boolean;
+}
+
+function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter } {
+  const encoder = new TextEncoder();
+  let controller: ReadableStreamDefaultController<Uint8Array>;
+  let streamClosed = false;
+  let disposed = false;
+  
+  const stream = new ReadableStream({
+    start(c) {
+      controller = c;
+    },
+    cancel(reason) {
+      disposed = true;
+      streamClosed = true;
+      console.log('SSE stream cancelled by client:', reason);
+    },
+  });
+  
+  const emitter: SSEEmitter = {
+    emit: (event: any) => {
+      if (disposed || streamClosed) return;
+      try {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+      } catch (e) {
+        if (!disposed) console.warn('SSE emit error:', e);
+        streamClosed = true;
+      }
+    },
+    close: () => {
+      if (streamClosed || disposed) return;
+      streamClosed = true;
+      try {
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      } catch (e) {
+        if (!disposed) console.warn('SSE close error:', e);
+      }
+    },
+    dispose: () => {
+      disposed = true;
+      streamClosed = true;
+    },
+    isClosed: () => streamClosed || disposed,
+  };
+  
+  return { stream, emitter };
+}
+
+// ============================================================================
+// TOOL SCHEMA HELPERS
+// ============================================================================
+
 function normalizeToolForResponsesApi(tool: any): any {
   if (tool.function && typeof tool.function === 'object') {
     return {
@@ -47,12 +108,9 @@ function normalizeToolForResponsesApi(tool: any): any {
   return tool;
 }
 
-// The Responses API requires strict JSON Schema for tool parameters.
-// In particular: `required` must be present and must include EVERY key in `properties`.
 function ensureStrictSchema(schema: any): any {
   if (!schema || typeof schema !== 'object') return schema;
 
-  // Handle combinators
   for (const key of ['anyOf', 'oneOf', 'allOf'] as const) {
     if (Array.isArray(schema[key])) {
       return {
@@ -62,7 +120,6 @@ function ensureStrictSchema(schema: any): any {
     }
   }
 
-  // Arrays
   if (schema.type === 'array' && schema.items) {
     return {
       ...schema,
@@ -70,7 +127,6 @@ function ensureStrictSchema(schema: any): any {
     };
   }
 
-  // Objects (some schemas omit `type: object` but still define `properties`)
   if (schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
     const nextProps: Record<string, any> = {};
     for (const [k, v] of Object.entries(schema.properties)) {
@@ -89,6 +145,9 @@ function ensureStrictSchema(schema: any): any {
   return schema;
 }
 
+// ============================================================================
+// USER VALIDATION
+// ============================================================================
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -128,8 +187,10 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user, supabase };
 }
 
-// Handle tool calls for prompt family exploration
-// This is the legacy handler - when USE_TOOL_REGISTRY is true, the registry handles calls instead
+// ============================================================================
+// TOOL EXECUTION (Legacy path)
+// ============================================================================
+
 async function handleToolCall(
   toolName: string,
   args: any,
@@ -143,18 +204,15 @@ async function handleToolCall(
     registryContext?: ToolContext | null;
   }
 ): Promise<string> {
-  // If registry context is available, use the registry
   if (USE_TOOL_REGISTRY && context.registryContext) {
     return registryExecuteToolCall(toolName, args, context.registryContext);
   }
   
-  // Legacy path
   const { supabase, promptRowId, familyPromptIds, cachedTree, openAIApiKey } = context;
 
   try {
     switch (toolName) {
       case 'get_prompt_tree': {
-        // Use cached tree if available
         const tree = cachedTree ?? await getPromptFamilyTree(supabase, promptRowId);
         return JSON.stringify({ message: 'Prompt family tree', tree });
       }
@@ -392,17 +450,237 @@ async function handleToolCall(
   }
 }
 
-/**
- * Execute tool calls and submit results back to OpenAI
- * Returns: { content: string | null, hasMoreTools: boolean, nextToolCalls: any[], responseId: string | null }
- */
-async function executeToolsAndSubmit(
+// ============================================================================
+// STREAMING OPENAI RESPONSE PROCESSOR
+// ============================================================================
+
+async function streamOpenAIResponse(
+  responseId: string,
+  openAIApiKey: string,
+  emitter: SSEEmitter,
+): Promise<{ content: string | null; toolCalls: any[]; usage: any | null; status: string }> {
+  const IDLE_TIMEOUT_MS = 300000; // 5 minutes
+  const streamController = new AbortController();
+  let idleTimeoutId: number | null = null;
+  let abortReason: 'idle' | null = null;
+  
+  const resetIdleTimeout = () => {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+    idleTimeoutId = setTimeout(() => {
+      abortReason = 'idle';
+      console.error('Stream idle timeout - no data for 5 minutes');
+      streamController.abort();
+    }, IDLE_TIMEOUT_MS);
+  };
+
+  // Polling fallback
+  const pollForCompletion = async (): Promise<{ content: string | null; toolCalls: any[]; usage: any | null; status: string }> => {
+    const maxWaitMs = 600000;
+    const intervalMs = 3000;
+    const startTime = Date.now();
+    
+    console.log('Falling back to polling for response:', responseId);
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      try {
+        const response = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
+          headers: { 'Authorization': `Bearer ${openAIApiKey}` },
+        });
+        
+        if (!response.ok) {
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+          continue;
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+          let content: string | null = null;
+          const toolCalls: any[] = [];
+          
+          if (data.output && Array.isArray(data.output)) {
+            for (const item of data.output) {
+              if (item.type === 'message' && item.content) {
+                for (const contentItem of item.content) {
+                  if (contentItem.type === 'output_text' && contentItem.text) {
+                    content = (content || '') + contentItem.text;
+                  }
+                }
+              }
+              if (item.type === 'function_call') {
+                toolCalls.push(item);
+              }
+            }
+          }
+          
+          return { content, toolCalls, usage: data.usage, status: data.status };
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      } catch (pollError) {
+        console.error('Polling error:', pollError);
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+    }
+    
+    return { content: null, toolCalls: [], usage: null, status: 'timeout' };
+  };
+
+  resetIdleTimeout();
+  
+  let streamResponse: Response;
+  try {
+    streamResponse = await fetch(
+      `https://api.openai.com/v1/responses/${responseId}?stream=true`,
+      {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${openAIApiKey}` },
+        signal: streamController.signal,
+      }
+    );
+  } catch (streamError: unknown) {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+    if (streamError instanceof Error && streamError.name === 'AbortError' && abortReason === 'idle') {
+      return await pollForCompletion();
+    }
+    throw streamError;
+  }
+
+  if (!streamResponse.ok) {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+    console.error('Stream response error:', streamResponse.status);
+    return await pollForCompletion();
+  }
+
+  const reader = streamResponse.body?.getReader();
+  if (!reader) {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+    return { content: null, toolCalls: [], usage: null, status: 'error' };
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulatedContent = '';
+  const toolCalls: any[] = [];
+  let finalUsage: any = null;
+  let finalStatus = 'in_progress';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      resetIdleTimeout();
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+
+        if (!line || line.startsWith(':')) continue;
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.replace(/^data:\s?/, '').trim();
+        if (!data || data === '[DONE]') continue;
+
+        try {
+          const event = JSON.parse(data);
+          
+          // Track status
+          if (event.status) {
+            finalStatus = event.status;
+            emitter.emit({ type: 'status_update', status: event.status });
+          }
+          
+          // Handle cancelled/failed
+          if (event.status === 'cancelled' || event.status === 'failed') {
+            if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+            reader.cancel();
+            return { content: null, toolCalls: [], usage: null, status: event.status };
+          }
+          
+          // Capture usage
+          if (event.usage) {
+            finalUsage = event.usage;
+          }
+          
+          // Extract content from output
+          if (event.output && Array.isArray(event.output)) {
+            for (const item of event.output) {
+              if (item.type === 'message' && item.content) {
+                for (const contentItem of item.content) {
+                  if (contentItem.type === 'output_text' && contentItem.text) {
+                    accumulatedContent = contentItem.text;
+                  }
+                }
+              }
+              // Reasoning content from completed output
+              if (item.type === 'reasoning' && item.summary && Array.isArray(item.summary)) {
+                emitter.emit({ type: 'thinking_started', item_id: item.id });
+                for (const summaryPart of item.summary) {
+                  if (summaryPart.text) {
+                    emitter.emit({ type: 'thinking_delta', delta: summaryPart.text, item_id: item.id });
+                  }
+                }
+              }
+              // Collect tool calls
+              if (item.type === 'function_call') {
+                toolCalls.push(item);
+              }
+            }
+          }
+          
+          // Streaming reasoning events
+          if (event.type === 'response.output_item.added' && event.item?.type === 'reasoning') {
+            console.log('Reasoning item started:', event.item.id);
+            emitter.emit({ type: 'thinking_started', item_id: event.item.id });
+          }
+          
+          if (event.type === 'response.reasoning_summary_part.added') {
+            const partText = event.part?.text || '';
+            if (partText) {
+              emitter.emit({ type: 'thinking_delta', delta: partText, item_id: event.item_id });
+            }
+          }
+          
+          if (event.type === 'response.reasoning_summary_text.delta') {
+            emitter.emit({ type: 'thinking_delta', delta: event.delta || '', item_id: event.item_id });
+          }
+          
+          if (event.type === 'response.reasoning_summary_text.done') {
+            emitter.emit({ type: 'thinking_done', text: event.text || '', item_id: event.item_id });
+          }
+          
+        } catch (parseErr) {
+          console.warn('Failed to parse stream event:', data);
+        }
+      }
+    }
+  } catch (streamReadError: unknown) {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+    if (streamReadError instanceof Error && streamReadError.name === 'AbortError' && abortReason === 'idle') {
+      return await pollForCompletion();
+    }
+    throw streamReadError;
+  } finally {
+    if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+  }
+
+  return { content: accumulatedContent || null, toolCalls, usage: finalUsage, status: finalStatus };
+}
+
+// ============================================================================
+// TOOL EXECUTION WITH STREAMING
+// ============================================================================
+
+async function executeToolsAndSubmitStreaming(
   toolCalls: any[],
   toolContext: any,
-  previousResponseId: string,  // Changed from conversationId to use response chaining
+  previousResponseId: string,
   selectedModel: string,
   openAIApiKey: string,
-  toolEvents: Array<{ type: string; tool?: string; args?: any }>
+  emitter: SSEEmitter,
 ): Promise<{ content: string | null; hasMoreTools: boolean; nextToolCalls: any[]; responseId: string | null }> {
   const toolResults: any[] = [];
   
@@ -416,13 +694,13 @@ async function executeToolsAndSubmit(
       console.error('Failed to parse tool arguments:', toolCall.arguments);
     }
 
-    toolEvents.push({ type: 'tool_start', tool: toolName, args: toolArgs });
+    emitter.emit({ type: 'tool_start', tool: toolName, args: toolArgs });
     console.log(`Executing tool: ${toolName}`, toolArgs);
     
     const toolResult = await handleToolCall(toolName, toolArgs, toolContext);
     console.log(`Tool ${toolName} result length: ${toolResult.length}`);
 
-    toolEvents.push({ type: 'tool_end', tool: toolName });
+    emitter.emit({ type: 'tool_end', tool: toolName });
 
     toolResults.push({
       type: 'function_call_output',
@@ -431,19 +709,17 @@ async function executeToolsAndSubmit(
     });
   }
 
-  // Submit tool results back to OpenAI using previous_response_id for chaining
+  // Submit with background mode for streaming
   const requestBody: any = {
     model: selectedModel,
     input: toolResults,
     store: true,
+    background: true,
   };
   
-  // Use previous_response_id to chain the response (avoids reasoning item issues)
   if (previousResponseId?.startsWith('resp_')) {
     requestBody.previous_response_id = previousResponseId;
     console.log('Tool submit chaining from response:', previousResponseId);
-  } else {
-    console.warn('Invalid previous response ID in tool submit:', previousResponseId);
   }
   
   const submitResponse = await fetch('https://api.openai.com/v1/responses', {
@@ -463,192 +739,207 @@ async function executeToolsAndSubmit(
 
   const submitResult = await submitResponse.json();
   const responseId = submitResult.id || null;
-  console.log('Tool submit response id:', responseId);
+  console.log('Tool submit response id:', responseId, 'status:', submitResult.status);
   
-  // Extract content from response
-  let content: string | null = null;
-  const outputMessage = submitResult.output?.find((item: any) => item.type === 'message');
-  if (outputMessage?.content) {
-    for (const contentItem of outputMessage.content) {
-      if (contentItem.type === 'output_text' && contentItem.text) {
-        content = contentItem.text;
+  // Emit api_started for dashboard
+  emitter.emit({ type: 'api_started', response_id: responseId, status: submitResult.status });
+
+  // If completed immediately, extract content
+  if (submitResult.status === 'completed') {
+    let content: string | null = null;
+    const nextToolCalls: any[] = [];
+    
+    if (submitResult.output && Array.isArray(submitResult.output)) {
+      for (const item of submitResult.output) {
+        if (item.type === 'message' && item.content) {
+          for (const contentItem of item.content) {
+            if (contentItem.type === 'output_text' && contentItem.text) {
+              content = contentItem.text;
+            }
+          }
+        }
+        if (item.type === 'function_call') {
+          nextToolCalls.push(item);
+        }
       }
     }
+    
+    return { content, hasMoreTools: nextToolCalls.length > 0, nextToolCalls, responseId };
   }
 
-  // Check for more tool calls
-  const nextToolCalls = submitResult.output?.filter((item: any) => item.type === 'function_call') || [];
+  // Stream the response
+  const streamResult = await streamOpenAIResponse(responseId, openAIApiKey, emitter);
   
-  return { content, hasMoreTools: nextToolCalls.length > 0, nextToolCalls, responseId };
+  return {
+    content: streamResult.content,
+    hasMoreTools: streamResult.toolCalls.length > 0,
+    nextToolCalls: streamResult.toolCalls,
+    responseId,
+  };
 }
+
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const validation = await validateUser(req);
-    if (!validation.valid) {
-      console.error('Auth validation failed:', validation.error);
-      return new Response(
-        JSON.stringify({ error: validation.error }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+  // Create SSE stream for real-time events
+  const { stream, emitter } = createSSEStream();
+  const startTime = Date.now();
+  let heartbeatInterval: number | null = null;
 
-    console.log('Prompt family chat request from:', validation.user?.email);
-
-    const body = await req.json();
-    const { prompt_row_id, user_message, system_prompt, model, reasoning_effort } = body;
-
-    // Input validation
-    if (!prompt_row_id) {
-      return new Response(
-        JSON.stringify({ error: 'prompt_row_id is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate UUID format for prompt_row_id
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (typeof prompt_row_id !== 'string' || !uuidRegex.test(prompt_row_id)) {
-      return new Response(
-        JSON.stringify({ error: 'prompt_row_id must be a valid UUID' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate user_message - accept string directly instead of messages array
-    // This reduces payload size since OpenAI Responses API maintains history via previous_response_id
-    if (!user_message || typeof user_message !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'user_message is required and must be a string' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate single message length (100KB limit per message)
-    if (user_message.length > 100000) {
-      return new Response(
-        JSON.stringify({ error: 'Message exceeds 100KB limit' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase configuration');
-    }
-
-    if (!openAIApiKey) {
-      throw new Error('No OpenAI API key configured');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify ownership of the prompt
-    const { data: promptCheck, error: promptCheckError } = await supabase
-      .from(TABLES.PROMPTS)
-      .select('owner_id')
-      .eq('row_id', prompt_row_id)
-      .maybeSingle();
-
-    if (promptCheckError || !promptCheck) {
-      return new Response(
-        JSON.stringify({ error: 'Prompt not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (promptCheck.owner_id !== validation.user?.id) {
-      const { data: isAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user?.id });
-      if (!isAdmin) {
-        return new Response(
-          JSON.stringify({ error: 'Access denied - you do not own this prompt' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+  // Process request in background while streaming
+  (async () => {
+    try {
+      const validation = await validateUser(req);
+      if (!validation.valid) {
+        console.error('Auth validation failed:', validation.error);
+        emitter.emit({ type: 'error', error: validation.error, error_code: 'AUTH_FAILED' });
+        emitter.close();
+        return;
       }
-    }
 
-    // ============================================================================
-    // OPTIMIZED INITIALIZATION - Single batch fetch resolves root & gets all data
-    // ============================================================================
-    const initStart = Date.now();
-    
-    // Get family data (includes root resolution, tree, files, pages, schemas, template)
-    // Run in parallel with thread creation and knowledge loading
-    const [familyData, knowledge, modelSetting] = await Promise.all([
-      getFamilyDataOptimized(supabase, prompt_row_id),
-      loadQonsolKnowledge(supabase, [
-        'overview', 'prompts', 'variables', 'cascade', 'json_schemas', 'actions', 'troubleshooting'
-      ], 6000),
-      model ? Promise.resolve({ setting_value: model }) : supabase
-        .from('q_settings')
-        .select('setting_value')
-        .eq('setting_key', 'default_model')
-        .maybeSingle()
-        .then((r: any) => r.data)
-    ]);
-    
-    const { familyPromptIds, familySummary, tree: cachedTree, rootId } = familyData;
-    
-    // Build promptsMap for delete/duplicate operations to find children
-    const promptsMap = new Map<string, { row_id: string; parent_row_id: string | null }>();
-    function buildPromptsMap(node: any) {
-      if (!node) return;
-      promptsMap.set(node.row_id, { 
-        row_id: node.row_id, 
-        parent_row_id: node.parent_row_id || null 
-      });
-      if (node.children) {
-        for (const child of node.children) {
-          buildPromptsMap(child);
+      // Start heartbeat after validation
+      heartbeatInterval = setInterval(() => {
+        if (!emitter.isClosed()) {
+          emitter.emit({ type: 'heartbeat', elapsed_ms: Date.now() - startTime });
+        }
+      }, 10000);
+
+      console.log('Prompt family chat request from:', validation.user?.email);
+
+      const body = await req.json();
+      const { prompt_row_id, user_message, system_prompt, model, reasoning_effort } = body;
+
+      // Input validation
+      if (!prompt_row_id) {
+        emitter.emit({ type: 'error', error: 'prompt_row_id is required' });
+        emitter.close();
+        return;
+      }
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (typeof prompt_row_id !== 'string' || !uuidRegex.test(prompt_row_id)) {
+        emitter.emit({ type: 'error', error: 'prompt_row_id must be a valid UUID' });
+        emitter.close();
+        return;
+      }
+
+      if (!user_message || typeof user_message !== 'string') {
+        emitter.emit({ type: 'error', error: 'user_message is required and must be a string' });
+        emitter.close();
+        return;
+      }
+
+      if (user_message.length > 100000) {
+        emitter.emit({ type: 'error', error: 'Message exceeds 100KB limit' });
+        emitter.close();
+        return;
+      }
+
+      const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+      if (!supabaseUrl || !supabaseServiceKey) {
+        emitter.emit({ type: 'error', error: 'Missing Supabase configuration' });
+        emitter.close();
+        return;
+      }
+
+      if (!openAIApiKey) {
+        emitter.emit({ type: 'error', error: 'No OpenAI API key configured' });
+        emitter.close();
+        return;
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+      // Verify ownership
+      const { data: promptCheck, error: promptCheckError } = await supabase
+        .from(TABLES.PROMPTS)
+        .select('owner_id')
+        .eq('row_id', prompt_row_id)
+        .maybeSingle();
+
+      if (promptCheckError || !promptCheck) {
+        emitter.emit({ type: 'error', error: 'Prompt not found' });
+        emitter.close();
+        return;
+      }
+
+      if (promptCheck.owner_id !== validation.user?.id) {
+        const { data: isAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user?.id });
+        if (!isAdmin) {
+          emitter.emit({ type: 'error', error: 'Access denied - you do not own this prompt' });
+          emitter.close();
+          return;
         }
       }
-    }
-    if (cachedTree) buildPromptsMap(cachedTree);
-    
-    // Now get/create thread using the resolved rootId (avoids duplicate root walk)
-    const familyThread = await getOrCreateFamilyThread(
-      supabase,
-      rootId,
-      validation.user!.id,
-      'Chat',
-      openAIApiKey
-    );
-    
-    const conversationId = familyThread.openai_conversation_id;
-    const lastResponseId = familyThread.last_response_id;
-    
-    console.log(`Initialization complete in ${Date.now() - initStart}ms`, {
-      promptCount: familyPromptIds.length,
-      rootId,
-      conversationId,
-      lastResponseId,
-      threadCreated: familyThread.created,
-      threadRowId: familyThread.row_id
-    });
-    
-    const threadRowId = familyThread.row_id;
 
-    // Get model
-    let selectedModel = model;
-    if (!selectedModel && modelSetting?.setting_value) {
-      selectedModel = modelSetting.setting_value;
-    }
-    if (!selectedModel) {
-      selectedModel = await getDefaultModelFromSettings(supabase);
-    }
+      // Emit progress
+      emitter.emit({ type: 'progress', message: 'Loading prompt family data...' });
 
-    // Fetch model config for reasoning support check
-    const modelConfig = await fetchModelConfig(supabase, selectedModel);
+      // Optimized initialization
+      const [familyData, knowledge, modelSetting] = await Promise.all([
+        getFamilyDataOptimized(supabase, prompt_row_id),
+        loadQonsolKnowledge(supabase, [
+          'overview', 'prompts', 'variables', 'cascade', 'json_schemas', 'actions', 'troubleshooting'
+        ], 6000),
+        model ? Promise.resolve({ setting_value: model }) : supabase
+          .from('q_settings')
+          .select('setting_value')
+          .eq('setting_key', 'default_model')
+          .maybeSingle()
+          .then((r: any) => r.data)
+      ]);
+      
+      const { familyPromptIds, familySummary, tree: cachedTree, rootId } = familyData;
+      
+      // Build promptsMap
+      const promptsMap = new Map<string, { row_id: string; parent_row_id: string | null }>();
+      function buildPromptsMap(node: any) {
+        if (!node) return;
+        promptsMap.set(node.row_id, { row_id: node.row_id, parent_row_id: node.parent_row_id || null });
+        if (node.children) {
+          for (const child of node.children) {
+            buildPromptsMap(child);
+          }
+        }
+      }
+      if (cachedTree) buildPromptsMap(cachedTree);
+      
+      // Get/create thread
+      const familyThread = await getOrCreateFamilyThread(
+        supabase,
+        rootId,
+        validation.user!.id,
+        'Chat',
+        openAIApiKey
+      );
+      
+      const lastResponseId = familyThread.last_response_id;
+      const threadRowId = familyThread.row_id;
+      
+      console.log(`Init complete: ${familyPromptIds.length} prompts, rootId=${rootId}, threadRowId=${threadRowId}`);
 
-    // Build system prompt
-    const systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
+      // Resolve model
+      let selectedModel = model;
+      if (!selectedModel && modelSetting?.setting_value) {
+        selectedModel = modelSetting.setting_value;
+      }
+      if (!selectedModel) {
+        selectedModel = await getDefaultModelFromSettings(supabase);
+      }
+
+      const modelConfig = await fetchModelConfig(supabase, selectedModel);
+
+      // Build system prompt
+      const systemContent = system_prompt || `You are an AI assistant helping the user with their prompt family in Qonsol, a prompt engineering platform.
 
 You have deep knowledge of how Qonsol works and can help users:
 - Understand their prompt structure and hierarchy
@@ -663,317 +954,255 @@ ${knowledge}
 Use your tools to explore the prompt family and provide helpful, accurate information.
 Be concise but thorough. When showing prompt content, format it nicely.`;
 
-    // Check admin status for tool access (server-side via RPC function)
-    const { data: isUserAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user!.id });
-    console.log('Admin status check for tools:', { userId: validation.user!.id, isAdmin: !!isUserAdmin });
+      // Check admin status
+      const { data: isUserAdmin } = await supabase.rpc('is_admin', { _user_id: validation.user!.id });
 
-    // Get tools - use registry if feature flag is enabled
-    let tools: any[];
-    let registryContext: ToolContext | null = null;
-    
-    if (USE_TOOL_REGISTRY) {
-      // New registry-based tool loading
-      console.log('Using tool registry (feature flag enabled)');
-      
-      // Validate registry on first use (cached after)
-      const registryValidation = validateRegistry();
-      if (!registryValidation.valid) {
-        console.error('Tool registry validation errors:', registryValidation.errors);
-      }
-      if (registryValidation.warnings.length > 0) {
-        console.warn('Tool registry warnings:', registryValidation.warnings);
-      }
-      console.log(`Registry: ${registryValidation.moduleCount} modules, ${registryValidation.toolCount} tools`);
-      
-      // Extract access token from Authorization header for internal edge function calls
+      // Get tools
+      let tools: any[];
+      let registryContext: ToolContext | null = null;
       const authHeader = req.headers.get('Authorization');
       const accessToken = authHeader?.replace('Bearer ', '');
       
-      // Build registry context with admin status
-      registryContext = {
+      if (USE_TOOL_REGISTRY) {
+        console.log('Using tool registry');
+        const registryValidation = validateRegistry();
+        if (!registryValidation.valid) {
+          console.error('Tool registry validation errors:', registryValidation.errors);
+        }
+        
+        registryContext = {
+          supabase,
+          userId: validation.user!.id,
+          accessToken,
+          executionStack: [],
+          isAdmin: !!isUserAdmin,
+          familyContext: {
+            promptRowId: prompt_row_id,
+            familyPromptIds,
+            cachedTree,
+            promptsMap
+          },
+          credentials: {
+            openAIApiKey,
+            githubToken: Deno.env.get('GITHUB_TOKEN')
+          }
+        };
+        
+        tools = getToolsForScope('family', registryContext);
+      } else {
+        const databaseSchemaTool = {
+          type: "function",
+          name: "get_database_schema",
+          description: "Get the database schema for Qonsol tables.",
+          parameters: {
+            type: "object",
+            properties: {
+              table_name: { type: "string", description: "Optional specific table name." }
+            },
+            required: [],
+            additionalProperties: false
+          }
+        };
+
+        const rawTools = [...getPromptFamilyTools(), getQonsolHelpTool(), databaseSchemaTool];
+        tools = rawTools.map(normalizeToolForResponsesApi);
+      }
+
+      // Enforce strict schemas
+      tools = tools.map((t) => {
+        if (!t || typeof t !== 'object' || !t.parameters) return t;
+        return { ...t, parameters: ensureStrictSchema(t.parameters) };
+      });
+
+      // Validate tools
+      const invalidTools = tools.filter(t => !t.name);
+      if (invalidTools.length > 0) {
+        console.error('Invalid tools - missing name');
+        emitter.emit({ type: 'error', error: 'Invalid tool configuration' });
+        emitter.close();
+        return;
+      }
+
+      console.log('Tools prepared:', tools.map(t => t.name));
+
+      // Tool context
+      const toolContext = {
         supabase,
         userId: validation.user!.id,
-        accessToken,
-        executionStack: [],
-        isAdmin: !!isUserAdmin,
-        familyContext: {
-          promptRowId: prompt_row_id,
-          familyPromptIds,
-          cachedTree,
-          promptsMap
-        },
-        credentials: {
-          openAIApiKey,
-          githubToken: Deno.env.get('GITHUB_TOKEN')
-        }
-      };
-      
-      // Get tools for family scope
-      tools = getToolsForScope('family', registryContext);
-      console.log('Registry tools loaded:', tools.map(t => t.name));
-    } else {
-      // Legacy tool loading
-      console.log('Using legacy tool loading');
-      
-      const databaseSchemaTool = {
-        type: "function",
-        name: "get_database_schema",
-        description: "Get the database schema for Qonsol tables. Returns table names, columns, types, and relationships.",
-        parameters: {
-          type: "object",
-          properties: {
-            table_name: {
-              type: "string",
-              description: "Optional specific table name to get details for."
-            }
-          },
-          required: [],
-          additionalProperties: false
-        }
+        promptRowId: prompt_row_id,
+        familyPromptIds,
+        cachedTree,
+        openAIApiKey,
+        registryContext
       };
 
-      const rawTools = [
-        ...getPromptFamilyTools(),
-        getQonsolHelpTool(),
-        databaseSchemaTool
-      ];
+      // Build initial request with background mode
+      const requestBody: any = {
+        model: selectedModel,
+        input: user_message,
+        instructions: systemContent,
+        tools: tools.length > 0 ? tools : undefined,
+        store: true,
+        background: true,
+      };
 
-      // Normalize all tools to Responses API format (flat structure with top-level name)
-      tools = rawTools.map(normalizeToolForResponsesApi);
-    }
-
-    // Enforce strict tool schemas (prevents 400s like "Missing 'table_name'")
-    tools = tools.map((t) => {
-      if (!t || typeof t !== 'object') return t;
-      if (!t.parameters) return t;
-      return { ...t, parameters: ensureStrictSchema(t.parameters) };
-    });
-
-    // Defensive validation
-    const invalidTools = tools
-      .map((t, i) => ({ index: i, name: t.name }))
-      .filter(t => !t.name);
-    if (invalidTools.length > 0) {
-      console.error('Invalid tool definitions - missing name:', invalidTools);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid tool configuration', 
-          details: `Tools at indices ${invalidTools.map(t => t.index).join(', ')} missing name` 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Tools prepared:', tools.map(t => t.name));
-
-
-    // Use user_message directly - no need to extract from array
-    const userInput = user_message;
-
-    // Tool context - unified for both registry and legacy paths
-    const toolContext = {
-      supabase,
-      userId: validation.user!.id,
-      promptRowId: prompt_row_id,
-      familyPromptIds,
-      cachedTree,
-      openAIApiKey,
-      // Registry-specific fields (used when USE_TOOL_REGISTRY is true)
-      registryContext
-    };
-
-    // ============================================================================
-    // TOOL EXECUTION LOOP - Cleaner logic with separate function
-    // ============================================================================
-    const MAX_TOOL_ITERATIONS = 10;
-    let finalContent = '';
-    const toolEvents: Array<{ type: string; tool?: string; args?: any }> = [];
-
-    // Initial API call
-    const requestBody: any = {
-      model: selectedModel,
-      input: userInput,
-      instructions: systemContent,
-      tools: tools.length > 0 ? tools : undefined,
-      store: true,
-    };
-
-    // Apply reasoning effort if supported and not 'auto'
-    if (reasoning_effort && reasoning_effort !== 'auto') {
-      const supportsReasoning = modelConfig?.supportsReasoningEffort ?? false;
-      const validLevels = modelConfig?.reasoningEffortLevels || ['low', 'medium', 'high'];
-      
-      if (supportsReasoning && validLevels.includes(reasoning_effort)) {
-        requestBody.reasoning = { effort: reasoning_effort };
-        console.log(`Applied reasoning effort: ${reasoning_effort}`);
+      // Apply reasoning effort
+      if (reasoning_effort && reasoning_effort !== 'auto') {
+        const supportsReasoning = modelConfig?.supportsReasoningEffort ?? false;
+        const validLevels = modelConfig?.reasoningEffortLevels || ['low', 'medium', 'high'];
+        
+        if (supportsReasoning && validLevels.includes(reasoning_effort)) {
+          requestBody.reasoning = { effort: reasoning_effort };
+          console.log(`Applied reasoning effort: ${reasoning_effort}`);
+        }
       }
-    }
 
-    // Use previous_response_id to continue the conversation (avoids reasoning item issues)
-    // DO NOT use conversation parameter - causes "reasoning item" errors with gpt-5/o-series models
-    // If no previous_response_id exists, start fresh (first message in thread)
-    if (lastResponseId?.startsWith('resp_')) {
-      requestBody.previous_response_id = lastResponseId;
-      console.log('Continuing from previous response:', lastResponseId);
-    } else {
-      console.log('No previous_response_id - starting fresh conversation turn');
-    }
+      // Use previous_response_id for conversation continuity
+      if (lastResponseId?.startsWith('resp_')) {
+        requestBody.previous_response_id = lastResponseId;
+        console.log('Continuing from previous response:', lastResponseId);
+      }
 
-    // Add timeout for initial request (5 minutes)
-    const initialController = new AbortController();
-    const initialTimeoutId = setTimeout(() => initialController.abort(), 300000);
-    
-    let response: Response;
-    try {
-      response = await fetch('https://api.openai.com/v1/responses', {
+      emitter.emit({ type: 'progress', message: 'Calling AI model...' });
+
+      // Initial API call
+      const initialResponse = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
-        signal: initialController.signal,
       });
-    } catch (fetchError: unknown) {
-      clearTimeout(initialTimeoutId);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        console.error('Prompt family chat request timed out after 5 minutes');
-        return new Response(
-          JSON.stringify({ error: 'Request timed out after 5 minutes. The prompt may be too complex.' }),
-          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw fetchError;
-    }
-    clearTimeout(initialTimeoutId);
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
-      console.error('Responses API error:', response.status, errorText);
-      
-      let upstreamError = 'Unknown error';
-      try {
-        const parsed = JSON.parse(errorText);
-        upstreamError = parsed.error?.message || parsed.message || errorText;
-      } catch {
-        upstreamError = errorText.slice(0, 200);
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          error: 'AI request failed', 
-          upstream_status: response.status,
-          details: upstreamError 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    let result = await response.json();
-    console.log('Initial response - id:', result.id, 'status:', result.status);
-    
-    // Track the latest response ID for chaining
-    let latestResponseId = result.id;
-
-    // Process tool calls in a loop
-    let currentToolCalls = result.output?.filter((item: any) => item.type === 'function_call') || [];
-    
-    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS && currentToolCalls.length > 0; iteration++) {
-      console.log(`Tool iteration ${iteration + 1}: ${currentToolCalls.length} tool(s)`);
-      
-      const { content, hasMoreTools, nextToolCalls, responseId } = await executeToolsAndSubmit(
-        currentToolCalls,
-        toolContext,
-        latestResponseId,  // Pass the previous response ID for chaining
-        selectedModel,
-        openAIApiKey,
-        toolEvents
-      );
-      
-      // Update latest response ID from tool submission result
-      if (responseId) {
-        latestResponseId = responseId;
-      }
-      
-      if (content) {
-        finalContent = content;
-      }
-      
-      if (!hasMoreTools) {
-        break;
-      }
-      
-      currentToolCalls = nextToolCalls;
-    }
-    
-    // Save the last response ID to the thread for next conversation turn
-    if (latestResponseId?.startsWith('resp_')) {
-      const updated = await updateFamilyThreadResponseId(supabase, threadRowId, latestResponseId);
-      if (!updated) {
-        console.warn('Failed to persist response_id - next turn may lose conversation context');
-      }
-    }
-
-    // If no tools were called, extract content from initial response
-    if (toolEvents.length === 0) {
-      const outputMessage = result.output?.find((item: any) => item.type === 'message');
-      if (outputMessage?.content) {
-        for (const contentItem of outputMessage.content) {
-          if (contentItem.type === 'output_text' && contentItem.text) {
-            finalContent = contentItem.text;
-          }
-        }
-      }
-    }
-    
-    console.log('Final content length:', finalContent.length);
-
-    if (toolEvents.length > 0) {
-      toolEvents.push({ type: 'tool_loop_complete' });
-    }
-
-    // Stream response back as SSE
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      start(controller) {
-        for (const event of toolEvents) {
-          const sseData = JSON.stringify(event);
-          controller.enqueue(encoder.encode(`data: ${sseData}\n\n`));
+      if (!initialResponse.ok) {
+        const errorText = await initialResponse.text();
+        console.error('Responses API error:', initialResponse.status, errorText);
+        
+        let upstreamError = 'AI request failed';
+        try {
+          const parsed = JSON.parse(errorText);
+          upstreamError = parsed.error?.message || parsed.message || upstreamError;
+        } catch {
+          upstreamError = errorText.slice(0, 200);
         }
         
-        const contentData = JSON.stringify({
-          choices: [{
-            delta: { content: finalContent },
-            finish_reason: 'stop'
-          }]
-        });
-        controller.enqueue(encoder.encode(`data: ${contentData}\n\n`));
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
+        emitter.emit({ type: 'error', error: upstreamError, upstream_status: initialResponse.status });
+        emitter.close();
+        return;
       }
-    });
 
-    return new Response(stream, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive'
+      const initialResult = await initialResponse.json();
+      let latestResponseId = initialResult.id;
+      console.log('Initial response:', latestResponseId, 'status:', initialResult.status);
+
+      // Emit api_started for dashboard
+      emitter.emit({ type: 'api_started', response_id: latestResponseId, status: initialResult.status });
+
+      // Handle immediate completion
+      let streamResult: { content: string | null; toolCalls: any[]; usage: any | null; status: string };
+      
+      if (initialResult.status === 'completed') {
+        // Extract from initial response
+        let content: string | null = null;
+        const toolCalls: any[] = [];
+        
+        if (initialResult.output && Array.isArray(initialResult.output)) {
+          for (const item of initialResult.output) {
+            if (item.type === 'message' && item.content) {
+              for (const contentItem of item.content) {
+                if (contentItem.type === 'output_text' && contentItem.text) {
+                  content = contentItem.text;
+                }
+              }
+            }
+            if (item.type === 'function_call') {
+              toolCalls.push(item);
+            }
+          }
+        }
+        
+        streamResult = { content, toolCalls, usage: initialResult.usage, status: 'completed' };
+      } else if (initialResult.status === 'failed' || initialResult.status === 'cancelled') {
+        emitter.emit({ type: 'error', error: `Request ${initialResult.status}` });
+        emitter.close();
+        return;
+      } else {
+        // Stream the response
+        streamResult = await streamOpenAIResponse(latestResponseId, openAIApiKey, emitter);
       }
-    });
 
-  } catch (error: unknown) {
-    console.error('Error in prompt-family-chat:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
+      let finalContent = streamResult.content || '';
+      let currentToolCalls = streamResult.toolCalls;
+
+      // Tool execution loop
+      const MAX_TOOL_ITERATIONS = 10;
+      for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS && currentToolCalls.length > 0; iteration++) {
+        console.log(`Tool iteration ${iteration + 1}: ${currentToolCalls.length} tool(s)`);
+        
+        const result = await executeToolsAndSubmitStreaming(
+          currentToolCalls,
+          toolContext,
+          latestResponseId,
+          selectedModel,
+          openAIApiKey,
+          emitter
+        );
+        
+        if (result.responseId) {
+          latestResponseId = result.responseId;
+        }
+        
+        if (result.content) {
+          finalContent = result.content;
+        }
+        
+        if (!result.hasMoreTools) {
+          break;
+        }
+        
+        currentToolCalls = result.nextToolCalls;
+      }
+
+      emitter.emit({ type: 'tool_loop_complete' });
+
+      // Save response ID for next turn
+      if (latestResponseId?.startsWith('resp_')) {
+        await updateFamilyThreadResponseId(supabase, threadRowId, latestResponseId);
+      }
+
+      console.log('Final content length:', finalContent.length);
+
+      // Emit final content
+      emitter.emit({
+        choices: [{
+          delta: { content: finalContent },
+          finish_reason: 'stop'
+        }]
+      });
+
+      emitter.close();
+
+    } catch (error: unknown) {
+      console.error('Error in prompt-family-chat:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      emitter.emit({ type: 'error', error: message });
+      emitter.close();
+    } finally {
+      if (heartbeatInterval !== null) {
+        clearInterval(heartbeatInterval);
+      }
+      emitter.dispose();
+    }
+  })();
+
+  // Return stream immediately
+  return new Response(stream, {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    }
+  });
 });

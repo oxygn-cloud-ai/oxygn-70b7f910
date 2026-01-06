@@ -3,10 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
+import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 
 export const usePromptFamilyChat = (promptRowId) => {
   const { registerCall } = useApiCallContext();
+  const { addCall, updateCall, appendThinking, removeCall } = useLiveApiDashboard();
   const abortControllerRef = useRef(null);
+  const dashboardCallIdRef = useRef(null);
   
   const [threads, setThreads] = useState([]);
   const [activeThreadId, setActiveThreadId] = useState(null);
@@ -267,9 +270,24 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsExecutingTools(false);
 
-    // Register this streaming call with ApiCallContext
+    // Register this streaming call with ApiCallContext (legacy)
     const unregisterCall = registerCall();
     abortControllerRef.current = new AbortController();
+
+    // Register with LiveApiDashboard for real-time status
+    const dashboardId = addCall({
+      promptName: 'Prompt Family Chat',
+      promptRowId,
+      model: model || sessionModel || 'default',
+      status: 'queued',
+      cancelFn: async () => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+      },
+      isCascadeCall: false,
+    });
+    dashboardCallIdRef.current = dashboardId;
 
     trackEvent('prompt_family_message_sent', {
       prompt_id: promptRowId,
@@ -313,6 +331,9 @@ export const usePromptFamilyChat = (promptRowId) => {
         throw new Error(errorMessage);
       }
 
+      // Update dashboard status
+      updateCall(dashboardId, { status: 'in_progress' });
+
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
@@ -337,6 +358,40 @@ export const usePromptFamilyChat = (promptRowId) => {
             try {
               const parsed = JSON.parse(data);
               
+              // Handle api_started - update dashboard with response_id
+              if (parsed.type === 'api_started') {
+                updateCall(dashboardId, { 
+                  status: 'in_progress',
+                  responseId: parsed.response_id,
+                });
+              }
+              
+              // Handle thinking/reasoning events - stream to dashboard
+              if (parsed.type === 'thinking_started') {
+                updateCall(dashboardId, { status: 'in_progress' });
+              } else if (parsed.type === 'thinking_delta') {
+                appendThinking(dashboardId, parsed.delta || '');
+              } else if (parsed.type === 'thinking_done') {
+                // Thinking complete, could update status if needed
+              }
+              
+              // Handle status updates
+              if (parsed.type === 'status_update') {
+                updateCall(dashboardId, { status: parsed.status });
+              }
+              
+              // Handle progress messages
+              if (parsed.type === 'progress') {
+                // Could show in UI if desired
+                console.log('Progress:', parsed.message);
+              }
+              
+              // Handle errors
+              if (parsed.type === 'error') {
+                throw new Error(parsed.error || 'Unknown error');
+              }
+              
+              // Handle tool events
               if (parsed.type === 'tool_start') {
                 setToolActivity(prev => [...prev, {
                   name: parsed.tool,
@@ -354,15 +409,13 @@ export const usePromptFamilyChat = (promptRowId) => {
                 setIsExecutingTools(false);
               }
               
+              // Handle final content
               const deltaContent = parsed.choices?.[0]?.delta?.content;
               if (deltaContent) {
                 fullContent += deltaContent;
                 setStreamingMessage(fullContent);
               }
               
-              if (parsed.error) {
-                throw new Error(parsed.error.message || parsed.error);
-              }
             } catch (e) {
               if (e.message && !e.message.includes('JSON')) {
                 console.warn('SSE parse warning:', e);
@@ -383,6 +436,10 @@ export const usePromptFamilyChat = (promptRowId) => {
       setIsExecutingTools(false);
       unregisterCall();
       abortControllerRef.current = null;
+      
+      // Remove from dashboard
+      removeCall(dashboardId);
+      dashboardCallIdRef.current = null;
 
       await supabase
         .from('q_threads')
@@ -409,9 +466,16 @@ export const usePromptFamilyChat = (promptRowId) => {
       setIsExecutingTools(false);
       unregisterCall();
       abortControllerRef.current = null;
+      
+      // Remove from dashboard on error
+      if (dashboardCallIdRef.current) {
+        removeCall(dashboardCallIdRef.current);
+        dashboardCallIdRef.current = null;
+      }
+      
       return null;
     }
-  }, [activeThreadId, promptRowId, addMessage, registerCall, sessionModel, sessionReasoningEffort]);
+  }, [activeThreadId, promptRowId, addMessage, registerCall, addCall, updateCall, appendThinking, removeCall, sessionModel, sessionReasoningEffort]);
 
   // Effects
   useEffect(() => {
@@ -429,13 +493,18 @@ export const usePromptFamilyChat = (promptRowId) => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    // Clean up dashboard call if any
+    if (dashboardCallIdRef.current) {
+      removeCall(dashboardCallIdRef.current);
+      dashboardCallIdRef.current = null;
+    }
     setActiveThreadId(null);
     setMessages([]);
     setStreamingMessage('');
     setToolActivity([]);
     setIsStreaming(false);
     setIsExecutingTools(false);
-  }, [rootPromptId]);
+  }, [rootPromptId, removeCall]);
 
   // Cancel stream function for external use
   const cancelStream = useCallback(() => {
@@ -443,7 +512,12 @@ export const usePromptFamilyChat = (promptRowId) => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  }, []);
+    // Clean up dashboard call
+    if (dashboardCallIdRef.current) {
+      removeCall(dashboardCallIdRef.current);
+      dashboardCallIdRef.current = null;
+    }
+  }, [removeCall]);
 
   return {
     threads,
