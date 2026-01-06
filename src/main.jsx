@@ -1,4 +1,4 @@
-// Application entry point - standard Lovable boot (v4 - cache bust)  
+// Application entry point - standard Lovable boot (v5 - force React re-bundle)  
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
