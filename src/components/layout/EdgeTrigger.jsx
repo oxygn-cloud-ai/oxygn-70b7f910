@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -5,6 +6,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * EdgeTrigger - A slim vertical trigger button that appears on screen edge
  * when a panel is hidden. Allows users to re-open the hidden panel.
  */
+const MotionButton = React.forwardRef((props, ref) => (
+  <motion.button ref={ref} {...props} />
+));
+MotionButton.displayName = "MotionButton";
+
 const EdgeTrigger = ({ 
   side = "left", 
   onClick, 
@@ -13,7 +19,7 @@ const EdgeTrigger = ({
 }) => (
   <Tooltip>
     <TooltipTrigger asChild>
-      <motion.button
+      <MotionButton
         onClick={onClick}
         initial={{ opacity: 0, x: side === "left" ? -16 : 16 }}
         animate={{ opacity: 1, x: 0 }}
@@ -31,7 +37,7 @@ const EdgeTrigger = ({
         `}
       >
         <Icon className="h-3 w-3" />
-      </motion.button>
+      </MotionButton>
     </TooltipTrigger>
     <TooltipContent side={side === "left" ? "right" : "left"} className="text-[10px]">
       {tooltip}

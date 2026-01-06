@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Menu,
@@ -13,6 +13,12 @@ import {
   RotateCcw,
   Info
 } from "lucide-react";
+
+// ForwardRef wrapper for motion.button to work with DropdownMenuTrigger
+const MotionMenuButton = React.forwardRef((props, ref) => (
+  <motion.button ref={ref} {...props} />
+));
+MotionMenuButton.displayName = "MotionMenuButton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
@@ -165,13 +171,13 @@ const NavigationRail = ({
       {/* Hamburger Menu - Dropdown with options */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <motion.button 
+          <MotionMenuButton 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="w-10 h-10 rounded-m3-full flex items-center justify-center text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-200 mb-4"
           >
             <Menu className="h-6 w-6" />
-          </motion.button>
+          </MotionMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="right" align="start" className="w-56">
           <DropdownMenuItem onClick={() => {

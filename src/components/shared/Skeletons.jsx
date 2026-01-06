@@ -54,8 +54,8 @@ export const SkeletonCard = ({ lines = 3, hasIcon = false }) => (
 );
 
 // List item skeleton
-export const SkeletonListItem = ({ hasAvatar = false, hasActions = false }) => (
-  <div className="flex items-center gap-3 p-2.5 rounded-m3-sm animate-pulse">
+export const SkeletonListItem = React.forwardRef(({ hasAvatar = false, hasActions = false }, ref) => (
+  <div ref={ref} className="flex items-center gap-3 p-2.5 rounded-m3-sm animate-pulse">
     {hasAvatar && <SkeletonCircle size="sm" />}
     <div className="flex-1 space-y-1.5">
       <SkeletonText width="w-28" size="sm" />
@@ -68,7 +68,8 @@ export const SkeletonListItem = ({ hasAvatar = false, hasActions = false }) => (
       </div>
     )}
   </div>
-);
+));
+SkeletonListItem.displayName = "SkeletonListItem";
 
 // Thread list skeleton
 export const SkeletonThreadList = ({ count = 3 }) => (
