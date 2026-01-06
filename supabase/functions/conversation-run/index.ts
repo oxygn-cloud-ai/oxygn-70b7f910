@@ -1025,35 +1025,54 @@ async function runResponsesAPI(
 interface SSEEmitter {
   emit: (event: any) => void;
   close: () => void;
+  dispose: () => void;
 }
 
 function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter & { isClosed: () => boolean } } {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController<Uint8Array>;
   let streamClosed = false;
+  // Deliberate disposal flag - when true, suppress all logging for expected disconnects
+  let disposed = false;
   
   const stream = new ReadableStream({
     start(c) {
       controller = c;
     },
+    cancel(reason) {
+      // Client disconnected - mark as disposed to prevent noisy logs
+      disposed = true;
+      streamClosed = true;
+      console.log('SSE stream cancelled by client:', reason);
+    },
   });
   
   const emitter = {
     emit: (event: any) => {
+      // Silent return if deliberately disposed (client disconnect, normal cleanup)
+      if (disposed) return;
+      
       if (streamClosed) {
+        // Only warn if not disposed - unexpected emit after close
         console.warn('Attempted to emit after stream closed:', event.type);
         return;
       }
       try {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       } catch (e) {
-        console.warn('SSE emit error:', e);
+        // Only log if not disposed (expected errors during disconnect)
+        if (!disposed) {
+          console.warn('SSE emit error:', e);
+        }
         streamClosed = true;
       }
     },
     close: () => {
-      if (streamClosed) {
-        console.warn('SSE stream already closed, skipping duplicate close');
+      if (streamClosed || disposed) {
+        // Silent return if already disposed or closed
+        if (!disposed) {
+          console.warn('SSE stream already closed, skipping duplicate close');
+        }
         return;
       }
       streamClosed = true;
@@ -1061,10 +1080,17 @@ function createSSEStream(): { stream: ReadableStream; emitter: SSEEmitter & { is
         controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       } catch (e) {
-        console.warn('SSE close error:', e);
+        if (!disposed) {
+          console.warn('SSE close error:', e);
+        }
       }
     },
-    isClosed: () => streamClosed,
+    dispose: () => {
+      // Mark as intentionally disposed - suppress future logs
+      disposed = true;
+      streamClosed = true;
+    },
+    isClosed: () => streamClosed || disposed,
   };
   
   return { stream, emitter };

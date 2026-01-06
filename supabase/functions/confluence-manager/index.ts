@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { TABLES } from "../_shared/tables.ts";
+import { validateConfluenceManagerInput } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -102,7 +103,27 @@ Deno.serve(async (req) => {
     // Create Supabase client with service role for admin operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, ...params } = await req.json();
+    let requestBody: any;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { action, ...params } = requestBody;
+    
+    // Validate input
+    const validation_result = validateConfluenceManagerInput({ action, ...params });
+    if (!validation_result.valid) {
+      return new Response(
+        JSON.stringify({ error: validation_result.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log(`[confluence-manager] Action: ${action}`, params);
 
     // Get Confluence credentials - base URL from shared settings, user credentials from encrypted store

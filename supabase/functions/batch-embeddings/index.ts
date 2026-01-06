@@ -51,17 +51,32 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
 }
 
 async function generateEmbedding(text: string, openAIApiKey: string): Promise<number[]> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-3-small',
-      input: text,
-    }),
-  });
+  // Add timeout for each embedding request (30 seconds)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  
+  let response: Response;
+  try {
+    response = await fetch('https://api.openai.com/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'text-embedding-3-small',
+        input: text,
+      }),
+      signal: controller.signal,
+    });
+  } catch (fetchError: unknown) {
+    clearTimeout(timeoutId);
+    if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+      throw new Error('Embedding request timed out after 30 seconds');
+    }
+    throw fetchError;
+  }
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const error = await response.text();

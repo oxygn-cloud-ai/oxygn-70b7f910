@@ -251,14 +251,33 @@ serve(async (req) => {
         supportsTemperature: modelSupportsTemp
       });
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+      // Add timeout for chat completions (30 seconds for quick test calls)
+      const chatController = new AbortController();
+      const chatTimeoutId = setTimeout(() => chatController.abort(), 30000);
+      
+      let response: Response;
+      try {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+          signal: chatController.signal,
+        });
+      } catch (fetchError: unknown) {
+        clearTimeout(chatTimeoutId);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.error('Chat completions request timed out after 30 seconds');
+          return new Response(
+            JSON.stringify({ error: 'Request timed out after 30 seconds' }),
+            { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw fetchError;
+      }
+      clearTimeout(chatTimeoutId);
 
       const latencyMs = Date.now() - startTime;
       const responseData = await response.json();

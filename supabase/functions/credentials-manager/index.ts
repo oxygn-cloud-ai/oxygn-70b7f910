@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { validateCredentialsManagerInput } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,7 +52,26 @@ serve(async (req) => {
     const userId = validation.user?.id;
     // Removed verbose email logging for security
 
-    const { action, ...params } = await req.json();
+    let requestBody: any;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { action, ...params } = requestBody;
+    
+    // Validate input
+    const validation_result = validateCredentialsManagerInput({ action, ...params });
+    if (!validation_result.valid) {
+      return new Response(
+        JSON.stringify({ error: validation_result.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     // Action logged only in error cases below
 
     // Service role client for database operations

@@ -845,14 +845,33 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       console.log('No previous_response_id - starting fresh conversation turn');
     }
 
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
+    // Add timeout for initial request (5 minutes)
+    const initialController = new AbortController();
+    const initialTimeoutId = setTimeout(() => initialController.abort(), 300000);
+    
+    let response: Response;
+    try {
+      response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: initialController.signal,
+      });
+    } catch (fetchError: unknown) {
+      clearTimeout(initialTimeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error('Prompt family chat request timed out after 5 minutes');
+        return new Response(
+          JSON.stringify({ error: 'Request timed out after 5 minutes. The prompt may be too complex.' }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw fetchError;
+    }
+    clearTimeout(initialTimeoutId);
 
     if (!response.ok) {
       if (response.status === 429) {
