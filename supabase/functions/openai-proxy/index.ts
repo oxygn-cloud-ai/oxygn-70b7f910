@@ -247,8 +247,12 @@ serve(async (req) => {
       }
       
       // Use correct token parameter for this model
+      // GPT-4 sends max_tokens, GPT-5 sends max_completion_tokens
       if (settings.max_tokens !== undefined) {
         requestBody[tokenParam] = settings.max_tokens;
+      }
+      if (settings.max_completion_tokens !== undefined) {
+        requestBody[tokenParam] = settings.max_completion_tokens;
       }
       
       if (modelSupportsTemp && settings.top_p !== undefined) {

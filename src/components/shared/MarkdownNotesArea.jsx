@@ -46,11 +46,12 @@ import { usePendingSaves } from '@/contexts/PendingSaveContext';
 
 const AUTOSAVE_DELAY = 500;
 
-// Toolbar button component
-const ToolbarButton = ({ icon: Icon, tooltip, onClick, active = false, disabled = false }) => (
+// Toolbar button component - uses forwardRef to prevent React warning when used with TooltipTrigger asChild
+const ToolbarButton = React.forwardRef(({ icon: Icon, tooltip, onClick, active = false, disabled = false }, ref) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
+        ref={ref}
         type="button"
         onClick={onClick}
         disabled={disabled}
@@ -67,7 +68,8 @@ const ToolbarButton = ({ icon: Icon, tooltip, onClick, active = false, disabled 
       {tooltip}
     </TooltipContent>
   </Tooltip>
-);
+));
+ToolbarButton.displayName = 'ToolbarButton';
 
 // Heading dropdown component
 const HeadingDropdown = ({ editor }) => {
