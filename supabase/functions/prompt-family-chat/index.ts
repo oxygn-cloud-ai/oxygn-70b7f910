@@ -666,6 +666,24 @@ async function streamOpenAIResponse(
             emitter.emit({ type: 'thinking_done', text: event.text || '', item_id: event.item_id });
           }
           
+          // Event: response.output_text.delta (streaming main output text)
+          if (event.type === 'response.output_text.delta') {
+            emitter.emit({
+              type: 'output_text_delta',
+              delta: event.delta || '',
+              item_id: event.item_id,
+            });
+          }
+          
+          // Event: response.output_text.done (output text complete)
+          if (event.type === 'response.output_text.done') {
+            emitter.emit({
+              type: 'output_text_done',
+              text: event.text || '',
+              item_id: event.item_id,
+            });
+          }
+          
         } catch (parseErr) {
           console.warn('Failed to parse stream event:', data);
         }

@@ -9,7 +9,7 @@ import { estimateCost } from '@/utils/costEstimator';
 
 export const usePromptFamilyChat = (promptRowId) => {
   const { registerCall } = useApiCallContext();
-  const { addCall, updateCall, appendThinking, incrementOutputTokens, removeCall } = useLiveApiDashboard();
+  const { addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall } = useLiveApiDashboard();
   const abortControllerRef = useRef(null);
   const dashboardCallIdRef = useRef(null);
   
@@ -384,6 +384,8 @@ export const usePromptFamilyChat = (promptRowId) => {
                 appendThinking(dashboardId, parsed.delta || '');
               } else if (parsed.type === 'thinking_done') {
                 // Thinking complete, could update status if needed
+              } else if (parsed.type === 'output_text_delta') {
+                appendOutputText(dashboardId, parsed.delta || '');
               }
               
               // Handle status updates

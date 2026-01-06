@@ -93,6 +93,8 @@ const LiveApiDashboard = () => {
   const mode = isCascadeRunning ? 'cascade' : (hasActiveCalls ? 'single' : 'idle');
   const currentCall = activeCalls[0];
   const thinkingText = currentCall?.thinkingSummary || '';
+  const outputText = currentCall?.outputText || '';
+  const hasOutput = outputText.length > 0;
   
   // Calculate live metrics
   const tokensPerSecond = currentCall ? calculateTokensPerSecond(
@@ -107,8 +109,8 @@ const LiveApiDashboard = () => {
     outputTokens: currentCall.outputTokens || 0,
   }) : 0;
   
-  // Show "Thinking..." placeholder when status is in_progress but no thinking text yet
-  const isThinking = currentCall?.status === 'in_progress' && !thinkingText;
+  // Show "Thinking..." placeholder when status is in_progress but no thinking text yet and no output
+  const isThinking = currentCall?.status === 'in_progress' && !thinkingText && !hasOutput;
 
   // Idle mode
   if (mode === 'idle') {
@@ -184,8 +186,18 @@ const LiveApiDashboard = () => {
           {formatCost(totalCost)}
         </span>
 
-        {/* Live thinking (if available) */}
-        {(thinkingText || isThinking) && (
+        {/* Live output text (if available) - prioritize over thinking */}
+        {hasOutput && (
+          <>
+            <div className="h-4 w-px bg-outline-variant shrink-0" />
+            <span className="text-[10px] text-on-surface italic truncate max-w-[120px]">
+              {outputText.length > 50 ? '...' + outputText.slice(-50) : outputText}
+            </span>
+          </>
+        )}
+
+        {/* Live thinking (show when reasoning but no output yet) */}
+        {(thinkingText || isThinking) && !hasOutput && (
           <span className="text-[10px] text-on-surface-variant italic truncate max-w-[100px] opacity-70">
             {thinkingText 
               ? (thinkingText.length > 40 ? '...' + thinkingText.slice(-40) : thinkingText) 
@@ -336,8 +348,20 @@ const LiveApiDashboard = () => {
         </span>
       )}
 
-      {/* Live thinking indicator */}
-      {(thinkingText || isThinking) && (
+      {/* Live output text (if available) - prioritize over thinking */}
+      {hasOutput && (
+        <>
+          <div className="h-4 w-px bg-outline-variant shrink-0" />
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-[10px] text-on-surface italic truncate max-w-[150px]">
+              {outputText.length > 60 ? '...' + outputText.slice(-60) : outputText}
+            </span>
+          </div>
+        </>
+      )}
+
+      {/* Live thinking indicator (show when reasoning but no output yet) */}
+      {(thinkingText || isThinking) && !hasOutput && (
         <>
           <div className="h-4 w-px bg-outline-variant shrink-0" />
           <div className="flex items-center gap-1 shrink-0">

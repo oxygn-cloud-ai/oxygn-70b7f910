@@ -942,6 +942,24 @@ async function runResponsesAPI(
             });
           }
           
+          // Event: response.output_text.delta (streaming main output text)
+          if (event.type === 'response.output_text.delta' && emitter) {
+            emitter.emit({
+              type: 'output_text_delta',
+              delta: event.delta || '',
+              item_id: event.item_id,
+            });
+          }
+          
+          // Event: response.output_text.done (output text complete)
+          if (event.type === 'response.output_text.done' && emitter) {
+            emitter.emit({
+              type: 'output_text_done',
+              text: event.text || '',
+              item_id: event.item_id,
+            });
+          }
+          
           // Emit status updates for dashboard
           if (event.status && emitter && ['queued', 'in_progress', 'completed', 'failed', 'cancelled'].includes(event.status)) {
             emitter.emit({
