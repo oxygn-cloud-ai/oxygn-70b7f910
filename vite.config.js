@@ -26,6 +26,15 @@ export default defineConfig(({ mode }) => ({
         find: "lib",
         replacement: resolve(projectRoot, "lib"),
       },
+      // Force single React instance - prevent nested dependencies from bundling their own
+      {
+        find: /^react$/,
+        replacement: fileURLToPath(new URL("./node_modules/react", import.meta.url)),
+      },
+      {
+        find: /^react-dom$/,
+        replacement: fileURLToPath(new URL("./node_modules/react-dom", import.meta.url)),
+      },
     ],
   },
   optimizeDeps: {
