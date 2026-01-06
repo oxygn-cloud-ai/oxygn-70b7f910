@@ -18,8 +18,8 @@ export const ALL_SETTINGS = {
   max_tokens: { 
     label: 'Max Tokens', 
     shortLabel: 'Max Tok',
-    description: 'Maximum response length',
-    details: 'The maximum number of tokens to generate. One token is roughly 4 characters for English text.',
+    description: 'Maximum response length (GPT-4)',
+    details: 'The maximum number of tokens to generate. One token is roughly 4 characters for English text. Used by GPT-4 models only.',
     docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-max_tokens',
     type: 'number',
     min: 1,
@@ -27,8 +27,21 @@ export const ALL_SETTINGS = {
     step: 1,
     defaultValue: '4096'
   },
-  // NOTE: max_completion_tokens removed - edge function handles API param mapping
-  // All models use max_tokens column in DB, edge function translates to correct API param
+  // IMPORTANT: max_tokens is ONLY for GPT-4 models
+  // max_completion_tokens is ONLY for GPT-5/o-series models
+  // These are completely independent parameters - never overlap
+  max_completion_tokens: { 
+    label: 'Max Completion Tokens', 
+    shortLabel: 'Max Comp',
+    description: 'Maximum response length (GPT-5)',
+    details: 'The maximum number of tokens to generate in the completion. Used by GPT-5 and o-series models only. Completely independent from max_tokens.',
+    docUrl: 'https://platform.openai.com/docs/api-reference/chat/create#chat-create-max_completion_tokens',
+    type: 'number',
+    min: 1,
+    max: 128000,
+    step: 1,
+    defaultValue: '4096'
+  },
   frequency_penalty: { 
     label: 'Frequency Penalty', 
     shortLabel: 'Freq Pen',

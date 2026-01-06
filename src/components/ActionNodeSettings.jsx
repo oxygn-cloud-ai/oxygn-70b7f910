@@ -631,9 +631,8 @@ const ActionNodeSettings = ({
         </Card>
       )}
 
-      {/* Variable Assignments Configuration */}
-      {selectedAction && (
-        <Card className="bg-surface-container-low border-outline-variant">
+      {/* Variable Assignments Configuration - available independent of post-action selection */}
+      <Card className="bg-surface-container-low border-outline-variant">
           <Collapsible defaultOpen={localData.variable_assignments_config?.enabled || false}>
             <CollapsibleTrigger asChild>
               <CardHeader className="py-2 px-3 cursor-pointer hover:bg-surface-container transition-colors">
@@ -725,7 +724,6 @@ const ActionNodeSettings = ({
             </CollapsibleContent>
           </Collapsible>
         </Card>
-      )}
 
       {/* Extracted Variables Display */}
       {localData.extracted_variables && Object.keys(localData.extracted_variables).length > 0 && (
