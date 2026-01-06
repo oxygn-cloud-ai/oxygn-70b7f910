@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
+import { validateStudioChatInput } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,14 +111,19 @@ serve(async (req) => {
 
     console.log('User validated:', validation.user?.email);
 
-    const { assistant_row_id, user_message, thread_row_id, include_child_context = true } = await req.json();
-
-    if (!assistant_row_id || !user_message) {
+    const requestBody = await req.json();
+    
+    // Validate input
+    const inputValidation = validateStudioChatInput(requestBody);
+    if (!inputValidation.valid) {
+      console.warn('Input validation failed:', inputValidation.error);
       return new Response(
-        JSON.stringify({ error: 'assistant_row_id and user_message are required' }),
+        JSON.stringify({ error: inputValidation.error }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    const { assistant_row_id, user_message, thread_row_id, include_child_context = true } = requestBody;
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -276,15 +282,15 @@ serve(async (req) => {
       systemContent += confluenceContext;
     }
 
-    // Build request body for Responses API
-    const requestBody: any = {
+    // Build API request body for Responses API
+    const apiRequestBody: any = {
       model: modelId,
       input: user_message,
     };
 
     // Use previous_response_id for multi-turn chaining (GPT-5 safe)
     if (lastResponseId?.startsWith('resp_')) {
-      requestBody.previous_response_id = lastResponseId;
+      apiRequestBody.previous_response_id = lastResponseId;
       console.log('Continuing from previous response:', lastResponseId);
     } else {
       console.log('No previous_response_id - starting fresh conversation turn');
@@ -292,7 +298,7 @@ serve(async (req) => {
 
     // Add instructions if present
     if (systemContent && systemContent.trim()) {
-      requestBody.instructions = systemContent.trim();
+      apiRequestBody.instructions = systemContent.trim();
     }
 
     // Add model parameters
@@ -301,19 +307,19 @@ serve(async (req) => {
     const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
 
     if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
-      requestBody.temperature = temperature;
+      apiRequestBody.temperature = temperature;
     }
     if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
-      requestBody.top_p = topP;
+      apiRequestBody.top_p = topP;
     }
     if (maxTokens !== undefined && !isNaN(maxTokens)) {
-      requestBody.max_output_tokens = maxTokens;
+      apiRequestBody.max_output_tokens = maxTokens;
     }
 
     console.log('Calling Responses API for Studio chat:', { 
       model: modelId, 
       previous_response_id: lastResponseId,
-      hasInstructions: !!requestBody.instructions,
+      hasInstructions: !!apiRequestBody.instructions,
     });
 
     // Call Responses API
@@ -323,7 +329,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(apiRequestBody),
     });
 
     if (!response.ok) {

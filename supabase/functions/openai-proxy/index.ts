@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
+import { validateOpenAIProxyInput } from "../_shared/validation.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,8 +94,19 @@ serve(async (req) => {
       );
     }
 
-    const { action, ...body } = await req.json();
+    const requestBody = await req.json();
+    const { action, ...body } = requestBody;
     console.log('OpenAI proxy request:', { action, hasBody: !!body, user: validation.user?.email });
+
+    // Validate input
+    const inputValidation = validateOpenAIProxyInput(requestBody);
+    if (!inputValidation.valid) {
+      console.warn('Input validation failed:', inputValidation.error);
+      return new Response(
+        JSON.stringify({ error: inputValidation.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Create supabase client for DB lookups
     const supabase = createClient(
