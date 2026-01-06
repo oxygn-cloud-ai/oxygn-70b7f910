@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 /**
  * Phase 0: Test Edge Function to Verify OpenAI DELETE API Behavior
