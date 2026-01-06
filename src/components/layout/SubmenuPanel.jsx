@@ -2,8 +2,6 @@ import React from "react";
 import { 
   MessageSquare, 
   Plus,
-  Clock,
-  Star,
   LayoutTemplate,
   Braces,
   FileJson,
@@ -17,7 +15,6 @@ import {
   Zap,
   Type,
   Cpu,
-  Briefcase,
   FileText,
   Trash2,
   BookOpen,
@@ -45,42 +42,6 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
       )}
     </div>
   </button>
-);
-
-// Flat menu layout (no section titles) - matches Health pattern
-const WorkbenchSubmenu = ({ onItemClick, activeSubItem }) => (
-  <div className="p-1.5">
-    <div className="flex flex-col gap-0.5">
-      <SubmenuItem 
-        icon={Plus} 
-        label="New Conversation" 
-        description="Start a new chat thread"
-        isActive={activeSubItem === "new-conversation"}
-        onClick={() => onItemClick?.("new-conversation")}
-      />
-      <SubmenuItem 
-        icon={Clock} 
-        label="Recent" 
-        description="5 conversations"
-        isActive={activeSubItem === "recent"}
-        onClick={() => onItemClick?.("recent")}
-      />
-      <SubmenuItem 
-        icon={Star} 
-        label="Starred" 
-        description="2 starred"
-        isActive={activeSubItem === "starred"}
-        onClick={() => onItemClick?.("starred")}
-      />
-      <SubmenuItem 
-        icon={MessageSquare} 
-        label="Continue Last" 
-        description="Resume previous session"
-        isActive={activeSubItem === "continue-last"}
-        onClick={() => onItemClick?.("continue-last")}
-      />
-    </div>
-  </div>
 );
 
 // Flat menu layout (no section titles) - matches Health pattern
@@ -166,14 +127,7 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("confluence")}
       />
       <SubmenuItem 
-        icon={Briefcase} 
-        label="Workbench" 
-        description="Workbench options"
-        isActive={activeSubItem === "workbench"}
-        onClick={() => onItemClick?.("workbench")}
-      />
-      <SubmenuItem 
-        icon={Palette} 
+        icon={Palette}
         label="Appearance" 
         description="Theme & colors"
         isActive={activeSubItem === "appearance"}
@@ -262,7 +216,6 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
 
 const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
   const submenus = {
-    workbench: WorkbenchSubmenu,
     templates: TemplatesSubmenu,
     settings: SettingsSubmenu,
     health: HealthSubmenu,

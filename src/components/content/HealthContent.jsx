@@ -26,14 +26,12 @@ const DATABASE_TABLES = [
   "q_prompts",
   "q_templates",
   "q_threads",
-  "q_workbench_messages",
   "q_ai_costs",
   "profiles",
 ];
 
 const API_ENDPOINTS = [
   { name: "openai-proxy", description: "OpenAI Proxy" },
-  { name: "workbench-chat", description: "Workbench Chat" },
 ];
 
 

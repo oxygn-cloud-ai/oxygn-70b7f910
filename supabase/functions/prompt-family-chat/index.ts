@@ -348,9 +348,7 @@ async function handleToolCall(
           'q_assistants', 'q_assistant_files', 'q_threads',
           'q_templates', 'q_json_schema_templates', 'q_export_templates',
           'q_confluence_pages', 'q_models', 'q_model_defaults',
-          'q_settings', 'q_ai_costs', 'q_app_knowledge',
-          'q_workbench_threads', 'q_workbench_messages', 'q_workbench_files',
-          'q_workbench_confluence_links', 'q_vector_stores',
+          'q_settings', 'q_ai_costs', 'q_app_knowledge', 'q_vector_stores',
           'profiles', 'projects', 'resource_shares', 'user_roles'
         ];
         

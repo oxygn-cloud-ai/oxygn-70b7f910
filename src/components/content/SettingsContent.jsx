@@ -3,7 +3,7 @@ import {
   Settings, Palette, Bell, User, 
   Link2, MessageSquare, Sparkles,
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
-  RefreshCw, ExternalLink, X, Type, Cpu, FileText, Briefcase,
+  RefreshCw, ExternalLink, X, Type, Cpu, FileText,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
   Code, Search, Globe, Zap, Save, XCircle, History, BookOpen, Key
 } from "lucide-react";
@@ -1366,17 +1366,6 @@ const ThemeSection = () => {
         </div>
       </SettingCard>
 
-      <SettingCard label="Accent Color">
-        <div className="flex gap-2">
-          {["#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#22c55e", "#06b6d4"].map(color => (
-            <button
-              key={color}
-              className="w-8 h-8 rounded-full border-2 border-transparent hover:border-on-surface/20 transition-colors"
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
-      </SettingCard>
     </div>
   );
 };
@@ -1837,140 +1826,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Workbench Settings Section - Connected to real settings
-const WorkbenchSettingsSection = ({ settings = {}, onUpdateSetting, models = [] }) => {
-  const [editedValues, setEditedValues] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleValueChange = (key, value) => {
-    setEditedValues(prev => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = async (key) => {
-    if (!onUpdateSetting) return;
-    setIsSaving(true);
-    try {
-      await onUpdateSetting(key, editedValues[key]);
-      setEditedValues(prev => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const getValue = (key, fallback = '') => {
-    if (editedValues[key] !== undefined) return editedValues[key];
-    return settings[key]?.value || fallback;
-  };
-
-  const hasChanges = (key) => {
-    return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
-  };
-
-  return (
-    <div className="space-y-4">
-      <SettingCard label="Workbench Defaults">
-        <div className="space-y-3">
-          <SettingRow label="Default model" description="Model used for new conversations">
-            <div className="flex items-center gap-2">
-              <select
-                value={getValue('workbench_default_model')}
-                onChange={(e) => handleValueChange('workbench_default_model', e.target.value)}
-                className="h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Select model...</option>
-                {models.map((model) => (
-                  <option key={model.row_id || model.id} value={model.model_id || model.id}>
-                    {model.model_name || model.name}
-                  </option>
-                ))}
-              </select>
-              {hasChanges('workbench_default_model') && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => handleSave('workbench_default_model')}
-                      disabled={isSaving}
-                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Save</TooltipContent>
-                </Tooltip>
-              )}
-            </div>
-          </SettingRow>
-          <SettingDivider />
-          <SettingRow label="Enable file search" description="Allow searching uploaded files">
-            <Switch 
-              checked={getValue('workbench_file_search') === 'true'} 
-              onCheckedChange={(checked) => {
-                const value = checked ? 'true' : 'false';
-                handleValueChange('workbench_file_search', value);
-                if (onUpdateSetting) onUpdateSetting('workbench_file_search', value);
-              }}
-            />
-          </SettingRow>
-          <SettingDivider />
-          <SettingRow label="Enable code interpreter" description="Allow code execution">
-            <Switch 
-              checked={getValue('workbench_code_interpreter') === 'true'} 
-              onCheckedChange={(checked) => {
-                const value = checked ? 'true' : 'false';
-                handleValueChange('workbench_code_interpreter', value);
-                if (onUpdateSetting) onUpdateSetting('workbench_code_interpreter', value);
-              }}
-            />
-          </SettingRow>
-          <SettingDivider />
-          <SettingRow label="Auto-save threads" description="Save conversation history">
-            <Switch 
-              checked={getValue('workbench_auto_save', 'true') === 'true'} 
-              onCheckedChange={(checked) => {
-                const value = checked ? 'true' : 'false';
-                handleValueChange('workbench_auto_save', value);
-                if (onUpdateSetting) onUpdateSetting('workbench_auto_save', value);
-              }}
-            />
-          </SettingRow>
-        </div>
-      </SettingCard>
-
-      <SettingCard label="System Prompt">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-on-surface-variant">Default system prompt for workbench conversations</span>
-            {hasChanges('workbench_system_prompt') && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => handleSave('workbench_system_prompt')}
-                    disabled={isSaving}
-                    className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">Save</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-          <textarea 
-            rows={4}
-            value={getValue('workbench_system_prompt')}
-            onChange={(e) => handleValueChange('workbench_system_prompt', e.target.value)}
-            placeholder="Enter the system prompt for Workbench AI..."
-            className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y"
-          />
-        </div>
-      </SettingCard>
-    </div>
-  );
-};
+// Knowledge Base Section (Admin only) - moved up after removing Workbench
 
 // Knowledge Base Section (Admin only)
 const KnowledgeSection = () => <KnowledgeManager />;
@@ -1984,7 +1840,6 @@ const SETTINGS_SECTIONS = {
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
-  "workbench": { component: WorkbenchSettingsSection, icon: Briefcase, title: "Workbench" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
   "knowledge": { component: KnowledgeSection, icon: BookOpen, title: "Knowledge Base" },
@@ -2040,11 +1895,6 @@ const SettingsContent = ({
         };
       case 'assistants':
         return { ...commonSettingsProps, conversationToolDefaults };
-      case 'workbench':
-        return { 
-          ...commonSettingsProps,
-          models 
-        };
       case 'naming':
         return commonSettingsProps;
       case 'confluence':
