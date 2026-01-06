@@ -388,7 +388,7 @@ const ResizableOutputArea = ({
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight && jsonFormatEnabled ? '' : 'p-2.5 text-[11px] text-on-surface leading-relaxed whitespace-pre-wrap font-mono'}`}
+            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight && jsonFormatEnabled ? '' : 'p-2.5 text-[11px] text-on-surface leading-relaxed whitespace-pre-wrap font-sans'}`}
             onMouseUp={handleResize}
           >
             {value ? (
@@ -418,6 +418,7 @@ const ResizableOutputArea = ({
                             backgroundColor: 'transparent',
                             fontSize: '11px',
                             lineHeight: '1.5',
+                            fontFamily: "'Poppins', sans-serif",
                           }}
                           codeTagProps={{ 
                             style: { 
