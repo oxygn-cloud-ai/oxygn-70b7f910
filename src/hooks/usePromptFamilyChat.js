@@ -411,7 +411,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       abortControllerRef.current = null;
       return null;
     }
-  }, [activeThreadId, promptRowId, messages, addMessage, registerCall, sessionModel, sessionReasoningEffort]);
+  }, [activeThreadId, promptRowId, addMessage, registerCall, sessionModel, sessionReasoningEffort]);
 
   // Effects
   useEffect(() => {
