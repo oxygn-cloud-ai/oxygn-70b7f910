@@ -302,11 +302,11 @@ const LiveApiDashboard = () => {
               >
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Brain className="h-3.5 w-3.5 text-primary animate-pulse shrink-0" />
-                  <div 
+                <div 
                     ref={reasoningScrollRef}
                     onClick={() => setReasoningPopupOpen(true)}
                     className="flex-1 overflow-x-auto whitespace-nowrap text-[11px] text-on-surface-variant italic cursor-pointer hover:text-on-surface scrollbar-none"
-                    style={{ scrollBehavior: 'smooth' }}
+                    style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                   >
                     {thinkingText || 'Thinking...'}
                   </div>
@@ -513,7 +513,7 @@ const LiveApiDashboard = () => {
                   ref={reasoningScrollRef}
                   onClick={() => setReasoningPopupOpen(true)}
                   className="flex-1 overflow-x-auto whitespace-nowrap text-[11px] text-on-surface-variant italic cursor-pointer hover:text-on-surface scrollbar-none"
-                  style={{ scrollBehavior: 'smooth' }}
+                  style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
                   {thinkingText || 'Thinking...'}
                 </div>
