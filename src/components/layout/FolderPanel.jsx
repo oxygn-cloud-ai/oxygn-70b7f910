@@ -82,10 +82,11 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick, badg
   </motion.button>
 );
 
-const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
+const IconButton = React.forwardRef(({ icon: Icon, label, className = "", onClick }, ref) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
+        ref={ref}
         onClick={(e) => { e.stopPropagation(); onClick?.(); }}
         className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:scale-110 transition-all duration-150 ${className}`}
       >
@@ -94,7 +95,8 @@ const IconButton = ({ icon: Icon, label, className = "", onClick }) => (
     </TooltipTrigger>
     <TooltipContent className="text-[10px]">{label}</TooltipContent>
   </Tooltip>
-);
+));
+IconButton.displayName = 'IconButton';
 
 const OwnerAvatar = ({ initials, color }) => (
   <div 

@@ -43,7 +43,9 @@ const SettingsPanel = ({
   const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
 
   // Settings to display (excluding hidden ones like response_format)
-  const visibleSettings = ['temperature', 'max_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
+  // CRITICAL: max_tokens and max_completion_tokens are separate settings - never harmonize
+  // GPT-4 uses max_tokens, GPT-5 uses max_completion_tokens
+  const visibleSettings = ['temperature', 'max_tokens', 'max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
   
   // Tools to display
   const toolKeys = ['web_search', 'confluence', 'code_interpreter', 'file_search'];
