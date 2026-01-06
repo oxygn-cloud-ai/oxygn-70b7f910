@@ -170,7 +170,7 @@ async function handleToolCall(
           .from(TABLES.PROMPTS)
           .select('*')
           .eq('row_id', prompt_row_id)
-          .single();
+          .maybeSingle();
 
         if (error || !prompt) {
           return JSON.stringify({ error: 'Prompt not found' });
