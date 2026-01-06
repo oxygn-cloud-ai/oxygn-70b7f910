@@ -12,7 +12,7 @@ import { estimateCost } from '@/utils/costEstimator';
 export const useConversationRun = () => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
-  const { addCall, updateCall, appendThinking, incrementOutputTokens, removeCall } = useLiveApiDashboard();
+  const { addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall } = useLiveApiDashboard();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -141,6 +141,12 @@ export const useConversationRun = () => {
         } else if (event.type === 'thinking_done') {
           // NEW: Handle reasoning complete
           onProgress?.({ type: 'thinking_done', text: event.text, item_id: event.item_id });
+        } else if (event.type === 'output_text_delta') {
+          // NEW: Handle streaming output text
+          onProgress?.({ type: 'output_text_delta', delta: event.delta, item_id: event.item_id });
+        } else if (event.type === 'output_text_done') {
+          // NEW: Handle output text complete
+          onProgress?.({ type: 'output_text_done', text: event.text, item_id: event.item_id });
         } else if (event.type === 'complete') {
           result = event;
           onProgress?.(event);
@@ -312,6 +318,8 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
+          } else if (progressEvent.type === 'output_text_delta') {
+            appendOutputText(dashboardCallId, progressEvent.delta);
           } else if (progressEvent.type === 'usage_delta') {
             // Use server-provided token counts (accurate, not estimated)
             // Direct usage update from server

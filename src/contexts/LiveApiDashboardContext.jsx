@@ -17,6 +17,7 @@ export const useLiveApiDashboard = () => {
       addCall: () => 0,
       updateCall: () => {},
       appendThinking: () => {},
+      appendOutputText: () => {},
       incrementOutputTokens: () => {},
       removeCall: () => {},
       cancelCall: () => {},
@@ -52,6 +53,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
       status: 'queued',
       startedAt: new Date(),
       thinkingSummary: '',
+      outputText: '',
       responseId: null,
       isCascadeCall: false,
       // Token tracking
@@ -84,6 +86,17 @@ export const LiveApiDashboardProvider = ({ children }) => {
       prev.map((c) =>
         c.id === id
           ? { ...c, thinkingSummary: (c.thinkingSummary || '') + delta }
+          : c
+      )
+    );
+  }, []);
+
+  // Append output text delta (streaming main response)
+  const appendOutputText = useCallback((id, delta) => {
+    setActiveCalls((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? { ...c, outputText: (c.outputText || '') + delta }
           : c
       )
     );
@@ -157,6 +170,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
     addCall,
     updateCall,
     appendThinking,
+    appendOutputText,
     incrementOutputTokens,
     removeCall,
     cancelCall,
