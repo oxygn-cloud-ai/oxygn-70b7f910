@@ -336,7 +336,13 @@ export const executeCreateChildrenJson = async ({
       extracted_variables: typeof item === 'object' ? item : { value: item },
       // Apply model defaults
       ...modelDefaults,
-      // Inherit settings from parent
+      // Inherit settings from parent (with fallback to model defaults)
+      temperature: parentSettings.temperature ?? modelDefaults.temperature,
+      temperature_on: parentSettings.temperature_on ?? modelDefaults.temperature_on,
+      max_tokens: parentSettings.max_tokens ?? modelDefaults.max_tokens,
+      max_tokens_on: parentSettings.max_tokens_on ?? modelDefaults.max_tokens_on,
+      max_completion_tokens: parentSettings.max_completion_tokens ?? modelDefaults.max_completion_tokens,
+      max_completion_tokens_on: parentSettings.max_completion_tokens_on ?? modelDefaults.max_completion_tokens_on,
       web_search_on: parentSettings.web_search_on,
       confluence_enabled: parentSettings.confluence_enabled,
       thread_mode: parentSettings.thread_mode,
