@@ -20,11 +20,18 @@ const buildTemplateStructure = async (supabase, promptRowId, includeChildren = t
 
   if (promptError || !prompt) throw promptError || new Error('Prompt not found');
 
-  // Build base structure
+  // CRITICAL: Sanitize q.ref[UUID] patterns to prevent cross-family data leakage
+  const sanitizeQRef = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    // Replace {{q.ref[UUID].field}} with {{q.ref[TEMPLATE_REF].field}} placeholder
+    return text.replace(/\{\{q\.ref\[[a-f0-9-]{36}\]\.([a-z_]+)\}\}/gi, '{{q.ref[TEMPLATE_REF].$1}}');
+  };
+
+  // Build base structure - NO _id field to prevent cross-family leakage
   const structure = {
     name: prompt.prompt_name || 'Untitled',
-    input_admin_prompt: prompt.input_admin_prompt || '',
-    input_user_prompt: prompt.input_user_prompt || '',
+    input_admin_prompt: sanitizeQRef(prompt.input_admin_prompt || ''),
+    input_user_prompt: sanitizeQRef(prompt.input_user_prompt || ''),
     model: prompt.model,
     temperature: prompt.temperature,
     temperature_on: prompt.temperature_on,

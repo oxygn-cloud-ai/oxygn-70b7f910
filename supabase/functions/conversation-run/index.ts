@@ -1822,23 +1822,39 @@ serve(async (req) => {
       if (referencedIds.length > 0) {
         console.log(`Found ${referencedIds.length} q.ref references to resolve:`, referencedIds);
         
-        // SECURITY FIX: Add owner_id and is_deleted filters to prevent cross-tenant data leaks
+        // CRITICAL SECURITY FIX: Enforce FAMILY BOUNDARY + owner_id + is_deleted filters
+        // This prevents cross-family data leakage (the core isolation bug)
         const { data: refPrompts } = await supabase
           .from(TABLES.PROMPTS)
-          .select('row_id, prompt_name, output_response, user_prompt_result, input_admin_prompt, input_user_prompt, system_variables')
+          .select('row_id, prompt_name, output_response, user_prompt_result, input_admin_prompt, input_user_prompt, system_variables, root_prompt_row_id')
           .in('row_id', referencedIds)
           .eq('owner_id', validation.user.id)  // Only allow access to own prompts
           .eq('is_deleted', false);            // Exclude deleted prompts
         
+        // FAMILY ISOLATION: Filter results to only include prompts from SAME family
+        const sameFamily = refPrompts?.filter((p: any) => 
+          p.root_prompt_row_id === rootPromptRowId || p.row_id === rootPromptRowId
+        ) || [];
+        
         // Log any blocked access attempts for security monitoring
-        const foundIds = new Set(refPrompts?.map((p: any) => p.row_id) || []);
-        const blockedIds = referencedIds.filter(id => !foundIds.has(id));
-        if (blockedIds.length > 0) {
-          console.warn('SECURITY: q.ref access blocked for IDs not owned by user or deleted:', blockedIds);
+        const foundIds = new Set(sameFamily.map((p: any) => p.row_id));
+        const blockedByOwnership = referencedIds.filter(id => 
+          !refPrompts?.some((p: any) => p.row_id === id)
+        );
+        const blockedByFamily = refPrompts?.filter((p: any) => 
+          !foundIds.has(p.row_id)
+        ).map((p: any) => p.row_id) || [];
+        
+        if (blockedByOwnership.length > 0) {
+          console.warn('SECURITY: q.ref access blocked (not owned or deleted):', blockedByOwnership);
+        }
+        if (blockedByFamily.length > 0) {
+          console.warn('SECURITY: q.ref access blocked (CROSS-FAMILY ATTEMPT):', blockedByFamily, 
+            '- Current family root:', rootPromptRowId);
         }
         
-        if (refPrompts && refPrompts.length > 0) {
-          refPrompts.forEach((p: any) => {
+        if (sameFamily.length > 0) {
+          sameFamily.forEach((p: any) => {
             variables[`q.ref[${p.row_id}].output_response`] = p.output_response || '';
             variables[`q.ref[${p.row_id}].user_prompt_result`] = p.user_prompt_result || '';
             variables[`q.ref[${p.row_id}].input_admin_prompt`] = p.input_admin_prompt || '';
@@ -1855,7 +1871,7 @@ serve(async (req) => {
               });
             }
           });
-          console.log(`Resolved ${refPrompts.length} referenced prompts (${blockedIds.length} blocked)`);
+          console.log(`Resolved ${sameFamily.length} referenced prompts (${blockedByOwnership.length} blocked by ownership, ${blockedByFamily.length} blocked by family)`);
         }
       }
 
