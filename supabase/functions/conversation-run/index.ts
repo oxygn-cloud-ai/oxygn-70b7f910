@@ -650,6 +650,24 @@ async function runResponsesAPI(
           
           console.log('Polling completed successfully:', { responseId, textLength: responseText.length, pollCount, elapsedMs: elapsed });
           
+          // Emit final output text for dashboard (polling fallback)
+          if (emitter && responseText) {
+            emitter.emit({
+              type: 'output_text_done',
+              text: responseText,
+              item_id: 'polling_fallback',
+            });
+          }
+          
+          // Emit usage for live dashboard updates (polling fallback)
+          if (emitter && data.usage) {
+            emitter.emit({
+              type: 'usage_delta',
+              input_tokens: data.usage.input_tokens || 0,
+              output_tokens: data.usage.output_tokens || 0,
+            });
+          }
+          
           return {
             success: true,
             response: responseText,

@@ -354,7 +354,7 @@ const LiveApiDashboard = () => {
           <div className="h-4 w-px bg-outline-variant shrink-0" />
           <div className="flex items-center gap-1 shrink-0">
             <span className="text-[10px] text-on-surface italic truncate max-w-[150px]">
-              {outputText.length > 60 ? '...' + outputText.slice(-60) : outputText}
+              {outputText.length > 50 ? '...' + outputText.slice(-50) : outputText}
             </span>
           </div>
         </>
