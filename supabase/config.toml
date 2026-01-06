@@ -35,3 +35,15 @@ verify_jwt = true
 
 [functions.resource-health]
 verify_jwt = true
+
+[functions.execution-manager]
+verify_jwt = true
+
+[functions.github-release]
+verify_jwt = true
+
+[functions.openai-billing]
+verify_jwt = true
+
+[functions.test-openai-delete]
+verify_jwt = true
