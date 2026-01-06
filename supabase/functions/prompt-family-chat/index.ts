@@ -600,9 +600,14 @@ async function streamOpenAIResponse(
             return { content: null, toolCalls: [], usage: null, status: event.status };
           }
           
-          // Capture usage
+          // Capture usage and emit for live dashboard
           if (event.usage) {
             finalUsage = event.usage;
+            emitter.emit({
+              type: 'usage_delta',
+              input_tokens: event.usage.input_tokens || 0,
+              output_tokens: event.usage.output_tokens || 0,
+            });
           }
           
           // Extract content from output
