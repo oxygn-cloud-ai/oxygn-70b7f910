@@ -65,6 +65,12 @@ export function validateThreadManagerInput(body: any): ValidationResult {
       if (body.root_prompt_row_id && !isValidUUID(body.root_prompt_row_id)) {
         return { valid: false, error: 'root_prompt_row_id must be a valid UUID' };
       }
+      if (body.assistant_row_id && !isValidUUID(body.assistant_row_id)) {
+        return { valid: false, error: 'assistant_row_id must be a valid UUID' };
+      }
+      if (body.child_prompt_row_id && !isValidUUID(body.child_prompt_row_id)) {
+        return { valid: false, error: 'child_prompt_row_id must be a valid UUID' };
+      }
       break;
       
     case 'list':
@@ -317,6 +323,98 @@ export function validateConfluenceManagerInput(body: any): ValidationResult {
         return { valid: false, error: 'baseTitle is required and must be a string with max 500 characters' };
       }
       break;
+  }
+  
+  return { valid: true };
+}
+
+// ============================================================================
+// OpenAI Proxy Validation
+// ============================================================================
+export function validateOpenAIProxyInput(body: any): ValidationResult {
+  const { action } = body;
+  
+  const validActions = ['health', 'models', 'chat'];
+  if (!isValidAction(action, validActions)) {
+    return { valid: false, error: `Invalid action. Use: ${validActions.join(', ')}` };
+  }
+  
+  if (action === 'chat') {
+    // Messages array is required for chat
+    if (!body.messages || !Array.isArray(body.messages)) {
+      return { valid: false, error: 'messages array is required for chat action' };
+    }
+    
+    // Validate message count (max 500 messages)
+    if (body.messages.length > 500) {
+      return { valid: false, error: 'messages array cannot exceed 500 items' };
+    }
+    
+    // Validate each message structure
+    for (let i = 0; i < body.messages.length; i++) {
+      const msg = body.messages[i];
+      if (!msg || typeof msg !== 'object') {
+        return { valid: false, error: `Invalid message at index ${i}: must be an object` };
+      }
+      if (!msg.role || !['user', 'assistant', 'system'].includes(msg.role)) {
+        return { valid: false, error: `Invalid message at index ${i}: role must be 'user', 'assistant', or 'system'` };
+      }
+      // Content can be undefined for tool responses
+      if (msg.content !== undefined && typeof msg.content !== 'string') {
+        return { valid: false, error: `Invalid message at index ${i}: content must be a string` };
+      }
+    }
+    
+    // Optional model validation (just ensure it's a string if present)
+    if (body.model !== undefined && !isOptionalString(body.model, 100)) {
+      return { valid: false, error: 'model must be a string with max 100 characters' };
+    }
+    
+    // Validate numeric settings ranges
+    if (body.temperature !== undefined) {
+      if (typeof body.temperature !== 'number' || body.temperature < 0 || body.temperature > 2) {
+        return { valid: false, error: 'temperature must be a number between 0 and 2' };
+      }
+    }
+    if (body.top_p !== undefined) {
+      if (typeof body.top_p !== 'number' || body.top_p < 0 || body.top_p > 1) {
+        return { valid: false, error: 'top_p must be a number between 0 and 1' };
+      }
+    }
+    if (body.max_tokens !== undefined) {
+      if (!isPositiveInteger(body.max_tokens, 1000000)) {
+        return { valid: false, error: 'max_tokens must be a positive integer <= 1000000' };
+      }
+    }
+  }
+  
+  return { valid: true };
+}
+
+// ============================================================================
+// Studio Chat Validation
+// ============================================================================
+export function validateStudioChatInput(body: any): ValidationResult {
+  // Required: assistant_row_id
+  if (!isValidUUID(body.assistant_row_id)) {
+    return { valid: false, error: 'assistant_row_id is required and must be a valid UUID' };
+  }
+  
+  // Required: user_message
+  if (!isNonEmptyString(body.user_message, 100000)) {
+    return { valid: false, error: 'user_message is required and must be a string with max 100KB' };
+  }
+  
+  // Optional: thread_row_id
+  if (body.thread_row_id !== undefined && body.thread_row_id !== null) {
+    if (!isValidUUID(body.thread_row_id)) {
+      return { valid: false, error: 'thread_row_id must be a valid UUID' };
+    }
+  }
+  
+  // Optional: include_child_context (boolean)
+  if (body.include_child_context !== undefined && typeof body.include_child_context !== 'boolean') {
+    return { valid: false, error: 'include_child_context must be a boolean' };
   }
   
   return { valid: true };
