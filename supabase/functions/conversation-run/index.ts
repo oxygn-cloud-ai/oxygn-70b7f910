@@ -182,9 +182,9 @@ interface ApiOptions {
   presencePenalty?: number;
   topP?: number;
   temperature?: number;
-  // CRITICAL: max_tokens and max_completion_tokens are separate - GPT-4 vs GPT-5
-  maxTokens?: number;           // For GPT-4 models
-  maxCompletionTokens?: number; // For GPT-5/o-series models
+  // CRITICAL: Responses API uses max_output_tokens for ALL models
+  // This is different from Chat Completions API which uses max_tokens (GPT-4) / max_completion_tokens (GPT-5)
+  maxOutputTokens?: number;
   // Tool options
   fileSearchEnabled?: boolean;
   codeInterpreterEnabled?: boolean;
@@ -271,11 +271,12 @@ async function runResponsesAPI(
   const temperature = options.temperature ?? (assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined);
   const topP = options.topP ?? (assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined);
   
-  // CRITICAL: max_tokens and max_completion_tokens are completely separate
-  // GPT-4 uses max_tokens, GPT-5/o-series uses max_completion_tokens
-  // Never harmonize or alias between them
-  const maxTokens = options.maxTokens ?? (assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined);
-  const maxCompletionTokens = options.maxCompletionTokens ?? (assistantData.max_completion_tokens_override ? parseInt(assistantData.max_completion_tokens_override, 10) : undefined);
+  // RESPONSES API: Always uses max_output_tokens for ALL models
+  // This is different from Chat Completions API which uses max_tokens (GPT-4) / max_completion_tokens (GPT-5)
+  // Map from either assistant override to max_output_tokens
+  const maxOutputTokens = options.maxOutputTokens ?? 
+    (assistantData.max_completion_tokens_override ? parseInt(assistantData.max_completion_tokens_override, 10) : undefined) ??
+    (assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined);
 
   if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
     requestBody.temperature = temperature;
@@ -284,14 +285,10 @@ async function runResponsesAPI(
     requestBody.top_p = topP;
   }
   
-  // Use model's token_param to determine which token setting to use
-  // Only set the token param that matches what the model expects
-  if (modelTokenParam === 'max_tokens' && maxTokens !== undefined && !isNaN(maxTokens)) {
-    requestBody.max_tokens = maxTokens;
-    console.log(`Using max_tokens = ${maxTokens}`);
-  } else if (modelTokenParam === 'max_completion_tokens' && maxCompletionTokens !== undefined && !isNaN(maxCompletionTokens)) {
-    requestBody.max_completion_tokens = maxCompletionTokens;
-    console.log(`Using max_completion_tokens = ${maxCompletionTokens}`);
+  // Responses API: Always use max_output_tokens (not max_tokens or max_completion_tokens)
+  if (maxOutputTokens !== undefined && !isNaN(maxOutputTokens)) {
+    requestBody.max_output_tokens = maxOutputTokens;
+    console.log(`Using max_output_tokens = ${maxOutputTokens} (Responses API)`);
   }
 
   // Add frequency and presence penalty only if model supports them
@@ -382,9 +379,8 @@ async function runResponsesAPI(
     presence_penalty: requestBody.presence_penalty,
     seed: requestBody.seed,
     
-    // === TOKEN LIMITS (separate - GPT-4 vs GPT-5) ===
-    ...(requestBody.max_tokens !== undefined && { max_tokens: requestBody.max_tokens }),
-    ...(requestBody.max_completion_tokens !== undefined && { max_completion_tokens: requestBody.max_completion_tokens }),
+    // === TOKEN LIMITS (Responses API uses max_output_tokens) ===
+    ...(requestBody.max_output_tokens !== undefined && { max_output_tokens: requestBody.max_output_tokens }),
     
     // === REASONING ===
     reasoning: requestBody.reasoning,
@@ -1827,19 +1823,20 @@ serve(async (req) => {
       }
       // CRITICAL: max_tokens and max_completion_tokens are separate settings
       // GPT-4 uses max_tokens, GPT-5/o-series uses max_completion_tokens
-      // Never harmonize or alias between them
-      if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
-        const maxT = parseInt(childPrompt.max_tokens, 10);
-        if (!isNaN(maxT)) {
-          apiOptions.maxTokens = maxT;
-          console.log('Using prompt-level max_tokens (GPT-4):', maxT);
+      // For Responses API: map either token setting to maxOutputTokens
+      // Responses API uses max_output_tokens for ALL models (different from Chat Completions API)
+      if (childPrompt.max_completion_tokens_on && childPrompt.max_completion_tokens) {
+        const maxOT = parseInt(childPrompt.max_completion_tokens, 10);
+        if (!isNaN(maxOT)) {
+          apiOptions.maxOutputTokens = maxOT;
+          console.log('Using max_output_tokens from max_completion_tokens setting:', maxOT);
         }
       }
-      if (childPrompt.max_completion_tokens_on && childPrompt.max_completion_tokens) {
-        const maxCT = parseInt(childPrompt.max_completion_tokens, 10);
-        if (!isNaN(maxCT)) {
-          apiOptions.maxCompletionTokens = maxCT;
-          console.log('Using prompt-level max_completion_tokens (GPT-5):', maxCT);
+      if (childPrompt.max_tokens_on && childPrompt.max_tokens) {
+        const maxOT = parseInt(childPrompt.max_tokens, 10);
+        if (!isNaN(maxOT)) {
+          apiOptions.maxOutputTokens = maxOT;
+          console.log('Using max_output_tokens from max_tokens setting:', maxOT);
         }
       }
       if (childPrompt.frequency_penalty_on && childPrompt.frequency_penalty) {
@@ -1872,42 +1869,29 @@ serve(async (req) => {
         .eq('model_id', resolvedModelId)
         .maybeSingle();
       
-      // Apply model defaults as fallback for settings not set at prompt level
-      if (apiOptions.maxTokens === undefined) {
-        // Try model defaults table first
-        if (modelDefaults?.max_tokens_on && modelDefaults?.max_tokens) {
-          const defaultMaxT = parseInt(modelDefaults.max_tokens, 10);
-          if (!isNaN(defaultMaxT) && defaultMaxT > 0) {
-            apiOptions.maxTokens = defaultMaxT;
-            console.log('Using model default max_tokens:', defaultMaxT);
+      // Apply model defaults as fallback for maxOutputTokens (Responses API)
+      if (apiOptions.maxOutputTokens === undefined) {
+        // Try model defaults table first (check both max_completion_tokens and max_tokens)
+        if (modelDefaults?.max_completion_tokens_on && modelDefaults?.max_completion_tokens) {
+          const defaultMaxOT = parseInt(modelDefaults.max_completion_tokens, 10);
+          if (!isNaN(defaultMaxOT) && defaultMaxOT > 0) {
+            apiOptions.maxOutputTokens = defaultMaxOT;
+            console.log('Using model default max_output_tokens (from max_completion_tokens):', defaultMaxOT);
+          }
+        }
+        if (apiOptions.maxOutputTokens === undefined && modelDefaults?.max_tokens_on && modelDefaults?.max_tokens) {
+          const defaultMaxOT = parseInt(modelDefaults.max_tokens, 10);
+          if (!isNaN(defaultMaxOT) && defaultMaxOT > 0) {
+            apiOptions.maxOutputTokens = defaultMaxOT;
+            console.log('Using model default max_output_tokens (from max_tokens):', defaultMaxOT);
           }
         }
         // Final fallback: use model's max_output_tokens from q_models
-        if (apiOptions.maxTokens === undefined) {
+        if (apiOptions.maxOutputTokens === undefined) {
           const modelConfig = await fetchModelConfig(supabase, resolvedModelId);
           if (modelConfig?.maxOutputTokens) {
-            apiOptions.maxTokens = modelConfig.maxOutputTokens;
+            apiOptions.maxOutputTokens = modelConfig.maxOutputTokens;
             console.log('Using model config max_output_tokens:', modelConfig.maxOutputTokens);
-          }
-        }
-      }
-      
-      // maxCompletionTokens fallback chain (for GPT-5+ models)
-      if (apiOptions.maxCompletionTokens === undefined) {
-        // Try model defaults table first
-        if (modelDefaults?.max_completion_tokens_on && modelDefaults?.max_completion_tokens) {
-          const defaultMaxCT = parseInt(modelDefaults.max_completion_tokens, 10);
-          if (!isNaN(defaultMaxCT) && defaultMaxCT > 0) {
-            apiOptions.maxCompletionTokens = defaultMaxCT;
-            console.log('Using model default max_completion_tokens:', defaultMaxCT);
-          }
-        }
-        // Final fallback: use model's max_output_tokens from q_models if token_param is max_completion_tokens
-        if (apiOptions.maxCompletionTokens === undefined) {
-          const modelConfigForCT = await fetchModelConfig(supabase, resolvedModelId);
-          if (modelConfigForCT?.tokenParam === 'max_completion_tokens' && modelConfigForCT?.maxOutputTokens) {
-            apiOptions.maxCompletionTokens = modelConfigForCT.maxOutputTokens;
-            console.log('Using model config max_output_tokens as max_completion_tokens:', modelConfigForCT.maxOutputTokens);
           }
         }
       }
@@ -1946,7 +1930,7 @@ serve(async (req) => {
       console.log('Extracted apiOptions from prompt (after model defaults fallback):', {
         model: apiOptions.model,
         temperature: apiOptions.temperature,
-        maxTokens: apiOptions.maxTokens,
+        maxOutputTokens: apiOptions.maxOutputTokens,
         reasoningEffort: apiOptions.reasoningEffort,
         toolChoice: apiOptions.toolChoice,
         resolvedModelId,

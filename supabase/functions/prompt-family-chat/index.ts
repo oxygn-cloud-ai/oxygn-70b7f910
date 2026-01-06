@@ -1078,6 +1078,12 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         background: true,
       };
 
+      // Responses API: Add max_output_tokens if model has it configured
+      if (modelConfig?.maxOutputTokens) {
+        requestBody.max_output_tokens = modelConfig.maxOutputTokens;
+        console.log('Using max_output_tokens:', modelConfig.maxOutputTokens);
+      }
+
       // Apply reasoning effort
       if (reasoning_effort && reasoning_effort !== 'auto') {
         const supportsReasoning = modelConfig?.supportsReasoningEffort ?? false;
