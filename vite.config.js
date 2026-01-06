@@ -1,4 +1,4 @@
-// Vite config - cache bust v3 (React import fix)
+// Vite config - cache bust v5 (force React re-bundle)
 import { fileURLToPath, URL } from "url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   optimizeDeps: {
+    // Force cache invalidation by specifying entry point
+    entries: ['src/main.jsx'],
     include: [
       "react", 
       "react-dom", 
