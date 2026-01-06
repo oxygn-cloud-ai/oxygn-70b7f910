@@ -593,6 +593,11 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
+          } else if (progressEvent.type === 'thinking_done') {
+            // Set final thinking summary (critical for polling fallback)
+            if (progressEvent.text) {
+              updateCall(dashboardCallId, { thinkingSummary: progressEvent.text });
+            }
           } else if (progressEvent.type === 'output_text_delta') {
             // Append output text to dashboard
             appendOutputText(dashboardCallId, progressEvent.delta);
@@ -600,6 +605,11 @@ export const useConversationRun = () => {
             const tokenDelta = Math.ceil((progressEvent.delta?.length || 0) / 4);
             if (tokenDelta > 0) {
               incrementOutputTokens(dashboardCallId, tokenDelta);
+            }
+          } else if (progressEvent.type === 'output_text_done') {
+            // Set final output text (fallback for polling mode)
+            if (progressEvent.text) {
+              updateCall(dashboardCallId, { outputText: progressEvent.text });
             }
           } else if (progressEvent.type === 'usage_delta') {
             // Direct usage update from server
