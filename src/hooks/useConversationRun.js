@@ -312,13 +312,8 @@ export const useConversationRun = () => {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
-          } else if (progressEvent.type === 'text_delta') {
-            // Increment output tokens (rough estimate: 1 token per ~4 chars)
-            const tokenDelta = Math.ceil((progressEvent.delta?.length || 0) / 4);
-            if (tokenDelta > 0) {
-              incrementOutputTokens(dashboardCallId, tokenDelta);
-            }
           } else if (progressEvent.type === 'usage_delta') {
+            // Use server-provided token counts (accurate, not estimated)
             // Direct usage update from server
             if (progressEvent.output_tokens) {
               incrementOutputTokens(dashboardCallId, progressEvent.output_tokens);

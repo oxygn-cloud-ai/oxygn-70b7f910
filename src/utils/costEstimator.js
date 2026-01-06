@@ -33,6 +33,17 @@ const MODEL_PRICING = {
   'gpt-3.5-turbo': { input: 0.50, output: 1.50 },
   'gpt-3.5-turbo-16k': { input: 3.00, output: 4.00 },
   
+  // GPT-4o variants
+  'gpt-4o-audio-preview': { input: 2.50, output: 10.00 },
+  'gpt-4-vision-preview': { input: 10.00, output: 30.00 },
+  'chatgpt-4o-latest': { input: 2.50, output: 10.00 },
+  
+  // Claude models (for future use)
+  'claude-3-opus': { input: 15.00, output: 75.00 },
+  'claude-3-sonnet': { input: 3.00, output: 15.00 },
+  'claude-3-haiku': { input: 0.25, output: 1.25 },
+  'claude-3.5-sonnet': { input: 3.00, output: 15.00 },
+  
   // Default for unknown models
   'default': { input: 2.50, output: 10.00 },
 };

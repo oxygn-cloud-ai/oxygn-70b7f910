@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { estimateCost } from '@/utils/costEstimator';
 
 const LiveApiDashboardContext = createContext(null);
 
@@ -110,11 +111,18 @@ export const LiveApiDashboardProvider = ({ children }) => {
     setActiveCalls((prev) => {
       const call = prev.find((c) => c.id === id);
       if (call && call.isCascadeCall) {
+        // Calculate cost from actual token counts using model pricing
+        const callCost = estimateCost({
+          model: call.model,
+          inputTokens: call.estimatedInputTokens || 0,
+          outputTokens: call.outputTokens || 0,
+        });
+        
         // Add to cumulative stats when cascade call completes
         setCumulativeStats((stats) => ({
           inputTokens: stats.inputTokens + (call.estimatedInputTokens || 0),
           outputTokens: stats.outputTokens + (call.outputTokens || 0),
-          totalCost: stats.totalCost + (call.estimatedCost || 0),
+          totalCost: stats.totalCost + callCost,
           callCount: stats.callCount + 1,
         }));
       }

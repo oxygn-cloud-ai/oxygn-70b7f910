@@ -391,6 +391,13 @@ export const usePromptFamilyChat = (promptRowId) => {
                 updateCall(dashboardId, { status: parsed.status });
               }
               
+              // Handle usage updates from server (accurate token counts)
+              if (parsed.type === 'usage_delta') {
+                if (parsed.output_tokens) {
+                  incrementOutputTokens(dashboardId, parsed.output_tokens);
+                }
+              }
+              
               // Handle progress messages
               if (parsed.type === 'progress') {
                 // Could show in UI if desired
@@ -425,11 +432,7 @@ export const usePromptFamilyChat = (promptRowId) => {
               if (deltaContent) {
                 fullContent += deltaContent;
                 setStreamingMessage(fullContent);
-                // Increment output tokens (rough estimate: 1 token per ~4 chars)
-                const tokenDelta = Math.ceil(deltaContent.length / 4);
-                if (tokenDelta > 0) {
-                  incrementOutputTokens(dashboardId, tokenDelta);
-                }
+                // Note: Token counts now come from usage_delta events, not character estimation
               }
               
             } catch (e) {

@@ -513,6 +513,15 @@ async function streamOpenAIResponse(
             }
           }
           
+          // Emit usage for live dashboard updates (polling fallback)
+          if (data.usage) {
+            emitter.emit({
+              type: 'usage_delta',
+              input_tokens: data.usage.input_tokens || 0,
+              output_tokens: data.usage.output_tokens || 0,
+            });
+          }
+          
           return { content, toolCalls, usage: data.usage, status: data.status };
         }
         
