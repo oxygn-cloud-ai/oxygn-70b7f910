@@ -110,7 +110,7 @@ export const useExportTemplates = () => {
   }, []);
 
   // Delete a template (soft delete)
-  const deleteTemplate = useCallback(async (rowId) => {
+  const deleteTemplate = useCallback(async (rowId, isAdmin = false) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -118,11 +118,18 @@ export const useExportTemplates = () => {
         return false;
       }
 
-      const { data, error } = await supabase
+      // Build query - admins can delete any template, non-admins only their own
+      let query = supabase
         .from('q_export_templates')
         .update({ is_deleted: true })
-        .eq('row_id', rowId)
-        .eq('owner_id', user.id)
+        .eq('row_id', rowId);
+
+      // Only filter by owner_id if not admin
+      if (!isAdmin) {
+        query = query.eq('owner_id', user.id);
+      }
+
+      const { data, error } = await query
         .select('row_id')
         .maybeSingle();
 

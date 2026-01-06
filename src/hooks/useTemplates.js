@@ -122,18 +122,25 @@ export const useTemplates = () => {
   /**
    * Delete a template (soft delete)
    */
-  const deleteTemplate = useCallback(async (rowId) => {
+  const deleteTemplate = useCallback(async (rowId, isAdmin = false) => {
     try {
       if (!user?.id) {
         toast.error('Not authenticated');
         return false;
       }
 
-      const { data, error } = await supabase
+      // Build query - admins can delete any template, non-admins only their own
+      let query = supabase
         .from(import.meta.env.VITE_TEMPLATES_TBL)
         .update({ is_deleted: true })
-        .eq('row_id', rowId)
-        .eq('owner_id', user.id)
+        .eq('row_id', rowId);
+
+      // Only filter by owner_id if not admin
+      if (!isAdmin) {
+        query = query.eq('owner_id', user.id);
+      }
+
+      const { data, error } = await query
         .select('row_id')
         .maybeSingle();
 
