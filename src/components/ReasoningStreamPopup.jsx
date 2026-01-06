@@ -59,8 +59,9 @@ const ReasoningStreamPopup = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button 
+                  type="button"
                   onClick={handleCopy}
-                  className="w-7 h-7 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+                  className="w-7 h-7 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high"
                 >
                   <Copy className="h-3.5 w-3.5 text-on-surface-variant" />
                 </button>
