@@ -316,10 +316,13 @@ export const useConversationRun = () => {
             });
           } else if (progressEvent.type === 'status_update') {
             updateCall(dashboardCallId, { status: progressEvent.status });
-          } else if (progressEvent.type === 'thinking_delta') {
+        } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
           } else if (progressEvent.type === 'output_text_delta') {
             appendOutputText(dashboardCallId, progressEvent.delta);
+          } else if (progressEvent.type === 'output_text_done') {
+            // Fallback: if we missed deltas (e.g., polling fallback), set full text
+            updateCall(dashboardCallId, { outputText: progressEvent.text });
           } else if (progressEvent.type === 'usage_delta') {
             // Use server-provided token counts (accurate, not estimated)
             // Direct usage update from server
@@ -450,7 +453,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, incrementOutputTokens, removeCall]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall]
   );
 
   const runConversation = useCallback(
@@ -633,7 +636,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, incrementOutputTokens, removeCall]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall]
   );
 
   return {

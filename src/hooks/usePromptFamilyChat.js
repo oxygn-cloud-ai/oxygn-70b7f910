@@ -386,6 +386,9 @@ export const usePromptFamilyChat = (promptRowId) => {
                 // Thinking complete, could update status if needed
               } else if (parsed.type === 'output_text_delta') {
                 appendOutputText(dashboardId, parsed.delta || '');
+              } else if (parsed.type === 'output_text_done') {
+                // Fallback: if we missed deltas, set full output text
+                updateCall(dashboardId, { outputText: parsed.text });
               }
               
               // Handle status updates
@@ -496,7 +499,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       
       return null;
     }
-  }, [activeThreadId, promptRowId, addMessage, registerCall, addCall, updateCall, appendThinking, incrementOutputTokens, removeCall, sessionModel, sessionReasoningEffort]);
+  }, [activeThreadId, promptRowId, addMessage, registerCall, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall, sessionModel, sessionReasoningEffort]);
 
   // Effects
   useEffect(() => {

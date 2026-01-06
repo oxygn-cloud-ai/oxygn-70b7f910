@@ -82,6 +82,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
 
   // Append thinking text delta
   const appendThinking = useCallback((id, delta) => {
+    if (!delta) return; // Guard against null/undefined
     setActiveCalls((prev) =>
       prev.map((c) =>
         c.id === id
@@ -93,6 +94,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
 
   // Append output text delta (streaming main response)
   const appendOutputText = useCallback((id, delta) => {
+    if (!delta) return; // Guard against null/undefined
     setActiveCalls((prev) =>
       prev.map((c) =>
         c.id === id
