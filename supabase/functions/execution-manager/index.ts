@@ -359,6 +359,28 @@ async function deletePreviousTraceResponses(traceId: string, supabase: any) {
   
   if (!spans || spans.length === 0) return;
   
+  // Collect response IDs for clearing thread references
+  const responseIds = spans.map((s: any) => s.openai_response_id).filter(Boolean);
+  
+  // Clear any thread references to these response IDs BEFORE deleting
+  // This prevents "previous response not found" errors in future requests
+  if (responseIds.length > 0) {
+    try {
+      const { error: clearError } = await supabase
+        .from('q_threads')
+        .update({ last_response_id: null })
+        .in('last_response_id', responseIds);
+      
+      if (clearError) {
+        console.warn('Failed to clear thread references to deleted responses:', clearError);
+      } else {
+        console.log(`Cleared thread references to ${responseIds.length} response IDs`);
+      }
+    } catch (err) {
+      console.error('Error clearing thread references:', err);
+    }
+  }
+  
   console.log(`Deleting ${spans.length} OpenAI responses for trace ${traceId}`);
   
   for (const span of spans) {
