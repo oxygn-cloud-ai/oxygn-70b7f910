@@ -12,7 +12,7 @@ import { estimateCost } from '@/utils/costEstimator';
 export const useConversationRun = () => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
-  const { addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall } = useLiveApiDashboard();
+  const { addCall, updateCall, updateResolvedSettings, appendThinking, appendOutputText, incrementOutputTokens, removeCall } = useLiveApiDashboard();
   const [isRunning, setIsRunning] = useState(false);
   const [lastResponse, setLastResponse] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -129,6 +129,9 @@ export const useConversationRun = () => {
             logger.debug('Stored response_id for cancellation:', event.response_id);
           }
           onProgress?.({ type: 'api_started', response_id: event.response_id, status: event.status });
+        } else if (event.type === 'settings_resolved') {
+          // NEW: Handle resolved settings for dashboard display
+          onProgress?.({ type: 'settings_resolved', settings: event.settings, tools: event.tools });
         } else if (event.type === 'status_update') {
           // NEW: Handle status updates for dashboard
           onProgress?.({ type: 'status_update', status: event.status });
@@ -314,9 +317,12 @@ export const useConversationRun = () => {
               status: 'in_progress',
               responseId: progressEvent.response_id,
             });
+          } else if (progressEvent.type === 'settings_resolved') {
+            // Update dashboard with resolved settings and tools
+            updateResolvedSettings(dashboardCallId, progressEvent.settings, progressEvent.tools);
           } else if (progressEvent.type === 'status_update') {
             updateCall(dashboardCallId, { status: progressEvent.status });
-        } else if (progressEvent.type === 'thinking_delta') {
+          } else if (progressEvent.type === 'thinking_delta') {
             appendThinking(dashboardCallId, progressEvent.delta);
           } else if (progressEvent.type === 'output_text_delta') {
             appendOutputText(dashboardCallId, progressEvent.delta);
@@ -453,7 +459,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, updateResolvedSettings, appendThinking, appendOutputText, incrementOutputTokens, removeCall]
   );
 
   const runConversation = useCallback(
@@ -575,6 +581,9 @@ export const useConversationRun = () => {
               status: 'in_progress',
               responseId: progressEvent.response_id,
             });
+          } else if (progressEvent.type === 'settings_resolved') {
+            // Update dashboard with resolved settings and tools
+            updateResolvedSettings(dashboardCallId, progressEvent.settings, progressEvent.tools);
           } else if (progressEvent.type === 'status_update') {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
@@ -636,7 +645,7 @@ export const useConversationRun = () => {
         safeSetState(setProgress, null);
       }
     },
-    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall]
+    [parseSSEStream, registerCall, safeSetState, supabase, addCall, updateCall, updateResolvedSettings, appendThinking, appendOutputText, incrementOutputTokens, removeCall]
   );
 
   return {
