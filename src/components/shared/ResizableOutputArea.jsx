@@ -388,7 +388,7 @@ const ResizableOutputArea = ({
           <div 
             ref={contentRef}
             style={{ height: `${currentHeight}px` }}
-            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight && jsonFormatEnabled ? '' : 'p-2.5 text-[11px] text-on-surface leading-relaxed whitespace-pre-wrap font-sans'}`}
+            className={`bg-surface-container-low rounded-m3-md border border-outline-variant overflow-auto resize-y ${syntaxHighlight && jsonFormatEnabled ? '' : 'p-2.5 text-sm text-on-surface leading-relaxed whitespace-pre-wrap font-sans'}`}
             onMouseUp={handleResize}
           >
             {value ? (
@@ -416,14 +416,15 @@ const ResizableOutputArea = ({
                             padding: '10px',
                             background: 'transparent',
                             backgroundColor: 'transparent',
-                            fontSize: '11px',
+                            fontSize: '0.875rem',
                             lineHeight: '1.5',
                             fontFamily: "'Poppins', sans-serif",
                           }}
                           codeTagProps={{ 
                             style: { 
                               background: 'transparent', 
-                              backgroundColor: 'transparent' 
+                              backgroundColor: 'transparent',
+                              fontFamily: "'Poppins', sans-serif",
                             } 
                           }}
                           wrapLongLines
