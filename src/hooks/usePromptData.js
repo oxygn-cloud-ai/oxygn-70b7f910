@@ -1,5 +1,4 @@
-import * as React from 'react';
-const { useCallback } = React;
+import { useCallback } from 'react';
 import { toast } from "@/components/ui/sonner";
 
 /**
