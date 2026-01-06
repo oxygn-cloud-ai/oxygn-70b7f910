@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, FileText, LayoutTemplate, MessageSquare, Settings, Heart, ArrowRight, Command } from "lucide-react";
+import { Search, FileText, LayoutTemplate, Settings, Heart, ArrowRight, Command } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -78,7 +78,6 @@ const SearchModal = ({
   const navItems = [
     { id: "prompts", label: "Prompts", icon: FileText },
     { id: "templates", label: "Templates", icon: LayoutTemplate },
-    { id: "workbench", label: "Workbench", icon: MessageSquare },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "health", label: "Health", icon: Heart },
   ];

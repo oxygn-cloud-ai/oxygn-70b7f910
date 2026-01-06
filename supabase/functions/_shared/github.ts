@@ -40,7 +40,7 @@ export async function listGithubFiles(
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'Qonsol-Workbench'
+      'User-Agent': 'Qonsol'
     }
   });
 
@@ -88,7 +88,7 @@ export async function readGithubFile(
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'Qonsol-Workbench'
+      'User-Agent': 'Qonsol'
     }
   });
 
@@ -152,7 +152,7 @@ export async function searchGithubCode(
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3.text-match+json',
-      'User-Agent': 'Qonsol-Workbench'
+      'User-Agent': 'Qonsol'
     }
   });
 
@@ -191,7 +191,7 @@ export async function getRepositoryTree(
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'Qonsol-Workbench'
+      'User-Agent': 'Qonsol'
     }
   });
 
@@ -208,7 +208,7 @@ export async function getRepositoryTree(
     headers: {
       'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'Qonsol-Workbench'
+      'User-Agent': 'Qonsol'
     }
   });
 
@@ -267,7 +267,7 @@ export function getGithubTools() {
           properties: {
             file_path: {
               type: "string",
-              description: "Full path to the file (e.g., 'src/App.jsx', 'supabase/functions/workbench-chat/index.ts')"
+              description: "Full path to the file (e.g., 'src/App.jsx', 'supabase/functions/conversation-run/index.ts')"
             }
           },
           required: ["file_path"],

@@ -33,7 +33,7 @@ const GITHUB_TOOLS: ToolDefinition[] = [
       properties: {
         file_path: {
           type: 'string',
-          description: "Full path to the file (e.g., 'src/App.jsx', 'supabase/functions/workbench-chat/index.ts')"
+          description: "Full path to the file (e.g., 'src/App.jsx', 'supabase/functions/conversation-run/index.ts')"
         }
       },
       required: ['file_path'],

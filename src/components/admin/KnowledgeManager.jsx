@@ -22,7 +22,6 @@ const TopicBadge = ({ topic }) => {
     confluence: 'bg-indigo-500/10 text-indigo-600',
     cascade: 'bg-orange-500/10 text-orange-600',
     library: 'bg-teal-500/10 text-teal-600',
-    workbench: 'bg-violet-500/10 text-violet-600',
     troubleshooting: 'bg-rose-500/10 text-rose-600',
     database: 'bg-emerald-500/10 text-emerald-600',
     edge_functions: 'bg-sky-500/10 text-sky-600',

@@ -14,7 +14,6 @@ const TOPICS = [
   'confluence',
   'cascade',
   'library',
-  'workbench',
   'troubleshooting',
   'database',
   'edge_functions',

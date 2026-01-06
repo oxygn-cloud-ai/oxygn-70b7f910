@@ -13,7 +13,7 @@ import { toast } from '@/components/ui/sonner';
 const VALID_TOPICS = [
   'overview', 'prompts', 'variables', 'templates', 'json_schemas',
   'actions', 'files', 'confluence', 'cascade', 'library',
-  'workbench', 'troubleshooting', 'database', 'edge_functions', 'api'
+  'troubleshooting', 'database', 'edge_functions', 'api'
 ];
 
 // Export Dialog
