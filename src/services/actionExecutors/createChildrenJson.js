@@ -66,7 +66,7 @@ const getModelDefaults = async (supabase, modelId) => {
 
   const defaults = { model: modelId, model_on: true };
   // All model settings fields that can have defaults
-  const fields = ['temperature', 'max_tokens', 'top_p', 'frequency_penalty', 
+  const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
     'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
 
   fields.forEach(field => {
@@ -90,7 +90,8 @@ const getParentSettings = async (supabase, parentRowId) => {
     .select(`
       model, model_on, web_search_on, confluence_enabled, thread_mode, 
       child_thread_strategy, response_format, response_format_on,
-      temperature, temperature_on, max_tokens, max_tokens_on
+      temperature, temperature_on, max_tokens, max_tokens_on,
+      max_completion_tokens, max_completion_tokens_on
     `)
     .eq('row_id', parentRowId)
     .maybeSingle();
