@@ -964,23 +964,35 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
 
         <SettingDivider />
 
-        {/* Max Tokens */}
-        <SettingRow label="Max Tokens">
-          <Switch
-            checked={node.max_tokens_on || false}
-            onCheckedChange={(checked) => onUpdate({ max_tokens_on: checked })}
-          />
-        </SettingRow>
-        {node.max_tokens_on && (
-          <Input
-            type="number"
-            value={node.max_tokens || ''}
-            onChange={(e) => onUpdate({ max_tokens: e.target.value })}
-            placeholder="4096"
-            min={1}
-            className="h-8 bg-surface-container border-outline-variant text-tree text-on-surface"
-          />
-        )}
+        {/* STRICT SEPARATION: Max Tokens OR Max Completion Tokens based on model */}
+        {(() => {
+          // Determine token setting based on node's model
+          const nodeModel = node.model || defaultModel;
+          const isGpt5Class = nodeModel?.match(/^(gpt-5|o\d)/i);
+          const tokenKey = isGpt5Class ? 'max_completion_tokens' : 'max_tokens';
+          const tokenLabel = isGpt5Class ? 'Max Completion Tokens' : 'Max Tokens';
+          
+          return (
+            <>
+              <SettingRow label={tokenLabel}>
+                <Switch
+                  checked={node[`${tokenKey}_on`] || false}
+                  onCheckedChange={(checked) => onUpdate({ [`${tokenKey}_on`]: checked })}
+                />
+              </SettingRow>
+              {node[`${tokenKey}_on`] && (
+                <Input
+                  type="number"
+                  value={node[tokenKey] || ''}
+                  onChange={(e) => onUpdate({ [tokenKey]: e.target.value })}
+                  placeholder="4096"
+                  min={1}
+                  className="h-8 bg-surface-container border-outline-variant text-tree text-on-surface"
+                />
+              )}
+            </>
+          );
+        })()}
 
         <SettingDivider />
 

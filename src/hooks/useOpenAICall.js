@@ -117,23 +117,31 @@ export const useOpenAICall = () => {
           requestBody.web_search_enabled = true;
         }
 
-        if (projectSettings?.response_tokens_on && projectSettings?.response_tokens) {
-          const maxTokens = parseInt(projectSettings.response_tokens);
-          if (!isNaN(maxTokens) && maxTokens > 0) {
-            requestBody.max_tokens = maxTokens;
+        // STRICT SEPARATION: Send ONLY the appropriate token param based on model class
+        // GPT-5/o-series use max_completion_tokens, GPT-4 and earlier use max_tokens
+        // NEVER send both in the same request
+        const isGpt5Class = (projectSettings?.model || '').match(/^(gpt-5|o\d)/i);
+        
+        if (isGpt5Class) {
+          // GPT-5/o-series: ONLY use max_completion_tokens
+          if (projectSettings?.max_completion_tokens_on && projectSettings?.max_completion_tokens) {
+            const maxCompletionTokens = parseInt(projectSettings.max_completion_tokens);
+            if (!isNaN(maxCompletionTokens) && maxCompletionTokens > 0) {
+              requestBody.max_completion_tokens = maxCompletionTokens;
+            }
           }
-        } else if (projectSettings?.max_tokens_on && projectSettings?.max_tokens) {
-          const maxTokens = parseInt(projectSettings.max_tokens);
-          if (!isNaN(maxTokens) && maxTokens > 0) {
-            requestBody.max_tokens = maxTokens;
-          }
-        }
-
-        // Handle max_completion_tokens for GPT-5+ models
-        if (projectSettings?.max_completion_tokens_on && projectSettings?.max_completion_tokens) {
-          const maxCompletionTokens = parseInt(projectSettings.max_completion_tokens);
-          if (!isNaN(maxCompletionTokens) && maxCompletionTokens > 0) {
-            requestBody.max_completion_tokens = maxCompletionTokens;
+        } else {
+          // GPT-4 and earlier: ONLY use max_tokens
+          if (projectSettings?.response_tokens_on && projectSettings?.response_tokens) {
+            const maxTokens = parseInt(projectSettings.response_tokens);
+            if (!isNaN(maxTokens) && maxTokens > 0) {
+              requestBody.max_tokens = maxTokens;
+            }
+          } else if (projectSettings?.max_tokens_on && projectSettings?.max_tokens) {
+            const maxTokens = parseInt(projectSettings.max_tokens);
+            if (!isNaN(maxTokens) && maxTokens > 0) {
+              requestBody.max_tokens = maxTokens;
+            }
           }
         }
 
