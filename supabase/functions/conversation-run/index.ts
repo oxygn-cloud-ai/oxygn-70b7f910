@@ -589,10 +589,15 @@ async function runResponsesAPI(
   console.log('Starting response stream for:', responseId);
   
   // Rolling idle timeout - resets every time data is received
-  const IDLE_TIMEOUT_MS = 300000; // 5 minutes of no activity (increased for complex reasoning)
+  // Reduced from 5min to 90s - fall back to polling faster to avoid edge function timeouts
+  const IDLE_TIMEOUT_MS = 90000; // 90 seconds of no activity
   const streamController = new AbortController();
   let idleTimeoutId: number | null = null;
   let abortReason: 'idle' | null = null;
+  
+  // Track execution start time to avoid edge function hard limits
+  const executionStartTime = Date.now();
+  const MAX_EXECUTION_MS = 270000; // 4.5 minutes max (leave margin for cleanup)
 
   // Polling fallback function for when streaming stalls
   const pollForCompletion = async (): Promise<ResponsesResult> => {
@@ -604,6 +609,25 @@ async function runResponsesAPI(
     console.log('Falling back to polling for response:', responseId);
     
     while (Date.now() - startTime < maxWaitMs) {
+      // Check edge function execution time limit
+      if (Date.now() - executionStartTime > MAX_EXECUTION_MS) {
+        console.error('Edge function execution time limit approaching');
+        if (emitter) {
+          emitter.emit({
+            type: 'error',
+            error: 'Request taking too long. Complex reasoning may require more time than allowed.',
+            error_code: 'EXECUTION_TIMEOUT',
+          });
+        }
+        return {
+          success: false,
+          error: 'Edge function execution time limit reached',
+          error_code: 'EXECUTION_TIMEOUT',
+          response_id: responseId,
+          requestParams,
+        };
+      }
+      
       try {
         pollCount++;
         const response = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
@@ -703,6 +727,16 @@ async function runResponsesAPI(
     }
     
     console.error('Polling timed out after 10 minutes');
+    
+    // Emit error event so client receives the timeout
+    if (emitter) {
+      emitter.emit({
+        type: 'error',
+        error: 'Request timed out waiting for AI response',
+        error_code: 'POLL_TIMEOUT',
+      });
+    }
+    
     return {
       success: false,
       error: 'Polling timed out after 10 minutes',
@@ -716,7 +750,7 @@ async function runResponsesAPI(
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     idleTimeoutId = setTimeout(() => {
       abortReason = 'idle';
-      console.error('Stream idle timeout - no data received for 5 minutes');
+      console.error('Stream idle timeout - no data received for 90 seconds');
       streamController.abort();
     }, IDLE_TIMEOUT_MS);
   };
