@@ -189,6 +189,8 @@ interface ApiOptions {
   webSearchEnabled?: boolean;
   vectorStoreIds?: string[];
   storeInHistory?: boolean;
+  // Thread context for error recovery
+  threadRowId?: string;
 }
 
 // Call OpenAI Responses API - uses previous_response_id for multi-turn context
@@ -425,28 +427,90 @@ async function runResponsesAPI(
   }
   clearTimeout(timeoutId);
 
+  let initialData: any;
+  
   if (!initialResponse.ok) {
     const errorText = await initialResponse.text();
     console.error('Responses API error:', initialResponse.status, errorText);
     
     let errorMessage = 'Responses API call failed';
+    let errorCode = '';
     try {
       const errorJson = JSON.parse(errorText);
       errorMessage = errorJson.error?.message || errorMessage;
+      errorCode = errorJson.error?.code || '';
     } catch {
       errorMessage = errorText || errorMessage;
     }
     
     const isRateLimit = initialResponse.status === 429;
     
-    return { 
-      success: false, 
-      error: errorMessage,
-      error_code: isRateLimit ? 'RATE_LIMITED' : 'API_CALL_FAILED',
-    };
+    // Handle stale previous_response_id - clear thread and retry fresh
+    const isPreviousResponseNotFound = 
+      errorCode === 'previous_response_not_found' ||
+      errorMessage.toLowerCase().includes('previous response') ||
+      (initialResponse.status === 400 && errorMessage.toLowerCase().includes('not found'));
+    
+    if (isPreviousResponseNotFound && requestBody.previous_response_id) {
+      console.warn('Previous response not found, clearing thread context and retrying fresh');
+      
+      // Clear the thread's last_response_id if we have threadRowId
+      if (options.threadRowId) {
+        try {
+          await supabase
+            .from('q_threads')
+            .update({ last_response_id: null })
+            .eq('row_id', options.threadRowId);
+          console.log('Cleared stale last_response_id from thread:', options.threadRowId);
+        } catch (clearErr) {
+          console.error('Failed to clear thread last_response_id:', clearErr);
+        }
+      }
+      
+      // Retry without previous_response_id
+      delete requestBody.previous_response_id;
+      
+      const retryResponse = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (retryResponse.ok) {
+        // Use retry data and continue with rest of function
+        initialData = await retryResponse.json();
+        console.log('Retry successful after clearing previous_response_id:', initialData.id);
+        
+        // Emit warning that context was lost
+        if (emitter) {
+          emitter.emit({ 
+            type: 'progress', 
+            message: 'Thread context was reset due to stale conversation state',
+          });
+        }
+      } else {
+        const retryErrorText = await retryResponse.text();
+        console.error('Retry also failed:', retryResponse.status, retryErrorText);
+        return {
+          success: false,
+          error: `Retry failed after clearing context: ${retryErrorText}`,
+          error_code: 'API_CALL_FAILED',
+        };
+      }
+    } else {
+      return { 
+        success: false, 
+        error: errorMessage,
+        error_code: isRateLimit ? 'RATE_LIMITED' : 'API_CALL_FAILED',
+      };
+    }
+  } else {
+    initialData = await initialResponse.json();
   }
-
-  const initialData = await initialResponse.json();
+  
   const responseId = initialData.id;
   const initialStatus = initialData.status; // 'queued', 'in_progress', 'completed', 'failed', 'cancelled'
   
@@ -1655,6 +1719,8 @@ serve(async (req) => {
         webSearchEnabled: childPrompt.web_search_on,
         vectorStoreIds: assistantData.vector_store_id ? [assistantData.vector_store_id] : [],
         storeInHistory: store_in_history !== false, // Default true for backward compatibility
+        // Thread context for error recovery (clear stale response IDs on retry)
+        threadRowId: activeThreadRowId,
       };
       
       console.log('Tool options:', {

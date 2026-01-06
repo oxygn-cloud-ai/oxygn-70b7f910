@@ -699,6 +699,28 @@ export const useCascadeExecutor = () => {
                     
                     updateData.extracted_variables = jsonResponse;
 
+                    // Process variable assignments if configured (BEFORE post-action)
+                    if (prompt.variable_assignments_config?.enabled && jsonResponse) {
+                      try {
+                        const { processVariableAssignments } = await import('@/services/actionExecutors');
+                        const varResult = await processVariableAssignments({
+                          supabase: supabaseClient,
+                          promptRowId: prompt.row_id,
+                          jsonResponse,
+                          config: prompt.variable_assignments_config,
+                        });
+                        if (varResult.processed > 0) {
+                          toast.success(`Updated ${varResult.processed} variable(s)`, {
+                            source: 'useCascadeExecutor.variableAssignments',
+                          });
+                        }
+                        if (varResult.errors?.length > 0) {
+                          console.warn('Variable assignment errors:', varResult.errors);
+                        }
+                      } catch (varError) {
+                        console.warn('Variable assignments failed:', varError);
+                      }
+                    }
                     // Execute post-action if configured
                     if (prompt.post_action) {
                       const actionConfig = prompt.post_action_config || {};
