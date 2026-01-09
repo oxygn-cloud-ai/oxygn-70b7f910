@@ -84,6 +84,35 @@ const ERROR_PATTERNS = [
     message: 'A server error occurred. Please try again.',
     recoverable: true,
   },
+  // Manus-specific errors
+  {
+    pattern: /manus.*api.*key.*not.*configured/i,
+    code: 'MANUS_NOT_CONFIGURED',
+    title: 'Manus Not Configured',
+    message: 'Manus API key is not configured. Add it in Settings > Integrations.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*task.*failed|manus.*error/i,
+    code: 'MANUS_TASK_FAILED',
+    title: 'Manus Task Failed',
+    message: 'The Manus task failed to complete. Check the task URL for details.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*task.*timed.*out/i,
+    code: 'MANUS_TIMEOUT',
+    title: 'Manus Task Timeout',
+    message: 'The Manus task took too long to complete. Try a simpler prompt or check the task status.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*requires.*user.*input/i,
+    code: 'MANUS_REQUIRES_INPUT',
+    title: 'Interactive Mode Required',
+    message: 'This Manus task requires user input which is not supported in cascade mode.',
+    recoverable: false,
+  },
 ];
 
 /**

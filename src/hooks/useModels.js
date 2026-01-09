@@ -184,6 +184,22 @@ export const useModels = () => {
     return model.supported_tools.includes(tool);
   }, [models]);
 
+  // Get models filtered by provider
+  const getModelsByProvider = useCallback((providerFilter) => {
+    return models.filter(m => (m.provider || 'openai') === providerFilter);
+  }, [models]);
+
+  // Get provider for a specific model
+  const getProviderForModel = useCallback((modelId) => {
+    const model = models.find(m => m.model_id === modelId);
+    return model?.provider || 'openai';
+  }, [models]);
+
+  // Check if a model is a Manus model
+  const isManusModel = useCallback((modelId) => {
+    return getProviderForModel(modelId) === 'manus';
+  }, [getProviderForModel]);
+
   return {
     models,
     isLoading,
@@ -197,6 +213,9 @@ export const useModels = () => {
     supportsTemperature,
     isSettingSupported,
     isToolSupported,
+    getModelsByProvider,
+    getProviderForModel,
+    isManusModel,
     refetch: fetchModels
   };
 };

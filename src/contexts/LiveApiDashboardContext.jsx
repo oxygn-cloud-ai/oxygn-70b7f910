@@ -71,6 +71,11 @@ export const LiveApiDashboardProvider = ({ children }) => {
       // Resolved settings (populated via settings_resolved SSE event)
       resolvedSettings: null,
       resolvedTools: null,
+      // Manus-specific fields
+      provider: callInfo.provider || 'openai',
+      manusTaskId: callInfo.manusTaskId || null,
+      manusTaskUrl: callInfo.manusTaskUrl || null,
+      manusProgress: callInfo.manusProgress || null,
       ...callInfo,
     };
     setActiveCalls((prev) => [...prev, newCall]);

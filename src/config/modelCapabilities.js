@@ -141,6 +141,20 @@ export const ALL_SETTINGS = {
     step: 1,
     defaultValue: '4096'
   },
+  task_mode: { 
+    label: 'Task Mode', 
+    shortLabel: 'Mode',
+    description: 'Manus execution mode',
+    details: 'Controls how Manus executes tasks. Chat is fastest but simplest. Adaptive balances speed/quality. Agent mode has full autonomy.',
+    docUrl: 'https://docs.manus.ai/task-modes',
+    type: 'select',
+    options: [
+      { value: 'chat', label: 'Chat (Fast)' },
+      { value: 'adaptive', label: 'Adaptive (Balanced)' },
+      { value: 'agent', label: 'Agent (Full)' }
+    ],
+    defaultValue: 'adaptive'
+  },
 };
 
 // All available tools
