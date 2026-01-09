@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info, Globe, FileText, Code, Search, ExternalLink } from 'lucide-react';
+import { Info, Globe, FileText, Code, Search, ExternalLink, Bot } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useSupabase } from '../hooks/useSupabase';
 import { useSettings } from '../hooks/useSettings';
@@ -31,7 +31,7 @@ const SettingsPanel = ({
 }) => {
   const supabase = useSupabase();
   const { settings, isLoading: settingsLoading } = useSettings(supabase);
-  const { isSettingSupported, isToolSupported } = useModels();
+  const { isSettingSupported, isToolSupported, getProviderForModel } = useModels();
 
   // Get default model from global settings
   const defaultModel = useMemo(() => {
@@ -41,14 +41,32 @@ const SettingsPanel = ({
   // Get the currently selected model (prompt's model or default)
   const currentModel = localData.model || defaultModel;
   const currentModelData = models.find(m => m.model_id === currentModel || m.model_name === currentModel);
+  
+  // Get provider for current model
+  const currentProvider = currentModelData?.provider || 'openai';
+  const isManusModel = currentProvider === 'manus';
 
-  // Settings to display (excluding hidden ones like response_format)
+  // Group models by provider
+  const modelsByProvider = useMemo(() => {
+    const grouped = {};
+    models.forEach(model => {
+      const provider = model.provider || 'openai';
+      if (!grouped[provider]) grouped[provider] = [];
+      grouped[provider].push(model);
+    });
+    return grouped;
+  }, [models]);
+
+  // Settings to display - filter based on provider
   // CRITICAL: max_tokens and max_completion_tokens are separate settings - never harmonize
   // GPT-4 uses max_tokens, GPT-5 uses max_completion_tokens
-  const visibleSettings = ['temperature', 'max_tokens', 'max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
+  // Manus only supports task_mode
+  const visibleSettings = isManusModel 
+    ? ['task_mode']
+    : ['temperature', 'max_tokens', 'max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
   
-  // Tools to display
-  const toolKeys = ['web_search', 'confluence', 'code_interpreter', 'file_search'];
+  // Tools to display - Manus doesn't use these tools
+  const toolKeys = isManusModel ? [] : ['web_search', 'confluence', 'code_interpreter', 'file_search'];
 
   const handleToggleChange = async (fieldName, checked) => {
     handleChange(`${fieldName}_on`, checked);
@@ -171,54 +189,102 @@ const SettingsPanel = ({
               <SelectItem value="__default__">
                 Default ({defaultModelName})
               </SelectItem>
-              {models.map((model) => (
-                <SelectItem key={model.row_id} value={model.model_id}>
-                  {model.model_name}
-                </SelectItem>
-              ))}
+              
+              {/* OpenAI Models */}
+              {modelsByProvider.openai?.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] text-on-surface-variant uppercase px-2 py-1">OpenAI</SelectLabel>
+                  {modelsByProvider.openai.filter(m => m.is_active).map((model) => (
+                    <SelectItem key={model.row_id} value={model.model_id}>
+                      {model.model_name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              
+              {/* Manus Models */}
+              {modelsByProvider.manus?.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] text-on-surface-variant uppercase px-2 py-1">Manus</SelectLabel>
+                  {modelsByProvider.manus.filter(m => m.is_active).map((model) => (
+                    <SelectItem key={model.row_id} value={model.model_id}>
+                      <div className="flex items-center gap-2">
+                        <Bot className="h-3 w-3 text-primary" />
+                        {model.model_name}
+                        <span className="text-[9px] bg-primary/10 text-primary px-1 py-0.5 rounded">Agentic</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              
+              {/* Other providers */}
+              {Object.entries(modelsByProvider)
+                .filter(([provider]) => !['openai', 'manus'].includes(provider))
+                .map(([provider, providerModels]) => (
+                  <SelectGroup key={provider}>
+                    <SelectLabel className="text-[10px] text-on-surface-variant uppercase px-2 py-1">{provider}</SelectLabel>
+                    {providerModels.filter(m => m.is_active).map((model) => (
+                      <SelectItem key={model.row_id} value={model.model_id}>
+                        {model.model_name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))
+              }
             </SelectContent>
           </Select>
         </div>
 
-        {/* Tools Row */}
-        <div className="flex items-center gap-1 p-1.5 bg-muted/30 rounded-md border border-border/50">
-          {toolKeys.map(toolKey => {
-            const tool = ALL_TOOLS[toolKey];
-            const IconComponent = TOOL_ICONS[toolKey];
-            const isEnabled = localData[`${toolKey}_on`] || false;
-            const supported = isToolSupported(toolKey, currentModel);
-            
-            // Special case: confluence is always supported (it's not model-dependent)
-            const actuallySupported = toolKey === 'confluence' ? true : supported;
-            
-            return (
-              <Tooltip key={toolKey}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => actuallySupported && handleToolToggle(toolKey, !isEnabled)}
-                    disabled={!actuallySupported}
-                    className={cn(
-                      "flex items-center justify-center h-7 w-7 rounded transition-colors",
-                      isEnabled && actuallySupported
-                        ? "bg-primary/20 text-primary"
-                        : "bg-background text-muted-foreground hover:bg-muted",
-                      !actuallySupported && "opacity-40 cursor-not-allowed"
+        {/* Manus Info Banner */}
+        {isManusModel && (
+          <div className="flex items-center gap-2 p-2 bg-primary/5 border border-primary/20 rounded-md text-[10px] text-on-surface-variant">
+            <Bot className="h-4 w-4 text-primary flex-shrink-0" />
+            <span>Manus tasks run asynchronously and may take several minutes to complete.</span>
+          </div>
+        )}
+
+        {/* Tools Row - Hidden for Manus models */}
+        {toolKeys.length > 0 && (
+          <div className="flex items-center gap-1 p-1.5 bg-muted/30 rounded-md border border-border/50">
+            {toolKeys.map(toolKey => {
+              const tool = ALL_TOOLS[toolKey];
+              const IconComponent = TOOL_ICONS[toolKey];
+              const isEnabled = localData[`${toolKey}_on`] || false;
+              const supported = isToolSupported(toolKey, currentModel);
+              
+              // Special case: confluence is always supported (it's not model-dependent)
+              const actuallySupported = toolKey === 'confluence' ? true : supported;
+              
+              return (
+                <Tooltip key={toolKey}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => actuallySupported && handleToolToggle(toolKey, !isEnabled)}
+                      disabled={!actuallySupported}
+                      className={cn(
+                        "flex items-center justify-center h-7 w-7 rounded transition-colors",
+                        isEnabled && actuallySupported
+                          ? "bg-primary/20 text-primary"
+                          : "bg-background text-muted-foreground hover:bg-muted",
+                        !actuallySupported && "opacity-40 cursor-not-allowed"
+                      )}
+                    >
+                      <IconComponent className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[200px]">
+                    <p className="text-xs font-medium">{tool.label}</p>
+                    <p className="text-xs text-muted-foreground">{tool.description}</p>
+                    {!actuallySupported && (
+                      <p className="text-xs text-destructive mt-1">Not supported by this model</p>
                     )}
-                  >
-                    <IconComponent className="h-3.5 w-3.5" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[200px]">
-                  <p className="text-xs font-medium">{tool.label}</p>
-                  <p className="text-xs text-muted-foreground">{tool.description}</p>
-                  {!actuallySupported && (
-                    <p className="text-xs text-destructive mt-1">Not supported by this model</p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        )}
 
         {/* Settings Grid - 2 columns */}
         <div className="grid grid-cols-2 gap-2">

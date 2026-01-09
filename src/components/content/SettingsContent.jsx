@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Settings, Palette, Bell, User, 
   Link2, MessageSquare, Sparkles,
@@ -1059,6 +1059,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
             <option value="google">Google</option>
+            <option value="manus">Manus</option>
             <option value="other">Other</option>
           </select>
         </div>
@@ -1849,6 +1850,14 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
 // Knowledge Base Section (Admin only)
 const KnowledgeSection = () => <KnowledgeManager />;
 
+// Manus Integration Section - lazy loaded
+const ManusSection = React.lazy(() => import('@/components/settings/ManusIntegrationSettings'));
+const ManusIntegrationWrapper = () => (
+  <React.Suspense fallback={<div className="p-4 text-on-surface-variant">Loading...</div>}>
+    <ManusSection />
+  </React.Suspense>
+);
+
 // Settings Sections Configuration
 const SETTINGS_SECTIONS = {
   "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
@@ -1857,6 +1866,7 @@ const SETTINGS_SECTIONS = {
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
+  "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },

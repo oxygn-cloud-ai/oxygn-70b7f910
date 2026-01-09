@@ -127,6 +127,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("confluence")}
       />
       <SubmenuItem 
+        icon={Cpu} 
+        label="Manus AI" 
+        description="Agentic task automation"
+        isActive={activeSubItem === "manus"}
+        onClick={() => onItemClick?.("manus")}
+      />
+      <SubmenuItem 
         icon={Palette}
         label="Appearance" 
         description="Theme & colors"
