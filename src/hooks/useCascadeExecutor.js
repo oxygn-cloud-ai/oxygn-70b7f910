@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { useConversationRun } from './useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { useExecutionTracing } from './useExecutionTracing';
+import { useModels } from './useModels';
 import { toast } from '@/components/ui/sonner';
 import { notify } from '@/contexts/ToastHistoryContext';
 import { parseApiError, isQuotaError, formatErrorForDisplay } from '@/utils/apiErrorUtils';
@@ -13,6 +14,10 @@ import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { executePostAction } from '@/services/actionExecutors';
 import { validateActionResponse, extractJsonFromResponse } from '@/utils/actionValidation';
 import { trackEvent, trackException } from '@/lib/posthog';
+
+// Constants for Manus task polling
+const MANUS_POLL_INTERVAL_MS = 2000;
+const MANUS_TASK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 // Helper to get a usable message from a prompt
 const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
@@ -51,8 +56,10 @@ export const useCascadeExecutor = () => {
   const supabase = useSupabase();
   const { runConversation, cancelRun } = useConversationRun();
   const { registerCall } = useApiCallContext();
-  const { resetCumulativeStats } = useLiveApiDashboard();
+  const { resetCumulativeStats, addCall } = useLiveApiDashboard();
   const { startTrace, createSpan, completeSpan, failSpan, completeTrace } = useExecutionTracing();
+  const { getProviderForModel, isManusModel } = useModels();
+  const manusTaskCancelRef = useRef(false);
   const {
     startCascade,
     updateProgress,
@@ -66,6 +73,131 @@ export const useCascadeExecutor = () => {
     skipAllPreviews,
     registerCancelHandler, // For true OpenAI cancellation
   } = useCascadeRun();
+
+  /**
+   * Execute a Manus task and wait for completion via realtime subscription
+   */
+  const runManusTask = useCallback(async ({
+    prompt,
+    userMessage,
+    templateVariables,
+    traceId,
+  }) => {
+    const startTime = Date.now();
+    manusTaskCancelRef.current = false;
+
+    // Call manus-task-create edge function
+    const { data: createData, error: createError } = await supabaseClient.functions.invoke('manus-task-create', {
+      body: {
+        prompt_row_id: prompt.row_id,
+        prompt_text: userMessage,
+        template_variables: templateVariables,
+        trace_id: traceId,
+        task_mode: prompt.task_mode || 'adaptive',
+      },
+    });
+
+    if (createError || !createData?.task_id) {
+      throw new Error(createError?.message || createData?.error || 'Failed to create Manus task');
+    }
+
+    const taskId = createData.task_id;
+    
+    // Track in live dashboard
+    const callId = addCall({
+      provider: 'manus',
+      model: prompt.model,
+      promptName: prompt.prompt_name,
+      manusTaskId: taskId,
+      manusTaskUrl: createData.task_url,
+      status: 'running',
+    });
+
+    toast.info(`Manus task started`, {
+      description: prompt.prompt_name,
+      source: 'useCascadeExecutor.runManusTask',
+    });
+
+    // Set up realtime subscription and wait for completion
+    return new Promise((resolve, reject) => {
+      let subscription = null;
+      let pollInterval = null;
+      let timeoutId = null;
+
+      const cleanup = () => {
+        if (subscription) {
+          supabaseClient.removeChannel(subscription);
+        }
+        if (pollInterval) {
+          clearInterval(pollInterval);
+        }
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+
+      const handleTaskComplete = (task) => {
+        cleanup();
+        const latency = Date.now() - startTime;
+
+        if (task.status === 'completed') {
+          resolve({
+            response: task.result_message || '',
+            taskId: task.task_id,
+            taskUrl: task.task_url,
+            attachments: task.attachments || [],
+            latency_ms: latency,
+          });
+        } else if (task.status === 'failed' || task.status === 'cancelled') {
+          reject(new Error(task.stop_reason || `Manus task ${task.status}`));
+        }
+      };
+
+      // Set up realtime subscription
+      subscription = supabaseClient
+        .channel('manus-task-' + taskId)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'q_manus_tasks',
+            filter: 'task_id=eq.' + taskId,
+          },
+          (payload) => {
+            if (payload.new && ['completed', 'failed', 'cancelled'].includes(payload.new.status)) {
+              handleTaskComplete(payload.new);
+            }
+          }
+        )
+        .subscribe();
+
+      // Poll as backup (in case realtime misses an update)
+      pollInterval = setInterval(async () => {
+        if (manusTaskCancelRef.current) {
+          cleanup();
+          reject(new Error('Manus task cancelled by user'));
+          return;
+        }
+
+        const { data: task } = await supabaseClient
+          .from('q_manus_tasks')
+          .select('*')
+          .eq('task_id', taskId)
+          .maybeSingle();
+
+        if (task && ['completed', 'failed', 'cancelled'].includes(task.status)) {
+          handleTaskComplete(task);
+        }
+      }, MANUS_POLL_INTERVAL_MS);
+
+      // Timeout after 30 minutes
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('Manus task timed out after 30 minutes'));
+      }, MANUS_TASK_TIMEOUT_MS);
+    });
+  }, [addCall]);
 
   // Fetch hierarchy of prompts starting from a top-level prompt
   const fetchCascadeHierarchy = useCallback(async (topLevelRowId) => {
@@ -225,8 +357,11 @@ export const useCascadeExecutor = () => {
     // Register with ApiCallContext for NavigationGuard protection
     const cleanupCall = registerCall();
     
-    // Register cancel handler for true OpenAI cancellation
-    const unregisterCancel = registerCancelHandler(cancelRun);
+    // Register cancel handler for true OpenAI cancellation + Manus task cancellation
+    const unregisterCancel = registerCancelHandler(() => {
+      cancelRun();
+      manusTaskCancelRef.current = true;
+    });
     
     if (!supabase) {
       cleanupCall();
@@ -569,15 +704,33 @@ export const useCascadeExecutor = () => {
                 cascade_admin_prompt: prompt.input_admin_prompt || '',
               };
 
-              const result = await runConversation({
-                conversationRowId: parentAssistantRowId,
-                childPromptRowId: prompt.row_id,
-                userMessage: userMessage,
-                threadMode: 'new', // Force new thread for cascade isolation
-                childThreadStrategy: 'parent', // Use parent thread for context continuity
-                template_variables: extendedTemplateVars,
-                store_in_history: false,
-              });
+              // Detect if this prompt uses a Manus model
+              const promptModel = prompt.model;
+              const isManus = promptModel && isManusModel(promptModel);
+              
+              let result;
+              
+              if (isManus) {
+                // Use Manus task execution path
+                console.log(`Cascade: Using Manus provider for ${prompt.prompt_name}`);
+                result = await runManusTask({
+                  prompt,
+                  userMessage,
+                  templateVariables: extendedTemplateVars,
+                  traceId,
+                });
+              } else {
+                // Standard OpenAI conversation path
+                result = await runConversation({
+                  conversationRowId: parentAssistantRowId,
+                  childPromptRowId: prompt.row_id,
+                  userMessage: userMessage,
+                  threadMode: 'new', // Force new thread for cascade isolation
+                  childThreadStrategy: 'parent', // Use parent thread for context continuity
+                  template_variables: extendedTemplateVars,
+                  store_in_history: false,
+                });
+              }
 
               // Check if cancelled during the call
               if (result?.cancelled) {
@@ -1214,6 +1367,8 @@ export const useCascadeExecutor = () => {
     completeTrace,
     showActionPreview,
     skipAllPreviews,
+    isManusModel,
+    runManusTask,
   ]);
 
   // Check if a prompt has children (for showing cascade button)
@@ -1386,16 +1541,33 @@ export const useCascadeExecutor = () => {
       const childStartTime = Date.now();
 
       try {
-        // Run the child prompt
-        const result = await runConversation({
-          conversationRowId: parentAssistantRowId,
-          childPromptRowId: childPrompt.row_id,
-          userMessage,
-          threadMode: 'new',
-          childThreadStrategy: 'parent',
-          template_variables: templateVariables,
-          store_in_history: false,
-        });
+        // Detect if this child uses a Manus model
+        const childModel = childPrompt.model;
+        const isManus = childModel && isManusModel(childModel);
+        
+        let result;
+        
+        if (isManus) {
+          // Use Manus task execution path
+          console.log(`executeChildCascade: Using Manus provider for ${childPrompt.prompt_name}`);
+          result = await runManusTask({
+            prompt: childPrompt,
+            userMessage,
+            templateVariables,
+            traceId,
+          });
+        } else {
+          // Standard OpenAI conversation path
+          result = await runConversation({
+            conversationRowId: parentAssistantRowId,
+            childPromptRowId: childPrompt.row_id,
+            userMessage,
+            threadMode: 'new',
+            childThreadStrategy: 'parent',
+            template_variables: templateVariables,
+            store_in_history: false,
+          });
+        }
 
         const promptResult = {
           promptRowId: childPrompt.row_id,
@@ -1545,7 +1717,7 @@ export const useCascadeExecutor = () => {
     }
 
     return { success: true, results };
-  }, [runConversation, isCancelled, waitWhilePaused, createSpan, completeSpan, failSpan, startTrace, completeTrace]);
+  }, [runConversation, isCancelled, waitWhilePaused, createSpan, completeSpan, failSpan, startTrace, completeTrace, isManusModel, runManusTask]);
 
   return {
     executeCascade,
