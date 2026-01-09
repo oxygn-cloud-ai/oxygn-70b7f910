@@ -16,6 +16,10 @@ export interface ModelConfig {
   apiModelId: string;
   inputCostPerMillion: number;
   outputCostPerMillion: number;
+  // Multi-provider API configuration
+  apiBaseUrl: string | null;
+  authHeaderName: string;
+  authHeaderFormat: string;
 }
 
 interface ModelRow {
@@ -34,6 +38,10 @@ interface ModelRow {
   api_model_id: string | null;
   input_cost_per_million: string | null;
   output_cost_per_million: string | null;
+  // Multi-provider API configuration
+  api_base_url: string | null;
+  auth_header_name: string | null;
+  auth_header_format: string | null;
 }
 
 // Default config for null database values - used ONLY when model exists in DB but has null fields
@@ -64,7 +72,11 @@ function rowToConfig(row: ModelRow): ModelConfig {
     supportedTools: row.supported_tools ?? DEFAULT_CONFIG.supportedTools,
     apiModelId: row.api_model_id ?? row.model_id,
     inputCostPerMillion: parseFloat(row.input_cost_per_million || '0') || 0,
-    outputCostPerMillion: parseFloat(row.output_cost_per_million || '0') || 0
+    outputCostPerMillion: parseFloat(row.output_cost_per_million || '0') || 0,
+    // Multi-provider API configuration
+    apiBaseUrl: row.api_base_url ?? null,
+    authHeaderName: row.auth_header_name ?? 'Authorization',
+    authHeaderFormat: row.auth_header_format ?? 'Bearer {key}',
   };
 }
 

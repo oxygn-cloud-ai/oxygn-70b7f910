@@ -113,7 +113,7 @@ export function validateThreadManagerInput(body: any): ValidationResult {
 export function validateCredentialsManagerInput(body: any): ValidationResult {
   const { action } = body;
   
-  const validActions = ['get_status', 'set', 'delete', 'list_services'];
+  const validActions = ['get_status', 'set', 'delete', 'list_services', 'get_decrypted'];
   if (!isValidAction(action, validActions)) {
     return { valid: false, error: `Invalid action. Use: ${validActions.join(', ')}` };
   }
@@ -147,6 +147,15 @@ export function validateCredentialsManagerInput(body: any): ValidationResult {
       }
       if (body.key !== undefined && !isOptionalString(body.key, 100)) {
         return { valid: false, error: 'key must be a string with max 100 characters' };
+      }
+      break;
+      
+    case 'get_decrypted':
+      if (!body.service || !validServicePattern.test(body.service)) {
+        return { valid: false, error: 'service is required and must be alphanumeric with max 50 characters' };
+      }
+      if (!isNonEmptyString(body.key, 100)) {
+        return { valid: false, error: 'key is required and must be a string with max 100 characters' };
       }
       break;
   }
