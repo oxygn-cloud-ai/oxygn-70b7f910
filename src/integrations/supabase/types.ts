@@ -839,6 +839,78 @@ export type Database = {
         }
         Relationships: []
       }
+      q_manus_tasks: {
+        Row: {
+          attachments: Json | null
+          completed_at: string | null
+          created_at: string | null
+          input_prompt: string | null
+          owner_id: string
+          processed_at: string | null
+          prompt_row_id: string | null
+          requires_input: boolean | null
+          result_message: string | null
+          status: string | null
+          stop_reason: string | null
+          task_id: string
+          task_title: string | null
+          task_url: string | null
+          trace_id: string | null
+          webhook_event_id: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          input_prompt?: string | null
+          owner_id: string
+          processed_at?: string | null
+          prompt_row_id?: string | null
+          requires_input?: boolean | null
+          result_message?: string | null
+          status?: string | null
+          stop_reason?: string | null
+          task_id: string
+          task_title?: string | null
+          task_url?: string | null
+          trace_id?: string | null
+          webhook_event_id?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          input_prompt?: string | null
+          owner_id?: string
+          processed_at?: string | null
+          prompt_row_id?: string | null
+          requires_input?: boolean | null
+          result_message?: string | null
+          status?: string | null
+          stop_reason?: string | null
+          task_id?: string
+          task_title?: string | null
+          task_url?: string | null
+          trace_id?: string | null
+          webhook_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_manus_tasks_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_manus_tasks_trace_id_fkey"
+            columns: ["trace_id"]
+            isOneToOne: false
+            referencedRelation: "q_execution_traces"
+            referencedColumns: ["trace_id"]
+          },
+        ]
+      }
       q_model_defaults: {
         Row: {
           created_at: string | null
@@ -970,7 +1042,10 @@ export type Database = {
       }
       q_models: {
         Row: {
+          api_base_url: string | null
           api_model_id: string | null
+          auth_header_format: string | null
+          auth_header_name: string | null
           context_window: number | null
           created_at: string | null
           deprecation_date: string | null
@@ -993,7 +1068,10 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          api_base_url?: string | null
           api_model_id?: string | null
+          auth_header_format?: string | null
+          auth_header_name?: string | null
           context_window?: number | null
           created_at?: string | null
           deprecation_date?: string | null
@@ -1016,7 +1094,10 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          api_base_url?: string | null
           api_model_id?: string | null
+          auth_header_format?: string | null
+          auth_header_name?: string | null
           context_window?: number | null
           created_at?: string | null
           deprecation_date?: string | null
@@ -1257,6 +1338,7 @@ export type Database = {
           presence_penalty: string | null
           presence_penalty_on: boolean | null
           prompt_name: string | null
+          provider_lock: string | null
           reasoning_effort: string | null
           reasoning_effort_on: boolean | null
           response_format: string | null
@@ -1274,6 +1356,7 @@ export type Database = {
           suffix: string | null
           suffix_on: boolean | null
           system_variables: Json | null
+          task_mode: string | null
           temperature: string | null
           temperature_on: boolean | null
           template_row_id: string | null
@@ -1346,6 +1429,7 @@ export type Database = {
           presence_penalty?: string | null
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
+          provider_lock?: string | null
           reasoning_effort?: string | null
           reasoning_effort_on?: boolean | null
           response_format?: string | null
@@ -1363,6 +1447,7 @@ export type Database = {
           suffix?: string | null
           suffix_on?: boolean | null
           system_variables?: Json | null
+          task_mode?: string | null
           temperature?: string | null
           temperature_on?: boolean | null
           template_row_id?: string | null
@@ -1435,6 +1520,7 @@ export type Database = {
           presence_penalty?: string | null
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
+          provider_lock?: string | null
           reasoning_effort?: string | null
           reasoning_effort_on?: boolean | null
           response_format?: string | null
@@ -1452,6 +1538,7 @@ export type Database = {
           suffix?: string | null
           suffix_on?: boolean | null
           system_variables?: Json | null
+          task_mode?: string | null
           temperature?: string | null
           temperature_on?: boolean | null
           template_row_id?: string | null
@@ -1593,13 +1680,15 @@ export type Database = {
           assistant_row_id: string | null
           child_prompt_row_id: string | null
           created_at: string | null
+          external_session_id: string | null
           is_active: boolean | null
           last_message_at: string | null
           last_response_id: string | null
           message_count: number | null
           name: string | null
-          openai_conversation_id: string
+          openai_conversation_id: string | null
           owner_id: string | null
+          provider: string | null
           root_prompt_row_id: string | null
           row_id: string
         }
@@ -1607,13 +1696,15 @@ export type Database = {
           assistant_row_id?: string | null
           child_prompt_row_id?: string | null
           created_at?: string | null
+          external_session_id?: string | null
           is_active?: boolean | null
           last_message_at?: string | null
           last_response_id?: string | null
           message_count?: number | null
           name?: string | null
-          openai_conversation_id: string
+          openai_conversation_id?: string | null
           owner_id?: string | null
+          provider?: string | null
           root_prompt_row_id?: string | null
           row_id?: string
         }
@@ -1621,13 +1712,15 @@ export type Database = {
           assistant_row_id?: string | null
           child_prompt_row_id?: string | null
           created_at?: string | null
+          external_session_id?: string | null
           is_active?: boolean | null
           last_message_at?: string | null
           last_response_id?: string | null
           message_count?: number | null
           name?: string | null
-          openai_conversation_id?: string
+          openai_conversation_id?: string | null
           owner_id?: string | null
+          provider?: string | null
           root_prompt_row_id?: string | null
           row_id?: string
         }
@@ -1782,6 +1875,7 @@ export type Database = {
       }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_traces: { Args: never; Returns: undefined }
+      cleanup_orphaned_manus_tasks: { Args: never; Returns: undefined }
       cleanup_orphaned_traces: { Args: never; Returns: undefined }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
       decrypt_credential: {

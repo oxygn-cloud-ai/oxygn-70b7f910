@@ -121,6 +121,9 @@ serve(async (req) => {
         if (service === 'confluence') {
           status.email = configuredKeys.includes('email');
           status.api_token = configuredKeys.includes('api_token');
+        } else if (service === 'manus') {
+          // For manus, check for api_key
+          status.api_key = configuredKeys.includes('api_key');
         } else {
           // Generic: just indicate which keys exist
           configuredKeys.forEach(key => {
@@ -222,6 +225,55 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ success: true, services }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get decrypted credential value (for internal service-to-service calls)
+      case 'get_decrypted': {
+        const { service, key } = params;
+
+        if (!service || !key) {
+          return new Response(
+            JSON.stringify({ error: 'Service and key are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if credential exists
+        const { data: credential } = await supabase
+          .from('user_credentials')
+          .select('credential_value')
+          .eq('user_id', userId)
+          .eq('service_type', service)
+          .eq('credential_key', key)
+          .maybeSingle();
+
+        if (!credential) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Credential not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Decrypt using RPC
+        const { data: decrypted, error: decryptError } = await supabase.rpc('decrypt_credential', {
+          p_user_id: userId,
+          p_service: service,
+          p_key: key,
+          p_encryption_key: encryptionKey
+        });
+
+        if (decryptError) {
+          console.error('[credentials-manager] Decrypt error:', decryptError);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Decryption failed' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, value: decrypted }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

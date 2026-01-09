@@ -124,22 +124,25 @@ export async function resolveRootPromptId(
 
 /**
  * Get or create the unified family thread for a prompt hierarchy
- * Creates a real OpenAI conversation for new threads
- * Returns: { row_id, openai_conversation_id, created: boolean }
+ * Creates a real OpenAI conversation for new threads (for OpenAI provider)
+ * Supports multiple providers (OpenAI, Manus, etc.)
+ * Returns: { row_id, openai_conversation_id, external_session_id, created: boolean }
  */
 export async function getOrCreateFamilyThread(
   supabase: any,
   rootPromptRowId: string,
   ownerId: string,
   promptName?: string,
-  openAIApiKey?: string
-): Promise<{ row_id: string; openai_conversation_id: string | null; last_response_id: string | null; created: boolean }> {
-  // Try to find existing active thread for this family (deterministic: order by last_message_at desc, limit 1)
+  openAIApiKey?: string,
+  provider: string = 'openai'
+): Promise<{ row_id: string; openai_conversation_id: string | null; external_session_id: string | null; last_response_id: string | null; created: boolean }> {
+  // Try to find existing active thread for this family AND provider
   const { data: existingThreads, error: findError } = await supabase
     .from(TABLES.THREADS)
-    .select('row_id, openai_conversation_id, last_response_id')
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id, provider')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
+    .eq('provider', provider)
     .eq('is_active', true)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(1);
@@ -151,18 +154,30 @@ export async function getOrCreateFamilyThread(
   const existing = existingThreads?.[0] || null;
 
   if (existing) {
-    // Validate conversation ID - must be proper conv_ format
-    if (existing.openai_conversation_id?.startsWith('conv_')) {
-      console.log('Found existing family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id, 'last_response_id:', existing.last_response_id);
+    // Provider-specific validation
+    if (provider === 'openai') {
+      // OpenAI requires valid conv_ format
+      if (existing.openai_conversation_id?.startsWith('conv_')) {
+        console.log('Found existing OpenAI family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id);
+        return { ...existing, created: false };
+      }
+      // Invalid ID (resp_ or pending-), deactivate and create new
+      console.warn('Invalid OpenAI conversation ID found, deactivating thread:', existing.row_id, existing.openai_conversation_id);
+      await supabase
+        .from(TABLES.THREADS)
+        .update({ is_active: false })
+        .eq('row_id', existing.row_id);
+    } else if (provider === 'manus') {
+      // Manus uses external_session_id, no specific format required
+      if (existing.external_session_id) {
+        console.log('Found existing Manus family thread:', existing.row_id, 'session_id:', existing.external_session_id);
+        return { ...existing, created: false };
+      }
+    } else {
+      // For other providers, just return if exists
+      console.log(`Found existing ${provider} family thread:`, existing.row_id);
       return { ...existing, created: false };
     }
-    
-    // Invalid ID (resp_ or pending-), deactivate and create new
-    console.warn('Invalid conversation ID found, deactivating thread:', existing.row_id, existing.openai_conversation_id);
-    await supabase
-      .from(TABLES.THREADS)
-      .update({ is_active: false })
-      .eq('row_id', existing.row_id);
   }
 
   // Create new thread for this family
@@ -170,16 +185,28 @@ export async function getOrCreateFamilyThread(
     ? `${promptName} - ${new Date().toLocaleDateString()}`
     : `Conversation - ${new Date().toLocaleDateString()}`;
 
-  // Create real OpenAI conversation if API key provided
-  let conversationId: string;
-  if (openAIApiKey) {
-    conversationId = await createOpenAIConversation(openAIApiKey, {
-      root_prompt_id: rootPromptRowId,
-    });
+  let conversationId: string | null = null;
+  let externalSessionId: string | null = null;
+
+  if (provider === 'openai') {
+    // Create real OpenAI conversation if API key provided
+    if (openAIApiKey) {
+      conversationId = await createOpenAIConversation(openAIApiKey, {
+        root_prompt_id: rootPromptRowId,
+      });
+    } else {
+      // Fallback to pending placeholder if no API key (shouldn't happen in normal flow)
+      conversationId = `pending-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+      console.warn('No API key provided, using placeholder conversation ID');
+    }
+  } else if (provider === 'manus') {
+    // Manus manages sessions internally - we just track our own session ID
+    externalSessionId = `manus-${crypto.randomUUID()}`;
+    console.log('Creating Manus session:', externalSessionId);
   } else {
-    // Fallback to pending placeholder if no API key (shouldn't happen in normal flow)
-    conversationId = `pending-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    console.warn('No API key provided, using placeholder conversation ID');
+    // Generic provider session
+    externalSessionId = `${provider}-${crypto.randomUUID()}`;
+    console.log(`Creating ${provider} session:`, externalSessionId);
   }
 
   const { data: newThread, error: createError } = await supabase
@@ -190,8 +217,10 @@ export async function getOrCreateFamilyThread(
       name: threadName,
       is_active: true,
       openai_conversation_id: conversationId,
+      external_session_id: externalSessionId,
+      provider,
     })
-    .select('row_id, openai_conversation_id, last_response_id')
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id')
     .maybeSingle();
 
   if (createError) {
@@ -199,7 +228,7 @@ export async function getOrCreateFamilyThread(
     throw new Error('Failed to create conversation thread');
   }
 
-  console.log('Created new family thread:', newThread.row_id, 'conversation_id:', conversationId);
+  console.log(`Created new ${provider} family thread:`, newThread.row_id);
   return { ...newThread, created: true };
 }
 
@@ -235,13 +264,15 @@ export async function clearFamilyThread(
 export async function getFamilyThread(
   supabase: any,
   rootPromptRowId: string,
-  ownerId: string
-): Promise<{ row_id: string; openai_conversation_id: string | null; last_response_id: string | null } | null> {
+  ownerId: string,
+  provider: string = 'openai'
+): Promise<{ row_id: string; openai_conversation_id: string | null; external_session_id: string | null; last_response_id: string | null } | null> {
   const { data, error } = await supabase
     .from(TABLES.THREADS)
-    .select('row_id, openai_conversation_id, last_response_id')
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
+    .eq('provider', provider)
     .eq('is_active', true)
     .maybeSingle();
 
