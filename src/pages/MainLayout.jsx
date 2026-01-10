@@ -48,6 +48,21 @@ import { useApiCallContext } from "@/contexts/ApiCallContext";
 import { useExecutionTracing } from "@/hooks/useExecutionTracing";
 import { usePendingSaves } from "@/contexts/PendingSaveContext";
 
+// DEVELOPMENT ONLY: Warning banner shown when auth is bypassed
+// This component is completely removed from production builds
+const DevModeBanner = () => {
+  if (!import.meta.env.DEV) return null;
+  
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[9999] bg-amber-500 text-black text-center py-1.5 text-[11px] font-medium tracking-wide shadow-md">
+      <span className="inline-flex items-center gap-2">
+        <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
+        DEV MODE — Authentication Bypassed — Not for Production
+      </span>
+    </div>
+  );
+};
+
 // Initial loading screen component
 const LoadingScreen = () => (
   <motion.div 
@@ -1185,7 +1200,10 @@ const MainLayout = () => {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0">
+      {/* DEVELOPMENT ONLY: Warning banner - removed in production builds */}
+      <DevModeBanner />
+      
+      <div className={`h-screen w-full flex flex-col bg-surface overflow-hidden min-h-0 ${import.meta.env.DEV ? 'pt-8' : ''}`}>
         {/* SearchModal removed - replaced by LiveApiDashboard in TopBar */}
 
         {/* Save As Template Dialog */}
