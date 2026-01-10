@@ -37,6 +37,15 @@ serve(async (req) => {
       );
     }
 
+    // Validate task_mode
+    const VALID_TASK_MODES = ['chat', 'adaptive', 'agent'];
+    if (task_mode && !VALID_TASK_MODES.includes(task_mode)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid task_mode. Use: ${VALID_TASK_MODES.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get user from auth
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -96,19 +105,43 @@ serve(async (req) => {
 
     console.log('[manus-task-create] Created pending task:', tempTaskId);
 
-    // Call Manus API to create task
-    const manusResponse = await fetch('https://api.manus.ai/v1/tasks', {
-      method: 'POST',
-      headers: {
-        'API_KEY': manusApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: combinedPrompt,
-        taskMode: task_mode,
-        agentProfile: task_mode === 'agent' ? 'quality' : 'speed',
-      }),
-    });
+    // Call Manus API to create task with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let manusResponse: Response;
+    try {
+      manusResponse = await fetch('https://api.manus.ai/v1/tasks', {
+        method: 'POST',
+        headers: {
+          'API_KEY': manusApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: combinedPrompt,
+          taskMode: task_mode,
+          agentProfile: task_mode === 'agent' ? 'quality' : 'speed',
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError: unknown) {
+      clearTimeout(timeoutId);
+      
+      // Clean up pending record
+      await supabase
+        .from('q_manus_tasks')
+        .delete()
+        .eq('task_id', tempTaskId);
+
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({ error: 'Manus API request timed out after 30 seconds' }),
+          { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      throw fetchError;
+    }
+    clearTimeout(timeoutId);
 
     if (!manusResponse.ok) {
       const error = await manusResponse.text();

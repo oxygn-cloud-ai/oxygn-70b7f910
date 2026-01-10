@@ -56,7 +56,7 @@ export const useCascadeExecutor = () => {
   const supabase = useSupabase();
   const { runConversation, cancelRun } = useConversationRun();
   const { registerCall } = useApiCallContext();
-  const { resetCumulativeStats, addCall } = useLiveApiDashboard();
+  const { resetCumulativeStats, addCall, removeCall } = useLiveApiDashboard();
   const { startTrace, createSpan, completeSpan, failSpan, completeTrace } = useExecutionTracing();
   const { getProviderForModel, isManusModel } = useModels();
   const manusTaskCancelRef = useRef(false);
@@ -90,7 +90,7 @@ export const useCascadeExecutor = () => {
     const { data: createData, error: createError } = await supabaseClient.functions.invoke('manus-task-create', {
       body: {
         prompt_row_id: prompt.row_id,
-        prompt_text: userMessage,
+        user_message: userMessage,
         template_variables: templateVariables,
         trace_id: traceId,
         task_mode: prompt.task_mode || 'adaptive',
@@ -138,6 +138,7 @@ export const useCascadeExecutor = () => {
 
       const handleTaskComplete = (task) => {
         cleanup();
+        removeCall(callId); // Clean up live dashboard entry
         const latency = Date.now() - startTime;
 
         if (task.status === 'completed') {
@@ -197,7 +198,7 @@ export const useCascadeExecutor = () => {
         reject(new Error('Manus task timed out after 30 minutes'));
       }, MANUS_TASK_TIMEOUT_MS);
     });
-  }, [addCall]);
+  }, [addCall, removeCall]);
 
   // Fetch hierarchy of prompts starting from a top-level prompt
   const fetchCascadeHierarchy = useCallback(async (topLevelRowId) => {
