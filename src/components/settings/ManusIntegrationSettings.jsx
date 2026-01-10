@@ -84,8 +84,17 @@ const ManusIntegrationSettings = () => {
         toast.error(parsed.title, { description: parsed.message });
         sonnerToast.error(parsed.title, { description: parsed.message });
       } else if (data?.error) {
-        // Edge function returned an error in the response body
-        const parsed = parseApiError(data.error);
+        // Edge function returned an error in the response body (string or object)
+        const errorMsg = typeof data.error === 'string' 
+          ? data.error 
+          : data.error?.message || JSON.stringify(data.error);
+        const parsed = parseApiError(errorMsg);
+        setConnectionStatus({ success: false, message: parsed.title });
+        toast.error(parsed.title, { description: parsed.message });
+        sonnerToast.error(parsed.title, { description: parsed.message });
+      } else if (data?.message && !data?.success) {
+        // Some edge functions return { message: "error" } format
+        const parsed = parseApiError(data.message);
         setConnectionStatus({ success: false, message: parsed.title });
         toast.error(parsed.title, { description: parsed.message });
         sonnerToast.error(parsed.title, { description: parsed.message });
@@ -96,7 +105,7 @@ const ManusIntegrationSettings = () => {
         sonnerToast.success('Webhook registered successfully');
         trackEvent('manus_webhook_registered');
       } else {
-        const errorMsg = 'Registration failed';
+        const errorMsg = 'Manus registration failed';
         const parsed = parseApiError(errorMsg);
         setConnectionStatus({ success: false, message: parsed.title });
         toast.error(parsed.title, { description: parsed.message });
