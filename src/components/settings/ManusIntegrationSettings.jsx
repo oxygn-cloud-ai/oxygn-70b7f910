@@ -5,6 +5,7 @@ import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
 import { useUserCredentials } from "@/hooks/useUserCredentials";
 import { toast } from "@/components/ui/sonner";
+import { toast as sonnerToast } from "sonner";
 import { parseApiError } from "@/utils/apiErrorUtils";
 import { trackEvent } from '@/lib/posthog';
 import { 
@@ -81,21 +82,31 @@ const ManusIntegrationSettings = () => {
         const parsed = parseApiError(error.message);
         setConnectionStatus({ success: false, message: parsed.title });
         toast.error(parsed.title, { description: parsed.message });
+        sonnerToast.error(parsed.title, { description: parsed.message });
+      } else if (data?.error) {
+        // Edge function returned an error in the response body
+        const parsed = parseApiError(data.error);
+        setConnectionStatus({ success: false, message: parsed.title });
+        toast.error(parsed.title, { description: parsed.message });
+        sonnerToast.error(parsed.title, { description: parsed.message });
       } else if (data?.success) {
         setConnectionStatus({ success: true, message: 'Connected!' });
         setIsWebhookRegistered(true);
         toast.success('Webhook registered successfully');
+        sonnerToast.success('Webhook registered successfully');
         trackEvent('manus_webhook_registered');
       } else {
-        const errorMsg = data?.error || 'Registration failed';
+        const errorMsg = 'Registration failed';
         const parsed = parseApiError(errorMsg);
         setConnectionStatus({ success: false, message: parsed.title });
         toast.error(parsed.title, { description: parsed.message });
+        sonnerToast.error(parsed.title, { description: parsed.message });
       }
     } catch (err) {
       const parsed = parseApiError(err.message);
       setConnectionStatus({ success: false, message: parsed.title });
       toast.error(parsed.title, { description: parsed.message });
+      sonnerToast.error(parsed.title, { description: parsed.message });
     } finally {
       setIsTesting(false);
     }
