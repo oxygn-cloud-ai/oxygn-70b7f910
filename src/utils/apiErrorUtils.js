@@ -51,7 +51,15 @@ const ERROR_PATTERNS = [
   // === MANUS-SPECIFIC ERRORS (must come BEFORE generic api key patterns) ===
   {
     // Matches: "invalid api key" with code 16, or JSON with "message": "invalid api key"
-    pattern: /invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|["\\]message["\\]*:\s*["\\]*invalid api key/i,
+    pattern: /invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|"message"\s*:\s*"invalid api key/i,
+    code: 'MANUS_INVALID_KEY',
+    title: 'Invalid Manus API Key',
+    message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
+    recoverable: false,
+  },
+  {
+    // Fallback for exact "invalid api key" phrase (Manus-specific context)
+    pattern: /^invalid api key$/i,
     code: 'MANUS_INVALID_KEY',
     title: 'Invalid Manus API Key',
     message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
@@ -144,7 +152,7 @@ const ERROR_PATTERNS = [
   
   // === Server Errors (last resort for 500s) ===
   {
-    pattern: /server.*error|internal.*error|500/i,
+    pattern: /server.*error|internal.*error|error.*500|status.*500|code.*500|\b500\b.*error/i,
     code: 'SERVER_ERROR',
     title: 'Server Error',
     message: 'A server error occurred. Please try again.',
