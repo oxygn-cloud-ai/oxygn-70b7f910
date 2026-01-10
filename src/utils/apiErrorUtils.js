@@ -84,7 +84,29 @@ const ERROR_PATTERNS = [
     message: 'A server error occurred. Please try again.',
     recoverable: true,
   },
-  // Manus-specific errors
+  // Manus-specific errors - webhook registration
+  {
+    pattern: /invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|"message":\s*"invalid api key"/i,
+    code: 'MANUS_INVALID_KEY',
+    title: 'Invalid Manus API Key',
+    message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
+    recoverable: false,
+  },
+  {
+    pattern: /unmarshal.*message|proto.*syntax error/i,
+    code: 'MANUS_PAYLOAD_ERROR',
+    title: 'Webhook Configuration Error',
+    message: 'Failed to register webhook due to a configuration issue. Please contact support.',
+    recoverable: false,
+  },
+  {
+    pattern: /registration failed/i,
+    code: 'MANUS_REGISTRATION_FAILED',
+    title: 'Webhook Registration Failed',
+    message: 'Could not register webhook with Manus. Please verify your API key and try again.',
+    recoverable: true,
+  },
+  // Manus-specific errors - task execution
   {
     pattern: /manus.*api.*key.*not.*configured/i,
     code: 'MANUS_NOT_CONFIGURED',

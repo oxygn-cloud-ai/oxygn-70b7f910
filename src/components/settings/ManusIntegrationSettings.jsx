@@ -5,62 +5,13 @@ import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
 import { useUserCredentials } from "@/hooks/useUserCredentials";
 import { toast } from "@/components/ui/sonner";
-import { notify } from "@/contexts/ToastHistoryContext";
+import { parseApiError } from "@/utils/apiErrorUtils";
 import { trackEvent } from '@/lib/posthog';
 import { 
   Eye, EyeOff, Save, Trash2, ExternalLink, Loader2, 
   Zap, Key, Bot
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-
-// Parse Manus API errors into user-friendly messages
-const parseManusError = (errorMessage) => {
-  // Check for invalid API key error
-  if (errorMessage?.includes('invalid api key') || errorMessage?.includes('code":16')) {
-    return {
-      title: 'Invalid API Key',
-      description: 'Your Manus API key is invalid or expired. Please check your key and try again.',
-      recoverable: true
-    };
-  }
-  
-  // Check for network/timeout errors
-  if (errorMessage?.includes('timed out') || errorMessage?.includes('timeout')) {
-    return {
-      title: 'Connection Timeout',
-      description: 'Could not reach Manus servers. Please try again in a moment.',
-      recoverable: true
-    };
-  }
-  
-  // Check for registration-specific errors
-  if (errorMessage?.includes('Registration failed')) {
-    // Try to extract the inner error
-    const innerMatch = errorMessage.match(/message":"([^"]+)"/);
-    const innerMessage = innerMatch?.[1] || 'Unknown error';
-    
-    if (innerMessage.includes('invalid api key')) {
-      return {
-        title: 'Invalid API Key',
-        description: 'Your Manus API key is invalid or expired. Please update it in Settings.',
-        recoverable: true
-      };
-    }
-    
-    return {
-      title: 'Webhook Registration Failed',
-      description: innerMessage,
-      recoverable: true
-    };
-  }
-  
-  // Default fallback
-  return {
-    title: 'Manus Error',
-    description: errorMessage || 'An unexpected error occurred',
-    recoverable: false
-  };
-};
 
 const ManusIntegrationSettings = () => {
   const { 
@@ -127,12 +78,9 @@ const ManusIntegrationSettings = () => {
       const { data, error } = await supabase.functions.invoke('manus-webhook-register', {});
       
       if (error) {
-        const parsed = parseManusError(error.message);
+        const parsed = parseApiError(error.message);
         setConnectionStatus({ success: false, message: parsed.title });
-        notify.error(parsed.title, { 
-          description: parsed.description,
-          source: 'Manus Integration'
-        });
+        toast.error(parsed.title, { description: parsed.message });
       } else if (data?.success) {
         setConnectionStatus({ success: true, message: 'Connected!' });
         setIsWebhookRegistered(true);
@@ -140,20 +88,14 @@ const ManusIntegrationSettings = () => {
         trackEvent('manus_webhook_registered');
       } else {
         const errorMsg = data?.error || 'Registration failed';
-        const parsed = parseManusError(errorMsg);
+        const parsed = parseApiError(errorMsg);
         setConnectionStatus({ success: false, message: parsed.title });
-        notify.error(parsed.title, { 
-          description: parsed.description,
-          source: 'Manus Integration'
-        });
+        toast.error(parsed.title, { description: parsed.message });
       }
     } catch (err) {
-      const parsed = parseManusError(err.message);
+      const parsed = parseApiError(err.message);
       setConnectionStatus({ success: false, message: parsed.title });
-      notify.error(parsed.title, { 
-        description: parsed.description,
-        source: 'Manus Integration'
-      });
+      toast.error(parsed.title, { description: parsed.message });
     } finally {
       setIsTesting(false);
     }
