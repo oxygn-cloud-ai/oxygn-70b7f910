@@ -3,7 +3,9 @@
  */
 
 // Known error patterns and their user-friendly messages
+// IMPORTANT: Order matters! More specific patterns must come BEFORE generic patterns.
 const ERROR_PATTERNS = [
+  // === OpenAI Quota/Billing (most specific first) ===
   {
     pattern: /exceeded your current quota/i,
     code: 'QUOTA_EXCEEDED',
@@ -18,6 +20,8 @@ const ERROR_PATTERNS = [
     message: 'Your OpenAI API quota has been exceeded. Please add credits to your OpenAI account.',
     recoverable: false,
   },
+  
+  // === Rate Limiting ===
   {
     pattern: /rate limit/i,
     code: 'RATE_LIMITED',
@@ -25,7 +29,8 @@ const ERROR_PATTERNS = [
     message: 'Too many requests. The system will automatically retry.',
     recoverable: true,
   },
-  // IDLE_TIMEOUT must come BEFORE NETWORK_ERROR to avoid false matches on "timeout"/"connection"
+  
+  // === Timeout (must come BEFORE NETWORK_ERROR) ===
   {
     pattern: /idle.?timeout|no response data received|connection may have stalled/i,
     code: 'IDLE_TIMEOUT',
@@ -33,7 +38,8 @@ const ERROR_PATTERNS = [
     message: 'The AI took too long to respond. This may happen with complex prompts or when the service is busy. Please try again.',
     recoverable: true,
   },
-  // Match actual OpenAI error message, not just the error code
+  
+  // === Conversation State ===
   {
     pattern: /conversation_locked|another process.*operating|conversation.*currently in use/i,
     code: 'CONVERSATION_BUSY',
@@ -41,6 +47,61 @@ const ERROR_PATTERNS = [
     message: 'The conversation is processing another request. Please wait a moment and try again.',
     recoverable: true,
   },
+  
+  // === MANUS-SPECIFIC ERRORS (must come BEFORE generic api key patterns) ===
+  {
+    // Matches: "invalid api key" with code 16, or JSON with "message": "invalid api key"
+    pattern: /invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|["\\]message["\\]*:\s*["\\]*invalid api key/i,
+    code: 'MANUS_INVALID_KEY',
+    title: 'Invalid Manus API Key',
+    message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
+    recoverable: false,
+  },
+  {
+    pattern: /unmarshal.*message|proto.*syntax error/i,
+    code: 'MANUS_PAYLOAD_ERROR',
+    title: 'Webhook Configuration Error',
+    message: 'Failed to register webhook due to a configuration issue. Please contact support.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*api.*key.*not.*configured/i,
+    code: 'MANUS_NOT_CONFIGURED',
+    title: 'Manus Not Configured',
+    message: 'Manus API key is not configured. Add it in Settings > Integrations.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*task.*failed|manus.*error/i,
+    code: 'MANUS_TASK_FAILED',
+    title: 'Manus Task Failed',
+    message: 'The Manus task failed to complete. Check the task URL for details.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*task.*timed.*out|manus.*webhook.*timeout/i,
+    code: 'MANUS_TIMEOUT',
+    title: 'Manus Task Timeout',
+    message: 'The Manus task took too long to complete. Try a simpler prompt or check the task status.',
+    recoverable: false,
+  },
+  {
+    pattern: /manus.*requires.*user.*input/i,
+    code: 'MANUS_REQUIRES_INPUT',
+    title: 'Interactive Mode Required',
+    message: 'This Manus task requires user input which is not supported in cascade mode.',
+    recoverable: false,
+  },
+  {
+    // More specific: only match "registration failed" when it's clearly about Manus webhook
+    pattern: /webhook.*registration failed|manus.*registration failed/i,
+    code: 'MANUS_REGISTRATION_FAILED',
+    title: 'Webhook Registration Failed',
+    message: 'Could not register webhook with Manus. Please verify your API key and try again.',
+    recoverable: true,
+  },
+  
+  // === GENERIC API KEY (after Manus-specific) ===
   {
     pattern: /invalid.*api.*key/i,
     code: 'INVALID_API_KEY',
@@ -48,6 +109,8 @@ const ERROR_PATTERNS = [
     message: 'The OpenAI API key is invalid. Please check your configuration.',
     recoverable: false,
   },
+  
+  // === Model/Content Errors ===
   {
     pattern: /model.*not.*found/i,
     code: 'MODEL_NOT_FOUND',
@@ -69,7 +132,8 @@ const ERROR_PATTERNS = [
     message: 'The prompt has no content. Add text to the user or admin prompt field.',
     recoverable: false,
   },
-  // More specific pattern to avoid false positives from "timeout" or "connection" in other errors
+  
+  // === Network Errors (specific patterns to avoid false positives) ===
   {
     pattern: /failed to fetch|network error|ERR_NETWORK|ECONNREFUSED|ENOTFOUND|net::ERR_|NetworkError/i,
     code: 'NETWORK_ERROR',
@@ -77,63 +141,14 @@ const ERROR_PATTERNS = [
     message: 'Unable to connect. Please check your internet connection.',
     recoverable: true,
   },
+  
+  // === Server Errors (last resort for 500s) ===
   {
     pattern: /server.*error|internal.*error|500/i,
     code: 'SERVER_ERROR',
     title: 'Server Error',
     message: 'A server error occurred. Please try again.',
     recoverable: true,
-  },
-  // Manus-specific errors - webhook registration
-  {
-    pattern: /invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|"message":\s*"invalid api key"/i,
-    code: 'MANUS_INVALID_KEY',
-    title: 'Invalid Manus API Key',
-    message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
-    recoverable: false,
-  },
-  {
-    pattern: /unmarshal.*message|proto.*syntax error/i,
-    code: 'MANUS_PAYLOAD_ERROR',
-    title: 'Webhook Configuration Error',
-    message: 'Failed to register webhook due to a configuration issue. Please contact support.',
-    recoverable: false,
-  },
-  {
-    pattern: /registration failed/i,
-    code: 'MANUS_REGISTRATION_FAILED',
-    title: 'Webhook Registration Failed',
-    message: 'Could not register webhook with Manus. Please verify your API key and try again.',
-    recoverable: true,
-  },
-  // Manus-specific errors - task execution
-  {
-    pattern: /manus.*api.*key.*not.*configured/i,
-    code: 'MANUS_NOT_CONFIGURED',
-    title: 'Manus Not Configured',
-    message: 'Manus API key is not configured. Add it in Settings > Integrations.',
-    recoverable: false,
-  },
-  {
-    pattern: /manus.*task.*failed|manus.*error/i,
-    code: 'MANUS_TASK_FAILED',
-    title: 'Manus Task Failed',
-    message: 'The Manus task failed to complete. Check the task URL for details.',
-    recoverable: false,
-  },
-  {
-    pattern: /manus.*task.*timed.*out/i,
-    code: 'MANUS_TIMEOUT',
-    title: 'Manus Task Timeout',
-    message: 'The Manus task took too long to complete. Try a simpler prompt or check the task status.',
-    recoverable: false,
-  },
-  {
-    pattern: /manus.*requires.*user.*input/i,
-    code: 'MANUS_REQUIRES_INPUT',
-    title: 'Interactive Mode Required',
-    message: 'This Manus task requires user input which is not supported in cascade mode.',
-    recoverable: false,
   },
 ];
 
