@@ -44,7 +44,7 @@ serve(async (req) => {
         'API_KEY': manusApiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ webhook: webhookUrl }),
+      body: JSON.stringify({ webhook: { url: webhookUrl } }),
     });
 
     if (!response.ok) {
