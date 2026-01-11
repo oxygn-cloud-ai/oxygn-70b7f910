@@ -7,31 +7,6 @@ const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
 
-// DEVELOPMENT ONLY: Mock user/session/profile for local testing
-// These objects are completely removed from production builds by Vite's dead code elimination
-const devMockUser = import.meta.env.DEV ? {
-  id: '00000000-0000-0000-0000-000000000001',
-  email: 'dev@localhost.test',
-  user_metadata: { 
-    full_name: 'Development User',
-    avatar_url: null 
-  },
-  app_metadata: { provider: 'dev-bypass' },
-  created_at: new Date().toISOString(),
-} : null;
-
-const devMockSession = import.meta.env.DEV ? {
-  user: devMockUser,
-  access_token: 'dev-mock-token',
-  expires_at: Date.now() + 86400000, // 24 hours
-} : null;
-
-const devMockProfile = import.meta.env.DEV ? {
-  display_name: 'Development User',
-  email: 'dev@localhost.test',
-  avatar_url: null,
-} : null;
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
@@ -110,15 +85,13 @@ export const AuthProvider = ({ children }) => {
             
             const profile = await fetchUserProfile(currentUser.id);
             if (!mountedRef.current) return;
-            // Identify user in PostHog with fresh admin status (skip in dev mode)
-            if (!import.meta.env.DEV) {
-              identifyUser(currentUser, profile, adminStatus);
-              // Track successful login
-              trackEvent('user_login_success', {
-                email: currentUser.email,
-                provider: session?.user?.app_metadata?.provider || 'unknown',
-              });
-            }
+            // Identify user in PostHog with fresh admin status
+            identifyUser(currentUser, profile, adminStatus);
+            // Track successful login
+            trackEvent('user_login_success', {
+              email: currentUser.email,
+              provider: session?.user?.app_metadata?.provider || 'unknown',
+            });
           }, 0);
         } else {
           setIsAdmin(false);
@@ -259,24 +232,17 @@ export const AuthProvider = ({ children }) => {
     return { error };
   };
 
-  // DEVELOPMENT ONLY: Use mock values in dev mode
-  // This entire block uses values that are removed from production builds
-  const isDev = import.meta.env.DEV;
-
   const value = {
-    user: isDev ? devMockUser : user,
-    session: isDev ? devMockSession : session,
-    loading: isDev ? false : loading,
-    isAdmin: isDev ? true : isAdmin,  // Dev user has admin access
-    userProfile: isDev ? devMockProfile : userProfile,
+    user,
+    session,
+    loading,
+    isAdmin,
+    userProfile,
     signInWithGoogle,
     signInWithPassword,
     signUpWithPassword,
-    signOut: isDev ? async () => {
-      console.warn('[DEV MODE] Sign out is a no-op in development');
-      return { error: null };
-    } : signOut,
-    isAuthenticated: isDev ? true : !!user
+    signOut,
+    isAuthenticated: !!user
   };
 
   return (
