@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import * as React from 'react';
 import { trackRenderPerformance } from '@/lib/posthog';
 
 /**
@@ -11,14 +11,19 @@ import { trackRenderPerformance } from '@/lib/posthog';
  * @param {boolean} options.trackMountOnly - Only track initial mount, not re-renders (default: true)
  */
 export const useRenderPerformance = (componentName, options = {}) => {
+  // Early return if React hooks aren't available (prevents crashes during module loading)
+  if (!React || typeof React.useRef !== 'function') {
+    return;
+  }
+
   const { slowThresholdMs = 100, trackMountOnly = true } = options;
   
   // Always call hooks unconditionally to follow Rules of Hooks
-  const mountTimeRef = useRef(performance.now());
-  const renderCountRef = useRef(0);
-  const hasTrackedMountRef = useRef(false);
+  const mountTimeRef = React.useRef(performance.now());
+  const renderCountRef = React.useRef(0);
+  const hasTrackedMountRef = React.useRef(false);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Safety check - only track if function exists
     if (typeof trackRenderPerformance !== 'function') return;
     
