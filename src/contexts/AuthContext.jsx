@@ -10,7 +10,7 @@ export const useAuth = () => useContext(AuthContext);
 // DEVELOPMENT ONLY: Mock user/session/profile for local testing
 // These objects are completely removed from production builds by Vite's dead code elimination
 const devMockUser = import.meta.env.DEV ? {
-  id: 'dev-test-user-00000000-0000-0000-0000-000000000000',
+  id: '00000000-0000-0000-0000-000000000001',
   email: 'dev@localhost.test',
   user_metadata: { 
     full_name: 'Development User',
