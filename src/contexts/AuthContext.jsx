@@ -64,7 +64,6 @@ export const AuthProvider = ({ children }) => {
         if (!mountedRef.current) return;
         setSession(newSession);
         const currentUser = newSession?.user ?? null;
-        const currentUser = session?.user ?? null;
         
         setUser(currentUser);
         // Defer admin check and profile fetch to avoid Supabase client deadlock
