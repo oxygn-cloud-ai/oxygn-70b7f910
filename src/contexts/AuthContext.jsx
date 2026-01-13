@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const mountedRef = useRef(true);
+  const initialSessionHandledRef = useRef(false);
 
   const checkAdminStatus = async (userId) => {
     if (!userId) {
@@ -55,6 +56,34 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const setupAuthenticatedUser = async (currentUser, shouldTrackLogin = false, provider = 'unknown') => {
+    if (!mountedRef.current) return;
+    
+    let adminStatus = false;
+    try {
+      const { data, error } = await supabase.rpc('is_admin', { _user_id: currentUser.id });
+      if (!error && mountedRef.current) {
+        adminStatus = !!data;
+        setIsAdmin(adminStatus);
+      }
+    } catch (err) {
+      console.error('Error checking admin status:', err);
+      if (mountedRef.current) setIsAdmin(false);
+    }
+    
+    const profile = await fetchUserProfile(currentUser.id);
+    if (!mountedRef.current) return;
+    
+    identifyUser(currentUser, profile, adminStatus);
+    
+    if (shouldTrackLogin) {
+      trackEvent('user_login_success', {
+        email: currentUser.email,
+        provider,
+      });
+    }
+  };
+
   useEffect(() => {
     mountedRef.current = true;
     
@@ -66,32 +95,16 @@ export const AuthProvider = ({ children }) => {
         const currentUser = newSession?.user ?? null;
         
         setUser(currentUser);
-        // Defer admin check and profile fetch to avoid Supabase client deadlock
+        
         if (currentUser) {
-          setTimeout(async () => {
-            if (!mountedRef.current) return;
-            // Check admin status and get result for PostHog identification
-            let adminStatus = false;
-            try {
-              const { data, error } = await supabase.rpc('is_admin', { _user_id: currentUser.id });
-              if (!error && mountedRef.current) {
-                adminStatus = !!data;
-                setIsAdmin(adminStatus);
-              }
-            } catch (err) {
-              console.error('Error checking admin status:', err);
-              if (mountedRef.current) setIsAdmin(false);
-            }
-            
-            const profile = await fetchUserProfile(currentUser.id);
-            if (!mountedRef.current) return;
-            // Identify user in PostHog with fresh admin status
-            identifyUser(currentUser, profile, adminStatus);
-            // Track successful login
-            trackEvent('user_login_success', {
-              email: currentUser.email,
-              provider: newSession?.user?.app_metadata?.provider || 'unknown',
-            });
+          // SIGNED_IN fires both on actual login AND initial session restoration
+          // We only want to track actual logins (after initial session has been handled)
+          const isActualLogin = event === 'SIGNED_IN' && initialSessionHandledRef.current;
+          const provider = newSession?.user?.app_metadata?.provider || 'unknown';
+          
+          // Defer to avoid Supabase client deadlock
+          setTimeout(() => {
+            setupAuthenticatedUser(currentUser, isActualLogin, provider);
           }, 0);
         } else {
           setIsAdmin(false);
@@ -111,28 +124,16 @@ export const AuthProvider = ({ children }) => {
         
         setUser(currentUser);
         if (currentUser) {
-          // Check admin status and get result for PostHog identification
-          let adminStatus = false;
-          try {
-            const { data, error } = await supabase.rpc('is_admin', { _user_id: currentUser.id });
-            if (!error && mountedRef.current) {
-              adminStatus = !!data;
-              setIsAdmin(adminStatus);
-            }
-          } catch (err) {
-            console.error('Error checking admin status:', err);
-            if (mountedRef.current) setIsAdmin(false);
-          }
-          
-          const profile = await fetchUserProfile(currentUser.id);
-          if (!mountedRef.current) return;
-          // Identify user in PostHog with fresh admin status
-          identifyUser(currentUser, profile, adminStatus);
+          // This is initial session restoration - not an actual login
+          await setupAuthenticatedUser(currentUser, false);
         }
+        // Mark initial session as handled so subsequent SIGNED_IN events are real logins
+        initialSessionHandledRef.current = true;
         if (mountedRef.current) setLoading(false);
       })
       .catch(err => {
         console.error('Failed to get initial session:', err);
+        initialSessionHandledRef.current = true; // Still mark as handled on error
         if (mountedRef.current) setLoading(false);
       });
 
