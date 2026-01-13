@@ -90,7 +90,7 @@ export const AuthProvider = ({ children }) => {
             // Track successful login
             trackEvent('user_login_success', {
               email: currentUser.email,
-              provider: session?.user?.app_metadata?.provider || 'unknown',
+              provider: newSession?.user?.app_metadata?.provider || 'unknown',
             });
           }, 0);
         } else {
