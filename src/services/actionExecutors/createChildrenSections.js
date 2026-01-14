@@ -6,6 +6,7 @@
  * Optionally looks for corresponding content keys (e.g., "section 01 system prompt").
  * Supports creating either standard or action node children.
  */
+import { generatePositionAtEnd } from '../../utils/lexPosition.js';
 
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
@@ -191,25 +192,25 @@ export const executeCreateChildrenSections = async ({
       targetParentRowId = prompt.row_id;
   }
 
-  // Get current max position among target siblings
+  // Get last position_lex at target level
+  let lastPositionKey;
   const { data: siblings } = await supabase
     .from(PROMPTS_TABLE)
-    .select('position')
+    .select('position_lex')
     .eq('parent_row_id', targetParentRowId)
-    .order('position', { ascending: false })
+    .order('position_lex', { ascending: false })
     .limit(1);
-
-  let nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+  lastPositionKey = siblings?.[0]?.position_lex || null;
 
   // For top-level, we need different query
   if (placement === 'top_level') {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
-      .select('position')
+      .select('position_lex')
       .is('parent_row_id', null)
-      .order('position', { ascending: false })
+      .order('position_lex', { ascending: false })
       .limit(1);
-    nextPosition = (topLevel?.[0]?.position ?? -1) + 1;
+    lastPositionKey = topLevel?.[0]?.position_lex || null;
   }
 
   const contentSuffixLower = content_key_suffix?.toLowerCase()?.trim() || '';
@@ -237,7 +238,6 @@ export const executeCreateChildrenSections = async ({
     let content = '';
     if (contentSuffixLower) {
       const contentKey = `${sectionKey} ${content_key_suffix}`;
-      // Try exact match first
       const matchingKey = Object.keys(jsonResponse).find(
         k => k.toLowerCase() === contentKey.toLowerCase()
       );
@@ -247,7 +247,7 @@ export const executeCreateChildrenSections = async ({
       }
     }
 
-    // Also check for underscore suffix pattern (e.g., section_01_system_prompt)
+    // Also check for underscore suffix pattern
     if (!content && contentSuffixLower) {
       const underscoreSuffix = contentSuffixLower.replace(/\s+/g, '_');
       const contentKey = `${sectionKey}_${underscoreSuffix}`;
@@ -260,13 +260,17 @@ export const executeCreateChildrenSections = async ({
       }
     }
 
+    // Generate sequential lex position
+    const childPositionLex = generatePositionAtEnd(lastPositionKey);
+    lastPositionKey = childPositionLex;
+
     // Build child data with proper inheritance from action prompt settings
     const childData = {
       parent_row_id: targetParentRowId,
       prompt_name: String(childName).substring(0, 100),
       input_admin_prompt: libraryPrompt?.content || content || actionPromptSettings.input_admin_prompt || defaults.def_admin_prompt || '',
       input_user_prompt: content ? '' : (typeof sectionValue === 'string' ? sectionValue : ''),
-      position: nextPosition++,
+      position_lex: childPositionLex,
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard', // Use configured node type

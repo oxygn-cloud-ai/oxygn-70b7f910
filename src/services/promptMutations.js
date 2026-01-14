@@ -1,6 +1,7 @@
 import { deletePrompt } from './promptDeletion';
 import { getLevelNamingConfig, generatePromptName } from '@/utils/namingTemplates';
 import { calculateNewPositions } from '@/utils/positionUtils';
+import { generatePositionAtEnd, generatePositionBetween } from '@/utils/lexPosition';
 import { trackEvent, trackException } from '@/lib/posthog';
 
 export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
@@ -12,7 +13,7 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
 
   const { error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
-    .update({ position: result.newPosition })
+    .update({ position_lex: result.newPositionLex })
     .eq('row_id', itemId);
 
   if (error) {
@@ -90,16 +91,36 @@ const createConversation = async (supabase, promptRowId, promptName, instruction
   }
 };
 
+// Helper to get last position_lex at a given level
+const getLastPositionKey = async (supabase, parentRowId) => {
+  let query = supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('position_lex')
+    .eq('is_deleted', false)
+    .not('position_lex', 'is', null)
+    .order('position_lex', { ascending: false })
+    .limit(1);
+  
+  if (parentRowId) {
+    query = query.eq('parent_row_id', parentRowId);
+  } else {
+    query = query.is('parent_row_id', null);
+  }
+  
+  const { data } = await query;
+  return data?.[0]?.position_lex || null;
+};
+
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultConversationInstructions = '', insertAfterPromptId = null) => {
   // Calculate position based on insertion context
-  let newPosition;
+  let newPositionLex;
   let effectiveParentId = parentId;
   
   if (insertAfterPromptId) {
     // Insert as sibling right after the specified prompt
     const { data: referencePrompt } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('row_id, position, parent_row_id')
+      .select('row_id, position_lex, parent_row_id')
       .eq('row_id', insertAfterPromptId)
       .maybeSingle();
     
@@ -110,10 +131,10 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       // Find the next sibling's position
       let nextQuery = supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
-        .select('position')
+        .select('position_lex')
         .eq('is_deleted', false)
-        .gt('position', referencePrompt.position)
-        .order('position', { ascending: true })
+        .gt('position_lex', referencePrompt.position_lex)
+        .order('position_lex', { ascending: true })
         .limit(1);
       
       if (effectiveParentId) {
@@ -124,34 +145,20 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       
       const { data: nextSibling } = await nextQuery;
       
-      if (nextSibling?.[0]?.position) {
+      if (nextSibling?.[0]?.position_lex) {
         // Insert between reference and next sibling
-        newPosition = (referencePrompt.position + nextSibling[0].position) / 2;
+        newPositionLex = generatePositionBetween(referencePrompt.position_lex, nextSibling[0].position_lex);
       } else {
         // No next sibling, insert after reference
-        newPosition = referencePrompt.position + 1000000;
+        newPositionLex = generatePositionAtEnd(referencePrompt.position_lex);
       }
     }
   }
   
-  // Fallback: get max position at the target level (append to end)
-  if (newPosition === undefined) {
-    let query = supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .select('position')
-      .eq('is_deleted', false)
-      .order('position', { ascending: false })
-      .limit(1);
-    
-    if (effectiveParentId) {
-      query = query.eq('parent_row_id', effectiveParentId);
-    } else {
-      query = query.is('parent_row_id', null);
-    }
-    
-    const { data: existingPrompts } = await query;
-    const maxPosition = existingPrompts?.[0]?.position || 0;
-    newPosition = maxPosition + 1000000;
+  // Fallback: get last position at the target level (append to end)
+  if (!newPositionLex) {
+    const lastKey = await getLastPositionKey(supabase, effectiveParentId);
+    newPositionLex = generatePositionAtEnd(lastKey);
   }
   
   // Get context for naming (use effectiveParentId for correct level calculation)
@@ -259,7 +266,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     parent_row_id: effectiveParentId,
     prompt_name: promptName,
     input_admin_prompt: defaultAdminPrompt || null,
-    position: newPosition,
+    position_lex: newPositionLex,
     is_deleted: false,
     owner_id: userId,
     // Apply global model defaults first
@@ -316,32 +323,19 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
   if (fetchError) throw fetchError;
   if (!sourcePrompt) throw new Error('Source prompt not found');
 
-  // Get max position at same level
-  let query = supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('position')
-    .eq('is_deleted', false)
-    .order('position', { ascending: false })
-    .limit(1);
-
-  if (sourcePrompt.parent_row_id) {
-    query = query.eq('parent_row_id', sourcePrompt.parent_row_id);
-  } else {
-    query = query.is('parent_row_id', null);
-  }
-
-  const { data: posData } = await query;
-  const maxPosition = posData?.[0]?.position || 0;
+  // Get last position_lex at same level
+  const lastKey = await getLastPositionKey(supabase, sourcePrompt.parent_row_id);
+  const newPositionLex = generatePositionAtEnd(lastKey);
 
   // Create duplicate with "(copy)" suffix
-  const { row_id, created_at, updated_at, ...promptFields } = sourcePrompt;
+  const { row_id, created_at, updated_at, position, position_lex, ...promptFields } = sourcePrompt;
   
   const { data: newPrompt, error: insertError } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
       ...promptFields,
       prompt_name: `${sourcePrompt.prompt_name} (copy)`,
-      position: maxPosition + 1000000,
+      position_lex: newPositionLex,
       owner_id: userId || sourcePrompt.owner_id,
     }])
     .select()
@@ -375,7 +369,7 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
     .select('row_id')
     .eq('parent_row_id', sourcePromptId)
     .eq('is_deleted', false)
-    .order('position');
+    .order('position_lex');
 
   if (children && children.length > 0) {
     for (const child of children) {
@@ -403,13 +397,18 @@ const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userI
   if (fetchError) throw fetchError;
   if (!sourcePrompt) throw new Error('Source prompt not found');
 
-  const { row_id, created_at, updated_at, parent_row_id, ...promptFields } = sourcePrompt;
+  // Get last position for the new parent's children
+  const lastKey = await getLastPositionKey(supabase, newParentId);
+  const newPositionLex = generatePositionAtEnd(lastKey);
+
+  const { row_id, created_at, updated_at, parent_row_id, position, position_lex, ...promptFields } = sourcePrompt;
   
   const { data: newPrompt, error: insertError } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .insert([{
       ...promptFields,
       parent_row_id: newParentId,
+      position_lex: newPositionLex,
       owner_id: userId || sourcePrompt.owner_id,
     }])
     .select()
@@ -423,7 +422,7 @@ const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userI
     .select('row_id')
     .eq('parent_row_id', sourcePromptId)
     .eq('is_deleted', false)
-    .order('position');
+    .order('position_lex');
 
   if (children && children.length > 0) {
     for (const child of children) {

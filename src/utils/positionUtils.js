@@ -1,40 +1,59 @@
+import { generatePositionBetween, generatePositionAtEnd } from './lexPosition';
+
+/**
+ * Calculate new position for moving an item up or down in a list
+ * Uses lexicographic positioning for stable ordering
+ */
 export const calculateNewPositions = (items, currentIndex, direction) => {
-  const positions = items.map(item => item.position);
-  
   if (direction === 'up' && currentIndex > 0) {
+    const prevItem = items[currentIndex - 1];
+    const beforeItem = currentIndex > 1 ? items[currentIndex - 2] : null;
+    const beforeKey = beforeItem?.position_lex || null;
+    const afterKey = prevItem?.position_lex || null;
+    
     return {
-      prevId: currentIndex > 1 ? items[currentIndex - 2].id : null,
-      nextId: items[currentIndex - 1].id,
-      newPosition: (positions[currentIndex - 1] + (positions[currentIndex - 2] || 0)) / 2
+      prevId: beforeItem?.id || null,
+      nextId: prevItem.id,
+      newPositionLex: generatePositionBetween(beforeKey, afterKey)
     };
   } else if (direction === 'down' && currentIndex < items.length - 1) {
+    const nextItem = items[currentIndex + 1];
+    const afterItem = currentIndex < items.length - 2 ? items[currentIndex + 2] : null;
+    const beforeKey = nextItem?.position_lex || null;
+    const afterKey = afterItem?.position_lex || null;
+    
     return {
-      prevId: items[currentIndex + 1].id,
-      nextId: currentIndex < items.length - 2 ? items[currentIndex + 2].id : null,
-      newPosition: (positions[currentIndex + 1] + (positions[currentIndex + 2] || positions[currentIndex + 1] + 1000000)) / 2
+      prevId: nextItem.id,
+      nextId: afterItem?.id || null,
+      newPositionLex: generatePositionBetween(beforeKey, afterKey)
     };
   }
   return null;
 };
 
+/**
+ * @deprecated Use generatePositionBetween from lexPosition.js instead
+ */
 export const calculatePosition = (prevPosition, nextPosition) => {
+  console.warn('calculatePosition is deprecated. Use lexPosition utilities instead.');
   if (!prevPosition && !nextPosition) {
-    return getInitialPosition();
+    return 'a0';
   }
-  
   if (!prevPosition) {
-    return nextPosition - 1000000;
+    return generatePositionBetween(null, nextPosition);
   }
-  
   if (!nextPosition) {
-    return prevPosition + 1000000;
+    return generatePositionAtEnd(prevPosition);
   }
-  
-  return (prevPosition + nextPosition) / 2;
+  return generatePositionBetween(prevPosition, nextPosition);
 };
 
+/**
+ * @deprecated Use generatePositionAtEnd from lexPosition.js instead
+ */
 export const getInitialPosition = () => {
-  return Date.now() * 1000;
+  console.warn('getInitialPosition is deprecated. Use lexPosition utilities instead.');
+  return 'a0';
 };
 
 export const buildTree = (data) => {
@@ -65,9 +84,23 @@ export const buildTree = (data) => {
     }
   });
 
-  // Sort items by position
+  // Sort items by position_lex (lexicographic), with created_at as tie-breaker
   const sortByPosition = (items) => {
-    items.sort((a, b) => (a.position || 0) - (b.position || 0));
+    items.sort((a, b) => {
+      // Use position_lex for lexicographic sorting
+      const posA = a.position_lex ?? '';
+      const posB = b.position_lex ?? '';
+      
+      // Lexicographic string comparison
+      if (posA < posB) return -1;
+      if (posA > posB) return 1;
+      
+      // Tie-breaker: created_at (older first)
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateA - dateB;
+    });
+    
     items.forEach(item => {
       if (item.children && item.children.length > 0) {
         sortByPosition(item.children);

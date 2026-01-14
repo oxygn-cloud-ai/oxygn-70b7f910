@@ -7,7 +7,7 @@ export const fetchPrompts = async (supabase, parentId) => {
       .select('*')
       .eq('parent_row_id', parentId)
       .eq('is_deleted', false)
-      .order('position');
+      .order('position_lex');
 
     if (error) throw error;
     return data || [];

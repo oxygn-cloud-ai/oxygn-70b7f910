@@ -6,6 +6,7 @@
  */
 
 import { processNamingTemplate } from '../../utils/namingTemplates.js';
+import { generatePositionAtEnd } from '../../utils/lexPosition.js';
 
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
@@ -139,24 +140,24 @@ export const executeCreateChildrenText = async ({
       targetParentRowId = prompt.row_id;
   }
 
-  // Get current max position among target siblings
-  let nextPosition;
+  // Get last position_lex at target level
+  let lastPositionKey;
   if (placement === 'top_level') {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
-      .select('position')
+      .select('position_lex')
       .is('parent_row_id', null)
-      .order('position', { ascending: false })
+      .order('position_lex', { ascending: false })
       .limit(1);
-    nextPosition = (topLevel?.[0]?.position ?? -1) + 1;
+    lastPositionKey = topLevel?.[0]?.position_lex || null;
   } else {
     const { data: siblings } = await supabase
       .from(PROMPTS_TABLE)
-      .select('position')
+      .select('position_lex')
       .eq('parent_row_id', targetParentRowId)
-      .order('position', { ascending: false })
+      .order('position_lex', { ascending: false })
       .limit(1);
-    nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+    lastPositionKey = siblings?.[0]?.position_lex || null;
   }
 
   const createdChildren = [];
@@ -168,13 +169,17 @@ export const executeCreateChildrenText = async ({
       ? processNamingTemplate(name_prefix, i)
       : `${name_prefix} ${i + 1}`;
     
+    // Generate sequential lex positions
+    const childPositionLex = generatePositionAtEnd(lastPositionKey);
+    lastPositionKey = childPositionLex;
+    
     // Build child data with proper inheritance
     const childData = {
       parent_row_id: targetParentRowId,
       prompt_name: childName,
       input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
       input_user_prompt: defaults.default_user_prompt || '',
-      position: nextPosition++,
+      position_lex: childPositionLex,
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard',

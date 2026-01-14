@@ -228,7 +228,7 @@ export const useTemplates = () => {
             .select('row_id')
             .eq('parent_row_id', rowId)
             .eq('is_deleted', false)
-            .order('position', { ascending: true });
+            .order('position_lex', { ascending: true });
 
           if (children) {
             for (const child of children) {

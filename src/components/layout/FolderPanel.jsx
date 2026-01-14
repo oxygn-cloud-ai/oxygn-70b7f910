@@ -701,12 +701,15 @@ const FolderPanel = ({
     if (!supabase || !onMovePrompt) return;
     
     try {
+      // Dynamic import of lex utilities
+      const { generatePositionBetween, generatePositionAtEnd, generatePositionAtStart } = await import('@/utils/lexPosition');
+      
       // Get positions of siblings to calculate new position
       const { data: siblings } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
-        .select('row_id, position, parent_row_id')
+        .select('row_id, position_lex, parent_row_id')
         .in('row_id', siblingIds)
-        .order('position', { ascending: true });
+        .order('position_lex', { ascending: true });
       
       if (!siblings?.length) return;
       
@@ -719,26 +722,25 @@ const FolderPanel = ({
       
       if (!draggedItem) return;
       
-      // Calculate new position based on target index
-      let newPosition;
-      const sortedSiblings = [...siblings].sort((a, b) => (a.position || 0) - (b.position || 0));
-      
-      // Filter out the dragged item if it's in the same list
+      // Sort siblings by position_lex and filter out dragged item
+      const sortedSiblings = [...siblings].sort((a, b) => (a.position_lex || '').localeCompare(b.position_lex || ''));
       const filteredSiblings = sortedSiblings.filter(s => s.row_id !== draggedId);
       
+      // Calculate new position using lexicographic utilities
+      let newPositionLex;
       if (targetIndex === 0) {
         // Insert at the beginning
-        const firstPosition = filteredSiblings[0]?.position || 1000000;
-        newPosition = firstPosition - 1000000;
+        const firstKey = filteredSiblings[0]?.position_lex || null;
+        newPositionLex = generatePositionAtStart(firstKey);
       } else if (targetIndex >= filteredSiblings.length) {
         // Insert at the end
-        const lastPosition = filteredSiblings[filteredSiblings.length - 1]?.position || 0;
-        newPosition = lastPosition + 1000000;
+        const lastKey = filteredSiblings[filteredSiblings.length - 1]?.position_lex || null;
+        newPositionLex = generatePositionAtEnd(lastKey);
       } else {
         // Insert between two items
-        const prevPosition = filteredSiblings[targetIndex - 1]?.position || 0;
-        const nextPosition = filteredSiblings[targetIndex]?.position || prevPosition + 2000000;
-        newPosition = (prevPosition + nextPosition) / 2;
+        const beforeKey = filteredSiblings[targetIndex - 1]?.position_lex || null;
+        const afterKey = filteredSiblings[targetIndex]?.position_lex || null;
+        newPositionLex = generatePositionBetween(beforeKey, afterKey);
       }
       
       // Get the parent of the target location (same as siblings)
@@ -748,7 +750,7 @@ const FolderPanel = ({
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ 
-          position: newPosition,
+          position_lex: newPositionLex,
           parent_row_id: targetParentId
         })
         .eq('row_id', draggedId);
