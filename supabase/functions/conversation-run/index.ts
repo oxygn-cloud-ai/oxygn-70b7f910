@@ -218,6 +218,17 @@ async function runResponsesAPI(
   
   // Fetch model config ONCE for all parameter decisions
   const modelConfig = await fetchModelConfig(supabase, requestedModel);
+  
+  // MANUS PROVIDER CHECK - Manus models are async/webhook-based and incompatible with runResponsesAPI
+  if (modelConfig?.provider === 'manus') {
+    console.log('Manus model detected in runResponsesAPI - rejecting:', requestedModel);
+    return {
+      success: false,
+      error: `Model '${modelConfig.modelName}' uses the Manus provider which requires async execution via cascade. Use cascade execution instead, or select a different model.`,
+      error_code: 'MANUS_NOT_SUPPORTED',
+    };
+  }
+  
   const modelSupportsTemp = modelConfig?.supportsTemperature ?? true;
   const modelTokenParam = modelConfig?.tokenParam ?? 'max_tokens';
   const supportedSettings = modelConfig?.supportedSettings || [];
