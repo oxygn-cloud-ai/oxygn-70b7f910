@@ -51,7 +51,7 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
       query = query.eq('owner_id', currentUserId);
     }
     
-    const { data, error } = await query.order('position');
+    const { data, error } = await query.order('position_lex');
 
     if (error) throw error;
 

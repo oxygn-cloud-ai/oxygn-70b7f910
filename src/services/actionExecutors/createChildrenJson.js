@@ -6,6 +6,8 @@
  * Supports creating either standard or action node children.
  */
 
+import { generatePositionAtEnd } from '../../utils/lexPosition.js';
+
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
 const MODEL_DEFAULTS_TABLE = 'q_model_defaults';
@@ -233,24 +235,24 @@ export const executeCreateChildrenJson = async ({
       targetParentRowId = prompt.row_id;
   }
 
-  // Get current max position among siblings
-  let nextPosition;
+  // Get last position_lex at target level
+  let lastPositionKey;
   if (placement === 'top_level') {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
-      .select('position')
+      .select('position_lex')
       .is('parent_row_id', null)
-      .order('position', { ascending: false })
+      .order('position_lex', { ascending: false })
       .limit(1);
-    nextPosition = (topLevel?.[0]?.position ?? -1) + 1;
+    lastPositionKey = topLevel?.[0]?.position_lex || null;
   } else {
     const { data: siblings } = await supabase
       .from(PROMPTS_TABLE)
-      .select('position')
+      .select('position_lex')
       .eq('parent_row_id', targetParentRowId)
-      .order('position', { ascending: false })
+      .order('position_lex', { ascending: false })
       .limit(1);
-    nextPosition = (siblings?.[0]?.position ?? -1) + 1;
+    lastPositionKey = siblings?.[0]?.position_lex || null;
   }
 
   const createdChildren = [];
@@ -314,8 +316,11 @@ export const executeCreateChildrenJson = async ({
       contentPreview: content?.substring(0, 100),
     });
 
+    // Generate sequential lex position
+    const childPositionLex = generatePositionAtEnd(lastPositionKey);
+    lastPositionKey = childPositionLex;
+
     // Build child data with proper inheritance
-    // Determine where to place content based on content_destination
     const isSystemDestination = content_destination === 'system';
     
     const childData = {
@@ -327,16 +332,13 @@ export const executeCreateChildrenJson = async ({
       input_user_prompt: isSystemDestination 
         ? '' 
         : (content || ''),
-      position: nextPosition++,
+      position_lex: childPositionLex,
       is_deleted: false,
       owner_id: context.userId || prompt.owner_id,
       node_type: child_node_type || 'standard',
-      is_assistant: true, // Always enable conversation mode for child prompts
-      // Store the original item data for reference
+      is_assistant: true,
       extracted_variables: typeof item === 'object' ? item : { value: item },
-      // Apply model defaults
       ...modelDefaults,
-      // Inherit settings from parent (with fallback to model defaults)
       temperature: parentSettings.temperature ?? modelDefaults.temperature,
       temperature_on: parentSettings.temperature_on ?? modelDefaults.temperature_on,
       max_tokens: parentSettings.max_tokens ?? modelDefaults.max_tokens,

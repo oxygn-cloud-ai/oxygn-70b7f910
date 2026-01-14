@@ -13,7 +13,7 @@ import { useCostTracking } from '@/hooks/useCostTracking';
 import { trackEvent } from '@/lib/posthog';
 
 const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
-  const [position, setPosition] = useState(item?.position || '');
+  const [position, setPosition] = useState(item?.position_lex || '');
   const [lifetimeCosts, setLifetimeCosts] = useState(null);
   const [isLoadingCosts, setIsLoadingCosts] = useState(false);
   const { getLifetimeCosts } = useCostTracking();
@@ -45,7 +45,7 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
 
   const handleSave = async () => {
     try {
-      await onSave(position);
+      await onSave(position, 'position_lex');
       toast.success('Position updated successfully');
       onClose();
     } catch (error) {
@@ -95,7 +95,7 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
                 <Input value={item?.id || ''} readOnly disabled className="font-mono text-xs" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Position</Label>
+                <Label className="text-xs text-muted-foreground">Position (Lex)</Label>
                 <Input
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}

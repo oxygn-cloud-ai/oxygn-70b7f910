@@ -85,7 +85,7 @@ export const useExport = () => {
     });
 
     childrenMap.forEach((children) => {
-      children.sort((a, b) => (a.position || 0) - (b.position || 0));
+      children.sort((a, b) => (a.position_lex || '').localeCompare(b.position_lex || ''));
     });
 
     const orderedIds = [];

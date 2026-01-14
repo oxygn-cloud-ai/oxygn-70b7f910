@@ -6,6 +6,7 @@
 import type { ToolModule, ToolDefinition, ToolContext } from './types.ts';
 import { TABLES } from '../tables.ts';
 import { getPromptFamilyTree } from '../promptFamily.ts';
+import { generatePositionAtEnd } from '../lexPosition.ts';
 
 const TOOL_NAMES = [
   'get_prompt_tree',
@@ -206,7 +207,7 @@ async function fetchCascadeHierarchy(
       .from(TABLES.PROMPTS).select('*')
       .in('parent_row_id', currentLevelIds)
       .eq('is_deleted', false)
-      .order('position', { ascending: true });
+      .order('position_lex', { ascending: true });
 
     if (!children?.length) break;
 
@@ -597,16 +598,17 @@ export const promptsModule: ToolModule = {
             .eq('row_id', parent_row_id)
             .maybeSingle();
 
-          // Calculate position (append at end)
+          // Calculate position using lexicographic ordering
           const { data: siblings } = await supabase
             .from(TABLES.PROMPTS)
-            .select('position')
+            .select('position_lex')
             .eq('parent_row_id', parent_row_id)
             .eq('is_deleted', false)
-            .order('position', { ascending: false })
+            .order('position_lex', { ascending: false })
             .limit(1);
 
-          const newPosition = (siblings?.[0]?.position ?? 0) + 1;
+          const lastKey = siblings?.[0]?.position_lex || null;
+          const newPositionLex = generatePositionAtEnd(lastKey);
 
           // Create the prompt
           const { data: newPrompt, error: insertError } = await supabase
@@ -620,7 +622,7 @@ export const promptsModule: ToolModule = {
               model: parent?.model || 'gpt-4o',
               thread_mode: parent?.thread_mode || 'inherit',
               owner_id: context.userId,
-              position: newPosition,
+              position_lex: newPositionLex,
               is_deleted: false
             })
             .select('row_id, prompt_name')
@@ -750,26 +752,27 @@ export const promptsModule: ToolModule = {
             return JSON.stringify({ error: 'Source prompt not found' });
           }
 
-          // Calculate new position
+          // Calculate new position using lexicographic ordering
           const { data: siblings } = await supabase
             .from(TABLES.PROMPTS)
-            .select('position')
+            .select('position_lex')
             .eq('parent_row_id', source.parent_row_id)
             .eq('is_deleted', false)
-            .order('position', { ascending: false })
+            .order('position_lex', { ascending: false })
             .limit(1);
 
-          const newPosition = (siblings?.[0]?.position ?? 0) + 1;
+          const lastKey = siblings?.[0]?.position_lex || null;
+          const newPositionLex = generatePositionAtEnd(lastKey);
 
           // Create the duplicate
-          const { row_id: _oldId, created_at: _created, updated_at: _updated, ...copyData } = source;
+          const { row_id: _oldId, created_at: _created, updated_at: _updated, position, position_lex, ...copyData } = source;
           
           const { data: newPrompt, error: insertError } = await supabase
             .from(TABLES.PROMPTS)
             .insert({
               ...copyData,
               prompt_name: `${source.prompt_name} (copy)`,
-              position: newPosition,
+              position_lex: newPositionLex,
               owner_id: context.userId
             })
             .select('row_id, prompt_name')

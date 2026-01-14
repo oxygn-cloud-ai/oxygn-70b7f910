@@ -1333,6 +1333,7 @@ export type Database = {
           owner_id: string | null
           parent_row_id: string | null
           position: number | null
+          position_lex: string
           post_action: string | null
           post_action_config: Json | null
           presence_penalty: string | null
@@ -1424,6 +1425,7 @@ export type Database = {
           owner_id?: string | null
           parent_row_id?: string | null
           position?: number | null
+          position_lex?: string
           post_action?: string | null
           post_action_config?: Json | null
           presence_penalty?: string | null
@@ -1515,6 +1517,7 @@ export type Database = {
           owner_id?: string | null
           parent_row_id?: string | null
           position?: number | null
+          position_lex?: string
           post_action?: string | null
           post_action_config?: Json | null
           presence_penalty?: string | null

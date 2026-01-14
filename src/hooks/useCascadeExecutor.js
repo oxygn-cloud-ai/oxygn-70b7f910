@@ -235,7 +235,7 @@ export const useCascadeExecutor = () => {
         .select('*')
         .in('parent_row_id', currentLevelIds)
         .eq('is_deleted', false)
-        .order('position', { ascending: true });
+        .order('position_lex', { ascending: true });
 
       if (childError) {
         console.error('Error fetching children:', childError);
