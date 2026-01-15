@@ -237,7 +237,7 @@ export const executeCreateChildrenJson = async ({
 
   // Get last position_lex at target level
   let lastPositionKey;
-  if (placement === 'top_level') {
+  if (placement === 'top_level' || targetParentRowId === null) {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
       .select('position_lex')
