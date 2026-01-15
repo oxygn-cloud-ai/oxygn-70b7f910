@@ -192,18 +192,9 @@ export const executeCreateChildrenSections = async ({
       targetParentRowId = prompt.row_id;
   }
 
-  // Get last position_lex at target level
+  // Get last position_lex at target level (use .is() for null, .eq() otherwise)
   let lastPositionKey;
-  const { data: siblings } = await supabase
-    .from(PROMPTS_TABLE)
-    .select('position_lex')
-    .eq('parent_row_id', targetParentRowId)
-    .order('position_lex', { ascending: false })
-    .limit(1);
-  lastPositionKey = siblings?.[0]?.position_lex || null;
-
-  // For top-level, we need different query
-  if (placement === 'top_level') {
+  if (placement === 'top_level' || targetParentRowId === null) {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
       .select('position_lex')
@@ -211,6 +202,14 @@ export const executeCreateChildrenSections = async ({
       .order('position_lex', { ascending: false })
       .limit(1);
     lastPositionKey = topLevel?.[0]?.position_lex || null;
+  } else {
+    const { data: siblings } = await supabase
+      .from(PROMPTS_TABLE)
+      .select('position_lex')
+      .eq('parent_row_id', targetParentRowId)
+      .order('position_lex', { ascending: false })
+      .limit(1);
+    lastPositionKey = siblings?.[0]?.position_lex || null;
   }
 
   const contentSuffixLower = content_key_suffix?.toLowerCase()?.trim() || '';
