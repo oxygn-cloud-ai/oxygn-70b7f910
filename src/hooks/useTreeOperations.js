@@ -78,14 +78,21 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       const defaultConversationInstructions = settingsMap['def_assistant_instructions'] || '';
       
       const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id, defaultConversationInstructions, insertAfterPromptId);
+      
+      // Validate we actually got a result (defense in depth)
+      if (!newItemId || newItemId.length === 0) {
+        throw new Error('Prompt creation returned no data');
+      }
+      
       if (!skipRefresh) {
         await refreshTreeData();
       }
+      
       toast.success('Prompt created');
       
       // Track prompt creation
       trackEvent('prompt_created', {
-        prompt_id: newItemId?.[0]?.row_id,
+        prompt_id: newItemId[0]?.row_id,
         parent_id: parentId,
         has_default_content: !!defaultAdminPrompt,
       });
@@ -93,7 +100,9 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       return newItemId;
     } catch (error) {
       console.error('Error adding new prompt:', error);
-      toast.error('Failed to add new prompt');
+      toast.error('Failed to add new prompt', {
+        description: error?.message || 'An unexpected error occurred',
+      });
       return null;
     } finally {
       isAddingRef.current = false;

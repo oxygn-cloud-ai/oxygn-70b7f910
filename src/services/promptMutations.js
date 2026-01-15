@@ -112,6 +112,14 @@ const getLastPositionKey = async (supabase, parentRowId) => {
 };
 
 export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultConversationInstructions = '', insertAfterPromptId = null) => {
+  // CRITICAL: Validate userId to prevent RLS issues where INSERT succeeds but SELECT fails
+  if (!userId) {
+    const authError = new Error('Cannot create prompt: User ID is required. Please ensure you are logged in.');
+    authError.code = 'AUTH_REQUIRED';
+    console.error('[addPrompt] Missing userId - user may not be logged in');
+    throw authError;
+  }
+
   // Calculate position based on insertion context
   let newPositionLex;
   let effectiveParentId = parentId;
@@ -296,6 +304,28 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     console.error('Failed to add prompt:', error);
     trackException(error, { context: 'promptMutations.addPrompt' });
     throw error;
+  }
+
+  // CRITICAL: Detect RLS SELECT block (INSERT succeeded but SELECT returned empty)
+  // This happens when owner_id doesn't match auth.uid() in the SELECT policy
+  if (!data || data.length === 0) {
+    const rlsError = new Error(
+      'Prompt was created but could not be retrieved. ' +
+      'This usually means the owner_id does not match your user ID. ' +
+      'Please ensure you are logged in.'
+    );
+    rlsError.code = 'RLS_SELECT_BLOCKED';
+    console.error('[addPrompt] Empty data after INSERT:', { 
+      userId, 
+      effectiveParentId,
+      insertData 
+    });
+    trackException(rlsError, { 
+      context: 'promptMutations.addPrompt.emptyData', 
+      userId, 
+      parentId: effectiveParentId 
+    });
+    throw rlsError;
   }
   
   // If this is a top-level prompt, create a conversation record
