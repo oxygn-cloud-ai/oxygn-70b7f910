@@ -785,12 +785,20 @@ export const promptsModule: ToolModule = {
 
           let childCount = 0;
           if (include_children) {
-            // Get direct children from the family
-            const children = familyPromptIds.filter(id => {
-              const p = familyContext.promptsMap?.get(id);
-              return p?.parent_row_id === prompt_row_id;
-            });
+            // Get direct children from the family, sorted by position_lex
+            const children = familyPromptIds
+              .filter(id => {
+                const p = familyContext.promptsMap?.get(id);
+                return p?.parent_row_id === prompt_row_id && !p?.is_deleted;
+              })
+              .sort((a, b) => {
+                const pA = familyContext.promptsMap?.get(a)?.position_lex || '';
+                const pB = familyContext.promptsMap?.get(b)?.position_lex || '';
+                return pA.localeCompare(pB);
+              });
 
+            // Generate sequential position keys for children
+            let childLastKey: string | null = null;
             for (const childId of children) {
               const { data: childSource } = await supabase
                 .from(TABLES.PROMPTS)
@@ -799,10 +807,15 @@ export const promptsModule: ToolModule = {
                 .maybeSingle();
 
               if (childSource) {
-                const { row_id: _cid, created_at: _cc, updated_at: _cu, ...childCopy } = childSource;
+                // Exclude old position fields, generate new position_lex
+                const { row_id: _cid, created_at: _cc, updated_at: _cu, position: _pos, position_lex: _posLex, ...childCopy } = childSource;
+                const newChildPositionLex = generatePositionAtEnd(childLastKey);
+                childLastKey = newChildPositionLex;
+                
                 await supabase.from(TABLES.PROMPTS).insert({
                   ...childCopy,
                   parent_row_id: newPrompt.row_id,
+                  position_lex: newChildPositionLex,
                   owner_id: context.userId
                 });
                 childCount++;

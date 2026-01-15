@@ -10,6 +10,7 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
+import { generatePositionAtEnd } from '@/utils/lexPosition';
 
 const TemplatePickerDialog = ({ 
   isOpen, 
@@ -167,13 +168,14 @@ const TemplatePickerDialog = ({
         }
       }
 
-      // Helper to get max position at a level
-      const getMaxPosition = async (parentRowId) => {
+      // Helper to get last position key at a level
+      const getLastPositionKey = async (parentRowId) => {
         let query = supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
-          .select('position')
+          .select('position_lex')
           .eq('is_deleted', false)
-          .order('position', { ascending: false })
+          .not('position_lex', 'is', null)
+          .order('position_lex', { ascending: false })
           .limit(1);
         
         if (parentRowId === null) {
@@ -183,8 +185,11 @@ const TemplatePickerDialog = ({
         }
         
         const { data } = await query;
-        return data?.[0]?.position || 0;
+        return data?.[0]?.position_lex || null;
       };
+      
+      // Track position keys for sequential generation within each parent
+      const positionKeyCache = new Map();
 
       // Helper to create conversation for top-level prompts (Responses API - no instantiation needed)
       const createConversation = async (promptRowId, promptName, instructions = '') => {
@@ -221,9 +226,15 @@ const TemplatePickerDialog = ({
       };
 
       // Recursive function to create prompts from structure
-      const createPromptFromStructure = async (promptStructure, parentRowId, positionOffset = 0, overridePromptName = null) => {
-        const maxPosition = await getMaxPosition(parentRowId);
-        const newPosition = maxPosition + 1000000 + positionOffset;
+      const createPromptFromStructure = async (promptStructure, parentRowId, childIndex = 0, overridePromptName = null) => {
+        // Get or generate position key for this parent level
+        let currentLastKey = positionKeyCache.get(parentRowId);
+        if (currentLastKey === undefined) {
+          currentLastKey = await getLastPositionKey(parentRowId);
+        }
+        const newPositionLex = generatePositionAtEnd(currentLastKey);
+        positionKeyCache.set(parentRowId, newPositionLex);
+        
         const isTopLevelPrompt = parentRowId === null;
 
         // Build prompt name
@@ -263,7 +274,7 @@ const TemplatePickerDialog = ({
           note: replaceVariables(promptStructure.note, vars),
           owner_id: user?.id,
           template_row_id: templateRowId,
-          position: newPosition,
+          position_lex: newPositionLex,
           is_deleted: false,
           system_variables: Object.keys(systemVariables).length > 0 ? systemVariables : null,
           ...modelDefaults, // Apply system model defaults first
@@ -374,8 +385,10 @@ const TemplatePickerDialog = ({
 
         // Create children recursively with proper ordering
         if (promptStructure.children?.length > 0) {
+          // Reset cache for this parent's children to start fresh
+          positionKeyCache.delete(data.row_id);
           for (let i = 0; i < promptStructure.children.length; i++) {
-            await createPromptFromStructure(promptStructure.children[i], data.row_id, i * 1000, null);
+            await createPromptFromStructure(promptStructure.children[i], data.row_id, i, null);
           }
         }
 
