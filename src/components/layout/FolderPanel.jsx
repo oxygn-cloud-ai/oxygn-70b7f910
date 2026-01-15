@@ -273,6 +273,27 @@ const TreeItem = ({
     };
   }, [isMenuOpen, setOpenMenuId]);
   
+  // Close menu on scroll to prevent visual detachment
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    
+    const handleScroll = () => {
+      if (!mountedRef.current) return;
+      setOpenMenuId(null);
+    };
+    
+    // Find the Radix ScrollArea viewport container
+    const scrollContainer = menuButtonRef.current?.closest('[data-radix-scroll-area-viewport]');
+    
+    scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      scrollContainer?.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [isMenuOpen, setOpenMenuId]);
+  
   // Calculate menu position with viewport awareness
   const getMenuPosition = useCallback(() => {
     if (!menuButtonRef.current) return { top: 0, left: 0 };
@@ -741,6 +762,23 @@ const FolderPanel = ({
   
   // Lifted menu state - only one menu can be open at a time
   const [openMenuId, setOpenMenuId] = useState(null);
+
+  // Helper to check if item exists in tree
+  const itemExistsInTree = useCallback((items, id) => {
+    if (!items) return false;
+    for (const item of items) {
+      if ((item.id || item.row_id) === id) return true;
+      if (item.children && itemExistsInTree(item.children, id)) return true;
+    }
+    return false;
+  }, []);
+
+  // Clear stale openMenuId if item was deleted externally
+  useEffect(() => {
+    if (openMenuId && treeData && !itemExistsInTree(treeData, openMenuId)) {
+      setOpenMenuId(null);
+    }
+  }, [treeData, openMenuId, itemExistsInTree]);
 
   // Handle icon change
   const handleIconChange = useCallback(async (promptId, iconName) => {
