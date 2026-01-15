@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useCallback } from "react";
+import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { icons } from "lucide-react";
@@ -29,7 +29,8 @@ import {
   X,
   Palette,
   PanelLeftClose,
-  Maximize2
+  Maximize2,
+  EllipsisVertical
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -195,14 +196,17 @@ const TreeItem = ({
   deletingPromptIds = new Set(),
   // Save as template
   onSaveAsTemplate,
+  // Menu state - lifted to FolderPanel
+  openMenuId,
+  setOpenMenuId,
 }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const [menuPosition, setMenuPosition] = useState(null);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
   const ref = useRef(null);
   const menuRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const mountedRef = useRef(true);
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 12;
   const depthIndicator = level > 4 ? `${level}` : null;
@@ -214,6 +218,90 @@ const TreeItem = ({
   const isConversation = item.is_assistant || false;
   const label = item.name || item.prompt_name || 'Untitled';
   const id = item.id || item.row_id;
+  
+  // Derive isMenuOpen from lifted state
+  const isMenuOpen = openMenuId === id;
+  
+  // Track mounted state for cleanup
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
+  
+  // Escape key handler using capture phase
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    
+    const handleEscapeCapture = (e) => {
+      if (!mountedRef.current) return;
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpenMenuId(null);
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscapeCapture, true);
+    return () => document.removeEventListener('keydown', handleEscapeCapture, true);
+  }, [isMenuOpen, setOpenMenuId]);
+  
+  // Click-outside handler
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    
+    let handler = null;
+    const timeoutId = setTimeout(() => {
+      handler = (e) => {
+        if (!mountedRef.current) return;
+        if (menuRef.current && menuRef.current.contains(e.target)) return;
+        if (menuButtonRef.current && menuButtonRef.current.contains(e.target)) return;
+        
+        // Check if clicking on a tooltip (portaled to body)
+        const isTooltip = e.target.closest('[data-radix-popper-content-wrapper]') ||
+                          e.target.closest('[role="tooltip"]');
+        if (isTooltip) return;
+        
+        setOpenMenuId(null);
+      };
+      
+      document.addEventListener('mousedown', handler);
+    }, 0);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      if (handler) {
+        document.removeEventListener('mousedown', handler);
+      }
+    };
+  }, [isMenuOpen, setOpenMenuId]);
+  
+  // Calculate menu position with viewport awareness
+  const getMenuPosition = useCallback(() => {
+    if (!menuButtonRef.current) return { top: 0, left: 0 };
+    
+    const rect = menuButtonRef.current.getBoundingClientRect();
+    const menuHeight = 36;
+    const menuWidth = 280;
+    const padding = 8;
+    
+    let top = rect.bottom + 4;
+    let left = rect.left;
+    
+    // Check if menu would overflow bottom of viewport
+    if (top + menuHeight > window.innerHeight - padding) {
+      top = rect.top - menuHeight - 4;
+    }
+    
+    // Check if menu would overflow right of viewport
+    if (left + menuWidth > window.innerWidth - padding) {
+      left = window.innerWidth - menuWidth - padding;
+    }
+    
+    // Check if menu would overflow left of viewport
+    if (left < padding) {
+      left = padding;
+    }
+    
+    return { top, left };
+  }, []);
 
   const [{ isDragging }, drag, preview] = useDrag({
     type: ITEM_TYPE,
@@ -339,19 +427,6 @@ const TreeItem = ({
         ref={ref}
         onClick={handleRowClick}
         onDoubleClick={handleDoubleClick}
-        onMouseEnter={(e) => {
-          setIsHovered(true);
-          setMenuPosition({
-            top: e.clientY,
-            left: e.clientX + 16,
-          });
-        }}
-        onMouseLeave={(e) => {
-          const next = e.relatedTarget;
-          // Check if next is a valid DOM node before calling contains()
-          if (menuRef.current && next instanceof Node && menuRef.current.contains(next)) return;
-          setIsHovered(false);
-        }}
         className={`
           relative w-full h-7 flex items-center gap-0.5 pr-1.5 rounded-m3-sm 
           transition-all duration-200 ease-emphasized group
@@ -378,6 +453,20 @@ const TreeItem = ({
             <Square className="h-3.5 w-3.5 text-on-surface-variant/40 hover:text-on-surface-variant transition-colors" />
           )}
         </div>
+        
+        {/* Menu trigger - ellipsis icon - hide during editing */}
+        {!isEditing && (
+          <button
+            ref={menuButtonRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenMenuId(isMenuOpen ? null : id);
+            }}
+            className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] transition-all flex-shrink-0"
+          >
+            <EllipsisVertical className="h-3.5 w-3.5" />
+          </button>
+        )}
         
         
         {/* Expand/collapse chevron - show for all items, greyed out when no children */}
@@ -453,69 +542,59 @@ const TreeItem = ({
           </div>
         )}
 
-        {/* Hover actions - rendered via portal to overflow panel */}
-        {isHovered && !isMultiSelectMode && menuPosition && createPortal(
+        {/* Click-based menu - rendered via portal */}
+        {isMenuOpen && !isMultiSelectMode && menuButtonRef.current && createPortal(
           <div 
             ref={menuRef}
             className="fixed flex items-center gap-0.5 bg-surface-container-high rounded-m3-sm shadow-lg px-1 py-0.5 z-50 border border-outline-variant"
-            style={{ 
-              top: `${menuPosition.top}px`,
-              left: `${menuPosition.left}px`,
-              transform: 'translateY(-50%)'
-            }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={(e) => {
-              const next = e.relatedTarget;
-              // Check if next is a valid DOM node before calling contains()
-              if (ref.current && next instanceof Node && ref.current.contains(next)) return;
-              setIsHovered(false);
-            }}
+            style={getMenuPosition()}
           >
             <IconButton 
               icon={Star} 
               label={starred ? "Unstar" : "Star"} 
               className={starred ? "text-amber-500" : ""} 
-              onClick={() => onToggleStar?.(id)}
+              onClick={() => { onToggleStar?.(id); setOpenMenuId(null); }}
             />
             <IconButton 
               icon={isRunningPrompt ? Loader2 : Play} 
               label="Play" 
-              onClick={() => onRunPrompt?.(id)}
+              onClick={() => { onRunPrompt?.(id); setOpenMenuId(null); }}
               className={isRunningPrompt ? "animate-spin" : ""}
             />
             {hasChildren && (
               <IconButton 
                 icon={isRunningCascade ? Loader2 : Workflow} 
                 label="Run Cascade" 
-                onClick={() => onRunCascade?.(id)}
+                onClick={() => { onRunCascade?.(id); setOpenMenuId(null); }}
                 className={isRunningCascade ? "animate-spin" : ""}
               />
             )}
             <IconButton icon={Braces} label="Copy Variable Reference" onClick={() => {
               navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
               toast.success('Copied variable reference');
+              setOpenMenuId(null);
             }} />
-            <IconButton icon={Plus} label="Add Child" onClick={() => onAdd?.(id)} />
-            <IconButton icon={Copy} label="Duplicate" onClick={() => onDuplicate?.(id)} />
-            <IconButton icon={Upload} label="Export" onClick={() => onExport?.(id)} />
+            <IconButton icon={Plus} label="Add Child" onClick={() => { onAdd?.(id); setOpenMenuId(null); }} />
+            <IconButton icon={Copy} label="Duplicate" onClick={() => { onDuplicate?.(id); setOpenMenuId(null); }} />
+            <IconButton icon={Upload} label="Export" onClick={() => { onExport?.(id); setOpenMenuId(null); }} />
             <IconButton 
               icon={LayoutTemplate} 
               label="Save as Template" 
-              onClick={() => onSaveAsTemplate?.(id, label, hasChildren)}
+              onClick={() => { onSaveAsTemplate?.(id, label, hasChildren); setOpenMenuId(null); }}
             />
             <IconButton 
               icon={Ban} 
               label={excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
               className={excludedFromCascade ? "text-warning" : ""}
-              onClick={() => onToggleExcludeCascade?.(id)}
+              onClick={() => { onToggleExcludeCascade?.(id); setOpenMenuId(null); }}
             />
             <IconButton 
               icon={FileX} 
               label={excludedFromExport ? "Include in Export" : "Exclude from Export"} 
               className={excludedFromExport ? "text-warning" : ""}
-              onClick={() => onToggleExcludeExport?.(id)}
+              onClick={() => { onToggleExcludeExport?.(id); setOpenMenuId(null); }}
             />
-            <IconButton icon={Trash2} label="Delete" onClick={() => onDelete?.(id, label)} />
+            <IconButton icon={Trash2} label="Delete" onClick={() => { onDelete?.(id, label); setOpenMenuId(null); }} />
           </div>,
           document.body
         )}
@@ -587,6 +666,9 @@ const TreeItem = ({
                 deletingPromptIds={deletingPromptIds}
                 // Save as template
                 onSaveAsTemplate={onSaveAsTemplate}
+                // Menu state - lifted
+                openMenuId={openMenuId}
+                setOpenMenuId={setOpenMenuId}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -656,6 +738,9 @@ const FolderPanel = ({
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [lastSelectedId, setLastSelectedId] = useState(null);
   const isMultiSelectMode = selectedItems.size > 0;
+  
+  // Lifted menu state - only one menu can be open at a time
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   // Handle icon change
   const handleIconChange = useCallback(async (promptId, iconName) => {
@@ -1308,6 +1393,9 @@ const FolderPanel = ({
                     deletingPromptIds={deletingPromptIds}
                     // Save as template
                     onSaveAsTemplate={onSaveAsTemplate}
+                    // Menu state - lifted
+                    openMenuId={openMenuId}
+                    setOpenMenuId={setOpenMenuId}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}
