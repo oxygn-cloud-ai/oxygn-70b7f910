@@ -343,6 +343,14 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
 };
 
 export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) => {
+  // CRITICAL: Validate userId to prevent orphaned duplicates that user can't see
+  if (!userId) {
+    const authError = new Error('Cannot duplicate prompt: User ID is required. Please ensure you are logged in.');
+    authError.code = 'AUTH_REQUIRED';
+    console.error('[duplicatePrompt] Missing userId - user may not be logged in');
+    throw authError;
+  }
+
   // Fetch the source prompt
   const { data: sourcePrompt, error: fetchError } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -366,7 +374,7 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
       ...promptFields,
       prompt_name: `${sourcePrompt.prompt_name} (copy)`,
       position_lex: newPositionLex,
-      owner_id: userId || sourcePrompt.owner_id,
+      owner_id: userId, // Always use authenticated user's ID
     }])
     .select()
     .maybeSingle();
@@ -439,7 +447,7 @@ const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userI
       ...promptFields,
       parent_row_id: newParentId,
       position_lex: newPositionLex,
-      owner_id: userId || sourcePrompt.owner_id,
+      owner_id: userId, // Always use authenticated user's ID
     }])
     .select()
     .maybeSingle();

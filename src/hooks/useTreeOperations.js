@@ -170,7 +170,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   const handleDuplicateItem = useCallback(async (itemId) => {
     if (!supabase) return null;
     try {
-      const newItemId = await duplicatePrompt(supabase, itemId);
+      const newItemId = await duplicatePrompt(supabase, itemId, user?.id);
       if (newItemId) {
         await refreshTreeData();
         toast.success('Prompt duplicated successfully');
@@ -185,10 +185,12 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       }
     } catch (error) {
       console.error('Error duplicating prompt:', error);
-      toast.error('Failed to duplicate prompt');
+      toast.error('Failed to duplicate prompt', {
+        description: error?.message || 'An unexpected error occurred',
+      });
       return null;
     }
-  }, [supabase, refreshTreeData]);
+  }, [supabase, refreshTreeData, user?.id]);
 
   const handleMoveItem = useCallback(async (itemId, targetParentId) => {
     if (!supabase) return false;

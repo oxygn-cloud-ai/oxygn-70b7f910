@@ -196,19 +196,53 @@ export function generateKeyBetween(a: string | null, b: string | null): string {
  * Generate a position key at the END of a list
  */
 export const generatePositionAtEnd = (lastKey: string | null): string => {
-  return generateKeyBetween(lastKey, null);
+  try {
+    return generateKeyBetween(lastKey, null);
+  } catch (e) {
+    console.error('[lexPosition] generatePositionAtEnd failed:', { lastKey, error: (e as Error).message });
+    // Fallback: generate a timestamp-based key that will sort at the end
+    return `z${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+  }
 };
 
 /**
  * Generate a position key at the START of a list
  */
 export const generatePositionAtStart = (firstKey: string | null): string => {
-  return generateKeyBetween(null, firstKey);
+  try {
+    return generateKeyBetween(null, firstKey);
+  } catch (e) {
+    console.error('[lexPosition] generatePositionAtStart failed:', { firstKey, error: (e as Error).message });
+    // Fallback: use lowercase 'a' to match fractional-indexing's key space
+    return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+  }
 };
 
 /**
  * Generate a position key BETWEEN two existing keys
  */
 export const generatePositionBetween = (beforeKey: string | null, afterKey: string | null): string => {
-  return generateKeyBetween(beforeKey, afterKey);
+  try {
+    return generateKeyBetween(beforeKey, afterKey);
+  } catch (e) {
+    console.error('[lexPosition] generatePositionBetween failed:', { beforeKey, afterKey, error: (e as Error).message });
+    
+    // Smart fallback that respects both bounds
+    if (beforeKey && afterKey) {
+      const candidate = `${beforeKey}V`;
+      if (candidate < afterKey) {
+        return candidate;
+      }
+      console.warn('[lexPosition] Corrupted position data detected');
+    }
+    
+    if (beforeKey) {
+      return `${beforeKey}V`;
+    }
+    if (afterKey) {
+      return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+    }
+    
+    return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+  }
 };

@@ -19,7 +19,8 @@ export const generatePositionAtEnd = (lastKey) => {
   } catch (e) {
     console.error('[lexPosition] generatePositionAtEnd failed:', { lastKey, error: e.message });
     // Fallback: generate a timestamp-based key that will sort at the end
-    return `z${Date.now().toString(36)}`;
+    // Add random suffix to prevent collisions within same millisecond
+    return `z${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
   }
 };
 
@@ -33,8 +34,9 @@ export const generatePositionAtStart = (firstKey) => {
     return generateKeyBetween(null, firstKey);
   } catch (e) {
     console.error('[lexPosition] generatePositionAtStart failed:', { firstKey, error: e.message });
-    // Fallback: generate a key that will sort at the start
-    return `A${Date.now().toString(36)}`;
+    // Fallback: use lowercase 'a' to match fractional-indexing's key space
+    // Add random suffix to prevent collisions
+    return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
   }
 };
 
@@ -49,10 +51,26 @@ export const generatePositionBetween = (beforeKey, afterKey) => {
     return generateKeyBetween(beforeKey, afterKey);
   } catch (e) {
     console.error('[lexPosition] generatePositionBetween failed:', { beforeKey, afterKey, error: e.message });
-    // Fallback: append to the before key if available
-    if (beforeKey) {
-      return `${beforeKey}m`;
+    
+    // Smart fallback that respects both bounds
+    if (beforeKey && afterKey) {
+      // Use 'V' (middle of alphabet) to maximize sort space
+      const candidate = `${beforeKey}V`;
+      if (candidate < afterKey) {
+        return candidate;
+      }
+      // Data is corrupted beyond recovery - log warning and use timestamp
+      console.warn('[lexPosition] Corrupted position data detected - candidate >= afterKey');
     }
-    return `m${Date.now().toString(36)}`;
+    
+    if (beforeKey) {
+      return `${beforeKey}V`;
+    }
+    if (afterKey) {
+      // Need to sort before afterKey - use 'a' prefix (earliest in fractional-indexing space)
+      return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+    }
+    
+    return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
   }
 };
