@@ -14,6 +14,31 @@ const TOOL_NAMES = [
 
 type VariableToolName = typeof TOOL_NAMES[number];
 
+// Variable name validation (matches frontend rules in variableResolver.js)
+const SYSTEM_VARIABLE_PREFIX = 'q.';
+const VARIABLE_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+const MAX_VARIABLE_NAME_LENGTH = 50;
+
+function validateVariableName(name: string): { valid: boolean; error?: string } {
+  if (!name || typeof name !== 'string') {
+    return { valid: false, error: 'Variable name is required' };
+  }
+  
+  if (name.startsWith(SYSTEM_VARIABLE_PREFIX)) {
+    return { valid: false, error: 'Cannot use reserved prefix "q."' };
+  }
+  
+  if (!VARIABLE_NAME_PATTERN.test(name)) {
+    return { valid: false, error: 'Variable name must start with a letter and contain only letters, numbers, underscores, and hyphens' };
+  }
+  
+  if (name.length > MAX_VARIABLE_NAME_LENGTH) {
+    return { valid: false, error: `Variable name must be ${MAX_VARIABLE_NAME_LENGTH} characters or less` };
+  }
+  
+  return { valid: true };
+}
+
 export const variablesModule: ToolModule = {
   id: 'variables',
   name: 'Variables',
@@ -132,6 +157,12 @@ export const variablesModule: ToolModule = {
             return JSON.stringify({ error: 'Prompt not in this family' });
           }
 
+          // Validate variable name
+          const validation = validateVariableName(variable_name);
+          if (!validation.valid) {
+            return JSON.stringify({ error: validation.error });
+          }
+
           // Check for duplicate variable name on this prompt
           const { data: existing } = await supabase
             .from(TABLES.PROMPT_VARIABLES)
@@ -192,6 +223,25 @@ export const variablesModule: ToolModule = {
           
           for (const field of allowedFields) {
             if (updates[field] !== undefined && updates[field] !== null) {
+              // Validate variable_name if being updated
+              if (field === 'variable_name') {
+                const validation = validateVariableName(updates[field]);
+                if (!validation.valid) {
+                  return JSON.stringify({ error: validation.error });
+                }
+                // Check for duplicate name on this prompt
+                const { data: existing } = await supabase
+                  .from(TABLES.PROMPT_VARIABLES)
+                  .select('row_id')
+                  .eq('prompt_row_id', variable.prompt_row_id)
+                  .eq('variable_name', updates[field])
+                  .neq('row_id', variable_row_id)
+                  .limit(1);
+                
+                if (existing && existing.length > 0) {
+                  return JSON.stringify({ error: `Variable "${updates[field]}" already exists on this prompt` });
+                }
+              }
               updateData[field] = updates[field];
             }
           }

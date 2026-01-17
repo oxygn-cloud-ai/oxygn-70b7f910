@@ -21,7 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { LabelBadge } from "@/components/ui/label-badge";
-import { VariablePicker } from "./VariablePicker";
+import VariablePicker from "@/components/VariablePicker";
 import { useFieldUndo } from "@/hooks/useFieldUndo";
 import { usePendingSaves } from "@/contexts/PendingSaveContext";
 
@@ -29,45 +29,38 @@ const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
 const AUTOSAVE_DELAY = 500;
 
-// Variable definitions for hover tooltips
-const VARIABLE_DEFINITIONS = {
-  customer_message: { name: "customer_message", type: "text", description: "The customer's original inquiry or message", source: "User Input", required: true },
-  ticket_count: { name: "ticket_count", type: "number", description: "Number of previous support tickets", source: "Database", required: false, default: "0" },
-  company_name: { name: "company_name", type: "text", description: "Name of the company", source: "Settings", required: true },
-  support_email: { name: "support_email", type: "text", description: "Support contact email address", source: "Settings", required: true },
-  parent_output: { name: "parent.output", type: "reference", description: "Output from parent prompt", source: "Cascade", required: false },
-};
+// Import system variables from config (single source of truth)
+import { SYSTEM_VARIABLES, SYSTEM_VARIABLE_TYPES } from '@/config/systemVariables';
 
-// System variable groups for the variable picker
-const SYSTEM_VARIABLE_GROUPS = [
+// Build system variable groups from config for ClickableVariable's "Replace with" popover
+const CLICKABLE_SYSTEM_GROUPS = [
   {
     id: "datetime",
     label: "Date & Time",
-    variables: [
-      { name: "current_date", label: "Current Date" },
-      { name: "current_time", label: "Current Time" },
-      { name: "current_datetime", label: "Current DateTime" },
-      { name: "timestamp", label: "Unix Timestamp" },
-    ]
+    variables: ['q.today', 'q.now', 'q.year', 'q.month']
+      .filter(name => SYSTEM_VARIABLES[name])
+      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
   },
   {
     id: "user",
     label: "User",
-    variables: [
-      { name: "user_email", label: "User Email" },
-      { name: "user_name", label: "User Name" },
-      { name: "user_id", label: "User ID" },
-    ]
+    variables: ['q.user.name', 'q.user.email']
+      .filter(name => SYSTEM_VARIABLES[name])
+      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
   },
   {
     id: "prompt",
     label: "Prompt Context",
-    variables: [
-      { name: "prompt_name", label: "Prompt Name" },
-      { name: "prompt_id", label: "Prompt ID" },
-      { name: "parent_output", label: "Parent Output" },
-      { name: "parent_name", label: "Parent Name" },
-    ]
+    variables: ['q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name']
+      .filter(name => SYSTEM_VARIABLES[name])
+      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
+  },
+  {
+    id: "policy",
+    label: "Policy",
+    variables: ['q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.topic']
+      .filter(name => SYSTEM_VARIABLES[name])
+      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
   },
 ];
 
@@ -99,7 +92,7 @@ const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], o
         </div>
         <div className="max-h-48 overflow-auto">
           {/* System Variables */}
-          {SYSTEM_VARIABLE_GROUPS.map(group => (
+          {CLICKABLE_SYSTEM_GROUPS.filter(g => g.variables.length > 0).map(group => (
             <div key={group.id}>
               <div className="px-3 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
                 {group.label}

@@ -262,7 +262,8 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   };
 
   const handleInsertVariable = (varName) => {
-    const varText = `{{${varName}}}`;
+    // Prevent double-wrapping - PromptReferencePicker returns full {{q.ref[UUID].field}} syntax
+    const varText = varName.startsWith('{{') ? varName : `{{${varName}}}`;
     const currentValue = editValue || '';
     
     // Priority: ref (synchronous) > textarea DOM > state > end of text
