@@ -228,7 +228,8 @@ const ResizablePromptArea = ({
   promptReferences = [],
   libraryItems = [],
   storageKey,
-  readOnly = false
+  readOnly = false,
+  familyRootPromptRowId = null, // Filter prompt references to this family
 }) => {
   const persistKey = storageKey || (label ? `qonsol-prompt-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
   
@@ -662,7 +663,7 @@ const ResizablePromptArea = ({
               <TooltipContent className="text-[10px]">Discard all changes</TooltipContent>
             </Tooltip>
           )}
-          <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} />
+          <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} familyRootPromptRowId={familyRootPromptRowId} />
           {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
           <Tooltip>
             <TooltipTrigger asChild>

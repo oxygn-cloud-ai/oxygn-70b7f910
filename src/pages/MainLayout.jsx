@@ -577,12 +577,17 @@ const MainLayout = () => {
             // Process variable assignments if configured
             if (promptData.variable_assignments_config?.enabled && jsonResponse) {
               try {
-                const varResult = await processVariableAssignments({
-                  supabase,
-                  promptRowId: promptData.row_id,
-                  jsonResponse,
-                  config: promptData.variable_assignments_config,
-                });
+          const varResult = await processVariableAssignments({
+            supabase,
+            promptRowId: promptData.row_id,
+            jsonResponse,
+            config: promptData.variable_assignments_config,
+            onVariablesChanged: (promptId) => {
+              window.dispatchEvent(new CustomEvent('q:prompt-variables-updated', { 
+                detail: { promptRowId: promptId } 
+              }));
+            },
+          });
                 if (varResult.processed > 0) {
                   toast.success(`Updated ${varResult.processed} variable(s)`, {
                     source: 'MainLayout.handleRunPrompt.variableAssignments',

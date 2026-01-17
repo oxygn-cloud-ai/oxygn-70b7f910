@@ -103,7 +103,12 @@ const NewPromptChoiceDialog = ({
         return;
       }
       
+      // Skip runtime variables - they're only available during cascade execution
       const sysVar = getSystemVariable(v);
+      if (sysVar?.type === SYSTEM_VARIABLE_TYPES.RUNTIME) {
+        return;
+      }
+      
       if (sysVar) {
         // System input variable - start empty
         initialValues[v] = '';
@@ -432,7 +437,7 @@ const NewPromptChoiceDialog = ({
   const templateVariables = selectedTemplate ? extractTemplateVariables(selectedTemplate.structure) : [];
   
   // Categorize variables
-  const { systemStatic, systemInput, userDefined } = useMemo(() => 
+  const { systemStatic, systemInput, systemRuntime, userDefined } = useMemo(() => 
     categorizeVariables(templateVariables), 
     [templateVariables]
   );
@@ -760,6 +765,42 @@ const NewPromptChoiceDialog = ({
                                 <TooltipTrigger asChild>
                                   <Badge variant="secondary" className="font-mono text-xs cursor-help">
                                     {varName}: {value.length > 20 ? value.substring(0, 20) + '...' : value}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-medium">{sysVar?.label || varName}</p>
+                                  <p className="text-xs text-muted-foreground">{sysVar?.description}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })}
+                        </div>
+                      </TooltipProvider>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Runtime System Variables (info only - resolved during cascade) */}
+                {systemRuntime.length > 0 && (
+                  <div className="space-y-3">
+                    <Separator />
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium text-muted-foreground">Runtime Variables</h3>
+                    </div>
+                    <div className="pl-6 space-y-2">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        These variables are resolved during cascade execution and cannot be set manually.
+                      </p>
+                      <TooltipProvider>
+                        <div className="flex flex-wrap gap-2">
+                          {systemRuntime.map(varName => {
+                            const sysVar = getSystemVariable(varName);
+                            return (
+                              <Tooltip key={varName}>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className="font-mono text-xs cursor-help text-muted-foreground">
+                                    {varName}
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent>

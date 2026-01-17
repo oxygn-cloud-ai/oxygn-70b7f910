@@ -17,7 +17,7 @@ import { useFieldUndo } from '@/hooks/useFieldUndo';
 
 const AUTOSAVE_DELAY = 500;
 
-const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges: externalUnsavedChanges, promptId, variables = [], placeholder }) => {
+const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCascade, initialValue, onGenerate, isGenerating, formattedTime, isLinksPage, isReadOnly, hasUnsavedChanges: externalUnsavedChanges, promptId, variables = [], placeholder, familyRootPromptRowId = null }) => {
   const textareaRef = useRef(null);
   const containerRef = useRef(null);
   const saveTimeoutRef = useRef(null);
@@ -508,6 +508,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
             <VariablePicker 
               onInsert={handleInsertVariable}
               userVariables={variables}
+              familyRootPromptRowId={familyRootPromptRowId}
             />
           )}
 

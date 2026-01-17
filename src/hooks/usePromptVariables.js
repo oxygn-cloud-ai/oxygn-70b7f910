@@ -41,6 +41,20 @@ export const usePromptVariables = (promptRowId) => {
     fetchVariables();
   }, [fetchVariables]);
 
+  // Listen for variable updates from processVariableAssignments
+  useEffect(() => {
+    const handleVariablesUpdated = (event) => {
+      if (event.detail?.promptRowId === promptRowId) {
+        fetchVariables();
+      }
+    };
+    
+    window.addEventListener('q:prompt-variables-updated', handleVariablesUpdated);
+    return () => {
+      window.removeEventListener('q:prompt-variables-updated', handleVariablesUpdated);
+    };
+  }, [promptRowId, fetchVariables]);
+
   /**
    * Add a new variable
    */
