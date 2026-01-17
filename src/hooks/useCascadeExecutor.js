@@ -865,6 +865,11 @@ export const useCascadeExecutor = () => {
                           promptRowId: prompt.row_id,
                           jsonResponse,
                           config: prompt.variable_assignments_config,
+                          onVariablesChanged: (promptId) => {
+                            window.dispatchEvent(new CustomEvent('q:prompt-variables-updated', { 
+                              detail: { promptRowId: promptId } 
+                            }));
+                          },
                         });
                         if (varResult.processed > 0) {
                           toast.success(`Updated ${varResult.processed} variable(s)`, {
@@ -1623,6 +1628,11 @@ export const useCascadeExecutor = () => {
                     promptRowId: childPrompt.row_id,
                     jsonResponse: jsonData,
                     config: childPrompt.variable_assignments_config,
+                    onVariablesChanged: (promptId) => {
+                      window.dispatchEvent(new CustomEvent('q:prompt-variables-updated', { 
+                        detail: { promptRowId: promptId } 
+                      }));
+                    },
                   });
                 }
 

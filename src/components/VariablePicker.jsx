@@ -31,6 +31,7 @@ const VariablePicker = ({
   className,
   side = 'bottom',
   align = 'end',
+  familyRootPromptRowId = null, // Filter prompt references to this family
 }) => {
   const [open, setOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
@@ -220,6 +221,7 @@ const VariablePicker = ({
           onInsert(reference);
           setShowPromptPicker(false);
         }}
+        familyRootPromptRowId={familyRootPromptRowId}
       />
     </Popover>
   );

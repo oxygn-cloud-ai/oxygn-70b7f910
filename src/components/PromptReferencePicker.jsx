@@ -121,7 +121,8 @@ const PromptTreeNode = ({
 const PromptReferencePicker = ({ 
   isOpen, 
   onClose, 
-  onInsert 
+  onInsert,
+  familyRootPromptRowId = null, // If provided, filter to only show prompts in this family
 }) => {
   const supabase = useSupabase();
   const { treeData, isLoading } = useTreeData(supabase);
@@ -165,7 +166,28 @@ const PromptReferencePicker = ({
     return roots;
   }, []);
 
-  const tree = useMemo(() => buildTree(treeData), [treeData, buildTree]);
+  const fullTree = useMemo(() => buildTree(treeData), [treeData, buildTree]);
+
+  // Filter tree to only show prompts within the specified family
+  const tree = useMemo(() => {
+    if (!familyRootPromptRowId) return fullTree;
+    
+    // Find and return only the family tree
+    const findFamilyRoot = (nodes) => {
+      for (const node of nodes) {
+        if (node.row_id === familyRootPromptRowId) {
+          return [node];
+        }
+        if (node.children?.length > 0) {
+          const found = findFamilyRoot(node.children);
+          if (found.length > 0) return found;
+        }
+      }
+      return [];
+    };
+    
+    return findFamilyRoot(fullTree);
+  }, [fullTree, familyRootPromptRowId]);
 
   const handleToggleExpand = useCallback((nodeId) => {
     setExpandedNodes(prev => {
