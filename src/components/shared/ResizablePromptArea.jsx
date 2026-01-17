@@ -263,6 +263,8 @@ const ResizablePromptArea = ({
   const textareaRef = useRef(null);
   const saveTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
+  // Synchronous ref to capture cursor position (prevents stale state when VariablePicker blurs textarea)
+  const selectionRef = useRef({ start: null, end: null });
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [selectionEnd, setSelectionEnd] = useState(null);
@@ -419,34 +421,7 @@ const ResizablePromptArea = ({
     };
   }, []);
 
-  // Helper to get selection range from contenteditable
-  const getSelectionFromEditor = useCallback(() => {
-    const editor = textareaRef.current;
-    if (!editor) return { start: editValue.length, end: editValue.length };
-    
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return { start: editValue.length, end: editValue.length };
-    
-    const range = selection.getRangeAt(0);
-    
-    const preCaretRangeStart = range.cloneRange();
-    preCaretRangeStart.selectNodeContents(editor);
-    preCaretRangeStart.setEnd(range.startContainer, range.startOffset);
-    const tempDivStart = document.createElement('div');
-    tempDivStart.appendChild(preCaretRangeStart.cloneContents());
-    tempDivStart.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
-    const start = tempDivStart.textContent?.length || 0;
-    
-    const preCaretRangeEnd = range.cloneRange();
-    preCaretRangeEnd.selectNodeContents(editor);
-    preCaretRangeEnd.setEnd(range.endContainer, range.endOffset);
-    const tempDivEnd = document.createElement('div');
-    tempDivEnd.appendChild(preCaretRangeEnd.cloneContents());
-    tempDivEnd.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
-    const end = tempDivEnd.textContent?.length || 0;
-    
-    return { start, end };
-  }, [editValue.length]);
+  // No longer needed - removed broken getSelectionFromEditor that used window.getSelection() for textarea
 
   // Handle textarea change with auto-save debounce
   const handleTextareaChange = (e) => {
@@ -468,39 +443,55 @@ const ResizablePromptArea = ({
     }, AUTOSAVE_DELAY);
   };
 
+  // Capture cursor position using standard textarea selectionStart/End (not contenteditable APIs)
   const handleTextareaSelect = useCallback(() => {
-    const { start, end } = getSelectionFromEditor();
-    setCursorPosition(start);
-    setSelectionEnd(end);
-  }, [getSelectionFromEditor]);
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      setCursorPosition(start);
+      setSelectionEnd(end);
+      selectionRef.current = { start, end };
+    }
+  }, []);
 
   const handleTextareaClick = useCallback(() => {
     setTimeout(() => {
-      const { start, end } = getSelectionFromEditor();
-      setCursorPosition(start);
-      setSelectionEnd(end);
+      if (textareaRef.current) {
+        const start = textareaRef.current.selectionStart;
+        const end = textareaRef.current.selectionEnd;
+        setCursorPosition(start);
+        setSelectionEnd(end);
+        selectionRef.current = { start, end };
+      }
     }, 0);
-  }, [getSelectionFromEditor]);
+  }, []);
 
   const handleTextareaKeyUp = useCallback(() => {
-    const { start, end } = getSelectionFromEditor();
-    setCursorPosition(start);
-    setSelectionEnd(end);
-  }, [getSelectionFromEditor]);
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      setCursorPosition(start);
+      setSelectionEnd(end);
+      selectionRef.current = { start, end };
+    }
+  }, []);
 
   const handleInsertVariable = useCallback((variableText) => {
     const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
     
-    let insertStart = cursorPosition;
-    let insertEnd = selectionEnd;
+    // Priority: selectionRef (synchronous) > DOM selectionStart > state > end of text
+    let insertStart, insertEnd;
     
-    if (insertStart === null && textareaRef.current) {
-      const selection = getSelectionFromEditor();
-      insertStart = selection.start;
-      insertEnd = selection.end;
-    }
-    
-    if (insertStart === null) {
+    if (typeof selectionRef.current.start === 'number') {
+      insertStart = selectionRef.current.start;
+      insertEnd = selectionRef.current.end ?? insertStart;
+    } else if (textareaRef.current && typeof textareaRef.current.selectionStart === 'number') {
+      insertStart = textareaRef.current.selectionStart;
+      insertEnd = textareaRef.current.selectionEnd ?? insertStart;
+    } else if (cursorPosition !== null) {
+      insertStart = cursorPosition;
+      insertEnd = selectionEnd ?? insertStart;
+    } else {
       insertStart = editValue.length;
       insertEnd = editValue.length;
     }
@@ -509,12 +500,31 @@ const ResizablePromptArea = ({
       insertEnd = insertStart;
     }
     
-    const newValue = editValue.slice(0, insertStart) + insertion + editValue.slice(insertEnd);
+    // Handle partial trigger cleanup (prevents {{{{var}}}})
+    let actualStart = insertStart;
+    const textBefore = editValue.slice(0, insertStart);
+    if (textBefore.endsWith('{{')) {
+      actualStart = insertStart - 2;
+    } else if (textBefore.endsWith('{')) {
+      actualStart = insertStart - 1;
+    }
+    
+    const newValue = editValue.slice(0, actualStart) + insertion + editValue.slice(insertEnd);
     setEditValue(newValue);
     
-    const newCursorPos = insertStart + insertion.length;
+    const newCursorPos = actualStart + insertion.length;
     setCursorPosition(newCursorPos);
     setSelectionEnd(newCursorPos);
+    selectionRef.current = { start: newCursorPos, end: newCursorPos };
+    
+    // Restore focus and cursor position after React updates
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = newCursorPos;
+        textareaRef.current.selectionEnd = newCursorPos;
+      }
+    }, 0);
     
     // Trigger auto-save
     cancelPendingSave();
@@ -523,7 +533,7 @@ const ResizablePromptArea = ({
         performSave(newValue);
       }
     }, AUTOSAVE_DELAY);
-  }, [cursorPosition, selectionEnd, editValue, getSelectionFromEditor, cancelPendingSave, lastSavedValue, performSave]);
+  }, [cursorPosition, selectionEnd, editValue, cancelPendingSave, lastSavedValue, performSave]);
 
   // Handle replacing a variable in the text
   const handleReplaceVariable = useCallback((start, end, newText) => {
