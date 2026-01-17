@@ -23,7 +23,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   const saveTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
   const [isLinking, setIsLinking] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState(null);
   const [contentHeight, setContentHeight] = useState(100);
   const [editValue, setEditValue] = useState(value || '');
   const [lastSavedValue, setLastSavedValue] = useState(value || '');
@@ -309,11 +309,9 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     setCursorPosition(pos);
   };
   
-  const handleBlur = (e) => {
-    const pos = getCursorPositionFromElement(e.target);
-    setCursorPosition(pos);
-    
-    // Auto-save on blur
+  const handleBlur = () => {
+    // Don't update cursor position on blur - browser clears selection
+    // Cursor position was already captured by onClick/onSelect/onKeyUp handlers
     handleImmediateSave();
   };
 
