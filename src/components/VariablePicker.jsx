@@ -81,6 +81,7 @@ const VariablePicker = ({
     return (
       <button
         key={varName}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => handleInsert(varName)}
         className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded flex items-center justify-between group"
       >
@@ -99,6 +100,7 @@ const VariablePicker = ({
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
               <button
+                onMouseDown={(e) => e.preventDefault()}
                 className={cn(
                   "h-6 w-6 rounded flex items-center justify-center",
                   "text-muted-foreground hover:text-foreground hover:bg-muted",
@@ -126,6 +128,7 @@ const VariablePicker = ({
             {/* Prompt References - Top Section */}
             <div className="mb-1">
               <button
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setOpen(false);
                   setShowPromptPicker(true);
@@ -151,6 +154,7 @@ const VariablePicker = ({
               return (
                 <div key={key} className="mb-1">
                   <button
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => toggleSection(key)}
                     className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded"
                   >
@@ -175,6 +179,7 @@ const VariablePicker = ({
             {userVariables.length > 0 && (
               <div className="mb-1">
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => toggleSection('user-defined')}
                   className="w-full flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded"
                 >
@@ -192,6 +197,7 @@ const VariablePicker = ({
                     {userVariables.map(v => (
                       <button
                         key={v.name || v}
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleInsert(v.name || v)}
                         className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded"
                       >

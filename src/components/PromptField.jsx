@@ -22,6 +22,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   const containerRef = useRef(null);
   const saveTimeoutRef = useRef(null);
   const isSavingRef = useRef(false);
+  const selectionRef = useRef({ start: null, end: null });
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [contentHeight, setContentHeight] = useState(100);
@@ -264,12 +265,24 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     const varText = `{{${varName}}}`;
     const currentValue = editValue || '';
     
-    const pos = cursorPosition ?? currentValue.length;
+    // Priority: ref (synchronous) > textarea DOM > state > end of text
+    let pos;
+    if (typeof selectionRef.current.start === 'number') {
+      pos = selectionRef.current.start;
+    } else if (textareaRef.current && typeof textareaRef.current.selectionStart === 'number') {
+      pos = textareaRef.current.selectionStart;
+    } else if (typeof cursorPosition === 'number') {
+      pos = cursorPosition;
+    } else {
+      pos = currentValue.length;
+    }
+    
     const newValue = currentValue.slice(0, pos) + varText + currentValue.slice(pos);
     handleTextChange(newValue);
     
     const newCursorPos = pos + varText.length;
     setCursorPosition(newCursorPos);
+    selectionRef.current = { start: newCursorPos, end: newCursorPos };
     
     setTimeout(() => {
       if (textareaRef.current) {
@@ -307,6 +320,11 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   const handleCursorChange = (e) => {
     const pos = getCursorPositionFromElement(e.target);
     setCursorPosition(pos);
+    // Also store in ref synchronously for reliable access during variable insertion
+    selectionRef.current = { 
+      start: e.target.selectionStart ?? pos, 
+      end: e.target.selectionEnd ?? pos 
+    };
   };
   
   const handleBlur = () => {
