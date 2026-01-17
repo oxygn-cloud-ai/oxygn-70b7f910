@@ -34,9 +34,9 @@ export const generatePositionAtStart = (firstKey) => {
     return generateKeyBetween(null, firstKey);
   } catch (e) {
     console.error('[lexPosition] generatePositionAtStart failed:', { firstKey, error: e.message });
-    // Fallback: use lowercase 'a' to match fractional-indexing's key space
-    // Add random suffix to prevent collisions
-    return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+    // Fallback: Use 'A0' prefix - matches fractional-indexing's smallest integer format
+    // 'A' heads represent smallest integers in the BASE_62 space
+    return `A0${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
   }
 };
 
@@ -54,23 +54,23 @@ export const generatePositionBetween = (beforeKey, afterKey) => {
     
     // Smart fallback that respects both bounds
     if (beforeKey && afterKey) {
-      // Use 'V' (middle of alphabet) to maximize sort space
       const candidate = `${beforeKey}V`;
       if (candidate < afterKey) {
         return candidate;
       }
-      // Data is corrupted beyond recovery - log warning and use timestamp
-      console.warn('[lexPosition] Corrupted position data detected - candidate >= afterKey');
+      // CRITICAL: Data is corrupted - use timestamp fallback with explicit return
+      console.warn('[lexPosition] Corrupted position data - emergency fallback');
+      return `${beforeKey}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 4)}`;
     }
     
     if (beforeKey) {
       return `${beforeKey}V`;
     }
     if (afterKey) {
-      // Need to sort before afterKey - use 'a' prefix (earliest in fractional-indexing space)
-      return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+      // Sort before afterKey - use smallest valid prefix
+      return `A0${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
     }
     
-    return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+    return `a0`;  // Standard midpoint when both are null
   }
 };

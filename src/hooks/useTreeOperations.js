@@ -268,7 +268,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     try {
       let successCount = 0;
       for (const itemId of itemIds) {
-        const newItemId = await duplicatePrompt(supabase, itemId);
+        const newItemId = await duplicatePrompt(supabase, itemId, user?.id);
         if (newItemId) successCount++;
       }
       await refreshTreeData();
@@ -276,10 +276,12 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       return true;
     } catch (error) {
       console.error('Error batch duplicating prompts:', error);
-      toast.error('Failed to duplicate prompts');
+      toast.error('Failed to duplicate prompts', {
+        description: error?.message || 'An unexpected error occurred',
+      });
       return false;
     }
-  }, [supabase, refreshTreeData]);
+  }, [supabase, refreshTreeData, user?.id]);
 
   const handleBatchStar = useCallback(async (itemIds, starred = true) => {
     if (!supabase || !itemIds?.length) return false;

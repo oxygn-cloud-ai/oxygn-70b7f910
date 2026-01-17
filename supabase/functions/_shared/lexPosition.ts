@@ -213,8 +213,8 @@ export const generatePositionAtStart = (firstKey: string | null): string => {
     return generateKeyBetween(null, firstKey);
   } catch (e) {
     console.error('[lexPosition] generatePositionAtStart failed:', { firstKey, error: (e as Error).message });
-    // Fallback: use lowercase 'a' to match fractional-indexing's key space
-    return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+    // Fallback: Use 'A0' prefix - matches fractional-indexing's smallest integer format
+    return `A0${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
   }
 };
 
@@ -233,16 +233,19 @@ export const generatePositionBetween = (beforeKey: string | null, afterKey: stri
       if (candidate < afterKey) {
         return candidate;
       }
-      console.warn('[lexPosition] Corrupted position data detected');
+      // CRITICAL: Data is corrupted - use timestamp fallback with explicit return
+      console.warn('[lexPosition] Corrupted position data - emergency fallback');
+      return `${beforeKey}${Date.now().toString(36).slice(-4)}${Math.random().toString(36).slice(2, 4)}`;
     }
     
     if (beforeKey) {
       return `${beforeKey}V`;
     }
     if (afterKey) {
-      return `a${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+      // Sort before afterKey - use smallest valid prefix
+      return `A0${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
     }
     
-    return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 4)}`;
+    return `a0`;  // Standard midpoint when both are null
   }
 };

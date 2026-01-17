@@ -139,28 +139,16 @@ export const fetchPrompts = async (supabase, currentUserId = null) => {
   }
 };
 
-export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '') => {
-  try {
-    // Get the current timestamp for a unique name
-    const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
-    
-    const { data, error } = await supabase
-      .from(import.meta.env.VITE_PROMPTS_TBL)
-      .insert([{
-        parent_row_id: parentId,
-        input_admin_prompt: defaultAdminPrompt,
-        is_deleted: false,
-        prompt_name: `New Prompt ${timestamp}` // Add a default prompt name
-      }])
-      .select()
-      .maybeSingle();
-
-    if (error) throw error;
-    return data.row_id;
-  } catch (error) {
-    console.error('Error adding prompt:', error);
-    throw error;
-  }
+/**
+ * @deprecated Use addPrompt from promptMutations.js instead.
+ * This function is intentionally broken to prevent accidental use.
+ * The legacy function was missing owner_id and position_lex which caused RLS failures.
+ */
+export const addPrompt = async () => {
+  throw new Error(
+    'promptService.addPrompt is deprecated. Use addPrompt from promptMutations.js instead. ' +
+    'The legacy function was missing owner_id and position_lex which caused RLS failures.'
+  );
 };
 
 export const deletePrompt = async (supabase, itemId) => {
