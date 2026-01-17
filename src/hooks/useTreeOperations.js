@@ -1,3 +1,4 @@
+// Tree operations hook for managing prompt hierarchy
 import { useCallback, useRef, useState } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { addPrompt, duplicatePrompt } from '../services/promptMutations';
