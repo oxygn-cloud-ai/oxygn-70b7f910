@@ -118,7 +118,7 @@ export const VariablePicker = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <button className={`w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08] ${className}`}>
+            <button onMouseDown={(e) => e.preventDefault()} className={`w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08] ${className}`}>
               <Braces className="h-3.5 w-3.5" />
             </button>
           </PopoverTrigger>
@@ -135,7 +135,8 @@ export const VariablePicker = ({
           // Prompt Reference Picker
           <div className="p-2">
             <div className="flex items-center gap-2 mb-2">
-              <button 
+              <button
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPromptPicker(false)}
                 className="text-[10px] text-primary hover:underline"
               >
@@ -149,6 +150,7 @@ export const VariablePicker = ({
               ) : (
                 transformedRefs.map(ref => (
                   <button
+                    onMouseDown={(e) => e.preventDefault()}
                     key={ref.id}
                     onClick={() => handlePromptRefInsert(ref.id, ref.name, ref.field)}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm hover:bg-on-surface/[0.08] text-left"
@@ -182,6 +184,7 @@ export const VariablePicker = ({
 
             {/* Prompt References Link */}
             <button
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setShowPromptPicker(true)}
               className="w-full flex items-center justify-between px-3 py-2 hover:bg-on-surface/[0.08] border-b border-outline-variant"
             >
@@ -199,7 +202,7 @@ export const VariablePicker = ({
 
               return (
                 <Collapsible key={group.id} open={isExpanded} onOpenChange={() => toggleSection(group.id)}>
-                  <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 hover:bg-on-surface/[0.08]">
+                  <CollapsibleTrigger onMouseDown={(e) => e.preventDefault()} className="w-full flex items-center justify-between px-3 py-2 hover:bg-on-surface/[0.08]">
                     <div className="flex items-center gap-2">
                       <Icon className="h-3.5 w-3.5 text-on-surface-variant" />
                       <span className="text-body-sm text-on-surface">{group.label}</span>
@@ -210,6 +213,7 @@ export const VariablePicker = ({
                     <div className="pb-1">
                       {group.variables.map(variable => (
                         <button
+                          onMouseDown={(e) => e.preventDefault()}
                           key={variable.name}
                           onClick={() => handleInsert(variable.name)}
                           className="w-full flex items-center justify-between px-3 py-1.5 pl-9 hover:bg-on-surface/[0.08]"
@@ -241,6 +245,7 @@ export const VariablePicker = ({
                 <div className="pb-1">
                   {filteredUserVars.map(variable => (
                     <button
+                      onMouseDown={(e) => e.preventDefault()}
                       key={variable.name}
                       onClick={() => handleInsert(variable.name)}
                       className="w-full flex items-center justify-between px-3 py-1.5 pl-9 hover:bg-on-surface/[0.08]"
