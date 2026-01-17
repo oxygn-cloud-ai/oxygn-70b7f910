@@ -211,6 +211,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         onSave={isLocked ? undefined : (value) => onUpdateField('input_admin_prompt', value)}
         variables={variables}
         readOnly={isLocked}
+        familyRootPromptRowId={promptData?.root_prompt_row_id || promptData?.row_id}
       />
 
       {/* User Prompt */}
@@ -223,6 +224,7 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         onSave={isLocked ? undefined : (value) => onUpdateField('input_user_prompt', value)}
         variables={variables}
         readOnly={isLocked}
+        familyRootPromptRowId={promptData?.root_prompt_row_id || promptData?.row_id}
       />
 
       {/* Output */}

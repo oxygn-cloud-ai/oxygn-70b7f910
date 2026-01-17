@@ -267,6 +267,7 @@ const PromptFieldsTab = ({
               hasUnsavedChanges={hasUnsavedChanges(field.name)}
               promptId={projectRowId}
               placeholder={field.name === 'input_admin_prompt' ? 'Enter system/context instructions...' : undefined}
+              familyRootPromptRowId={selectedItemData?.root_prompt_row_id || selectedItemData?.row_id}
             />
           ))}
       </div>
