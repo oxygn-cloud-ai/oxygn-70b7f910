@@ -6,6 +6,7 @@
  */
 
 import { trackEvent } from '@/lib/posthog';
+import { validateVariableName } from '@/utils/variableResolver';
 
 const VARIABLES_TABLE = import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_variables';
 
@@ -18,33 +19,6 @@ const VARIABLES_TABLE = import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_v
 const getNestedValue = (obj, path) => {
   if (!path) return obj;
   return path.split('.').reduce((acc, part) => acc?.[part], obj);
-};
-
-/**
- * Validate a variable name
- * @param {string} name - Variable name to validate
- * @returns {{ valid: boolean, error?: string }}
- */
-const validateVariableName = (name) => {
-  if (!name || typeof name !== 'string') {
-    return { valid: false, error: 'Variable name must be a non-empty string' };
-  }
-  
-  // Allow alphanumeric, underscores, and hyphens
-  const validPattern = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
-  if (!validPattern.test(name)) {
-    return { 
-      valid: false, 
-      error: 'Variable name must start with a letter and contain only letters, numbers, underscores, or hyphens' 
-    };
-  }
-  
-  // Max length check
-  if (name.length > 100) {
-    return { valid: false, error: 'Variable name must be 100 characters or less' };
-  }
-  
-  return { valid: true };
 };
 
 /**
@@ -65,6 +39,7 @@ export const processVariableAssignments = async ({
   promptRowId,
   jsonResponse,
   config,
+  onVariablesChanged,
 }) => {
   // Early return if not enabled or missing required params
   if (!config?.enabled || !jsonResponse || !promptRowId) {
@@ -180,6 +155,15 @@ export const processVariableAssignments = async ({
         auto_create_enabled: autoCreate,
         json_path: jsonPath,
       });
+
+      // Notify caller that variables changed so they can refresh state
+      if (onVariablesChanged) {
+        try {
+          await onVariablesChanged(promptRowId);
+        } catch (callbackError) {
+          console.warn('onVariablesChanged callback error:', callbackError);
+        }
+      }
     }
 
     return { processed, errors };

@@ -13,6 +13,7 @@ export const SYSTEM_VARIABLE_TYPES = {
   USER_EDITABLE: 'user_editable',
   INPUT: 'input',
   SELECT: 'select',
+  RUNTIME: 'runtime',
 };
 
 /**
@@ -138,6 +139,20 @@ export const SYSTEM_VARIABLES = {
       'Training and Preparedness',
     ],
   },
+
+  // Cascade runtime variables (only available during cascade execution)
+  'q.previous.response': {
+    type: SYSTEM_VARIABLE_TYPES.RUNTIME,
+    label: 'Previous Response',
+    description: 'AI response from previous prompt in cascade (runtime only)',
+    runtimeOnly: true,
+  },
+  'q.previous.name': {
+    type: SYSTEM_VARIABLE_TYPES.RUNTIME,
+    label: 'Previous Prompt Name',
+    description: 'Name of previous prompt in cascade (runtime only)',
+    runtimeOnly: true,
+  },
 };
 
 /**
@@ -218,6 +233,7 @@ export const categorizeVariables = (variableNames) => {
   const systemStatic = [];
   const systemUserEditable = [];
   const systemInput = [];
+  const systemRuntime = [];
   const userDefined = [];
 
   variableNames.forEach(name => {
@@ -227,6 +243,9 @@ export const categorizeVariables = (variableNames) => {
         systemStatic.push(name);
       } else if (def?.type === SYSTEM_VARIABLE_TYPES.USER_EDITABLE) {
         systemUserEditable.push(name);
+      } else if (def?.type === SYSTEM_VARIABLE_TYPES.RUNTIME) {
+        // Runtime variables are only available during cascade - don't show as input
+        systemRuntime.push(name);
       } else if (def) {
         systemInput.push(name);
       } else {
@@ -238,5 +257,5 @@ export const categorizeVariables = (variableNames) => {
     }
   });
 
-  return { systemStatic, systemUserEditable, systemInput, userDefined };
+  return { systemStatic, systemUserEditable, systemInput, systemRuntime, userDefined };
 };

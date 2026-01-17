@@ -32,6 +32,10 @@ const SYSTEM_VARIABLE_PREFIX = 'q.';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Named variable pattern: q.nodename.keypath (access by prompt name, not UUID)
 const NAMED_VARIABLE_PATTERN = /^q\.([^.]+)\.(.+)$/;
+// q.ref[UUID].field pattern for prompt references
+const QREF_PATTERN = /^q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)$/i;
+// Allowed fields for q.ref resolution (matches REFERENCE_FIELDS in PromptReferencePicker)
+const QREF_ALLOWED_FIELDS = ['output_response', 'user_prompt_result', 'input_admin_prompt', 'input_user_prompt', 'prompt_name'];
 
 /**
  * Extract all variables from a text string
@@ -178,8 +182,55 @@ export const resolveVariable = async (variableName, context = {}) => {
     
     const { category, path } = parsed;
     
-    // Check for named variable pattern first: q.nodename.keypath
-    // This allows accessing extracted_variables from sibling/parent nodes by name
+    // Check for q.ref[UUID].field pattern FIRST (before named variable logic)
+    const qrefMatch = variableName.match(QREF_PATTERN);
+    if (qrefMatch) {
+      const [, promptId, field] = qrefMatch;
+      
+      // Only allow whitelisted fields for security
+      if (!QREF_ALLOWED_FIELDS.includes(field)) {
+        console.warn(`q.ref: Field "${field}" not in allowed list`);
+        return `{{${variableName}}}`;
+      }
+      
+      // Check if it's the parent
+      if (parentData && parentData.row_id === promptId) {
+        return parentData[field] ?? `{{${variableName}}}`;
+      }
+      
+      // Check children
+      const childMatch = childrenData.find(c => c.row_id === promptId);
+      if (childMatch) {
+        return childMatch[field] ?? `{{${variableName}}}`;
+      }
+      
+      // Check siblings
+      const siblingMatch = siblingsData.find(s => s.row_id === promptId);
+      if (siblingMatch) {
+        return siblingMatch[field] ?? `{{${variableName}}}`;
+      }
+      
+      // Fetch from database if function provided
+      // SECURITY: Pass owner_id context for filtering
+      if (fetchPromptById) {
+        try {
+          const prompt = await fetchPromptById(promptId, {
+            owner_id,
+            root_prompt_row_id,
+          });
+          if (prompt) {
+            return prompt[field] ?? `{{${variableName}}}`;
+          }
+          return '[Deleted Reference]';
+        } catch (e) {
+          console.error('Error resolving q.ref:', e);
+        }
+      }
+      
+      return `{{${variableName}}}`;
+    }
+    
+    // Check for named variable pattern: q.nodename.keypath
     const namedMatch = variableName.match(NAMED_VARIABLE_PATTERN);
     if (namedMatch) {
       const [, nodeName, keyPath] = namedMatch;

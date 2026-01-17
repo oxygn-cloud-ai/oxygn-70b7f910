@@ -20,8 +20,10 @@ const FIELD_LABELS = {
 // Variable type labels
 const VARIABLE_TYPE_LABELS = {
   [SYSTEM_VARIABLE_TYPES.STATIC]: 'Auto-filled',
+  [SYSTEM_VARIABLE_TYPES.USER_EDITABLE]: 'Editable',
   [SYSTEM_VARIABLE_TYPES.INPUT]: 'User Input',
   [SYSTEM_VARIABLE_TYPES.SELECT]: 'Selection',
+  [SYSTEM_VARIABLE_TYPES.RUNTIME]: 'Runtime',
 };
 
 /**

@@ -143,6 +143,28 @@ export const usePromptVariables = (promptRowId) => {
   }, []);
 
   /**
+   * Set a variable's value by name (for use by processVariableAssignments callback)
+   */
+  const setVariableValue = useCallback(async (variableName, value) => {
+    if (!promptRowId) return false;
+    
+    // Re-fetch to get fresh state and find the variable
+    const { data: freshVar, error: fetchError } = await supabase
+      .from(import.meta.env.VITE_PROMPT_VARIABLES_TBL)
+      .select('row_id')
+      .eq('prompt_row_id', promptRowId)
+      .eq('variable_name', variableName)
+      .maybeSingle();
+      
+    if (fetchError || !freshVar) {
+      console.warn(`Variable "${variableName}" not found for prompt ${promptRowId}`);
+      return false;
+    }
+    
+    return updateVariable(freshVar.row_id, { variable_value: value });
+  }, [promptRowId, updateVariable]);
+
+  /**
    * Delete a variable
    */
   const deleteVariable = useCallback(async (rowId) => {
@@ -187,6 +209,7 @@ export const usePromptVariables = (promptRowId) => {
     isLoading,
     addVariable,
     updateVariable,
+    setVariableValue,
     deleteVariable,
     refreshVariables: fetchVariables,
     getVariablesMap,
