@@ -247,19 +247,23 @@ const HighlightedTextarea = forwardRef(({
     onBlur?.(e);
   }, [onBlur]);
 
-  // Calculate dimensions
-  const minHeight = `${rows * 1.625}rem`;
+  // Calculate dimensions - account for padding (0.75rem * 2 = 1.5rem) in height
+  const minHeight = `calc(${rows} * 1.625rem + 1.5rem)`;
 
   // Shared text styles - CRITICAL: must match exactly between textarea and backdrop
+  // Note: border is NOT included here - it's applied only via className to textarea
+  // The backdrop has no border, which is correct since it sits behind the textarea
   const textStyles = {
     fontFamily: "'Poppins', sans-serif",
     fontSize: '0.875rem',
     lineHeight: '1.625',
     padding: '0.75rem',
-    border: '1px solid transparent',
     whiteSpace: 'pre-wrap',
     wordWrap: 'break-word',
     overflowWrap: 'break-word',
+    boxSizing: 'border-box',
+    letterSpacing: 'normal',
+    textRendering: 'geometricPrecision',
   };
 
   return (
@@ -297,12 +301,17 @@ const HighlightedTextarea = forwardRef(({
       `}</style>
 
       {/* Backdrop with highlights - sits behind textarea */}
+      {/* Note: overflow-y-auto allows vertical scroll sync, overflow-x-hidden prevents horizontal scrollbar */}
+      {/* Border offset: textarea has 1px border, so backdrop needs matching padding offset */}
       <pre
         ref={backdropRef}
-        className="backdrop-content absolute inset-0 overflow-hidden pointer-events-none rounded-md bg-background"
+        className="backdrop-content absolute inset-0 overflow-y-auto overflow-x-hidden pointer-events-none rounded-md bg-background"
         style={{
           ...textStyles,
           minHeight,
+          // Offset by 1px to account for textarea's border (content starts at same position)
+          padding: 'calc(0.75rem + 1px)',
+          margin: '-1px',
         }}
         aria-hidden="true"
         dangerouslySetInnerHTML={{ __html: getHighlightedHtml(value) }}
