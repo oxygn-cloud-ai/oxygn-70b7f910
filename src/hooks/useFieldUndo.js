@@ -7,20 +7,34 @@ const MAX_UNDO_STACK = 10;
  * 
  * Tracks previous saved values for undo (max 10 entries)
  * and original value when field first loaded for discard.
+ * 
+ * @param {string} initialValue - The initial value from the parent prop
+ * @param {string|null} entityId - Optional unique identifier for the entity (e.g., promptId).
+ *                                 When entityId changes, undo stack is fully reset.
+ *                                 When only initialValue changes (same entity), undo stack is preserved.
  */
-export const useFieldUndo = (initialValue) => {
+export const useFieldUndo = (initialValue, entityId = null) => {
   const [undoStack, setUndoStack] = useState([]);
   const originalValueRef = useRef(initialValue);
+  const prevEntityIdRef = useRef(entityId);
   const prevInitialValueRef = useRef(initialValue);
   
-  // Update original value only when prop ACTUALLY changes (not just re-renders)
   useEffect(() => {
-    if (prevInitialValueRef.current !== initialValue) {
+    // When entity changes (different prompt selected), fully reset
+    if (entityId !== null && prevEntityIdRef.current !== entityId) {
       originalValueRef.current = initialValue;
       setUndoStack([]);
+      prevEntityIdRef.current = entityId;
       prevInitialValueRef.current = initialValue;
     }
-  }, [initialValue]);
+    // When initialValue changes but entity is same (e.g., after save), 
+    // just update original for discard but PRESERVE the undo stack
+    else if (prevInitialValueRef.current !== initialValue) {
+      originalValueRef.current = initialValue;
+      // DO NOT clear undo stack here - it should persist across saves
+      prevInitialValueRef.current = initialValue;
+    }
+  }, [initialValue, entityId]);
   
   // Push a value onto the undo stack (call before saving new value)
   const pushPreviousValue = useCallback((value) => {

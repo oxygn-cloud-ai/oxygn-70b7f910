@@ -273,7 +273,7 @@ const ResizablePromptArea = ({
   const [cursorPosition, setCursorPosition] = useState(null);
   const [selectionEnd, setSelectionEnd] = useState(null);
   
-  // Field undo/discard management
+  // Field undo/discard management - pass storageKey as entityId to preserve undo across saves
   const {
     pushPreviousValue,
     popPreviousValue,
@@ -281,7 +281,7 @@ const ResizablePromptArea = ({
     hasPreviousValue,
     hasChangedFromOriginal,
     clearUndoStack,
-  } = useFieldUndo(value);
+  } = useFieldUndo(value, storageKey);
   
   // Check if there are unsaved changes
   const hasUnsavedChanges = editValue !== lastSavedValue;

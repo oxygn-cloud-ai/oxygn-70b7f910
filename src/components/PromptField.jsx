@@ -21,6 +21,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   const textareaRef = useRef(null);
   const containerRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const isSavingRef = useRef(false);
   const [isLinking, setIsLinking] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [contentHeight, setContentHeight] = useState(100);
@@ -29,7 +30,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   
   const storageKey = `promptField_expand_${promptId}_${label}`;
   
-  // Field undo/discard management
+  // Field undo/discard management - pass promptId as entityId to preserve undo across saves
   const {
     pushPreviousValue,
     popPreviousValue,
@@ -37,7 +38,7 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     hasPreviousValue,
     hasChangedFromOriginal,
     clearUndoStack,
-  } = useFieldUndo(value);
+  } = useFieldUndo(value, promptId);
   
   // Check if there are unsaved changes
   const hasUnsavedChanges = editValue !== lastSavedValue;
@@ -73,10 +74,13 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
   };
 
   // Sync editValue when value prop changes externally
+  // Only sync if we're not in the middle of saving (prevents race condition)
   useEffect(() => {
-    setEditValue(value || '');
-    setLastSavedValue(value || '');
-  }, [value]);
+    if (!isSavingRef.current && value !== lastSavedValue) {
+      setEditValue(value || '');
+      setLastSavedValue(value || '');
+    }
+  }, [value, lastSavedValue]);
 
   // Calculate content height when in full mode
   useEffect(() => {
@@ -163,6 +167,9 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
       }
     };
 
+    // Set saving flag to prevent race condition with useEffect
+    isSavingRef.current = true;
+    
     try {
       await onSave(sourceInfo);
       setLastSavedValue(valueToSave);
@@ -171,6 +178,11 @@ const PromptField = ({ label, tooltip, value, onChange, onReset, onSave, onCasca
     } catch (err) {
       console.error('Failed to save: ', err);
       toast.error('Failed to save');
+    } finally {
+      // Reset flag after a tick to allow prop updates to complete
+      setTimeout(() => {
+        isSavingRef.current = false;
+      }, 0);
     }
   }, [lastSavedValue, label, onSave, onChange, pushPreviousValue]);
 
