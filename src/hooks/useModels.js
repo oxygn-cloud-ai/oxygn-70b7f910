@@ -200,6 +200,60 @@ export const useModels = () => {
     return getProviderForModel(modelId) === 'manus';
   }, [getProviderForModel]);
 
+  // Bulk add multiple models at once
+  const addModels = async (modelsArray) => {
+    if (!modelsArray || modelsArray.length === 0) {
+      toast.error('No models to add');
+      return null;
+    }
+
+    try {
+      const inserts = modelsArray.map(m => ({
+        model_id: m.model_id,
+        model_name: m.model_name || m.model_id,
+        provider: m.provider || 'openai',
+        is_active: false, // Start inactive
+        api_model_id: m.api_model_id || m.model_id,
+        context_window: m.context_window || null,
+        max_output_tokens: m.max_output_tokens || null,
+        token_param: m.token_param || 'max_tokens',
+        supports_temperature: m.supports_temperature ?? true,
+        supports_reasoning_effort: m.supports_reasoning_effort ?? false,
+        reasoning_effort_levels: m.reasoning_effort_levels || null,
+        supported_settings: m.supported_settings || [],
+        supported_tools: m.supported_tools || [],
+        input_cost_per_million: m.input_cost_per_million || 0,
+        output_cost_per_million: m.output_cost_per_million || 0,
+        api_base_url: m.api_base_url || null,
+        auth_header_name: m.auth_header_name || 'Authorization',
+        auth_header_format: m.auth_header_format || 'Bearer {key}',
+      }));
+
+      const { data, error } = await supabase
+        .from(import.meta.env.VITE_MODELS_TBL)
+        .insert(inserts)
+        .select();
+
+      if (error) throw error;
+
+      setModels(prev => [...prev, ...data].sort((a, b) =>
+        (a.model_name || '').localeCompare(b.model_name || '')
+      ));
+
+      toast.success(`Added ${data.length} model${data.length !== 1 ? 's' : ''}`);
+      return data;
+    } catch (error) {
+      console.error('Error adding models:', error);
+      // Handle duplicate key error specifically
+      if (error.code === '23505') {
+        toast.error('One or more models already exist');
+      } else {
+        toast.error('Failed to add models');
+      }
+      return null;
+    }
+  };
+
   return {
     models,
     isLoading,
@@ -216,6 +270,7 @@ export const useModels = () => {
     getModelsByProvider,
     getProviderForModel,
     isManusModel,
+    addModels,
     refetch: fetchModels
   };
 };

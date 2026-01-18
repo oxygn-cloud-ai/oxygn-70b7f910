@@ -124,6 +124,9 @@ serve(async (req) => {
         } else if (service === 'manus') {
           // For manus, check for api_key
           status.api_key = configuredKeys.includes('api_key');
+        } else if (service === 'gemini' || service === 'google') {
+          // For gemini/google, check for api_key
+          status.api_key = configuredKeys.includes('api_key');
         } else {
           // Generic: just indicate which keys exist
           configuredKeys.forEach(key => {

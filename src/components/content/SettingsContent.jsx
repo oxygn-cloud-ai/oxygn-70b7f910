@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
+import ModelFetchModal from '@/components/settings/ModelFetchModal';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { SettingCard } from "@/components/ui/setting-card";
@@ -860,7 +861,7 @@ const ConversationsSection = () => {
 };
 
 // AI Models Section - Uses real data from database with per-model usage stats and inline settings
-const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddModel, onUpdateModel, onDeleteModel, settings = {}, onUpdateSetting }) => {
+const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddModel, onUpdateModel, onDeleteModel, onAddModels, settings = {}, onUpdateSetting }) => {
   const [expandedModel, setExpandedModel] = useState(null);
   const [usagePeriod, setUsagePeriod] = useState('all');
   const [modelUsage, setModelUsage] = useState({});
@@ -879,6 +880,51 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     api_model_id: '',
   });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  
+  // Fetch modal state
+  const [fetchModalOpen, setFetchModalOpen] = useState(false);
+  const [fetchProvider, setFetchProvider] = useState(null);
+  const [fetchedModels, setFetchedModels] = useState([]);
+  const [isFetching, setIsFetching] = useState(false);
+  const [isAddingModels, setIsAddingModels] = useState(false);
+
+  // Handle fetch models from provider
+  const handleFetchModels = async (provider) => {
+    setIsFetching(true);
+    setFetchProvider(provider);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-provider-models', {
+        body: { provider }
+      });
+      
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      setFetchedModels(data?.models || []);
+      setFetchModalOpen(true);
+      trackEvent('models_fetched', { provider, count: data?.models?.length || 0 });
+    } catch (err) {
+      console.error('Error fetching models:', err);
+      toast.error(err.message || `Failed to fetch ${provider} models`);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  // Handle adding models from modal
+  const handleAddFetchedModels = async (modelsToAdd) => {
+    setIsAddingModels(true);
+    try {
+      const result = await onAddModels?.(modelsToAdd);
+      if (result) {
+        setFetchModalOpen(false);
+        setFetchedModels([]);
+        trackEvent('models_added_from_fetch', { provider: fetchProvider, count: modelsToAdd.length });
+      }
+    } finally {
+      setIsAddingModels(false);
+    }
+  };
   
   // Fetch usage stats from q_ai_costs
   useEffect(() => {
@@ -1157,7 +1203,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
 
   return (
     <div className="space-y-3">
-      {/* Period Selector and Add Button */}
+      {/* Period Selector and Action Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-body-sm text-on-surface-variant">Usage period:</span>
@@ -1171,18 +1217,64 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             <option value="7days">Last 7 Days</option>
           </select>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => { setShowAddForm(true); setEditingModel(null); resetForm(); setShowAddForm(true); }}
-              className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Add Model</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          {/* Fetch OpenAI Models */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleFetchModels('openai')}
+                disabled={isFetching}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
+              >
+                {isFetching && fetchProvider === 'openai' 
+                  ? <Loader2 className="h-4 w-4 animate-spin" /> 
+                  : <Globe className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Fetch OpenAI Models</TooltipContent>
+          </Tooltip>
+
+          {/* Fetch Gemini Models */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleFetchModels('google')}
+                disabled={isFetching}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
+              >
+                {isFetching && fetchProvider === 'google' 
+                  ? <Loader2 className="h-4 w-4 animate-spin" /> 
+                  : <Sparkles className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Fetch Gemini Models</TooltipContent>
+          </Tooltip>
+
+          {/* Add Model Manually */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => { setShowAddForm(true); setEditingModel(null); resetForm(); setShowAddForm(true); }}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Add Model Manually</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
+
+      {/* Model Fetch Modal */}
+      <ModelFetchModal
+        open={fetchModalOpen}
+        onOpenChange={setFetchModalOpen}
+        provider={fetchProvider}
+        fetchedModels={fetchedModels}
+        existingModels={models}
+        onAddModels={handleAddFetchedModels}
+        isAdding={isAddingModels}
+      />
 
       {/* Add Form */}
       {showAddForm && <ModelForm isEditing={false} />}
@@ -1884,6 +1976,7 @@ const SettingsContent = ({
   onAddModel,
   onUpdateModel,
   onDeleteModel,
+  onAddModels,
   costTracking,
   conversationToolDefaults,
 }) => {
@@ -1918,6 +2011,7 @@ const SettingsContent = ({
           onAddModel,
           onUpdateModel,
           onDeleteModel,
+          onAddModels,
           settings,
           onUpdateSetting,
         };
