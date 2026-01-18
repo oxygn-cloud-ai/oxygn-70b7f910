@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
+import { ERROR_CODES, mapManusStopReasonToErrorCode, mapManusStopReasonToStatus } from "../_shared/errorCodes.ts";
 
 // In-memory cache for public key
 let cachedPublicKey: string | null = null;
@@ -178,16 +179,27 @@ serve(async (req) => {
     
     case 'task_stopped': {
       const { stop_reason, result, attachments } = eventData;
+      
+      // Use centralized mapping functions
+      const newStatus = mapManusStopReasonToStatus(stop_reason);
+      const errorCode = mapManusStopReasonToErrorCode(stop_reason);
       const isSuccess = stop_reason === 'finish';
       const requiresInput = stop_reason === 'ask';
       
-      console.log('[manus-webhook] Task stopped:', { task_id, stop_reason, isSuccess, requiresInput });
+      console.log('[manus-webhook] Task stopped:', { 
+        task_id, 
+        stop_reason, 
+        newStatus, 
+        error_code: errorCode,
+        isSuccess, 
+        requiresInput 
+      });
       
-      // Update task record
+      // Update task record with error_code
       const { error: updateError } = await supabase
         .from('q_manus_tasks')
         .update({
-          status: isSuccess ? 'completed' : (requiresInput ? 'running' : 'failed'),
+          status: newStatus,
           result_message: result?.message || (typeof result === 'string' ? result : null),
           attachments: attachments || [],
           stop_reason,
@@ -196,6 +208,7 @@ serve(async (req) => {
           completed_at: isSuccess ? new Date().toISOString() : null,
           processed_at: new Date().toISOString(),
           webhook_event_id: eventId,
+          error_code: errorCode,  // Include structured error code
         })
         .eq('task_id', task_id);
       
