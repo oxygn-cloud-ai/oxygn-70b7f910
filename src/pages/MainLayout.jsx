@@ -195,6 +195,27 @@ const MainLayout = () => {
   // Models hook - Phase 6
   const { models, isLoading: isLoadingModels, toggleModelActive, addModel, updateModel, deleteModel } = useModels();
   
+  // Manus model lookup function - checks if a prompt uses a Manus model (requires cascade execution)
+  const isManusModelById = useCallback((promptId) => {
+    // Find the prompt in the tree to get its model
+    const findPrompt = (items) => {
+      for (const item of items) {
+        if ((item.id || item.row_id) === promptId) return item;
+        if (item.children) {
+          const found = findPrompt(item.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const prompt = findPrompt(hierarchicalTreeData);
+    if (!prompt?.model) return false;
+    
+    const modelData = models.find(m => m.model_id === prompt.model || m.model_name === prompt.model);
+    return modelData?.provider === 'manus';
+  }, [hierarchicalTreeData, models]);
+  
   // Prompt library hook (used by templates/prompts)
   const promptLibrary = usePromptLibrary();
   
@@ -1150,6 +1171,7 @@ const MainLayout = () => {
           singleRunPromptId={singleRunPromptId}
           deletingPromptIds={deletingPromptIds}
           onSaveAsTemplate={handleSaveAsTemplate}
+          isManusModelById={isManusModelById}
         />
       );
     }

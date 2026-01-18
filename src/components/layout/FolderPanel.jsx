@@ -199,6 +199,8 @@ const TreeItem = ({
   // Menu state - lifted to FolderPanel
   openMenuId,
   setOpenMenuId,
+  // Manus model lookup function
+  isManusModelById,
 }) => {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -576,12 +578,21 @@ const TreeItem = ({
               className={starred ? "text-amber-500" : ""} 
               onClick={() => { onToggleStar?.(id); setOpenMenuId(null); }}
             />
-            <IconButton 
-              icon={isRunningPrompt ? Loader2 : Play} 
-              label="Play" 
-              onClick={() => { onRunPrompt?.(id); setOpenMenuId(null); }}
-              className={isRunningPrompt ? "animate-spin" : ""}
-            />
+            {isManusModelById?.(id) ? (
+              <IconButton 
+                icon={Play} 
+                label="Manus requires cascade" 
+                className="opacity-40 cursor-not-allowed"
+                onClick={() => toast.info('Manus models require cascade execution')}
+              />
+            ) : (
+              <IconButton 
+                icon={isRunningPrompt ? Loader2 : Play} 
+                label="Play" 
+                onClick={() => { onRunPrompt?.(id); setOpenMenuId(null); }}
+                className={isRunningPrompt ? "animate-spin" : ""}
+              />
+            )}
             {hasChildren && (
               <IconButton 
                 icon={isRunningCascade ? Loader2 : Workflow} 
@@ -690,6 +701,8 @@ const TreeItem = ({
                 // Menu state - lifted
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
+                // Manus model lookup
+                isManusModelById={isManusModelById}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -743,6 +756,8 @@ const FolderPanel = ({
   deletingPromptIds = new Set(),
   // Save as template handler
   onSaveAsTemplate,
+  // Manus model lookup function
+  isManusModelById,
 }) => {
   const supabase = useSupabase();
   const [activeSmartFolder, setActiveSmartFolder] = useState("all");
@@ -1434,6 +1449,8 @@ const FolderPanel = ({
                     // Menu state - lifted
                     openMenuId={openMenuId}
                     setOpenMenuId={setOpenMenuId}
+                    // Manus model lookup
+                    isManusModelById={isManusModelById}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}

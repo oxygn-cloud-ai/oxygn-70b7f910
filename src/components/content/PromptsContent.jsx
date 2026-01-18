@@ -1299,11 +1299,19 @@ const PromptsContent = ({
   // Lock state
   isCascadeRunning = false,
   singleRunPromptId = null,
-}) => {
+) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [confluenceModalOpen, setConfluenceModalOpen] = useState(false);
   const fileInputRef = useRef(null);
   const formattedTime = useTimer(isRunningPrompt);
+
+  // Detect if current prompt uses a Manus model (async/webhook-based, requires cascade)
+  const isManusModel = useMemo(() => {
+    const promptModel = promptData?.model;
+    if (!promptModel) return false;
+    const modelData = models.find(m => m.model_id === promptModel || m.model_name === promptModel);
+    return modelData?.provider === 'manus';
+  }, [promptData?.model, models]);
 
   // Get assistant row id from promptData (always available now - conversation mode always on)
   const assistantRowId = promptData?.assistant_row_id;
@@ -1510,14 +1518,22 @@ const PromptsContent = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={() => onRunPrompt?.(selectedPromptId)}
-                disabled={isRunningPrompt}
-                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${isRunningPrompt ? 'text-primary' : 'text-on-surface-variant'}`}
+                onClick={() => !isManusModel && onRunPrompt?.(selectedPromptId)}
+                disabled={isRunningPrompt || isManusModel}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full ${
+                  isRunningPrompt ? 'text-primary hover:bg-surface-container' : 
+                  isManusModel ? 'text-on-surface-variant/40 cursor-not-allowed' : 
+                  'text-on-surface-variant hover:bg-surface-container'
+                }`}
               >
                 {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isRunningPrompt ? 'Running...' : 'Play'}</TooltipContent>
+            <TooltipContent className="text-[10px]">
+              {isRunningPrompt ? 'Running...' : 
+               isManusModel ? 'Manus models require cascade execution' : 
+               'Play'}
+            </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
