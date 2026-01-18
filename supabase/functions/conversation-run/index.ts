@@ -4,6 +4,7 @@ import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings, getTokenParam } from "../_shared/models.ts";
 import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponseId } from "../_shared/familyThreads.ts";
 import { getBuiltinTools } from "../_shared/tools.ts";
+import { ERROR_CODES } from "../_shared/errorCodes.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,17 +30,17 @@ async function modelSupportsTemperatureDb(supabase: any, modelId: string): Promi
   }
 }
 
-async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
+async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; error_code?: string; user?: any }> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
-    return { valid: false, error: 'Missing authorization header' };
+    return { valid: false, error: 'Missing authorization header', error_code: ERROR_CODES.AUTH_MISSING };
   }
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
   const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
   
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    return { valid: false, error: 'Server configuration error' };
+    return { valid: false, error: 'Server configuration error', error_code: ERROR_CODES.CONFIG_ERROR };
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -49,7 +50,7 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   const { data: { user }, error } = await supabase.auth.getUser();
   
   if (error || !user) {
-    return { valid: false, error: 'Invalid or expired token' };
+    return { valid: false, error: 'Invalid or expired token', error_code: ERROR_CODES.AUTH_INVALID };
   }
 
   return { valid: true, user };

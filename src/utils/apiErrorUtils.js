@@ -50,19 +50,66 @@ const ERROR_PATTERNS = [
   
   // === MANUS-SPECIFIC ERRORS (must come BEFORE generic api key patterns) ===
   {
-    // Matches: "invalid api key" with code 16, or JSON with "message": "invalid api key"
-    pattern: /invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|"message"\s*:\s*"invalid api key/i,
-    code: 'MANUS_INVALID_KEY',
-    title: 'Invalid Manus API Key',
-    message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
+    pattern: /MANUS_NOT_CONFIGURED|manus.*not configured/i,
+    code: 'MANUS_NOT_CONFIGURED',
+    title: 'Manus Not Configured',
+    message: 'Configure your Manus API key in Settings → Integrations.',
     recoverable: false,
   },
   {
-    // Fallback for exact "invalid api key" phrase (Manus-specific context)
-    pattern: /^invalid api key$/i,
+    pattern: /MANUS_INVALID_KEY|invalid manus.*key|invalid api key.*code[:\s]*16|code[:\s]*16.*invalid api key|"message"\s*:\s*"invalid api key/i,
     code: 'MANUS_INVALID_KEY',
     title: 'Invalid Manus API Key',
-    message: 'Your Manus API key is invalid or expired. Please update it in Settings > Integrations.',
+    message: 'Your Manus API key is invalid or expired. Update it in Settings → Integrations.',
+    recoverable: false,
+  },
+  {
+    pattern: /MANUS_API_ERROR|manus api error/i,
+    code: 'MANUS_API_ERROR',
+    title: 'Manus API Error',
+    message: 'The Manus API returned an error. Try again or check your task configuration.',
+    recoverable: true,
+  },
+  {
+    pattern: /MANUS_TIMEOUT|manus.*timed? ?out/i,
+    code: 'MANUS_TIMEOUT',
+    title: 'Manus Task Timeout',
+    message: 'The Manus task took too long to complete. Complex tasks may exceed time limits.',
+    recoverable: false,
+  },
+  {
+    pattern: /MANUS_TASK_FAILED|manus task failed/i,
+    code: 'MANUS_TASK_FAILED',
+    title: 'Manus Task Failed',
+    message: 'The Manus task failed. Check the task URL for details.',
+    recoverable: false,
+  },
+  {
+    pattern: /MANUS_TASK_CANCELLED|manus task cancelled/i,
+    code: 'MANUS_TASK_CANCELLED',
+    title: 'Manus Task Cancelled',
+    message: 'The Manus task was cancelled.',
+    recoverable: false,
+  },
+  {
+    pattern: /MANUS_REQUIRES_INPUT|input.?required|interactive/i,
+    code: 'MANUS_REQUIRES_INPUT',
+    title: 'Interactive Input Required',
+    message: 'Manus requires interactive input which is not supported. Use a different task mode.',
+    recoverable: false,
+  },
+  {
+    pattern: /MISSING_FIELD|required field/i,
+    code: 'MISSING_FIELD',
+    title: 'Missing Required Field',
+    message: 'The request is missing a required field. Check your prompt configuration.',
+    recoverable: false,
+  },
+  {
+    pattern: /POLL_TIMEOUT|polling timed out/i,
+    code: 'POLL_TIMEOUT',
+    title: 'Response Timeout',
+    message: 'The AI took too long to respond. Try a simpler prompt or shorter output.',
     recoverable: false,
   },
   {
@@ -73,35 +120,6 @@ const ERROR_PATTERNS = [
     recoverable: false,
   },
   {
-    pattern: /manus.*api.*key.*not.*configured/i,
-    code: 'MANUS_NOT_CONFIGURED',
-    title: 'Manus Not Configured',
-    message: 'Manus API key is not configured. Add it in Settings > Integrations.',
-    recoverable: false,
-  },
-  {
-    pattern: /manus.*task.*failed|manus.*error/i,
-    code: 'MANUS_TASK_FAILED',
-    title: 'Manus Task Failed',
-    message: 'The Manus task failed to complete. Check the task URL for details.',
-    recoverable: false,
-  },
-  {
-    pattern: /manus.*task.*timed.*out|manus.*webhook.*timeout/i,
-    code: 'MANUS_TIMEOUT',
-    title: 'Manus Task Timeout',
-    message: 'The Manus task took too long to complete. Try a simpler prompt or check the task status.',
-    recoverable: false,
-  },
-  {
-    pattern: /manus.*requires.*user.*input/i,
-    code: 'MANUS_REQUIRES_INPUT',
-    title: 'Interactive Mode Required',
-    message: 'This Manus task requires user input which is not supported in cascade mode.',
-    recoverable: false,
-  },
-  {
-    // More specific: only match "registration failed" when it's clearly about Manus webhook
     pattern: /webhook.*registration failed|manus.*registration failed/i,
     code: 'MANUS_REGISTRATION_FAILED',
     title: 'Webhook Registration Failed',
@@ -162,13 +180,28 @@ const ERROR_PATTERNS = [
 
 /**
  * Parse an error and return user-friendly information
- * @param {Error|string} error - The error to parse
+ * @param {Error|string|object} error - The error to parse
  * @returns {{code: string, title: string, message: string, recoverable: boolean, original: string}}
  */
 export const parseApiError = (error) => {
   const errorMessage = typeof error === 'string' ? error : error?.message || 'Unknown error';
   
-  // Check against known patterns
+  // Priority 1: Match on explicit error_code if present
+  const errorCode = error?.error_code || error?.code;
+  if (errorCode) {
+    const matchByCode = ERROR_PATTERNS.find(p => p.code === errorCode);
+    if (matchByCode) {
+      return {
+        code: matchByCode.code,
+        title: matchByCode.title,
+        message: matchByCode.message,
+        recoverable: matchByCode.recoverable,
+        original: errorMessage,
+      };
+    }
+  }
+  
+  // Priority 2: Match on error message pattern
   for (const pattern of ERROR_PATTERNS) {
     if (pattern.pattern.test(errorMessage)) {
       return {

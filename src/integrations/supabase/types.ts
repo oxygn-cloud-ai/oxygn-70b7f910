@@ -844,6 +844,7 @@ export type Database = {
           attachments: Json | null
           completed_at: string | null
           created_at: string | null
+          error_code: string | null
           input_prompt: string | null
           owner_id: string
           processed_at: string | null
@@ -862,6 +863,7 @@ export type Database = {
           attachments?: Json | null
           completed_at?: string | null
           created_at?: string | null
+          error_code?: string | null
           input_prompt?: string | null
           owner_id: string
           processed_at?: string | null
@@ -880,6 +882,7 @@ export type Database = {
           attachments?: Json | null
           completed_at?: string | null
           created_at?: string | null
+          error_code?: string | null
           input_prompt?: string | null
           owner_id?: string
           processed_at?: string | null

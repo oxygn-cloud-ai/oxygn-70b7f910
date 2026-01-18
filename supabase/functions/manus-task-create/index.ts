@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getManusApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +17,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify(buildErrorResponse(ERROR_CODES.AUTH_MISSING, 'Unauthorized')),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -30,9 +31,26 @@ serve(async (req) => {
       trace_id
     } = await req.json();
 
-    if (!prompt_row_id || !user_message) {
+    // Build request metadata early for logging
+    const requestMetadata = {
+      provider: 'manus',
+      task_mode: task_mode || 'adaptive',
+      prompt_row_id,
+      system_prompt_length: system_prompt?.length || 0,
+      user_message_length: user_message?.length || 0,
+      user_message_preview: user_message?.substring(0, 100),
+    };
+
+    if (!prompt_row_id) {
       return new Response(
-        JSON.stringify({ error: 'prompt_row_id and user_message are required' }),
+        JSON.stringify(buildErrorResponse(ERROR_CODES.MISSING_FIELD, 'prompt_row_id is required')),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!user_message) {
+      return new Response(
+        JSON.stringify(buildErrorResponse(ERROR_CODES.MISSING_FIELD, 'user_message is required')),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -41,7 +59,7 @@ serve(async (req) => {
     const VALID_TASK_MODES = ['chat', 'adaptive', 'agent'];
     if (task_mode && !VALID_TASK_MODES.includes(task_mode)) {
       return new Response(
-        JSON.stringify({ error: `Invalid task_mode. Use: ${VALID_TASK_MODES.join(', ')}` }),
+        JSON.stringify(buildErrorResponse(ERROR_CODES.INVALID_FIELD, `Invalid task_mode. Use: ${VALID_TASK_MODES.join(', ')}`)),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -56,7 +74,7 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify(buildErrorResponse(ERROR_CODES.AUTH_INVALID, 'Invalid token')),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -65,7 +83,7 @@ serve(async (req) => {
     const manusApiKey = await getManusApiKey(authHeader);
     if (!manusApiKey) {
       return new Response(
-        JSON.stringify({ error: 'Manus API key not configured. Add it in Settings > Integrations.' }),
+        JSON.stringify(buildErrorResponse(ERROR_CODES.MANUS_NOT_CONFIGURED, 'Manus API key not configured. Add it in Settings > Integrations.')),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -98,7 +116,7 @@ serve(async (req) => {
     if (insertError) {
       console.error('[manus-task-create] Failed to create task record:', insertError);
       return new Response(
-        JSON.stringify({ error: 'Failed to create task record' }),
+        JSON.stringify(buildErrorResponse(ERROR_CODES.DB_INSERT_FAILED, 'Failed to create task record')),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -135,7 +153,7 @@ serve(async (req) => {
 
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         return new Response(
-          JSON.stringify({ error: 'Manus API request timed out after 30 seconds' }),
+          JSON.stringify(buildErrorResponse(ERROR_CODES.MANUS_TIMEOUT, 'Manus API request timed out after 30 seconds')),
           { status: 504, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -144,8 +162,8 @@ serve(async (req) => {
     clearTimeout(timeoutId);
 
     if (!manusResponse.ok) {
-      const error = await manusResponse.text();
-      console.error('[manus-task-create] Manus API error:', error);
+      const errorText = await manusResponse.text();
+      console.error('[manus-task-create] Manus API error:', errorText);
       
       // Clean up pending record
       await supabase
@@ -153,8 +171,11 @@ serve(async (req) => {
         .delete()
         .eq('task_id', tempTaskId);
       
+      // Determine error code based on status
+      const errorCode = manusResponse.status === 401 ? ERROR_CODES.MANUS_INVALID_KEY : ERROR_CODES.MANUS_API_ERROR;
+      
       return new Response(
-        JSON.stringify({ error: `Manus API error: ${error}` }),
+        JSON.stringify(buildErrorResponse(errorCode, `Manus API error: ${errorText}`)),
         { status: manusResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -190,7 +211,8 @@ serve(async (req) => {
           success: true, 
           task_id: actualTaskId,
           task_url: manusData.task_url,
-          warning: 'Task created but tracking record may be incomplete'
+          warning: 'Task created but tracking record may be incomplete',
+          request_metadata: requestMetadata,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -202,13 +224,14 @@ serve(async (req) => {
         task_id: actualTaskId,
         task_url: manusData.task_url,
         prompt_row_id,
+        request_metadata: requestMetadata,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('[manus-task-create] Error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify(buildErrorResponse(ERROR_CODES.INTERNAL_ERROR, error instanceof Error ? error.message : 'Unknown error')),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

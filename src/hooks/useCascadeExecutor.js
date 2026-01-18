@@ -19,6 +19,19 @@ import { trackEvent, trackException } from '@/lib/posthog';
 const MANUS_POLL_INTERVAL_MS = 2000;
 const MANUS_TASK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
+/**
+ * Custom error class for Manus tasks to preserve error_code through error chain
+ */
+class ManusError extends Error {
+  constructor(message, errorCode, taskId = null, taskUrl = null) {
+    super(message);
+    this.name = 'ManusError';
+    this.error_code = errorCode;
+    this.task_id = taskId;
+    this.task_url = taskUrl;
+  }
+}
+
 // Helper to get a usable message from a prompt
 const getPromptMessage = (prompt, fallbackMessage = 'Execute this prompt') => {
   const userPrompt = prompt.input_user_prompt?.trim();
@@ -86,19 +99,49 @@ export const useCascadeExecutor = () => {
     const startTime = Date.now();
     manusTaskCancelRef.current = false;
 
+    // Build request metadata for logging
+    const requestMetadata = {
+      provider: 'manus',
+      task_mode: prompt.task_mode || 'adaptive',
+      prompt_row_id: prompt.row_id,
+      prompt_name: prompt.prompt_name,
+      model: prompt.model,
+      user_message_preview: userMessage?.substring(0, 100),
+      system_prompt_preview: prompt.input_admin_prompt?.substring(0, 100),
+      has_system_prompt: !!prompt.input_admin_prompt,
+      trace_id: traceId,
+    };
+
     // Call manus-task-create edge function
     const { data: createData, error: createError } = await supabaseClient.functions.invoke('manus-task-create', {
       body: {
         prompt_row_id: prompt.row_id,
         user_message: userMessage,
+        system_prompt: prompt.input_admin_prompt || '',  // Pass system_prompt to edge function
         template_variables: templateVariables,
         trace_id: traceId,
         task_mode: prompt.task_mode || 'adaptive',
       },
     });
 
+    // Preserve error_code in thrown error
     if (createError || !createData?.task_id) {
-      throw new Error(createError?.message || createData?.error || 'Failed to create Manus task');
+      const errorMessage = createError?.message || createData?.error || 'Failed to create Manus task';
+      const errorCode = createData?.error_code || 'MANUS_CREATE_FAILED';
+      
+      toast.error('Failed to create Manus task', {
+        description: errorMessage,
+        source: 'useCascadeExecutor.runManusTask',
+        errorCode: errorCode,
+        details: JSON.stringify({
+          error: errorMessage,
+          error_code: errorCode,
+          recoverable: createData?.recoverable || false,
+          request: requestMetadata,
+        }, null, 2),
+      });
+      
+      throw new ManusError(errorMessage, errorCode);
     }
 
     const taskId = createData.task_id;
@@ -113,9 +156,16 @@ export const useCascadeExecutor = () => {
       status: 'running',
     });
 
+    // Task started toast with full details
     toast.info(`Manus task started`, {
       description: prompt.prompt_name,
       source: 'useCascadeExecutor.runManusTask',
+      details: JSON.stringify({
+        task_id: taskId,
+        task_url: createData.task_url,
+        request: requestMetadata,
+        request_metadata: createData.request_metadata,
+      }, null, 2),
     });
 
     // Set up realtime subscription and wait for completion
@@ -142,6 +192,19 @@ export const useCascadeExecutor = () => {
         const latency = Date.now() - startTime;
 
         if (task.status === 'completed') {
+          toast.success('Manus task completed', {
+            description: prompt.prompt_name,
+            source: 'useCascadeExecutor.runManusTask',
+            details: JSON.stringify({
+              task_id: task.task_id,
+              task_url: task.task_url,
+              latency_ms: latency,
+              response_length: task.result_message?.length || 0,
+              attachment_count: task.attachments?.length || 0,
+              request: requestMetadata,
+            }, null, 2),
+          });
+
           resolve({
             response: task.result_message || '',
             taskId: task.task_id,
@@ -150,7 +213,51 @@ export const useCascadeExecutor = () => {
             latency_ms: latency,
           });
         } else if (task.status === 'failed' || task.status === 'cancelled') {
-          reject(new Error(task.stop_reason || `Manus task ${task.status}`));
+          const errorCode = task.error_code || `MANUS_TASK_${task.status.toUpperCase()}`;
+          
+          toast.error(`Manus task ${task.status}`, {
+            description: task.stop_reason || prompt.prompt_name,
+            source: 'useCascadeExecutor.runManusTask',
+            errorCode: errorCode,
+            details: JSON.stringify({
+              task_id: task.task_id,
+              task_url: task.task_url,
+              status: task.status,
+              stop_reason: task.stop_reason,
+              error_code: errorCode,
+              latency_ms: latency,
+              request: requestMetadata,
+            }, null, 2),
+          });
+          
+          reject(new ManusError(
+            task.stop_reason || `Manus task ${task.status}`,
+            errorCode,
+            task.task_id,
+            task.task_url
+          ));
+        } else if (task.requires_input) {
+          // Handle 'ask' stop_reason
+          const errorCode = 'MANUS_REQUIRES_INPUT';
+          
+          toast.error('Manus requires interactive input', {
+            description: 'This task mode is not supported in cascade runs',
+            source: 'useCascadeExecutor.runManusTask',
+            errorCode: errorCode,
+            details: JSON.stringify({
+              task_id: task.task_id,
+              task_url: task.task_url,
+              error_code: errorCode,
+              request: requestMetadata,
+            }, null, 2),
+          });
+          
+          reject(new ManusError(
+            'Manus requires interactive input',
+            errorCode,
+            task.task_id,
+            task.task_url
+          ));
         }
       };
 
@@ -168,6 +275,8 @@ export const useCascadeExecutor = () => {
           (payload) => {
             if (payload.new && ['completed', 'failed', 'cancelled'].includes(payload.new.status)) {
               handleTaskComplete(payload.new);
+            } else if (payload.new?.requires_input) {
+              handleTaskComplete(payload.new);
             }
           }
         )
@@ -177,7 +286,20 @@ export const useCascadeExecutor = () => {
       pollInterval = setInterval(async () => {
         if (manusTaskCancelRef.current) {
           cleanup();
-          reject(new Error('Manus task cancelled by user'));
+          const errorCode = 'MANUS_TASK_CANCELLED';
+          
+          toast.info('Manus task cancelled', {
+            description: 'Cancelled by user',
+            source: 'useCascadeExecutor.runManusTask',
+            details: JSON.stringify({
+              task_id: taskId,
+              elapsed_ms: Date.now() - startTime,
+              error_code: errorCode,
+              request: requestMetadata,
+            }, null, 2),
+          });
+          
+          reject(new ManusError('Manus task cancelled by user', errorCode, taskId));
           return;
         }
 
@@ -189,13 +311,29 @@ export const useCascadeExecutor = () => {
 
         if (task && ['completed', 'failed', 'cancelled'].includes(task.status)) {
           handleTaskComplete(task);
+        } else if (task?.requires_input) {
+          handleTaskComplete(task);
         }
       }, MANUS_POLL_INTERVAL_MS);
 
       // Timeout after 30 minutes
       timeoutId = setTimeout(() => {
         cleanup();
-        reject(new Error('Manus task timed out after 30 minutes'));
+        const errorCode = 'MANUS_TIMEOUT';
+        
+        toast.error('Manus task timed out', {
+          description: 'Task exceeded 30 minute limit',
+          source: 'useCascadeExecutor.runManusTask',
+          errorCode: errorCode,
+          details: JSON.stringify({
+            task_id: taskId,
+            timeout_ms: MANUS_TASK_TIMEOUT_MS,
+            error_code: errorCode,
+            request: requestMetadata,
+          }, null, 2),
+        });
+        
+        reject(new ManusError('Manus task timed out after 30 minutes', errorCode, taskId));
       }, MANUS_TASK_TIMEOUT_MS);
     });
   }, [addCall, removeCall]);
