@@ -115,6 +115,8 @@ export const useUserCredentials = () => {
   /**
    * Check if a service is fully configured
    * For Confluence: both email and api_token must be set
+   * For Gemini/Google: api_key must be set
+   * For Manus: api_key must be set
    */
   const isServiceConfigured = useCallback((service) => {
     const status = credentialStatus[service];
@@ -122,6 +124,14 @@ export const useUserCredentials = () => {
 
     if (service === 'confluence') {
       return status.email === true && status.api_token === true;
+    }
+
+    if (service === 'gemini' || service === 'google') {
+      return status.api_key === true;
+    }
+
+    if (service === 'manus') {
+      return status.api_key === true;
     }
 
     // For other services, check if any key is configured

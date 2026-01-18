@@ -193,7 +193,7 @@ const MainLayout = () => {
   const { settings, updateSetting, isLoading: isLoadingSettings } = useSettings(supabase);
   
   // Models hook - Phase 6
-  const { models, isLoading: isLoadingModels, toggleModelActive, addModel, updateModel, deleteModel } = useModels();
+  const { models, isLoading: isLoadingModels, toggleModelActive, addModel, updateModel, deleteModel, addModels } = useModels();
   
   // Manus model lookup function - checks if a prompt uses a Manus model (requires cascade execution)
   const isManusModelById = useCallback((promptId) => {
@@ -1346,6 +1346,7 @@ const MainLayout = () => {
                         onAddModel={addModel}
                         onUpdateModel={updateModel}
                         onDeleteModel={deleteModel}
+                        onAddModels={addModels}
                         // Phase 4 - Cost analytics and conversation defaults
                         costTracking={costTracking}
                         conversationToolDefaults={conversationToolDefaults}
