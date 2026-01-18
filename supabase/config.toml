@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.manus-task-create]
 verify_jwt = true
+
+[functions.manus-key-validate]
+verify_jwt = true
