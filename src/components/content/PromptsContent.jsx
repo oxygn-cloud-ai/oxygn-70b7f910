@@ -1299,7 +1299,7 @@ const PromptsContent = ({
   // Lock state
   isCascadeRunning = false,
   singleRunPromptId = null,
-) => {
+}) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [confluenceModalOpen, setConfluenceModalOpen] = useState(false);
   const fileInputRef = useRef(null);
