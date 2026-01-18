@@ -1254,7 +1254,22 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => { setShowAddForm(true); setEditingModel(null); resetForm(); setShowAddForm(true); }}
+                onClick={() => { 
+                  setEditingModel(null);
+                  setFormData({
+                    model_id: '',
+                    model_name: '',
+                    provider: 'openai',
+                    context_window: '',
+                    max_output_tokens: '',
+                    input_cost_per_million: '',
+                    output_cost_per_million: '',
+                    supports_temperature: true,
+                    api_model_id: '',
+                    token_param: 'max_tokens',
+                  });
+                  setShowAddForm(true);
+                }}
                 className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
               >
                 <Plus className="h-5 w-5" />
