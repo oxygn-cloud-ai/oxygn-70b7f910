@@ -878,6 +878,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     output_cost_per_million: '',
     supports_temperature: true,
     api_model_id: '',
+    token_param: 'max_tokens',
   });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   
