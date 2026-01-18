@@ -34,6 +34,34 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
+// Validate that a vector store exists in OpenAI
+async function validateVectorStore(
+  vectorStoreId: string, 
+  openaiKey: string
+): Promise<{ exists: boolean; error?: string }> {
+  try {
+    const response = await fetch(
+      `https://api.openai.com/v1/vector_stores/${vectorStoreId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${openaiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
+        },
+      }
+    );
+    if (response.ok) return { exists: true };
+    if (response.status === 404) {
+      return { exists: false, error: 'Vector store not found in OpenAI' };
+    }
+    const errorText = await response.text();
+    return { exists: false, error: `OpenAI error: ${response.status} - ${errorText}` };
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : 'Unknown error';
+    return { exists: false, error: `Network error: ${errMsg}` };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -270,6 +298,7 @@ serve(async (req) => {
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
         },
         body: JSON.stringify(vsBody),
       });
@@ -319,6 +348,7 @@ serve(async (req) => {
         headers: {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2',
         },
         body: JSON.stringify({ file_id }),
       });
@@ -371,7 +401,10 @@ serve(async (req) => {
         try {
           const deIndexRes = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${fileId}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+            headers: { 
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'OpenAI-Beta': 'assistants=v2',
+            },
           });
           if (deIndexRes.ok) {
             console.log('De-indexed file from vector store:', { vectorStoreId, fileId });
@@ -505,8 +538,22 @@ serve(async (req) => {
 
       console.log(`Syncing ${pendingFiles.length} files for assistant ${assistant_row_id}`);
 
-      // Ensure vector store exists
+      // Ensure vector store exists and is valid
       let vectorStoreId = assistant?.vector_store_id;
+      
+      // Validate existing vector store before using
+      if (vectorStoreId) {
+        console.log('Validating existing vector store:', vectorStoreId);
+        const validation = await validateVectorStore(vectorStoreId, OPENAI_API_KEY);
+        if (!validation.exists) {
+          console.warn('Stored vector store invalid:', validation.error);
+          console.log('Will create new vector store...');
+          vectorStoreId = null;  // Force creation of new store
+        } else {
+          console.log('Vector store validated successfully');
+        }
+      }
+      
       if (!vectorStoreId) {
         // Create new vector store
         const vsResponse = await fetch('https://api.openai.com/v1/vector_stores', {
@@ -514,6 +561,7 @@ serve(async (req) => {
           headers: {
             'Authorization': `Bearer ${OPENAI_API_KEY}`,
             'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2',
           },
           body: JSON.stringify({ name: `assistant-${assistant_row_id}` }),
         });
@@ -587,25 +635,83 @@ serve(async (req) => {
             headers: {
               'Authorization': `Bearer ${OPENAI_API_KEY}`,
               'Content-Type': 'application/json',
+              'OpenAI-Beta': 'assistants=v2',
             },
             body: JSON.stringify({ file_id: uploadResult.id }),
           });
 
+          let fileStatus = 'uploaded';
+          
           if (!addResponse.ok) {
             const error = await addResponse.json();
-            console.error(`Failed to add file to vector store:`, error);
+            const errorMsg = error?.error?.message || JSON.stringify(error);
+            console.error(`Failed to add file to vector store:`, errorMsg);
+            
+            // Check if vector store is missing - attempt recovery
+            if (errorMsg.includes('No vector store found') || addResponse.status === 404) {
+              console.log('Vector store missing, attempting recovery...');
+              
+              // Create new vector store
+              const recoveryVsResponse = await fetch('https://api.openai.com/v1/vector_stores', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                  'OpenAI-Beta': 'assistants=v2',
+                },
+                body: JSON.stringify({ name: `assistant-${assistant_row_id}-recovery` }),
+              });
+              
+              if (recoveryVsResponse.ok) {
+                const newVs = await recoveryVsResponse.json();
+                vectorStoreId = newVs.id;
+                console.log('Created recovery vector store:', vectorStoreId);
+                
+                // Update database
+                await supabase
+                  .from(TABLES.ASSISTANTS)
+                  .update({ vector_store_id: vectorStoreId })
+                  .eq('row_id', assistant_row_id);
+                
+                // Retry adding file
+                const retryResponse = await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                    'Content-Type': 'application/json',
+                    'OpenAI-Beta': 'assistants=v2',
+                  },
+                  body: JSON.stringify({ file_id: uploadResult.id }),
+                });
+                
+                if (retryResponse.ok) {
+                  console.log('Successfully added file after recovery');
+                  fileStatus = 'uploaded';
+                } else {
+                  console.error('Failed to add file even after recovery');
+                  fileStatus = 'error';
+                }
+              } else {
+                console.error('Failed to create recovery vector store');
+                fileStatus = 'error';
+              }
+            } else {
+              fileStatus = 'error';
+            }
           }
 
-          // Update file record
+          // Update file record with correct status
           await supabase
             .from(TABLES.ASSISTANT_FILES)
             .update({
               openai_file_id: uploadResult.id,
-              upload_status: 'uploaded',
+              upload_status: fileStatus,
             })
             .eq('row_id', file.row_id);
 
-          uploadedCount++;
+          if (fileStatus === 'uploaded') {
+            uploadedCount++;
+          }
         } catch (e) {
           console.error(`Error processing file ${file.original_filename}:`, e);
           await supabase
@@ -661,7 +767,10 @@ serve(async (req) => {
                 try {
                   await fetch(`https://api.openai.com/v1/vector_stores/${vectorStoreId}/files/${file.openai_file_id}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+                    headers: { 
+                      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                      'OpenAI-Beta': 'assistants=v2',
+                    },
                   });
                   console.log('De-indexed file from vector store:', file.openai_file_id);
                 } catch (e) {
