@@ -1985,12 +1985,51 @@ serve(async (req) => {
       }
 
       // Build API options from prompt settings and assistant tool config
+      // First, validate vector store if file_search is enabled and vector store exists
+      let validatedVectorStoreIds: string[] = [];
+      const wantsFileSearch = assistantData.file_search_enabled || childPrompt.file_search_on;
+      
+      if (wantsFileSearch && assistantData.vector_store_id) {
+        // Quick validation call to ensure vector store exists
+        try {
+          const vsCheckResponse = await fetch(
+            `https://api.openai.com/v1/vector_stores/${assistantData.vector_store_id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'OpenAI-Beta': 'assistants=v2',
+              },
+            }
+          );
+          
+          if (vsCheckResponse.ok) {
+            validatedVectorStoreIds = [assistantData.vector_store_id];
+            console.log('Vector store validated:', assistantData.vector_store_id);
+          } else {
+            console.warn('Vector store invalid, skipping file_search. Status:', vsCheckResponse.status);
+            emitter.emit({
+              type: 'warning',
+              message: 'File search unavailable: vector store needs repair. Re-sync files or run resource health check.',
+            });
+          }
+        } catch (vsError) {
+          console.warn('Vector store validation failed:', vsError);
+          emitter.emit({
+            type: 'warning',
+            message: 'File search unavailable: could not validate vector store.',
+          });
+        }
+      } else if (assistantData.vector_store_id) {
+        // Vector store exists but file_search not enabled - still pass it through
+        validatedVectorStoreIds = [assistantData.vector_store_id];
+      }
+      
       const apiOptions: ApiOptions = {
-        // Tool options from assistant configuration
-        fileSearchEnabled: assistantData.file_search_enabled || childPrompt.file_search_on,
+        // Tool options from assistant configuration (use validated vector store IDs)
+        fileSearchEnabled: wantsFileSearch && validatedVectorStoreIds.length > 0,
         codeInterpreterEnabled: assistantData.code_interpreter_enabled || childPrompt.code_interpreter_on,
         webSearchEnabled: childPrompt.web_search_on,
-        vectorStoreIds: assistantData.vector_store_id ? [assistantData.vector_store_id] : [],
+        vectorStoreIds: validatedVectorStoreIds,
         storeInHistory: store_in_history !== false, // Default true for backward compatibility
         // Thread context for error recovery (clear stale response IDs on retry)
         threadRowId: activeThreadRowId,
@@ -2001,6 +2040,7 @@ serve(async (req) => {
         codeInterpreter: apiOptions.codeInterpreterEnabled,
         webSearch: apiOptions.webSearchEnabled,
         vectorStoreIds: apiOptions.vectorStoreIds,
+        vectorStoreValidated: validatedVectorStoreIds.length > 0,
       });
 
       // Add prompt-level model override if enabled
