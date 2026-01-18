@@ -40,7 +40,8 @@ export async function getDecryptedCredential(
     }
     
     const data = await response.json();
-    return data.success ? data.value : null;
+    // Trim whitespace/newlines from decrypted value to prevent API key issues
+    return data.success && data.value ? data.value.trim() : null;
   } catch (error) {
     console.error('[credentials] Error fetching credential:', error);
     return null;

@@ -10,7 +10,7 @@ import { parseApiError } from "@/utils/apiErrorUtils";
 import { trackEvent } from '@/lib/posthog';
 import { 
   Eye, EyeOff, Save, Trash2, ExternalLink, Loader2, 
-  Zap, Key, Bot
+  Zap, Key, Bot, CheckCircle, XCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,7 +27,9 @@ const ManusIntegrationSettings = () => {
   const [showKey, setShowKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
+  const [keyValidation, setKeyValidation] = useState(null);
   const [isWebhookRegistered, setIsWebhookRegistered] = useState(false);
   
   const hasCredentials = isServiceConfigured('manus');
@@ -38,19 +40,24 @@ const ManusIntegrationSettings = () => {
   }, [getCredentialStatus]);
 
   const handleSaveCredentials = async () => {
-    if (!apiKey.trim()) {
+    const trimmedKey = apiKey.trim();
+    if (!trimmedKey) {
       toast.error('API key is required');
       return;
     }
     setIsSaving(true);
     try {
-      await setCredential('manus', 'api_key', apiKey);
+      // Save trimmed key to prevent whitespace/newline issues
+      await setCredential('manus', 'api_key', trimmedKey);
       toast.success('Manus API key saved securely');
       setApiKey('');
+      setConnectionStatus(null); // Reset status after saving new key
       await getCredentialStatus('manus');
       trackEvent('manus_credentials_saved');
     } catch (error) {
-      toast.error('Failed to save API key');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const parsed = parseApiError(errorMsg);
+      toast.error(parsed.title, { description: parsed.message });
     } finally {
       setIsSaving(false);
     }
@@ -62,6 +69,7 @@ const ManusIntegrationSettings = () => {
       await deleteCredential('manus', 'api_key');
       toast.success('Manus API key removed');
       setConnectionStatus(null);
+      setKeyValidation(null);
       setIsWebhookRegistered(false);
       await getCredentialStatus('manus');
       trackEvent('manus_credentials_deleted');
@@ -69,6 +77,52 @@ const ManusIntegrationSettings = () => {
       toast.error('Failed to remove API key');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Test connection by validating API key with Manus
+  const handleTestConnection = async () => {
+    setIsValidating(true);
+    setKeyValidation(null);
+    try {
+      const { data, error } = await supabase.functions.invoke('manus-key-validate', {});
+      
+      if (error) {
+        const parsed = parseApiError(error.message);
+        setKeyValidation({ success: false, message: parsed.title });
+        toast.error('Connection test failed', { description: parsed.message });
+      } else if (data?.manus_ok) {
+        setKeyValidation({ 
+          success: true, 
+          message: 'Connected!',
+          fingerprint: data.fingerprint,
+          projectCount: data.project_count
+        });
+        toast.success('Manus API key is valid', { 
+          description: data.project_count > 0 ? `${data.project_count} project(s) found` : undefined 
+        });
+        trackEvent('manus_connection_test_success');
+      } else if (data?.error_code === 'MANUS_INVALID_KEY') {
+        setKeyValidation({ success: false, message: 'Invalid key' });
+        toast.error('Invalid API key', { 
+          description: 'Manus rejected the configured key. Please generate a new key from manus.ai.' 
+        });
+        trackEvent('manus_connection_test_failed', { error_code: 'MANUS_INVALID_KEY' });
+      } else if (data?.error_code === 'MANUS_NOT_CONFIGURED') {
+        setKeyValidation({ success: false, message: 'Not configured' });
+        toast.error('No API key configured', { description: 'Please add your Manus API key first.' });
+      } else {
+        const errorMsg = data?.error || 'Unknown error';
+        const parsed = parseApiError(errorMsg);
+        setKeyValidation({ success: false, message: parsed.title });
+        toast.error('Connection test failed', { description: parsed.message });
+      }
+    } catch (err) {
+      const parsed = parseApiError(err.message);
+      setKeyValidation({ success: false, message: parsed.title });
+      toast.error('Connection test failed', { description: parsed.message });
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -135,11 +189,33 @@ const ManusIntegrationSettings = () => {
               Manus AI - Agentic task automation
             </p>
           </div>
-          {hasCredentials ? (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
-          ) : (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
-          )}
+          <div className="flex items-center gap-2">
+            {keyValidation && (
+              <span className={`text-[10px] flex items-center gap-1 ${keyValidation.success ? 'text-green-600' : 'text-red-500'}`}>
+                {keyValidation.success ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                {keyValidation.message}
+              </span>
+            )}
+            {hasCredentials && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleTestConnection}
+                    disabled={isValidating}
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] disabled:opacity-50"
+                  >
+                    {isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Test connection</TooltipContent>
+              </Tooltip>
+            )}
+            {hasCredentials ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
+            )}
+          </div>
         </div>
       </SettingCard>
 
