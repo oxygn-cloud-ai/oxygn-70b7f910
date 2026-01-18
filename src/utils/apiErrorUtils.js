@@ -99,6 +99,13 @@ const ERROR_PATTERNS = [
     recoverable: false,
   },
   {
+    pattern: /MANUS_NOT_SUPPORTED|manus.*requires async|manus.*cascade/i,
+    code: 'MANUS_NOT_SUPPORTED',
+    title: 'Manus Requires Cascade',
+    message: 'Manus models require cascade execution. Use the cascade run button instead of direct prompt execution.',
+    recoverable: false,
+  },
+  {
     pattern: /MISSING_FIELD|required field/i,
     code: 'MISSING_FIELD',
     title: 'Missing Required Field',
