@@ -19,7 +19,8 @@ import {
   Trash2,
   BookOpen,
   Key,
-  CloudCog
+  CloudCog,
+  Sparkles
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -125,6 +126,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         description="Page sync settings"
         isActive={activeSubItem === "confluence"}
         onClick={() => onItemClick?.("confluence")}
+      />
+      <SubmenuItem 
+        icon={Sparkles} 
+        label="Google Gemini" 
+        description="API key configuration"
+        isActive={activeSubItem === "gemini"}
+        onClick={() => onItemClick?.("gemini")}
       />
       <SubmenuItem 
         icon={Cpu} 

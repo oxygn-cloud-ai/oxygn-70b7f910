@@ -1950,6 +1950,171 @@ const ManusIntegrationWrapper = () => (
   </React.Suspense>
 );
 
+// Gemini API Key Section
+const GeminiSection = () => {
+  const { 
+    credentialStatus, 
+    getCredentialStatus, 
+    setCredential, 
+    deleteCredential,
+    isServiceConfigured,
+    isLoading: isCredLoading 
+  } = useUserCredentials();
+  const [isSaving, setIsSaving] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  // Check Gemini status on mount
+  useEffect(() => {
+    getCredentialStatus('gemini');
+  }, [getCredentialStatus]);
+
+  const geminiStatus = credentialStatus['gemini'] || {};
+  const isConfigured = geminiStatus.api_key === true;
+
+  const handleSaveKey = async () => {
+    if (!apiKey.trim()) {
+      toast.error('Please enter an API key');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await setCredential('gemini', 'api_key', apiKey.trim());
+      setApiKey('');
+      toast.success('Gemini API key saved');
+      trackEvent('gemini_api_key_saved');
+    } catch (error) {
+      toast.error('Failed to save API key');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteKey = async () => {
+    setIsSaving(true);
+    try {
+      await deleteCredential('gemini', 'api_key');
+      toast.success('Gemini API key removed');
+      trackEvent('gemini_api_key_deleted');
+    } catch (error) {
+      toast.error('Failed to remove API key');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Status Card */}
+      <SettingCard label="Connection">
+        <div className="flex items-center gap-3 mb-3">
+          <Sparkles className="h-5 w-5 text-on-surface-variant" />
+          <div className="flex-1">
+            <h4 className="text-body-sm text-on-surface font-medium">
+              {isConfigured ? 'Connected' : 'Not Connected'}
+            </h4>
+            <p className="text-[10px] text-on-surface-variant">
+              {isConfigured 
+                ? 'Your API key is securely stored' 
+                : 'Add your Google AI API key to fetch Gemini models'}
+            </p>
+          </div>
+          {isConfigured ? (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600">Active</span>
+          ) : (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600">Not Set</span>
+          )}
+        </div>
+      </SettingCard>
+
+      {/* API Key Card */}
+      <SettingCard label="API Key">
+        <div className="space-y-3">
+          <SettingRow 
+            label="Google AI API Key" 
+            description={isConfigured ? "Key is securely stored" : "Required for fetching Gemini models"}
+          >
+            {isConfigured ? (
+              <div className="flex items-center gap-2">
+                <span className="text-body-sm text-on-surface font-mono">••••••••••••</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleDeleteKey}
+                      disabled={isSaving || isCredLoading}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08] hover:text-destructive disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Remove API Key</TooltipContent>
+                </Tooltip>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter API key..."
+                  className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowKey(!showKey)}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
+                    >
+                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">{showKey ? 'Hide' : 'Show'}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleSaveKey}
+                      disabled={isSaving || isCredLoading || !apiKey.trim()}
+                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08] disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save API Key</TooltipContent>
+                </Tooltip>
+              </div>
+            )}
+          </SettingRow>
+          
+          <div className="pt-2">
+            <a 
+              href="https://aistudio.google.com/app/apikey" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[10px] text-primary hover:underline flex items-center gap-1"
+            >
+              Get API Key from Google AI Studio <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+        </div>
+      </SettingCard>
+
+      {/* Info Card */}
+      <SettingCard label="About">
+        <div className="space-y-2">
+          <p className="text-body-sm text-on-surface-variant">
+            The Gemini API key is used to fetch available models from Google's API. 
+            Models can be fetched from the AI Models settings page once your key is configured.
+          </p>
+          <p className="text-[10px] text-on-surface-variant">
+            Your API key is encrypted and stored securely. It is never exposed to the frontend.
+          </p>
+        </div>
+      </SettingCard>
+    </div>
+  );
+};
+
 // Settings Sections Configuration
 const SETTINGS_SECTIONS = {
   "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
@@ -1958,6 +2123,7 @@ const SETTINGS_SECTIONS = {
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
+  "gemini": { component: GeminiSection, icon: Sparkles, title: "Google Gemini" },
   "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
@@ -2021,6 +2187,8 @@ const SettingsContent = ({
         return commonSettingsProps;
       case 'confluence':
         return commonSettingsProps;
+      case 'gemini':
+        return {};
       case 'notifications':
         return commonSettingsProps;
       case 'profile':
