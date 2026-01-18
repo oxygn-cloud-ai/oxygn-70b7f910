@@ -79,14 +79,15 @@ serve(async (req) => {
       );
     }
 
-    // Get Manus API key
-    const manusApiKey = await getManusApiKey(authHeader);
-    if (!manusApiKey) {
+    // Get Manus API key and normalize (trim whitespace/newlines)
+    const rawManusApiKey = await getManusApiKey(authHeader);
+    if (!rawManusApiKey) {
       return new Response(
         JSON.stringify(buildErrorResponse(ERROR_CODES.MANUS_NOT_CONFIGURED, 'Manus API key not configured. Add it in Settings > Integrations.')),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const manusApiKey = rawManusApiKey.trim();
 
     // Use service role for database operations
     const supabase = createClient(
