@@ -99,8 +99,8 @@ async function fetchOpenAIModels(): Promise<ModelData[]> {
 
     return chatModels.map((m: any) => {
       const id = m.id;
-      // Determine if it's a reasoning model (o1, o3, o4)
-      const isReasoningModel = /^o[134]/.test(id);
+      // Determine if it's a reasoning model (o1, o3, o4 series)
+      const isReasoningModel = /^o[1-4](?:-|$)/.test(id);
       
       return {
         model_id: id,
