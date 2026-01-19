@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Settings, Palette, Bell, User, 
   Link2, MessageSquare, Sparkles,
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, Save, XCircle, History, BookOpen, Key
+  Code, Search, Globe, Zap, Save, XCircle, History, BookOpen, Key, Tag
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
@@ -26,7 +26,18 @@ import { useUserCredentials } from "@/hooks/useUserCredentials";
 import { useBuildInfo } from "@/hooks/useBuildInfo";
 import { toast } from "@/components/ui/sonner";
 import { trackEvent } from '@/lib/posthog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
+const SETTING_KEY_PUBLISHED_RELEASE = 'published_release';
 // No mock data - all models come from database via useModels hook
 
 const DEFAULT_NAMING_LEVELS = [
@@ -42,6 +53,11 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   const { retentionMinutes, updateRetention, undoStack, clearAllUndo } = useUndo();
   const [localRetention, setLocalRetention] = useState(retentionMinutes);
   const { build: githubBuild, releaseUrl, releaseDate, isLoading: isBuildLoading, error: buildError } = useBuildInfo();
+  
+  // Published release state and hooks
+  const { isAdmin, userProfile } = useAuth();
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
   // Sync local retention with context
   useEffect(() => {
@@ -88,6 +104,76 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   };
 
   const hasRetentionChanges = localRetention !== retentionMinutes;
+
+  // Parse published release from settings with loading guard
+  const publishedRelease = useMemo(() => {
+    if (isLoadingSettings) return null;
+    const raw = settings[SETTING_KEY_PUBLISHED_RELEASE]?.value;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }, [settings, isLoadingSettings]);
+
+  // Format date consistently with Build row
+  const formattedPublishedDate = publishedRelease?.published_at
+    ? new Date(publishedRelease.published_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    : null;
+
+  // Build description for Release row
+  const releaseDescription = useMemo(() => {
+    if (isLoadingSettings) return "Loading...";
+    if (!publishedRelease) return "Not yet published";
+    if (formattedPublishedDate && publishedRelease.published_by) {
+      return `Published ${formattedPublishedDate} by ${publishedRelease.published_by}`;
+    }
+    return formattedPublishedDate ? `Published ${formattedPublishedDate}` : "Published";
+  }, [isLoadingSettings, publishedRelease, formattedPublishedDate]);
+
+  // Case-insensitive build comparison
+  const isCurrentBuildPublished = publishedRelease?.build?.toLowerCase() === githubBuild?.toLowerCase();
+
+  // Button visibility logic
+  const canPublish = isAdmin && githubBuild && !isBuildLoading && !isPublishing;
+
+  // Publish handler with case-insensitive error check
+  const handlePublishRelease = async () => {
+    if (!githubBuild || !onUpdateSetting) return;
+    
+    setIsPublishing(true);
+    try {
+      const releaseData = {
+        build: githubBuild,
+        published_at: new Date().toISOString(),
+        published_by: userProfile?.display_name || 'Unknown'
+      };
+      
+      await onUpdateSetting(SETTING_KEY_PUBLISHED_RELEASE, JSON.stringify(releaseData));
+      
+      toast.success(`Build ${githubBuild} marked as published release`);
+      trackEvent('release_published', {
+        build: githubBuild,
+        published_by: userProfile?.display_name
+      });
+    } catch (err) {
+      console.error('Failed to publish release:', err);
+      // Case-insensitive error check
+      const errorMsg = err?.message?.toLowerCase() || '';
+      const message = errorMsg.includes('row-level security') || errorMsg.includes('permission')
+        ? 'Permission denied. Admin access required.'
+        : 'Failed to mark as published. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsPublishing(false);
+      setShowPublishConfirm(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -152,6 +238,45 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
                         </a>
                       </TooltipTrigger>
                       <TooltipContent className="text-[10px]">View release on GitHub</TooltipContent>
+                    </Tooltip>
+                  )}
+                </>
+              )}
+            </div>
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow 
+            label="Release" 
+            description={releaseDescription}
+          >
+            <div className="flex items-center gap-2">
+              {isLoadingSettings ? (
+                <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+              ) : (
+                <>
+                  <span className="text-body-sm text-on-surface font-mono">
+                    {publishedRelease?.build || '—'}
+                  </span>
+                  {canPublish && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => setShowPublishConfirm(true)}
+                          disabled={isPublishing}
+                          className="w-6 h-6 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08]"
+                        >
+                          {isPublishing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-on-surface-variant" />
+                          ) : (
+                            <Tag className={isCurrentBuildPublished ? "h-3.5 w-3.5 text-primary" : "h-3.5 w-3.5 text-on-surface-variant"} />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">
+                        {isCurrentBuildPublished 
+                          ? "Current build is already published" 
+                          : "Mark current build as published release"}
+                      </TooltipContent>
                     </Tooltip>
                   )}
                 </>
@@ -290,6 +415,52 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
           </SettingRow>
         </div>
       </SettingCard>
+
+      {/* Publish Release Confirmation Dialog */}
+      <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
+        <AlertDialogContent className="bg-surface-container-high border-outline-variant">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-title-sm text-on-surface font-medium">
+              Publish Release
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-body-sm text-on-surface-variant">
+              Mark build <code className="font-mono bg-surface-container px-1 rounded-m3-sm">{githubBuild}</code> as the current published release.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row justify-end !space-x-0 gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogCancel 
+                  className="!inline-flex !h-8 !w-8 !p-0 !m-0 !bg-transparent !border-0 !shadow-none !rounded-m3-full hover:!bg-surface-container"
+                  disabled={isPublishing}
+                >
+                  <X className="h-4 w-4 text-on-surface-variant" />
+                </AlertDialogCancel>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]" sideOffset={8}>Cancel</TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogAction 
+                  onClick={handlePublishRelease}
+                  className="!inline-flex !h-8 !w-8 !p-0 !m-0 !bg-transparent !border-0 !shadow-none !rounded-m3-full hover:!bg-surface-container"
+                  disabled={isPublishing}
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
+                  ) : (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </AlertDialogAction>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]" sideOffset={8}>
+                {isPublishing ? "Publishing..." : "Confirm publish"}
+              </TooltipContent>
+            </Tooltip>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
