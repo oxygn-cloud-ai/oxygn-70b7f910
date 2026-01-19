@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main # Triggers whenever Lovable syncs code to your main branch
-        workflow_dispatch:
+  workflow_dispatch:
 
 permissions:
   contents: write # Required permission to create releases and tags
