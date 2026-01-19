@@ -178,6 +178,7 @@ const ConversationPanel = ({
   const streamingMessage = usePromptFamilyMode ? promptFamilyChat.streamingMessage : '';
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
+  const isStreaming = usePromptFamilyMode ? promptFamilyChat.isStreaming : false;
 
   // Communication prompt state
   const pendingQuestion = usePromptFamilyMode ? promptFamilyChat.pendingQuestion : null;

@@ -238,6 +238,14 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
               handleSave={handleSave}
             />
           )}
+          
+          {/* Communication Node Settings (only shown for communication nodes) */}
+          {isCommunicationNode && (
+            <CommunicationNodeSettings
+              config={localData.communication_config}
+              onChange={handleCommunicationConfigChange}
+            />
+          )}
         </>
       ) : (
         <>
@@ -250,14 +258,6 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
               localData={localData}
               handleChange={handleChange}
               handleSave={handleSave}
-            />
-          )}
-          
-          {/* Communication Node Settings (only shown for communication nodes) */}
-          {isCommunicationNode && (
-            <CommunicationNodeSettings
-              config={localData.communication_config}
-              onChange={handleCommunicationConfigChange}
             />
           )}
           
