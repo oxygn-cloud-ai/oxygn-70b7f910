@@ -1,4 +1,4 @@
-name: Qonsol Release 2
+name: Qonsol Release
 
 on:
   push:
