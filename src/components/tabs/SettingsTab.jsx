@@ -121,6 +121,12 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
     handleSave('node_type', 'action');
   };
 
+  // Auto-fix handler for orphaned communication_config
+  const handleAutoFixCommunicationType = () => {
+    handleChange('node_type', 'communication');
+    handleSave('node_type', 'communication');
+  };
+
   const handleCommunicationConfigChange = (newConfig) => {
     handleChange('communication_config', newConfig);
     handleSave('communication_config', newConfig);
@@ -129,11 +135,12 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
   const isActionNode = localData.node_type === 'action';
   const isCommunicationNode = localData.node_type === 'communication';
   const hasOrphanedPostAction = !!localData.post_action && localData.node_type !== 'action';
+  const hasOrphanedCommunicationConfig = !!localData.communication_config && localData.node_type !== 'communication';
 
   // Compact toggle row for top-level prompts
   const CompactToggles = () => (
     <div className="flex items-center gap-3 p-3 bg-surface-container-low rounded-m3-md border border-outline-variant mb-4">
-      {/* Auto-fix warning icon (only shows when there's orphaned post_action) */}
+      {/* Auto-fix warning icon for orphaned post_action */}
       {hasOrphanedPostAction && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -150,6 +157,23 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
         </Tooltip>
       )}
 
+      {/* Auto-fix warning icon for orphaned communication_config */}
+      {hasOrphanedCommunicationConfig && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+              onClick={handleAutoFixCommunicationType}
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">Communication config set but not a communication node. Click to fix.</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
       {/* Node Type Toggle - M3 compliant icon button */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -161,7 +185,7 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-[10px]">{isActionNode ? 'Action node (click to make standard)' : 'Standard node (click to make action)'}</p>
+          <p className="text-[10px]">{isActionNode ? 'Action node enabled (click to disable)' : 'Enable action node'}</p>
         </TooltipContent>
       </Tooltip>
 
@@ -176,7 +200,7 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-[10px]">{isCommunicationNode ? 'Communication node (click to make standard)' : 'Standard node (click for communication)'}</p>
+          <p className="text-[10px]">{isCommunicationNode ? 'Communication node enabled (click to disable)' : 'Enable communication node'}</p>
         </TooltipContent>
       </Tooltip>
 
@@ -213,12 +237,12 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       <div className="h-5 w-px bg-outline-variant mx-1" />
       
       <span className="text-[10px] text-on-surface-variant">
-        {hasOrphanedPostAction && <span className="text-amber-500">Needs fix · </span>}
+        {(hasOrphanedPostAction || hasOrphanedCommunicationConfig) && <span className="text-amber-500">Needs fix · </span>}
         {isActionNode && 'Action'}
         {isCommunicationNode && 'Communication'}
         {localData.exclude_from_cascade && ((isActionNode || isCommunicationNode) ? ' · ' : '') + 'Skip cascade'}
         {localData.exclude_from_export && ((isActionNode || isCommunicationNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
-        {!isActionNode && !isCommunicationNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && 'Standard settings'}
+        {!isActionNode && !isCommunicationNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && !hasOrphanedCommunicationConfig && 'Standard settings'}
       </span>
     </div>
   );
