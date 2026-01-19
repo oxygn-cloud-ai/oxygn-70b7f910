@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { notify } from '@/contexts/ToastHistoryContext';
 import { trackEvent, trackException } from '@/lib/posthog';
 import { useApiCallContext } from '@/contexts/ApiCallContext';
 import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { estimateRequestTokens, getModelContextWindow } from '@/utils/tokenizer';
 import { estimateCost } from '@/utils/costEstimator';
-
 export const usePromptFamilyChat = (promptRowId) => {
   const { registerCall } = useApiCallContext();
   const { addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall } = useLiveApiDashboard();
@@ -269,8 +269,21 @@ export const usePromptFamilyChat = (promptRowId) => {
     const userMsg = await addMessage('user', userMessage, null, effectiveThreadId);
     if (!userMsg) return null;
 
-    // Notify user message sent
-    toast.info('Message sent', { description: userMessage.slice(0, 50) + (userMessage.length > 50 ? '...' : '') });
+    const effectiveModel = model || sessionModel || 'gpt-4o';
+    
+    // Notify user message sent with full payload details
+    notify.info('Message sent', { 
+      source: 'usePromptFamilyChat.sendMessage',
+      description: userMessage.slice(0, 100) + (userMessage.length > 100 ? '...' : ''),
+      details: JSON.stringify({
+        promptRowId,
+        threadId: effectiveThreadId,
+        model: effectiveModel,
+        reasoningEffort: reasoningEffort || sessionReasoningEffort,
+        messageLength: userMessage.length,
+        fullMessage: userMessage,
+      }, null, 2),
+    });
 
     setIsStreaming(true);
     setStreamingMessage('');
@@ -285,7 +298,6 @@ export const usePromptFamilyChat = (promptRowId) => {
     const estimatedInputTokens = estimateRequestTokens({
       userMessage: userMessage || '',
     });
-    const effectiveModel = model || sessionModel || 'gpt-4o';
     const contextWindow = getModelContextWindow(effectiveModel);
 
     // Register with LiveApiDashboard for real-time status
@@ -354,6 +366,10 @@ export const usePromptFamilyChat = (promptRowId) => {
       const decoder = new TextDecoder();
       let fullContent = '';
       let buffer = '';
+      
+      // Track API metadata for toast details
+      let responseId = null;
+      let usageData = { input_tokens: 0, output_tokens: 0 };
 
       if (reader) {
         while (true) {
@@ -376,6 +392,7 @@ export const usePromptFamilyChat = (promptRowId) => {
               
               // Handle api_started - update dashboard with response_id
               if (parsed.type === 'api_started') {
+                responseId = parsed.response_id;
                 updateCall(dashboardId, { 
                   status: 'in_progress',
                   responseId: parsed.response_id,
@@ -417,7 +434,11 @@ export const usePromptFamilyChat = (promptRowId) => {
               
               // Handle usage updates from server (accurate token counts)
               if (parsed.type === 'usage_delta') {
+                if (parsed.input_tokens) {
+                  usageData.input_tokens += parsed.input_tokens;
+                }
                 if (parsed.output_tokens) {
+                  usageData.output_tokens += parsed.output_tokens;
                   incrementOutputTokens(dashboardId, parsed.output_tokens);
                 }
               }
@@ -470,8 +491,21 @@ export const usePromptFamilyChat = (promptRowId) => {
 
       await addMessage('assistant', fullContent, null, effectiveThreadId);
       
-      // Notify AI response received
-      toast.info('AI response received', { description: fullContent.slice(0, 50) + (fullContent.length > 50 ? '...' : '') });
+      // Notify AI response received with full payload details
+      notify.success('AI response received', { 
+        source: 'usePromptFamilyChat.sendMessage',
+        description: fullContent.slice(0, 100) + (fullContent.length > 100 ? '...' : ''),
+        details: JSON.stringify({
+          promptRowId,
+          threadId: effectiveThreadId,
+          model: effectiveModel,
+          responseId,
+          usage: usageData,
+          responseLength: fullContent.length,
+          toolsUsed: toolActivity.map(t => t.name),
+          fullResponse: fullContent,
+        }, null, 2),
+      });
       
       setStreamingMessage('');
       setIsStreaming(false);
@@ -500,7 +534,17 @@ export const usePromptFamilyChat = (promptRowId) => {
       // Don't show error toast for aborted requests
       if (error.name !== 'AbortError') {
         console.error('Error sending message:', error);
-        toast.error(error.message || 'Failed to get AI response');
+        notify.error(error.message || 'Failed to get AI response', {
+          source: 'usePromptFamilyChat.sendMessage',
+          errorCode: error.code || 'CHAT_ERROR',
+          details: JSON.stringify({
+            promptRowId,
+            threadId: effectiveThreadId,
+            model: effectiveModel,
+            errorMessage: error.message,
+            stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+          }, null, 2),
+        });
         trackException(error, { context: 'prompt_family_chat' });
       }
       setStreamingMessage('');
