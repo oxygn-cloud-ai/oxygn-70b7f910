@@ -136,8 +136,8 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
     return formattedPublishedDate ? `Published ${formattedPublishedDate}` : "Published";
   }, [isLoadingSettings, publishedRelease, formattedPublishedDate]);
 
-  // Case-insensitive build comparison
-  const isCurrentBuildPublished = publishedRelease?.build?.toLowerCase() === githubBuild?.toLowerCase();
+  // Case-insensitive build comparison - guard against undefined === undefined
+  const isCurrentBuildPublished = Boolean(githubBuild) && publishedRelease?.build?.toLowerCase() === githubBuild?.toLowerCase();
 
   // Button visibility logic
   const canPublish = isAdmin && githubBuild && !isBuildLoading && !isPublishing;
