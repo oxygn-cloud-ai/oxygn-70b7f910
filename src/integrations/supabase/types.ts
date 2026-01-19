@@ -1247,33 +1247,42 @@ export type Database = {
       }
       q_prompt_variables: {
         Row: {
+          communication_session_id: string | null
           created_at: string | null
           default_value: string | null
           is_required: boolean | null
           prompt_row_id: string | null
           row_id: string
+          source_question: string | null
+          source_type: string | null
           updated_at: string | null
           variable_description: string | null
           variable_name: string | null
           variable_value: string | null
         }
         Insert: {
+          communication_session_id?: string | null
           created_at?: string | null
           default_value?: string | null
           is_required?: boolean | null
           prompt_row_id?: string | null
           row_id?: string
+          source_question?: string | null
+          source_type?: string | null
           updated_at?: string | null
           variable_description?: string | null
           variable_name?: string | null
           variable_value?: string | null
         }
         Update: {
+          communication_session_id?: string | null
           created_at?: string | null
           default_value?: string | null
           is_required?: boolean | null
           prompt_row_id?: string | null
           row_id?: string
+          source_question?: string | null
+          source_type?: string | null
           updated_at?: string | null
           variable_description?: string | null
           variable_name?: string | null
@@ -1289,6 +1298,7 @@ export type Database = {
           best_of_on: boolean | null
           child_thread_strategy: string | null
           code_interpreter_on: boolean | null
+          communication_config: Json | null
           confluence_enabled: boolean | null
           context_length: string | null
           context_length_on: boolean | null
@@ -1381,6 +1391,7 @@ export type Database = {
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
           code_interpreter_on?: boolean | null
+          communication_config?: Json | null
           confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
@@ -1473,6 +1484,7 @@ export type Database = {
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
           code_interpreter_on?: boolean | null
+          communication_config?: Json | null
           confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
@@ -1685,6 +1697,7 @@ export type Database = {
         Row: {
           assistant_row_id: string | null
           child_prompt_row_id: string | null
+          communication_state: Json | null
           created_at: string | null
           external_session_id: string | null
           is_active: boolean | null
@@ -1701,6 +1714,7 @@ export type Database = {
         Insert: {
           assistant_row_id?: string | null
           child_prompt_row_id?: string | null
+          communication_state?: Json | null
           created_at?: string | null
           external_session_id?: string | null
           is_active?: boolean | null
@@ -1717,6 +1731,7 @@ export type Database = {
         Update: {
           assistant_row_id?: string | null
           child_prompt_row_id?: string | null
+          communication_state?: Json | null
           created_at?: string | null
           external_session_id?: string | null
           is_active?: boolean | null

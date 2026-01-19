@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SkipForward, Upload, Zap, AlertTriangle } from 'lucide-react';
+import { SkipForward, Upload, Zap, AlertTriangle, MessageCircleQuestion } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ActionNodeSettings from '../ActionNodeSettings';
+import CommunicationNodeSettings from '../CommunicationNodeSettings';
 
 const SettingsTab = ({ selectedItemData, projectRowId }) => {
   const { models } = useOpenAIModels();
@@ -72,6 +73,27 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
         handleSave('response_format', structuredFormat);
         handleSave('response_format_on', true);
       }
+      // Clear communication config
+      handleChange('communication_config', null);
+      handleSave('communication_config', null);
+    } else if (value === 'communication') {
+      // Set default communication config
+      const defaultConfig = { max_questions: 10, completion_mode: 'ai_decides', show_progress: true };
+      handleChange('communication_config', defaultConfig);
+      handleSave('communication_config', defaultConfig);
+      // Clear action fields
+      handleChange('post_action', null);
+      handleChange('post_action_config', null);
+      handleChange('json_schema_template_id', null);
+      handleChange('extracted_variables', null);
+      handleChange('last_action_result', null);
+      handleChange('response_format_on', false);
+      handleSave('post_action', null);
+      handleSave('post_action_config', null);
+      handleSave('json_schema_template_id', null);
+      handleSave('extracted_variables', null);
+      handleSave('last_action_result', null);
+      handleSave('response_format_on', false);
     } else {
       // CRITICAL: Clear ALL action-related fields when switching to standard
       // This prevents "standard node with post_action configured" state
@@ -81,6 +103,7 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       handleChange('extracted_variables', null);
       handleChange('last_action_result', null);
       handleChange('response_format_on', false);
+      handleChange('communication_config', null);
       
       handleSave('post_action', null);
       handleSave('post_action_config', null);
@@ -88,6 +111,7 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       handleSave('extracted_variables', null);
       handleSave('last_action_result', null);
       handleSave('response_format_on', false);
+      handleSave('communication_config', null);
     }
   };
 
@@ -97,7 +121,13 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
     handleSave('node_type', 'action');
   };
 
+  const handleCommunicationConfigChange = (newConfig) => {
+    handleChange('communication_config', newConfig);
+    handleSave('communication_config', newConfig);
+  };
+
   const isActionNode = localData.node_type === 'action';
+  const isCommunicationNode = localData.node_type === 'communication';
   const hasOrphanedPostAction = !!localData.post_action && localData.node_type !== 'action';
 
   // Compact toggle row for top-level prompts
@@ -132,6 +162,21 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
         </TooltipTrigger>
         <TooltipContent side="bottom">
           <p className="text-[10px]">{isActionNode ? 'Action node (click to make standard)' : 'Standard node (click to make action)'}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Communication Node Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+            onClick={() => handleNodeTypeChange(isCommunicationNode ? 'standard' : 'communication')}
+          >
+            <MessageCircleQuestion className={`h-4 w-4 ${isCommunicationNode ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p className="text-[10px]">{isCommunicationNode ? 'Communication node (click to make standard)' : 'Standard node (click for communication)'}</p>
         </TooltipContent>
       </Tooltip>
 
@@ -170,9 +215,10 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       <span className="text-[10px] text-on-surface-variant">
         {hasOrphanedPostAction && <span className="text-amber-500">Needs fix · </span>}
         {isActionNode && 'Action'}
-        {localData.exclude_from_cascade && (isActionNode ? ' · ' : '') + 'Skip cascade'}
-        {localData.exclude_from_export && ((isActionNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
-        {!isActionNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && 'Standard settings'}
+        {isCommunicationNode && 'Communication'}
+        {localData.exclude_from_cascade && ((isActionNode || isCommunicationNode) ? ' · ' : '') + 'Skip cascade'}
+        {localData.exclude_from_export && ((isActionNode || isCommunicationNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
+        {!isActionNode && !isCommunicationNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && 'Standard settings'}
       </span>
     </div>
   );
@@ -204,6 +250,22 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
               localData={localData}
               handleChange={handleChange}
               handleSave={handleSave}
+            />
+          )}
+          
+          {/* Communication Node Settings (only shown for communication nodes) */}
+          {isCommunicationNode && (
+            <CommunicationNodeSettings
+              config={localData.communication_config}
+              onChange={handleCommunicationConfigChange}
+            />
+          )}
+          
+          {/* Communication Node Settings (only shown for communication nodes) */}
+          {isCommunicationNode && (
+            <CommunicationNodeSettings
+              config={localData.communication_config}
+              onChange={handleCommunicationConfigChange}
             />
           )}
         </>
