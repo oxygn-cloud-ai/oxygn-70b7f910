@@ -10,6 +10,7 @@ import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
 import ModelReasoningSelector from "@/components/chat/ModelReasoningSelector";
 import ReactMarkdown from "react-markdown";
 import { useModels } from "@/hooks/useModels";
+import CommunicationQuestionPopup from "@/components/CommunicationQuestionPopup";
 
 // Tool Activity Indicator
 const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
@@ -177,6 +178,12 @@ const ConversationPanel = ({
   const streamingMessage = usePromptFamilyMode ? promptFamilyChat.streamingMessage : '';
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
+
+  // Communication prompt state
+  const pendingQuestion = usePromptFamilyMode ? promptFamilyChat.pendingQuestion : null;
+  const communicationProgress = usePromptFamilyMode ? promptFamilyChat.communicationProgress : { current: 0, max: 10 };
+  const collectedCommunicationVars = usePromptFamilyMode ? promptFamilyChat.collectedCommunicationVars : [];
+  const submitCommunicationAnswer = usePromptFamilyMode ? promptFamilyChat.submitCommunicationAnswer : null;
 
   // Get session model/reasoning from hook
   const sessionModel = usePromptFamilyMode ? promptFamilyChat.sessionModel : null;
@@ -462,6 +469,21 @@ const ConversationPanel = ({
           </div>
         </div>
       </div>
+      
+      {/* Communication Question Popup */}
+      {usePromptFamilyMode && (
+        <CommunicationQuestionPopup
+          isOpen={!!pendingQuestion}
+          onClose={() => promptFamilyChat.clearCommunicationState?.()}
+          question={pendingQuestion?.question}
+          variableName={pendingQuestion?.variableName}
+          description={pendingQuestion?.description}
+          progress={communicationProgress}
+          collectedVariables={collectedCommunicationVars}
+          onSubmit={submitCommunicationAnswer}
+          isSubmitting={isStreaming}
+        />
+      )}
     </div>
   );
 };

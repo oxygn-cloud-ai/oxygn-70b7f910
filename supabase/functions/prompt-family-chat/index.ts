@@ -732,6 +732,33 @@ async function executeToolsAndSubmitStreaming(
     
     const toolResult = await handleToolCall(toolName, toolArgs, toolContext);
     console.log(`Tool ${toolName} result length: ${toolResult.length}`);
+    
+    // Check for user_input_required interrupt marker BEFORE adding to results
+    try {
+      const parsed = JSON.parse(toolResult);
+      if (parsed.__interrupt === 'user_input_required') {
+        // Emit special event to frontend - this pauses the conversation
+        emitter.emit({
+          type: 'user_input_required',
+          variable_name: parsed.variable_name,
+          question: parsed.question,
+          description: parsed.description,
+          call_id: toolCall.call_id
+        });
+        
+        console.log('Communication interrupt - waiting for user input');
+        
+        // Return early - don't submit to OpenAI, conversation is paused
+        return { 
+          content: null, 
+          hasMoreTools: false, 
+          nextToolCalls: [], 
+          responseId: previousResponseId 
+        };
+      }
+    } catch {
+      // Not JSON or not our interrupt type - continue normally
+    }
 
     emitter.emit({ type: 'tool_end', tool: toolName });
 

@@ -23,6 +23,11 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [isExecutingTools, setIsExecutingTools] = useState(false);
   const [rootPromptId, setRootPromptId] = useState(null);
   
+  // Communication prompt state
+  const [pendingQuestion, setPendingQuestion] = useState(null);
+  const [communicationProgress, setCommunicationProgress] = useState({ current: 0, max: 10 });
+  const [collectedCommunicationVars, setCollectedCommunicationVars] = useState([]);
+  
   // Ref to track activeThreadId without causing callback re-creation
   const activeThreadIdRef = useRef(null);
   
@@ -377,6 +382,20 @@ export const usePromptFamilyChat = (promptRowId) => {
                 });
               }
               
+              // Handle user_input_required - communication prompt interrupt
+              if (parsed.type === 'user_input_required') {
+                setPendingQuestion({
+                  question: parsed.question,
+                  variableName: parsed.variable_name,
+                  description: parsed.description,
+                  callId: parsed.call_id
+                });
+                setCommunicationProgress(prev => ({ ...prev, current: prev.current + 1 }));
+                setIsStreaming(false);
+                // Don't process further - wait for user input
+                return fullContent;
+              }
+              
               // Handle thinking/reasoning events - stream to dashboard
               if (parsed.type === 'thinking_started') {
                 updateCall(dashboardId, { status: 'in_progress' });
@@ -528,6 +547,10 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsStreaming(false);
     setIsExecutingTools(false);
+    // Reset communication state
+    setPendingQuestion(null);
+    setCommunicationProgress({ current: 0, max: 10 });
+    setCollectedCommunicationVars([]);
   }, [rootPromptId, removeCall]);
 
   // Cancel stream function for external use
@@ -542,6 +565,35 @@ export const usePromptFamilyChat = (promptRowId) => {
       dashboardCallIdRef.current = null;
     }
   }, [removeCall]);
+
+  // Submit communication answer - resumes conversation with user's response
+  const submitCommunicationAnswer = useCallback(async (answer) => {
+    if (!pendingQuestion) return null;
+    
+    const { variableName, question } = pendingQuestion;
+    
+    // Track the collected variable locally
+    setCollectedCommunicationVars(prev => [...prev, { name: variableName, value: answer }]);
+    
+    // Clear pending question
+    setPendingQuestion(null);
+    
+    // Resume conversation - AI will receive this and should call store_qa_response
+    // Format message to give AI context about which question was answered
+    const contextMessage = `[Answer for ${variableName}]: ${answer}`;
+    
+    return await sendMessage(contextMessage, null, {
+      model: sessionModel,
+      reasoningEffort: sessionReasoningEffort
+    });
+  }, [pendingQuestion, sendMessage, sessionModel, sessionReasoningEffort]);
+
+  // Clear communication state
+  const clearCommunicationState = useCallback(() => {
+    setPendingQuestion(null);
+    setCommunicationProgress({ current: 0, max: 10 });
+    setCollectedCommunicationVars([]);
+  }, []);
 
   return {
     threads,
@@ -568,5 +620,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     setSessionModel,
     sessionReasoningEffort,
     setSessionReasoningEffort,
+    // Communication prompt state and actions
+    pendingQuestion,
+    communicationProgress,
+    collectedCommunicationVars,
+    submitCommunicationAnswer,
+    clearCommunicationState,
   };
 };

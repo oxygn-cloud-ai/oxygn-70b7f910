@@ -1,6 +1,7 @@
 /**
  * Variables Tool Module
  * Tools for managing prompt variables within a family
+ * Includes communication tools for interactive Q&A
  */
 
 import type { ToolModule, ToolDefinition, ToolContext } from './types.ts';
@@ -9,7 +10,10 @@ import { TABLES } from '../tables.ts';
 const TOOL_NAMES = [
   'create_variable',
   'update_variable',
-  'delete_variable'
+  'delete_variable',
+  'ask_user_question',
+  'store_qa_response',
+  'complete_communication'
 ] as const;
 
 type VariableToolName = typeof TOOL_NAMES[number];
@@ -130,6 +134,82 @@ export const variablesModule: ToolModule = {
           additionalProperties: false
         },
         strict: true
+      },
+      // Communication tools for interactive Q&A
+      {
+        type: 'function',
+        name: 'ask_user_question',
+        description: 'Ask the user a question in a popup dialog. The user\'s response will be stored as a variable. Use this in communication prompts to gather information interactively. Variable names MUST start with ai_ prefix.',
+        parameters: {
+          type: 'object',
+          properties: {
+            variable_name: {
+              type: 'string',
+              description: 'Variable name to store the answer (MUST start with ai_)'
+            },
+            question: {
+              type: 'string',
+              description: 'The question to display to the user'
+            },
+            description: {
+              type: ['string', 'null'],
+              description: 'Optional context about what this information will be used for'
+            }
+          },
+          required: ['variable_name', 'question', 'description'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      {
+        type: 'function',
+        name: 'store_qa_response',
+        description: 'Store a Q&A pair from a communication session as a persistent variable. Call this after receiving the user\'s answer to persist it.',
+        parameters: {
+          type: 'object',
+          properties: {
+            prompt_row_id: {
+              type: 'string',
+              description: 'The prompt to store the variable on'
+            },
+            variable_name: {
+              type: 'string',
+              description: 'Variable name (must start with ai_)'
+            },
+            question: {
+              type: 'string',
+              description: 'The question that was asked'
+            },
+            answer: {
+              type: 'string',
+              description: 'The user\'s response'
+            },
+            description: {
+              type: ['string', 'null'],
+              description: 'Description of what this variable is for'
+            }
+          },
+          required: ['prompt_row_id', 'variable_name', 'question', 'answer', 'description'],
+          additionalProperties: false
+        },
+        strict: true
+      },
+      {
+        type: 'function',
+        name: 'complete_communication',
+        description: 'Signal that information gathering is complete. Call this when you have collected all needed information from the user.',
+        parameters: {
+          type: 'object',
+          properties: {
+            summary: {
+              type: 'string',
+              description: 'Brief summary of the information collected'
+            }
+          },
+          required: ['summary'],
+          additionalProperties: false
+        },
+        strict: true
       }
     ];
   },
@@ -145,7 +225,7 @@ export const variablesModule: ToolModule = {
       return JSON.stringify({ error: 'Family context required for variable tools' });
     }
     
-    const { familyPromptIds } = familyContext;
+    const { familyPromptIds, promptRowId } = familyContext;
 
     try {
       switch (toolName) {
@@ -300,6 +380,119 @@ export const variablesModule: ToolModule = {
           return JSON.stringify({
             success: true,
             message: `Deleted variable "{{${variable.variable_name}}}"`
+          });
+        }
+
+        // Communication tools
+        case 'ask_user_question': {
+          const { variable_name, question, description } = args;
+          
+          // Auto-add ai_ prefix if missing
+          let finalVariableName = variable_name;
+          if (!variable_name.startsWith('ai_')) {
+            finalVariableName = `ai_${variable_name}`;
+          }
+          
+          // Validate the variable name
+          const validation = validateVariableName(finalVariableName);
+          if (!validation.valid) {
+            return JSON.stringify({ error: validation.error });
+          }
+          
+          // Return special interrupt marker - the frontend will handle this
+          return JSON.stringify({
+            __interrupt: 'user_input_required',
+            variable_name: finalVariableName,
+            question,
+            description: description || null
+          });
+        }
+
+        case 'store_qa_response': {
+          const { prompt_row_id, variable_name, question, answer, description } = args;
+          
+          // Validate ai_ prefix
+          if (!variable_name.startsWith('ai_')) {
+            return JSON.stringify({ error: 'Variable name must start with ai_ prefix for communication variables' });
+          }
+          
+          // Validate prompt is in family
+          if (!familyPromptIds.includes(prompt_row_id)) {
+            return JSON.stringify({ error: 'Prompt not in this family' });
+          }
+          
+          // Validate variable name
+          const validation = validateVariableName(variable_name);
+          if (!validation.valid) {
+            return JSON.stringify({ error: validation.error });
+          }
+          
+          // Check for existing variable with this name
+          const { data: existing } = await supabase
+            .from(TABLES.PROMPT_VARIABLES)
+            .select('row_id')
+            .eq('prompt_row_id', prompt_row_id)
+            .eq('variable_name', variable_name)
+            .limit(1);
+          
+          if (existing && existing.length > 0) {
+            // Update existing variable
+            const { error: updateError } = await supabase
+              .from(TABLES.PROMPT_VARIABLES)
+              .update({
+                variable_value: answer,
+                source_question: question,
+                source_type: 'communication',
+                variable_description: description || question,
+                updated_at: new Date().toISOString()
+              })
+              .eq('row_id', existing[0].row_id);
+            
+            if (updateError) {
+              console.error('Update QA variable error:', updateError);
+              return JSON.stringify({ error: 'Failed to update variable' });
+            }
+            
+            return JSON.stringify({
+              success: true,
+              message: `Updated {{${variable_name}}} with answer`,
+              row_id: existing[0].row_id
+            });
+          }
+          
+          // Create new variable
+          const { data: newVar, error: insertError } = await supabase
+            .from(TABLES.PROMPT_VARIABLES)
+            .insert({
+              prompt_row_id,
+              variable_name,
+              variable_value: answer,
+              variable_description: description || question,
+              source_question: question,
+              source_type: 'communication'
+            })
+            .select('row_id')
+            .maybeSingle();
+          
+          if (insertError || !newVar) {
+            console.error('Create QA variable error:', insertError);
+            return JSON.stringify({ error: 'Failed to create variable' });
+          }
+          
+          return JSON.stringify({
+            success: true,
+            message: `Created {{${variable_name}}} with answer`,
+            row_id: newVar.row_id
+          });
+        }
+
+        case 'complete_communication': {
+          const { summary } = args;
+          
+          return JSON.stringify({
+            success: true,
+            message: 'Communication session completed',
+            summary
           });
         }
 
