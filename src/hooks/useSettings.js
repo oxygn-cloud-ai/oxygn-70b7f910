@@ -76,12 +76,17 @@ export const useSettings = (supabase) => {
           .select()
           .maybeSingle();
 
-        if (error) throw error;
-        
-        setSettings(prev => ({
-          ...prev,
-          [key]: { value, description: '', row_id: data.row_id }
-        }));
+      if (error) throw error;
+      
+      // Guard against null data (e.g., RLS rejection without error)
+      if (!data) {
+        throw new Error('Failed to create setting - no data returned');
+      }
+      
+      setSettings(prev => ({
+        ...prev,
+        [key]: { value, description: '', row_id: data.row_id }
+      }));
       }
       
       // Track setting update
@@ -105,6 +110,11 @@ export const useSettings = (supabase) => {
         .maybeSingle();
 
       if (error) throw error;
+      
+      // Guard against null data (e.g., RLS rejection without error)
+      if (!data) {
+        throw new Error('Failed to add setting - no data returned');
+      }
 
       setSettings(prev => ({
         ...prev,
