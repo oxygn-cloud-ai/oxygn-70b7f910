@@ -5,9 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const OWNER = 'oxygn-cloud-ai';
-const REPO = 'oxygn-70b7f910';
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -16,11 +13,21 @@ serve(async (req) => {
 
   try {
     const githubToken = Deno.env.get('GITHUB_TOKEN');
+    const OWNER = Deno.env.get('GITHUB_OWNER');
+    const REPO = Deno.env.get('GITHUB_REPO');
     
     if (!githubToken) {
       console.error('GITHUB_TOKEN not configured');
       return new Response(
         JSON.stringify({ error: 'GitHub token not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!OWNER || !REPO) {
+      console.error('GITHUB_OWNER or GITHUB_REPO not configured');
+      return new Response(
+        JSON.stringify({ error: 'Repository configuration missing' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
