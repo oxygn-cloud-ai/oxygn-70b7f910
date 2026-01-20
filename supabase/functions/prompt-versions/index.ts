@@ -285,7 +285,7 @@ serve(async (req) => {
         }
         
         const textFields = ['input_admin_prompt', 'input_user_prompt', 'note'];
-        const jsonFields = ['post_action_config', 'question_config', 'variable_assignments_config', 'extracted_variables'];
+        const jsonFields = ['post_action_config', 'question_config', 'variable_assignments_config', 'extracted_variables', 'system_variables'];
         const changes: Array<any> = [];
         
         const allKeys = new Set([...Object.keys(oldSnapshot || {}), ...Object.keys(newSnapshot || {})]);
