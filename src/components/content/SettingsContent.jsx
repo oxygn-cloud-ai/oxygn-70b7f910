@@ -416,7 +416,75 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
         </div>
       </SettingCard>
 
-      {/* Publish Release Confirmation Dialog */}
+      {/* Version History Settings */}
+      <SettingCard label="Version History">
+        <div className="space-y-3">
+          <SettingRow 
+            label="Max versions to keep" 
+            description="Per prompt (pinned/tagged versions exempt)"
+          >
+            <div className="flex items-center gap-2">
+              <select
+                value={getValue('max_versions_to_keep', '50')}
+                onChange={(e) => handleValueChange('max_versions_to_keep', e.target.value)}
+                className="h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              {hasChanges('max_versions_to_keep') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSave('max_versions_to_keep')}
+                      disabled={isSaving}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+          <SettingDivider />
+          <SettingRow 
+            label="Retention period" 
+            description="Auto-cleanup older versions"
+          >
+            <div className="flex items-center gap-2">
+              <select
+                value={getValue('version_retention_days', '90')}
+                onChange={(e) => handleValueChange('version_retention_days', e.target.value)}
+                className="h-8 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="30">30 days</option>
+                <option value="90">90 days</option>
+                <option value="180">180 days</option>
+                <option value="365">1 year</option>
+              </select>
+              {hasChanges('version_retention_days') && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleSave('version_retention_days')}
+                      disabled={isSaving}
+                      className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Save</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </SettingRow>
+        </div>
+      </SettingCard>
+
       <AlertDialog open={showPublishConfirm} onOpenChange={setShowPublishConfirm}>
         <AlertDialogContent className="bg-surface-container-high border-outline-variant">
           <AlertDialogHeader>
