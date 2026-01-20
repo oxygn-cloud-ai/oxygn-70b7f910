@@ -156,8 +156,8 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                       {`{{${variable.variable_name}}}`}
                     </Badge>
                     
-                    {/* Communication badge for AI-created variables */}
-                    {variable.source_type === 'communication' && (
+                    {/* Question badge for AI-created variables */}
+                    {variable.source_type === 'question' && (
                       <Badge variant="secondary" className="text-[9px] gap-0.5 h-4">
                         <MessageCircleQuestion className="h-2.5 w-2.5" />
                         AI
@@ -239,8 +239,8 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
                     )}
                   </div>
                   
-                  {/* Show source question for communication variables */}
-                  {variable.source_type === 'communication' && variable.source_question && (
+                  {/* Show source question for question-type variables */}
+                  {variable.source_type === 'question' && variable.source_question && (
                     <div className="pl-2 border-l-2 border-primary/30 ml-1 mt-1">
                       <p className="text-[10px] text-muted-foreground">
                         <span className="font-medium text-primary/70">Q:</span> {variable.source_question}

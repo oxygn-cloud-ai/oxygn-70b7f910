@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SkipForward, Upload, Zap, AlertTriangle, MessageCircleQuestion } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import ActionNodeSettings from '../ActionNodeSettings';
-import CommunicationNodeSettings from '../CommunicationNodeSettings';
+import QuestionNodeSettings from '../QuestionNodeSettings';
 
 const SettingsTab = ({ selectedItemData, projectRowId }) => {
   const { models } = useOpenAIModels();
@@ -73,14 +73,14 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
         handleSave('response_format', structuredFormat);
         handleSave('response_format_on', true);
       }
-      // Clear communication config
-      handleChange('communication_config', null);
-      handleSave('communication_config', null);
-    } else if (value === 'communication') {
-      // Set default communication config
+      // Clear question config
+      handleChange('question_config', null);
+      handleSave('question_config', null);
+    } else if (value === 'question') {
+      // Set default question config
       const defaultConfig = { max_questions: 10, completion_mode: 'ai_decides', show_progress: true };
-      handleChange('communication_config', defaultConfig);
-      handleSave('communication_config', defaultConfig);
+      handleChange('question_config', defaultConfig);
+      handleSave('question_config', defaultConfig);
       // Clear action fields
       handleChange('post_action', null);
       handleChange('post_action_config', null);
@@ -103,7 +103,7 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       handleChange('extracted_variables', null);
       handleChange('last_action_result', null);
       handleChange('response_format_on', false);
-      handleChange('communication_config', null);
+      handleChange('question_config', null);
       
       handleSave('post_action', null);
       handleSave('post_action_config', null);
@@ -111,7 +111,7 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       handleSave('extracted_variables', null);
       handleSave('last_action_result', null);
       handleSave('response_format_on', false);
-      handleSave('communication_config', null);
+      handleSave('question_config', null);
     }
   };
 
@@ -121,21 +121,21 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
     handleSave('node_type', 'action');
   };
 
-  // Auto-fix handler for orphaned communication_config
-  const handleAutoFixCommunicationType = () => {
-    handleChange('node_type', 'communication');
-    handleSave('node_type', 'communication');
+  // Auto-fix handler for orphaned question_config
+  const handleAutoFixQuestionType = () => {
+    handleChange('node_type', 'question');
+    handleSave('node_type', 'question');
   };
 
-  const handleCommunicationConfigChange = (newConfig) => {
-    handleChange('communication_config', newConfig);
-    handleSave('communication_config', newConfig);
+  const handleQuestionConfigChange = (newConfig) => {
+    handleChange('question_config', newConfig);
+    handleSave('question_config', newConfig);
   };
 
   const isActionNode = localData.node_type === 'action';
-  const isCommunicationNode = localData.node_type === 'communication';
+  const isQuestionNode = localData.node_type === 'question';
   const hasOrphanedPostAction = !!localData.post_action && localData.node_type !== 'action';
-  const hasOrphanedCommunicationConfig = !!localData.communication_config && localData.node_type !== 'communication';
+  const hasOrphanedQuestionConfig = !!localData.question_config && localData.node_type !== 'question';
 
   // Compact toggle row for top-level prompts
   const CompactToggles = () => (
@@ -157,19 +157,19 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
         </Tooltip>
       )}
 
-      {/* Auto-fix warning icon for orphaned communication_config */}
-      {hasOrphanedCommunicationConfig && (
+      {/* Auto-fix warning icon for orphaned question_config */}
+      {hasOrphanedQuestionConfig && (
         <Tooltip>
           <TooltipTrigger asChild>
             <button 
               className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
-              onClick={handleAutoFixCommunicationType}
+              onClick={handleAutoFixQuestionType}
             >
               <AlertTriangle className="h-4 w-4 text-amber-500" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p className="text-[10px]">Communication config set but not a communication node. Click to fix.</p>
+            <p className="text-[10px]">Question config set but not a question node. Click to fix.</p>
           </TooltipContent>
         </Tooltip>
       )}
@@ -185,22 +185,22 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-[10px]">{isActionNode ? 'Action node enabled (click to disable)' : 'Enable action node'}</p>
+          <p className="text-[10px]">{isActionNode ? 'Action prompt (click to disable)' : 'Enable action prompt'}</p>
         </TooltipContent>
       </Tooltip>
 
-      {/* Communication Node Toggle */}
+      {/* Question Node Toggle */}
       <Tooltip>
         <TooltipTrigger asChild>
           <button 
             className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
-            onClick={() => handleNodeTypeChange(isCommunicationNode ? 'standard' : 'communication')}
+            onClick={() => handleNodeTypeChange(isQuestionNode ? 'standard' : 'question')}
           >
-            <MessageCircleQuestion className={`h-4 w-4 ${isCommunicationNode ? 'text-primary' : 'text-on-surface-variant'}`} />
+            <MessageCircleQuestion className={`h-4 w-4 ${isQuestionNode ? 'text-primary' : 'text-on-surface-variant'}`} />
           </button>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <p className="text-[10px]">{isCommunicationNode ? 'Communication node enabled (click to disable)' : 'Enable communication node'}</p>
+          <p className="text-[10px]">{isQuestionNode ? 'Question prompt (click to disable)' : 'Enable question prompt'}</p>
         </TooltipContent>
       </Tooltip>
 
@@ -237,12 +237,12 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
       <div className="h-5 w-px bg-outline-variant mx-1" />
       
       <span className="text-[10px] text-on-surface-variant">
-        {(hasOrphanedPostAction || hasOrphanedCommunicationConfig) && <span className="text-amber-500">Needs fix · </span>}
+        {(hasOrphanedPostAction || hasOrphanedQuestionConfig) && <span className="text-amber-500">Needs fix · </span>}
         {isActionNode && 'Action'}
-        {isCommunicationNode && 'Communication'}
-        {localData.exclude_from_cascade && ((isActionNode || isCommunicationNode) ? ' · ' : '') + 'Skip cascade'}
-        {localData.exclude_from_export && ((isActionNode || isCommunicationNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
-        {!isActionNode && !isCommunicationNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && !hasOrphanedCommunicationConfig && 'Standard settings'}
+        {isQuestionNode && 'Question'}
+        {localData.exclude_from_cascade && ((isActionNode || isQuestionNode) ? ' · ' : '') + 'Skip cascade'}
+        {localData.exclude_from_export && ((isActionNode || isQuestionNode || localData.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
+        {!isActionNode && !isQuestionNode && !localData.exclude_from_cascade && !localData.exclude_from_export && !hasOrphanedPostAction && !hasOrphanedQuestionConfig && 'Standard prompt'}
       </span>
     </div>
   );
@@ -263,11 +263,11 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
             />
           )}
           
-          {/* Communication Node Settings (only shown for communication nodes) */}
-          {isCommunicationNode && (
-            <CommunicationNodeSettings
-              config={localData.communication_config}
-              onChange={handleCommunicationConfigChange}
+          {/* Question Node Settings (only shown for question nodes) */}
+          {isQuestionNode && (
+            <QuestionNodeSettings
+              config={localData.question_config}
+              onChange={handleQuestionConfigChange}
             />
           )}
         </>
@@ -285,11 +285,11 @@ const SettingsTab = ({ selectedItemData, projectRowId }) => {
             />
           )}
           
-          {/* Communication Node Settings (only shown for communication nodes) */}
-          {isCommunicationNode && (
-            <CommunicationNodeSettings
-              config={localData.communication_config}
-              onChange={handleCommunicationConfigChange}
+          {/* Question Node Settings (only shown for question nodes) */}
+          {isQuestionNode && (
+            <QuestionNodeSettings
+              config={localData.question_config}
+              onChange={handleQuestionConfigChange}
             />
           )}
         </>

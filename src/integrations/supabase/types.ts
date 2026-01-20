@@ -1247,11 +1247,11 @@ export type Database = {
       }
       q_prompt_variables: {
         Row: {
-          communication_session_id: string | null
           created_at: string | null
           default_value: string | null
           is_required: boolean | null
           prompt_row_id: string | null
+          question_session_id: string | null
           row_id: string
           source_question: string | null
           source_type: string | null
@@ -1261,11 +1261,11 @@ export type Database = {
           variable_value: string | null
         }
         Insert: {
-          communication_session_id?: string | null
           created_at?: string | null
           default_value?: string | null
           is_required?: boolean | null
           prompt_row_id?: string | null
+          question_session_id?: string | null
           row_id?: string
           source_question?: string | null
           source_type?: string | null
@@ -1275,11 +1275,11 @@ export type Database = {
           variable_value?: string | null
         }
         Update: {
-          communication_session_id?: string | null
           created_at?: string | null
           default_value?: string | null
           is_required?: boolean | null
           prompt_row_id?: string | null
+          question_session_id?: string | null
           row_id?: string
           source_question?: string | null
           source_type?: string | null
@@ -1298,7 +1298,6 @@ export type Database = {
           best_of_on: boolean | null
           child_thread_strategy: string | null
           code_interpreter_on: boolean | null
-          communication_config: Json | null
           confluence_enabled: boolean | null
           context_length: string | null
           context_length_on: boolean | null
@@ -1353,6 +1352,7 @@ export type Database = {
           presence_penalty_on: boolean | null
           prompt_name: string | null
           provider_lock: string | null
+          question_config: Json | null
           reasoning_effort: string | null
           reasoning_effort_on: boolean | null
           response_format: string | null
@@ -1391,7 +1391,6 @@ export type Database = {
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
           code_interpreter_on?: boolean | null
-          communication_config?: Json | null
           confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
@@ -1446,6 +1445,7 @@ export type Database = {
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
           provider_lock?: string | null
+          question_config?: Json | null
           reasoning_effort?: string | null
           reasoning_effort_on?: boolean | null
           response_format?: string | null
@@ -1484,7 +1484,6 @@ export type Database = {
           best_of_on?: boolean | null
           child_thread_strategy?: string | null
           code_interpreter_on?: boolean | null
-          communication_config?: Json | null
           confluence_enabled?: boolean | null
           context_length?: string | null
           context_length_on?: boolean | null
@@ -1539,6 +1538,7 @@ export type Database = {
           presence_penalty_on?: boolean | null
           prompt_name?: string | null
           provider_lock?: string | null
+          question_config?: Json | null
           reasoning_effort?: string | null
           reasoning_effort_on?: boolean | null
           response_format?: string | null
@@ -1697,7 +1697,6 @@ export type Database = {
         Row: {
           assistant_row_id: string | null
           child_prompt_row_id: string | null
-          communication_state: Json | null
           created_at: string | null
           external_session_id: string | null
           is_active: boolean | null
@@ -1708,13 +1707,13 @@ export type Database = {
           openai_conversation_id: string | null
           owner_id: string | null
           provider: string | null
+          question_state: Json | null
           root_prompt_row_id: string | null
           row_id: string
         }
         Insert: {
           assistant_row_id?: string | null
           child_prompt_row_id?: string | null
-          communication_state?: Json | null
           created_at?: string | null
           external_session_id?: string | null
           is_active?: boolean | null
@@ -1725,13 +1724,13 @@ export type Database = {
           openai_conversation_id?: string | null
           owner_id?: string | null
           provider?: string | null
+          question_state?: Json | null
           root_prompt_row_id?: string | null
           row_id?: string
         }
         Update: {
           assistant_row_id?: string | null
           child_prompt_row_id?: string | null
-          communication_state?: Json | null
           created_at?: string | null
           external_session_id?: string | null
           is_active?: boolean | null
@@ -1742,6 +1741,7 @@ export type Database = {
           openai_conversation_id?: string | null
           owner_id?: string | null
           provider?: string | null
+          question_state?: Json | null
           root_prompt_row_id?: string | null
           row_id?: string
         }

@@ -746,7 +746,7 @@ async function executeToolsAndSubmitStreaming(
           call_id: toolCall.call_id
         });
         
-        console.log('Communication interrupt - waiting for user input');
+        console.log('Question interrupt - waiting for user input');
         
         // Return early - don't submit to OpenAI, conversation is paused
         return { 

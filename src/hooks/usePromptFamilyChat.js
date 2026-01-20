@@ -23,10 +23,10 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [isExecutingTools, setIsExecutingTools] = useState(false);
   const [rootPromptId, setRootPromptId] = useState(null);
   
-  // Communication prompt state
+  // Question prompt state
   const [pendingQuestion, setPendingQuestion] = useState(null);
-  const [communicationProgress, setCommunicationProgress] = useState({ current: 0, max: 10 });
-  const [collectedCommunicationVars, setCollectedCommunicationVars] = useState([]);
+  const [questionProgress, setQuestionProgress] = useState({ current: 0, max: 10 });
+  const [collectedQuestionVars, setCollectedQuestionVars] = useState([]);
   
   // Ref to track activeThreadId without causing callback re-creation
   const activeThreadIdRef = useRef(null);
@@ -399,7 +399,7 @@ export const usePromptFamilyChat = (promptRowId) => {
                 });
               }
               
-              // Handle user_input_required - communication prompt interrupt
+              // Handle user_input_required - question prompt interrupt
               if (parsed.type === 'user_input_required') {
                 setPendingQuestion({
                   question: parsed.question,
@@ -407,7 +407,7 @@ export const usePromptFamilyChat = (promptRowId) => {
                   description: parsed.description,
                   callId: parsed.call_id
                 });
-                setCommunicationProgress(prev => ({ ...prev, current: prev.current + 1 }));
+                setQuestionProgress(prev => ({ ...prev, current: prev.current + 1 }));
                 setIsStreaming(false);
                 // Don't process further - wait for user input
                 return fullContent;
@@ -591,10 +591,10 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsStreaming(false);
     setIsExecutingTools(false);
-    // Reset communication state
+    // Reset question state
     setPendingQuestion(null);
-    setCommunicationProgress({ current: 0, max: 10 });
-    setCollectedCommunicationVars([]);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
   }, [rootPromptId, removeCall]);
 
   // Cancel stream function for external use
@@ -610,14 +610,14 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [removeCall]);
 
-  // Submit communication answer - resumes conversation with user's response
-  const submitCommunicationAnswer = useCallback(async (answer) => {
+  // Submit question answer - resumes conversation with user's response
+  const submitQuestionAnswer = useCallback(async (answer) => {
     if (!pendingQuestion) return null;
     
     const { variableName, question } = pendingQuestion;
     
     // Track the collected variable locally
-    setCollectedCommunicationVars(prev => [...prev, { name: variableName, value: answer }]);
+    setCollectedQuestionVars(prev => [...prev, { name: variableName, value: answer }]);
     
     // Clear pending question
     setPendingQuestion(null);
@@ -632,11 +632,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     });
   }, [pendingQuestion, sendMessage, sessionModel, sessionReasoningEffort]);
 
-  // Clear communication state
-  const clearCommunicationState = useCallback(() => {
+  // Clear question state
+  const clearQuestionState = useCallback(() => {
     setPendingQuestion(null);
-    setCommunicationProgress({ current: 0, max: 10 });
-    setCollectedCommunicationVars([]);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
   }, []);
 
   return {
@@ -664,11 +664,11 @@ export const usePromptFamilyChat = (promptRowId) => {
     setSessionModel,
     sessionReasoningEffort,
     setSessionReasoningEffort,
-    // Communication prompt state and actions
+    // Question prompt state and actions
     pendingQuestion,
-    communicationProgress,
-    collectedCommunicationVars,
-    submitCommunicationAnswer,
-    clearCommunicationState,
+    questionProgress,
+    collectedQuestionVars,
+    submitQuestionAnswer,
+    clearQuestionState,
   };
 };
