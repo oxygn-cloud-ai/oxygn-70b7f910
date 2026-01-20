@@ -5,12 +5,12 @@ import { X, Send, Loader2, MessageCircleQuestion, CheckCircle2 } from 'lucide-re
 import { cn } from '@/lib/utils';
 
 /**
- * CommunicationQuestionPopup - Displays AI questions to user in communication prompts
+ * QuestionPopup - Displays AI questions to user in question prompts
  * 
  * Uses icon-only actions per M3 design system rules.
  * No Button components - only icon buttons with tooltips.
  */
-export function CommunicationQuestionPopup({
+export function QuestionPopup({
   isOpen,
   onClose,
   question,
@@ -65,7 +65,7 @@ export function CommunicationQuestionPopup({
           {/* Header - 56px */}
           <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant shrink-0">
             <MessageCircleQuestion className="h-5 w-5 text-on-surface-variant" />
-            <h2 className="text-title-sm text-on-surface font-medium flex-1">Communication</h2>
+            <h2 className="text-title-sm text-on-surface font-medium flex-1">Question</h2>
             
             {/* Progress dots */}
             {progress && progress.max > 0 && (
@@ -187,4 +187,4 @@ export function CommunicationQuestionPopup({
   );
 }
 
-export default CommunicationQuestionPopup;
+export default QuestionPopup;
