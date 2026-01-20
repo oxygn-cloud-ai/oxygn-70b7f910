@@ -5,6 +5,8 @@ import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModel
 import { resolveRootPromptId, getOrCreateFamilyThread, updateFamilyThreadResponseId } from "../_shared/familyThreads.ts";
 import { getBuiltinTools } from "../_shared/tools.ts";
 import { ERROR_CODES } from "../_shared/errorCodes.ts";
+import { variablesModule } from "../_shared/tools/variables.ts";
+import type { ToolContext } from "../_shared/tools/types.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -2310,6 +2312,24 @@ serve(async (req) => {
             
           console.log('Action node: applied default structured output format');
         }
+      }
+
+      // ============================================================================
+      // QUESTION NODE DETECTION
+      // Question nodes use ask_user_question tool to gather user input interactively
+      // Note: Full tool loop is NOT implemented here yet - question prompts should be
+      // executed via cascade or the user should use the chat mode for full interactivity.
+      // This detection logs the node type for future implementation.
+      // ============================================================================
+      if (childPrompt.node_type === 'question') {
+        console.log('Question node detected:', {
+          prompt_row_id: child_prompt_row_id,
+          prompt_name: childPrompt.prompt_name,
+          question_config: childPrompt.question_config,
+        });
+        // TODO: Implement tool execution loop for question nodes
+        // For now, question nodes will execute like standard prompts
+        // Full question functionality requires the tool execution loop from prompt-family-chat
       }
 
       // Add seed if enabled

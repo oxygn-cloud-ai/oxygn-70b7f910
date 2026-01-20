@@ -155,6 +155,21 @@ export const useConversationRun = () => {
           onProgress?.(event);
           // Clear response_id on completion
           currentResponseIdRef.current = null;
+        } else if (event.type === 'user_input_required') {
+          // Question prompt interrupt - return special result
+          result = {
+            interrupted: true,
+            interruptType: 'question',
+            interruptData: {
+              variableName: event.variable_name,
+              question: event.question,
+              description: event.description,
+              callId: event.call_id,
+              responseId: event.response_id,
+            }
+          };
+          onProgress?.({ type: 'user_input_required', ...event });
+          doneReceived = true; // Stop reading stream
         } else if (event.type === 'error') {
           error = event;
           onProgress?.({ type: 'error', error: event.error });
