@@ -557,8 +557,16 @@ const TreeItem = ({
         />
         
         {/* Status icons - always visible, positioned at right edge */}
-        {(starred || excludedFromCascade || excludedFromExport) && (
+        {(starred || excludedFromCascade || excludedFromExport || item.has_uncommitted_changes) && (
           <div className="absolute right-2 flex items-center gap-0.5">
+            {item.has_uncommitted_changes && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+                </TooltipTrigger>
+                <TooltipContent className="text-[10px]">Uncommitted changes</TooltipContent>
+              </Tooltip>
+            )}
             {starred && <Star className="h-2.5 w-2.5 text-amber-500 fill-amber-500" />}
             {excludedFromCascade && <Ban className="h-2.5 w-2.5 text-warning" />}
             {excludedFromExport && <FileX className="h-2.5 w-2.5 text-warning" />}

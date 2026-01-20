@@ -9,10 +9,12 @@ import {
   Search, Plus, PanelRightOpen, PanelLeftOpen, PanelLeftClose, Workflow, Bot, Thermometer,
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
-  RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
+  RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch, GitCommit,
   Paperclip, Upload, Square, Target, Minimize2, LayoutDashboard,
   SkipForward, AlertTriangle, MessageCircleQuestion
 } from "lucide-react";
+import { usePromptVersions } from "@/hooks/usePromptVersions";
+import { VersionHistoryPanel, CommitDialog } from "@/components/versions";
 import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
 import { useConfluencePages } from "@/hooks/useConfluencePages";
@@ -1315,8 +1317,18 @@ const PromptsContent = ({
 }) => {
   const [activeTab, setActiveTab] = useState("prompt");
   const [confluenceModalOpen, setConfluenceModalOpen] = useState(false);
+  const [versionPanelOpen, setVersionPanelOpen] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const fileInputRef = useRef(null);
   const formattedTime = useTimer(isRunningPrompt);
+
+  // Version history hook
+  const {
+    hasUncommittedChanges,
+    currentVersion,
+    commit,
+    isCommitting,
+  } = usePromptVersions(promptData?.row_id);
 
   // Detect if current prompt uses a Manus model (async/webhook-based, requires cascade)
   const isManusModel = useMemo(() => {
@@ -1471,8 +1483,51 @@ const PromptsContent = ({
             onLabelsChange={(newLabels) => onUpdateField?.('labels', newLabels)}
             maxDisplay={2}
           />
+          
+          {/* Version indicator */}
+          {currentVersion > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 bg-surface-container rounded-m3-sm text-on-surface-variant font-mono">
+              v{currentVersion}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-0.5">
+          {/* Version History Icon */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setVersionPanelOpen(true)}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container relative"
+              >
+                <GitBranch className="h-4 w-4" />
+                {hasUncommittedChanges && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">
+              Version History {currentVersion > 0 ? `(v${currentVersion})` : ''}
+              {hasUncommittedChanges && ' • Uncommitted changes'}
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Commit Icon */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setCommitDialogOpen(true)}
+                disabled={!hasUncommittedChanges || isCommitting}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${
+                  hasUncommittedChanges ? 'text-on-surface-variant' : 'text-on-surface-variant/40'
+                }`}
+              >
+                <GitCommit className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">
+              {isCommitting ? 'Committing...' : hasUncommittedChanges ? 'Commit Changes' : 'No changes to commit'}
+            </TooltipContent>
+          </Tooltip>
           {/* Hidden file input */}
           <input 
             ref={fileInputRef}
@@ -1633,6 +1688,27 @@ const PromptsContent = ({
         conversationRowId={assistantRowId}
         promptRowId={promptRowId}
         onPageAttached={fetchAttachedPages}
+      />
+
+      {/* Version History Panel */}
+      {versionPanelOpen && (
+        <div className="fixed inset-y-0 right-0 z-50">
+          <VersionHistoryPanel
+            promptRowId={promptData?.row_id}
+            onClose={() => setVersionPanelOpen(false)}
+          />
+        </div>
+      )}
+
+      {/* Commit Dialog */}
+      <CommitDialog
+        open={commitDialogOpen}
+        onOpenChange={setCommitDialogOpen}
+        onCommit={async (message, tagName) => {
+          await commit(message, tagName);
+          setCommitDialogOpen(false);
+        }}
+        isCommitting={isCommitting}
       />
     </div>
   );
