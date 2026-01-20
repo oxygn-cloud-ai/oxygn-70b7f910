@@ -62,3 +62,6 @@ verify_jwt = true
 
 [functions.fetch-provider-models]
 verify_jwt = true
+
+[functions.prompt-versions]
+verify_jwt = false
