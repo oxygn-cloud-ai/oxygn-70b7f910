@@ -7,12 +7,12 @@ import { Input } from '@/components/ui/input';
 import { MessageCircleQuestion } from 'lucide-react';
 
 /**
- * CommunicationNodeSettings - Configuration panel for communication node type
+ * QuestionNodeSettings - Configuration panel for question prompt type
  * 
  * Manages settings like max questions, completion mode, and progress display.
  * Uses M3 design system patterns.
  */
-export function CommunicationNodeSettings({ config, onChange }) {
+export function QuestionNodeSettings({ config, onChange }) {
   const safeConfig = config || {
     max_questions: 10,
     completion_mode: 'ai_decides',
@@ -25,7 +25,7 @@ export function CommunicationNodeSettings({ config, onChange }) {
   
   return (
     <div className="space-y-4">
-      <SettingCard label="COMMUNICATION SETTINGS">
+      <SettingCard label="QUESTION SETTINGS">
         <SettingRow
           label="Max Questions"
           description="Maximum number of questions AI can ask"
@@ -44,7 +44,7 @@ export function CommunicationNodeSettings({ config, onChange }) {
         
         <SettingRow
           label="Completion Mode"
-          description="When to end the conversation"
+          description="When to end the Q&A session"
         >
           <Select
             value={safeConfig.completion_mode || 'ai_decides'}
@@ -78,7 +78,7 @@ export function CommunicationNodeSettings({ config, onChange }) {
         <div className="flex items-start gap-2">
           <MessageCircleQuestion className="h-4 w-4 text-primary mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="text-body-sm text-on-surface">How Communication Nodes Work</p>
+            <p className="text-body-sm text-on-surface">How Question Prompts Work</p>
             <p className="text-[10px] text-on-surface-variant">
               When this prompt runs, the AI can ask the user questions one at a time via a popup dialog. 
               Each answer is stored as a variable with the <code className="text-primary">ai_</code> prefix.
@@ -93,4 +93,4 @@ export function CommunicationNodeSettings({ config, onChange }) {
   );
 }
 
-export default CommunicationNodeSettings;
+export default QuestionNodeSettings;

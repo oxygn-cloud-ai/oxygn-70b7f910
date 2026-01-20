@@ -10,7 +10,8 @@ import {
   Zap, Code, Globe, Edit3, Check, X, User, Sparkles, Briefcase,
   Clock, Send, ArrowRight, Database, Settings, Eye, EyeOff,
   RefreshCw, ChevronRight, AlertCircle, Info, Loader2, GitBranch,
-  Paperclip, Upload, Square, Target, Minimize2, LayoutDashboard
+  Paperclip, Upload, Square, Target, Minimize2, LayoutDashboard,
+  SkipForward, AlertTriangle, MessageCircleQuestion
 } from "lucide-react";
 import ConfluenceSearchModal from "@/components/ConfluenceSearchModal";
 import { useConversationFiles } from "@/hooks/useConversationFiles";
@@ -19,6 +20,8 @@ import VariablesTabContent from "./VariablesTabContent";
 import DashboardTabContent from "./DashboardTabContent";
 import FilesPagesSection from "@/components/FilesPagesSection";
 import ConfluencePagesSection from "@/components/ConfluencePagesSection";
+import QuestionNodeSettings from "@/components/QuestionNodeSettings";
+import ActionNodeSettings from "@/components/ActionNodeSettings";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -363,8 +366,213 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
   // Helper to check if a setting is supported
   const hasSetting = (setting) => supportedSettings.includes(setting);
 
+  // Node type state
+  const nodeType = promptData?.node_type || 'standard';
+  const isActionNode = nodeType === 'action';
+  const isQuestionNode = nodeType === 'question';
+  const hasOrphanedPostAction = !!promptData?.post_action && nodeType !== 'action';
+  const hasOrphanedQuestionConfig = !!promptData?.question_config && nodeType !== 'question';
+
+  // Node type change handler
+  const handleNodeTypeChange = (value) => {
+    onUpdateField?.('node_type', value);
+    
+    if (value === 'action') {
+      if (!promptData?.response_format_on) {
+        const structuredFormat = JSON.stringify({
+          type: 'json_schema',
+          json_schema: {
+            name: 'action_response',
+            strict: true,
+            schema: {
+              type: 'object',
+              properties: {
+                items: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      content: { type: 'string' }
+                    },
+                    required: ['name', 'content'],
+                    additionalProperties: false
+                  }
+                }
+              },
+              required: ['items'],
+              additionalProperties: false
+            }
+          }
+        });
+        onUpdateField?.('response_format', structuredFormat);
+        onUpdateField?.('response_format_on', true);
+      }
+      onUpdateField?.('question_config', null);
+    } else if (value === 'question') {
+      const defaultConfig = { max_questions: 10, completion_mode: 'ai_decides', show_progress: true };
+      onUpdateField?.('question_config', defaultConfig);
+      onUpdateField?.('post_action', null);
+      onUpdateField?.('post_action_config', null);
+      onUpdateField?.('json_schema_template_id', null);
+      onUpdateField?.('extracted_variables', null);
+      onUpdateField?.('last_action_result', null);
+      onUpdateField?.('response_format_on', false);
+    } else {
+      onUpdateField?.('post_action', null);
+      onUpdateField?.('post_action_config', null);
+      onUpdateField?.('json_schema_template_id', null);
+      onUpdateField?.('extracted_variables', null);
+      onUpdateField?.('last_action_result', null);
+      onUpdateField?.('response_format_on', false);
+      onUpdateField?.('question_config', null);
+    }
+  };
+
+  const handleQuestionConfigChange = (newConfig) => {
+    onUpdateField?.('question_config', newConfig);
+  };
+
+  // Auto-fix handlers
+  const handleAutoFixNodeType = () => {
+    onUpdateField?.('node_type', 'action');
+  };
+
+  const handleAutoFixQuestionType = () => {
+    onUpdateField?.('node_type', 'question');
+  };
+
+  // Compact toggle row
+  const CompactToggles = () => (
+    <div className="flex items-center gap-3 p-3 bg-surface-container-low rounded-m3-md border border-outline-variant mb-4">
+      {/* Auto-fix warning icon for orphaned post_action */}
+      {hasOrphanedPostAction && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+              onClick={handleAutoFixNodeType}
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">Post-action configured but not an action node. Click to fix.</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* Auto-fix warning icon for orphaned question_config */}
+      {hasOrphanedQuestionConfig && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button 
+              className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+              onClick={handleAutoFixQuestionType}
+            >
+              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="text-[10px]">Question config set but not a question node. Click to fix.</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
+      {/* Action Node Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+            onClick={() => handleNodeTypeChange(isActionNode ? 'standard' : 'action')}
+          >
+            <Zap className={`h-4 w-4 ${isActionNode ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p className="text-[10px]">{isActionNode ? 'Action prompt (click to disable)' : 'Enable action prompt'}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Question Node Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+            onClick={() => handleNodeTypeChange(isQuestionNode ? 'standard' : 'question')}
+          >
+            <MessageCircleQuestion className={`h-4 w-4 ${isQuestionNode ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p className="text-[10px]">{isQuestionNode ? 'Question prompt (click to disable)' : 'Enable question prompt'}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Exclude from Cascade Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+            onClick={() => onUpdateField?.('exclude_from_cascade', !promptData?.exclude_from_cascade)}
+          >
+            <SkipForward className={`h-4 w-4 ${promptData?.exclude_from_cascade ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p className="text-[10px]">{promptData?.exclude_from_cascade ? 'Excluded from cascade (click to include)' : 'Included in cascade (click to exclude)'}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Exclude from Export Toggle */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button 
+            className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+            onClick={() => onUpdateField?.('exclude_from_export', !promptData?.exclude_from_export)}
+          >
+            <Upload className={`h-4 w-4 ${promptData?.exclude_from_export ? 'text-primary' : 'text-on-surface-variant'}`} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p className="text-[10px]">{promptData?.exclude_from_export ? 'Excluded from export (click to include)' : 'Included in export (click to exclude)'}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <div className="h-5 w-px bg-outline-variant mx-1" />
+      
+      <span className="text-[10px] text-on-surface-variant">
+        {(hasOrphanedPostAction || hasOrphanedQuestionConfig) && <span className="text-amber-500">Needs fix · </span>}
+        {isActionNode && 'Action'}
+        {isQuestionNode && 'Question'}
+        {promptData?.exclude_from_cascade && ((isActionNode || isQuestionNode) ? ' · ' : '') + 'Skip cascade'}
+        {promptData?.exclude_from_export && ((isActionNode || isQuestionNode || promptData?.exclude_from_cascade) ? ' · ' : '') + 'Skip export'}
+        {!isActionNode && !isQuestionNode && !promptData?.exclude_from_cascade && !promptData?.exclude_from_export && !hasOrphanedPostAction && !hasOrphanedQuestionConfig && 'Standard prompt'}
+      </span>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
+      {/* Compact Toggles at top */}
+      <CompactToggles />
+
+      {/* Action Node Settings */}
+      {isActionNode && (
+        <ActionNodeSettings
+          localData={promptData}
+          handleChange={(key, value) => onUpdateField?.(key, value)}
+          handleSave={() => {}} // No-op - onUpdateField already saves
+        />
+      )}
+
+      {/* Question Node Settings */}
+      {isQuestionNode && (
+        <QuestionNodeSettings
+          config={promptData?.question_config}
+          onChange={handleQuestionConfigChange}
+        />
+      )}
       {/* Model Selection */}
       <SettingModelSelect
         value={promptData?.model || currentModel}
@@ -659,8 +867,10 @@ const SettingsTabContent = ({ promptData, onUpdateField, models = [], schemas = 
         </div>
       </div>
 
-      {/* Actions & Cascade Section */}
-      <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} schemas={schemas} onEditSchema={onEditSchema} />
+      {/* Actions & Cascade Section - only show for non-action nodes (action nodes use ActionNodeSettings above) */}
+      {!isActionNode && (
+        <ActionConfigSection promptData={promptData} onUpdateField={onUpdateField} schemas={schemas} onEditSchema={onEditSchema} />
+      )}
     </div>
   );
 };
