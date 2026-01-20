@@ -43,7 +43,7 @@ export const usePromptVersions = (promptRowId) => {
       if (!promptRowId) return null;
       
       const { data, error } = await supabase
-        .from(import.meta.env.VITE_PROMPTS_TBL || 'q_prompts')
+        .from('q_prompts')
         .select('current_version, has_uncommitted_changes, last_committed_at')
         .eq('row_id', promptRowId)
         .single();
@@ -117,6 +117,9 @@ export const usePromptVersions = (promptRowId) => {
     onSuccess: () => {
       toast.success('Tag updated');
       queryClient.invalidateQueries({ queryKey: [VERSIONS_KEY, 'history', promptRowId] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to update tag: ${error.message}`);
     }
   });
 
@@ -132,6 +135,9 @@ export const usePromptVersions = (promptRowId) => {
     onSuccess: (_, variables) => {
       toast.success(variables.isPinned ? 'Version pinned' : 'Version unpinned');
       queryClient.invalidateQueries({ queryKey: [VERSIONS_KEY, 'history', promptRowId] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to update pin: ${error.message}`);
     }
   });
 
