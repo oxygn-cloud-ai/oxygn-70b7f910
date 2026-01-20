@@ -48,6 +48,7 @@ import {
   validateSchemaForAction,
   getArrayPathStrings,
 } from '@/utils/schemaUtils';
+import { parseJson } from '@/utils/jsonSchemaValidator';
 import ActionConfigRenderer from './ActionConfigRenderer';
 import { useJsonSchemaTemplates } from '@/hooks/useJsonSchemaTemplates';
 import { toast } from 'sonner';
@@ -858,11 +859,18 @@ const ActionNodeSettings = ({
               <div className="space-y-1">
                 <Label className="text-label-sm text-on-surface-variant">Stored response_format</Label>
                 <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-32 font-mono text-on-surface-variant">
-                  {localData.response_format 
-                    ? (typeof localData.response_format === 'string' 
-                        ? JSON.stringify(JSON.parse(localData.response_format), null, 2)
-                        : JSON.stringify(localData.response_format, null, 2))
-                    : 'null'}
+                  {(() => {
+                    if (!localData.response_format) return 'null';
+                    if (typeof localData.response_format !== 'string') {
+                      return JSON.stringify(localData.response_format, null, 2);
+                    }
+                    const result = parseJson(localData.response_format);
+                    if (result.isValid) {
+                      return JSON.stringify(result.data, null, 2);
+                    }
+                    // Legacy format - display with annotation
+                    return `"${localData.response_format}" (legacy format)`;
+                  })()}
                 </pre>
               </div>
 
