@@ -29,6 +29,8 @@ export const TABLES = {
   APP_KNOWLEDGE_HISTORY: getEnv('APP_KNOWLEDGE_HISTORY_TBL', 'q_app_knowledge_history'),
   PROMPT_FAMILY_THREADS: getEnv('PROMPT_FAMILY_THREADS_TBL', 'q_prompt_family_threads'),
   PROMPT_FAMILY_MESSAGES: getEnv('PROMPT_FAMILY_MESSAGES_TBL', 'q_prompt_family_messages'),
+  // Version history
+  PROMPT_VERSIONS: getEnv('PROMPT_VERSIONS_TBL', 'q_prompt_versions'),
 } as const;
 
 // Helper to build FK relationship strings dynamically

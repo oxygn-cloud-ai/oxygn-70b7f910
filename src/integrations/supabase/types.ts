@@ -1290,6 +1290,69 @@ export type Database = {
         }
         Relationships: []
       }
+      q_prompt_versions: {
+        Row: {
+          commit_message: string | null
+          commit_type: string | null
+          created_at: string | null
+          created_by: string | null
+          fields_changed: string[] | null
+          is_pinned: boolean | null
+          parent_version_id: string | null
+          prompt_row_id: string
+          row_id: string
+          snapshot: Json
+          snapshot_schema_version: number | null
+          tag_name: string | null
+          version_number: number
+        }
+        Insert: {
+          commit_message?: string | null
+          commit_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fields_changed?: string[] | null
+          is_pinned?: boolean | null
+          parent_version_id?: string | null
+          prompt_row_id: string
+          row_id?: string
+          snapshot: Json
+          snapshot_schema_version?: number | null
+          tag_name?: string | null
+          version_number: number
+        }
+        Update: {
+          commit_message?: string | null
+          commit_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fields_changed?: string[] | null
+          is_pinned?: boolean | null
+          parent_version_id?: string | null
+          prompt_row_id?: string
+          row_id?: string
+          snapshot?: Json
+          snapshot_schema_version?: number | null
+          tag_name?: string | null
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_prompt_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompt_versions"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_prompt_versions_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
       q_prompts: {
         Row: {
           admin_prompt_result: string | null
@@ -1302,6 +1365,7 @@ export type Database = {
           context_length: string | null
           context_length_on: boolean | null
           created_at: string | null
+          current_version: number | null
           default_child_thread_strategy: string | null
           echo: boolean | null
           echo_on: boolean | null
@@ -1312,6 +1376,7 @@ export type Database = {
           file_search_on: boolean | null
           frequency_penalty: string | null
           frequency_penalty_on: boolean | null
+          has_uncommitted_changes: boolean | null
           icon_name: string | null
           input_admin_prompt: string | null
           input_user_prompt: string | null
@@ -1322,6 +1387,7 @@ export type Database = {
           json_schema_template_id: string | null
           last_action_result: Json | null
           last_ai_call_metadata: Json | null
+          last_committed_at: string | null
           library_prompt_id: string | null
           logit_bias: string | null
           logit_bias_on: boolean | null
@@ -1395,6 +1461,7 @@ export type Database = {
           context_length?: string | null
           context_length_on?: boolean | null
           created_at?: string | null
+          current_version?: number | null
           default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
@@ -1405,6 +1472,7 @@ export type Database = {
           file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
+          has_uncommitted_changes?: boolean | null
           icon_name?: string | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
@@ -1415,6 +1483,7 @@ export type Database = {
           json_schema_template_id?: string | null
           last_action_result?: Json | null
           last_ai_call_metadata?: Json | null
+          last_committed_at?: string | null
           library_prompt_id?: string | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
@@ -1488,6 +1557,7 @@ export type Database = {
           context_length?: string | null
           context_length_on?: boolean | null
           created_at?: string | null
+          current_version?: number | null
           default_child_thread_strategy?: string | null
           echo?: boolean | null
           echo_on?: boolean | null
@@ -1498,6 +1568,7 @@ export type Database = {
           file_search_on?: boolean | null
           frequency_penalty?: string | null
           frequency_penalty_on?: boolean | null
+          has_uncommitted_changes?: boolean | null
           icon_name?: string | null
           input_admin_prompt?: string | null
           input_user_prompt?: string | null
@@ -1508,6 +1579,7 @@ export type Database = {
           json_schema_template_id?: string | null
           last_action_result?: Json | null
           last_ai_call_metadata?: Json | null
+          last_committed_at?: string | null
           library_prompt_id?: string | null
           logit_bias?: string | null
           logit_bias_on?: boolean | null
@@ -1886,6 +1958,14 @@ export type Database = {
     }
     Functions: {
       backfill_existing_profiles: { Args: never; Returns: undefined }
+      build_prompt_snapshot: {
+        Args: { p_prompt: Database["public"]["Tables"]["q_prompts"]["Row"] }
+        Returns: Json
+      }
+      calculate_changed_fields: {
+        Args: { p_new_snapshot: Json; p_old_snapshot: Json }
+        Returns: string[]
+      }
       can_edit_resource: {
         Args: { _resource_id: string; _resource_type: string }
         Returns: boolean
@@ -1894,10 +1974,30 @@ export type Database = {
         Args: { _resource_id: string; _resource_type: string }
         Returns: boolean
       }
+      can_version_prompt: {
+        Args: { p_prompt_row_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      cleanup_old_prompt_versions: {
+        Args: { p_max_age_days?: number; p_min_versions_to_keep?: number }
+        Returns: number
+      }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_traces: { Args: never; Returns: undefined }
       cleanup_orphaned_manus_tasks: { Args: never; Returns: undefined }
       cleanup_orphaned_traces: { Args: never; Returns: undefined }
+      create_prompt_version: {
+        Args: {
+          p_commit_message?: string
+          p_commit_type?: string
+          p_prompt_row_id: string
+          p_tag_name?: string
+        }
+        Returns: {
+          version_id: string
+          version_number: number
+        }[]
+      }
       current_user_has_allowed_domain: { Args: never; Returns: boolean }
       decrypt_credential: {
         Args: {
@@ -1924,6 +2024,17 @@ export type Database = {
       owns_prompt: {
         Args: { _prompt_id: string; _user_id: string }
         Returns: boolean
+      }
+      rollback_prompt_version: {
+        Args: {
+          p_create_backup?: boolean
+          p_prompt_row_id: string
+          p_target_version_id: string
+        }
+        Returns: {
+          backup_version_id: string
+          restored_version_number: number
+        }[]
       }
       search_knowledge: {
         Args: {
