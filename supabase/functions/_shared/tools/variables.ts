@@ -1,7 +1,7 @@
 /**
  * Variables Tool Module
  * Tools for managing prompt variables within a family
- * Includes communication tools for interactive Q&A
+ * Includes question tools for interactive Q&A
  */
 
 import type { ToolModule, ToolDefinition, ToolContext } from './types.ts';
@@ -135,11 +135,11 @@ export const variablesModule: ToolModule = {
         },
         strict: true
       },
-      // Communication tools for interactive Q&A
+      // Question tools for interactive Q&A
       {
         type: 'function',
         name: 'ask_user_question',
-        description: 'Ask the user a question in a popup dialog. The user\'s response will be stored as a variable. Use this in communication prompts to gather information interactively. Variable names MUST start with ai_ prefix.',
+        description: 'Ask the user a question in a popup dialog. The user\'s response will be stored as a variable. Use this in question prompts to gather information interactively. Variable names MUST start with ai_ prefix.',
         parameters: {
           type: 'object',
           properties: {
@@ -164,7 +164,7 @@ export const variablesModule: ToolModule = {
       {
         type: 'function',
         name: 'store_qa_response',
-        description: 'Store a Q&A pair from a communication session as a persistent variable. Call this after receiving the user\'s answer to persist it.',
+        description: 'Store a Q&A pair from a question session as a persistent variable. Call this after receiving the user\'s answer to persist it.',
         parameters: {
           type: 'object',
           properties: {
@@ -383,7 +383,7 @@ export const variablesModule: ToolModule = {
           });
         }
 
-        // Communication tools
+        // Question tools
         case 'ask_user_question': {
           const { variable_name, question, description } = args;
           
@@ -413,7 +413,7 @@ export const variablesModule: ToolModule = {
           
           // Validate ai_ prefix
           if (!variable_name.startsWith('ai_')) {
-            return JSON.stringify({ error: 'Variable name must start with ai_ prefix for communication variables' });
+            return JSON.stringify({ error: 'Variable name must start with ai_ prefix for question variables' });
           }
           
           // Validate prompt is in family
@@ -442,7 +442,7 @@ export const variablesModule: ToolModule = {
               .update({
                 variable_value: answer,
                 source_question: question,
-                source_type: 'communication',
+                source_type: 'question',
                 variable_description: description || question,
                 updated_at: new Date().toISOString()
               })
@@ -469,7 +469,7 @@ export const variablesModule: ToolModule = {
               variable_value: answer,
               variable_description: description || question,
               source_question: question,
-              source_type: 'communication'
+              source_type: 'question'
             })
             .select('row_id')
             .maybeSingle();
@@ -491,7 +491,7 @@ export const variablesModule: ToolModule = {
           
           return JSON.stringify({
             success: true,
-            message: 'Communication session completed',
+            message: 'Question session completed',
             summary
           });
         }

@@ -10,7 +10,7 @@ import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
 import ModelReasoningSelector from "@/components/chat/ModelReasoningSelector";
 import ReactMarkdown from "react-markdown";
 import { useModels } from "@/hooks/useModels";
-import CommunicationQuestionPopup from "@/components/CommunicationQuestionPopup";
+import QuestionPopup from "@/components/QuestionPopup";
 
 // Tool Activity Indicator
 const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
@@ -180,11 +180,11 @@ const ConversationPanel = ({
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
   const isStreaming = usePromptFamilyMode ? promptFamilyChat.isStreaming : false;
 
-  // Communication prompt state
+  // Question prompt state
   const pendingQuestion = usePromptFamilyMode ? promptFamilyChat.pendingQuestion : null;
-  const communicationProgress = usePromptFamilyMode ? promptFamilyChat.communicationProgress : { current: 0, max: 10 };
-  const collectedCommunicationVars = usePromptFamilyMode ? promptFamilyChat.collectedCommunicationVars : [];
-  const submitCommunicationAnswer = usePromptFamilyMode ? promptFamilyChat.submitCommunicationAnswer : null;
+  const questionProgress = usePromptFamilyMode ? promptFamilyChat.questionProgress : { current: 0, max: 10 };
+  const collectedQuestionVars = usePromptFamilyMode ? promptFamilyChat.collectedQuestionVars : [];
+  const submitQuestionAnswer = usePromptFamilyMode ? promptFamilyChat.submitQuestionAnswer : null;
 
   // Get session model/reasoning from hook
   const sessionModel = usePromptFamilyMode ? promptFamilyChat.sessionModel : null;
@@ -471,17 +471,17 @@ const ConversationPanel = ({
         </div>
       </div>
       
-      {/* Communication Question Popup */}
+      {/* Question Popup */}
       {usePromptFamilyMode && (
-        <CommunicationQuestionPopup
+        <QuestionPopup
           isOpen={!!pendingQuestion}
-          onClose={() => promptFamilyChat.clearCommunicationState?.()}
+          onClose={() => promptFamilyChat.clearQuestionState?.()}
           question={pendingQuestion?.question}
           variableName={pendingQuestion?.variableName}
           description={pendingQuestion?.description}
-          progress={communicationProgress}
-          collectedVariables={collectedCommunicationVars}
-          onSubmit={submitCommunicationAnswer}
+          progress={questionProgress}
+          collectedVariables={collectedQuestionVars}
+          onSubmit={submitQuestionAnswer}
           isSubmitting={isStreaming}
         />
       )}
