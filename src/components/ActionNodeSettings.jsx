@@ -82,14 +82,13 @@ const ActionNodeSettings = ({
   // Parse current response_format to get the actual schema object
   const currentSchemaObject = useMemo(() => {
     if (!localData.response_format) return null;
-    try {
-      const format = typeof localData.response_format === 'string' 
-        ? JSON.parse(localData.response_format) 
-        : localData.response_format;
-      return format?.json_schema?.schema || null;
-    } catch {
-      return null;
+    let format = localData.response_format;
+    if (typeof format === 'string') {
+      const result = parseJson(format);
+      if (!result.isValid) return null;
+      format = result.data;
     }
+    return format?.json_schema?.schema || null;
   }, [localData.response_format]);
 
   // Validate schema against selected action type
@@ -166,29 +165,31 @@ const ActionNodeSettings = ({
   // Parse current response_format to determine source
   useEffect(() => {
     if (localData.response_format) {
-      try {
-        const format = typeof localData.response_format === 'string' 
-          ? JSON.parse(localData.response_format) 
-          : localData.response_format;
-        
-        // Check if it matches a template
-        if (format.json_schema?.schema) {
-          const schemaStr = JSON.stringify(format.json_schema.schema, null, 2);
-          setCustomSchema(schemaStr);
-          
-          // Check if matches a saved template
-          const matchingTemplate = templates.find(t => 
-            JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
-          );
-          
-          if (matchingTemplate) {
-            setSchemaSource('template');
-          } else {
-            setSchemaSource('custom');
-          }
+      let format = localData.response_format;
+      if (typeof format === 'string') {
+        const result = parseJson(format);
+        if (!result.isValid) {
+          setCustomSchema('');
+          return;
         }
-      } catch {
-        setCustomSchema('');
+        format = result.data;
+      }
+      
+      // Check if it matches a template
+      if (format.json_schema?.schema) {
+        const schemaStr = JSON.stringify(format.json_schema.schema, null, 2);
+        setCustomSchema(schemaStr);
+        
+        // Check if matches a saved template
+        const matchingTemplate = templates.find(t => 
+          JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
+        );
+        
+        if (matchingTemplate) {
+          setSchemaSource('template');
+        } else {
+          setSchemaSource('custom');
+        }
       }
     }
   }, [localData.response_format, templates]);
@@ -346,20 +347,19 @@ const ActionNodeSettings = ({
   const getCurrentTemplateId = () => {
     if (schemaSource === 'custom') return '_custom';
     
-    try {
-      const format = typeof localData.response_format === 'string'
-        ? JSON.parse(localData.response_format)
-        : localData.response_format;
-      
-      if (format?.json_schema?.schema) {
-        // Check saved templates
-        const matchingTemplate = templates.find(t =>
-          JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
-        );
-        if (matchingTemplate) return matchingTemplate.row_id;
-      }
-    } catch {
-      // ignore
+    let format = localData.response_format;
+    if (typeof format === 'string') {
+      const result = parseJson(format);
+      if (!result.isValid) return '_custom';
+      format = result.data;
+    }
+    
+    if (format?.json_schema?.schema) {
+      // Check saved templates
+      const matchingTemplate = templates.find(t =>
+        JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
+      );
+      if (matchingTemplate) return matchingTemplate.row_id;
     }
     
     return '_custom';
