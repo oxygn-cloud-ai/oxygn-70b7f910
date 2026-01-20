@@ -102,12 +102,18 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar
       {/* Name - 12px */}
       <span 
         className={`
-          w-44 truncate text-body-sm font-medium
+          w-44 truncate text-body-sm font-medium flex items-center gap-1
           ${isActive ? "text-secondary-container-foreground" : "text-on-surface"}
         `}
         style={{ fontSize: "12px" }}
       >
         {prompt.prompt_name || prompt.name || "Unnamed"}
+        {prompt.has_uncommitted_changes && (
+          <span 
+            className="w-1.5 h-1.5 bg-amber-500 rounded-full shrink-0" 
+            title="Uncommitted changes"
+          />
+        )}
       </span>
 
       {/* Preview */}
