@@ -10,7 +10,6 @@ import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
 import ModelReasoningSelector from "@/components/chat/ModelReasoningSelector";
 import ReactMarkdown from "react-markdown";
 import { useModels } from "@/hooks/useModels";
-import QuestionPopup from "@/components/QuestionPopup";
 
 // Tool Activity Indicator
 const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
@@ -179,12 +178,6 @@ const ConversationPanel = ({
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
   const isStreaming = usePromptFamilyMode ? promptFamilyChat.isStreaming : false;
-
-  // Question prompt state
-  const pendingQuestion = usePromptFamilyMode ? promptFamilyChat.pendingQuestion : null;
-  const questionProgress = usePromptFamilyMode ? promptFamilyChat.questionProgress : { current: 0, max: 10 };
-  const collectedQuestionVars = usePromptFamilyMode ? promptFamilyChat.collectedQuestionVars : [];
-  const submitQuestionAnswer = usePromptFamilyMode ? promptFamilyChat.submitQuestionAnswer : null;
 
   // Get session model/reasoning from hook
   const sessionModel = usePromptFamilyMode ? promptFamilyChat.sessionModel : null;
@@ -470,21 +463,6 @@ const ConversationPanel = ({
           </div>
         </div>
       </div>
-      
-      {/* Question Popup */}
-      {usePromptFamilyMode && (
-        <QuestionPopup
-          isOpen={!!pendingQuestion}
-          onClose={() => promptFamilyChat.clearQuestionState?.()}
-          question={pendingQuestion?.question}
-          variableName={pendingQuestion?.variableName}
-          description={pendingQuestion?.description}
-          progress={questionProgress}
-          collectedVariables={collectedQuestionVars}
-          onSubmit={submitQuestionAnswer}
-          isSubmitting={isStreaming}
-        />
-      )}
     </div>
   );
 };

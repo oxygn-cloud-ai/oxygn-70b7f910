@@ -42,6 +42,7 @@ import { Loader2, PanelLeft, PanelLeftOpen } from "lucide-react";
 import { executePostAction, processVariableAssignments } from "@/services/actionExecutors";
 import { validateActionResponse, extractJsonFromResponse } from "@/utils/actionValidation";
 import ActionPreviewDialog from "@/components/ActionPreviewDialog";
+import QuestionPopup from "@/components/QuestionPopup";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUndo } from "@/contexts/UndoContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
@@ -272,7 +273,7 @@ const MainLayout = () => {
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPromptInternal, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion } = useCascadeRun();
   // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
@@ -1444,6 +1445,18 @@ const MainLayout = () => {
         promptName={actionPreview?.promptName}
         onConfirm={() => resolveActionPreview(true)}
         onCancel={() => resolveActionPreview(false)}
+      />
+      {/* Question Popup - for run-mode question prompts */}
+      <QuestionPopup
+        isOpen={!!pendingQuestion}
+        onClose={() => resolveQuestion(null)}
+        question={pendingQuestion?.question}
+        variableName={pendingQuestion?.variableName}
+        description={pendingQuestion?.description}
+        progress={questionProgress}
+        collectedVariables={collectedQuestionVars}
+        onSubmit={(answer) => resolveQuestion(answer)}
+        isSubmitting={singleRunPromptId !== null || isCascadeRunning}
       />
     </DndProvider>
   );

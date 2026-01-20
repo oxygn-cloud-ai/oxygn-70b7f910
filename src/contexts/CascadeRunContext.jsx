@@ -37,10 +37,16 @@ export const CascadeRunProvider = ({ children }) => {
   // Skip all previews state (for bypassing all action previews during cascade)
   const [skipAllPreviews, setSkipAllPreviews] = useState(false);
   
+  // Question prompt state (for run-mode question interrupts)
+  const [pendingQuestion, setPendingQuestion] = useState(null);
+  const [questionProgress, setQuestionProgress] = useState({ current: 0, max: 10 });
+  const [collectedQuestionVars, setCollectedQuestionVars] = useState([]);
+  
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
   const errorResolverRef = useRef(null);
   const actionPreviewResolverRef = useRef(null);
+  const questionResolverRef = useRef(null);
   
   // Cancel handler ref for true OpenAI cancellation
   const cancelHandlerRef = useRef(null);
@@ -60,6 +66,14 @@ export const CascadeRunProvider = ({ children }) => {
     setError(null);
     setErrorPrompt(null);
     setSkipAllPreviews(false); // Reset skip all previews on new cascade
+    // Reset question state on new cascade
+    setPendingQuestion(null);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
+    if (questionResolverRef.current) {
+      questionResolverRef.current(null);
+      questionResolverRef.current = null;
+    }
     cancelRef.current = false;
     pauseRef.current = false;
   }, []);
@@ -85,6 +99,14 @@ export const CascadeRunProvider = ({ children }) => {
     setCurrentPromptName('');
     setCurrentPromptRowId(null);
     setSkipAllPreviews(false); // Reset on completion
+    // Reset question state on completion
+    setPendingQuestion(null);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
+    if (questionResolverRef.current) {
+      questionResolverRef.current(null);
+      questionResolverRef.current = null;
+    }
     cancelRef.current = false;
     pauseRef.current = false;
     cancelHandlerRef.current = null; // Clear cancel handler
@@ -100,6 +122,15 @@ export const CascadeRunProvider = ({ children }) => {
     // Set cancel flag immediately (for loop checks)
     cancelRef.current = true;
     setIsCancelling(true);
+    
+    // Resolve any pending question dialog with null (cancelled)
+    if (questionResolverRef.current) {
+      questionResolverRef.current(null);
+      questionResolverRef.current = null;
+    }
+    setPendingQuestion(null);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
     
     // Call the actual cancel handler FIRST and wait for it
     if (cancelHandlerRef.current) {
@@ -192,11 +223,62 @@ export const CascadeRunProvider = ({ children }) => {
 
   // Single run functions (for non-cascade runs)
   const startSingleRun = useCallback((promptRowId) => {
+    // Reset question state on new single run
+    setPendingQuestion(null);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
+    if (questionResolverRef.current) {
+      questionResolverRef.current(null);
+      questionResolverRef.current = null;
+    }
     setSingleRunPromptId(promptRowId);
   }, []);
 
   const endSingleRun = useCallback(() => {
+    // Reset question state on end single run
+    setPendingQuestion(null);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
+    if (questionResolverRef.current) {
+      questionResolverRef.current(null);
+      questionResolverRef.current = null;
+    }
     setSingleRunPromptId(null);
+  }, []);
+
+  // Question prompt methods (for run-mode question interrupts)
+  const showQuestion = useCallback((questionData) => {
+    setPendingQuestion(questionData);
+    setQuestionProgress(prev => ({ 
+      current: prev.current + 1, 
+      max: questionData.maxQuestions || prev.max 
+    }));
+    return new Promise((resolve) => {
+      questionResolverRef.current = resolve;
+    });
+  }, []);
+
+  const resolveQuestion = useCallback((answer) => {
+    // answer is string if user submitted, null if cancelled
+    setPendingQuestion(null);
+    if (questionResolverRef.current) {
+      questionResolverRef.current(answer);
+      questionResolverRef.current = null;
+    }
+  }, []);
+
+  const addCollectedQuestionVar = useCallback((name, value) => {
+    setCollectedQuestionVars(prev => [...prev, { name, value }]);
+  }, []);
+
+  const resetQuestionState = useCallback(() => {
+    setPendingQuestion(null);
+    setQuestionProgress({ current: 0, max: 10 });
+    setCollectedQuestionVars([]);
+    if (questionResolverRef.current) {
+      questionResolverRef.current(null);
+      questionResolverRef.current = null;
+    }
   }, []);
 
   const value = {
@@ -218,6 +300,10 @@ export const CascadeRunProvider = ({ children }) => {
     singleRunPromptId,
     actionPreview,
     skipAllPreviews,
+    // Question prompt state
+    pendingQuestion,
+    questionProgress,
+    collectedQuestionVars,
     
     // Actions
     startCascade,
@@ -238,6 +324,11 @@ export const CascadeRunProvider = ({ children }) => {
     startSingleRun,
     endSingleRun,
     registerCancelHandler, // For true OpenAI cancellation
+    // Question prompt actions
+    showQuestion,
+    resolveQuestion,
+    addCollectedQuestionVar,
+    resetQuestionState,
   };
 
   return (

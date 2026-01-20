@@ -23,11 +23,6 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [isExecutingTools, setIsExecutingTools] = useState(false);
   const [rootPromptId, setRootPromptId] = useState(null);
   
-  // Question prompt state
-  const [pendingQuestion, setPendingQuestion] = useState(null);
-  const [questionProgress, setQuestionProgress] = useState({ current: 0, max: 10 });
-  const [collectedQuestionVars, setCollectedQuestionVars] = useState([]);
-  
   // Ref to track activeThreadId without causing callback re-creation
   const activeThreadIdRef = useRef(null);
   
@@ -399,19 +394,8 @@ export const usePromptFamilyChat = (promptRowId) => {
                 });
               }
               
-              // Handle user_input_required - question prompt interrupt
-              if (parsed.type === 'user_input_required') {
-                setPendingQuestion({
-                  question: parsed.question,
-                  variableName: parsed.variable_name,
-                  description: parsed.description,
-                  callId: parsed.call_id
-                });
-                setQuestionProgress(prev => ({ ...prev, current: prev.current + 1 }));
-                setIsStreaming(false);
-                // Don't process further - wait for user input
-                return fullContent;
-              }
+              // Note: user_input_required is now handled in run mode (conversation-run)
+              // Chat mode does not support question prompts - they are ignored here
               
               // Handle thinking/reasoning events - stream to dashboard
               if (parsed.type === 'thinking_started') {
@@ -591,10 +575,6 @@ export const usePromptFamilyChat = (promptRowId) => {
     setToolActivity([]);
     setIsStreaming(false);
     setIsExecutingTools(false);
-    // Reset question state
-    setPendingQuestion(null);
-    setQuestionProgress({ current: 0, max: 10 });
-    setCollectedQuestionVars([]);
   }, [rootPromptId, removeCall]);
 
   // Cancel stream function for external use
@@ -610,34 +590,6 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [removeCall]);
 
-  // Submit question answer - resumes conversation with user's response
-  const submitQuestionAnswer = useCallback(async (answer) => {
-    if (!pendingQuestion) return null;
-    
-    const { variableName, question } = pendingQuestion;
-    
-    // Track the collected variable locally
-    setCollectedQuestionVars(prev => [...prev, { name: variableName, value: answer }]);
-    
-    // Clear pending question
-    setPendingQuestion(null);
-    
-    // Resume conversation - AI will receive this and should call store_qa_response
-    // Format message to give AI context about which question was answered
-    const contextMessage = `[Answer for ${variableName}]: ${answer}`;
-    
-    return await sendMessage(contextMessage, null, {
-      model: sessionModel,
-      reasoningEffort: sessionReasoningEffort
-    });
-  }, [pendingQuestion, sendMessage, sessionModel, sessionReasoningEffort]);
-
-  // Clear question state
-  const clearQuestionState = useCallback(() => {
-    setPendingQuestion(null);
-    setQuestionProgress({ current: 0, max: 10 });
-    setCollectedQuestionVars([]);
-  }, []);
 
   return {
     threads,
@@ -664,11 +616,5 @@ export const usePromptFamilyChat = (promptRowId) => {
     setSessionModel,
     sessionReasoningEffort,
     setSessionReasoningEffort,
-    // Question prompt state and actions
-    pendingQuestion,
-    questionProgress,
-    collectedQuestionVars,
-    submitQuestionAnswer,
-    clearQuestionState,
   };
 };
