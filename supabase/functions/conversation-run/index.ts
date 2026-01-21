@@ -1252,6 +1252,231 @@ async function runResponsesAPI(
 }
 
 // ============================================================================
+// QUESTION NODE EXECUTION
+// Handles question nodes with ask_user_question tool loop
+// Returns early with user_input_required SSE event when user input is needed
+// ============================================================================
+
+interface QuestionNodeResult {
+  success: boolean;
+  response?: string;
+  interrupted?: boolean;
+  interruptData?: {
+    variableName: string;
+    question: string;
+    description?: string | null;
+    callId: string;
+    responseId: string;
+  };
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  response_id?: string;
+  error?: string;
+}
+
+async function runQuestionNodeAPI(params: {
+  model: string;
+  userMessage: string;
+  systemPrompt: string;
+  previousResponseId: string | null;
+  maxQuestions: number;
+  questionConfig: any;
+  promptRowId: string;
+  userId: string;
+  apiKey: string;
+  supabase: any;
+  emitter: any;
+}): Promise<QuestionNodeResult> {
+  const { model, userMessage, systemPrompt, previousResponseId, maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter } = params;
+  
+  // Build question-specific system prompt
+  const questionInstructions = `${systemPrompt}
+
+You are gathering information from the user interactively. Use the ask_user_question tool to ask questions one at a time.
+After each question, wait for the user's response. When you have all needed information, call complete_communication with a summary.
+Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
+
+  // Get question tools from variables module
+  const toolContext: ToolContext = {
+    supabase,
+    userId,
+    familyContext: {
+      promptRowId,
+      familyPromptIds: [promptRowId],
+    },
+    credentials: {},
+  };
+  
+  const allTools = variablesModule.getTools(toolContext);
+  const questionTools = allTools.filter(t => 
+    ['ask_user_question', 'store_qa_response', 'complete_communication'].includes(t.name)
+  );
+  
+  console.log('Question node: using tools:', questionTools.map(t => t.name));
+  
+  // Build request body
+  const requestBody: any = {
+    model,
+    input: userMessage,
+    instructions: questionInstructions,
+    tools: questionTools,
+    store: false, // Don't store in OpenAI history for run mode
+    background: true,
+  };
+  
+  if (previousResponseId?.startsWith('resp_')) {
+    requestBody.previous_response_id = previousResponseId;
+    console.log('Question node: continuing from response:', previousResponseId);
+  }
+  
+  // Make initial API call
+  console.log('Question node: making OpenAI API call');
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Question node API error:', errorText);
+    return { success: false, error: `API error: ${response.status}` };
+  }
+  
+  const result = await response.json();
+  const responseId = result.id;
+  
+  console.log('Question node: got response', { id: responseId, status: result.status });
+  
+  // Emit api_started for frontend cancellation support
+  emitter.emit({ type: 'api_started', response_id: responseId });
+  
+  // Poll for completion if background mode
+  const POLL_INTERVAL = 500;
+  const MAX_POLL_TIME = 300000; // 5 minutes
+  const pollStartTime = Date.now();
+  
+  let currentResult = result;
+  
+  while (currentResult.status === 'in_progress' || currentResult.status === 'queued') {
+    if (Date.now() - pollStartTime > MAX_POLL_TIME) {
+      return { success: false, error: 'Question node timeout' };
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+    
+    const pollResponse = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+    
+    if (pollResponse.ok) {
+      currentResult = await pollResponse.json();
+    }
+  }
+  
+  // Check for function calls in output
+  const outputItems = currentResult.output || [];
+  const functionCalls = outputItems.filter((o: any) => o.type === 'function_call');
+  
+  console.log('Question node: output items:', outputItems.length, 'function_calls:', functionCalls.length);
+  
+  // If no function calls, extract text response
+  if (functionCalls.length === 0) {
+    const textOutput = outputItems.find((o: any) => o.type === 'message');
+    const textContent = textOutput?.content?.find((c: any) => c.type === 'output_text');
+    const responseText = textContent?.text || '';
+    
+    return {
+      success: true,
+      response: responseText,
+      response_id: responseId,
+      usage: currentResult.usage,
+    };
+  }
+  
+  // Process function calls
+  for (const functionCall of functionCalls) {
+    const toolName = functionCall.name;
+    const callId = functionCall.call_id;
+    let args: any = {};
+    
+    try {
+      args = JSON.parse(functionCall.arguments || '{}');
+    } catch (e) {
+      console.warn('Failed to parse function call arguments:', e);
+    }
+    
+    console.log('Question node: processing tool call:', toolName, args);
+    
+    if (toolName === 'ask_user_question') {
+      // INTERRUPT - return to frontend for user input
+      let varName = args.variable_name || 'ai_response';
+      if (!varName.startsWith('ai_')) {
+        varName = `ai_${varName}`;
+      }
+      
+      console.log('Question node: emitting user_input_required');
+      
+      // Emit the interrupt event
+      emitter.emit({
+        type: 'user_input_required',
+        variable_name: varName,
+        question: args.question,
+        description: args.description || null,
+        call_id: callId,
+        response_id: responseId,
+      });
+      
+      return {
+        success: true,
+        interrupted: true,
+        interruptData: {
+          variableName: varName,
+          question: args.question,
+          description: args.description,
+          callId,
+          responseId,
+        },
+        response_id: responseId,
+      };
+    }
+    
+    if (toolName === 'complete_communication') {
+      // Information gathering complete
+      const summary = args.summary || 'Information gathering complete.';
+      console.log('Question node: complete_communication called');
+      
+      return {
+        success: true,
+        response: summary,
+        response_id: responseId,
+        usage: currentResult.usage,
+      };
+    }
+    
+    if (toolName === 'store_qa_response') {
+      // Execute the storage tool via the module
+      try {
+        await variablesModule.handleCall('store_qa_response', args, toolContext);
+        console.log('Question node: stored QA response');
+      } catch (e) {
+        console.warn('Failed to store QA response:', e);
+      }
+    }
+  }
+  
+  // If we get here without returning, something unexpected happened
+  return {
+    success: true,
+    response: 'Question processing completed.',
+    response_id: responseId,
+    usage: currentResult.usage,
+  };
+}
+
+// ============================================================================
 // SSE STREAMING RESPONSE HANDLER
 // ============================================================================
 
@@ -1390,7 +1615,22 @@ serve(async (req) => {
         child_thread_strategy,
         existing_thread_row_id,
         store_in_history,
+        // Resume parameters for question node answers
+        resume_question_answer,
       } = requestBody;
+      
+      // Handle question answer resume - format user_message as answer submission
+      let effectiveUserMessage = user_message;
+      let resumeResponseId: string | null = null;
+      
+      if (resume_question_answer) {
+        const { previous_response_id, answer, variable_name } = resume_question_answer;
+        console.log('Resuming question with answer:', { variable_name, previous_response_id });
+        
+        // Format the answer as a structured response for the AI
+        effectiveUserMessage = `[Answer for ${variable_name}]: ${answer}`;
+        resumeResponseId = previous_response_id;
+      }
       
       // Validate required fields
       if (!child_prompt_row_id || typeof child_prompt_row_id !== 'string') {
@@ -1940,9 +2180,9 @@ serve(async (req) => {
         console.log('Using default empty prompt fallback');
       }
 
-      // Apply template to user message
-      let finalMessage = user_message 
-        ? applyTemplate(user_message, variables)
+      // Apply template to user message (use effectiveUserMessage for question resume)
+      let finalMessage = effectiveUserMessage 
+        ? applyTemplate(effectiveUserMessage, variables)
         : applyTemplate(childPrompt.input_user_prompt || childPrompt.input_admin_prompt || emptyPromptFallback, variables);
 
       console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
@@ -2315,21 +2555,104 @@ serve(async (req) => {
       }
 
       // ============================================================================
-      // QUESTION NODE DETECTION
+      // QUESTION NODE EXECUTION
       // Question nodes use ask_user_question tool to gather user input interactively
-      // Note: Full tool loop is NOT implemented here yet - question prompts should be
-      // executed via cascade or the user should use the chat mode for full interactivity.
-      // This detection logs the node type for future implementation.
+      // Uses dedicated runQuestionNodeAPI function with tool execution loop
       // ============================================================================
       if (childPrompt.node_type === 'question') {
-        console.log('Question node detected:', {
+        console.log('Question node detected - using question-specific execution path:', {
           prompt_row_id: child_prompt_row_id,
           prompt_name: childPrompt.prompt_name,
           question_config: childPrompt.question_config,
         });
-        // TODO: Implement tool execution loop for question nodes
-        // For now, question nodes will execute like standard prompts
-        // Full question functionality requires the tool execution loop from prompt-family-chat
+        
+        const questionConfig = childPrompt.question_config || { max_questions: 10 };
+        const defaultModel = await getDefaultModelFromSettings(supabase);
+        const promptModel = (childPrompt.model_on && childPrompt.model) ? childPrompt.model : null;
+        const resolvedModel = await resolveModelFromDb(supabase, promptModel || assistantData.model_override || defaultModel);
+        
+        // Emit progress for question node
+        emitter.emit({ 
+          type: 'progress', 
+          stage: 'calling_api', 
+          model: resolvedModel,
+          prompt_name: childPrompt.prompt_name,
+          node_type: 'question',
+          elapsed_ms: Date.now() - startTime 
+        });
+        
+        const questionResult = await runQuestionNodeAPI({
+          model: resolvedModel,
+          userMessage: finalMessage,
+          systemPrompt: systemPrompt,
+          // Use resumeResponseId if resuming from a question, otherwise use thread's last_response_id
+          previousResponseId: resumeResponseId || familyThread.last_response_id,
+          maxQuestions: questionConfig.max_questions || 10,
+          questionConfig,
+          promptRowId: child_prompt_row_id,
+          userId: validation.user!.id,
+          apiKey: OPENAI_API_KEY,
+          supabase,
+          emitter,
+        });
+        
+        if (questionResult.interrupted) {
+          // User input is required - frontend will handle the interrupt
+          // Update thread with response_id for resume
+          if (questionResult.response_id?.startsWith('resp_')) {
+            await updateFamilyThreadResponseId(supabase, activeThreadRowId, questionResult.response_id);
+          }
+          console.log('Question node: waiting for user input');
+          return; // Stream already has user_input_required event, close will happen in finally
+        }
+        
+        if (questionResult.success && questionResult.response) {
+          // Store response
+          await supabase
+            .from(TABLES.PROMPTS)
+            .update({ 
+              output_response: questionResult.response,
+              last_ai_call_metadata: {
+                latency_ms: Date.now() - startTime,
+                model: resolvedModel,
+                tokens_input: questionResult.usage?.prompt_tokens || 0,
+                tokens_output: questionResult.usage?.completion_tokens || 0,
+                tokens_total: questionResult.usage?.total_tokens || 0,
+                response_id: questionResult.response_id,
+                node_type: 'question',
+              }
+            })
+            .eq('row_id', child_prompt_row_id);
+          
+          // Update thread
+          if (questionResult.response_id?.startsWith('resp_')) {
+            await updateFamilyThreadResponseId(supabase, activeThreadRowId, questionResult.response_id);
+          }
+          
+          emitter.emit({
+            type: 'complete',
+            success: true,
+            response: questionResult.response,
+            usage: questionResult.usage,
+            model: resolvedModel,
+            child_prompt_name: childPrompt.prompt_name,
+            thread_row_id: activeThreadRowId,
+            response_id: questionResult.response_id,
+            elapsed_ms: Date.now() - startTime,
+            node_type: 'question',
+          });
+          return;
+        }
+        
+        if (!questionResult.success) {
+          emitter.emit({
+            type: 'error',
+            error: questionResult.error || 'Question node execution failed',
+            error_code: 'QUESTION_NODE_ERROR',
+            prompt_name: childPrompt.prompt_name,
+          });
+          return;
+        }
       }
 
       // Add seed if enabled
