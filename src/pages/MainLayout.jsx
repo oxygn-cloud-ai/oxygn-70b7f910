@@ -380,6 +380,7 @@ const MainLayout = () => {
     let lastAnswer = null;
     let lastVariableName = null;
     const MAX_QUESTION_ATTEMPTS = 10;
+    const accumulatedVars = {}; // Accumulate question answers for template variables
     
     try {
       // Question-aware execution loop
@@ -391,7 +392,7 @@ const MainLayout = () => {
           resumeVariableName: lastVariableName,
         } : {};
         
-        result = await runPrompt(promptId, null, {}, runOptions);
+        result = await runPrompt(promptId, null, accumulatedVars, runOptions);
         
         // Check for question interrupt
         if (result?.interrupted && result.interruptType === 'question') {
@@ -411,7 +412,8 @@ const MainLayout = () => {
             return;
           }
           
-          // Store answer and continue loop
+          // Store answer for template variables and continue loop
+          accumulatedVars[result.interruptData.variableName] = answer;
           addCollectedQuestionVar(result.interruptData.variableName, answer);
           currentResponseId = result.interruptData.responseId;
           lastAnswer = answer;

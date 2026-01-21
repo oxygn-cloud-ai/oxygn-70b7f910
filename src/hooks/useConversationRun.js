@@ -506,6 +506,10 @@ export const useConversationRun = () => {
       promptName,
       model,
       isCascadeCall = false,
+      // Resume parameters for question nodes
+      resumeResponseId,
+      resumeAnswer,
+      resumeVariableName,
     }) => {
       if (!supabase || !childPromptRowId) return { response: null };
 
@@ -580,6 +584,14 @@ export const useConversationRun = () => {
               existing_thread_row_id: existingThreadRowId,
               template_variables: template_variables,
               store_in_history: store_in_history,
+              // Resume parameters for question node answers
+              ...(resumeResponseId && resumeAnswer && resumeVariableName ? {
+                resume_question_answer: {
+                  previous_response_id: resumeResponseId,
+                  answer: resumeAnswer,
+                  variable_name: resumeVariableName,
+                }
+              } : {}),
             }),
             signal: abortControllerRef.current.signal,
           }
