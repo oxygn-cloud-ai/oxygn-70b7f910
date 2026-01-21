@@ -1,7 +1,10 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { estimateCost } from '@/utils/costEstimator';
 
 const LiveApiDashboardContext = createContext(null);
+
+// Debounce interval for output text updates (ms)
+const OUTPUT_DEBOUNCE_MS = 100;
 
 /**
  * Hook to access the LiveApiDashboard context.
@@ -118,7 +121,22 @@ export const LiveApiDashboardProvider = ({ children }) => {
     );
   }, []);
 
-  // Append output text delta (streaming main response)
+  // Ref to accumulate pending output text deltas for debouncing
+  const pendingOutputRef = useRef({});
+
+  // Cleanup pending timeouts on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all pending timeouts
+      Object.keys(pendingOutputRef.current).forEach((key) => {
+        if (key.endsWith('_timeout')) {
+          clearTimeout(pendingOutputRef.current[key]);
+        }
+      });
+    };
+  }, []);
+
+  // Append output text delta (streaming main response) - debounced
   const appendOutputText = useCallback((id, delta) => {
     if (!delta) return; // Guard against null/undefined
     // Guard against objects being passed as delta - only accept strings
@@ -126,13 +144,30 @@ export const LiveApiDashboardProvider = ({ children }) => {
       console.warn('appendOutputText received non-string delta:', typeof delta, delta);
       return;
     }
-    setActiveCalls((prev) =>
-      prev.map((c) =>
-        c.id === id
-          ? { ...c, outputText: (c.outputText || '') + delta }
-          : c
-      )
-    );
+    
+    // Accumulate to ref for debouncing
+    const key = String(id);
+    pendingOutputRef.current[key] = (pendingOutputRef.current[key] || '') + delta;
+    
+    // Debounced flush every OUTPUT_DEBOUNCE_MS
+    const timeoutKey = `${key}_timeout`;
+    if (!pendingOutputRef.current[timeoutKey]) {
+      pendingOutputRef.current[timeoutKey] = setTimeout(() => {
+        const accumulated = pendingOutputRef.current[key] || '';
+        delete pendingOutputRef.current[key];
+        delete pendingOutputRef.current[timeoutKey];
+        
+        if (accumulated) {
+          setActiveCalls((prev) =>
+            prev.map((c) =>
+              c.id === id
+                ? { ...c, outputText: (c.outputText || '') + accumulated }
+                : c
+            )
+          );
+        }
+      }, OUTPUT_DEBOUNCE_MS);
+    }
   }, []);
 
   // Increment output tokens (called during streaming)
@@ -154,6 +189,15 @@ export const LiveApiDashboardProvider = ({ children }) => {
 
   // Remove a call from the dashboard and update cumulative stats
   const removeCall = useCallback((id) => {
+    // Clean up any pending output flush for this call
+    const key = String(id);
+    const timeoutKey = `${key}_timeout`;
+    if (pendingOutputRef.current[timeoutKey]) {
+      clearTimeout(pendingOutputRef.current[timeoutKey]);
+      delete pendingOutputRef.current[key];
+      delete pendingOutputRef.current[timeoutKey];
+    }
+    
     setActiveCalls((prev) => {
       const call = prev.find((c) => c.id === id);
       if (call && call.isCascadeCall) {
