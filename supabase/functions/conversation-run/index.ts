@@ -1287,15 +1287,50 @@ async function runQuestionNodeAPI(params: {
   supabase: any;
   emitter: any;
   threadRowId?: string;  // For stale response recovery
+  // Tool configuration - same as regular prompts
+  fileSearchEnabled?: boolean;
+  codeInterpreterEnabled?: boolean;
+  webSearchEnabled?: boolean;
+  vectorStoreIds?: string[];
+  // File context for system prompt injection
+  fileContext?: string;
+  confluenceContext?: string;
 }): Promise<QuestionNodeResult> {
-  const { model, userMessage, systemPrompt, previousResponseId, resumeCallId, maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter, threadRowId } = params;
+  const { 
+    model, userMessage, systemPrompt, previousResponseId, resumeCallId, 
+    maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter, threadRowId,
+    fileSearchEnabled, codeInterpreterEnabled, webSearchEnabled, vectorStoreIds,
+    fileContext, confluenceContext
+  } = params;
   
-  // Build question-specific system prompt
-  const questionInstructions = `${systemPrompt}
+  // Build file/confluence context section for system prompt
+  let contextSection = '';
+  if (fileContext) {
+    contextSection += `\n\n## Attached Files\n${fileContext}`;
+  }
+  if (confluenceContext) {
+    contextSection += `\n\n## Reference Documents\n${confluenceContext}`;
+  }
+  
+  // Build tool availability hints
+  const toolHints: string[] = [];
+  if (fileSearchEnabled) {
+    toolHints.push('You have access to file_search to look up information from attached documents.');
+  }
+  if (webSearchEnabled) {
+    toolHints.push('You have access to web_search_preview to search the internet for information.');
+  }
+  if (codeInterpreterEnabled) {
+    toolHints.push('You have access to code_interpreter to run Python code for calculations or analysis.');
+  }
+  const toolHintsText = toolHints.length > 0 ? '\n' + toolHints.join('\n') : '';
+
+  // Build question-specific system prompt with context
+  const questionInstructions = `${systemPrompt}${contextSection}
 
 You are gathering information from the user interactively. Use the ask_user_question tool to ask questions one at a time.
 After each question, wait for the user's response. When you have all needed information, call complete_communication with a summary.
-Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
+Important: Variable names for ask_user_question MUST start with ai_ prefix.${toolHintsText}`;
 
   // Get question tools from variables module
   const toolContext: ToolContext = {
@@ -1308,18 +1343,45 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
     credentials: {},
   };
   
-  const allTools = variablesModule.getTools(toolContext);
-  const questionTools = allTools.filter(t => 
+  const allVariableTools = variablesModule.getTools(toolContext);
+  const questionTools = allVariableTools.filter(t => 
     ['ask_user_question', 'store_qa_response', 'complete_communication'].includes(t.name)
   );
   
-  console.log('Question node: using tools:', questionTools.map(t => t.name));
+  // Build combined tools array including built-in tools (same as regular prompts)
+  const tools: any[] = [...questionTools];
+  
+  // Add file_search if enabled and vector store available
+  if (fileSearchEnabled && vectorStoreIds?.length) {
+    tools.push({
+      type: 'file_search',
+      vector_store_ids: vectorStoreIds,
+      max_num_results: 10
+    });
+  }
+  
+  // Add web_search if enabled  
+  if (webSearchEnabled) {
+    tools.push({
+      type: 'web_search_preview'
+    });
+  }
+  
+  // Add code_interpreter if enabled
+  if (codeInterpreterEnabled) {
+    tools.push({
+      type: 'code_interpreter',
+      container: { type: 'auto' }
+    });
+  }
+  
+  console.log('Question node: using tools:', tools.map(t => t.name || t.type));
   
   // Build request body
   const requestBody: any = {
     model,
     instructions: questionInstructions,
-    tools: questionTools,
+    tools: tools,
     store: false, // Don't store in OpenAI history for run mode
     background: true,
   };
@@ -2701,6 +2763,14 @@ serve(async (req) => {
           supabase,
           emitter,
           threadRowId: activeThreadRowId,  // For stale response recovery
+          // Pass tool configuration - same as regular prompts
+          fileSearchEnabled: apiOptions.fileSearchEnabled,
+          codeInterpreterEnabled: apiOptions.codeInterpreterEnabled,
+          webSearchEnabled: apiOptions.webSearchEnabled,
+          vectorStoreIds: apiOptions.vectorStoreIds,
+          // Pass file context for system prompt injection
+          fileContext: fileContext,
+          confluenceContext: confluenceContext,
         });
         
         if (questionResult.interrupted) {
