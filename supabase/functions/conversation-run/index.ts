@@ -1278,6 +1278,7 @@ async function runQuestionNodeAPI(params: {
   userMessage: string;
   systemPrompt: string;
   previousResponseId: string | null;
+  resumeCallId: string | null;
   maxQuestions: number;
   questionConfig: any;
   promptRowId: string;
@@ -1287,7 +1288,7 @@ async function runQuestionNodeAPI(params: {
   emitter: any;
   threadRowId?: string;  // For stale response recovery
 }): Promise<QuestionNodeResult> {
-  const { model, userMessage, systemPrompt, previousResponseId, maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter, threadRowId } = params;
+  const { model, userMessage, systemPrompt, previousResponseId, resumeCallId, maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter, threadRowId } = params;
   
   // Build question-specific system prompt
   const questionInstructions = `${systemPrompt}
@@ -1317,16 +1318,28 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
   // Build request body
   const requestBody: any = {
     model,
-    input: userMessage,
     instructions: questionInstructions,
     tools: questionTools,
     store: false, // Don't store in OpenAI history for run mode
     background: true,
   };
   
-  if (previousResponseId?.startsWith('resp_')) {
+  // CRITICAL: When resuming from a tool call, use function_call_output format
+  if (previousResponseId?.startsWith('resp_') && resumeCallId) {
+    requestBody.input = [{
+      type: 'function_call_output',
+      call_id: resumeCallId,
+      output: userMessage,  // The user's answer
+    }];
     requestBody.previous_response_id = previousResponseId;
-    console.log('Question node: continuing from response:', previousResponseId);
+    console.log('Question node: resuming with function_call_output for call_id:', resumeCallId);
+  } else {
+    // Initial request - use string input
+    requestBody.input = userMessage;
+    if (previousResponseId?.startsWith('resp_')) {
+      requestBody.previous_response_id = previousResponseId;
+      console.log('Question node: continuing from response:', previousResponseId);
+    }
   }
   
   // Make initial API call
@@ -1690,14 +1703,16 @@ serve(async (req) => {
       // Handle question answer resume - format user_message as answer submission
       let effectiveUserMessage = user_message;
       let resumeResponseId: string | null = null;
+      let resumeCallId: string | null = null;
       
       if (resume_question_answer) {
-        const { previous_response_id, answer, variable_name } = resume_question_answer;
-        console.log('Resuming question with answer:', { variable_name, previous_response_id });
+        const { previous_response_id, answer, variable_name, call_id } = resume_question_answer;
+        console.log('Resuming question with answer:', { variable_name, previous_response_id, call_id });
         
-        // Format the answer as a structured response for the AI
-        effectiveUserMessage = `[Answer for ${variable_name}]: ${answer}`;
+        // Store the answer for use in function_call_output format
+        effectiveUserMessage = answer;
         resumeResponseId = previous_response_id;
+        resumeCallId = call_id;
       }
       
       // Validate required fields
@@ -2672,6 +2687,7 @@ serve(async (req) => {
           systemPrompt: systemPrompt,
           // Use resumeResponseId if resuming from a question, otherwise use thread's last_response_id
           previousResponseId: resumeResponseId || familyThread.last_response_id,
+          resumeCallId: resumeCallId,
           maxQuestions: questionConfig.max_questions || 10,
           questionConfig,
           promptRowId: child_prompt_row_id,

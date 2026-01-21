@@ -233,7 +233,7 @@ export const useConversationRun = () => {
     async (childPromptRowId, userMessage, templateVariables = {}, options = {}) => {
       if (!supabase || !childPromptRowId) return null;
 
-      const { onSuccess, onProgress, resumeResponseId, resumeAnswer, resumeVariableName } = options;
+      const { onSuccess, onProgress, resumeResponseId, resumeAnswer, resumeVariableName, resumeCallId } = options;
       const unregisterCall = registerCall();
 
       // Create abort controller for this request
@@ -309,6 +309,7 @@ export const useConversationRun = () => {
                   previous_response_id: resumeResponseId,
                   answer: resumeAnswer,
                   variable_name: resumeVariableName,
+                  call_id: resumeCallId,
                 }
               } : {}),
             }),

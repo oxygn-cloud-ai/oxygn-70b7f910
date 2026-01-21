@@ -379,6 +379,7 @@ const MainLayout = () => {
     let currentResponseId = null;
     let lastAnswer = null;
     let lastVariableName = null;
+    let lastCallId = null;
     const MAX_QUESTION_ATTEMPTS = 10;
     const accumulatedVars = {}; // Accumulate question answers for template variables
     
@@ -390,6 +391,7 @@ const MainLayout = () => {
           resumeResponseId: currentResponseId,
           resumeAnswer: lastAnswer,
           resumeVariableName: lastVariableName,
+          resumeCallId: lastCallId,
         } : {};
         
         result = await runPrompt(promptId, null, accumulatedVars, runOptions);
@@ -418,6 +420,7 @@ const MainLayout = () => {
           currentResponseId = result.interruptData.responseId;
           lastAnswer = answer;
           lastVariableName = result.interruptData.variableName;
+          lastCallId = result.interruptData.callId;
           continue; // Loop again with answer
         }
         
