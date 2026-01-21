@@ -17,7 +17,8 @@ export const CONTEXT_VARIABLE_KEYS = [
   // Parent context (immediate parent of current prompt)
   'q.parent.prompt.name',
   'q.parent.prompt.id',
-  'q.parent_output',
+  'q.parent.output_response',
+  'q.parent.user_prompt_result',
   
   // Top-level context (root prompt of cascade/family)
   'q.toplevel.prompt.name',

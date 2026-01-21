@@ -14,6 +14,7 @@ import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { executePostAction } from '@/services/actionExecutors';
 import { validateActionResponse, extractJsonFromResponse } from '@/utils/actionValidation';
 import { trackEvent, trackException } from '@/lib/posthog';
+import { CONTEXT_VARIABLE_KEYS } from '@/config/contextVariables';
 
 // Constants for Manus task polling
 const MANUS_POLL_INTERVAL_MS = 2000;
@@ -441,13 +442,7 @@ export const useCascadeExecutor = () => {
 
     // Add q.ref[UUID] variables from already-executed prompts in this cascade
     // IMPORTANT: Skip context variables - they should use runtime values, not stale stored snapshots
-    const CONTEXT_VARIABLE_KEYS = [
-      'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
-      'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
-      'q.user.name', 'q.user.email',
-      'q.today', 'q.now', 'q.year', 'q.month',
-      'q.policy.name', // DEPRECATED
-    ];
+    // CONTEXT_VARIABLE_KEYS imported from @/config/contextVariables
     
     promptDataMap.forEach((data, promptId) => {
       vars[`q.ref[${promptId}].output_response`] = data.output_response || '';
