@@ -592,9 +592,33 @@ export const useCascadeExecutor = () => {
     });
 
     // Helper to get immediate parent data for a specific prompt
-    const getImmediateParent = (prompt) => {
+    // First checks local lookup map (fast), then falls back to DB query if needed
+    const getImmediateParent = async (prompt) => {
       if (!prompt.parent_row_id) return null;
-      return promptLookupMap.get(prompt.parent_row_id) || null;
+      
+      // Try the local lookup map first (covers all prompts in current hierarchy)
+      const localParent = promptLookupMap.get(prompt.parent_row_id);
+      if (localParent) return localParent;
+      
+      // Fallback: parent exists but is outside the current hierarchy (edge case)
+      // Query the database to resolve orphaned parent references
+      try {
+        const { data: parentPrompt } = await supabase
+          .from(import.meta.env.VITE_PROMPTS_TBL || 'q_prompts')
+          .select('row_id, prompt_name, parent_row_id')
+          .eq('row_id', prompt.parent_row_id)
+          .eq('is_deleted', false)
+          .maybeSingle();
+        
+        if (parentPrompt) {
+          console.warn('Parent resolved via DB fallback (not in cascade hierarchy):', parentPrompt.prompt_name);
+          return parentPrompt;
+        }
+      } catch (err) {
+        console.warn('Failed to fetch parent from DB:', err);
+      }
+      
+      return null;
     };
 
     // Count non-excluded prompts for accurate progress
@@ -785,8 +809,19 @@ export const useCascadeExecutor = () => {
           // Build template variables from accumulated context AND system variables
           // Pass promptDataMap for q.ref[UUID] resolution of already-executed prompts
           // FIXED: Use immediate parent (not topLevelPrompt) for correct q.parent.prompt.name resolution
-          const immediateParent = getImmediateParent(prompt);
+          const immediateParent = await getImmediateParent(prompt);
           const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, immediateParent, currentUser, promptDataMap, topLevelPrompt);
+          
+          // Debug logging for variable resolution verification
+          console.log('Cascade variable resolution:', {
+            promptName: prompt.prompt_name,
+            immediateParentName: immediateParent?.prompt_name || '(none)',
+            topLevelName: topLevelPrompt?.prompt_name || '(none)',
+            resolvedVars: {
+              'q.parent.prompt.name': templateVars['q.parent.prompt.name'] || '(empty)',
+              'q.toplevel.prompt.name': templateVars['q.toplevel.prompt.name'] || '(empty)',
+            }
+          });
 
           // Fetch user-defined variables for this prompt
           const { data: userVariables } = await supabase
