@@ -26,8 +26,13 @@ export const buildSystemVariablesForRun = ({
   const resolved = {};
   
   // Build context for static variable resolution
-  // topLevelData = root prompt of the cascade/family
-  // parentData = immediate parent of the current prompt
+  // - topLevelData = root prompt of the cascade/family (level 0, prompt 0)
+  // - parentData = immediate parent of the current prompt (direct parent_row_id)
+  // 
+  // FALLBACK CHAIN for topLevelPromptName:
+  // For non-cascade single-prompt runs, topLevelData is null.
+  // In this case, we fall back to parentData (if exists) or promptData.
+  // This is intentional - in single-run mode, the "top-level" is conceptually the entry point.
   const context = {
     user: user,
     promptName: promptData?.prompt_name || '',
