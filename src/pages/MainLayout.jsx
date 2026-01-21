@@ -374,8 +374,55 @@ const MainLayout = () => {
     
     let result;
     let tracingResult = { traceId: null, spanId: null };
+    
+    // Question loop variables for question nodes
+    let currentResponseId = null;
+    let lastAnswer = null;
+    let lastVariableName = null;
+    const MAX_QUESTION_ATTEMPTS = 10;
+    
     try {
-      result = await runPrompt(promptId);
+      // Question-aware execution loop
+      for (let questionAttempt = 0; questionAttempt < MAX_QUESTION_ATTEMPTS; questionAttempt++) {
+        // Build resume options if we're resuming after a question answer
+        const runOptions = currentResponseId ? {
+          resumeResponseId: currentResponseId,
+          resumeAnswer: lastAnswer,
+          resumeVariableName: lastVariableName,
+        } : {};
+        
+        result = await runPrompt(promptId, null, {}, runOptions);
+        
+        // Check for question interrupt
+        if (result?.interrupted && result.interruptType === 'question') {
+          const answer = await showQuestion({
+            question: result.interruptData.question,
+            variableName: result.interruptData.variableName,
+            description: result.interruptData.description,
+            promptName: promptData?.prompt_name,
+            maxQuestions: MAX_QUESTION_ATTEMPTS,
+          });
+          
+          if (answer === null) {
+            // User cancelled the question
+            toast.info('Question cancelled');
+            endSingleRun();
+            setRunStartingFor(null);
+            return;
+          }
+          
+          // Store answer and continue loop
+          addCollectedQuestionVar(result.interruptData.variableName, answer);
+          currentResponseId = result.interruptData.responseId;
+          lastAnswer = answer;
+          lastVariableName = result.interruptData.variableName;
+          continue; // Loop again with answer
+        }
+        
+        // Normal completion - break the loop
+        break;
+      }
+      
       // Now await tracing promise after run completes
       tracingResult = await tracingPromise;
     } catch (runError) {

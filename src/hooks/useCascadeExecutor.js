@@ -85,6 +85,9 @@ export const useCascadeExecutor = () => {
     showActionPreview,
     skipAllPreviews,
     registerCancelHandler, // For true OpenAI cancellation
+    // Question prompt methods for run-mode question interrupts
+    showQuestion,
+    addCollectedQuestionVar,
   } = useCascadeRun();
 
   /**
@@ -869,6 +872,60 @@ export const useCascadeExecutor = () => {
                   template_variables: extendedTemplateVars,
                   store_in_history: false,
                 });
+              }
+
+              // Question handling loop for question nodes
+              const MAX_QUESTION_ATTEMPTS = prompt.question_config?.max_questions || 10;
+              let questionAttempts = 0;
+              
+              while (result?.interrupted && result.interruptType === 'question' && questionAttempts < MAX_QUESTION_ATTEMPTS) {
+                questionAttempts++;
+                
+                const answer = await showQuestion({
+                  question: result.interruptData.question,
+                  variableName: result.interruptData.variableName,
+                  description: result.interruptData.description,
+                  promptName: prompt.prompt_name,
+                  maxQuestions: MAX_QUESTION_ATTEMPTS,
+                });
+                
+                if (answer === null) {
+                  // User cancelled - stop cascade
+                  console.log('User cancelled question - stopping cascade');
+                  completeCascade();
+                  return;
+                }
+                
+                // Track in context state
+                addCollectedQuestionVar(result.interruptData.variableName, answer);
+                
+                // Add to template vars for downstream prompts
+                mergedTemplateVars[result.interruptData.variableName] = answer;
+                
+                // Resume with answer
+                result = await runConversation({
+                  conversationRowId: parentAssistantRowId,
+                  childPromptRowId: prompt.row_id,
+                  userMessage: null,
+                  template_variables: { ...extendedTemplateVars, [result.interruptData.variableName]: answer },
+                  store_in_history: false,
+                  // Resume parameters
+                  resumeResponseId: result.interruptData.responseId,
+                  resumeAnswer: answer,
+                  resumeVariableName: result.interruptData.variableName,
+                });
+                
+                if (isCancelled()) {
+                  completeCascade();
+                  return;
+                }
+              }
+              
+              // If still interrupted after max attempts, treat as error
+              if (result?.interrupted) {
+                console.error('Max questions exceeded for prompt:', prompt.prompt_name);
+                // Continue with cascade but mark as failed
+                result = { success: false, error: 'Max questions exceeded' };
               }
 
               // Check if cancelled during the call
