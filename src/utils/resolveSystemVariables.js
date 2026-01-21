@@ -19,15 +19,19 @@ import { SYSTEM_VARIABLES, SYSTEM_VARIABLE_TYPES } from '@/config/systemVariable
 export const buildSystemVariablesForRun = ({
   promptData = {},
   parentData = null,
+  topLevelData = null,
   user = null,
   storedVariables = {},
 } = {}) => {
   const resolved = {};
   
   // Build context for static variable resolution
+  // topLevelData = root prompt of the cascade/family
+  // parentData = immediate parent of the current prompt
   const context = {
     user: user,
-    topLevelPromptName: parentData?.prompt_name || promptData?.prompt_name || '',
+    promptName: promptData?.prompt_name || '',
+    topLevelPromptName: topLevelData?.prompt_name || parentData?.prompt_name || promptData?.prompt_name || '',
     parentPromptName: parentData?.prompt_name || '',
   };
   
