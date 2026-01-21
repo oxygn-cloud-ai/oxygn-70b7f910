@@ -227,18 +227,33 @@ const ConversationPanel = ({
   const isNearBottom = useRef(true);
   const scrollTimeoutRef = useRef(null);
 
-  // Attach scroll listener to track user position (Radix ScrollArea workaround)
+  // Attach scroll listener to track user position (Radix ScrollArea workaround with retry)
   useEffect(() => {
-    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
-    if (!viewport) return;
+    let retryCount = 0;
+    const maxRetries = 5;
+    let cleanup = null;
     
-    const handleScroll = () => {
-      const threshold = 100;
-      isNearBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
+    const attachListener = () => {
+      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      if (!viewport) {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          setTimeout(attachListener, 100);
+        }
+        return;
+      }
+      
+      const handleScroll = () => {
+        const threshold = 100;
+        isNearBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
+      };
+      
+      viewport.addEventListener('scroll', handleScroll, { passive: true });
+      cleanup = () => viewport.removeEventListener('scroll', handleScroll);
     };
     
-    viewport.addEventListener('scroll', handleScroll, { passive: true });
-    return () => viewport.removeEventListener('scroll', handleScroll);
+    attachListener();
+    return () => cleanup?.();
   }, []);
 
   // Auto-scroll only if user is near bottom, debounced
