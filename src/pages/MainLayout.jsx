@@ -273,7 +273,7 @@ const MainLayout = () => {
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPromptInternal, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion, showQuestion, addCollectedQuestionVar } = useCascadeRun();
   // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
