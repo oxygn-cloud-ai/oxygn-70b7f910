@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from '@/lib/posthog';
+import { CONTEXT_VARIABLE_KEYS } from '@/config/contextVariables';
 
 const EXPORT_STEPS = {
   SELECT_PROMPTS: 1,
@@ -333,14 +334,7 @@ export const useExport = () => {
   // Filter out context variables that should not be exported (they're stale snapshots)
   const getExportData = useMemo(() => {
     // Context variables to filter out - these are runtime-resolved, not stored
-    const CONTEXT_VARIABLE_KEYS = [
-      'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
-      'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
-      'q.user.name', 'q.user.email',
-      'q.today', 'q.now', 'q.year', 'q.month',
-      'q.policy.name', // DEPRECATED
-    ];
-    
+    // CONTEXT_VARIABLE_KEYS imported from @/config/contextVariables
     // Build a map of all prompts for q.ref[UUID] resolution
     const promptRefMap = new Map();
     promptsData.forEach(prompt => {

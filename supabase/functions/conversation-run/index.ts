@@ -2121,9 +2121,12 @@ serve(async (req) => {
       // Extract stored system variables from prompt's system_variables JSONB field
       // These are user-editable variables like q.policy.version, q.client.name set by the user
       // IMPORTANT: Skip context variables - they should use runtime-resolved values, not stale stored snapshots
+      // CONTEXT_VARIABLE_KEYS - MUST stay in sync with src/config/contextVariables.js
+      // (Cannot import directly - edge functions run in isolated Deno environment)
       const CONTEXT_VARIABLE_KEYS = [
         'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
-        'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
+        'q.parent.prompt.id', 'q.prompt.id', 'q.parent.output_response',
+        'q.parent.user_prompt_result',
         'q.user.name', 'q.user.email',
         'q.today', 'q.now', 'q.year', 'q.month',
         'q.policy.name', // DEPRECATED - ignore if present
