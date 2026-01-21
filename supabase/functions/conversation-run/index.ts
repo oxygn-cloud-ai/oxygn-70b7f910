@@ -1368,13 +1368,17 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
       errorMessage = errorText;
     }
     
-    // Handle stale previous_response_id - clear thread and retry fresh
+    // Handle stale previous_response_id or pending tool calls - clear thread and retry fresh
     const isPreviousResponseNotFound = 
       errorCode === 'previous_response_not_found' ||
       errorMessage.toLowerCase().includes('previous response') ||
       (response.status === 400 && errorMessage.toLowerCase().includes('not found'));
     
-    if (isPreviousResponseNotFound && requestBody.previous_response_id) {
+    // Detect stale tool call errors (from cancelled question prompts)
+    const isStaleToolCall = 
+      response.status === 400 && errorMessage.toLowerCase().includes('no tool output found');
+    
+    if ((isPreviousResponseNotFound || isStaleToolCall) && requestBody.previous_response_id) {
       console.warn('Question node: previous response not found, clearing thread context and retrying fresh');
       
       // Clear the thread's last_response_id if we have threadRowId
@@ -2685,8 +2689,9 @@ serve(async (req) => {
           model: resolvedModel,
           userMessage: finalMessage,
           systemPrompt: systemPrompt,
-          // Use resumeResponseId if resuming from a question, otherwise use thread's last_response_id
-          previousResponseId: resumeResponseId || familyThread.last_response_id,
+          // For question nodes: only use previous_response_id if we're resuming with a call_id
+          // This prevents "no tool output" errors from stale interrupted responses
+          previousResponseId: resumeCallId ? resumeResponseId : null,
           resumeCallId: resumeCallId,
           maxQuestions: questionConfig.max_questions || 10,
           questionConfig,
