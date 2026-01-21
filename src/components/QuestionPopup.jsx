@@ -26,9 +26,13 @@ export function QuestionPopup({
   
   // Focus textarea when popup opens
   useEffect(() => {
+    let timeoutId;
     if (isOpen && textareaRef.current) {
-      setTimeout(() => textareaRef.current?.focus(), 100);
+      timeoutId = setTimeout(() => textareaRef.current?.focus(), 100);
     }
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [isOpen]);
   
   // Clear input when question changes
