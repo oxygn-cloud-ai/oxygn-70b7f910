@@ -1505,7 +1505,6 @@ const MainLayout = () => {
         progress={questionProgress}
         collectedVariables={collectedQuestionVars}
         onSubmit={(answer) => resolveQuestion(answer)}
-        isSubmitting={singleRunPromptId !== null || isCascadeRunning}
       />
     </DndProvider>
   );
