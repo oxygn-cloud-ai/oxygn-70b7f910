@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import { generatePositionAtEnd } from '@/utils/lexPosition';
+import { CONTEXT_VARIABLE_KEYS } from '@/config/contextVariables';
 
 const TemplatePickerDialog = ({ 
   isOpen, 
@@ -247,20 +248,13 @@ const TemplatePickerDialog = ({
 
 // Build system_variables object - ONLY store user-editable variables, NOT context variables
         // Context variables (q.prompt.name, q.toplevel.prompt.name, etc.) should be resolved at runtime
-        const CONTEXT_VARIABLES = [
-          'q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name',
-          'q.parent.prompt.id', 'q.prompt.id', 'q.parent_output',
-          'q.user.name', 'q.user.email',
-          'q.today', 'q.now', 'q.year', 'q.month',
-          'q.policy.name', // DEPRECATED - no longer used
-        ];
-        
+        // CONTEXT_VARIABLE_KEYS imported from @/config/contextVariables
         const systemVariables = {};
         Object.entries(vars).forEach(([key, value]) => {
           // Only store user-editable q.* variables, skip context variables
           if (key.startsWith('q.') && 
               value !== undefined && value !== null && value !== '' &&
-              !CONTEXT_VARIABLES.includes(key)) {
+              !CONTEXT_VARIABLE_KEYS.includes(key)) {
             systemVariables[key] = String(value);
           }
         });
