@@ -1074,6 +1074,12 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         tools = rawTools.map(normalizeToolForResponsesApi);
       }
 
+      // Filter out question tools - they're only for run mode, not chat mode
+      // These tools require frontend orchestration that chat mode doesn't support
+      const QUESTION_TOOL_NAMES = ['ask_user_question', 'store_qa_response', 'complete_communication'];
+      tools = tools.filter(t => !QUESTION_TOOL_NAMES.includes(t.name));
+      console.log('Filtered question tools for chat mode');
+
       // Enforce strict schemas
       tools = tools.map((t) => {
         if (!t || typeof t !== 'object' || !t.parameters) return t;
