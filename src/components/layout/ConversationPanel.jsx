@@ -226,19 +226,20 @@ const ConversationPanel = ({
   // Smart auto-scroll: track if user is near bottom
   const isNearBottom = useRef(true);
   const scrollTimeoutRef = useRef(null);
+  const scrollCleanupRef = useRef(null);
+  const retryTimeoutRef = useRef(null);
 
   // Attach scroll listener to track user position (Radix ScrollArea workaround with retry)
   useEffect(() => {
     let retryCount = 0;
     const maxRetries = 5;
-    let cleanup = null;
     
     const attachListener = () => {
       const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
       if (!viewport) {
         if (retryCount < maxRetries) {
           retryCount++;
-          setTimeout(attachListener, 100);
+          retryTimeoutRef.current = setTimeout(attachListener, 100);
         }
         return;
       }
@@ -249,11 +250,21 @@ const ConversationPanel = ({
       };
       
       viewport.addEventListener('scroll', handleScroll, { passive: true });
-      cleanup = () => viewport.removeEventListener('scroll', handleScroll);
+      scrollCleanupRef.current = () => viewport.removeEventListener('scroll', handleScroll);
     };
     
     attachListener();
-    return () => cleanup?.();
+    
+    return () => {
+      // Clear any pending retry timeout
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+      // Call stored cleanup function
+      scrollCleanupRef.current?.();
+      scrollCleanupRef.current = null;
+    };
   }, []);
 
   // Auto-scroll only if user is near bottom, debounced
