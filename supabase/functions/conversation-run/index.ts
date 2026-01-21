@@ -1285,8 +1285,9 @@ async function runQuestionNodeAPI(params: {
   apiKey: string;
   supabase: any;
   emitter: any;
+  threadRowId?: string;  // For stale response recovery
 }): Promise<QuestionNodeResult> {
-  const { model, userMessage, systemPrompt, previousResponseId, maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter } = params;
+  const { model, userMessage, systemPrompt, previousResponseId, maxQuestions, questionConfig, promptRowId, userId, apiKey, supabase, emitter, threadRowId } = params;
   
   // Build question-specific system prompt
   const questionInstructions = `${systemPrompt}
@@ -1342,13 +1343,80 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
   if (!response.ok) {
     const errorText = await response.text();
     console.error('Question node API error:', errorText);
-    return { success: false, error: `API error: ${response.status}` };
+    
+    // Parse error to check for stale previous_response_id
+    let errorCode = '';
+    let errorMessage = '';
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorCode = errorJson.error?.code || '';
+      errorMessage = errorJson.error?.message || '';
+    } catch {
+      errorMessage = errorText;
+    }
+    
+    // Handle stale previous_response_id - clear thread and retry fresh
+    const isPreviousResponseNotFound = 
+      errorCode === 'previous_response_not_found' ||
+      errorMessage.toLowerCase().includes('previous response') ||
+      (response.status === 400 && errorMessage.toLowerCase().includes('not found'));
+    
+    if (isPreviousResponseNotFound && requestBody.previous_response_id) {
+      console.warn('Question node: previous response not found, clearing thread context and retrying fresh');
+      
+      // Clear the thread's last_response_id if we have threadRowId
+      if (threadRowId) {
+        try {
+          await supabase
+            .from('q_threads')
+            .update({ last_response_id: null })
+            .eq('row_id', threadRowId);
+          console.log('Question node: cleared stale last_response_id from thread:', threadRowId);
+        } catch (clearErr) {
+          console.error('Question node: failed to clear thread last_response_id:', clearErr);
+        }
+      }
+      
+      // Retry without previous_response_id
+      delete requestBody.previous_response_id;
+      
+      const retryResponse = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!retryResponse.ok) {
+        const retryErrorText = await retryResponse.text();
+        console.error('Question node retry also failed:', retryResponse.status, retryErrorText);
+        return { success: false, error: `Retry failed: ${retryErrorText}` };
+      }
+      
+      // Use retry response and continue with normal flow
+      const retryResult = await retryResponse.json();
+      console.log('Question node: retry successful after clearing previous_response_id:', retryResult.id);
+      
+      // Emit warning that context was lost
+      emitter.emit({ 
+        type: 'progress', 
+        message: 'Thread context was reset due to stale conversation state',
+      });
+      
+      // Continue with retry result
+      var initialResult = retryResult;
+      var responseId = retryResult.id;
+    } else {
+      return { success: false, error: `API error: ${response.status}` };
+    }
+  } else {
+    var initialResult = await response.json();
+    var responseId = initialResult.id;
   }
   
-  const result = await response.json();
-  const responseId = result.id;
-  
-  console.log('Question node: got response', { id: responseId, status: result.status });
+  console.log('Question node: got response', { id: responseId, status: initialResult.status });
   
   // Emit api_started for frontend cancellation support
   emitter.emit({ type: 'api_started', response_id: responseId });
@@ -1358,7 +1426,7 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.`;
   const MAX_POLL_TIME = 300000; // 5 minutes
   const pollStartTime = Date.now();
   
-  let currentResult = result;
+  let currentResult = initialResult;
   
   while (currentResult.status === 'in_progress' || currentResult.status === 'queued') {
     if (Date.now() - pollStartTime > MAX_POLL_TIME) {
@@ -2594,6 +2662,7 @@ serve(async (req) => {
           apiKey: OPENAI_API_KEY,
           supabase,
           emitter,
+          threadRowId: activeThreadRowId,  // For stale response recovery
         });
         
         if (questionResult.interrupted) {
