@@ -2110,6 +2110,13 @@ serve(async (req) => {
       staticSystemVariables['q.prompt.id'] = child_prompt_row_id;
       
       console.log('Resolved static system variables:', Object.keys(staticSystemVariables));
+      console.log('Parent context resolved:', {
+        parentPromptName,
+        topLevelPromptName,
+        promptName: childPrompt.prompt_name,
+        hasParent: !!childPrompt.parent_row_id,
+        parentRowId: childPrompt.parent_row_id || null,
+      });
       
       // Extract stored system variables from prompt's system_variables JSONB field
       // These are user-editable variables like q.policy.version, q.client.name set by the user
@@ -2139,16 +2146,23 @@ serve(async (req) => {
 
 // Build template variables from prompt fields + user variables + system variables
       // Order matters: later entries override earlier ones
+      // IMPORTANT: Filter protected context keys from template_variables to prevent frontend override
+      const safeTemplateVariables = Object.fromEntries(
+        Object.entries(template_variables || {}).filter(
+          ([key]) => !CONTEXT_VARIABLE_KEYS.includes(key)
+        )
+      );
+      
       const variables: Record<string, string> = {
         input_admin_prompt: childPrompt.input_admin_prompt || '',
         input_user_prompt: childPrompt.input_user_prompt || '',
         admin_prompt_result: childPrompt.admin_prompt_result || '',
         user_prompt_result: childPrompt.user_prompt_result || '',
         output_response: childPrompt.output_response || '',
-        ...staticSystemVariables,    // Static q.* variables (computed at runtime)
         ...storedSystemVariables,    // User-input q.* variables (from system_variables field)
         ...userVariablesMap,         // User-defined variables (from q_prompt_variables table)
-        ...template_variables,       // Variables passed in the request
+        ...safeTemplateVariables,    // Variables passed in request (protected keys filtered)
+        ...staticSystemVariables,    // Static q.* variables - applied LAST for backend authority
       };
 
       // ============================================================================

@@ -402,11 +402,13 @@ export const useCascadeExecutor = () => {
 
   // Build cascade context variables from accumulated responses
   // Also includes q.ref[UUID] resolution for already-executed prompts
-  const buildCascadeVariables = useCallback((accumulatedResponses, currentLevel, prompt, parentData, user, promptDataMap = new Map()) => {
+  const buildCascadeVariables = useCallback((accumulatedResponses, currentLevel, prompt, parentData, user, promptDataMap = new Map(), topLevelData = null) => {
     // Start with system variables (q.today, q.user.name, etc.)
+    // Pass topLevelData separately from parentData for correct resolution
     const vars = buildSystemVariablesForRun({
       promptData: prompt,
       parentData: parentData,
+      topLevelData: topLevelData,
       user: user,
       storedVariables: prompt?.system_variables || {},
     });
@@ -575,6 +577,25 @@ export const useCascadeExecutor = () => {
 
     // Get top-level parent data for variable resolution
     const topLevelPrompt = hierarchy.levels[0]?.prompts[0] || null;
+
+    // Build parent lookup map for immediate parent resolution
+    // This allows each prompt to correctly identify its IMMEDIATE parent, not just the top-level
+    const promptLookupMap = new Map();
+    hierarchy.levels.forEach(level => {
+      level.prompts.forEach(prompt => {
+        promptLookupMap.set(prompt.row_id, {
+          row_id: prompt.row_id,
+          prompt_name: prompt.prompt_name,
+          parent_row_id: prompt.parent_row_id,
+        });
+      });
+    });
+
+    // Helper to get immediate parent data for a specific prompt
+    const getImmediateParent = (prompt) => {
+      if (!prompt.parent_row_id) return null;
+      return promptLookupMap.get(prompt.parent_row_id) || null;
+    };
 
     // Count non-excluded prompts for accurate progress
     // Also exclude the top-level assistant (level 0) since it's the context, not a runnable prompt
@@ -763,7 +784,9 @@ export const useCascadeExecutor = () => {
 
           // Build template variables from accumulated context AND system variables
           // Pass promptDataMap for q.ref[UUID] resolution of already-executed prompts
-          const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, topLevelPrompt, currentUser, promptDataMap);
+          // FIXED: Use immediate parent (not topLevelPrompt) for correct q.parent.prompt.name resolution
+          const immediateParent = getImmediateParent(prompt);
+          const templateVars = buildCascadeVariables(accumulatedResponses, levelIdx, prompt, immediateParent, currentUser, promptDataMap, topLevelPrompt);
 
           // Fetch user-defined variables for this prompt
           const { data: userVariables } = await supabase
