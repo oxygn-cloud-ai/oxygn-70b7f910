@@ -429,8 +429,11 @@ export const usePromptFamilyChat = (promptRowId) => {
                   }
                 }
               } else if (parsed.type === 'output_text_done') {
-                // Flush any pending updates and use final text
-                flushStreamingContent();
+                // Use final text from server - clear pending timeout first
+                if (streamingFlushTimeout) {
+                  clearTimeout(streamingFlushTimeout);
+                  streamingFlushTimeout = null;
+                }
                 fullContent = parsed.text || fullContent;
                 setStreamingMessage(fullContent);
                 updateCall(dashboardId, { outputText: fullContent });
@@ -511,15 +514,18 @@ export const usePromptFamilyChat = (promptRowId) => {
         }, null, 2),
       });
       
+      // Clear any pending streaming timeout FIRST (before clearing state)
+      if (streamingFlushTimeout) {
+        clearTimeout(streamingFlushTimeout);
+        streamingFlushTimeout = null;
+      }
+      
       setStreamingMessage('');
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
       unregisterCall();
       abortControllerRef.current = null;
-      
-      // Flush any remaining streaming content
-      flushStreamingContent();
       
       // Remove from dashboard
       removeCall(dashboardId);
@@ -538,6 +544,12 @@ export const usePromptFamilyChat = (promptRowId) => {
 
       return fullContent;
     } catch (error) {
+      // Clear any pending streaming timeout to prevent orphaned updates
+      if (streamingFlushTimeout) {
+        clearTimeout(streamingFlushTimeout);
+        streamingFlushTimeout = null;
+      }
+      
       // Don't show error toast for aborted requests
       if (error.name !== 'AbortError') {
         console.error('Error sending message:', error);
