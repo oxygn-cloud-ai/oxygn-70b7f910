@@ -405,10 +405,17 @@ export const usePromptFamilyChat = (promptRowId) => {
               } else if (parsed.type === 'thinking_done') {
                 // Thinking complete, could update status if needed
               } else if (parsed.type === 'output_text_delta') {
-                appendOutputText(dashboardId, parsed.delta || '');
+                const delta = parsed.delta || '';
+                if (delta) {
+                  fullContent += delta;
+                  setStreamingMessage(fullContent);
+                  appendOutputText(dashboardId, delta);
+                }
               } else if (parsed.type === 'output_text_done') {
-                // Fallback: if we missed deltas, set full output text
-                updateCall(dashboardId, { outputText: parsed.text });
+                // Use final text from server to ensure accuracy
+                fullContent = parsed.text || fullContent;
+                setStreamingMessage(fullContent);
+                updateCall(dashboardId, { outputText: fullContent });
               }
               
               // Handle status updates
@@ -456,13 +463,8 @@ export const usePromptFamilyChat = (promptRowId) => {
                 setIsExecutingTools(false);
               }
               
-              // Handle final content
-              const deltaContent = parsed.choices?.[0]?.delta?.content;
-              if (deltaContent) {
-                fullContent += deltaContent;
-                setStreamingMessage(fullContent);
-                // Note: Token counts now come from usage_delta events, not character estimation
-              }
+              // Note: Chat Completions format (choices[0].delta.content) removed
+              // Responses API uses output_text_delta events handled above
               
             } catch (e) {
               if (e.message && !e.message.includes('JSON')) {

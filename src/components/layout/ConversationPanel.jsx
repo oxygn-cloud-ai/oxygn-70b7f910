@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
   Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare
@@ -8,8 +8,40 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SkeletonChat } from "@/components/shared/Skeletons";
 import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
 import ModelReasoningSelector from "@/components/chat/ModelReasoningSelector";
-import ReactMarkdown from "react-markdown";
 import { useModels } from "@/hooks/useModels";
+
+// Lazy load ReactMarkdown for performance
+const ReactMarkdown = lazy(() => import("react-markdown"));
+
+// Memoized message component to prevent unnecessary re-renders
+const MemoizedMessage = memo(({ msg, isStreaming }) => (
+  <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+    <div 
+      className={`max-w-[85%] px-2.5 py-2 rounded-m3-lg text-body-sm ${
+        msg.role === "user"
+          ? "bg-primary text-primary-foreground"
+          : "bg-surface-container-high text-on-surface"
+      }`}
+      style={{ borderRadius: "14px" }}
+    >
+      {msg.role === 'assistant' ? (
+        <Suspense fallback={<div className="animate-pulse h-4 bg-surface-container rounded w-3/4" />}>
+          <div className="prose prose-sm max-w-none text-on-surface prose-p:my-1 prose-headings:my-2">
+            <ReactMarkdown>{msg.content}</ReactMarkdown>
+          </div>
+        </Suspense>
+      ) : (
+        <p className="whitespace-pre-wrap">{msg.content}</p>
+      )}
+    </div>
+  </div>
+), (prev, next) => {
+  // Only re-render if content or role actually changed
+  return prev.msg.content === next.msg.content && 
+         prev.msg.role === next.msg.role &&
+         prev.msg.row_id === next.msg.row_id &&
+         prev.isStreaming === next.isStreaming;
+});
 
 // Tool Activity Indicator
 const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
@@ -191,14 +223,44 @@ const ConversationPanel = ({
   const supportsReasoning = currentModelConfig?.supportsReasoningEffort ?? false;
   const defaultModelName = activeModels[0]?.model_name || 'Default';
 
-// Auto-scroll to bottom when messages change or when sending
+  // Smart auto-scroll: track if user is near bottom
+  const isNearBottom = useRef(true);
+  const scrollTimeoutRef = useRef(null);
+
+  // Attach scroll listener to track user position (Radix ScrollArea workaround)
   useEffect(() => {
-    if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+    
+    const handleScroll = () => {
+      const threshold = 100;
+      isNearBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < threshold;
+    };
+    
+    viewport.addEventListener('scroll', handleScroll, { passive: true });
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-scroll only if user is near bottom, debounced
+  useEffect(() => {
+    // Only scroll if user is near bottom
+    if (!isNearBottom.current) return;
+    
+    // Debounce scroll operations
+    if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (scrollRef.current && isNearBottom.current) {
+        const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
       }
-    }
+    }, 100);
+    
+    return () => {
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
   }, [messages, isSending, streamingMessage]);
 
   const handleSend = async () => {
@@ -350,27 +412,11 @@ const ConversationPanel = ({
         ) : (
           <div className="space-y-2">
             {displayMessages.map((msg, idx) => (
-              <div 
+              <MemoizedMessage 
                 key={msg.row_id || idx}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div 
-                  className={`max-w-[85%] px-2.5 py-2 rounded-m3-lg text-body-sm ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-surface-container-high text-on-surface"
-                  }`}
-                  style={{ borderRadius: "14px" }}
-                >
-                  {msg.role === 'assistant' ? (
-                    <div className="prose prose-sm max-w-none text-on-surface prose-p:my-1 prose-headings:my-2">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
-                  )}
-                </div>
-              </div>
+                msg={msg}
+                isStreaming={msg.row_id === 'streaming'}
+              />
             ))}
             
             {/* Tool activity indicator */}
