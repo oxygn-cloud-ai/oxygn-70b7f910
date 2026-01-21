@@ -362,6 +362,16 @@ export const usePromptFamilyChat = (promptRowId) => {
       let fullContent = '';
       let buffer = '';
       
+      // Debounce streaming UI updates (Step 2.1)
+      let streamingFlushTimeout = null;
+      const flushStreamingContent = () => {
+        if (streamingFlushTimeout) {
+          clearTimeout(streamingFlushTimeout);
+          streamingFlushTimeout = null;
+        }
+        setStreamingMessage(fullContent);
+      };
+      
       // Track API metadata for toast details
       let responseId = null;
       let usageData = { input_tokens: 0, output_tokens: 0 };
@@ -408,11 +418,19 @@ export const usePromptFamilyChat = (promptRowId) => {
                 const delta = parsed.delta || '';
                 if (delta) {
                   fullContent += delta;
-                  setStreamingMessage(fullContent);
                   appendOutputText(dashboardId, delta);
+                  
+                  // Debounce UI updates to every 50ms
+                  if (!streamingFlushTimeout) {
+                    streamingFlushTimeout = setTimeout(() => {
+                      setStreamingMessage(fullContent);
+                      streamingFlushTimeout = null;
+                    }, 50);
+                  }
                 }
               } else if (parsed.type === 'output_text_done') {
-                // Use final text from server to ensure accuracy
+                // Flush any pending updates and use final text
+                flushStreamingContent();
                 fullContent = parsed.text || fullContent;
                 setStreamingMessage(fullContent);
                 updateCall(dashboardId, { outputText: fullContent });
@@ -499,6 +517,9 @@ export const usePromptFamilyChat = (promptRowId) => {
       setIsExecutingTools(false);
       unregisterCall();
       abortControllerRef.current = null;
+      
+      // Flush any remaining streaming content
+      flushStreamingContent();
       
       // Remove from dashboard
       removeCall(dashboardId);
