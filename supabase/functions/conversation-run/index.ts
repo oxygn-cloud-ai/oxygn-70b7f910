@@ -1523,17 +1523,86 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
     }
   }
   
-  // Check for function calls in output
+  // Check for function calls and built-in tool calls in output
   const outputItems = currentResult.output || [];
   const functionCalls = outputItems.filter((o: any) => o.type === 'function_call');
   
-  console.log('Question node: output items:', outputItems.length, 'function_calls:', functionCalls.length);
+  // Built-in tools return different output types
+  const builtInToolCalls = outputItems.filter((o: any) => 
+    ['file_search_call', 'web_search_call', 'code_interpreter_call'].includes(o.type)
+  );
   
-  // If no function calls, extract text response
+  console.log('Question node: output items:', outputItems.length, 
+    'function_calls:', functionCalls.length,
+    'built_in_tool_calls:', builtInToolCalls.length);
+  
+  // Handle built-in tool calls - OpenAI processes these automatically
+  // We need to check if there are results we should continue from
+  if (builtInToolCalls.length > 0) {
+    console.log('Question node: built-in tools executed:', builtInToolCalls.map((t: any) => t.type));
+    
+    // Check if file_search was called and returned results
+    for (const toolCall of builtInToolCalls) {
+      if (toolCall.type === 'file_search_call' && toolCall.results) {
+        console.log('Question node: file_search returned', toolCall.results.length, 'results');
+      }
+      if (toolCall.type === 'web_search_call' && toolCall.results) {
+        console.log('Question node: web_search returned', toolCall.results.length, 'results');
+      }
+      if (toolCall.type === 'code_interpreter_call') {
+        console.log('Question node: code_interpreter executed');
+      }
+    }
+    
+    // If status is still in_progress after built-in tools, continue polling
+    // Built-in tools are handled automatically by OpenAI, we just need to wait for completion
+    if (currentResult.status === 'in_progress') {
+      console.log('Question node: built-in tools completed, continuing to poll for final result');
+      // Continue polling loop will handle this
+    }
+  }
+  
+  // If no function calls (question tools), extract text response
+  // This handles the case where built-in tools ran but no question tools were called
   if (functionCalls.length === 0) {
     const textOutput = outputItems.find((o: any) => o.type === 'message');
     const textContent = textOutput?.content?.find((c: any) => c.type === 'output_text');
     const responseText = textContent?.text || '';
+    
+    // If we got built-in tool results but no text, there might be more processing needed
+    if (!responseText && builtInToolCalls.length > 0) {
+      console.log('Question node: built-in tools ran but no text output yet, waiting for continuation');
+      
+      // Check if the response has more to do (status should be complete if done)
+      if (currentResult.status !== 'completed') {
+        // Need to continue polling
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        
+        const continuePollResponse = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
+          headers: { 'Authorization': `Bearer ${apiKey}` },
+        });
+        
+        if (continuePollResponse.ok) {
+          currentResult = await continuePollResponse.json();
+          // Recursively process the updated result
+          const updatedOutputItems = currentResult.output || [];
+          const updatedFunctionCalls = updatedOutputItems.filter((o: any) => o.type === 'function_call');
+          
+          if (updatedFunctionCalls.length > 0) {
+            // Process these function calls below
+          } else {
+            const updatedTextOutput = updatedOutputItems.find((o: any) => o.type === 'message');
+            const updatedTextContent = updatedTextOutput?.content?.find((c: any) => c.type === 'output_text');
+            return {
+              success: true,
+              response: updatedTextContent?.text || 'Question processing completed.',
+              response_id: responseId,
+              usage: currentResult.usage,
+            };
+          }
+        }
+      }
+    }
     
     return {
       success: true,
@@ -1543,7 +1612,7 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
     };
   }
   
-  // Process function calls
+  // Process function calls (question-specific tools)
   for (const functionCall of functionCalls) {
     const toolName = functionCall.name;
     const callId = functionCall.call_id;
@@ -2354,12 +2423,14 @@ serve(async (req) => {
       console.log('Applied template variables:', Object.keys(variables).filter(k => k.startsWith('q.')));
 
       // Prepend file context if available (only on first message)
-      if (fileContext) {
+      // NOTE: Question nodes handle context injection internally, skip here
+      if (fileContext && childPrompt.node_type !== 'question') {
         finalMessage = fileContext + finalMessage;
       }
 
       // Prepend Confluence context if available (only on first message)
-      if (confluenceContext) {
+      // NOTE: Question nodes handle context injection internally, skip here
+      if (confluenceContext && childPrompt.node_type !== 'question') {
         finalMessage = confluenceContext + finalMessage;
       }
 
