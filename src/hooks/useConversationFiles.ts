@@ -1,16 +1,46 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-export const useConversationFiles = (assistantRowId) => {
+export interface ConversationFile {
+  row_id: string;
+  assistant_row_id?: string | null;
+  storage_path?: string | null;
+  original_filename?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  openai_file_id?: string | null;
+  upload_status?: string | null;
+  created_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface UseConversationFilesReturn {
+  files: ConversationFile[];
+  isLoading: boolean;
+  isUploading: boolean;
+  isSyncing: boolean;
+  uploadFile: (filesOrFile: File | File[]) => Promise<ConversationFile[] | null>;
+  deleteFile: (fileRowId: string) => Promise<boolean>;
+  syncFiles: () => Promise<boolean>;
+  refetch: () => Promise<void>;
+}
+
+export const useConversationFiles = (assistantRowId: string | null | undefined): UseConversationFilesReturn => {
   const supabase = useSupabase();
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState<ConversationFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const isMountedRef = useRef(true);
 
-  const fetchFiles = useCallback(async () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  const fetchFiles = useCallback(async (): Promise<void> => {
     if (!supabase || !assistantRowId) return;
 
     try {
@@ -21,12 +51,16 @@ export const useConversationFiles = (assistantRowId) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setFiles(data || []);
+      if (isMountedRef.current) {
+        setFiles((data as ConversationFile[]) || []);
+      }
     } catch (error) {
       console.error('Error fetching files:', error);
       toast.error('Failed to load files');
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [supabase, assistantRowId]);
 
@@ -35,7 +69,7 @@ export const useConversationFiles = (assistantRowId) => {
   }, [fetchFiles]);
 
   // Sync files to vector store
-  const syncFiles = useCallback(async () => {
+  const syncFiles = useCallback(async (): Promise<boolean> => {
     if (!supabase || !assistantRowId) return false;
 
     setIsSyncing(true);
@@ -57,11 +91,13 @@ export const useConversationFiles = (assistantRowId) => {
       toast.error('Failed to sync files');
       return false;
     } finally {
-      setIsSyncing(false);
+      if (isMountedRef.current) {
+        setIsSyncing(false);
+      }
     }
   }, [supabase, assistantRowId, fetchFiles]);
 
-  const uploadFile = useCallback(async (filesOrFile) => {
+  const uploadFile = useCallback(async (filesOrFile: File | File[]): Promise<ConversationFile[] | null> => {
     if (!supabase || !assistantRowId) return null;
 
     // Support both single file and array of files
@@ -69,7 +105,7 @@ export const useConversationFiles = (assistantRowId) => {
     if (filesToUpload.length === 0) return null;
 
     setIsUploading(true);
-    const uploadedFiles = [];
+    const uploadedFiles: ConversationFile[] = [];
 
     try {
       for (const file of filesToUpload) {
@@ -109,8 +145,11 @@ export const useConversationFiles = (assistantRowId) => {
           continue;
         }
 
-        uploadedFiles.push(data);
-        setFiles(prev => [data, ...prev]);
+        const uploadedFile = data as ConversationFile;
+        uploadedFiles.push(uploadedFile);
+        if (isMountedRef.current) {
+          setFiles(prev => [uploadedFile, ...prev]);
+        }
       }
 
       if (uploadedFiles.length > 0) {
@@ -121,7 +160,7 @@ export const useConversationFiles = (assistantRowId) => {
             fileCount: uploadedFiles.length, 
             fileNames: uploadedFiles.map(f => f.original_filename),
           }, null, 2),
-        });
+        } as Record<string, unknown>);
         trackEvent('conversation_file_uploaded', { 
           file_count: uploadedFiles.length, 
           file_types: uploadedFiles.map(f => f.mime_type) 
@@ -129,26 +168,29 @@ export const useConversationFiles = (assistantRowId) => {
         // Auto-sync files after upload
         toast.info('Syncing files to assistant...', {
           source: 'useConversationFiles.uploadFile',
-        });
+        } as Record<string, unknown>);
         await syncFiles();
       }
 
       return uploadedFiles;
     } catch (error) {
+      const err = error as { code?: string; message?: string; stack?: string };
       console.error('Error in uploadFile:', error);
       toast.error('Failed to upload files', {
         source: 'useConversationFiles.uploadFile',
-        errorCode: error?.code || 'UPLOAD_ERROR',
-        details: JSON.stringify({ assistantRowId, error: error?.message, stack: error?.stack }, null, 2),
-      });
+        errorCode: err?.code || 'UPLOAD_ERROR',
+        details: JSON.stringify({ assistantRowId, error: err?.message, stack: err?.stack }, null, 2),
+      } as Record<string, unknown>);
       trackException(error, { context: 'useConversationFiles.uploadFile' });
       return null;
     } finally {
-      setIsUploading(false);
+      if (isMountedRef.current) {
+        setIsUploading(false);
+      }
     }
   }, [supabase, assistantRowId, syncFiles]);
 
-  const deleteFile = useCallback(async (fileRowId) => {
+  const deleteFile = useCallback(async (fileRowId: string): Promise<boolean> => {
     if (!supabase) return false;
 
     try {
@@ -175,11 +217,13 @@ export const useConversationFiles = (assistantRowId) => {
       }
 
       // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('assistant-files')
-        .remove([file.storage_path]);
+      if (file.storage_path) {
+        const { error: storageError } = await supabase.storage
+          .from('assistant-files')
+          .remove([file.storage_path]);
 
-      if (storageError) console.warn('Storage delete error:', storageError);
+        if (storageError) console.warn('Storage delete error:', storageError);
+      }
 
       // Delete from database
       const { error: dbError } = await supabase
@@ -189,7 +233,9 @@ export const useConversationFiles = (assistantRowId) => {
 
       if (dbError) throw dbError;
 
-      setFiles(prev => prev.filter(f => f.row_id !== fileRowId));
+      if (isMountedRef.current) {
+        setFiles(prev => prev.filter(f => f.row_id !== fileRowId));
+      }
       toast.success(`${file.original_filename} deleted`);
       trackEvent('conversation_file_deleted', { file_name: file.original_filename });
       return true;
@@ -212,3 +258,5 @@ export const useConversationFiles = (assistantRowId) => {
     refetch: fetchFiles,
   };
 };
+
+export default useConversationFiles;
