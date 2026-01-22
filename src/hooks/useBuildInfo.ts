@@ -1,30 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const CACHE_KEY = 'qonsol_build_info';
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
+interface CachedBuildInfo {
+  build: string | null;
+  tagName: string | null;
+  releaseDate: string | null;
+  releaseUrl: string | null;
+}
+
+interface CacheEntry {
+  data: CachedBuildInfo;
+  timestamp: number;
+}
+
+interface UseBuildInfoReturn {
+  build: string | null;
+  tagName: string | null;
+  releaseDate: string | null;
+  releaseUrl: string | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => void;
+}
+
 /**
  * Hook to fetch build information from the latest GitHub release.
  * Caches the result in localStorage with a 1-hour TTL.
- * 
- * @returns {{ build: string|null, tagName: string|null, releaseDate: string|null, releaseUrl: string|null, isLoading: boolean, error: string|null, refetch: () => void }}
  */
-export const useBuildInfo = () => {
-  const [build, setBuild] = useState(null);
-  const [tagName, setTagName] = useState(null);
-  const [releaseDate, setReleaseDate] = useState(null);
-  const [releaseUrl, setReleaseUrl] = useState(null);
+export const useBuildInfo = (): UseBuildInfoReturn => {
+  const [build, setBuild] = useState<string | null>(null);
+  const [tagName, setTagName] = useState<string | null>(null);
+  const [releaseDate, setReleaseDate] = useState<string | null>(null);
+  const [releaseUrl, setReleaseUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchBuildInfo = async (skipCache = false) => {
+  const fetchBuildInfo = useCallback(async (skipCache = false) => {
     // Check cache first (unless skipping)
     if (!skipCache) {
       try {
         const cached = localStorage.getItem(CACHE_KEY);
         if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
+          const { data, timestamp } = JSON.parse(cached) as CacheEntry;
           const age = Date.now() - timestamp;
           
           if (age < CACHE_TTL) {
@@ -79,7 +99,7 @@ export const useBuildInfo = () => {
 
       // Cache the result
       try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
+        const cacheEntry: CacheEntry = {
           data: {
             build: extractedBuild,
             tagName: data.tag_name,
@@ -87,29 +107,31 @@ export const useBuildInfo = () => {
             releaseUrl: data.html_url
           },
           timestamp: Date.now()
-        }));
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheEntry));
       } catch (e) {
         console.warn('Failed to cache build info:', e);
       }
 
     } catch (err) {
+      const errorMessage = (err as Error).message;
       // Downgrade to warn for expected conditions like no releases
-      if (err.message === 'No releases found') {
+      if (errorMessage === 'No releases found') {
         console.warn('No GitHub releases found yet');
       } else {
         console.error('Error fetching build info:', err);
       }
-      setError(err.message);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchBuildInfo();
-  }, []);
+  }, [fetchBuildInfo]);
 
-  const refetch = () => fetchBuildInfo(true);
+  const refetch = useCallback(() => fetchBuildInfo(true), [fetchBuildInfo]);
 
   return {
     build,

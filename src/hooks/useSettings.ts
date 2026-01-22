@@ -1,13 +1,42 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
-export const useSettings = (supabase) => {
-  const [settings, setSettings] = useState({});
+export interface SettingValue {
+  value: string;
+  description: string;
+  row_id: string;
+}
+
+export type SettingsMap = Record<string, SettingValue>;
+
+interface SettingRow {
+  row_id: string;
+  setting_key: string;
+  setting_value: string | null;
+  setting_description: string | null;
+}
+
+interface UseSettingsReturn {
+  settings: SettingsMap;
+  updateSetting: (key: string, value: string) => Promise<void>;
+  addSetting: (key: string, value: string, description?: string) => Promise<SettingRow | undefined>;
+  deleteSetting: (key: string) => Promise<void>;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+export const useSettings = (
+  supabase: SupabaseClient<Database> | null
+): UseSettingsReturn => {
+  const [settings, setSettings] = useState<SettingsMap>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<Error | null>(null);
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = useCallback(async (): Promise<void> => {
     if (!supabase) return;
     
     setIsLoading(true);
@@ -20,9 +49,9 @@ export const useSettings = (supabase) => {
       if (fetchError) throw fetchError;
 
       // Convert array of key-value pairs to an object
-      const settingsObj = {};
+      const settingsObj: SettingsMap = {};
       if (data && data.length > 0) {
-        data.forEach(row => {
+        (data as SettingRow[]).forEach(row => {
           settingsObj[row.setting_key] = {
             value: row.setting_value || '',
             description: row.setting_description || '',
@@ -34,11 +63,14 @@ export const useSettings = (supabase) => {
       setSettings(settingsObj);
     } catch (err) {
       console.error('Error fetching settings:', err);
-      setError(err);
+      setError(err as Error);
       toast.error('Failed to fetch settings', {
         source: 'useSettings.fetchSettings',
-        errorCode: err?.code || 'SETTINGS_FETCH_ERROR',
-        details: JSON.stringify({ error: err?.message, stack: err?.stack }, null, 2),
+        errorCode: (err as { code?: string })?.code || 'SETTINGS_FETCH_ERROR',
+        details: JSON.stringify({ 
+          error: (err as Error)?.message, 
+          stack: (err as Error)?.stack 
+        }, null, 2),
       });
     } finally {
       setIsLoading(false);
@@ -49,7 +81,7 @@ export const useSettings = (supabase) => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const updateSetting = async (key, value) => {
+  const updateSetting = async (key: string, value: string): Promise<void> => {
     if (!supabase) return;
     
     try {
@@ -76,17 +108,17 @@ export const useSettings = (supabase) => {
           .select()
           .maybeSingle();
 
-      if (error) throw error;
-      
-      // Guard against null data (e.g., RLS rejection without error)
-      if (!data) {
-        throw new Error('Failed to create setting - no data returned');
-      }
-      
-      setSettings(prev => ({
-        ...prev,
-        [key]: { value, description: '', row_id: data.row_id }
-      }));
+        if (error) throw error;
+        
+        // Guard against null data (e.g., RLS rejection without error)
+        if (!data) {
+          throw new Error('Failed to create setting - no data returned');
+        }
+        
+        setSettings(prev => ({
+          ...prev,
+          [key]: { value, description: '', row_id: (data as SettingRow).row_id }
+        }));
       }
       
       // Track setting update
@@ -99,7 +131,11 @@ export const useSettings = (supabase) => {
     }
   };
 
-  const addSetting = async (key, value, description = '') => {
+  const addSetting = async (
+    key: string, 
+    value: string, 
+    description = ''
+  ): Promise<SettingRow | undefined> => {
     if (!supabase) return;
     
     try {
@@ -116,19 +152,20 @@ export const useSettings = (supabase) => {
         throw new Error('Failed to add setting - no data returned');
       }
 
+      const settingRow = data as SettingRow;
       setSettings(prev => ({
         ...prev,
-        [key]: { value, description, row_id: data.row_id }
+        [key]: { value, description, row_id: settingRow.row_id }
       }));
       
-      return data;
+      return settingRow;
     } catch (err) {
       console.error('Error adding setting:', err);
       throw err;
     }
   };
 
-  const deleteSetting = async (key) => {
+  const deleteSetting = async (key: string): Promise<void> => {
     if (!supabase || !settings[key]?.row_id) return;
     
     try {

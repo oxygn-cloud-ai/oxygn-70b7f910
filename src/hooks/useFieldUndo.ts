@@ -2,22 +2,34 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 
 const MAX_UNDO_STACK = 10;
 
+interface UseFieldUndoReturn {
+  pushPreviousValue: (value: string) => void;
+  popPreviousValue: () => string | null;
+  getOriginalValue: () => string;
+  hasPreviousValue: boolean;
+  hasChangedFromOriginal: (currentValue: string) => boolean;
+  clearUndoStack: () => void;
+}
+
 /**
  * useFieldUndo - Field-level undo/discard state management
  * 
  * Tracks previous saved values for undo (max 10 entries)
  * and original value when field first loaded for discard.
  * 
- * @param {string} initialValue - The initial value from the parent prop
- * @param {string|null} entityId - Optional unique identifier for the entity (e.g., promptId).
- *                                 When entityId changes, undo stack is fully reset.
- *                                 When only initialValue changes (same entity), undo stack is preserved.
+ * @param initialValue - The initial value from the parent prop
+ * @param entityId - Optional unique identifier for the entity (e.g., promptId).
+ *                   When entityId changes, undo stack is fully reset.
+ *                   When only initialValue changes (same entity), undo stack is preserved.
  */
-export const useFieldUndo = (initialValue, entityId = null) => {
-  const [undoStack, setUndoStack] = useState([]);
-  const originalValueRef = useRef(initialValue);
-  const prevEntityIdRef = useRef(entityId);
-  const prevInitialValueRef = useRef(initialValue);
+export const useFieldUndo = (
+  initialValue: string, 
+  entityId: string | null = null
+): UseFieldUndoReturn => {
+  const [undoStack, setUndoStack] = useState<string[]>([]);
+  const originalValueRef = useRef<string>(initialValue);
+  const prevEntityIdRef = useRef<string | null>(entityId);
+  const prevInitialValueRef = useRef<string>(initialValue);
   
   useEffect(() => {
     // When entity changes (different prompt selected), fully reset
@@ -37,7 +49,7 @@ export const useFieldUndo = (initialValue, entityId = null) => {
   }, [initialValue, entityId]);
   
   // Push a value onto the undo stack (call before saving new value)
-  const pushPreviousValue = useCallback((value) => {
+  const pushPreviousValue = useCallback((value: string): void => {
     if (value === undefined || value === null) return;
     
     setUndoStack(prev => {
@@ -55,7 +67,7 @@ export const useFieldUndo = (initialValue, entityId = null) => {
   }, []);
   
   // Pop and return the last saved value (for undo)
-  const popPreviousValue = useCallback(() => {
+  const popPreviousValue = useCallback((): string | null => {
     if (undoStack.length === 0) return null;
     
     const lastValue = undoStack[undoStack.length - 1];
@@ -64,7 +76,7 @@ export const useFieldUndo = (initialValue, entityId = null) => {
   }, [undoStack]);
   
   // Get the original value (for discard)
-  const getOriginalValue = useCallback(() => {
+  const getOriginalValue = useCallback((): string => {
     return originalValueRef.current;
   }, []);
   
@@ -72,14 +84,14 @@ export const useFieldUndo = (initialValue, entityId = null) => {
   const hasPreviousValue = undoStack.length > 0;
   
   // Check if current value differs from original
-  const hasChangedFromOriginal = useCallback((currentValue) => {
+  const hasChangedFromOriginal = useCallback((currentValue: string): boolean => {
     const original = originalValueRef.current || '';
     const current = currentValue || '';
     return current !== original;
   }, []);
   
   // Clear the undo stack
-  const clearUndoStack = useCallback(() => {
+  const clearUndoStack = useCallback((): void => {
     setUndoStack([]);
   }, []);
   

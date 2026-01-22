@@ -1,12 +1,35 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+type UsagePeriod = 'all' | '30days' | '7days';
+
+interface UsageOptions {
+  period?: UsagePeriod;
+}
+
+export interface ModelUsageStats {
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalTokens: number;
+  totalCost: number;
+  callCount: number;
+}
+
+type UsageMap = Record<string, ModelUsageStats>;
+
+interface UseModelUsageReturn {
+  usage: UsageMap;
+  isLoading: boolean;
+  getUsageForModel: (modelId: string) => ModelUsageStats;
+  refetch: () => Promise<void>;
+}
+
 /**
  * Hook to fetch cumulative usage stats per model from q_ai_costs table
  */
-export const useModelUsage = (options = {}) => {
-  const { period = 'all' } = options; // 'all' | '30days' | '7days'
-  const [usage, setUsage] = useState({});
+export const useModelUsage = (options: UsageOptions = {}): UseModelUsageReturn => {
+  const { period = 'all' } = options;
+  const [usage, setUsage] = useState<UsageMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
 
@@ -15,7 +38,7 @@ export const useModelUsage = (options = {}) => {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const fetchUsage = useCallback(async () => {
+  const fetchUsage = useCallback(async (): Promise<void> => {
     try {
       if (isMountedRef.current) setIsLoading(true);
       
@@ -39,8 +62,13 @@ export const useModelUsage = (options = {}) => {
       if (error) throw error;
       
       // Aggregate by model
-      const aggregated = {};
-      (data || []).forEach(row => {
+      const aggregated: UsageMap = {};
+      (data || []).forEach((row: { 
+        model?: string; 
+        tokens_input?: number; 
+        tokens_output?: number; 
+        cost_total_usd?: string | number;
+      }) => {
         const modelId = row.model || 'unknown';
         if (!aggregated[modelId]) {
           aggregated[modelId] = {
@@ -54,7 +82,7 @@ export const useModelUsage = (options = {}) => {
         aggregated[modelId].totalInputTokens += row.tokens_input || 0;
         aggregated[modelId].totalOutputTokens += row.tokens_output || 0;
         aggregated[modelId].totalTokens += (row.tokens_input || 0) + (row.tokens_output || 0);
-        aggregated[modelId].totalCost += parseFloat(row.cost_total_usd) || 0;
+        aggregated[modelId].totalCost += parseFloat(String(row.cost_total_usd)) || 0;
         aggregated[modelId].callCount += 1;
       });
       
@@ -71,7 +99,7 @@ export const useModelUsage = (options = {}) => {
     fetchUsage();
   }, [fetchUsage]);
 
-  const getUsageForModel = useCallback((modelId) => {
+  const getUsageForModel = useCallback((modelId: string): ModelUsageStats => {
     // Try exact match first
     if (usage[modelId]) return usage[modelId];
     
@@ -82,7 +110,13 @@ export const useModelUsage = (options = {}) => {
       }
     }
     
-    return { totalInputTokens: 0, totalOutputTokens: 0, totalTokens: 0, totalCost: 0, callCount: 0 };
+    return { 
+      totalInputTokens: 0, 
+      totalOutputTokens: 0, 
+      totalTokens: 0, 
+      totalCost: 0, 
+      callCount: 0 
+    };
   }, [usage]);
 
   return {
