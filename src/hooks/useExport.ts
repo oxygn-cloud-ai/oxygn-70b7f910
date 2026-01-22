@@ -3,45 +3,148 @@ import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from '@/lib/posthog';
 import { CONTEXT_VARIABLE_KEYS } from '@/config/contextVariables';
 
-const EXPORT_STEPS = {
+// ============================================================================
+// Constants
+// ============================================================================
+
+export const EXPORT_STEPS = {
   SELECT_PROMPTS: 1,
   SELECT_FIELDS: 2,
   SELECT_TYPE: 3,
   CONFIGURE: 4
-};
+} as const;
 
-const EXPORT_TYPES = {
+export const EXPORT_TYPES = {
   CONFLUENCE: 'confluence',
   SPREADSHEET: 'spreadsheet',
   JIRA: 'jira'
-};
+} as const;
 
-const STANDARD_FIELDS = [
+export const STANDARD_FIELDS = [
   { id: 'output_response', label: 'Output Response', description: 'AI-generated response (includes both output_response and user_prompt_result)' },
   { id: 'input_user_prompt', label: 'User Prompt', description: 'User input prompt' },
   { id: 'input_admin_prompt', label: 'System Prompt', description: 'Admin/system prompt' },
   { id: 'note', label: 'Notes', description: 'Prompt notes' },
   { id: 'prompt_name', label: 'Prompt Name', description: 'Name of the prompt' }
-];
+] as const;
 
-export const useExport = () => {
+// ============================================================================
+// Types
+// ============================================================================
+
+export type ExportStep = typeof EXPORT_STEPS[keyof typeof EXPORT_STEPS];
+export type ExportType = typeof EXPORT_TYPES[keyof typeof EXPORT_TYPES] | null;
+
+export interface StandardField {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface PromptData {
+  row_id: string;
+  prompt_name?: string | null;
+  input_user_prompt?: string | null;
+  input_admin_prompt?: string | null;
+  output_response?: string | null;
+  user_prompt_result?: string | null;
+  note?: string | null;
+  exclude_from_export?: boolean | null;
+  system_variables?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+export interface VariableData {
+  prompt_row_id: string;
+  variable_name: string;
+  variable_value?: string | null;
+  default_value?: string | null;
+}
+
+export interface VariablesDataMap {
+  [promptRowId: string]: VariableData[];
+}
+
+export interface SelectedVariablesMap {
+  [promptRowId: string]: string[];
+}
+
+export interface ExportDataItem {
+  promptId: string;
+  row_id: string;
+  prompt_name?: string;
+  system_variables?: Record<string, unknown>;
+  _promptRefMap?: Map<string, PromptData>;
+  [key: string]: unknown;
+}
+
+export interface TreeNode {
+  row_id: string;
+  children?: TreeNode[];
+  [key: string]: unknown;
+}
+
+export interface UseExportReturn {
+  // State
+  isOpen: boolean;
+  currentStep: ExportStep;
+  selectedPromptIds: string[];
+  selectedFields: string[];
+  selectedVariables: SelectedVariablesMap;
+  exportType: ExportType;
+  promptsData: PromptData[];
+  variablesData: VariablesDataMap;
+  isLoadingPrompts: boolean;
+  isLoadingVariables: boolean;
+  canProceed: boolean;
+  
+  // Actions
+  openExport: (preSelectedPromptIds?: string[]) => Promise<void>;
+  closeExport: () => void;
+  goToStep: (step: ExportStep) => void;
+  goNext: () => void;
+  goBack: () => void;
+  togglePromptSelection: (promptId: string) => void;
+  toggleWithDescendants: (node: TreeNode, isCurrentlyAllSelected: boolean) => void;
+  selectAllPrompts: (promptIds: string[]) => void;
+  clearPromptSelection: () => void;
+  toggleFieldSelection: (fieldId: string) => void;
+  toggleVariableSelection: (promptId: string, variableName: string) => void;
+  setExportType: React.Dispatch<React.SetStateAction<ExportType>>;
+  setSelectedFields: React.Dispatch<React.SetStateAction<string[]>>;
+  setSelectedVariables: React.Dispatch<React.SetStateAction<SelectedVariablesMap>>;
+  fetchPromptsData: (promptIds: string[]) => Promise<PromptData[]>;
+  fetchVariablesData: (promptIds: string[]) => Promise<VariablesDataMap>;
+  getExportData: ExportDataItem[];
+
+  // Constants
+  EXPORT_STEPS: typeof EXPORT_STEPS;
+  EXPORT_TYPES: typeof EXPORT_TYPES;
+  STANDARD_FIELDS: typeof STANDARD_FIELDS;
+}
+
+// ============================================================================
+// Hook Implementation
+// ============================================================================
+
+export const useExport = (): UseExportReturn => {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(EXPORT_STEPS.SELECT_PROMPTS);
-  const [selectedPromptIds, setSelectedPromptIds] = useState([]);
-  const [selectedFields, setSelectedFields] = useState(['output_response', 'prompt_name']);
-  const [selectedVariables, setSelectedVariables] = useState({});
-  const [exportType, setExportType] = useState(EXPORT_TYPES.CONFLUENCE);
-  const [promptsData, setPromptsData] = useState([]);
-  const [variablesData, setVariablesData] = useState({});
+  const [currentStep, setCurrentStep] = useState<ExportStep>(EXPORT_STEPS.SELECT_PROMPTS);
+  const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
+  const [selectedFields, setSelectedFields] = useState<string[]>(['output_response', 'prompt_name']);
+  const [selectedVariables, setSelectedVariables] = useState<SelectedVariablesMap>({});
+  const [exportType, setExportType] = useState<ExportType>(EXPORT_TYPES.CONFLUENCE);
+  const [promptsData, setPromptsData] = useState<PromptData[]>([]);
+  const [variablesData, setVariablesData] = useState<VariablesDataMap>({});
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [isLoadingVariables, setIsLoadingVariables] = useState(false);
 
   // Expand prompt IDs with descendants in tree order (parent first, then children by position)
-  const expandPromptIdsWithDescendants = useCallback(async (rootPromptIds = []) => {
+  const expandPromptIdsWithDescendants = useCallback(async (rootPromptIds: string[] = []): Promise<string[]> => {
     const initial = Array.from(new Set(rootPromptIds.filter(Boolean)));
     if (initial.length === 0) return [];
 
-    const allPromptIds = new Set(initial);
+    const allPromptIds = new Set<string>(initial);
     let frontier = initial;
 
     while (frontier.length > 0) {
@@ -53,7 +156,7 @@ export const useExport = () => {
 
       if (error) throw error;
 
-      const next = [];
+      const next: string[] = [];
       (data || []).forEach((row) => {
         const id = row.row_id;
         if (id && !allPromptIds.has(id)) {
@@ -67,14 +170,14 @@ export const useExport = () => {
 
     const { data: allPrompts, error: fetchError } = await supabase
       .from('q_prompts')
-      .select('row_id, parent_row_id, position')
+      .select('row_id, parent_row_id, position_lex')
       .in('row_id', Array.from(allPromptIds))
       .or('is_deleted.is.null,is_deleted.eq.false');
 
     if (fetchError) throw fetchError;
 
-    const childrenMap = new Map();
-    const promptMap = new Map();
+    const childrenMap = new Map<string | null, { row_id: string; position_lex: string | null }[]>();
+    const promptMap = new Map<string, { row_id: string; parent_row_id: string | null; position_lex: string | null }>();
     
     (allPrompts || []).forEach(p => {
       promptMap.set(p.row_id, p);
@@ -82,16 +185,16 @@ export const useExport = () => {
       if (!childrenMap.has(parentId)) {
         childrenMap.set(parentId, []);
       }
-      childrenMap.get(parentId).push(p);
+      childrenMap.get(parentId)!.push({ row_id: p.row_id, position_lex: p.position_lex });
     });
 
     childrenMap.forEach((children) => {
       children.sort((a, b) => (a.position_lex || '').localeCompare(b.position_lex || ''));
     });
 
-    const orderedIds = [];
+    const orderedIds: string[] = [];
 
-    const traverse = (promptId) => {
+    const traverse = (promptId: string): void => {
       orderedIds.push(promptId);
       const children = childrenMap.get(promptId) || [];
       children.forEach(child => traverse(child.row_id));
@@ -107,8 +210,7 @@ export const useExport = () => {
   }, []);
 
   // Fetch prompt data for selected prompts (excludes prompts with exclude_from_export)
-  // IMPORTANT: This must be defined BEFORE openExport which uses it
-  const fetchPromptsData = useCallback(async (promptIds) => {
+  const fetchPromptsData = useCallback(async (promptIds: string[]): Promise<PromptData[]> => {
     if (!promptIds.length) {
       setPromptsData([]);
       return [];
@@ -124,7 +226,7 @@ export const useExport = () => {
 
       if (error) throw error;
       
-      const promptMap = new Map();
+      const promptMap = new Map<string, PromptData>();
       (data || []).forEach(prompt => {
         promptMap.set(prompt.row_id, {
           ...prompt,
@@ -134,7 +236,7 @@ export const useExport = () => {
 
       const orderedData = promptIds
         .map(id => promptMap.get(id))
-        .filter(Boolean);
+        .filter((p): p is PromptData => Boolean(p));
       
       setPromptsData(orderedData);
       return orderedData;
@@ -147,8 +249,7 @@ export const useExport = () => {
   }, []);
 
   // Fetch variables for selected prompts
-  // IMPORTANT: This must be defined BEFORE openExport which uses it
-  const fetchVariablesData = useCallback(async (promptIds) => {
+  const fetchVariablesData = useCallback(async (promptIds: string[]): Promise<VariablesDataMap> => {
     console.log('[useExport] fetchVariablesData called with promptIds:', promptIds);
     if (!promptIds.length) {
       console.log('[useExport] No prompt IDs provided, clearing variables');
@@ -173,7 +274,7 @@ export const useExport = () => {
 
       console.log('[useExport] Raw variables data:', data?.length || 0, 'variables found');
 
-      const grouped = (data || []).reduce((acc, variable) => {
+      const grouped = (data || []).reduce<VariablesDataMap>((acc, variable) => {
         const promptId = variable.prompt_row_id;
         if (!acc[promptId]) {
           acc[promptId] = [];
@@ -194,7 +295,7 @@ export const useExport = () => {
   }, []);
 
   // Open the export drawer, optionally with pre-selected prompts
-  const openExport = useCallback(async (preSelectedPromptIds = []) => {
+  const openExport = useCallback(async (preSelectedPromptIds: string[] = []): Promise<void> => {
     setIsOpen(true);
     
     // Track export started
@@ -229,7 +330,7 @@ export const useExport = () => {
   }, [expandPromptIdsWithDescendants, fetchPromptsData, fetchVariablesData]);
 
   // Close and reset
-  const closeExport = useCallback(() => {
+  const closeExport = useCallback((): void => {
     setIsOpen(false);
     setCurrentStep(EXPORT_STEPS.SELECT_PROMPTS);
     setSelectedPromptIds([]);
@@ -241,24 +342,24 @@ export const useExport = () => {
   }, []);
 
   // Navigate steps
-  const goToStep = useCallback((step) => {
+  const goToStep = useCallback((step: ExportStep): void => {
     setCurrentStep(step);
   }, []);
 
-  const goNext = useCallback(() => {
+  const goNext = useCallback((): void => {
     if (currentStep < EXPORT_STEPS.CONFIGURE) {
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep(prev => (prev + 1) as ExportStep);
     }
   }, [currentStep]);
 
-  const goBack = useCallback(() => {
+  const goBack = useCallback((): void => {
     if (currentStep > EXPORT_STEPS.SELECT_PROMPTS) {
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep(prev => (prev - 1) as ExportStep);
     }
   }, [currentStep]);
 
   // Toggle prompt selection
-  const togglePromptSelection = useCallback((promptId) => {
+  const togglePromptSelection = useCallback((promptId: string): void => {
     setSelectedPromptIds(prev => {
       if (prev.includes(promptId)) {
         return prev.filter(id => id !== promptId);
@@ -268,8 +369,8 @@ export const useExport = () => {
   }, []);
 
   // Toggle prompt with all descendants (for hierarchical selection)
-  const toggleWithDescendants = useCallback((node, isCurrentlyAllSelected) => {
-    const collectIds = (n) => {
+  const toggleWithDescendants = useCallback((node: TreeNode, isCurrentlyAllSelected: boolean): void => {
+    const collectIds = (n: TreeNode): string[] => {
       const ids = [n.row_id];
       if (n.children?.length) {
         n.children.forEach(child => {
@@ -292,17 +393,17 @@ export const useExport = () => {
   }, []);
 
   // Select all prompts
-  const selectAllPrompts = useCallback((promptIds) => {
+  const selectAllPrompts = useCallback((promptIds: string[]): void => {
     setSelectedPromptIds(promptIds);
   }, []);
 
   // Clear prompt selection
-  const clearPromptSelection = useCallback(() => {
+  const clearPromptSelection = useCallback((): void => {
     setSelectedPromptIds([]);
   }, []);
 
   // Toggle field selection
-  const toggleFieldSelection = useCallback((fieldId) => {
+  const toggleFieldSelection = useCallback((fieldId: string): void => {
     setSelectedFields(prev => {
       if (prev.includes(fieldId)) {
         return prev.filter(id => id !== fieldId);
@@ -312,7 +413,7 @@ export const useExport = () => {
   }, []);
 
   // Toggle variable selection for a prompt
-  const toggleVariableSelection = useCallback((promptId, variableName) => {
+  const toggleVariableSelection = useCallback((promptId: string, variableName: string): void => {
     setSelectedVariables(prev => {
       const promptVars = prev[promptId] || [];
       if (promptVars.includes(variableName)) {
@@ -329,21 +430,19 @@ export const useExport = () => {
   }, []);
 
   // Get export data based on selections
-  // IMPORTANT: Include ALL variables (not just selected) for {{variable}} resolution
+  // Include ALL variables (not just selected) for {{variable}} resolution
   // Also include system_variables for q.ref[UUID] resolution
   // Filter out context variables that should not be exported (they're stale snapshots)
-  const getExportData = useMemo(() => {
-    // Context variables to filter out - these are runtime-resolved, not stored
-    // CONTEXT_VARIABLE_KEYS imported from @/config/contextVariables
+  const getExportData = useMemo((): ExportDataItem[] => {
     // Build a map of all prompts for q.ref[UUID] resolution
-    const promptRefMap = new Map();
+    const promptRefMap = new Map<string, PromptData>();
     promptsData.forEach(prompt => {
       promptRefMap.set(prompt.row_id, prompt);
     });
 
     return promptsData.map(prompt => {
       // Filter out context variables from system_variables
-      const filteredSystemVars = {};
+      const filteredSystemVars: Record<string, unknown> = {};
       if (prompt.system_variables && typeof prompt.system_variables === 'object') {
         Object.entries(prompt.system_variables).forEach(([key, val]) => {
           if (!CONTEXT_VARIABLE_KEYS.includes(key)) {
@@ -352,10 +451,10 @@ export const useExport = () => {
         });
       }
       
-      const data = { 
+      const data: ExportDataItem = { 
         promptId: prompt.row_id,
         row_id: prompt.row_id,  // Required for resolveSourceValue lookup
-        prompt_name: prompt.prompt_name,  // Always include prompt_name for reference
+        prompt_name: prompt.prompt_name || undefined,  // Always include prompt_name for reference
         system_variables: filteredSystemVars,  // Filtered system_variables for q.ref resolution
         _promptRefMap: promptRefMap  // Pass reference map for q.ref resolution
       };
@@ -379,7 +478,7 @@ export const useExport = () => {
   }, [promptsData, selectedFields, variablesData]);
 
   // Check if can proceed to next step
-  const canProceed = useMemo(() => {
+  const canProceed = useMemo((): boolean => {
     switch (currentStep) {
       case EXPORT_STEPS.SELECT_PROMPTS:
         return selectedPromptIds.length > 0;

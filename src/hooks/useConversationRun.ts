@@ -7,20 +7,129 @@ import { formatErrorForDisplay, isQuotaError } from '@/utils/apiErrorUtils';
 import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 import logger from '@/utils/logger';
 import { estimateRequestTokens, getModelContextWindow } from '@/utils/tokenizer';
-import { estimateCost } from '@/utils/costEstimator';
 
-export const useConversationRun = () => {
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface SSEProgressEvent {
+  type: string;
+  elapsed_ms?: number;
+  prompt_row_id?: string;
+  response_id?: string;
+  status?: string;
+  settings?: Record<string, unknown>;
+  tools?: unknown[];
+  item_id?: string;
+  delta?: string;
+  text?: string;
+  output_tokens?: number;
+  variable_name?: string;
+  question?: string;
+  description?: string;
+  call_id?: string;
+  error?: string;
+  error_code?: string;
+  [key: string]: unknown;
+}
+
+export interface PromptRunOptions {
+  onSuccess?: (data: ConversationRunResult) => Promise<void> | void;
+  onProgress?: (event: SSEProgressEvent) => void;
+  promptName?: string;
+  model?: string;
+  systemPrompt?: string;
+  isCascadeCall?: boolean;
+  resumeResponseId?: string;
+  resumeAnswer?: string;
+  resumeVariableName?: string;
+  resumeCallId?: string;
+}
+
+export interface ConversationRunOptions {
+  conversationRowId?: string;
+  childPromptRowId: string;
+  userMessage: string;
+  threadMode?: string;
+  childThreadStrategy?: string;
+  existingThreadRowId?: string;
+  template_variables?: Record<string, unknown>;
+  store_in_history?: boolean;
+  onSuccess?: (data: ConversationRunResult) => Promise<void> | void;
+  onProgress?: (event: SSEProgressEvent) => void;
+  promptName?: string;
+  model?: string;
+  isCascadeCall?: boolean;
+  resumeResponseId?: string;
+  resumeAnswer?: string;
+  resumeVariableName?: string;
+  resumeCallId?: string;
+}
+
+export interface ConversationRunResult {
+  response?: string | null;
+  child_prompt_name?: string;
+  model?: string;
+  elapsed_ms?: number;
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+  };
+  response_id?: string;
+  request_params?: Record<string, unknown>;
+  cancelled?: boolean;
+  interrupted?: boolean;
+  interruptType?: string;
+  interruptData?: {
+    variableName?: string;
+    question?: string;
+    description?: string;
+    callId?: string;
+    responseId?: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface UseConversationRunReturn {
+  runPrompt: (
+    childPromptRowId: string,
+    userMessage: string,
+    templateVariables?: Record<string, unknown>,
+    options?: PromptRunOptions
+  ) => Promise<ConversationRunResult | null>;
+  runConversation: (options: ConversationRunOptions) => Promise<ConversationRunResult>;
+  cancelRun: () => Promise<void>;
+  isRunning: boolean;
+  lastResponse: ConversationRunResult | null;
+  progress: SSEProgressEvent | null;
+}
+
+// ============================================================================
+// Hook Implementation
+// ============================================================================
+
+export const useConversationRun = (): UseConversationRunReturn => {
   const supabase = useSupabase();
   const { registerCall } = useApiCallContext();
-  const { addCall, updateCall, updateResolvedSettings, appendThinking, appendOutputText, incrementOutputTokens, removeCall } = useLiveApiDashboard();
+  const { 
+    addCall, 
+    updateCall, 
+    updateResolvedSettings, 
+    appendThinking, 
+    appendOutputText, 
+    incrementOutputTokens, 
+    removeCall 
+  } = useLiveApiDashboard();
+  
   const [isRunning, setIsRunning] = useState(false);
-  const [lastResponse, setLastResponse] = useState(null);
-  const [progress, setProgress] = useState(null);
+  const [lastResponse, setLastResponse] = useState<ConversationRunResult | null>(null);
+  const [progress, setProgress] = useState<SSEProgressEvent | null>(null);
   const isMountedRef = useRef(true);
-  const abortControllerRef = useRef(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   // Store the current response_id for true OpenAI cancellation
-  const currentResponseIdRef = useRef(null);
+  const currentResponseIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -33,12 +142,12 @@ export const useConversationRun = () => {
     };
   }, []);
 
-  const safeSetState = useCallback((setter, value) => {
+  const safeSetState = useCallback(<T>(setter: React.Dispatch<React.SetStateAction<T>>, value: T): void => {
     if (isMountedRef.current) setter(value);
   }, []);
 
   // Cancel any in-flight request - now calls OpenAI cancel endpoint
-  const cancelRun = useCallback(async () => {
+  const cancelRun = useCallback(async (): Promise<void> => {
     // Step 1: Capture and clear response_id FIRST to prevent race conditions
     const responseId = currentResponseIdRef.current;
     currentResponseIdRef.current = null;
@@ -85,7 +194,10 @@ export const useConversationRun = () => {
   }, [safeSetState, supabase]);
 
   // Parse SSE stream and return final result
-  const parseSSEStream = useCallback(async (response, onProgress) => {
+  const parseSSEStream = useCallback(async (
+    response: Response,
+    onProgress?: (event: SSEProgressEvent) => void
+  ): Promise<ConversationRunResult | null> => {
     if (!response?.body) {
       throw new Error('No response body received from edge function');
     }
@@ -94,13 +206,13 @@ export const useConversationRun = () => {
     const decoder = new TextDecoder();
 
     let buffer = '';
-    let result = null;
-    let error = null;
+    let result: ConversationRunResult | null = null;
+    let error: SSEProgressEvent | null = null;
     let doneReceived = false;
 
-    const handleLine = (rawLine) => {
+    const handleLine = (rawLine: string): void => {
       let line = rawLine;
-      if (line.endsWith('\r')) line = line.slice(0, -1);
+      if (line.endsWith('\\r')) line = line.slice(0, -1);
       if (!line || line.trim() === '' || line.startsWith(':')) return;
 
       if (!line.startsWith('data:')) return;
@@ -114,7 +226,7 @@ export const useConversationRun = () => {
       }
 
       try {
-        const event = JSON.parse(data);
+        const event = JSON.parse(data) as SSEProgressEvent;
 
         if (event.type === 'heartbeat') {
           onProgress?.({ type: 'heartbeat', elapsed_ms: event.elapsed_ms });
@@ -130,28 +242,21 @@ export const useConversationRun = () => {
           }
           onProgress?.({ type: 'api_started', response_id: event.response_id, status: event.status });
         } else if (event.type === 'settings_resolved') {
-          // NEW: Handle resolved settings for dashboard display
           onProgress?.({ type: 'settings_resolved', settings: event.settings, tools: event.tools });
         } else if (event.type === 'status_update') {
-          // NEW: Handle status updates for dashboard
           onProgress?.({ type: 'status_update', status: event.status });
         } else if (event.type === 'thinking_started') {
-          // NEW: Handle reasoning/thinking started
           onProgress?.({ type: 'thinking_started', item_id: event.item_id });
         } else if (event.type === 'thinking_delta') {
-          // NEW: Handle streaming reasoning text
           onProgress?.({ type: 'thinking_delta', delta: event.delta, item_id: event.item_id });
         } else if (event.type === 'thinking_done') {
-          // NEW: Handle reasoning complete
           onProgress?.({ type: 'thinking_done', text: event.text, item_id: event.item_id });
         } else if (event.type === 'output_text_delta') {
-          // NEW: Handle streaming output text
           onProgress?.({ type: 'output_text_delta', delta: event.delta, item_id: event.item_id });
         } else if (event.type === 'output_text_done') {
-          // NEW: Handle output text complete
           onProgress?.({ type: 'output_text_done', text: event.text, item_id: event.item_id });
         } else if (event.type === 'complete') {
-          result = event;
+          result = event as unknown as ConversationRunResult;
           onProgress?.(event);
           // Clear response_id on completion
           currentResponseIdRef.current = null;
@@ -200,7 +305,7 @@ export const useConversationRun = () => {
         if (error) break;
       }
     } catch (readErr) {
-      if (readErr?.name === 'AbortError') {
+      if ((readErr as Error)?.name === 'AbortError') {
         throw new Error('Request cancelled');
       }
       throw readErr;
@@ -219,10 +324,14 @@ export const useConversationRun = () => {
       if (error.error_code === 'CANCELLED') {
         return { response: null, cancelled: true };
       }
-      const err = new Error(error.error || 'Edge Function call failed');
+      const err = new Error(error.error || 'Edge Function call failed') as Error & {
+        error_code?: string;
+        prompt_name?: string;
+        retry_after_s?: number;
+      };
       err.error_code = error.error_code;
-      err.prompt_name = error.prompt_name;
-      if (error.retry_after_s) err.retry_after_s = error.retry_after_s;
+      err.prompt_name = error.prompt_name as string | undefined;
+      if (error.retry_after_s) err.retry_after_s = error.retry_after_s as number;
       throw err;
     }
 
@@ -230,7 +339,12 @@ export const useConversationRun = () => {
   }, []);
 
   const runPrompt = useCallback(
-    async (childPromptRowId, userMessage, templateVariables = {}, options = {}) => {
+    async (
+      childPromptRowId: string,
+      userMessage: string,
+      templateVariables: Record<string, unknown> = {},
+      options: PromptRunOptions = {}
+    ): Promise<ConversationRunResult | null> => {
       if (!supabase || !childPromptRowId) return null;
 
       const { onSuccess, onProgress, resumeResponseId, resumeAnswer, resumeVariableName, resumeCallId } = options;
@@ -242,8 +356,8 @@ export const useConversationRun = () => {
       currentResponseIdRef.current = null;
       
       // Create per-call cancel function with captured refs
-      const callResponseIdRef = { current: null };
-      const cancelThisCall = async () => {
+      const callResponseIdRef = { current: null as string | null };
+      const cancelThisCall = async (): Promise<void> => {
         const responseId = callResponseIdRef.current;
         abortControllerRef.current?.abort();
         if (responseId && supabase) {
@@ -336,7 +450,7 @@ export const useConversationRun = () => {
           
           // Update dashboard based on event type
           if (progressEvent.type === 'api_started') {
-            callResponseIdRef.current = progressEvent.response_id;
+            callResponseIdRef.current = progressEvent.response_id || null;
             updateCall(dashboardCallId, { 
               status: 'in_progress',
               responseId: progressEvent.response_id,
@@ -347,20 +461,19 @@ export const useConversationRun = () => {
           } else if (progressEvent.type === 'status_update') {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
-            appendThinking(dashboardCallId, progressEvent.delta);
+            appendThinking(dashboardCallId, progressEvent.delta || '');
           } else if (progressEvent.type === 'thinking_done') {
             // Set final thinking summary if provided (for polling fallback)
             if (progressEvent.text) {
               updateCall(dashboardCallId, { thinkingSummary: progressEvent.text });
             }
           } else if (progressEvent.type === 'output_text_delta') {
-            appendOutputText(dashboardCallId, progressEvent.delta);
+            appendOutputText(dashboardCallId, progressEvent.delta || '');
           } else if (progressEvent.type === 'output_text_done') {
             // Fallback: if we missed deltas (e.g., polling fallback), set full text
             updateCall(dashboardCallId, { outputText: progressEvent.text });
           } else if (progressEvent.type === 'usage_delta') {
             // Use server-provided token counts (accurate, not estimated)
-            // Direct usage update from server
             if (progressEvent.output_tokens) {
               incrementOutputTokens(dashboardCallId, progressEvent.output_tokens);
             }
@@ -400,18 +513,11 @@ export const useConversationRun = () => {
         toast.success('Run completed', {
           source: 'useConversationRun.runPrompt',
           details: JSON.stringify({
-            // Summary
             promptName: data?.child_prompt_name,
             model: data?.model,
             elapsedMs: data?.elapsed_ms,
-            
-            // Usage
             usage: data?.usage,
-            
-            // All API request parameters
             apiRequest: data?.request_params,
-            
-            // IDs for debugging
             promptRowId: childPromptRowId,
             responseId: data?.response_id,
           }, null, 2),
@@ -430,34 +536,27 @@ export const useConversationRun = () => {
         
         return data;
       } catch (error) {
-        if (error.message === 'Request cancelled') {
+        if ((error as Error).message === 'Request cancelled') {
           toast.info('Request cancelled', {
             source: 'useConversationRun.runPrompt',
           });
           return null;
         }
         console.error('Error running conversation:', error);
-        const formatted = formatErrorForDisplay(error, error.prompt_name);
+        const formatted = formatErrorForDisplay(error, (error as { prompt_name?: string }).prompt_name);
         toast.error(formatted.title, {
           description: formatted.description,
           duration: isQuotaError(error) ? 10000 : 5000,
           source: 'useConversationRun.runPrompt',
           errorCode: formatted.code,
           details: JSON.stringify({
-            // Error info
-            errorMessage: error.message,
-            errorCode: error.error_code,
-            retryAfter: error.retry_after_s,
-            
-            // Context
+            errorMessage: (error as Error).message,
+            errorCode: (error as { error_code?: string }).error_code,
+            retryAfter: (error as { retry_after_s?: number }).retry_after_s,
             promptRowId: childPromptRowId,
-            promptName: error.prompt_name,
-            
-            // API request params (if available from error)
-            apiRequest: error.requestParams,
-            
-            // Stack trace (first 5 lines)
-            stack: error.stack?.split?.('\n')?.slice?.(0, 5)?.join?.('\n'),
+            promptName: (error as { prompt_name?: string }).prompt_name,
+            apiRequest: (error as { requestParams?: unknown }).requestParams,
+            stack: (error as Error).stack?.split?.('\n')?.slice?.(0, 5)?.join?.('\n'),
           }, null, 2),
         });
         
@@ -466,13 +565,13 @@ export const useConversationRun = () => {
           prompt_id: childPromptRowId,
           success: false,
           error_code: formatted.code,
-          error_message: error.message,
+          error_message: (error as Error).message,
         });
-        trackApiError('conversation-run', error, {
+        trackApiError('conversation-run', error instanceof Error ? error : new Error(String(error)), {
           prompt_id: childPromptRowId,
           error_code: formatted.code,
         });
-        trackException(error, {
+        trackException(error instanceof Error ? error : new Error(String(error)), {
           context: 'conversation_run',
           prompt_id: childPromptRowId,
         });
@@ -492,27 +591,26 @@ export const useConversationRun = () => {
   );
 
   const runConversation = useCallback(
-    async ({
-      conversationRowId,
-      childPromptRowId,
-      userMessage,
-      threadMode,
-      childThreadStrategy,
-      existingThreadRowId,
-      template_variables,
-      store_in_history = true,
-      onSuccess,
-      onProgress,
-      // Dashboard options
-      promptName,
-      model,
-      isCascadeCall = false,
-      // Resume parameters for question nodes
-      resumeResponseId,
-      resumeAnswer,
-      resumeVariableName,
-      resumeCallId,
-    }) => {
+    async (options: ConversationRunOptions): Promise<ConversationRunResult> => {
+      const {
+        childPromptRowId,
+        userMessage,
+        threadMode,
+        childThreadStrategy,
+        existingThreadRowId,
+        template_variables,
+        store_in_history = true,
+        onSuccess,
+        onProgress,
+        promptName,
+        model,
+        isCascadeCall = false,
+        resumeResponseId,
+        resumeAnswer,
+        resumeVariableName,
+        resumeCallId,
+      } = options;
+
       if (!supabase || !childPromptRowId) return { response: null };
 
       const unregisterCall = registerCall();
@@ -523,8 +621,8 @@ export const useConversationRun = () => {
       currentResponseIdRef.current = null;
       
       // Create per-call cancel function with captured refs
-      const callResponseIdRef = { current: null };
-      const cancelThisCall = async () => {
+      const callResponseIdRef = { current: null as string | null };
+      const cancelThisCall = async (): Promise<void> => {
         const responseId = callResponseIdRef.current;
         abortControllerRef.current?.abort();
         if (responseId && supabase) {
@@ -619,38 +717,33 @@ export const useConversationRun = () => {
           
           // Update dashboard based on event type
           if (progressEvent.type === 'api_started') {
-            callResponseIdRef.current = progressEvent.response_id;
+            callResponseIdRef.current = progressEvent.response_id || null;
             updateCall(dashboardCallId, { 
               status: 'in_progress',
               responseId: progressEvent.response_id,
             });
           } else if (progressEvent.type === 'settings_resolved') {
-            // Update dashboard with resolved settings and tools
             updateResolvedSettings(dashboardCallId, progressEvent.settings, progressEvent.tools);
           } else if (progressEvent.type === 'status_update') {
             updateCall(dashboardCallId, { status: progressEvent.status });
           } else if (progressEvent.type === 'thinking_delta') {
-            appendThinking(dashboardCallId, progressEvent.delta);
+            appendThinking(dashboardCallId, progressEvent.delta || '');
           } else if (progressEvent.type === 'thinking_done') {
-            // Set final thinking summary (critical for polling fallback)
             if (progressEvent.text) {
               updateCall(dashboardCallId, { thinkingSummary: progressEvent.text });
             }
           } else if (progressEvent.type === 'output_text_delta') {
-            // Append output text to dashboard
-            appendOutputText(dashboardCallId, progressEvent.delta);
+            appendOutputText(dashboardCallId, progressEvent.delta || '');
             // Increment output tokens (rough estimate: 1 token per ~4 chars)
             const tokenDelta = Math.ceil((progressEvent.delta?.length || 0) / 4);
             if (tokenDelta > 0) {
               incrementOutputTokens(dashboardCallId, tokenDelta);
             }
           } else if (progressEvent.type === 'output_text_done') {
-            // Set final output text (fallback for polling mode)
             if (progressEvent.text) {
               updateCall(dashboardCallId, { outputText: progressEvent.text });
             }
           } else if (progressEvent.type === 'usage_delta') {
-            // Direct usage update from server
             if (progressEvent.output_tokens) {
               incrementOutputTokens(dashboardCallId, progressEvent.output_tokens);
             }
@@ -685,7 +778,7 @@ export const useConversationRun = () => {
 
         return data;
       } catch (error) {
-        if (error.message === 'Request cancelled') {
+        if ((error as Error).message === 'Request cancelled') {
           return { response: null, cancelled: true };
         }
         console.error('Error running conversation:', error);
