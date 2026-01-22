@@ -9,8 +9,9 @@ import {
   ExecutorResult
 } from './types';
 
-const PROMPTS_TABLE = 'q_prompts';
-const TEMPLATES_TABLE = 'q_templates';
+// Table references from environment
+const PROMPTS_TABLE = import.meta.env.VITE_PROMPTS_TBL;
+const TEMPLATES_TABLE = import.meta.env.VITE_TEMPLATES_TBL;
 
 interface TemplateStructure {
   name: string;
