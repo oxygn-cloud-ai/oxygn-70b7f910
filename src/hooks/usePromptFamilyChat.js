@@ -527,8 +527,12 @@ export const usePromptFamilyChat = (promptRowId) => {
               
               // Handle progress messages
               if (parsed.type === 'progress') {
-                // Could show in UI if desired
-                console.log('Progress:', parsed.message);
+                console.log('[Chat] Progress:', parsed.message);
+              }
+              
+              // Handle heartbeat events (confirms connection liveness)
+              if (parsed.type === 'heartbeat') {
+                console.log('[Chat] Heartbeat received:', parsed.elapsed_ms, 'ms');
               }
               
               // Handle errors

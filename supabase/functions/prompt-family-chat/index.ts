@@ -1301,6 +1301,9 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
       let finalContent = streamResult.content || '';
       let currentToolCalls = streamResult.toolCalls;
+      
+      // Track if output_text_done has been emitted (prevent duplicates)
+      let outputTextDoneEmitted = streamResult.status === 'completed' && !!streamResult.content;
 
       // Tool execution loop
       const MAX_TOOL_ITERATIONS = 10;
@@ -1341,13 +1344,8 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
       console.log('Final content length:', finalContent.length);
 
-      // Emit final content using typed event format (matches client parser)
-      // Only emit if we haven't already emitted for immediate completion (line 1291)
-      // Check if there was streaming or tool loops that produced new content
-      const alreadyEmittedImmediate = streamResult.status === 'completed' && 
-        streamResult.content && !currentToolCalls.length;
-      
-      if (finalContent && !alreadyEmittedImmediate) {
+      // Emit final content only if not already emitted (prevents duplicates)
+      if (finalContent && !outputTextDoneEmitted) {
         emitter.emit({ type: 'output_text_done', text: finalContent });
       }
 
