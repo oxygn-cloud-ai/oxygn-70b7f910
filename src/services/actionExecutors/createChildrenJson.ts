@@ -7,6 +7,14 @@
  */
 
 import { generatePositionAtEnd } from '../../utils/lexPosition';
+import { 
+  TypedSupabaseClient, 
+  ExecutorParams, 
+  ExecutorResult,
+  ModelDefaults,
+  ParentSettings,
+  LibraryPrompt
+} from './types';
 
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
@@ -14,22 +22,22 @@ const MODEL_DEFAULTS_TABLE = 'q_model_defaults';
 
 /**
  * Get nested value from object using dot notation path
- * e.g., getNestedValue({ data: { items: [1,2,3] } }, 'data.items') => [1,2,3]
  */
-const getNestedValue = (obj, path) => {
+const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
   if (!path) return obj;
   
   const keys = path.split('.');
-  let value = obj;
+  let value: unknown = obj;
   
   for (const key of keys) {
     if (value === null || value === undefined) return undefined;
     
-    // Handle array index access
     if (Array.isArray(value) && /^\d+$/.test(key)) {
       value = value[parseInt(key, 10)];
+    } else if (typeof value === 'object') {
+      value = (value as Record<string, unknown>)[key];
     } else {
-      value = value[key];
+      return undefined;
     }
   }
   
@@ -39,15 +47,17 @@ const getNestedValue = (obj, path) => {
 /**
  * Get default prompt settings from the database
  */
-const getDefaultSettings = async (supabase) => {
+const getDefaultSettings = async (supabase: TypedSupabaseClient): Promise<Record<string, string>> => {
   const { data } = await supabase
     .from(SETTINGS_TABLE)
     .select('setting_key, setting_value')
     .in('setting_key', ['def_admin_prompt', 'default_user_prompt', 'default_model']);
 
-  const settings = {};
+  const settings: Record<string, string> = {};
   data?.forEach(row => {
-    settings[row.setting_key] = row.setting_value;
+    if (row.setting_key && row.setting_value) {
+      settings[row.setting_key] = row.setting_value;
+    }
   });
   return settings;
 };
@@ -55,8 +65,11 @@ const getDefaultSettings = async (supabase) => {
 /**
  * Get model defaults for a specific model
  */
-const getModelDefaults = async (supabase, modelId) => {
-  if (!modelId) return {};
+const getModelDefaults = async (
+  supabase: TypedSupabaseClient, 
+  modelId: string | null | undefined
+): Promise<ModelDefaults> => {
+  if (!modelId) return { model_id: null } as ModelDefaults;
 
   const { data } = await supabase
     .from(MODEL_DEFAULTS_TABLE)
@@ -64,28 +77,40 @@ const getModelDefaults = async (supabase, modelId) => {
     .eq('model_id', modelId)
     .maybeSingle();
 
-  if (!data) return { model: modelId, model_on: true };
+  if (!data) return { model_id: modelId, model: modelId, model_on: true } as unknown as ModelDefaults;
 
-  const defaults = { model: modelId, model_on: true };
-  // All model settings fields that can have defaults
+  const defaults: Record<string, unknown> = { model_id: modelId, model: modelId, model_on: true };
   const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
     'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
 
   fields.forEach(field => {
-    if (data[`${field}_on`]) {
-      defaults[field] = data[field];
+    const onKey = `${field}_on` as keyof typeof data;
+    if (data[onKey]) {
+      defaults[field] = data[field as keyof typeof data];
       defaults[`${field}_on`] = true;
     }
   });
 
-  return defaults;
+  return defaults as ModelDefaults;
 };
+
+interface ExtendedParentSettings extends ParentSettings {
+  web_search_on?: boolean | null;
+  confluence_enabled?: boolean | null;
+  thread_mode?: string | null;
+  child_thread_strategy?: string | null;
+  response_format?: string | null;
+  response_format_on?: boolean | null;
+}
 
 /**
  * Get inheritable settings from parent prompt
  */
-const getParentSettings = async (supabase, parentRowId) => {
-  if (!parentRowId) return {};
+const getParentSettings = async (
+  supabase: TypedSupabaseClient, 
+  parentRowId: string | null
+): Promise<ExtendedParentSettings> => {
+  if (!parentRowId) return {} as ExtendedParentSettings;
 
   const { data } = await supabase
     .from(PROMPTS_TABLE)
@@ -98,22 +123,25 @@ const getParentSettings = async (supabase, parentRowId) => {
     .eq('row_id', parentRowId)
     .maybeSingle();
 
-  return data || {};
+  return (data || {}) as ExtendedParentSettings;
 };
 
 /**
  * Get library prompt content if specified
  */
-const getLibraryPrompt = async (supabase, libraryPromptId) => {
+const getLibraryPrompt = async (
+  supabase: TypedSupabaseClient, 
+  libraryPromptId: string | null | undefined
+): Promise<LibraryPrompt | null> => {
   if (!libraryPromptId) return null;
 
   const { data } = await supabase
     .from('q_prompt_library')
-    .select('content, name')
+    .select('row_id, name, content, description, category')
     .eq('row_id', libraryPromptId)
     .maybeSingle();
 
-  return data;
+  return data as LibraryPrompt | null;
 };
 
 /**
@@ -125,7 +153,7 @@ export const executeCreateChildrenJson = async ({
   jsonResponse,
   config,
   context,
-}) => {
+}: ExecutorParams): Promise<ExecutorResult> => {
   console.log('createChildrenJson: Starting execution with config:', {
     json_path: config?.json_path,
     name_field: config?.name_field,
@@ -138,32 +166,40 @@ export const executeCreateChildrenJson = async ({
   // Handle json_path as either string OR array (use first element if array)
   const rawJsonPath = config?.json_path;
   const json_path = Array.isArray(rawJsonPath) 
-    ? rawJsonPath[0] 
-    : (rawJsonPath || 'sections');
+    ? rawJsonPath[0] as string
+    : ((rawJsonPath as string) || 'sections');
 
   const {
     name_field = 'prompt_name',
     content_field = 'input_admin_prompt',
-    content_destination = 'system', // 'system' or 'user'
+    content_destination = 'system',
     child_node_type = 'standard',
     placement = 'children',
     copy_library_prompt_id,
   } = config || {};
 
+  if (!jsonResponse || typeof jsonResponse !== 'object') {
+    return {
+      success: false,
+      error: 'No JSON response to process',
+      createdCount: 0,
+      children: [],
+    };
+  }
+
+  const responseObj = jsonResponse as Record<string, unknown>;
+  
   // Extract array from JSON response
-  const items = getNestedValue(jsonResponse, json_path);
+  const items = getNestedValue(responseObj, json_path);
   
   if (!Array.isArray(items)) {
-    // Provide detailed error with available keys and debugging info
-    const responseType = typeof jsonResponse;
-    const isObject = responseType === 'object' && jsonResponse !== null;
+    const isObject = typeof jsonResponse === 'object' && jsonResponse !== null;
     const availableKeys = isObject
-      ? Object.keys(jsonResponse).filter(k => Array.isArray(jsonResponse[k]))
+      ? Object.keys(responseObj).filter(k => Array.isArray(responseObj[k]))
       : [];
-    const allKeys = isObject ? Object.keys(jsonResponse) : [];
+    const allKeys = isObject ? Object.keys(responseObj) : [];
     
-    // Check if the value at path is a string (common mistake - AI returns stringified JSON)
-    const valueAtPath = getNestedValue(jsonResponse, json_path);
+    const valueAtPath = getNestedValue(responseObj, json_path);
     let suggestion = '';
     
     if (typeof valueAtPath === 'string') {
@@ -176,16 +212,13 @@ export const executeCreateChildrenJson = async ({
       suggestion = 'Ensure your JSON schema includes an array field for child items.';
     }
     
-    const errorDetails = {
+    console.error('createChildrenJson: Array path validation failed', {
       configuredPath: json_path,
       valueType: typeof items,
-      valuePreview: items !== undefined ? String(items).substring(0, 100) : 'undefined',
       availableArrayKeys: availableKeys.length > 0 ? availableKeys : 'none',
       allResponseKeys: allKeys,
       suggestion,
-    };
-    
-    console.error('createChildrenJson: Array path validation failed', errorDetails);
+    });
     
     throw new Error(
       `JSON path "${json_path}" does not point to an array. ` +
@@ -197,6 +230,7 @@ export const executeCreateChildrenJson = async ({
 
   if (items.length === 0) {
     return {
+      success: true,
       action: 'create_children_json',
       createdCount: 0,
       children: [],
@@ -204,20 +238,13 @@ export const executeCreateChildrenJson = async ({
     };
   }
 
-  // Get default settings
   const defaults = await getDefaultSettings(supabase);
-  
-  // Get model defaults if a default model is set
   const modelDefaults = await getModelDefaults(supabase, defaults.default_model);
-  
-  // Get parent settings to inherit
   const parentSettings = await getParentSettings(supabase, prompt.row_id);
-
-  // Get library prompt if specified
-  const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id);
+  const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id as string | undefined);
 
   // Determine parent_row_id based on placement
-  let targetParentRowId;
+  let targetParentRowId: string | null;
   switch (placement) {
     case 'children':
       targetParentRowId = prompt.row_id;
@@ -229,14 +256,14 @@ export const executeCreateChildrenJson = async ({
       targetParentRowId = null;
       break;
     case 'specific_prompt':
-      targetParentRowId = config.target_prompt_id || prompt.row_id;
+      targetParentRowId = (config?.target_prompt_id as string) || prompt.row_id;
       break;
     default:
       targetParentRowId = prompt.row_id;
   }
 
   // Get last position_lex at target level
-  let lastPositionKey;
+  let lastPositionKey: string | null;
   if (placement === 'top_level' || targetParentRowId === null) {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
@@ -255,75 +282,66 @@ export const executeCreateChildrenJson = async ({
     lastPositionKey = siblings?.[0]?.position_lex || null;
   }
 
-  const createdChildren = [];
+  const createdChildren: unknown[] = [];
 
   for (let i = 0; i < items.length; i++) {
-    const item = items[i];
+    const item = items[i] as Record<string, unknown> | string;
     
     // Determine child name with smart auto-detection
-    let childName;
+    let childName: string;
     if (typeof item === 'string') {
       childName = item.substring(0, 100) || `Item ${i + 1}`;
     } else if (typeof item === 'object' && item !== null) {
-      // If name_field is specified, try that first
       if (name_field) {
-        childName = getNestedValue(item, name_field);
+        const nameValue = getNestedValue(item, name_field as string);
+        childName = typeof nameValue === 'string' ? nameValue : '';
+      } else {
+        childName = '';
       }
-      // Auto-detect from common name fields if not found
       if (!childName) {
-        childName = item.prompt_name || item.name || item.title || item.heading || item.label || 
+        childName = (item.prompt_name || item.name || item.title || item.heading || item.label || 
                     item.section_name || item.section_title || item.topic ||
-                    item.subject || item.key || item.id;
+                    item.subject || item.key || item.id) as string || '';
       }
-      // If still nothing, use first string value in the object
       if (!childName) {
         const firstStringValue = Object.values(item).find(v => typeof v === 'string' && v.length > 0 && v.length < 150);
-        childName = firstStringValue || `Item ${i + 1}`;
+        childName = (firstStringValue as string) || `Item ${i + 1}`;
       }
     } else {
       childName = `Item ${i + 1}`;
     }
 
     // Determine content
-    let content;
+    let content: string;
     if (typeof item === 'string') {
       content = item;
-    } else if (content_field) {
-      content = getNestedValue(item, content_field);
-      // Auto-detect if specified field not found
-      if (!content && typeof item === 'object') {
-        content = item.input_admin_prompt || item.system_prompt || item.content || 
-                  item.text || item.body || item.description;
+    } else if (content_field && typeof item === 'object' && item !== null) {
+      const contentValue = getNestedValue(item, content_field as string);
+      if (contentValue !== undefined && contentValue !== null) {
+        content = typeof contentValue === 'string' ? contentValue : JSON.stringify(contentValue, null, 2);
+      } else {
+        content = (item.input_admin_prompt || item.system_prompt || item.content || 
+                  item.text || item.body || item.description) as string || '';
       }
-      if (typeof content !== 'string' && content !== undefined && content !== null) {
-        content = JSON.stringify(content, null, 2);
-      }
+    } else if (typeof item === 'object' && item !== null) {
+      content = (item.input_admin_prompt || item.system_prompt || item.content || 
+                item.text || item.body || item.description) as string || JSON.stringify(item, null, 2);
     } else {
-      // No content_field specified, try auto-detection
-      if (typeof item === 'object') {
-        content = item.input_admin_prompt || item.system_prompt || item.content || 
-                  item.text || item.body || item.description;
-      }
-      if (!content) {
-        content = JSON.stringify(item, null, 2);
-      }
+      content = '';
     }
 
     console.log(`createChildrenJson: Creating child ${i + 1}/${items.length}:`, {
       extractedName: childName,
       hasContent: !!content,
       contentLength: content?.length,
-      contentPreview: content?.substring(0, 100),
     });
 
-    // Generate sequential lex position
     const childPositionLex = generatePositionAtEnd(lastPositionKey);
     lastPositionKey = childPositionLex;
 
-    // Build child data with proper inheritance
     const isSystemDestination = content_destination === 'system';
     
-    const childData = {
+    const childData: Record<string, unknown> = {
       parent_row_id: targetParentRowId,
       prompt_name: String(childName).substring(0, 100),
       input_admin_prompt: isSystemDestination 
@@ -334,7 +352,7 @@ export const executeCreateChildrenJson = async ({
         : (content || ''),
       position_lex: childPositionLex,
       is_deleted: false,
-      owner_id: context.userId || prompt.owner_id,
+      owner_id: (context?.userId as string) || prompt.owner_id,
       node_type: child_node_type || 'standard',
       is_assistant: true,
       extracted_variables: typeof item === 'object' ? item : { value: item },
@@ -351,8 +369,7 @@ export const executeCreateChildrenJson = async ({
       child_thread_strategy: parentSettings.child_thread_strategy,
     };
 
-    // If creating action nodes, inherit response_format for structured output
-    if (child_node_type === 'action' && parentSettings.response_format_on) {
+    if ((child_node_type as string) === 'action' && parentSettings.response_format_on) {
       childData.response_format = parentSettings.response_format;
       childData.response_format_on = true;
     }
@@ -379,15 +396,16 @@ export const executeCreateChildrenJson = async ({
     createdChildren.push(data);
   }
 
-  const placementText = {
+  const placementText: Record<string, string> = {
     children: 'as children',
     siblings: 'as siblings',
     top_level: 'as top-level prompts',
   };
 
-  const nodeTypeText = child_node_type === 'action' ? ' action' : '';
+  const nodeTypeText = (child_node_type as string) === 'action' ? ' action' : '';
 
   return {
+    success: true,
     action: 'create_children_json',
     createdCount: createdChildren.length,
     children: createdChildren,
@@ -395,6 +413,6 @@ export const executeCreateChildrenJson = async ({
     placement,
     targetParentRowId,
     jsonPath: json_path,
-    message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement] || ''} from JSON array`,
+    message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement as string] || ''} from JSON array`,
   };
 };

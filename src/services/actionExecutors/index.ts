@@ -1,13 +1,24 @@
 /**
  * Action Executors Registry
  * 
- * Central dispatcher for executing post-actions after AI responses.
- * Each executor is a separate module for maintainability.
+ * Central registry for all post-action executors.
+ * Each executor handles a specific action type and performs the necessary operations
+ * after an AI response is received.
  */
 
-import { executeCreateChildrenText } from './createChildrenText';
+import { 
+  ExecutorFunction, 
+  ExecutorParams, 
+  ExecutorResult,
+  TypedSupabaseClient,
+  PromptRow,
+  ActionConfig,
+  ExecutionContext
+} from './types';
+
 import { executeCreateChildrenJson } from './createChildrenJson';
 import { executeCreateChildrenSections } from './createChildrenSections';
+import { executeCreateChildrenText } from './createChildrenText';
 import { executeCreateTemplate } from './createTemplate';
 import { processVariableAssignments } from './processVariableAssignments';
 import { trackEvent, trackException } from '@/lib/posthog';
@@ -15,11 +26,8 @@ import { trackEvent, trackException } from '@/lib/posthog';
 // Re-export for convenience
 export { processVariableAssignments };
 
-/**
- * Registry of action executors
- * Maps action type IDs to their executor functions
- */
-const executors = {
+// Registry of action executors
+const executors: Record<string, ExecutorFunction> = {
   create_children_text: executeCreateChildrenText,
   create_children_json: executeCreateChildrenJson,
   create_children_sections: executeCreateChildrenSections,
@@ -28,15 +36,6 @@ const executors = {
 
 /**
  * Execute a post-action for an action node
- * 
- * @param {object} params - Execution parameters
- * @param {object} params.supabase - Supabase client
- * @param {object} params.prompt - The prompt/node that executed
- * @param {object} params.jsonResponse - Parsed JSON response from AI
- * @param {string} params.actionId - Action type ID
- * @param {object} params.config - Action configuration
- * @param {object} params.context - Additional context (user, project, etc.)
- * @returns {Promise<object>} - Execution result
  */
 export const executePostAction = async ({
   supabase,
@@ -45,7 +44,7 @@ export const executePostAction = async ({
   actionId,
   config,
   context = {},
-}) => {
+}: ExecutorParams): Promise<ExecutorResult> => {
   const executor = executors[actionId];
   
   if (!executor) {
@@ -61,6 +60,7 @@ export const executePostAction = async ({
       supabase,
       prompt,
       jsonResponse,
+      actionId,
       config,
       context,
     });
@@ -71,12 +71,16 @@ export const executePostAction = async ({
       success: true,
       ...result,
     };
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Action execution failed';
     console.error(`Error executing action ${actionId}:`, error);
-    trackException(error, { context: 'executePostAction', action_id: actionId });
+    trackException(error instanceof Error ? error : new Error(errorMessage), { 
+      context: 'executePostAction', 
+      action_id: actionId 
+    });
     return {
       success: false,
-      error: error.message || 'Action execution failed',
+      error: errorMessage,
     };
   }
 };
@@ -85,7 +89,7 @@ export const executePostAction = async ({
  * Register a new action executor
  * Allows dynamic registration of new action types
  */
-export const registerExecutor = (actionId, executorFn) => {
+export const registerExecutor = (actionId: string, executorFn: ExecutorFunction): void => {
   if (executors[actionId]) {
     console.warn(`Overwriting existing executor for: ${actionId}`);
   }
@@ -95,8 +99,19 @@ export const registerExecutor = (actionId, executorFn) => {
 /**
  * Check if an executor exists for an action type
  */
-export const hasExecutor = (actionId) => {
+export const hasExecutor = (actionId: string): boolean => {
   return !!executors[actionId];
 };
+
+// Re-export types for convenience
+export type { 
+  ExecutorFunction, 
+  ExecutorParams, 
+  ExecutorResult,
+  TypedSupabaseClient,
+  PromptRow,
+  ActionConfig,
+  ExecutionContext
+} from './types';
 
 export default executePostAction;
