@@ -17,33 +17,12 @@ import {
 import { 
   getDefaultSettings, 
   getModelDefaults, 
-  getLibraryPrompt 
+  getLibraryPrompt,
+  getParentSettings,
 } from './helpers';
 
 // Table reference - validated at import time
 const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
-
-/**
- * Get inheritable settings from parent prompt
- */
-const getParentSettings = async (
-  supabase: TypedSupabaseClient, 
-  parentRowId: string | null
-): Promise<ParentSettings> => {
-  if (!parentRowId) return {} as ParentSettings;
-
-  const { data } = await supabase
-    .from(PROMPTS_TABLE)
-    .select(`
-      model, model_on, web_search_on, confluence_enabled, thread_mode, 
-      child_thread_strategy, temperature, temperature_on, 
-      max_tokens, max_tokens_on, max_completion_tokens, max_completion_tokens_on
-    `)
-    .eq('row_id', parentRowId)
-    .maybeSingle();
-
-  return (data || {}) as ParentSettings;
-};
 
 /**
  * Execute the create children text action

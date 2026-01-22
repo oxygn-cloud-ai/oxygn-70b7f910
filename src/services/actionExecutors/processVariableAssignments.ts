@@ -9,6 +9,7 @@ import { trackEvent } from '@/lib/posthog';
 import { validateVariableName } from '@/utils/variableResolver';
 import { getEnvOrThrow } from '@/utils/safeEnv';
 import { TypedSupabaseClient } from './types';
+import { getNestedValue } from './helpers';
 
 // Table reference - validated at import time
 const VARIABLES_TABLE = getEnvOrThrow('VITE_PROMPT_VARIABLES_TBL');
@@ -36,19 +37,6 @@ interface ProcessVariableAssignmentsResult {
   processed: number;
   errors: Array<{ name?: string; assignment?: VariableAssignment; error: string }>;
 }
-
-/**
- * Get nested value from object using dot notation path
- */
-const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
-  if (!path) return obj;
-  return path.split('.').reduce<unknown>((acc, part) => {
-    if (acc && typeof acc === 'object' && part in (acc as Record<string, unknown>)) {
-      return (acc as Record<string, unknown>)[part];
-    }
-    return undefined;
-  }, obj);
-};
 
 /**
  * Process variable assignments from AI response

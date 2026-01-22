@@ -5,12 +5,13 @@
  */
 
 import { getEnvOrThrow } from '@/utils/safeEnv';
-import { TypedSupabaseClient, ModelDefaults, LibraryPrompt } from './types';
+import { TypedSupabaseClient, ModelDefaults, LibraryPrompt, ParentSettings } from './types';
 
 // Table references - validated at import time
 const SETTINGS_TABLE = getEnvOrThrow('VITE_SETTINGS_TBL');
 const MODEL_DEFAULTS_TABLE = getEnvOrThrow('VITE_MODEL_DEFAULTS_TBL');
 const LIBRARY_TABLE = getEnvOrThrow('VITE_PROMPT_LIBRARY_TBL');
+const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
 
 /**
  * Get nested value from object using dot notation path.
@@ -64,7 +65,7 @@ export const getModelDefaults = async (
   supabase: TypedSupabaseClient, 
   modelId: string | null | undefined
 ): Promise<ModelDefaults> => {
-  if (!modelId) return { model_id: null } as ModelDefaults;
+  if (!modelId) return {};
 
   const { data } = await supabase
     .from(MODEL_DEFAULTS_TABLE)
@@ -77,7 +78,7 @@ export const getModelDefaults = async (
       model_id: modelId, 
       model: modelId, 
       model_on: true 
-    } as ModelDefaults;
+    };
   }
 
   const defaults: Record<string, unknown> = { 
@@ -120,4 +121,31 @@ export const getLibraryPrompt = async (
     .maybeSingle();
 
   return data as LibraryPrompt | null;
+};
+
+/**
+ * Get inheritable settings from a prompt (parent or action prompt)
+ * Comprehensive field list for consistent inheritance across all executors.
+ */
+export const getParentSettings = async (
+  supabase: TypedSupabaseClient, 
+  promptRowId: string | null
+): Promise<ParentSettings> => {
+  if (!promptRowId) return {};
+
+  const { data } = await supabase
+    .from(PROMPTS_TABLE)
+    .select(`
+      model, model_on, web_search_on, confluence_enabled, thread_mode, 
+      child_thread_strategy, response_format, response_format_on,
+      temperature, temperature_on, max_tokens, max_tokens_on,
+      max_completion_tokens, max_completion_tokens_on,
+      top_p, top_p_on, frequency_penalty, frequency_penalty_on, 
+      presence_penalty, presence_penalty_on, reasoning_effort, reasoning_effort_on,
+      input_admin_prompt
+    `)
+    .eq('row_id', promptRowId)
+    .maybeSingle();
+
+  return (data || {}) as ParentSettings;
 };

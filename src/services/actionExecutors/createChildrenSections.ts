@@ -17,35 +17,12 @@ import {
 import { 
   getDefaultSettings, 
   getModelDefaults, 
-  getLibraryPrompt 
+  getLibraryPrompt,
+  getParentSettings,
 } from './helpers';
 
 // Table reference - validated at import time
 const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
-
-/**
- * Get inheritable settings from a prompt (parent or action prompt itself)
- */
-const getPromptSettings = async (
-  supabase: TypedSupabaseClient, 
-  promptRowId: string | null
-): Promise<ParentSettings> => {
-  if (!promptRowId) return {} as ParentSettings;
-
-  const { data } = await supabase
-    .from(PROMPTS_TABLE)
-    .select(`
-      model, model_on, web_search_on, confluence_enabled, thread_mode, 
-      child_thread_strategy, temperature, temperature_on, max_tokens, max_tokens_on,
-      max_completion_tokens, max_completion_tokens_on,
-      top_p, top_p_on, frequency_penalty, frequency_penalty_on, presence_penalty, 
-      presence_penalty_on, input_admin_prompt, response_format, response_format_on
-    `)
-    .eq('row_id', promptRowId)
-    .maybeSingle();
-
-  return (data || {}) as ParentSettings;
-};
 
 /**
  * Execute the create children sections action
@@ -124,7 +101,7 @@ export const executeCreateChildrenSections = async ({
 
   const defaults = await getDefaultSettings(supabase);
   const modelDefaults = await getModelDefaults(supabase, defaults.default_model || null);
-  const actionPromptSettings = await getPromptSettings(supabase, prompt.row_id);
+  const actionPromptSettings = await getParentSettings(supabase, prompt.row_id);
   const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id as string | undefined);
 
   // Determine parent_row_id based on placement
