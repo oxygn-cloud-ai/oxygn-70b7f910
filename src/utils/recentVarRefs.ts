@@ -7,10 +7,19 @@ const STORAGE_KEY = 'qonsol_recent_var_refs';
 const MAX_RECENT = 5;
 
 /**
- * Get recently used variable references
- * @returns {Array<{promptId: string, promptName: string, field: string}>}
+ * Recent variable reference structure
  */
-export const getRecentVarRefs = () => {
+export interface RecentVarRef {
+  promptId: string;
+  promptName: string;
+  field: string;
+}
+
+/**
+ * Get recently used variable references
+ * @returns Array of recent variable references
+ */
+export const getRecentVarRefs = (): RecentVarRef[] => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
@@ -19,7 +28,7 @@ export const getRecentVarRefs = () => {
     if (!Array.isArray(parsed)) return [];
     
     // Validate structure
-    return parsed.filter(item => 
+    return parsed.filter((item): item is RecentVarRef => 
       item && 
       typeof item.promptId === 'string' &&
       typeof item.promptName === 'string' &&
@@ -33,11 +42,11 @@ export const getRecentVarRefs = () => {
 
 /**
  * Add a variable reference to recent list
- * @param {string} promptId - The prompt UUID
- * @param {string} promptName - The prompt name for display
- * @param {string} field - The field key (e.g., 'output_response')
+ * @param promptId - The prompt UUID
+ * @param promptName - The prompt name for display
+ * @param field - The field key (e.g., 'output_response')
  */
-export const addRecentVarRef = (promptId, promptName, field) => {
+export const addRecentVarRef = (promptId: string, promptName: string, field: string): void => {
   try {
     const current = getRecentVarRefs();
     
@@ -61,7 +70,7 @@ export const addRecentVarRef = (promptId, promptName, field) => {
 /**
  * Clear all recent variable references
  */
-export const clearRecentVarRefs = () => {
+export const clearRecentVarRefs = (): void => {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (err) {
@@ -72,14 +81,14 @@ export const clearRecentVarRefs = () => {
 /**
  * Build the reference string from components
  */
-export const buildRefString = (promptId, field) => {
+export const buildRefString = (promptId: string, field: string): string => {
   return `{{q.ref[${promptId}].${field}}}`;
 };
 
 /**
  * Field labels for display
  */
-export const FIELD_LABELS = {
+export const FIELD_LABELS: Record<string, string> = {
   output_response: 'AI Response',
   user_prompt_result: 'User Prompt Result',
   input_admin_prompt: 'System Prompt',
@@ -90,6 +99,6 @@ export const FIELD_LABELS = {
 /**
  * Get display label for a field
  */
-export const getFieldLabel = (field) => {
+export const getFieldLabel = (field: string): string => {
   return FIELD_LABELS[field] || field;
 };

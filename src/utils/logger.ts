@@ -12,42 +12,52 @@
  *   logger.error('Error message', error);
  */
 
-const isDev = import.meta.env.DEV;
+const isDev: boolean = import.meta.env.DEV;
 
-const logger = {
+interface Logger {
   /**
    * Debug level - only logs in development
    * Use for detailed debugging information that would be noisy in production
    */
-  debug: (...args) => {
-    if (isDev) {
-      console.log('[DEBUG]', ...args);
-    }
-  },
+  debug: (...args: unknown[]) => void;
   
   /**
    * Info level - only logs in development
    * Use for general informational messages during normal operation
    */
-  info: (...args) => {
-    if (isDev) {
-      console.log('[INFO]', ...args);
-    }
-  },
+  info: (...args: unknown[]) => void;
   
   /**
    * Warn level - always logs
    * Use for potential issues that don't break functionality
    */
-  warn: (...args) => {
-    console.warn('[WARN]', ...args);
-  },
+  warn: (...args: unknown[]) => void;
   
   /**
    * Error level - always logs
    * Use for errors that need attention
    */
-  error: (...args) => {
+  error: (...args: unknown[]) => void;
+}
+
+const logger: Logger = {
+  debug: (...args: unknown[]): void => {
+    if (isDev) {
+      console.log('[DEBUG]', ...args);
+    }
+  },
+  
+  info: (...args: unknown[]): void => {
+    if (isDev) {
+      console.log('[INFO]', ...args);
+    }
+  },
+  
+  warn: (...args: unknown[]): void => {
+    console.warn('[WARN]', ...args);
+  },
+  
+  error: (...args: unknown[]): void => {
     console.error('[ERROR]', ...args);
   },
 };
