@@ -14,8 +14,7 @@ import {
   CheckCircle2, Code, X, Plus, HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ACTION_TYPES, ActionType, ActionConfig } from '@/config/actionTypes';
-import { validateActionConfig } from '@/utils/actionValidation';
+import { ACTION_TYPES, ActionType, ActionConfig, validateActionConfig } from '@/config/actionTypes';
 import ActionConfigRenderer from './ActionConfigRenderer';
 
 interface ActionNodeSettingsProps {
