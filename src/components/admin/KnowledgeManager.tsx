@@ -9,33 +9,25 @@ import { useKnowledge } from '@/hooks/useKnowledge';
 import KnowledgeEditor from './KnowledgeEditor';
 import { ExportKnowledgeDialog, ImportKnowledgeDialog } from './KnowledgeImportExport';
 import { toast } from '@/components/ui/sonner';
+import type { 
+  KnowledgeItem, 
+  KnowledgeItemProps, 
+  TopicBadgeProps, 
+  KnowledgeFormData,
+  KnowledgeImportItem,
+  ImportResults 
+} from './types';
+import { TOPIC_COLORS } from './types';
 
-const TopicBadge = ({ topic }) => {
-  const colors = {
-    overview: 'bg-blue-500/10 text-blue-600',
-    prompts: 'bg-purple-500/10 text-purple-600',
-    variables: 'bg-green-500/10 text-green-600',
-    templates: 'bg-amber-500/10 text-amber-600',
-    json_schemas: 'bg-pink-500/10 text-pink-600',
-    actions: 'bg-red-500/10 text-red-600',
-    files: 'bg-cyan-500/10 text-cyan-600',
-    confluence: 'bg-indigo-500/10 text-indigo-600',
-    cascade: 'bg-orange-500/10 text-orange-600',
-    library: 'bg-teal-500/10 text-teal-600',
-    troubleshooting: 'bg-rose-500/10 text-rose-600',
-    database: 'bg-emerald-500/10 text-emerald-600',
-    edge_functions: 'bg-sky-500/10 text-sky-600',
-    api: 'bg-lime-500/10 text-lime-600'
-  };
-
+const TopicBadge: React.FC<TopicBadgeProps> = ({ topic }) => {
   return (
-    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${colors[topic] || 'bg-surface-container text-on-surface-variant'}`}>
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TOPIC_COLORS[topic] || 'bg-surface-container text-on-surface-variant'}`}>
       {topic.replace('_', ' ')}
     </span>
   );
 };
 
-const KnowledgeItem = ({ item, onEdit, onDelete, onViewHistory }) => {
+const KnowledgeItemRow: React.FC<KnowledgeItemProps> = ({ item, onEdit, onDelete, onViewHistory }) => {
   const [showActions, setShowActions] = useState(false);
 
   return (
@@ -48,7 +40,7 @@ const KnowledgeItem = ({ item, onEdit, onDelete, onViewHistory }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <TopicBadge topic={item.topic} />
-            {item.priority > 0 && (
+            {item.priority && item.priority > 0 && (
               <span className="text-[10px] text-primary font-medium">★ {item.priority}</span>
             )}
           </div>
@@ -58,12 +50,12 @@ const KnowledgeItem = ({ item, onEdit, onDelete, onViewHistory }) => {
           <p className="text-[10px] text-on-surface-variant line-clamp-2 mt-0.5">
             {item.content.substring(0, 150)}...
           </p>
-          {item.keywords?.length > 0 && (
+          {item.keywords && item.keywords.length > 0 && (
             <div className="flex items-center gap-1 mt-1.5 flex-wrap">
               <Tag className="h-2.5 w-2.5 text-on-surface-variant" />
               {item.keywords.slice(0, 3).map((kw, i) => (
                 <span key={i} className="text-[9px] text-on-surface-variant">
-                  {kw}{i < Math.min(item.keywords.length - 1, 2) ? ',' : ''}
+                  {kw}{i < Math.min(item.keywords!.length - 1, 2) ? ',' : ''}
                 </span>
               ))}
               {item.keywords.length > 3 && (
@@ -113,7 +105,7 @@ const KnowledgeItem = ({ item, onEdit, onDelete, onViewHistory }) => {
   );
 };
 
-const KnowledgeManager = () => {
+const KnowledgeManager: React.FC = () => {
   const {
     items,
     isLoading,
@@ -131,11 +123,11 @@ const KnowledgeManager = () => {
     fetchItems
   } = useKnowledge();
 
-  const [editingItem, setEditingItem] = useState(null);
+  const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showTopicFilter, setShowTopicFilter] = useState(false);
 
-  const handleSave = async (itemData) => {
+  const handleSave = async (itemData: KnowledgeFormData): Promise<void> => {
     if (editingItem) {
       await updateItem(editingItem.row_id, itemData);
     } else {
@@ -145,29 +137,29 @@ const KnowledgeManager = () => {
     setIsCreating(false);
   };
 
-  const handleDelete = async (item) => {
+  const handleDelete = async (item: KnowledgeItem): Promise<void> => {
     if (confirm(`Delete "${item.title}"?`)) {
       await deleteItem(item.row_id);
     }
   };
 
-  const handleViewHistory = async (item) => {
+  const handleViewHistory = async (item: KnowledgeItem): Promise<void> => {
     const history = await getItemHistory(item.row_id);
     console.log('History for', item.title, ':', history);
     // Could open a modal here to show history
   };
 
-  const handleBulkImport = async (importItems) => {
+  const handleBulkImport = async (importItems: KnowledgeImportItem[]): Promise<ImportResults> => {
     const results = await bulkImportItems(importItems);
     if (results.created > 0 || results.updated > 0) {
       toast.info('Regenerating embeddings in background...');
       regenerateEmbeddings()
-        .then((res) => {
+        .then((res: { success?: boolean; processed?: number }) => {
           if (res.success) {
             toast.success(`Embeddings regenerated: ${res.processed || 0} items`);
           }
         })
-        .catch((err) => {
+        .catch((err: Error) => {
           console.error('Background embedding regeneration failed:', err);
           toast.error('Failed to regenerate embeddings');
         });
@@ -244,7 +236,7 @@ const KnowledgeManager = () => {
 
         {/* Export Button */}
         <ExportKnowledgeDialog
-          items={items}
+          items={items as KnowledgeItem[]}
           selectedTopic={selectedTopic}
           trigger={
             <Tooltip>
@@ -323,9 +315,9 @@ const KnowledgeManager = () => {
       ) : (
         <div className="space-y-2">
           {items.map(item => (
-            <KnowledgeItem
+            <KnowledgeItemRow
               key={item.row_id}
-              item={item}
+              item={item as KnowledgeItem}
               onEdit={setEditingItem}
               onDelete={handleDelete}
               onViewHistory={handleViewHistory}

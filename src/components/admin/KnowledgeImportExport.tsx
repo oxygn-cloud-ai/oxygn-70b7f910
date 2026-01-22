@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import { Download, Upload, Copy, Check, AlertCircle, FileJson } from 'lucide-react';
 import {
   Dialog,
@@ -7,21 +7,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/sonner';
-
-const VALID_TOPICS = [
-  'overview', 'prompts', 'variables', 'templates', 'json_schemas',
-  'actions', 'files', 'confluence', 'cascade', 'library',
-  'troubleshooting', 'database', 'edge_functions', 'api'
-];
+import type { 
+  ExportKnowledgeDialogProps, 
+  ImportKnowledgeDialogProps, 
+  KnowledgeExportData,
+  KnowledgeImportItem,
+  ParseResult 
+} from './types';
+import { VALID_TOPICS } from './types';
 
 // Export Dialog
-export const ExportKnowledgeDialog = ({ items, selectedTopic, trigger }) => {
+export const ExportKnowledgeDialog: React.FC<ExportKnowledgeDialogProps> = ({ items, selectedTopic, trigger }) => {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const exportData = {
+  const exportData: KnowledgeExportData = {
     _exportVersion: 1,
     exported_at: new Date().toISOString(),
     topic_filter: selectedTopic || null,
@@ -37,7 +38,7 @@ export const ExportKnowledgeDialog = ({ items, selectedTopic, trigger }) => {
 
   const jsonString = JSON.stringify(exportData, null, 2);
 
-  const handleDownload = () => {
+  const handleDownload = (): void => {
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -51,7 +52,7 @@ export const ExportKnowledgeDialog = ({ items, selectedTopic, trigger }) => {
     setOpen(false);
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (): Promise<void> => {
     await navigator.clipboard.writeText(jsonString);
     setCopied(true);
     toast.success('Copied to clipboard');
@@ -100,22 +101,22 @@ export const ExportKnowledgeDialog = ({ items, selectedTopic, trigger }) => {
 };
 
 // Import Dialog
-export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
+export const ImportKnowledgeDialog: React.FC<ImportKnowledgeDialogProps> = ({ topics, onImport, trigger }) => {
   const [open, setOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
-  const [parseResult, setParseResult] = useState(null);
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const fileInputRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const resetState = () => {
+  const resetState = (): void => {
     setJsonInput('');
     setParseResult(null);
     setIsImporting(false);
     setProgress({ current: 0, total: 0 });
   };
 
-  const validateAndParse = (input) => {
+  const validateAndParse = (input: string): ParseResult => {
     try {
       const data = JSON.parse(input);
       
@@ -123,14 +124,14 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
         return { valid: false, error: 'JSON must contain an "items" array' };
       }
 
-      const errors = [];
-      const validItems = [];
+      const errors: string[] = [];
+      const validItems: KnowledgeImportItem[] = [];
 
-      data.items.forEach((item, index) => {
-        const itemErrors = [];
+      data.items.forEach((item: Record<string, unknown>, index: number) => {
+        const itemErrors: string[] = [];
         
         if (!item.topic) itemErrors.push('missing topic');
-        else if (!VALID_TOPICS.includes(item.topic)) itemErrors.push(`invalid topic "${item.topic}"`);
+        else if (!VALID_TOPICS.includes(item.topic as typeof VALID_TOPICS[number])) itemErrors.push(`invalid topic "${item.topic}"`);
         
         if (!item.title) itemErrors.push('missing title');
         if (!item.content) itemErrors.push('missing content');
@@ -139,11 +140,11 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
           errors.push(`Item ${index + 1} (${item.title || 'untitled'}): ${itemErrors.join(', ')}`);
         } else {
           validItems.push({
-            topic: item.topic,
-            title: item.title,
-            content: item.content,
-            keywords: item.keywords || [],
-            priority: item.priority || 0
+            topic: item.topic as string,
+            title: item.title as string,
+            content: item.content as string,
+            keywords: (item.keywords as string[]) || [],
+            priority: (item.priority as number) || 0
           });
         }
       });
@@ -158,11 +159,11 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
         hasMoreErrors: errors.length > 5
       };
     } catch (e) {
-      return { valid: false, error: `Invalid JSON: ${e.message}` };
+      return { valid: false, error: `Invalid JSON: ${e instanceof Error ? e.message : 'Unknown error'}` };
     }
   };
 
-  const handleInputChange = (value) => {
+  const handleInputChange = (value: string): void => {
     setJsonInput(value);
     if (value.trim()) {
       setParseResult(validateAndParse(value));
@@ -171,7 +172,7 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
     }
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -186,7 +187,7 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
     e.target.value = ''; // Reset input
   };
 
-  const handleImport = async () => {
+  const handleImport = async (): Promise<void> => {
     if (!parseResult?.valid || !parseResult.items) return;
 
     setIsImporting(true);
@@ -195,7 +196,7 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
     try {
       const results = await onImport(parseResult.items);
       
-      if (results.errors?.length > 0) {
+      if (results.errors?.length && results.errors.length > 0) {
         toast.error(`Import completed with ${results.errors.length} error(s)`);
       } else {
         toast.success(`Imported: ${results.created} created, ${results.updated} updated`);
@@ -204,7 +205,7 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
       setOpen(false);
       resetState();
     } catch (error) {
-      toast.error(`Import failed: ${error.message}`);
+      toast.error(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsImporting(false);
     }
@@ -265,18 +266,18 @@ export const ImportKnowledgeDialog = ({ topics, onImport, trigger }) => {
                   )}
                   <span className="text-on-surface">
                     <strong>{parseResult.validCount}</strong> valid of {parseResult.totalCount} items
-                    {parseResult.errorCount > 0 && (
+                    {parseResult.errorCount && parseResult.errorCount > 0 && (
                       <span className="text-red-500"> ({parseResult.errorCount} with errors)</span>
                     )}
                   </span>
                 </div>
-                {parseResult.errors?.length > 0 && (
+                {parseResult.errors && parseResult.errors.length > 0 && (
                   <div className="text-[10px] text-red-500 space-y-0.5 ml-6">
                     {parseResult.errors.map((err, i) => (
                       <div key={i}>• {err}</div>
                     ))}
                     {parseResult.hasMoreErrors && (
-                      <div>• ... and {parseResult.errorCount - 5} more errors</div>
+                      <div>• ... and {(parseResult.errorCount || 0) - 5} more errors</div>
                     )}
                   </div>
                 )}
