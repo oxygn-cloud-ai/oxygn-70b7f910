@@ -21,7 +21,7 @@ import PostHogPageView from "@/components/PostHogPageView";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App: React.FC = () => (
   <ErrorBoundary message="The application encountered an error. Please refresh the page.">
     <QueryClientProvider client={queryClient}>
       <ToastHistoryProvider>

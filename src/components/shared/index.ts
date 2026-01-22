@@ -4,3 +4,4 @@ export * from './EmptyStates';
 export { default as VariablePicker } from '@/components/VariablePicker';
 export { default as ResizablePromptArea } from './ResizablePromptArea';
 export { default as ResizableOutputArea } from './ResizableOutputArea';
+export { default as MarkdownNotesArea } from './MarkdownNotesArea';

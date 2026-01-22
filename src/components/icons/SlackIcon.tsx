@@ -1,6 +1,10 @@
 import React from 'react';
 
-export const SlackIcon = ({ className, size = 24, ...props }) => (
+interface SlackIconProps extends React.SVGProps<SVGSVGElement> {
+  size?: number;
+}
+
+export const SlackIcon: React.FC<SlackIconProps> = ({ className, size = 24, ...props }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width={size}
@@ -24,3 +28,5 @@ export const SlackIcon = ({ className, size = 24, ...props }) => (
     <path d="M8.5 5H10V3.5A1.5 1.5 0 1 0 8.5 5" />
   </svg>
 );
+
+export default SlackIcon;

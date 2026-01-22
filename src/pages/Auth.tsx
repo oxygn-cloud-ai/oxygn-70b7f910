@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import chocolateFullLogo from '@/assets/chocolate-full-logo.png';
 
-const Auth = () => {
+const Auth: React.FC = () => {
   const { signInWithGoogle, signInWithPassword, signUpWithPassword, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   
@@ -24,11 +24,11 @@ const Auth = () => {
     }
   }, [isAuthenticated, loading, navigate]);
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = async (): Promise<void> => {
     await signInWithGoogle();
   };
 
-  const handleEmailSubmit = async (e) => {
+  const handleEmailSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setIsSubmitting(true);
     
