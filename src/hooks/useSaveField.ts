@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useSupabase } from './useSupabase';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-export const useSaveField = (projectRowId) => {
+interface UseSaveFieldReturn {
+  saveField: (fieldName: string, value: unknown) => Promise<void>;
+  isSaving: boolean;
+}
+
+export const useSaveField = (projectRowId: string | null): UseSaveFieldReturn => {
   const supabase = useSupabase();
   const [isSaving, setIsSaving] = useState(false);
 
-  const saveField = async (fieldName, value) => {
+  const saveField = useCallback(async (fieldName: string, value: unknown): Promise<void> => {
+    if (!projectRowId) return;
+    
     setIsSaving(true);
     try {
       const { error } = await supabase
@@ -19,11 +26,11 @@ export const useSaveField = (projectRowId) => {
       trackEvent('project_field_saved', { field_name: fieldName });
     } catch (error) {
       console.error('Error saving field:', error);
-      trackException(error, { context: 'useSaveField', field_name: fieldName });
+      trackException(error as Error, { context: 'useSaveField', field_name: fieldName });
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [supabase, projectRowId]);
 
   return { saveField, isSaving };
 };

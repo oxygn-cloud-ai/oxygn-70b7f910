@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { trackRenderPerformance } from '@/lib/posthog';
 
+interface RenderPerformanceOptions {
+  slowThresholdMs?: number;
+  trackMountOnly?: boolean;
+}
+
 /**
  * Hook to track component render performance
  * Measures initial mount time and tracks slow re-renders
@@ -8,27 +13,15 @@ import { trackRenderPerformance } from '@/lib/posthog';
  * Includes defensive handling for Vite HMR edge cases where
  * React's internal state may be temporarily corrupted.
  */
-export const useRenderPerformance = (componentName, options = {}) => {
+export const useRenderPerformance = (
+  componentName: string, 
+  options: RenderPerformanceOptions = {}
+): void => {
   const { slowThresholdMs = 100, trackMountOnly = true } = options;
   
-  // Defensive check for HMR corruption - React hooks may return null
-  // during hot module replacement transitions
-  let mountTimeRef, renderCountRef, hasTrackedMountRef;
-  
-  try {
-    mountTimeRef = useRef(performance.now());
-    renderCountRef = useRef(0);
-    hasTrackedMountRef = useRef(false);
-  } catch (e) {
-    // HMR corruption - silently skip performance tracking this render
-    console.warn('[useRenderPerformance] HMR state corruption detected, skipping tracking');
-    return;
-  }
-  
-  // Additional null check in case hooks returned without throwing
-  if (!mountTimeRef || !renderCountRef || !hasTrackedMountRef) {
-    return;
-  }
+  const mountTimeRef = useRef<number>(performance.now());
+  const renderCountRef = useRef<number>(0);
+  const hasTrackedMountRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Safety check - only track if function exists
