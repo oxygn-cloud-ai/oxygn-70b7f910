@@ -35,7 +35,27 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { trackEvent } from '@/lib/posthog';
 
-const ThreadSelector = ({
+interface Thread {
+  row_id: string;
+  name?: string | null;
+  message_count?: number;
+  last_message_at?: string | null;
+}
+
+type ThreadMode = 'new' | 'reuse';
+
+interface ThreadSelectorProps {
+  threads: Thread[];
+  activeThread: Thread | null;
+  onSelectThread: (thread: Thread) => void;
+  onCreateThread: (name: string) => Promise<void>;
+  onDeleteThread: (rowId: string) => void;
+  threadMode: ThreadMode;
+  onThreadModeChange: (mode: ThreadMode) => void;
+  isLoading?: boolean;
+}
+
+const ThreadSelector: React.FC<ThreadSelectorProps> = ({
   threads,
   activeThread,
   onSelectThread,
@@ -43,7 +63,7 @@ const ThreadSelector = ({
   onDeleteThread,
   threadMode,
   onThreadModeChange,
-  isLoading,
+  isLoading = false,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
 
@@ -55,28 +75,33 @@ const ThreadSelector = ({
     setIsCreating(false);
   };
 
+  const handleSelectChange = (value: string) => {
+    const thread = threads.find((t) => t.row_id === value);
+    if (thread) onSelectThread(thread);
+  };
+
   return (
-    <div className="space-y-4 border rounded-lg p-4">
+    <div className="space-y-4 border border-outline-variant rounded-m3-md p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" />
-          <h4 className="font-medium">Thread Management</h4>
+          <MessageSquare className="h-4 w-4 text-on-surface-variant" />
+          <h4 className="font-medium text-body-sm text-on-surface">Thread Management</h4>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Info className="h-4 w-4 text-muted-foreground" />
+                <Info className="h-4 w-4 text-on-surface-variant" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80">
+            <PopoverContent className="w-80 bg-surface-container-high">
               <div className="space-y-3">
-                <h4 className="font-semibold">Thread Mode</h4>
-                <div className="space-y-2 text-sm">
+                <h4 className="font-semibold text-body-sm text-on-surface">Thread Mode</h4>
+                <div className="space-y-2 text-body-sm text-on-surface-variant">
                   <p>
-                    <strong>New Thread</strong> - Each execution creates a fresh
+                    <strong className="text-on-surface">New Thread</strong> - Each execution creates a fresh
                     conversation. Best for independent queries.
                   </p>
                   <p>
-                    <strong>Reuse Thread</strong> - Messages are added to the
+                    <strong className="text-on-surface">Reuse Thread</strong> - Messages are added to the
                     existing thread, maintaining conversation history. Best for
                     iterative refinement.
                   </p>
@@ -85,7 +110,7 @@ const ThreadSelector = ({
                   href="https://platform.openai.com/docs/api-reference/responses"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                  className="flex items-center gap-1 text-body-sm text-primary hover:underline"
                 >
                   <ExternalLink className="h-3 w-3" />
                   Responses API Documentation
@@ -98,21 +123,21 @@ const ThreadSelector = ({
 
       {/* Thread Mode Selection */}
       <div className="space-y-2">
-        <Label>Thread Mode</Label>
+        <Label className="text-body-sm text-on-surface">Thread Mode</Label>
         <RadioGroup
           value={threadMode}
-          onValueChange={onThreadModeChange}
+          onValueChange={(value) => onThreadModeChange(value as ThreadMode)}
           className="flex gap-4"
         >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="new" id="mode-new" />
-            <Label htmlFor="mode-new" className="font-normal cursor-pointer">
+            <Label htmlFor="mode-new" className="font-normal cursor-pointer text-body-sm text-on-surface">
               New Thread
             </Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="reuse" id="mode-reuse" />
-            <Label htmlFor="mode-reuse" className="font-normal cursor-pointer">
+            <Label htmlFor="mode-reuse" className="font-normal cursor-pointer text-body-sm text-on-surface">
               Reuse Thread
             </Label>
           </div>
@@ -122,14 +147,11 @@ const ThreadSelector = ({
       {/* Thread Selection (only shown in reuse mode) */}
       {threadMode === 'reuse' && (
         <div className="space-y-2">
-          <Label>Active Thread</Label>
+          <Label className="text-body-sm text-on-surface">Active Thread</Label>
           <div className="flex items-center gap-2">
             <Select
               value={activeThread?.row_id || ''}
-              onValueChange={(value) => {
-                const thread = threads.find((t) => t.row_id === value);
-                if (thread) onSelectThread(thread);
-              }}
+              onValueChange={handleSelectChange}
               disabled={isLoading || threads.length === 0}
             >
               <SelectTrigger className="flex-1">
@@ -152,12 +174,12 @@ const ThreadSelector = ({
                     size="icon"
                     onClick={handleCreateThread}
                     disabled={isCreating}
-                    className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50"
+                    className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{TOOLTIPS.threads.createNew}</TooltipContent>
+                <TooltipContent className="text-[10px]">{TOOLTIPS.threads.createNew}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
 
@@ -167,12 +189,16 @@ const ThreadSelector = ({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="!text-destructive hover:!text-destructive hover:!bg-destructive/10">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-red-500 hover:text-red-500 hover:bg-red-500/10"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent>{TOOLTIPS.threads.delete}</TooltipContent>
+                    <TooltipContent className="text-[10px]">{TOOLTIPS.threads.delete}</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <AlertDialogContent>
@@ -187,7 +213,7 @@ const ThreadSelector = ({
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => onDeleteThread(activeThread.row_id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      className="bg-red-500 text-white hover:bg-red-600"
                     >
                       Delete
                     </AlertDialogAction>
@@ -198,7 +224,7 @@ const ThreadSelector = ({
           </div>
 
           {activeThread && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[10px] text-on-surface-variant">
               {activeThread.message_count || 0} messages • Last updated:{' '}
               {activeThread.last_message_at
                 ? new Date(activeThread.last_message_at).toLocaleString()

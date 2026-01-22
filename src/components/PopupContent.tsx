@@ -1,10 +1,50 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Button } from "@/components/ui/button";
 import { Copy, Replace, ReplaceAll } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
-const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCascade }) => {
-  const copyToClipboard = (text) => {
+interface SelectedItem {
+  input_admin_prompt?: string | null;
+  input_user_prompt?: string | null;
+  admin_prompt_result?: string | null;
+  user_prompt_result?: string | null;
+  [key: string]: unknown;
+}
+
+interface PopupContentProps {
+  isExpanded: boolean;
+  isLoading: boolean;
+  selectedItem: SelectedItem | null;
+  cascadeField?: string | null;
+  onCascade: (content: string, action: 'append' | 'overwrite') => void;
+}
+
+interface ActionButtonProps {
+  icon: ReactNode;
+  onClick: () => void;
+  tooltip: string;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ icon, onClick, tooltip }) => (
+  <Button
+    variant="ghost"
+    size="sm"
+    className="h-6 w-6 p-0"
+    onClick={onClick}
+    title={tooltip}
+  >
+    {icon}
+  </Button>
+);
+
+const PopupContent: React.FC<PopupContentProps> = ({ 
+  isExpanded, 
+  isLoading, 
+  selectedItem, 
+  cascadeField, 
+  onCascade 
+}) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => {
       toast.success('Copied to clipboard');
     }).catch((err) => {
@@ -13,17 +53,18 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
     });
   };
 
-  const handleAction = (content, action) => {
+  const handleAction = (content: string, action: 'append' | 'overwrite') => {
+    let processedContent = content;
     if (action === 'append') {
-      content = content.trim();
+      processedContent = content.trim();
     }
-    onCascade(content, action);
+    onCascade(processedContent, action);
   };
 
-  const renderField = (label, content) => (
+  const renderField = (label: string, content: string) => (
     <div className="mb-4">
       <div className="flex justify-between items-center mb-2">
-        <h4 className="text-sm font-semibold">{label}</h4>
+        <h4 className="text-body-sm font-semibold text-on-surface">{label}</h4>
         <div className="flex space-x-2">
           {cascadeField && (
             <>
@@ -46,8 +87,8 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
           />
         </div>
       </div>
-      <div className="bg-muted p-2 rounded-md overflow-auto max-h-40">
-        <pre className="text-sm whitespace-pre-wrap">{content}</pre>
+      <div className="bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-40">
+        <pre className="text-body-sm whitespace-pre-wrap text-on-surface">{content}</pre>
       </div>
     </div>
   );
@@ -57,7 +98,7 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
       <div className="mt-4">
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
-            <p>Loading...</p>
+            <p className="text-on-surface-variant">Loading...</p>
           </div>
         ) : selectedItem ? (
           <>
@@ -68,24 +109,12 @@ const PopupContent = ({ isExpanded, isLoading, selectedItem, cascadeField, onCas
           </>
         ) : (
           <div className="flex justify-center items-center h-full">
-            <p>Select a prompt to view details</p>
+            <p className="text-on-surface-variant">Select a prompt to view details</p>
           </div>
         )}
       </div>
     </div>
   );
 };
-
-const ActionButton = ({ icon, onClick, tooltip }) => (
-  <Button
-    variant="ghost"
-    size="sm"
-    className="h-6 w-6 p-0"
-    onClick={onClick}
-    title={tooltip}
-  >
-    {icon}
-  </Button>
-);
 
 export default PopupContent;
