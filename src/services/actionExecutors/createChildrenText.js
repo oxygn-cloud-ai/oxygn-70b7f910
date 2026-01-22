@@ -6,7 +6,7 @@
  */
 
 import { processNamingTemplate } from '../../utils/namingTemplates.js';
-import { generatePositionAtEnd } from '../../utils/lexPosition.js';
+import { generatePositionAtEnd } from '../../utils/lexPosition';
 
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
