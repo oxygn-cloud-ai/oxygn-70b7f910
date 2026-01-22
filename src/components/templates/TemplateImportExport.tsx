@@ -4,16 +4,71 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/sonner';
 
-/**
- * Export a template as JSON
- */
-export const ExportTemplateDialog = ({ template, trigger }) => {
-  const [copied, setCopied] = useState(false);
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface VariableDefinition {
+  name: string;
+  type?: string;
+  default?: string;
+  description?: string;
+}
+
+interface TemplateStructure {
+  _id?: string;
+  prompt_name: string;
+  children?: TemplateStructure[];
+  [key: string]: unknown;
+}
+
+interface Template {
+  row_id?: string;
+  template_name: string;
+  template_description?: string;
+  category?: string;
+  structure?: TemplateStructure;
+  variable_definitions?: VariableDefinition[];
+}
+
+interface ExportData {
+  _exportVersion: number;
+  template_name: string;
+  template_description?: string;
+  category?: string;
+  structure?: TemplateStructure;
+  variable_definitions: VariableDefinition[];
+  exported_at: string;
+}
+
+interface ImportData {
+  name: string;
+  description: string;
+  category: string;
+  structure: TemplateStructure;
+  variableDefinitions: VariableDefinition[];
+}
+
+interface ExportTemplateDialogProps {
+  template: Template;
+  trigger?: React.ReactNode;
+}
+
+interface ImportTemplateDialogProps {
+  onImport: (data: ImportData) => Promise<void>;
+  trigger?: React.ReactNode;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export Dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const ExportTemplateDialog: React.FC<ExportTemplateDialogProps> = ({ template, trigger }) => {
+  const [copied, setCopied] = useState<boolean>(false);
   
-  const exportData = {
+  const exportData: ExportData = {
     _exportVersion: 1,
     template_name: template.template_name,
     template_description: template.template_description,
@@ -49,7 +104,7 @@ export const ExportTemplateDialog = ({ template, trigger }) => {
     <Dialog>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="ghost" size="sm" className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
+          <Button variant="ghost" size="sm" className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -57,8 +112,8 @@ export const ExportTemplateDialog = ({ template, trigger }) => {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Export Template</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-title-sm">Export Template</DialogTitle>
+          <DialogDescription className="text-body-sm">
             Download or copy the template as JSON to share or backup.
           </DialogDescription>
         </DialogHeader>
@@ -68,17 +123,17 @@ export const ExportTemplateDialog = ({ template, trigger }) => {
             <Textarea
               value={jsonString}
               readOnly
-              className="font-mono text-xs h-80"
+              className="font-mono text-[11px] h-80 bg-surface-container"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={handleCopy} className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
+          <Button variant="ghost" onClick={handleCopy} className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
             {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
             {copied ? 'Copied!' : 'Copy'}
           </Button>
-          <Button variant="ghost" onClick={handleDownload} className="!text-primary hover:!bg-muted/50">
+          <Button variant="ghost" onClick={handleDownload} className="text-primary hover:bg-surface-container">
             <Download className="h-4 w-4 mr-2" />
             Download JSON
           </Button>
@@ -88,23 +143,24 @@ export const ExportTemplateDialog = ({ template, trigger }) => {
   );
 };
 
-/**
- * Import a template from JSON
- */
-export const ImportTemplateDialog = ({ onImport, trigger }) => {
-  const [open, setOpen] = useState(false);
-  const [jsonInput, setJsonInput] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
-  const [error, setError] = useState(null);
-  const fileInputRef = useRef(null);
+// ─────────────────────────────────────────────────────────────────────────────
+// Import Dialog
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const handleFileSelect = (e) => {
+export const ImportTemplateDialog: React.FC<ImportTemplateDialogProps> = ({ onImport, trigger }) => {
+  const [open, setOpen] = useState<boolean>(false);
+  const [jsonInput, setJsonInput] = useState<string>('');
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      setJsonInput(event.target.result);
+      setJsonInput(event.target?.result as string);
       setError(null);
     };
     reader.onerror = () => {
@@ -142,7 +198,7 @@ export const ImportTemplateDialog = ({ onImport, trigger }) => {
       toast.success('Template imported');
     } catch (err) {
       console.error('Import error:', err);
-      const errorMsg = err.message || 'Invalid JSON format';
+      const errorMsg = err instanceof Error ? err.message : 'Invalid JSON format';
       setError(errorMsg);
       toast.error('Import failed', { description: errorMsg });
     } finally {
@@ -154,7 +210,7 @@ export const ImportTemplateDialog = ({ onImport, trigger }) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="ghost" size="sm" className="!text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
+          <Button variant="ghost" size="sm" className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container">
             <Upload className="h-4 w-4 mr-2" />
             Import
           </Button>
@@ -162,15 +218,15 @@ export const ImportTemplateDialog = ({ onImport, trigger }) => {
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Import Template</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-title-sm">Import Template</DialogTitle>
+          <DialogDescription className="text-body-sm">
             Import a template from a JSON file or paste JSON directly.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
           <div>
-            <Label>Upload JSON File</Label>
+            <Label className="text-label-sm text-on-surface-variant">Upload JSON File</Label>
             <div className="mt-2">
               <input
                 ref={fileInputRef}
@@ -190,17 +246,17 @@ export const ImportTemplateDialog = ({ onImport, trigger }) => {
           </div>
 
           <div className="relative">
-            <Label>Or Paste JSON</Label>
+            <Label className="text-label-sm text-on-surface-variant">Or Paste JSON</Label>
             <Textarea
               value={jsonInput}
               onChange={(e) => { setJsonInput(e.target.value); setError(null); }}
               placeholder='{"template_name": "...", "structure": {...}}'
-              className="font-mono text-xs h-60 mt-2"
+              className="font-mono text-[11px] h-60 mt-2 bg-surface-container"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-body-sm text-red-500">{error}</p>
           )}
         </div>
 

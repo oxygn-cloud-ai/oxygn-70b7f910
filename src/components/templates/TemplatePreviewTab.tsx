@@ -9,22 +9,54 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 
-/**
- * Preview tab showing what the template will create
- */
-const TemplatePreviewTab = ({ template }) => {
-  const [variableValues, setVariableValues] = useState({});
-  const [showResolved, setShowResolved] = useState(false);
-  const [expandedNodes, setExpandedNodes] = useState(new Set(['root']));
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface VariableDefinition {
+  name: string;
+  type?: string;
+  default?: string;
+  description?: string;
+}
+
+interface TemplateStructure {
+  _id?: string;
+  prompt_name?: string;
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  model?: string | null;
+  children?: TemplateStructure[];
+  [key: string]: unknown;
+}
+
+interface Template {
+  row_id: string;
+  template_name: string;
+  structure?: TemplateStructure;
+  variable_definitions?: VariableDefinition[];
+}
+
+interface TemplatePreviewTabProps {
+  template: Template;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TemplatePreviewTab: React.FC<TemplatePreviewTabProps> = ({ template }) => {
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [showResolved, setShowResolved] = useState<boolean>(false);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
 
   const variableDefinitions = template.variable_definitions || [];
   const structure = template.structure || {};
 
-  // Initialize variable values from defaults - use useEffect for side effects
+  // Initialize variable values from defaults
   useEffect(() => {
-    const defaults = {};
+    const defaults: Record<string, string> = {};
     variableDefinitions.forEach(v => {
       if (v.default && !variableValues[v.name]) {
         defaults[v.name] = v.default;
@@ -36,7 +68,7 @@ const TemplatePreviewTab = ({ template }) => {
   }, [variableDefinitions]);
 
   // Resolve variables in text
-  const resolveVariables = (text) => {
+  const resolveVariables = (text: string | undefined): string | undefined => {
     if (!text) return text;
     return text.replace(/\{\{([^}]+)\}\}/g, (match, varName) => {
       const trimmedName = varName.trim();
@@ -48,7 +80,7 @@ const TemplatePreviewTab = ({ template }) => {
   };
 
   // Toggle node expansion
-  const toggleExpanded = (nodeId) => {
+  const toggleExpanded = (nodeId: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
@@ -61,7 +93,7 @@ const TemplatePreviewTab = ({ template }) => {
   };
 
   // Render structure preview
-  const renderNode = (node, depth = 0) => {
+  const renderNode = (node: TemplateStructure, depth: number = 0): React.ReactNode => {
     if (!node) return null;
     const nodeId = node._id || `node-${depth}`;
     const isExpanded = expandedNodes.has(nodeId);
@@ -75,7 +107,7 @@ const TemplatePreviewTab = ({ template }) => {
       : node.input_user_prompt;
 
     return (
-      <div key={nodeId} className="border-l-2 border-border ml-2 pl-4" style={{ marginLeft: depth > 0 ? '12px' : '0' }}>
+      <div key={nodeId} className="border-l-2 border-outline-variant ml-2 pl-4" style={{ marginLeft: depth > 0 ? '12px' : '0' }}>
         <div className="py-2">
           <div 
             className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
@@ -84,26 +116,26 @@ const TemplatePreviewTab = ({ template }) => {
             {hasChildren ? (
               isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
             ) : (
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <FileText className="h-4 w-4 text-on-surface-variant" />
             )}
-            <span className="font-medium">{node.prompt_name || 'Untitled'}</span>
+            <span className="font-medium text-on-surface">{node.prompt_name || 'Untitled'}</span>
             {node.model && (
-              <Badge variant="outline" className="text-compact">{node.model}</Badge>
+              <Badge variant="outline" className="text-[10px]">{node.model}</Badge>
             )}
           </div>
           
           {isExpanded && (
-            <div className="mt-2 space-y-2 text-sm">
+            <div className="mt-2 space-y-2 text-body-sm">
               {systemPrompt && (
-                <div className="rounded bg-muted/50 p-2">
-                  <p className="text-[10px] uppercase text-muted-foreground mb-1">System</p>
-                  <pre className="whitespace-pre-wrap text-xs font-mono">{systemPrompt}</pre>
+                <div className="rounded-m3-sm bg-surface-container p-2">
+                  <p className="text-label-sm text-on-surface-variant mb-1">System</p>
+                  <pre className="whitespace-pre-wrap text-[11px] font-mono text-on-surface">{systemPrompt}</pre>
                 </div>
               )}
               {userPrompt && (
-                <div className="rounded bg-muted/50 p-2">
-                  <p className="text-[10px] uppercase text-muted-foreground mb-1">User</p>
-                  <pre className="whitespace-pre-wrap text-xs font-mono">{userPrompt}</pre>
+                <div className="rounded-m3-sm bg-surface-container p-2">
+                  <p className="text-label-sm text-on-surface-variant mb-1">User</p>
+                  <pre className="whitespace-pre-wrap text-[11px] font-mono text-on-surface">{userPrompt}</pre>
                 </div>
               )}
             </div>
@@ -111,7 +143,7 @@ const TemplatePreviewTab = ({ template }) => {
           
           {isExpanded && hasChildren && (
             <div className="mt-2">
-              {node.children.map((child, i) => renderNode(child, depth + 1))}
+              {node.children!.map((child, i) => renderNode(child, depth + 1))}
             </div>
           )}
         </div>
@@ -124,19 +156,19 @@ const TemplatePreviewTab = ({ template }) => {
       {/* Variable Inputs */}
       <Card className="h-fit">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Test Variables</CardTitle>
-          <CardDescription>Fill in values to preview resolved prompts</CardDescription>
+          <CardTitle className="text-title-sm">Test Variables</CardTitle>
+          <CardDescription className="text-body-sm">Fill in values to preview resolved prompts</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {variableDefinitions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No variables defined in this template.</p>
+            <p className="text-body-sm text-on-surface-variant">No variables defined in this template.</p>
           ) : (
             variableDefinitions.map(variable => (
               <div key={variable.name} className="space-y-1">
-                <Label className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{`{{${variable.name}}}`}</span>
+                <Label className="flex items-center gap-2 text-body-sm">
+                  <span className="font-mono text-[10px] text-on-surface-variant">{`{{${variable.name}}}`}</span>
                   {variable.description && (
-                    <span className="text-muted-foreground font-normal">— {variable.description}</span>
+                    <span className="text-on-surface-variant font-normal">— {variable.description}</span>
                   )}
                 </Label>
                 {variable.type === 'textarea' ? (
@@ -145,6 +177,7 @@ const TemplatePreviewTab = ({ template }) => {
                     onChange={(e) => setVariableValues(prev => ({ ...prev, [variable.name]: e.target.value }))}
                     placeholder={variable.default || `Enter ${variable.name}...`}
                     rows={3}
+                    className="bg-surface-container"
                   />
                 ) : (
                   <Input
@@ -152,6 +185,7 @@ const TemplatePreviewTab = ({ template }) => {
                     value={variableValues[variable.name] || ''}
                     onChange={(e) => setVariableValues(prev => ({ ...prev, [variable.name]: e.target.value }))}
                     placeholder={variable.default || `Enter ${variable.name}...`}
+                    className="bg-surface-container"
                   />
                 )}
               </div>
@@ -164,18 +198,16 @@ const TemplatePreviewTab = ({ template }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost"
+                  <button 
                     onClick={() => setShowResolved(!showResolved)}
-                    size="sm"
-                    className={`h-8 w-8 p-0 transition-colors ${
+                    className={`w-8 h-8 flex items-center justify-center rounded-m3-full transition-colors ${
                       showResolved 
-                        ? '!text-primary !bg-transparent hover:!bg-muted/50' 
-                        : '!text-muted-foreground hover:!text-foreground hover:!bg-muted/50'
+                        ? 'text-primary hover:bg-surface-container' 
+                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                     }`}
                   >
                     <Play className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
                   <p>{showResolved ? 'Showing resolved values' : 'Show resolved values'}</p>
@@ -183,7 +215,7 @@ const TemplatePreviewTab = ({ template }) => {
               </Tooltip>
             </TooltipProvider>
             {showResolved && (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[10px] text-on-surface-variant">
                 Variables are replaced with values
               </span>
             )}
@@ -194,8 +226,8 @@ const TemplatePreviewTab = ({ template }) => {
       {/* Structure Preview */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Structure Preview</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-title-sm">Structure Preview</CardTitle>
+          <CardDescription className="text-body-sm">
             {showResolved 
               ? 'Prompts with variables resolved' 
               : 'Template structure as it will be created'}
