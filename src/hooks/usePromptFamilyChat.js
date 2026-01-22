@@ -257,9 +257,13 @@ export const usePromptFamilyChat = (promptRowId) => {
 
   // Send a message and get AI response
   const sendMessage = useCallback(async (userMessage, threadId = null, options = {}) => {
+    console.log('[ChatDebug] sendMessage called, isStreaming:', isStreaming, 'threadId:', threadId, 'activeThreadId:', activeThreadId);
     const { model, reasoningEffort } = options;
     const effectiveThreadId = threadId || activeThreadId;
-    if (!effectiveThreadId || !userMessage.trim() || !promptRowId) return null;
+    if (!effectiveThreadId || !userMessage.trim() || !promptRowId) {
+      console.log('[ChatDebug] sendMessage blocked - missing thread/message/prompt', { effectiveThreadId, hasMessage: !!userMessage.trim(), promptRowId });
+      return null;
+    }
 
     const userMsg = await addMessage('user', userMessage, null, effectiveThreadId);
     if (!userMsg) return null;
