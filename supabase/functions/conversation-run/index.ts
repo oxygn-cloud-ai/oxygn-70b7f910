@@ -819,16 +819,13 @@ async function runResponsesAPI(
           };
         }
         
-        // Handle requires_action status - not supported in this endpoint
+        // Handle requires_action status - built-in tools are auto-executed by OpenAI
+        // We just need to continue polling until completion
         if (data.status === 'requires_action') {
-          console.error('Response requires tool action (not supported in cascade runs):', responseId);
-          return {
-            success: false,
-            error: 'Model attempted to use tools, which are not supported in this context',
-            error_code: 'REQUIRES_ACTION_UNSUPPORTED',
-            response_id: responseId,
-            requestParams,
-          };
+          console.log('Response requires action (built-in tools executing):', responseId);
+          // Continue polling - OpenAI handles built-in tools automatically
+          await new Promise(resolve => setTimeout(resolve, intervalMs));
+          continue;
         }
         
         // Still queued or in_progress, continue polling
@@ -1027,17 +1024,11 @@ async function runResponsesAPI(
             // Don't abort - continue to extract whatever text was generated
           }
           
-          // Handle requires_action status - not supported
+          // Handle requires_action status - built-in tools are auto-executed by OpenAI
+          // Continue streaming - OpenAI handles built-in tools automatically
           if (event.status === 'requires_action') {
-            console.error('Response requires action during streaming (not supported)');
-            if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
-            reader.cancel();
-            return {
-              success: false,
-              error: 'Model attempted to use tools, which are not supported in this context',
-              error_code: 'REQUIRES_ACTION_UNSUPPORTED',
-              response_id: responseId,
-            };
+            console.log('Response requires action during streaming (built-in tools executing)');
+            // Don't abort - continue streaming to capture results
           }
           
           // Capture usage when available and emit for live dashboard
@@ -1567,49 +1558,73 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
   if (functionCalls.length === 0) {
     const textOutput = outputItems.find((o: any) => o.type === 'message');
     const textContent = textOutput?.content?.find((c: any) => c.type === 'output_text');
-    const responseText = textContent?.text || '';
+    let responseText = textContent?.text || '';
     
     // If we got built-in tool results but no text, there might be more processing needed
+    // Use a proper continuation loop instead of single poll
     if (!responseText && builtInToolCalls.length > 0) {
-      console.log('Question node: built-in tools ran but no text output yet, waiting for continuation');
+      console.log('Question node: built-in tools ran but no text output yet, starting continuation loop');
       
-      // Check if the response has more to do (status should be complete if done)
-      if (currentResult.status !== 'completed') {
-        // Need to continue polling
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      const CONTINUATION_POLL_INTERVAL = 500;
+      const MAX_CONTINUATION_TIME = 120000; // 2 minutes for continuation
+      const continuationStartTime = Date.now();
+      
+      while (currentResult.status !== 'completed' && 
+             Date.now() - continuationStartTime < MAX_CONTINUATION_TIME) {
+        await new Promise(resolve => setTimeout(resolve, CONTINUATION_POLL_INTERVAL));
         
         const continuePollResponse = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
           headers: { 'Authorization': `Bearer ${apiKey}` },
         });
         
-        if (continuePollResponse.ok) {
-          currentResult = await continuePollResponse.json();
-          // Recursively process the updated result
-          const updatedOutputItems = currentResult.output || [];
-          const updatedFunctionCalls = updatedOutputItems.filter((o: any) => o.type === 'function_call');
-          
-          if (updatedFunctionCalls.length > 0) {
-            // Process these function calls below
-          } else {
-            const updatedTextOutput = updatedOutputItems.find((o: any) => o.type === 'message');
-            const updatedTextContent = updatedTextOutput?.content?.find((c: any) => c.type === 'output_text');
-            return {
-              success: true,
-              response: updatedTextContent?.text || 'Question processing completed.',
-              response_id: responseId,
-              usage: currentResult.usage,
-            };
-          }
+        if (!continuePollResponse.ok) {
+          console.error('Continuation poll failed:', continuePollResponse.status);
+          break;
+        }
+        
+        currentResult = await continuePollResponse.json();
+        console.log('Continuation poll status:', currentResult.status);
+        
+        // Check for function calls in updated output
+        const updatedOutputItems = currentResult.output || [];
+        const updatedFunctionCalls = updatedOutputItems.filter((o: any) => o.type === 'function_call');
+        
+        if (updatedFunctionCalls.length > 0) {
+          // New function calls appeared - process them in the main loop
+          console.log('Question node: new function calls appeared during continuation');
+          // Update functionCalls for processing below
+          functionCalls.push(...updatedFunctionCalls);
+          break;
+        }
+        
+        // Check for text output
+        const updatedTextOutput = updatedOutputItems.find((o: any) => o.type === 'message');
+        const updatedTextContent = updatedTextOutput?.content?.find((c: any) => c.type === 'output_text');
+        
+        if (updatedTextContent?.text) {
+          responseText = updatedTextContent.text;
+          console.log('Question node: got text response from continuation:', responseText.substring(0, 100));
+          break;
         }
       }
+      
+      // If still no function calls after continuation, return whatever we have
+      if (functionCalls.length === 0) {
+        return {
+          success: true,
+          response: responseText || 'Question processing completed.',
+          response_id: responseId,
+          usage: currentResult.usage,
+        };
+      }
+    } else {
+      return {
+        success: true,
+        response: responseText,
+        response_id: responseId,
+        usage: currentResult.usage,
+      };
     }
-    
-    return {
-      success: true,
-      response: responseText,
-      response_id: responseId,
-      usage: currentResult.usage,
-    };
   }
   
   // Process function calls (question-specific tools)
