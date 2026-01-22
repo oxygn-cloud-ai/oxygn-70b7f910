@@ -6,15 +6,33 @@ import { useConversationRun } from '../../hooks/useConversationRun';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { useExecutionTracing } from '@/hooks/useExecutionTracing';
 import PromptField from '../PromptField';
-import { Bot, Info } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
 import { TOOLTIPS } from '@/config/labels';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-const PromptFieldsTab = ({ 
+interface PromptFieldConfig {
+  name: string;
+  label: string;
+  tooltip?: string;
+  placeholder?: string;
+}
+
+interface PromptFieldsTabProps {
+  selectedItemData: Record<string, unknown> | null;
+  projectRowId: string | null;
+  onUpdateField?: (field: string, value: unknown) => void;
+  isLinksPage?: boolean;
+  isReadOnly?: boolean;
+  onCascade?: (fieldName: string) => void;
+  parentData?: Record<string, unknown> | null;
+  cascadeField?: string;
+  isTopLevel?: boolean;
+  parentAssistantRowId?: string | null;
+}
+
+const PromptFieldsTab: React.FC<PromptFieldsTabProps> = ({ 
   selectedItemData, 
   projectRowId, 
   onUpdateField, 
@@ -42,12 +60,6 @@ const PromptFieldsTab = ({
   } = useProjectData(selectedItemData, projectRowId);
 
   const handleGenerate = useCallback(async () => {
-    // For top-level assistants, they ARE the conversation - use their own assistant ID
-    // For child prompts, they need parentAssistantRowId
-    const effectiveAssistantRowId = isTopLevel && selectedItemData?.is_assistant 
-      ? null // Will be fetched by runPrompt if needed
-      : parentAssistantRowId;
-    
     // Top-level non-assistants need conversation mode enabled first
     if (isTopLevel && !selectedItemData?.is_assistant) {
       toast.error('Cannot generate: Enable conversation mode on this prompt first.');
@@ -68,8 +80,8 @@ const PromptFieldsTab = ({
     setIsGenerating(true);
     startSingleRun(projectRowId);
     
-    let traceId = null;
-    let spanId = null;
+    let traceId: string | null = null;
+    let spanId: string | null = null;
     const startTime = Date.now();
     
     try {
@@ -79,7 +91,7 @@ const PromptFieldsTab = ({
         execution_type: 'single',
       });
       
-      if (traceResult.success) {
+      if (traceResult.success && traceResult.trace_id) {
         traceId = traceResult.trace_id;
         
         // Create span for this generation
@@ -89,33 +101,26 @@ const PromptFieldsTab = ({
           span_type: 'generation',
         });
         
-        if (spanResult.success) {
+        if (spanResult.success && spanResult.span_id) {
           spanId = spanResult.span_id;
         }
       }
       
-      // Edge function automatically uses:
-      // - input_admin_prompt from DB as system context
-      // - input_user_prompt from DB as user message
-      // - Saves result to user_prompt_result
       const result = await runPrompt(projectRowId, '', {}, {
-        onSuccess: (data) => {
+        onSuccess: (data: { response?: string }) => {
           if (data?.response) {
             handleChange('user_prompt_result', data.response);
             handleChange('output_response', data.response);
-            // Persist immediately so data isn't lost on prompt switch
             handleSave('user_prompt_result');
             handleSave('output_response');
           }
         }
       });
       
-      // Also update local state from result
       if (result?.response) {
         handleChange('user_prompt_result', result.response);
         handleChange('output_response', result.response);
         
-        // Complete span with success
         if (spanId) {
           await completeSpan({
             span_id: spanId,
@@ -131,7 +136,6 @@ const PromptFieldsTab = ({
           });
         }
         
-        // Complete trace with success
         if (traceId) {
           await completeTrace({
             trace_id: traceId,
@@ -139,7 +143,6 @@ const PromptFieldsTab = ({
           });
         }
       } else {
-        // No result - mark as failed
         if (spanId) {
           await failSpan({
             span_id: spanId,
@@ -161,13 +164,12 @@ const PromptFieldsTab = ({
     } catch (error) {
       console.error('Error generating response:', error);
       
-      // Record failure in tracing
       if (spanId) {
         await failSpan({
           span_id: spanId,
           error_evidence: {
             error_type: 'execution_error',
-            error_message: error.message || 'Unknown error',
+            error_message: error instanceof Error ? error.message : 'Unknown error',
             retry_recommended: true,
           },
         });
@@ -176,23 +178,22 @@ const PromptFieldsTab = ({
         await completeTrace({
           trace_id: traceId,
           status: 'failed',
-          error_summary: error.message || 'Execution failed',
+          error_summary: error instanceof Error ? error.message : 'Execution failed',
         });
       }
-      // Error toast already shown by runPrompt
     } finally {
       setIsGenerating(false);
       endSingleRun();
     }
   }, [isTopLevel, selectedItemData?.is_assistant, parentAssistantRowId, projectRowId, runPrompt, handleChange, handleSave, startSingleRun, endSingleRun, startTrace, createSpan, completeSpan, failSpan, completeTrace]);
 
-  const handleCascade = useCallback((fieldName) => {
+  const handleCascadeField = useCallback((fieldName: string) => {
     if (onCascade) {
       onCascade(fieldName);
     }
   }, [onCascade]);
 
-  const fields = useMemo(() => [
+  const fields: PromptFieldConfig[] = useMemo(() => [
     { name: 'input_admin_prompt', label: TOOLTIPS.promptFields.inputAdminPrompt.label, tooltip: TOOLTIPS.promptFields.inputAdminPrompt.tooltip },
     { name: 'input_user_prompt', label: TOOLTIPS.promptFields.inputUserPrompt.label, tooltip: TOOLTIPS.promptFields.inputUserPrompt.tooltip },
     { name: 'admin_prompt_result', label: TOOLTIPS.promptFields.adminResult.label },
@@ -201,6 +202,8 @@ const PromptFieldsTab = ({
   ], []);
 
   const handleEnableAssistant = useCallback(async () => {
+    if (!supabase || !projectRowId) return;
+    
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -217,7 +220,7 @@ const PromptFieldsTab = ({
     } catch (error) {
       console.error('Error enabling conversation mode:', error);
       toast.error('Failed to enable conversation mode');
-      trackException(error, { context: 'PromptFieldsTab.handleEnableAssistant' });
+      trackException(error instanceof Error ? error : new Error('Unknown error'), { context: 'PromptFieldsTab.handleEnableAssistant' });
     }
   }, [supabase, projectRowId, onUpdateField]);
 
@@ -251,23 +254,23 @@ const PromptFieldsTab = ({
               key={field.name}
               label={field.label}
               tooltip={field.tooltip}
-              value={localData[field.name] || ''}
-              onChange={(value) => handleChange(field.name, value)}
+              value={String(localData[field.name] || '')}
+              onChange={(value: string) => handleChange(field.name, value)}
               onReset={() => handleReset(field.name)}
               onSave={() => handleSave(field.name)}
-              initialValue={selectedItemData[field.name] || ''}
-              onGenerate={isLinksPage ? null : handleGenerate}
+              initialValue={String(selectedItemData?.[field.name] || '')}
+              onGenerate={isLinksPage ? undefined : handleGenerate}
               isGenerating={isGenerating}
               formattedTime={formattedTime}
               isLinksPage={isLinksPage}
               isReadOnly={isReadOnly}
-              onCascade={() => handleCascade(field.name)}
+              onCascade={() => handleCascadeField(field.name)}
               parentData={parentData}
               cascadeField={cascadeField}
               hasUnsavedChanges={hasUnsavedChanges(field.name)}
-              promptId={projectRowId}
+              promptId={projectRowId || undefined}
               placeholder={field.name === 'input_admin_prompt' ? 'Enter system/context instructions...' : undefined}
-              familyRootPromptRowId={selectedItemData?.root_prompt_row_id || selectedItemData?.row_id}
+              familyRootPromptRowId={String(selectedItemData?.root_prompt_row_id || selectedItemData?.row_id || '')}
             />
           ))}
       </div>

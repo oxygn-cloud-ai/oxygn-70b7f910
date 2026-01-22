@@ -12,7 +12,22 @@ import { useTemplates } from '../../hooks/useTemplates';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
-const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId }) => {
+interface Template {
+  row_id: string;
+  template_name: string;
+  template_description?: string;
+  category?: string;
+  structure?: Record<string, unknown>;
+}
+
+interface TemplatesTabProps {
+  selectedItemData?: Record<string, unknown> | null;
+  projectRowId?: string | null;
+  isTopLevel?: boolean;
+  promptRowId?: string | null;
+}
+
+const TemplatesTab: React.FC<TemplatesTabProps> = ({ selectedItemData, projectRowId, isTopLevel, promptRowId }) => {
   const { 
     templates, 
     isLoading, 
@@ -27,15 +42,13 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
   const [templateDescription, setTemplateDescription] = useState('');
   const [templateCategory, setTemplateCategory] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
-  const filteredTemplates = templates.filter(t => 
+  const filteredTemplates = (templates as Template[]).filter(t => 
     t.template_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.template_description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const categories = [...new Set(templates.map(t => t.category).filter(Boolean))];
 
   const handleSaveAsTemplate = async () => {
     if (!templateName.trim()) {
@@ -69,7 +82,7 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
     }
   };
 
-  const handleDeleteTemplate = async (templateId, e) => {
+  const handleDeleteTemplate = async (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this template?')) {
       await deleteTemplate(templateId);
@@ -77,7 +90,7 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
     }
   };
 
-  const handlePreviewTemplate = (template) => {
+  const handlePreviewTemplate = (template: Template) => {
     setSelectedTemplate(template);
   };
 
@@ -193,7 +206,7 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
         ) : (
           <div className="space-y-2 max-h-[400px] overflow-auto pt-2">
             {filteredTemplates.map(template => {
-              const variables = extractTemplateVariables(template.structure);
+              const variables = extractTemplateVariables(template.structure || {});
               
               return (
                 <div 
@@ -217,7 +230,7 @@ const TemplatesTab = ({ selectedItemData, projectRowId, isTopLevel, promptRowId 
                     {variables.length > 0 && (
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <span className="text-xs text-muted-foreground">Variables:</span>
-                        {variables.slice(0, 3).map(v => (
+                        {variables.slice(0, 3).map((v: string) => (
                           <Badge key={v} variant="secondary" className="text-xs font-mono">
                             {`{{${v}}}`}
                           </Badge>
