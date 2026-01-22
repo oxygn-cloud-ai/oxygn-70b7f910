@@ -13,11 +13,10 @@ import {
   ArrowRight,
   Download,
   Loader2,
-  Variable,
-  Edit3,
   Layers,
   Settings,
-  LayoutTemplate
+  LayoutTemplate,
+  LucideIcon
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,22 +31,96 @@ import { useConfluenceExport } from "@/hooks/useConfluenceExport";
 import { useExportTemplates } from "@/hooks/useExportTemplates";
 import { ConfluenceConfig } from "@/components/export/types/confluence/ConfluenceConfig";
 
-// Step definitions
-const STEPS = [
+// ============= Type Definitions =============
+
+export type ExportType = "confluence" | "json" | "markdown";
+
+export interface PromptTreeItem {
+  row_id: string;
+  prompt_name?: string;
+  children?: PromptTreeItem[];
+}
+
+export interface PromptData {
+  row_id: string;
+  prompt_name?: string;
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  output_response?: string;
+}
+
+export interface VariableData {
+  variable_name: string;
+  variable_value?: string;
+}
+
+export interface StandardField {
+  id: string;
+  label: string;
+}
+
+export interface ExportState {
+  currentStep: number;
+  selectedPromptIds: string[];
+  selectedFields: string[];
+  selectedVariables: Record<string, string[]>;
+  exportType: ExportType;
+  promptsData: PromptData[];
+  variablesData: Record<string, VariableData[]>;
+  isLoadingPrompts: boolean;
+  isLoadingVariables: boolean;
+  canProceed: boolean;
+  goToStep: (step: number) => void;
+  goNext: () => void;
+  goBack: () => void;
+  togglePromptSelection: (id: string) => void;
+  toggleFieldSelection: (fieldId: string) => void;
+  toggleVariableSelection: (promptId: string, varName: string) => void;
+  selectAllPrompts: (ids: string[]) => void;
+  clearPromptSelection: () => void;
+  setExportType: (type: ExportType) => void;
+  fetchPromptsData: (ids: string[]) => void;
+  fetchVariablesData: (ids: string[]) => void;
+  STANDARD_FIELDS: StandardField[];
+  getExportData: PromptData[];
+}
+
+interface StepConfig {
+  id: number;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface ExportTypeOption {
+  id: ExportType;
+  icon: LucideIcon;
+  label: string;
+  description: string;
+}
+
+// ============= Constants =============
+
+const STEPS: StepConfig[] = [
   { id: 1, label: "Prompts", icon: Layers },
   { id: 2, label: "Fields", icon: FileText },
   { id: 3, label: "Destination", icon: Globe },
   { id: 4, label: "Configure", icon: Settings },
 ];
 
-const EXPORT_TYPE_OPTIONS = [
+const EXPORT_TYPE_OPTIONS: ExportTypeOption[] = [
   { id: "confluence", icon: Globe, label: "Confluence", description: "Export to Confluence pages" },
   { id: "json", icon: FileJson, label: "JSON", description: "Download as JSON file" },
   { id: "markdown", icon: FileText, label: "Markdown", description: "Download as Markdown" },
 ];
 
-// Step Navigation Component
-const StepNavigation = ({ currentStep, onStepClick }) => (
+// ============= Helper Components =============
+
+interface StepNavigationProps {
+  currentStep: number;
+  onStepClick: (step: number) => void;
+}
+
+const StepNavigation: React.FC<StepNavigationProps> = ({ currentStep, onStepClick }) => (
   <div className="flex items-center gap-1 px-4 py-2 border-b border-outline-variant">
     {STEPS.map((step, index) => {
       const isActive = step.id === currentStep;
@@ -86,8 +159,21 @@ const StepNavigation = ({ currentStep, onStepClick }) => (
   </div>
 );
 
-// Prompt Tree Item Component - Updated for real data structure
-const PromptTreeItem = ({ item, selectedIds, onToggle, level = 0 }) => {
+// ============= PromptTreeItem Component =============
+
+interface PromptTreeItemProps {
+  item: PromptTreeItem;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  level?: number;
+}
+
+const PromptTreeItemComponent: React.FC<PromptTreeItemProps> = ({ 
+  item, 
+  selectedIds, 
+  onToggle, 
+  level = 0 
+}) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = item.children && item.children.length > 0;
   const isSelected = selectedIds.includes(item.row_id);
@@ -116,8 +202,8 @@ const PromptTreeItem = ({ item, selectedIds, onToggle, level = 0 }) => {
         />
         <span className="text-body-sm text-on-surface">{item.prompt_name || 'Unnamed'}</span>
       </div>
-      {expanded && hasChildren && item.children.map(child => (
-        <PromptTreeItem 
+      {expanded && hasChildren && item.children!.map(child => (
+        <PromptTreeItemComponent 
           key={child.row_id} 
           item={child} 
           selectedIds={selectedIds}
@@ -129,8 +215,29 @@ const PromptTreeItem = ({ item, selectedIds, onToggle, level = 0 }) => {
   );
 };
 
-// Page Tree Item Component
-const PageTreeItem = ({ page, pages, selectedId, onSelect, level = 0 }) => {
+// ============= PageTreeItem Component =============
+
+interface Page {
+  id: string;
+  name: string;
+  children?: string[];
+}
+
+interface PageTreeItemProps {
+  page: Page;
+  pages: Page[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  level?: number;
+}
+
+const PageTreeItem: React.FC<PageTreeItemProps> = ({ 
+  page, 
+  pages, 
+  selectedId, 
+  onSelect, 
+  level = 0 
+}) => {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = page.children && page.children.length > 0;
   const childPages = pages.filter(p => page.children?.includes(p.id));
@@ -174,19 +281,27 @@ const PageTreeItem = ({ page, pages, selectedId, onSelect, level = 0 }) => {
   );
 };
 
-const ExportPanel = ({ 
+// ============= ExportPanel Component =============
+
+export interface ExportPanelProps {
+  onClose?: () => void;
+  exportState?: ExportState;
+  treeData?: PromptTreeItem[];
+  selectedPromptId?: string | null;
+}
+
+const ExportPanel: React.FC<ExportPanelProps> = ({ 
   onClose, 
   exportState,
   treeData = [],
   selectedPromptId 
 }) => {
-  // Destructure from exportState hook if provided, else use defaults
   const {
     currentStep = 1,
     selectedPromptIds = [],
     selectedFields = [],
     selectedVariables = {},
-    exportType = 'confluence',
+    exportType = 'confluence' as ExportType,
     promptsData = [],
     variablesData = {},
     isLoadingPrompts = false,
@@ -207,10 +322,8 @@ const ExportPanel = ({
     getExportData = [],
   } = exportState || {};
   
-  // Real Confluence export hook
   const confluenceExport = useConfluenceExport();
   
-  // Export templates hook
   const { 
     templates, 
     isLoading: isLoadingTemplates, 
@@ -219,21 +332,18 @@ const ExportPanel = ({
     saveTemplate 
   } = useExportTemplates();
   
-  // Local state for configuration step
   const [isExporting, setIsExporting] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [showLoadTemplate, setShowLoadTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   
-  // Fetch templates when load dialog opens
   useEffect(() => {
     if (showLoadTemplate) {
       fetchTemplates(exportType);
     }
   }, [showLoadTemplate, exportType, fetchTemplates]);
   
-  // Handle save template
   const handleSaveTemplate = async () => {
     if (!newTemplateName.trim()) return;
     
@@ -252,29 +362,25 @@ const ExportPanel = ({
     }
   };
   
-  // Handle load template
-  const handleLoadTemplate = (templateId) => {
+  const handleLoadTemplate = (templateId: string) => {
     const template = templates.find(t => t.row_id === templateId);
     if (template && exportState) {
-      // Load selected fields
       if (template.selected_fields) {
-        template.selected_fields.forEach(fieldId => {
+        template.selected_fields.forEach((fieldId: string) => {
           if (!selectedFields.includes(fieldId)) {
             toggleFieldSelection?.(fieldId);
           }
         });
       }
-      // Load selected variables
       if (template.selected_variables) {
-        Object.entries(template.selected_variables).forEach(([promptId, varNames]) => {
-          varNames.forEach(varName => {
+        Object.entries(template.selected_variables as Record<string, string[]>).forEach(([promptId, varNames]) => {
+          varNames.forEach((varName: string) => {
             if (!selectedVariables[promptId]?.includes(varName)) {
               toggleVariableSelection?.(promptId, varName);
             }
           });
         });
       }
-      // Load confluence config
       if (template.confluence_config && confluenceExport.setConfig) {
         confluenceExport.setConfig(template.confluence_config);
       }
@@ -283,10 +389,9 @@ const ExportPanel = ({
     }
   };
   
-  // Get all prompt IDs from tree for select all
   const allPromptIds = useMemo(() => {
-    const collectIds = (items) => {
-      const ids = [];
+    const collectIds = (items: PromptTreeItem[]): string[] => {
+      const ids: string[] = [];
       items.forEach(item => {
         ids.push(item.row_id);
         if (item.children?.length) {
@@ -298,7 +403,6 @@ const ExportPanel = ({
     return collectIds(treeData);
   }, [treeData]);
   
-  // When moving to step 2 (fields), fetch prompts and variables data
   useEffect(() => {
     if (currentStep === 2 && selectedPromptIds.length > 0 && promptsData.length === 0) {
       fetchPromptsData?.(selectedPromptIds);
@@ -306,7 +410,6 @@ const ExportPanel = ({
     }
   }, [currentStep, selectedPromptIds, promptsData.length, fetchPromptsData, fetchVariablesData]);
   
-  // When moving to step 4 (Confluence config), initialize
   useEffect(() => {
     if (currentStep === 4 && exportType === 'confluence') {
       confluenceExport.initialize();
@@ -316,12 +419,11 @@ const ExportPanel = ({
   const selectedPromptsCount = selectedPromptIds.length;
   const selectedFieldsCount = selectedFields.length;
   
-  // Gather selected variables count
   const selectedVariablesCount = Object.values(selectedVariables).reduce(
     (acc, vars) => acc + (vars?.length || 0), 0
   );
 
-  const canProceedLocal = () => {
+  const canProceedLocal = (): boolean => {
     if (!exportState) return false;
     switch (currentStep) {
       case 1: return selectedPromptsCount > 0;
@@ -329,8 +431,8 @@ const ExportPanel = ({
       case 3: return exportType !== null;
       case 4: 
         if (exportType === 'confluence') {
-          return confluenceExport.selectedSpaceKey && 
-            (confluenceExport.pageTitle || confluenceExport.pageTitleSource);
+          return !!(confluenceExport.selectedSpaceKey && 
+            (confluenceExport.pageTitle || confluenceExport.pageTitleSource));
         }
         return true;
       default: return true;
@@ -352,7 +454,7 @@ const ExportPanel = ({
         const exportData = getExportData;
         
         if (!exportData || exportData.length === 0) {
-          console.error('[MockupExportPanel] No export data available');
+          console.error('[ExportPanel] No export data available');
           return;
         }
         
@@ -365,17 +467,16 @@ const ExportPanel = ({
         }
         onClose?.();
       } catch (error) {
-        console.error('[MockupExportPanel] Export failed:', error);
+        console.error('[ExportPanel] Export failed:', error);
       } finally {
         setIsExporting(false);
       }
     } else {
-      // JSON/Markdown export - real implementation
       setIsExporting(true);
       try {
         const exportData = getExportData;
         if (!exportData || exportData.length === 0) {
-          console.error('[MockupExportPanel] No export data available');
+          console.error('[ExportPanel] No export data available');
           return;
         }
         
@@ -391,7 +492,7 @@ const ExportPanel = ({
           a.click();
           URL.revokeObjectURL(url);
         } else if (exportType === 'markdown') {
-          const markdown = exportData.map(p => {
+          const markdown = exportData.map((p: PromptData) => {
             let md = `# ${p.prompt_name || 'Untitled'}\n\n`;
             if (p.input_admin_prompt) md += `## System Prompt\n\n${p.input_admin_prompt}\n\n`;
             if (p.input_user_prompt) md += `## User Prompt\n\n${p.input_user_prompt}\n\n`;
@@ -409,7 +510,7 @@ const ExportPanel = ({
         
         onClose?.();
       } catch (error) {
-        console.error('[MockupExportPanel] Export failed:', error);
+        console.error('[ExportPanel] Export failed:', error);
       } finally {
         setIsExporting(false);
       }
@@ -479,7 +580,7 @@ const ExportPanel = ({
       </div>
 
       {/* Step Navigation */}
-      <StepNavigation currentStep={currentStep} onStepClick={goToStep} />
+      <StepNavigation currentStep={currentStep} onStepClick={goToStep!} />
 
       {/* Load Template Picker */}
       {showLoadTemplate && (
@@ -584,11 +685,11 @@ const ExportPanel = ({
                 <p className="text-body-sm text-on-surface-variant py-4 text-center">No prompts available</p>
               ) : (
                 treeData.map(item => (
-                  <PromptTreeItem 
+                  <PromptTreeItemComponent 
                     key={item.row_id} 
                     item={item} 
                     selectedIds={selectedPromptIds}
-                    onToggle={togglePromptSelection}
+                    onToggle={togglePromptSelection!}
                   />
                 ))
               )}

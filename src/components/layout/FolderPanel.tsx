@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { icons } from "lucide-react";
+import { icons, LucideIcon, LucideProps } from "lucide-react";
 import { 
   Inbox, 
   MessageSquare, 
@@ -21,20 +21,17 @@ import {
   Workflow,
   RefreshCw,
   Loader2,
-  FolderOpen,
   Filter,
   LayoutTemplate,
   CheckSquare,
   Square,
   X,
-  Palette,
   PanelLeftClose,
   Maximize2,
   EllipsisVertical
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useDrag, useDrop } from "react-dnd";
 import { SkeletonListItem } from "@/components/shared/Skeletons";
@@ -43,10 +40,61 @@ import { IconPicker } from "@/components/IconPicker";
 import { updatePromptIcon, updatePromptField } from "@/services/promptMutations";
 import { useSupabase } from "@/hooks/useSupabase";
 import { useDragAutoScroll } from "@/hooks/useDragAutoScroll";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// ============= Type Definitions =============
+
+export interface PromptItem {
+  id?: string;
+  row_id?: string;
+  prompt_name?: string;
+  name?: string;
+  icon_name?: string;
+  starred?: boolean;
+  exclude_from_cascade?: boolean;
+  exclude_from_export?: boolean;
+  is_assistant?: boolean;
+  has_uncommitted_changes?: boolean;
+  updated_at?: string;
+  created_at?: string;
+  children?: PromptItem[];
+}
+
+interface FlatItem {
+  id: string;
+  item: PromptItem;
+}
+
+interface SmartFolderCounts {
+  all: number;
+  conversations: number;
+  starred: number;
+  recent: number;
+}
+
+type SmartFolderType = "all" | "starred" | "conversations" | "recent";
 
 const ITEM_TYPE = "PROMPT_ITEM";
 
-const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick, badge }) => (
+// ============= Helper Components =============
+
+interface SmartFolderProps {
+  icon: LucideIcon;
+  label: string;
+  count: number;
+  isActive?: boolean;
+  onClick: () => void;
+  badge?: string;
+}
+
+const SmartFolder: React.FC<SmartFolderProps> = ({ 
+  icon: Icon, 
+  label, 
+  count, 
+  isActive = false, 
+  onClick, 
+  badge 
+}) => (
   <motion.button
     onClick={onClick}
     whileHover={{ x: isActive ? 0 : 2 }}
@@ -83,36 +131,44 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick, badg
   </motion.button>
 );
 
-const IconButton = React.forwardRef(({ icon: Icon, label, className = "", onClick }, ref) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button
-        ref={ref}
-        onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-        className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:scale-110 transition-all duration-150 ${className}`}
-      >
-        <Icon className="h-3 w-3" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent className="text-[10px]">{label}</TooltipContent>
-  </Tooltip>
-));
+interface IconButtonProps {
+  icon: LucideIcon;
+  label: string;
+  className?: string;
+  onClick?: () => void;
+}
+
+const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ icon: Icon, label, className = "", onClick }, ref) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          ref={ref}
+          onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+          className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] hover:scale-110 transition-all duration-150 ${className}`}
+        >
+          <Icon className="h-3 w-3" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="text-[10px]">{label}</TooltipContent>
+    </Tooltip>
+  )
+);
 IconButton.displayName = 'IconButton';
 
-const OwnerAvatar = ({ initials, color }) => (
-  <div 
-    className={`w-4 h-4 rounded-full flex items-center justify-center text-[7px] font-medium ${color}`}
-    style={{ width: "16px", height: "16px" }}
-  >
-    {initials}
-  </div>
-);
+// ============= DropZone Component =============
 
-// Drop zone between items for inserting
-const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
+interface DropZoneProps {
+  onDrop: (draggedId: string, targetIndex: number, siblingIds: string[]) => void;
+  targetIndex: number;
+  siblingIds: string[];
+  isFirst?: boolean;
+}
+
+const DropZone: React.FC<DropZoneProps> = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
-    drop: (item, monitor) => {
+    drop: (item: { id: string }, monitor) => {
       if (monitor.isOver({ shallow: true })) {
         onDrop(item.id, targetIndex, siblingIds);
       }
@@ -135,7 +191,6 @@ const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
         marginBottom: '-4px',
       }}
     >
-      {/* Visual indicator - only visible on hover */}
       <div 
         className={`
           absolute left-2 right-2 top-1/2 -translate-y-1/2 
@@ -151,12 +206,56 @@ const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
   );
 };
 
-const TreeItem = ({ 
+// ============= TreeItem Component =============
+
+interface TreeItemProps {
+  item: PromptItem;
+  level?: number;
+  isExpanded?: boolean;
+  onToggle?: (id: string) => void;
+  isActive?: boolean;
+  onMoveInto?: (draggedId: string, targetId: string) => void;
+  onMoveBetween?: (draggedId: string, targetIndex: number, siblingIds: string[]) => void;
+  onSelect?: (id: string | null) => void;
+  onAdd?: (parentId: string | null) => void;
+  onDelete?: (id: string, name: string) => void;
+  onDuplicate?: (id: string) => void;
+  onExport?: (id: string) => void;
+  expandedFolders: Record<string, boolean>;
+  selectedPromptId?: string | null;
+  onRunPrompt?: (id: string) => void;
+  onRunCascade?: (id: string) => void;
+  onToggleStar?: (id: string) => void;
+  onToggleExcludeCascade?: (id: string) => void;
+  onToggleExcludeExport?: (id: string) => void;
+  isRunningPrompt?: boolean;
+  isRunningCascade?: boolean;
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  lastSelectedId?: string | null;
+  allFlatItems?: FlatItem[];
+  onRangeSelect?: (fromId: string, toId: string, flatItems: FlatItem[]) => void;
+  selectedItems?: Set<string>;
+  onSelectOnlyThis?: (id: string) => void;
+  onIconChange?: (promptId: string, iconName: string | null) => Promise<void>;
+  onRefresh?: () => void;
+  supabase: SupabaseClient | null;
+  currentCascadePromptId?: string | null;
+  singleRunPromptId?: string | null;
+  isCascadeRunning?: boolean;
+  deletingPromptIds?: Set<string>;
+  onSaveAsTemplate?: (id: string, name: string, hasChildren: boolean) => void;
+  openMenuId: string | null;
+  setOpenMenuId: (id: string | null) => void;
+  isManusModelById?: (id: string) => boolean;
+}
+
+const TreeItem: React.FC<TreeItemProps> = ({ 
   item,
   level = 0, 
   isExpanded = false, 
   onToggle, 
-  isActive = false,
   onMoveInto,
   onMoveBetween,
   onSelect,
@@ -166,7 +265,6 @@ const TreeItem = ({
   onExport,
   expandedFolders,
   selectedPromptId,
-  // Phase 1 handlers
   onRunPrompt,
   onRunCascade,
   onToggleStar,
@@ -174,7 +272,6 @@ const TreeItem = ({
   onToggleExcludeExport,
   isRunningPrompt,
   isRunningCascade,
-  // Multi-select
   isMultiSelectMode,
   isSelected,
   onToggleSelect,
@@ -183,35 +280,27 @@ const TreeItem = ({
   onRangeSelect,
   selectedItems,
   onSelectOnlyThis,
-  // Icon editing
   onIconChange,
   onRefresh,
-  // Supabase for inline editing
   supabase,
-  // Cascade and single run highlighting
   currentCascadePromptId,
   singleRunPromptId,
   isCascadeRunning,
-  // Deleting state for UI feedback
   deletingPromptIds = new Set(),
-  // Save as template
   onSaveAsTemplate,
-  // Menu state - lifted to FolderPanel
   openMenuId,
   setOpenMenuId,
-  // Manus model lookup function
   isManusModelById,
 }) => {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
-  const ref = useRef(null);
-  const menuRef = useRef(null);
-  const menuButtonRef = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(true);
   const visualLevel = Math.min(level, 4);
   const paddingLeft = 10 + visualLevel * 12;
-  const depthIndicator = level > 4 ? `${level}` : null;
   
   const hasChildren = item.children && item.children.length > 0;
   const starred = item.starred || false;
@@ -219,21 +308,18 @@ const TreeItem = ({
   const excludedFromExport = item.exclude_from_export || false;
   const isConversation = item.is_assistant || false;
   const label = item.name || item.prompt_name || 'Untitled';
-  const id = item.id || item.row_id;
+  const id = item.id || item.row_id || '';
   
-  // Derive isMenuOpen from lifted state
   const isMenuOpen = openMenuId === id;
   
-  // Track mounted state for cleanup
   useEffect(() => {
     return () => { mountedRef.current = false; };
   }, []);
   
-  // Escape key handler using capture phase
   useEffect(() => {
     if (!isMenuOpen) return;
     
-    const handleEscapeCapture = (e) => {
+    const handleEscapeCapture = (e: KeyboardEvent) => {
       if (!mountedRef.current) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -245,20 +331,19 @@ const TreeItem = ({
     return () => document.removeEventListener('keydown', handleEscapeCapture, true);
   }, [isMenuOpen, setOpenMenuId]);
   
-  // Click-outside handler
   useEffect(() => {
     if (!isMenuOpen) return;
     
-    let handler = null;
+    let handler: ((e: MouseEvent) => void) | null = null;
     const timeoutId = setTimeout(() => {
-      handler = (e) => {
+      handler = (e: MouseEvent) => {
         if (!mountedRef.current) return;
-        if (menuRef.current && menuRef.current.contains(e.target)) return;
-        if (menuButtonRef.current && menuButtonRef.current.contains(e.target)) return;
+        if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
+        if (menuButtonRef.current && menuButtonRef.current.contains(e.target as Node)) return;
         
-        // Check if clicking on a tooltip (portaled to body)
-        const isTooltip = e.target.closest('[data-radix-popper-content-wrapper]') ||
-                          e.target.closest('[role="tooltip"]');
+        const target = e.target as Element;
+        const isTooltip = target.closest('[data-radix-popper-content-wrapper]') ||
+                          target.closest('[role="tooltip"]');
         if (isTooltip) return;
         
         setOpenMenuId(null);
@@ -275,7 +360,6 @@ const TreeItem = ({
     };
   }, [isMenuOpen, setOpenMenuId]);
   
-  // Close menu on scroll to prevent visual detachment
   useEffect(() => {
     if (!isMenuOpen) return;
     
@@ -284,7 +368,6 @@ const TreeItem = ({
       setOpenMenuId(null);
     };
     
-    // Find the Radix ScrollArea viewport container
     const scrollContainer = menuButtonRef.current?.closest('[data-radix-scroll-area-viewport]');
     
     scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
@@ -296,7 +379,6 @@ const TreeItem = ({
     };
   }, [isMenuOpen, setOpenMenuId]);
   
-  // Calculate menu position with viewport awareness
   const getMenuPosition = useCallback(() => {
     if (!menuButtonRef.current) return { top: 0, left: 0 };
     
@@ -308,17 +390,14 @@ const TreeItem = ({
     let top = rect.bottom + 4;
     let left = rect.left;
     
-    // Check if menu would overflow bottom of viewport
     if (top + menuHeight > window.innerHeight - padding) {
       top = rect.top - menuHeight - 4;
     }
     
-    // Check if menu would overflow right of viewport
     if (left + menuWidth > window.innerWidth - padding) {
       left = window.innerWidth - menuWidth - padding;
     }
     
-    // Check if menu would overflow left of viewport
     if (left < padding) {
       left = padding;
     }
@@ -326,7 +405,7 @@ const TreeItem = ({
     return { top, left };
   }, []);
 
-  const [{ isDragging }, drag, preview] = useDrag({
+  const [{ isDragging }, drag] = useDrag({
     type: ITEM_TYPE,
     item: { id, level },
     collect: (monitor) => ({
@@ -334,13 +413,10 @@ const TreeItem = ({
     }),
   });
 
-  // Drop on item to make it a child
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
-    canDrop: (dragItem) => dragItem.id !== id,
-    drop: (dragItem, monitor) => {
-      // Only handle if dropped directly on this item (not on a DropZone)
-      // and only if no other drop target already handled it
+    canDrop: (dragItem: { id: string }) => dragItem.id !== id,
+    drop: (dragItem: { id: string }, monitor) => {
       if (monitor.isOver({ shallow: true }) && !monitor.didDrop() && dragItem.id !== id && onMoveInto) {
         onMoveInto(dragItem.id, id);
       }
@@ -353,9 +429,10 @@ const TreeItem = ({
 
   drag(drop(ref));
   
-  // Get custom icon or fallback to default
   const customIconName = item.icon_name;
-  const CustomIcon = customIconName && icons[customIconName] ? icons[customIconName] : null;
+  const CustomIcon = customIconName && icons[customIconName as keyof typeof icons] 
+    ? icons[customIconName as keyof typeof icons] as LucideIcon
+    : null;
   const DefaultIcon = isConversation ? MessageSquare : FileText;
   const DisplayIcon = CustomIcon || DefaultIcon;
   
@@ -363,54 +440,44 @@ const TreeItem = ({
   const isCurrentlyRunning = (isCascadeRunning && currentCascadePromptId === id) || singleRunPromptId === id;
   const isDeleting = deletingPromptIds.has(id);
   
-  // Handle icon click to open picker
-  const handleIconClick = (e) => {
+  const handleIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIconPickerOpen(true);
   };
   
-  // Handle icon selection
-  const handleIconSelect = async (iconName) => {
+  const handleIconSelect = async (iconName: string | null) => {
     if (onIconChange) {
       await onIconChange(id, iconName);
     }
   };
   
-  // Handle toggle click
-  const handleToggleClick = (e) => {
+  const handleToggleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggle?.(id);
   };
   
-  // Handle row click - support multi-select with shift
-  const handleRowClick = (e) => {
-    if (isEditing || isDeleting) return; // Don't handle clicks while editing or deleting
+  const handleRowClick = (e: React.MouseEvent) => {
+    if (isEditing || isDeleting) return;
     
     if (isMultiSelectMode) {
       if (e.shiftKey && lastSelectedId && allFlatItems && onRangeSelect) {
-        // Shift+click: range select
         onRangeSelect(lastSelectedId, id, allFlatItems);
       } else {
-        // Normal click in multi-select mode: toggle this item
         onToggleSelect?.(id);
       }
     } else {
-      // Toggle selection: deselect if already selected, otherwise select
-      // Note: expand/collapse is only handled by the chevron button
       const isCurrentlySelected = selectedPromptId === id;
       onSelect?.(isCurrentlySelected ? null : id);
     }
   };
 
-  // Handle double-click to select only this item (not descendants)
-  const handleDoubleClick = (e) => {
+  const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isEditing || isDeleting) return;
     onSelectOnlyThis?.(id);
   };
 
-  // Handle checkbox click
-  const handleCheckboxClick = (e) => {
+  const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (e.shiftKey && lastSelectedId && allFlatItems && onRangeSelect) {
       onRangeSelect(lastSelectedId, id, allFlatItems);
@@ -419,8 +486,7 @@ const TreeItem = ({
     }
   };
 
-  // Inline editing handlers
-  const handleStartEdit = (e) => {
+  const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
     setEditValue(label);
     setIsEditing(true);
@@ -468,7 +534,6 @@ const TreeItem = ({
         `}
         style={{ height: "28px", paddingLeft: `${paddingLeft}px` }}
       >
-        {/* Selection checkbox - always visible, grey when unselected, pink when selected */}
         <div onClick={handleCheckboxClick} className="flex-shrink-0">
           {isSelected ? (
             <CheckSquare className="h-3.5 w-3.5 text-primary" />
@@ -477,7 +542,6 @@ const TreeItem = ({
           )}
         </div>
         
-        {/* Menu trigger - ellipsis icon - hide during editing */}
         {!isEditing && (
           <button
             ref={menuButtonRef}
@@ -491,8 +555,6 @@ const TreeItem = ({
           </button>
         )}
         
-        
-        {/* Expand/collapse chevron - show for all items, greyed out when no children */}
         <button 
           onClick={handleToggleClick}
           className={`w-5 h-5 flex items-center justify-center rounded-sm transition-all flex-shrink-0 ${
@@ -508,7 +570,6 @@ const TreeItem = ({
           }
         </button>
         
-        {/* Clickable icon to open picker - or spinner if currently running */}
         {isCurrentlyRunning ? (
           <Loader2 className="h-3.5 w-3.5 flex-shrink-0 text-primary animate-spin" />
         ) : (
@@ -548,7 +609,6 @@ const TreeItem = ({
           </span>
         )}
         
-        {/* Icon Picker Dialog */}
         <IconPicker 
           open={iconPickerOpen}
           onOpenChange={setIconPickerOpen}
@@ -556,7 +616,6 @@ const TreeItem = ({
           onIconSelect={handleIconSelect}
         />
         
-        {/* Status icons - always visible, positioned at right edge */}
         {(starred || excludedFromCascade || excludedFromExport || item.has_uncommitted_changes) && (
           <div className="absolute right-2 flex items-center gap-0.5">
             {item.has_uncommitted_changes && (
@@ -573,7 +632,6 @@ const TreeItem = ({
           </div>
         )}
 
-        {/* Click-based menu - rendered via portal */}
         {isMenuOpen && !isMultiSelectMode && menuButtonRef.current && createPortal(
           <div 
             ref={menuRef}
@@ -620,7 +678,7 @@ const TreeItem = ({
             <IconButton 
               icon={LayoutTemplate} 
               label="Save as Template" 
-              onClick={() => { onSaveAsTemplate?.(id, label, hasChildren); setOpenMenuId(null); }}
+              onClick={() => { onSaveAsTemplate?.(id, label, !!hasChildren); setOpenMenuId(null); }}
             />
             <IconButton 
               icon={Ban} 
@@ -640,34 +698,30 @@ const TreeItem = ({
         )}
       </div>
       
-      {/* Drop indicator when hovering - shows "drop to make child" hint */}
       {isOver && canDrop && (
         <div className="mx-2 py-0.5 text-[8px] text-primary text-center bg-primary/5 rounded">
           Drop to make child of "{label}"
         </div>
       )}
       
-      {/* Render children recursively - with indentation line */}
       {hasChildren && isExpanded && (
         <div className="relative">
-          {/* Vertical indent line */}
           <div 
             className="absolute top-0 bottom-0 w-px bg-outline-variant/50"
             style={{ left: `${paddingLeft + 10}px` }}
           />
-          {/* First drop zone for inserting at the beginning */}
           <DropZone 
-            onDrop={onMoveBetween} 
+            onDrop={onMoveBetween!} 
             targetIndex={0}
-            siblingIds={item.children.map(c => c.id || c.row_id)}
+            siblingIds={item.children!.map(c => c.id || c.row_id || '')}
             isFirst
           />
-          {item.children.map((child, idx) => (
+          {item.children!.map((child, idx) => (
             <React.Fragment key={child.id || child.row_id}>
               <TreeItem
                 item={child}
                 level={level + 1}
-                isExpanded={expandedFolders[child.id || child.row_id]}
+                isExpanded={expandedFolders[child.id || child.row_id || '']}
                 onToggle={onToggle}
                 onMoveInto={onMoveInto}
                 onMoveBetween={onMoveBetween}
@@ -685,37 +739,30 @@ const TreeItem = ({
                 onToggleExcludeExport={onToggleExcludeExport}
                 isRunningPrompt={isRunningPrompt}
                 isRunningCascade={isRunningCascade}
-                // Multi-select props
                 isMultiSelectMode={isMultiSelectMode}
-                isSelected={selectedItems?.has(child.id || child.row_id)}
+                isSelected={selectedItems?.has(child.id || child.row_id || '')}
                 onToggleSelect={onToggleSelect}
                 lastSelectedId={lastSelectedId}
                 allFlatItems={allFlatItems}
                 onRangeSelect={onRangeSelect}
                 selectedItems={selectedItems}
                 onSelectOnlyThis={onSelectOnlyThis}
-                // Icon editing
                 onIconChange={onIconChange}
                 onRefresh={onRefresh}
                 supabase={supabase}
-                // Cascade and single run highlighting
                 currentCascadePromptId={currentCascadePromptId}
                 isCascadeRunning={isCascadeRunning}
                 singleRunPromptId={singleRunPromptId}
-                // Deleting state for UI feedback
                 deletingPromptIds={deletingPromptIds}
-                // Save as template
                 onSaveAsTemplate={onSaveAsTemplate}
-                // Menu state - lifted
                 openMenuId={openMenuId}
                 setOpenMenuId={setOpenMenuId}
-                // Manus model lookup
                 isManusModelById={isManusModelById}
               />
               <DropZone 
-                onDrop={onMoveBetween}
+                onDrop={onMoveBetween!}
                 targetIndex={idx + 1}
-                siblingIds={item.children.map(c => c.id || c.row_id)}
+                siblingIds={item.children!.map(c => c.id || c.row_id || '')}
               />
             </React.Fragment>
           ))}
@@ -725,10 +772,49 @@ const TreeItem = ({
   );
 };
 
-const FolderPanel = ({ 
+// ============= FolderPanel Component =============
+
+export interface FolderPanelProps {
+  treeData?: PromptItem[];
+  isLoading?: boolean;
+  selectedPromptId?: string | null;
+  onSelectPrompt?: (id: string | null) => void;
+  expandedFolders?: Record<string, boolean>;
+  onToggleFolder?: (id: string) => void;
+  onAddPrompt?: (parentId: string | null) => void;
+  onAddFromTemplate?: () => void;
+  onDeletePrompt?: (id: string, name: string) => void;
+  onDuplicatePrompt?: (id: string) => void;
+  onExportPrompt?: (id: string) => void;
+  onMovePrompt?: (draggedId: string, targetId: string) => Promise<void>;
+  onRefresh?: () => void;
+  onClose?: () => void;
+  onToggleReadingPane?: () => void;
+  readingPaneOpen?: boolean;
+  onRunPrompt?: (id: string) => void;
+  onRunCascade?: (id: string) => void;
+  onToggleStar?: (id: string) => void;
+  onToggleExcludeCascade?: (id: string) => void;
+  onToggleExcludeExport?: (id: string) => void;
+  isRunningPrompt?: boolean;
+  isRunningCascade?: boolean;
+  onBatchDelete?: (ids: string[]) => Promise<void>;
+  onBatchDuplicate?: (ids: string[]) => Promise<void>;
+  onBatchStar?: (ids: string[], star: boolean) => Promise<void>;
+  onBatchToggleExcludeCascade?: (ids: string[], exclude: boolean) => Promise<void>;
+  onBatchToggleExcludeExport?: (ids: string[], exclude: boolean) => Promise<void>;
+  currentCascadePromptId?: string | null;
+  isCascadeRunning?: boolean;
+  singleRunPromptId?: string | null;
+  deletingPromptIds?: Set<string>;
+  onSaveAsTemplate?: (id: string, name: string, hasChildren: boolean) => void;
+  isManusModelById?: (id: string) => boolean;
+}
+
+const FolderPanel: React.FC<FolderPanelProps> = ({ 
   treeData = [], 
   isLoading = false, 
-  selectedPromptId, 
+  selectedPromptId,
   onSelectPrompt,
   expandedFolders = {},
   onToggleFolder,
@@ -742,7 +828,6 @@ const FolderPanel = ({
   onClose,
   onToggleReadingPane,
   readingPaneOpen = true,
-  // Phase 1 handlers
   onRunPrompt,
   onRunCascade,
   onToggleStar,
@@ -750,44 +835,35 @@ const FolderPanel = ({
   onToggleExcludeExport,
   isRunningPrompt = false,
   isRunningCascade = false,
-  // Batch operation handlers
   onBatchDelete,
   onBatchDuplicate,
   onBatchStar,
   onBatchToggleExcludeCascade,
   onBatchToggleExcludeExport,
-  // Cascade highlighting
   currentCascadePromptId = null,
   isCascadeRunning = false,
   singleRunPromptId = null,
-  // Deleting state for UI feedback
   deletingPromptIds = new Set(),
-  // Save as template handler
   onSaveAsTemplate,
-  // Manus model lookup function
   isManusModelById,
 }) => {
   const supabase = useSupabase();
-  const [activeSmartFolder, setActiveSmartFolder] = useState("all");
+  const [activeSmartFolder, setActiveSmartFolder] = useState<SmartFolderType>("all");
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const longPressTimerRef = useRef(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // Auto-scroll during drag
   const { scrollContainerRef, scrollContainerProps } = useDragAutoScroll({
     edgeThreshold: 60,
     scrollSpeed: 10
   });
   
-  // Multi-select state
-  const [selectedItems, setSelectedItems] = useState(new Set());
-  const [lastSelectedId, setLastSelectedId] = useState(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const isMultiSelectMode = selectedItems.size > 0;
   
-  // Lifted menu state - only one menu can be open at a time
-  const [openMenuId, setOpenMenuId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  // Helper to check if item exists in tree
-  const itemExistsInTree = useCallback((items, id) => {
+  const itemExistsInTree = useCallback((items: PromptItem[], id: string): boolean => {
     if (!items) return false;
     for (const item of items) {
       if ((item.id || item.row_id) === id) return true;
@@ -796,15 +872,13 @@ const FolderPanel = ({
     return false;
   }, []);
 
-  // Clear stale openMenuId if item was deleted externally
   useEffect(() => {
     if (openMenuId && treeData && !itemExistsInTree(treeData, openMenuId)) {
       setOpenMenuId(null);
     }
   }, [treeData, openMenuId, itemExistsInTree]);
 
-  // Handle icon change
-  const handleIconChange = useCallback(async (promptId, iconName) => {
+  const handleIconChange = useCallback(async (promptId: string, iconName: string | null) => {
     try {
       await updatePromptIcon(supabase, promptId, iconName);
       toast.success(iconName ? 'Icon updated' : 'Icon reset');
@@ -814,12 +888,11 @@ const FolderPanel = ({
       toast.error('Failed to update icon');
     }
   }, [supabase, onRefresh]);
-  // Use the toggleFolder from props (lifted state from MainLayout)
 
   const handleAddMouseDown = useCallback(() => {
     longPressTimerRef.current = setTimeout(() => {
       setAddMenuOpen(true);
-    }, 500); // 500ms long press
+    }, 500);
   }, []);
 
   const handleAddMouseUp = useCallback(() => {
@@ -830,27 +903,23 @@ const FolderPanel = ({
   }, []);
 
   const handleAddClick = useCallback(() => {
-    // Only trigger if not a long press (menu not open)
     if (!addMenuOpen) {
-      // If a prompt is selected, create as child of that prompt; otherwise create top-level
       onAddPrompt?.(selectedPromptId || null);
     }
   }, [addMenuOpen, onAddPrompt, selectedPromptId]);
 
-  const handleMoveInto = async (draggedId, targetId) => {
+  const handleMoveInto = async (draggedId: string, targetId: string) => {
     if (onMovePrompt) {
       await onMovePrompt(draggedId, targetId);
     }
   };
 
-  const handleMoveBetween = useCallback(async (draggedId, targetIndex, siblingIds) => {
+  const handleMoveBetween = useCallback(async (draggedId: string, targetIndex: number, siblingIds: string[]) => {
     if (!supabase || !onMovePrompt) return;
     
     try {
-      // Dynamic import of lex utilities
       const { generatePositionBetween, generatePositionAtEnd, generatePositionAtStart } = await import('@/utils/lexPosition');
       
-      // Get positions of siblings to calculate new position
       const { data: siblings } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('row_id, position_lex, parent_row_id')
@@ -859,7 +928,6 @@ const FolderPanel = ({
       
       if (!siblings?.length) return;
       
-      // Get dragged item to check if it's from the same level
       const { data: draggedItem } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .select('row_id, parent_row_id, prompt_name')
@@ -868,31 +936,24 @@ const FolderPanel = ({
       
       if (!draggedItem) return;
       
-      // Sort siblings by position_lex and filter out dragged item
       const sortedSiblings = [...siblings].sort((a, b) => (a.position_lex || '').localeCompare(b.position_lex || ''));
       const filteredSiblings = sortedSiblings.filter(s => s.row_id !== draggedId);
       
-      // Calculate new position using lexicographic utilities
-      let newPositionLex;
+      let newPositionLex: string;
       if (targetIndex === 0) {
-        // Insert at the beginning
         const firstKey = filteredSiblings[0]?.position_lex || null;
         newPositionLex = generatePositionAtStart(firstKey);
       } else if (targetIndex >= filteredSiblings.length) {
-        // Insert at the end
         const lastKey = filteredSiblings[filteredSiblings.length - 1]?.position_lex || null;
         newPositionLex = generatePositionAtEnd(lastKey);
       } else {
-        // Insert between two items
         const beforeKey = filteredSiblings[targetIndex - 1]?.position_lex || null;
         const afterKey = filteredSiblings[targetIndex]?.position_lex || null;
         newPositionLex = generatePositionBetween(beforeKey, afterKey);
       }
       
-      // Get the parent of the target location (same as siblings)
       const targetParentId = sortedSiblings[0]?.parent_row_id || null;
       
-      // Update the dragged item's position and parent
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ 
@@ -911,11 +972,10 @@ const FolderPanel = ({
     }
   }, [supabase, onRefresh]);
 
-  // Flatten tree to get all items (for range selection)
-  const allFlatItems = useMemo(() => {
-    const flatten = (items, acc = []) => {
+  const allFlatItems = useMemo<FlatItem[]>(() => {
+    const flatten = (items: PromptItem[], acc: FlatItem[] = []): FlatItem[] => {
       items.forEach(item => {
-        acc.push({ id: item.id || item.row_id, item });
+        acc.push({ id: item.id || item.row_id || '', item });
         if (item.children) {
           flatten(item.children, acc);
         }
@@ -925,8 +985,7 @@ const FolderPanel = ({
     return flatten(treeData);
   }, [treeData]);
 
-  // Multi-select handlers
-  const handleToggleSelect = useCallback((id) => {
+  const handleToggleSelect = useCallback((id: string) => {
     setSelectedItems(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -939,7 +998,7 @@ const FolderPanel = ({
     setLastSelectedId(id);
   }, []);
 
-  const handleRangeSelect = useCallback((fromId, toId, flatItems) => {
+  const handleRangeSelect = useCallback((fromId: string, toId: string, flatItems: FlatItem[]) => {
     const fromIdx = flatItems.findIndex(x => x.id === fromId);
     const toIdx = flatItems.findIndex(x => x.id === toId);
     if (fromIdx === -1 || toIdx === -1) return;
@@ -962,17 +1021,16 @@ const FolderPanel = ({
     setLastSelectedId(null);
   }, []);
 
-  // Handle double-click to select only this item (not descendants)
-  const handleSelectOnlyThis = useCallback((id) => {
+  const handleSelectOnlyThis = useCallback((id: string) => {
     setSelectedItems(new Set([id]));
     setLastSelectedId(id);
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedItems(new Set(allFlatItems.map(x => x.id)));
+    const allIds = allFlatItems.map(item => item.id);
+    setSelectedItems(new Set(allIds));
   }, [allFlatItems]);
 
-  // Batch action handlers
   const handleBatchDeleteClick = useCallback(async () => {
     const ids = Array.from(selectedItems);
     if (onBatchDelete) {
@@ -989,15 +1047,15 @@ const FolderPanel = ({
     }
   }, [selectedItems, onBatchDuplicate, clearSelection]);
 
-  const handleBatchStarClick = useCallback(async (starred) => {
+  const handleBatchStarClick = useCallback(async (star: boolean) => {
     const ids = Array.from(selectedItems);
     if (onBatchStar) {
-      await onBatchStar(ids, starred);
+      await onBatchStar(ids, star);
       clearSelection();
     }
   }, [selectedItems, onBatchStar, clearSelection]);
 
-  const handleBatchExcludeCascadeClick = useCallback(async (exclude) => {
+  const handleBatchExcludeCascadeClick = useCallback(async (exclude: boolean) => {
     const ids = Array.from(selectedItems);
     if (onBatchToggleExcludeCascade) {
       await onBatchToggleExcludeCascade(ids, exclude);
@@ -1005,7 +1063,7 @@ const FolderPanel = ({
     }
   }, [selectedItems, onBatchToggleExcludeCascade, clearSelection]);
 
-  const handleBatchExcludeExportClick = useCallback(async (exclude) => {
+  const handleBatchExcludeExportClick = useCallback(async (exclude: boolean) => {
     const ids = Array.from(selectedItems);
     if (onBatchToggleExcludeExport) {
       await onBatchToggleExcludeExport(ids, exclude);
@@ -1013,9 +1071,8 @@ const FolderPanel = ({
     }
   }, [selectedItems, onBatchToggleExcludeExport, clearSelection]);
 
-  // Calculate smart folder counts
-  const counts = useMemo(() => {
-    const flatCount = (items) => {
+  const counts = useMemo<SmartFolderCounts>(() => {
+    const flatCount = (items: PromptItem[]): number => {
       let count = 0;
       items.forEach(item => {
         count += 1;
@@ -1026,18 +1083,7 @@ const FolderPanel = ({
       return count;
     };
     
-    const countWithConversations = (items) => {
-      let count = 0;
-      items.forEach(item => {
-        if (item.is_assistant) count += 1;
-        if (item.children) {
-          count += countWithConversations(item.children);
-        }
-      });
-      return count;
-    };
-    
-    const countStarred = (items) => {
+    const countStarred = (items: PromptItem[]): number => {
       let count = 0;
       items.forEach(item => {
         if (item.starred) count += 1;
@@ -1048,7 +1094,18 @@ const FolderPanel = ({
       return count;
     };
 
-    const getRecentItems = (items, acc = []) => {
+    const countConversations = (items: PromptItem[]): number => {
+      let count = 0;
+      items.forEach(item => {
+        if (item.is_assistant) count += 1;
+        if (item.children) {
+          count += countConversations(item.children);
+        }
+      });
+      return count;
+    };
+
+    const getRecentItems = (items: PromptItem[], acc: PromptItem[] = []): PromptItem[] => {
       items.forEach(item => {
         acc.push(item);
         if (item.children) {
@@ -1061,7 +1118,7 @@ const FolderPanel = ({
     const allItems = getRecentItems(treeData);
     const recentCount = allItems
       .filter(item => {
-        const updatedAt = new Date(item.updated_at || item.created_at);
+        const updatedAt = new Date(item.updated_at || item.created_at || 0);
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         return updatedAt > dayAgo;
       })
@@ -1069,20 +1126,18 @@ const FolderPanel = ({
     
     return {
       all: flatCount(treeData),
-      conversations: countWithConversations(treeData),
+      conversations: countConversations(treeData),
       starred: countStarred(treeData),
       recent: recentCount
     };
   }, [treeData]);
 
-  // Filter tree data based on smart folder selection
-  const filteredTreeData = useMemo(() => {
+  const filteredTreeData = useMemo<PromptItem[]>(() => {
     if (activeSmartFolder === "all") {
       return treeData;
     }
 
-    // Helper to flatten tree and then rebuild filtered
-    const flattenTree = (items, acc = []) => {
+    const flattenTree = (items: PromptItem[], acc: PromptItem[] = []): PromptItem[] => {
       items.forEach(item => {
         acc.push(item);
         if (item.children) {
@@ -1094,7 +1149,7 @@ const FolderPanel = ({
 
     const allItems = flattenTree(treeData);
     
-    let filtered = [];
+    let filtered: PromptItem[] = [];
     
     if (activeSmartFolder === "starred") {
       filtered = allItems.filter(item => item.starred);
@@ -1103,19 +1158,17 @@ const FolderPanel = ({
     } else if (activeSmartFolder === "recent") {
       filtered = allItems
         .sort((a, b) => {
-          const aDate = new Date(a.updated_at || a.created_at);
-          const bDate = new Date(b.updated_at || b.created_at);
-          return bDate - aDate;
+          const aDate = new Date(a.updated_at || a.created_at || 0);
+          const bDate = new Date(b.updated_at || b.created_at || 0);
+          return bDate.getTime() - aDate.getTime();
         })
         .slice(0, 10);
     }
 
-    // Return as flat list for filtered views (no hierarchy)
     return filtered.map(item => ({ ...item, children: [] }));
   }, [treeData, activeSmartFolder]);
 
-  // Get label for current filter
-  const getFilterLabel = () => {
+  const getFilterLabel = (): string | null => {
     switch (activeSmartFolder) {
       case "starred": return "Showing starred only";
       case "conversations": return "Showing conversations only";
@@ -1126,7 +1179,6 @@ const FolderPanel = ({
   
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
-      {/* Header with close button */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0" style={{ height: "56px" }}>
         <p className="text-title-sm text-on-surface font-medium">
           Prompts
@@ -1166,7 +1218,6 @@ const FolderPanel = ({
         </div>
       </div>
 
-      {/* Quick View */}
       <div className="p-1.5">
         <div className="flex items-center justify-between px-2 py-1">
           <p className="text-[9px] text-on-surface-variant uppercase tracking-wider flex items-center gap-1">
@@ -1213,10 +1264,8 @@ const FolderPanel = ({
         </div>
       </div>
 
-      {/* Divider */}
       <div className="mx-2 h-px bg-outline-variant" />
 
-      {/* Prompts Tree */}
       <div 
         ref={scrollContainerRef}
         className="flex-1 overflow-x-auto overflow-y-auto p-1.5 scrollbar-thin"
@@ -1229,7 +1278,6 @@ const FolderPanel = ({
                activeSmartFolder === "starred" ? "Starred" :
                "Recent"}
             </p>
-            {/* Filter indicator badge */}
             {activeSmartFolder !== "all" && (
               <motion.span 
                 initial={{ scale: 0, opacity: 0 }}
@@ -1281,7 +1329,6 @@ const FolderPanel = ({
                 <button
                   onClick={() => {
                     setAddMenuOpen(false);
-                    // If a prompt is selected, create as child of that prompt; otherwise create top-level
                     onAddPrompt?.(selectedPromptId || null);
                   }}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded-m3-sm text-body-sm text-on-surface hover:bg-on-surface/[0.08] transition-colors"
@@ -1304,7 +1351,6 @@ const FolderPanel = ({
           </div>
         </div>
         
-        {/* Active filter banner */}
         <AnimatePresence>
           {getFilterLabel() && (
             <motion.div 
@@ -1330,7 +1376,6 @@ const FolderPanel = ({
         </AnimatePresence>
         
         <div className="flex flex-col min-w-max">
-          {/* Loading state */}
           {isLoading && (
             <>
               <SkeletonListItem />
@@ -1341,7 +1386,6 @@ const FolderPanel = ({
             </>
           )}
           
-          {/* Empty state */}
           {!isLoading && filteredTreeData.length === 0 && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
@@ -1401,13 +1445,12 @@ const FolderPanel = ({
             </motion.div>
           )}
           
-          {/* Real tree data - filtered */}
           {!isLoading && filteredTreeData.length > 0 && (
             <>
               <DropZone 
                 onDrop={handleMoveBetween} 
                 targetIndex={0}
-                siblingIds={filteredTreeData.map(item => item.id || item.row_id)}
+                siblingIds={filteredTreeData.map(item => item.id || item.row_id || '')}
                 isFirst 
               />
               {filteredTreeData.map((item, idx) => (
@@ -1415,7 +1458,7 @@ const FolderPanel = ({
                   <TreeItem
                     item={item}
                     level={0}
-                    isExpanded={expandedFolders[item.id || item.row_id]}
+                    isExpanded={expandedFolders[item.id || item.row_id || '']}
                     onToggle={onToggleFolder}
                     onMoveInto={handleMoveInto}
                     onMoveBetween={handleMoveBetween}
@@ -1433,37 +1476,30 @@ const FolderPanel = ({
                     onToggleExcludeExport={onToggleExcludeExport}
                     isRunningPrompt={isRunningPrompt}
                     isRunningCascade={isRunningCascade}
-                    // Multi-select props
                     isMultiSelectMode={isMultiSelectMode}
-                    isSelected={selectedItems.has(item.id || item.row_id)}
+                    isSelected={selectedItems.has(item.id || item.row_id || '')}
                     onToggleSelect={handleToggleSelect}
                     lastSelectedId={lastSelectedId}
                     allFlatItems={allFlatItems}
                     onRangeSelect={handleRangeSelect}
                     selectedItems={selectedItems}
                     onSelectOnlyThis={handleSelectOnlyThis}
-                    // Icon editing
                     onIconChange={handleIconChange}
                     onRefresh={onRefresh}
                     supabase={supabase}
-                    // Cascade and single run highlighting
                     currentCascadePromptId={currentCascadePromptId}
                     isCascadeRunning={isCascadeRunning}
                     singleRunPromptId={singleRunPromptId}
-                    // Deleting state for UI feedback
                     deletingPromptIds={deletingPromptIds}
-                    // Save as template
                     onSaveAsTemplate={onSaveAsTemplate}
-                    // Menu state - lifted
                     openMenuId={openMenuId}
                     setOpenMenuId={setOpenMenuId}
-                    // Manus model lookup
                     isManusModelById={isManusModelById}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}
                     targetIndex={idx + 1}
-                    siblingIds={filteredTreeData.map(i => i.id || i.row_id)}
+                    siblingIds={filteredTreeData.map(i => i.id || i.row_id || '')}
                   />
                 </React.Fragment>
               ))}
@@ -1472,7 +1508,6 @@ const FolderPanel = ({
         </div>
       </div>
       
-      {/* Batch Action Bar - shown when items are selected */}
       <AnimatePresence>
         {isMultiSelectMode && (
           <motion.div
