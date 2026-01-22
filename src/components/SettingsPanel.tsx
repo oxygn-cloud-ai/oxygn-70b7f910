@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info, Globe, FileText, Code, Search, ExternalLink, Bot } from 'lucide-react';
+import { Info, Globe, FileText, Code, Search, ExternalLink, Bot, LucideIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { useSupabase } from '../hooks/useSupabase';
 import { useSettings } from '../hooks/useSettings';
@@ -13,14 +13,43 @@ import { useModels } from '../hooks/useModels';
 import { toast } from '@/components/ui/sonner';
 import { ALL_SETTINGS, ALL_TOOLS } from '@/config/modelCapabilities';
 
-const TOOL_ICONS = {
+const TOOL_ICONS: Record<string, LucideIcon> = {
   web_search: Globe,
   confluence: FileText,
   code_interpreter: Code,
   file_search: Search,
 };
 
-const SettingsPanel = ({ 
+interface Model {
+  row_id: string;
+  model_id: string;
+  model_name: string;
+  provider: string;
+  is_active: boolean;
+}
+
+interface LocalData {
+  model?: string;
+  model_on?: boolean;
+  [key: string]: string | boolean | undefined;
+}
+
+interface SelectedItemData {
+  row_id: string;
+  [key: string]: unknown;
+}
+
+interface SettingsPanelProps {
+  localData: LocalData;
+  selectedItemData: SelectedItemData;
+  models: Model[];
+  handleChange: (field: string, value: string | boolean | null) => void;
+  handleSave: (field: string, value?: unknown) => void;
+  handleReset: (field: string) => void;
+  hasUnsavedChanges: (field: string) => boolean;
+}
+
+const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
   localData, 
   selectedItemData, 
   models, 
@@ -48,7 +77,7 @@ const SettingsPanel = ({
 
   // Group models by provider
   const modelsByProvider = useMemo(() => {
-    const grouped = {};
+    const grouped: Record<string, Model[]> = {};
     models.forEach(model => {
       const provider = model.provider || 'openai';
       if (!grouped[provider]) grouped[provider] = [];
@@ -58,9 +87,6 @@ const SettingsPanel = ({
   }, [models]);
 
   // Settings to display - filter based on provider
-  // CRITICAL: max_tokens and max_completion_tokens are separate settings - never harmonize
-  // GPT-4 uses max_tokens, GPT-5 uses max_completion_tokens
-  // Manus only supports task_mode
   const visibleSettings = isManusModel 
     ? ['task_mode']
     : ['temperature', 'max_tokens', 'max_completion_tokens', 'frequency_penalty', 'presence_penalty', 'seed', 'tool_choice', 'reasoning_effort'];
@@ -68,7 +94,7 @@ const SettingsPanel = ({
   // Tools to display - Manus doesn't use these tools
   const toolKeys = isManusModel ? [] : ['web_search', 'confluence', 'code_interpreter', 'file_search'];
 
-  const handleToggleChange = async (fieldName, checked) => {
+  const handleToggleChange = async (fieldName: string, checked: boolean) => {
     handleChange(`${fieldName}_on`, checked);
     
     try {
@@ -96,7 +122,7 @@ const SettingsPanel = ({
     }
   };
 
-  const handleToolToggle = async (toolName, checked) => {
+  const handleToolToggle = async (toolName: string, checked: boolean) => {
     const fieldName = `${toolName}_on`;
     handleChange(fieldName, checked);
     
@@ -113,7 +139,7 @@ const SettingsPanel = ({
     }
   };
 
-  const handleModelChange = async (value) => {
+  const handleModelChange = async (value: string) => {
     const useDefault = value === '__default__';
     handleChange('model', useDefault ? '' : value);
     handleChange('model_on', !useDefault);
@@ -135,13 +161,12 @@ const SettingsPanel = ({
   };
 
   // For Input fields - only update local state, save on blur
-  const handleInputChange = (fieldName, value) => {
+  const handleInputChange = (fieldName: string, value: string) => {
     handleChange(fieldName, value);
-    // No database save - that happens on blur via handleValueBlur
   };
 
   // For Select fields - save immediately (no blur event)
-  const handleSelectChange = async (fieldName, value) => {
+  const handleSelectChange = async (fieldName: string, value: string) => {
     handleChange(fieldName, value);
     try {
       const { error } = await supabase
@@ -156,7 +181,7 @@ const SettingsPanel = ({
     }
   };
 
-  const handleValueBlur = async (fieldName) => {
+  const handleValueBlur = async (fieldName: string) => {
     try {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -179,7 +204,7 @@ const SettingsPanel = ({
         {/* Model Selection */}
         <div className="flex items-center gap-2">
           <Select
-            value={localData.model_on && localData.model ? localData.model : '__default__'}
+            value={localData.model_on && localData.model ? localData.model : '__default__' }
             onValueChange={handleModelChange}
           >
             <SelectTrigger className="h-7 text-xs flex-1">
@@ -292,7 +317,7 @@ const SettingsPanel = ({
             const setting = ALL_SETTINGS[settingKey];
             const supported = isSettingSupported(settingKey, currentModel);
             const isEnabled = localData[`${settingKey}_on`] || false;
-            const value = localData[settingKey] || '';
+            const value = (localData[settingKey] as string) || '';
             
             return (
               <div 
@@ -305,7 +330,7 @@ const SettingsPanel = ({
                 )}
               >
                 <Switch
-                  checked={isEnabled}
+                  checked={!!isEnabled}
                   onCheckedChange={(checked) => supported && handleToggleChange(settingKey, checked)}
                   disabled={!supported}
                   className="h-4 w-7 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted"
@@ -326,7 +351,7 @@ const SettingsPanel = ({
                           <SelectItem key={opt.value} value={opt.value} className="text-xs">
                             {opt.label}
                           </SelectItem>
-                        ))}
+                        )) }
                       </SelectContent>
                     </Select>
                   ) : (

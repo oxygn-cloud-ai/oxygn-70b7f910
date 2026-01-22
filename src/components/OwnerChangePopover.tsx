@@ -14,16 +14,44 @@ import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackEvent } from '@/lib/posthog';
 
+interface Profile {
+  id: string;
+  email: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
+interface Share {
+  id: string;
+  shared_with_user_id: string;
+  permission: string;
+  created_at: string;
+}
+
+interface OwnerChangeContentProps {
+  promptRowId: string;
+  currentOwnerId?: string;
+  onOwnerChanged?: () => void;
+  onClose?: () => void;
+  isPrivate?: boolean;
+}
+
 // Standalone content component for use in external popovers
-export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged, onClose, isPrivate: initialIsPrivate }) => {
+export const OwnerChangeContent: React.FC<OwnerChangeContentProps> = ({ 
+  promptRowId, 
+  currentOwnerId, 
+  onOwnerChanged, 
+  onClose, 
+  isPrivate: initialIsPrivate 
+}) => {
   const supabase = useSupabase();
   const { user, isAdmin } = useAuth();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [profiles, setProfiles] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<Profile[]>([]);
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate ?? false);
-  const [shares, setShares] = useState([]);
+  const [shares, setShares] = useState<Share[]>([]);
   const [sharesLoading, setSharesLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState('');
   const [sharePermission, setSharePermission] = useState('read');
@@ -100,7 +128,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     setFilteredUsers(filtered);
   }, [email, profiles, currentOwnerId]);
 
-  const handleChangeOwner = useCallback(async (newOwnerId) => {
+  const handleChangeOwner = useCallback(async (newOwnerId: string) => {
     if (!supabase || !promptRowId) return;
     
     setIsLoading(true);
@@ -125,7 +153,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   }, [supabase, promptRowId, onOwnerChanged, onClose]);
 
-  const handlePrivacyToggle = async (newValue) => {
+  const handlePrivacyToggle = async (newValue: boolean) => {
     if (!supabase || !promptRowId) return;
 
     setIsPrivate(newValue);
@@ -197,7 +225,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   };
 
-  const handleRemoveShare = async (shareId) => {
+  const handleRemoveShare = async (shareId: string) => {
     if (!supabase) return;
 
     try {
@@ -217,7 +245,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   };
 
-  const handleUpdateSharePermission = async (shareId, newPermission) => {
+  const handleUpdateSharePermission = async (shareId: string, newPermission: string) => {
     if (!supabase) return;
 
     try {
@@ -237,7 +265,7 @@ export const OwnerChangeContent = ({ promptRowId, currentOwnerId, onOwnerChanged
     }
   };
 
-  const getSharedUserInfo = (userId) => {
+  const getSharedUserInfo = (userId: string) => {
     return profiles.find(p => p.id === userId);
   };
 

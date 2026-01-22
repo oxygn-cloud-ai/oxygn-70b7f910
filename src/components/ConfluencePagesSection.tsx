@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FileText, RefreshCw, Search, X, ExternalLink, Loader2, ChevronRight, ChevronDown, Folder, Layout, Database, Newspaper } from 'lucide-react';
@@ -8,10 +7,27 @@ import { useConfluencePages } from '@/hooks/useConfluencePages';
 import ConfluenceSearchModal from './ConfluenceSearchModal';
 import { cn } from '@/lib/utils';
 
+interface ConfluencePage {
+  row_id: string;
+  page_id: string;
+  page_title: string;
+  page_url?: string;
+  parent_page_id?: string;
+  position?: number;
+  sync_status?: string;
+  openai_file_id?: string;
+  content_type?: string;
+  children?: ConfluencePageNode[];
+}
+
+interface ConfluencePageNode extends ConfluencePage {
+  children: ConfluencePageNode[];
+}
+
 // Helper to build tree from flat pages list
-const buildPageTree = (pages) => {
-  const pageMap = new Map();
-  const rootPages = [];
+const buildPageTree = (pages: ConfluencePage[]): ConfluencePageNode[] => {
+  const pageMap = new Map<string, ConfluencePageNode>();
+  const rootPages: ConfluencePageNode[] = [];
   
   pages.forEach(page => {
     pageMap.set(page.page_id, { ...page, children: [] });
@@ -19,20 +35,18 @@ const buildPageTree = (pages) => {
   
   pages.forEach(page => {
     const node = pageMap.get(page.page_id);
-    if (page.parent_page_id && pageMap.has(page.parent_page_id)) {
-      pageMap.get(page.parent_page_id).children.push(node);
-    } else {
+    if (node && page.parent_page_id && pageMap.has(page.parent_page_id)) {
+      pageMap.get(page.parent_page_id)!.children.push(node);
+    } else if (node) {
       rootPages.push(node);
     }
   });
   
-  const sortNodes = (nodes) => {
+  const sortNodes = (nodes: ConfluencePageNode[]) => {
     nodes.sort((a, b) => {
-      // Sort by position first (null positions go last)
       const ap = a.position ?? Number.MAX_SAFE_INTEGER;
       const bp = b.position ?? Number.MAX_SAFE_INTEGER;
       if (ap !== bp) return ap - bp;
-      // Fallback to title for items without position
       return (a.page_title || '').localeCompare(b.page_title || '');
     });
     nodes.forEach(node => sortNodes(node.children));
@@ -42,8 +56,18 @@ const buildPageTree = (pages) => {
   return rootPages;
 };
 
+interface PageTreeNodeProps {
+  page: ConfluencePageNode;
+  level?: number;
+  syncingPageId: string | null;
+  onSync: (rowId: string) => void;
+  onDetach: (rowId: string) => void;
+  isLast?: boolean;
+  parentLines?: boolean[];
+}
+
 // Confluence-style tree node for attached pages
-const PageTreeNode = ({ 
+const PageTreeNode: React.FC<PageTreeNodeProps> = ({ 
   page, 
   level = 0, 
   syncingPageId, 
@@ -197,12 +221,17 @@ const PageTreeNode = ({
   );
 };
 
-const ConfluencePagesSection = ({ 
+interface ConfluencePagesSectionProps {
+  conversationRowId?: string | null;
+  promptRowId?: string | null;
+}
+
+const ConfluencePagesSection: React.FC<ConfluencePagesSectionProps> = ({ 
   conversationRowId = null, 
   promptRowId = null
 }) => {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [syncingPageId, setSyncingPageId] = useState(null);
+  const [syncingPageId, setSyncingPageId] = useState<string | null>(null);
   
   const {
     pages,
@@ -212,9 +241,9 @@ const ConfluencePagesSection = ({
     syncPage,
   } = useConfluencePages(conversationRowId, promptRowId);
 
-  const pageTree = useMemo(() => buildPageTree(pages), [pages]);
+  const pageTree = useMemo(() => buildPageTree(pages as ConfluencePage[]), [pages]);
 
-  const handleSync = async (rowId) => {
+  const handleSync = async (rowId: string) => {
     setSyncingPageId(rowId);
     try {
       await syncPage(rowId);
@@ -235,14 +264,12 @@ const ConfluencePagesSection = ({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-7 w-7" 
+                  <button 
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     onClick={() => setSearchModalOpen(true)}
                   >
                     <Search className="h-3 w-3" />
-                  </Button>
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent>Browse Confluence</TooltipContent>
               </Tooltip>
