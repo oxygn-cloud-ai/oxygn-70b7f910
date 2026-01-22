@@ -12,7 +12,26 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const ThreadHistory = ({
+interface MessageContent {
+  type: string;
+  text?: { value?: string };
+}
+
+interface Message {
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string | MessageContent[];
+  created_at?: string | number;
+}
+
+interface ThreadHistoryProps {
+  messages: Message[];
+  isLoading: boolean;
+  onFetchMessages: (threadRowId: string) => void;
+  threadRowId?: string | null;
+}
+
+const ThreadHistory: React.FC<ThreadHistoryProps> = ({
   messages,
   isLoading,
   onFetchMessages,
@@ -24,7 +43,7 @@ const ThreadHistory = ({
     }
   }, [threadRowId, onFetchMessages]);
 
-  const formatContent = (content) => {
+  const formatContent = (content: string | MessageContent[]): string => {
     if (typeof content === 'string') return content;
     if (Array.isArray(content)) {
       return content
@@ -37,23 +56,35 @@ const ThreadHistory = ({
     return JSON.stringify(content);
   };
 
+  const formatDate = (createdAt: string | number | undefined): string => {
+    if (!createdAt) return 'Unknown date';
+    const date = typeof createdAt === 'number' 
+      ? new Date(createdAt * 1000)
+      : new Date(createdAt);
+    return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
+  };
+
   return (
     <Dialog>
       <TooltipProvider>
         <Tooltip>
           <DialogTrigger asChild>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 !text-muted-foreground hover:!text-foreground hover:!bg-muted/50">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 text-on-surface-variant hover:text-on-surface hover:bg-surface-container"
+              >
                 <History className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
           </DialogTrigger>
-          <TooltipContent>{TOOLTIPS.threads.viewHistory}</TooltipContent>
+          <TooltipContent className="text-[10px]">{TOOLTIPS.threads.viewHistory}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-on-surface">
             <History className="h-5 w-5" />
             Thread History
           </DialogTitle>
@@ -62,10 +93,10 @@ const ThreadHistory = ({
         <ScrollArea className="h-[60vh] pr-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <Loader2 className="h-6 w-6 animate-spin text-on-surface-variant" />
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-on-surface-variant">
               No messages in this thread yet.
             </div>
           ) : (
@@ -74,8 +105,8 @@ const ThreadHistory = ({
                 <div
                   key={message.id || index}
                   className={`flex gap-3 ${
-                    message.role === 'assistant' ? 'bg-muted/50' : ''
-                  } rounded-lg p-3`}
+                    message.role === 'assistant' ? 'bg-surface-container-low' : ''
+                  } rounded-m3-md p-3`}
                 >
                   <div className="flex-shrink-0">
                     {message.role === 'user' ? (
@@ -83,28 +114,23 @@ const ThreadHistory = ({
                         <User className="h-4 w-4 text-primary" />
                       </div>
                     ) : (
-                      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
-                        <Bot className="h-4 w-4" />
+                      <div className="h-8 w-8 rounded-full bg-surface-container flex items-center justify-center">
+                        <Bot className="h-4 w-4 text-on-surface-variant" />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+                      <span className="font-medium text-body-sm text-on-surface">
                         {message.role === 'user' ? 'You' : 'AI'}
                       </span>
                       {message.created_at && (
-                        <span className="text-xs text-muted-foreground">
-                          {(() => {
-                            const date = typeof message.created_at === 'number' 
-                              ? new Date(message.created_at * 1000)
-                              : new Date(message.created_at);
-                            return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
-                          })()}
+                        <span className="text-[10px] text-on-surface-variant">
+                          {formatDate(message.created_at)}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm whitespace-pre-wrap">
+                    <div className="text-body-sm whitespace-pre-wrap text-on-surface">
                       {formatContent(message.content)}
                     </div>
                   </div>

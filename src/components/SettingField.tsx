@@ -1,11 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const SettingField = ({ id, label, type, value, onChange, disabled }) => {
-  const [jsonError, setJsonError] = useState(null);
-  const [parsedValue, setParsedValue] = useState('');
+interface SettingFieldProps {
+  id: string;
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}
+
+const SettingField: React.FC<SettingFieldProps> = ({ 
+  id, 
+  label, 
+  type = 'text', 
+  value, 
+  onChange, 
+  disabled = false 
+}) => {
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [parsedValue, setParsedValue] = useState<string>('');
 
   useEffect(() => {
     if (id === 'response_format' && value) {
@@ -23,14 +39,14 @@ const SettingField = ({ id, label, type, value, onChange, disabled }) => {
     }
   }, [id, value]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     if (id === 'response_format') {
       try {
         JSON.parse(newValue);
         setJsonError(null);
         onChange(JSON.stringify(JSON.parse(newValue)));
-      } catch (error) {
+      } catch {
         setJsonError('Invalid JSON format');
         onChange(newValue);
       }
@@ -39,14 +55,15 @@ const SettingField = ({ id, label, type, value, onChange, disabled }) => {
     }
   };
 
-  const InputComponent = type === 'textarea' || id === 'response_format' ? Textarea : Input;
+  const isTextarea = type === 'textarea' || id === 'response_format';
+  const InputComponent = isTextarea ? Textarea : Input;
 
   return (
     <div>
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="text-body-sm text-on-surface">{label}</Label>
       <InputComponent
         id={id}
-        type={type}
+        type={isTextarea ? undefined : type}
         value={parsedValue}
         onChange={handleChange}
         placeholder={`Enter ${label}`}
@@ -55,7 +72,7 @@ const SettingField = ({ id, label, type, value, onChange, disabled }) => {
         disabled={disabled}
         rows={id === 'response_format' ? 5 : undefined}
       />
-      {jsonError && <p className="text-red-500 text-sm mt-1">{jsonError}</p>}
+      {jsonError && <p className="text-red-500 text-[10px] mt-1">{jsonError}</p>}
     </div>
   );
 };
