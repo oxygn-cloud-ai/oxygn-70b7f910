@@ -245,13 +245,26 @@ export const LiveApiDashboardProvider = ({ children }) => {
 
   // Remove a call from the dashboard and update cumulative stats
   const removeCall = useCallback((id) => {
-    // Clean up any pending output flush for this call
+    // Flush any pending output before removing (prevents lost final text)
     const key = String(id);
     const outputTimeoutKey = `${key}_timeout`;
+    
     if (pendingOutputRef.current[outputTimeoutKey]) {
       clearTimeout(pendingOutputRef.current[outputTimeoutKey]);
-      delete pendingOutputRef.current[key];
       delete pendingOutputRef.current[outputTimeoutKey];
+    }
+    
+    // Apply any accumulated output text before removing
+    const pendingOutput = pendingOutputRef.current[key];
+    if (pendingOutput) {
+      delete pendingOutputRef.current[key];
+      setActiveCalls((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? { ...c, outputText: (c.outputText || '') + pendingOutput }
+            : c
+        )
+      );
     }
     
     // Flush and clean up pending token increments

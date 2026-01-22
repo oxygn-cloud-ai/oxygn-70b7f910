@@ -845,6 +845,11 @@ async function executeToolsAndSubmitStreaming(
       }
     }
     
+    // Emit content for immediate tool completion (no streaming occurred)
+    if (content) {
+      emitter.emit({ type: 'output_text_done', text: content });
+    }
+    
     return { content, hasMoreTools: nextToolCalls.length > 0, nextToolCalls, responseId };
   }
 
@@ -1278,10 +1283,10 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         emitter.emit({ type: 'output_text_done', text: content });
       }
     } else if (initialResult.status === 'failed' || initialResult.status === 'cancelled') {
-        emitter.emit({ type: 'error', error: `Request ${initialResult.status}` });
-        emitter.close();
-        return;
-      } else {
+      emitter.emit({ type: 'error', error: `Request ${initialResult.status}` });
+      emitter.close();
+      return;
+    } else {
         // Stream the response
         streamResult = await streamOpenAIResponse(latestResponseId, openAIApiKey, emitter);
       }
