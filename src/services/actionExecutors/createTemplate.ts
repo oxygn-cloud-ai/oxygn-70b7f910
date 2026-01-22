@@ -3,15 +3,47 @@
  * 
  * Saves the current node structure as a reusable template.
  */
+import { 
+  TypedSupabaseClient, 
+  ExecutorParams, 
+  ExecutorResult
+} from './types';
 
 const PROMPTS_TABLE = 'q_prompts';
 const TEMPLATES_TABLE = 'q_templates';
 
+interface TemplateStructure {
+  name: string;
+  input_admin_prompt: string;
+  input_user_prompt: string;
+  model: string | null;
+  temperature: string | null;
+  temperature_on: boolean | null;
+  max_tokens: string | null;
+  max_tokens_on: boolean | null;
+  max_completion_tokens: string | null;
+  max_completion_tokens_on: boolean | null;
+  node_type: string;
+  post_action: string | null;
+  post_action_config: Record<string, unknown> | null;
+  children: TemplateStructure[];
+}
+
+interface VariableDefinition {
+  name: string;
+  type: string;
+  required: boolean;
+  defaultValue: string;
+}
+
 /**
  * Build template structure from a prompt and optionally its children
  */
-const buildTemplateStructure = async (supabase, promptRowId, includeChildren = true) => {
-  // Fetch the main prompt
+const buildTemplateStructure = async (
+  supabase: TypedSupabaseClient, 
+  promptRowId: string, 
+  includeChildren = true
+): Promise<TemplateStructure> => {
   const { data: prompt, error: promptError } = await supabase
     .from(PROMPTS_TABLE)
     .select('*')
@@ -21,17 +53,15 @@ const buildTemplateStructure = async (supabase, promptRowId, includeChildren = t
   if (promptError || !prompt) throw promptError || new Error('Prompt not found');
 
   // CRITICAL: Sanitize q.ref[UUID] patterns to prevent cross-family data leakage
-  const sanitizeQRef = (text) => {
-    if (!text || typeof text !== 'string') return text;
-    // Replace {{q.ref[UUID].field}} with {{q.ref[TEMPLATE_REF].field}} placeholder
+  const sanitizeQRef = (text: string | null): string => {
+    if (!text || typeof text !== 'string') return text || '';
     return text.replace(/\{\{q\.ref\[[a-f0-9-]{36}\]\.([a-z_]+)\}\}/gi, '{{q.ref[TEMPLATE_REF].$1}}');
   };
 
-  // Build base structure - NO _id field to prevent cross-family leakage
-  const structure = {
+  const structure: TemplateStructure = {
     name: prompt.prompt_name || 'Untitled',
-    input_admin_prompt: sanitizeQRef(prompt.input_admin_prompt || ''),
-    input_user_prompt: sanitizeQRef(prompt.input_user_prompt || ''),
+    input_admin_prompt: sanitizeQRef(prompt.input_admin_prompt),
+    input_user_prompt: sanitizeQRef(prompt.input_user_prompt),
     model: prompt.model,
     temperature: prompt.temperature,
     temperature_on: prompt.temperature_on,
@@ -41,11 +71,10 @@ const buildTemplateStructure = async (supabase, promptRowId, includeChildren = t
     max_completion_tokens_on: prompt.max_completion_tokens_on,
     node_type: prompt.node_type || 'standard',
     post_action: prompt.post_action,
-    post_action_config: prompt.post_action_config,
+    post_action_config: prompt.post_action_config as Record<string, unknown> | null,
     children: [],
   };
 
-  // Fetch children if requested
   if (includeChildren) {
     const { data: children, error: childError } = await supabase
       .from(PROMPTS_TABLE)
@@ -70,11 +99,13 @@ const buildTemplateStructure = async (supabase, promptRowId, includeChildren = t
 /**
  * Extract variable definitions from template structure
  */
-const extractVariableDefinitions = (structure, definitions = {}) => {
+const extractVariableDefinitions = (
+  structure: TemplateStructure, 
+  definitions: Record<string, VariableDefinition> = {}
+): Record<string, VariableDefinition> => {
   const variablePattern = /\{\{([^}]+)\}\}/g;
   
-  // Check admin prompt
-  let match;
+  let match: RegExpExecArray | null;
   while ((match = variablePattern.exec(structure.input_admin_prompt || '')) !== null) {
     const varName = match[1].trim();
     if (!varName.startsWith('q.') && !definitions[varName]) {
@@ -87,7 +118,6 @@ const extractVariableDefinitions = (structure, definitions = {}) => {
     }
   }
 
-  // Check user prompt
   variablePattern.lastIndex = 0;
   while ((match = variablePattern.exec(structure.input_user_prompt || '')) !== null) {
     const varName = match[1].trim();
@@ -101,7 +131,6 @@ const extractVariableDefinitions = (structure, definitions = {}) => {
     }
   }
 
-  // Process children
   if (structure.children?.length > 0) {
     for (const child of structure.children) {
       extractVariableDefinitions(child, definitions);
@@ -117,10 +146,9 @@ const extractVariableDefinitions = (structure, definitions = {}) => {
 export const executeCreateTemplate = async ({
   supabase,
   prompt,
-  jsonResponse,
   config,
   context,
-}) => {
+}: ExecutorParams): Promise<ExecutorResult> => {
   const {
     template_name,
     template_description = '',
@@ -131,19 +159,15 @@ export const executeCreateTemplate = async ({
     throw new Error('Template name is required');
   }
 
-  // Build structure from current node
-  const structure = await buildTemplateStructure(supabase, prompt.row_id, include_children);
-  
-  // Extract variable definitions
+  const structure = await buildTemplateStructure(supabase, prompt.row_id, include_children as boolean);
   const variableDefinitions = extractVariableDefinitions(structure);
 
-  // Create the template
   const templateData = {
-    template_name,
-    template_description,
+    template_name: template_name as string,
+    template_description: template_description as string,
     structure,
     variable_definitions: variableDefinitions,
-    owner_id: context.userId || prompt.owner_id,
+    owner_id: (context?.userId as string) || prompt.owner_id,
     category: 'action-generated',
     is_private: false,
     version: 1,
@@ -165,6 +189,7 @@ export const executeCreateTemplate = async ({
   }
 
   return {
+    success: true,
     action: 'create_template',
     template: data,
     message: `Created template "${template_name}"`,

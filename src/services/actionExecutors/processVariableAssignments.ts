@@ -7,32 +7,49 @@
 
 import { trackEvent } from '@/lib/posthog';
 import { validateVariableName } from '@/utils/variableResolver';
+import { TypedSupabaseClient } from './types';
 
 const VARIABLES_TABLE = import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_variables';
 
+interface VariableAssignmentsConfig {
+  enabled?: boolean;
+  json_path?: string;
+  auto_create_variables?: boolean;
+}
+
+interface VariableAssignment {
+  name: string;
+  value: unknown;
+}
+
+interface ProcessVariableAssignmentsParams {
+  supabase: TypedSupabaseClient;
+  promptRowId: string;
+  jsonResponse: Record<string, unknown> | string | null;
+  config: VariableAssignmentsConfig;
+  onVariablesChanged?: (promptRowId: string) => Promise<void>;
+}
+
+interface ProcessVariableAssignmentsResult {
+  processed: number;
+  errors: Array<{ name?: string; assignment?: VariableAssignment; error: string }>;
+}
+
 /**
  * Get nested value from object using dot notation path
- * @param {object} obj - The object to traverse
- * @param {string} path - Dot-notation path (e.g., "data.variable_assignments")
- * @returns {*} The value at the path, or undefined
  */
-const getNestedValue = (obj, path) => {
+const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
   if (!path) return obj;
-  return path.split('.').reduce((acc, part) => acc?.[part], obj);
+  return path.split('.').reduce<unknown>((acc, part) => {
+    if (acc && typeof acc === 'object' && part in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[part];
+    }
+    return undefined;
+  }, obj);
 };
 
 /**
  * Process variable assignments from AI response
- * 
- * @param {object} params
- * @param {object} params.supabase - Supabase client
- * @param {string} params.promptRowId - The prompt's row_id
- * @param {object|string} params.jsonResponse - Parsed JSON response from AI (or string to parse)
- * @param {object} params.config - Variable assignments configuration
- * @param {boolean} params.config.enabled - Whether feature is enabled
- * @param {string} params.config.json_path - Path to assignments array (e.g., "variable_assignments")
- * @param {boolean} params.config.auto_create_variables - Whether to create variables that don't exist
- * @returns {Promise<{ processed: number, errors: Array<{name?: string, error: string}> }>}
  */
 export const processVariableAssignments = async ({
   supabase,
@@ -40,7 +57,7 @@ export const processVariableAssignments = async ({
   jsonResponse,
   config,
   onVariablesChanged,
-}) => {
+}: ProcessVariableAssignmentsParams): Promise<ProcessVariableAssignmentsResult> => {
   // Early return if not enabled or missing required params
   if (!config?.enabled || !jsonResponse || !promptRowId) {
     return { processed: 0, errors: [] };
@@ -51,7 +68,7 @@ export const processVariableAssignments = async ({
 
   try {
     // Parse JSON if string
-    const responseObj = typeof jsonResponse === 'string' 
+    const responseObj: Record<string, unknown> = typeof jsonResponse === 'string' 
       ? JSON.parse(jsonResponse) 
       : jsonResponse;
 
@@ -79,15 +96,15 @@ export const processVariableAssignments = async ({
     }
 
     // Build a map of existing variable names to their row_ids
-    const existingMap = new Map(
-      (existingVars || []).map(v => [v.variable_name, v.row_id])
+    const existingMap = new Map<string, string>(
+      (existingVars || []).map(v => [v.variable_name || '', v.row_id])
     );
 
     let processed = 0;
-    const errors = [];
+    const errors: ProcessVariableAssignmentsResult['errors'] = [];
 
     // Process each assignment
-    for (const assignment of assignments) {
+    for (const assignment of assignments as VariableAssignment[]) {
       const { name, value } = assignment;
       
       // Validate presence of name
@@ -99,7 +116,7 @@ export const processVariableAssignments = async ({
       // Validate variable name format
       const validation = validateVariableName(name);
       if (!validation.valid) {
-        errors.push({ name, error: validation.error });
+        errors.push({ name, error: validation.error || 'Invalid variable name' });
         continue;
       }
 
@@ -167,9 +184,10 @@ export const processVariableAssignments = async ({
     }
 
     return { processed, errors };
-  } catch (error) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('processVariableAssignments: Error processing variable assignments:', error);
-    return { processed: 0, errors: [{ error: error.message }] };
+    return { processed: 0, errors: [{ error: errorMessage }] };
   }
 };
 

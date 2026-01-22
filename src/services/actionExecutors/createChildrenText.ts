@@ -7,6 +7,14 @@
 
 import { processNamingTemplate } from '../../utils/namingTemplates';
 import { generatePositionAtEnd } from '../../utils/lexPosition';
+import { 
+  TypedSupabaseClient, 
+  ExecutorParams, 
+  ExecutorResult,
+  ModelDefaults,
+  ParentSettings,
+  LibraryPrompt
+} from './types';
 
 const PROMPTS_TABLE = 'q_prompts';
 const SETTINGS_TABLE = 'q_settings';
@@ -15,15 +23,17 @@ const MODEL_DEFAULTS_TABLE = 'q_model_defaults';
 /**
  * Get default prompt settings from the database
  */
-const getDefaultSettings = async (supabase) => {
+const getDefaultSettings = async (supabase: TypedSupabaseClient): Promise<Record<string, string>> => {
   const { data } = await supabase
     .from(SETTINGS_TABLE)
     .select('setting_key, setting_value')
     .in('setting_key', ['def_admin_prompt', 'default_user_prompt', 'default_model']);
 
-  const settings = {};
+  const settings: Record<string, string> = {};
   data?.forEach(row => {
-    settings[row.setting_key] = row.setting_value;
+    if (row.setting_key && row.setting_value) {
+      settings[row.setting_key] = row.setting_value;
+    }
   });
   return settings;
 };
@@ -31,8 +41,11 @@ const getDefaultSettings = async (supabase) => {
 /**
  * Get model defaults for a specific model
  */
-const getModelDefaults = async (supabase, modelId) => {
-  if (!modelId) return {};
+const getModelDefaults = async (
+  supabase: TypedSupabaseClient, 
+  modelId: string | null
+): Promise<ModelDefaults> => {
+  if (!modelId) return { model_id: null } as ModelDefaults;
 
   const { data } = await supabase
     .from(MODEL_DEFAULTS_TABLE)
@@ -40,28 +53,31 @@ const getModelDefaults = async (supabase, modelId) => {
     .eq('model_id', modelId)
     .maybeSingle();
 
-  if (!data) return { model: modelId, model_on: true };
+  if (!data) return { model_id: modelId, model: modelId, model_on: true } as unknown as ModelDefaults;
 
-  const defaults = { model: modelId, model_on: true };
-  // All model settings fields that can have defaults
+  const defaults: Record<string, unknown> = { model_id: modelId, model: modelId, model_on: true };
   const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
     'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
 
   fields.forEach(field => {
-    if (data[`${field}_on`]) {
-      defaults[field] = data[field];
+    const onKey = `${field}_on` as keyof typeof data;
+    if (data[onKey]) {
+      defaults[field] = data[field as keyof typeof data];
       defaults[`${field}_on`] = true;
     }
   });
 
-  return defaults;
+  return defaults as ModelDefaults;
 };
 
 /**
  * Get inheritable settings from parent prompt
  */
-const getParentSettings = async (supabase, parentRowId) => {
-  if (!parentRowId) return {};
+const getParentSettings = async (
+  supabase: TypedSupabaseClient, 
+  parentRowId: string | null
+): Promise<ParentSettings> => {
+  if (!parentRowId) return {} as ParentSettings;
 
   const { data } = await supabase
     .from(PROMPTS_TABLE)
@@ -73,22 +89,25 @@ const getParentSettings = async (supabase, parentRowId) => {
     .eq('row_id', parentRowId)
     .maybeSingle();
 
-  return data || {};
+  return (data || {}) as ParentSettings;
 };
 
 /**
  * Get library prompt content if specified
  */
-const getLibraryPrompt = async (supabase, libraryPromptId) => {
+const getLibraryPrompt = async (
+  supabase: TypedSupabaseClient, 
+  libraryPromptId: string | null | undefined
+): Promise<LibraryPrompt | null> => {
   if (!libraryPromptId) return null;
 
   const { data } = await supabase
     .from('q_prompt_library')
-    .select('content, name')
+    .select('row_id, name, content, description, category')
     .eq('row_id', libraryPromptId)
     .maybeSingle();
 
-  return data;
+  return data as LibraryPrompt | null;
 };
 
 /**
@@ -97,10 +116,9 @@ const getLibraryPrompt = async (supabase, libraryPromptId) => {
 export const executeCreateChildrenText = async ({
   supabase,
   prompt,
-  jsonResponse,
   config,
   context,
-}) => {
+}: ExecutorParams): Promise<ExecutorResult> => {
   const {
     children_count = 3,
     name_prefix = 'Child',
@@ -109,20 +127,13 @@ export const executeCreateChildrenText = async ({
     copy_library_prompt_id,
   } = config || {};
 
-  // Get default settings
   const defaults = await getDefaultSettings(supabase);
-  
-  // Get model defaults if a default model is set
-  const modelDefaults = await getModelDefaults(supabase, defaults.default_model);
-  
-  // Get parent settings to inherit
+  const modelDefaults = await getModelDefaults(supabase, defaults.default_model || null);
   const parentSettings = await getParentSettings(supabase, prompt.row_id);
-  
-  // Get library prompt if specified
-  const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id);
+  const libraryPrompt = await getLibraryPrompt(supabase, copy_library_prompt_id as string | undefined);
 
   // Determine parent_row_id based on placement
-  let targetParentRowId;
+  let targetParentRowId: string | null;
   switch (placement) {
     case 'children':
       targetParentRowId = prompt.row_id;
@@ -134,14 +145,14 @@ export const executeCreateChildrenText = async ({
       targetParentRowId = null;
       break;
     case 'specific_prompt':
-      targetParentRowId = config.target_prompt_id || prompt.row_id;
+      targetParentRowId = (config?.target_prompt_id as string) || prompt.row_id;
       break;
     default:
       targetParentRowId = prompt.row_id;
   }
 
   // Get last position_lex at target level
-  let lastPositionKey;
+  let lastPositionKey: string | null;
   if (placement === 'top_level' || targetParentRowId === null) {
     const { data: topLevel } = await supabase
       .from(PROMPTS_TABLE)
@@ -160,43 +171,39 @@ export const executeCreateChildrenText = async ({
     lastPositionKey = siblings?.[0]?.position_lex || null;
   }
 
-  const createdChildren = [];
+  const createdChildren: unknown[] = [];
+  const count = Number(children_count) || 3;
 
-  for (let i = 0; i < children_count; i++) {
-    // Support naming templates in the prefix (e.g., "Child {{nn}}", "Section {{A}}")
-    const hasTemplateCode = name_prefix && /\{\{[^}]+\}\}/.test(name_prefix);
+  for (let i = 0; i < count; i++) {
+    const hasTemplateCode = name_prefix && /\{\{[^}]+\}\}/.test(name_prefix as string);
     const childName = hasTemplateCode 
-      ? processNamingTemplate(name_prefix, i)
+      ? processNamingTemplate(name_prefix as string, i)
       : `${name_prefix} ${i + 1}`;
     
-    // Generate sequential lex positions
     const childPositionLex = generatePositionAtEnd(lastPositionKey);
     lastPositionKey = childPositionLex;
     
-    // Build child data with proper inheritance
-    const childData = {
+    const childData: Record<string, unknown> = {
       parent_row_id: targetParentRowId,
       prompt_name: childName,
       input_admin_prompt: libraryPrompt?.content || defaults.def_admin_prompt || '',
       input_user_prompt: defaults.default_user_prompt || '',
       position_lex: childPositionLex,
       is_deleted: false,
-      owner_id: context.userId || prompt.owner_id,
+      owner_id: (context?.userId as string) || prompt.owner_id,
       node_type: child_node_type || 'standard',
-      is_assistant: true, // Always enable conversation mode for child prompts
-      // Apply model defaults
+      is_assistant: true,
       ...modelDefaults,
-      // Inherit settings from parent (with fallback to model defaults)
       temperature: parentSettings.temperature ?? modelDefaults.temperature,
       temperature_on: parentSettings.temperature_on ?? modelDefaults.temperature_on,
       max_tokens: parentSettings.max_tokens ?? modelDefaults.max_tokens,
       max_tokens_on: parentSettings.max_tokens_on ?? modelDefaults.max_tokens_on,
       max_completion_tokens: parentSettings.max_completion_tokens ?? modelDefaults.max_completion_tokens,
       max_completion_tokens_on: parentSettings.max_completion_tokens_on ?? modelDefaults.max_completion_tokens_on,
-      web_search_on: parentSettings.web_search_on,
-      confluence_enabled: parentSettings.confluence_enabled,
-      thread_mode: parentSettings.thread_mode,
-      child_thread_strategy: parentSettings.child_thread_strategy,
+      web_search_on: (parentSettings as unknown as Record<string, unknown>).web_search_on,
+      confluence_enabled: (parentSettings as unknown as Record<string, unknown>).confluence_enabled,
+      thread_mode: (parentSettings as unknown as Record<string, unknown>).thread_mode,
+      child_thread_strategy: (parentSettings as unknown as Record<string, unknown>).child_thread_strategy,
     };
 
     if (copy_library_prompt_id) {
@@ -221,19 +228,20 @@ export const executeCreateChildrenText = async ({
     createdChildren.push(data);
   }
 
-  const placementText = {
+  const placementText: Record<string, string> = {
     children: 'as children',
     siblings: 'as siblings',
     top_level: 'as top-level prompts',
   };
 
-  const nodeTypeText = child_node_type === 'action' ? ' action' : '';
+  const nodeTypeText = (child_node_type as string) === 'action' ? ' action' : '';
 
   return {
+    success: true,
     action: 'create_children_text',
     createdCount: createdChildren.length,
     children: createdChildren,
     placement,
-    message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement] || ''}`,
+    message: `Created ${createdChildren.length}${nodeTypeText} node(s) ${placementText[placement as string] || ''}`,
   };
 };
