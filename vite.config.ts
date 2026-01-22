@@ -1,21 +1,19 @@
-// Vite config - simplified for React deduplication
 import { fileURLToPath, URL } from "url";
-import { defineConfig } from "vite";
+import { defineConfig, ConfigEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
+// @ts-ignore - lovable-tagger lacks type definitions
 import { componentTagger } from "lovable-tagger";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode }: ConfigEnv) => ({
   server: {
     host: "::",
     port: 8080,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
-    // Let Vite handle React deduplication natively
     dedupe: ["react", "react-dom"],
     alias: [
       {
@@ -38,4 +36,3 @@ export default defineConfig(({ mode }) => ({
     },
   },
 }));
-
