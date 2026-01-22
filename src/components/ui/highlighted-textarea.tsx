@@ -9,7 +9,7 @@ import {
 import { usePromptNameLookup } from '@/hooks/usePromptNameLookup';
 
 // Field labels for friendly display
-const FIELD_LABELS = {
+const FIELD_LABELS: Record<string, string> = {
   output_response: 'AI Response',
   user_prompt_result: 'User Result',
   input_admin_prompt: 'System Prompt',
@@ -18,7 +18,7 @@ const FIELD_LABELS = {
 };
 
 // Variable type labels
-const VARIABLE_TYPE_LABELS = {
+const VARIABLE_TYPE_LABELS: Record<string, string> = {
   [SYSTEM_VARIABLE_TYPES.STATIC]: 'Auto-filled',
   [SYSTEM_VARIABLE_TYPES.USER_EDITABLE]: 'Editable',
   [SYSTEM_VARIABLE_TYPES.INPUT]: 'User Input',
@@ -26,11 +26,34 @@ const VARIABLE_TYPE_LABELS = {
   [SYSTEM_VARIABLE_TYPES.RUNTIME]: 'Runtime',
 };
 
+interface UserVariable {
+  name: string;
+  description?: string;
+  value?: string;
+}
+
+interface VariableInfo {
+  name: string;
+  label: string;
+  description: string;
+  type: string;
+  isSystem: boolean;
+  isStatic: boolean;
+  value?: string;
+}
+
+interface HighlightedTextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement> | { target: { value: string; selectionStart: number; selectionEnd: number } }) => void;
+  rows?: number;
+  userVariables?: (string | UserVariable)[];
+}
+
 /**
  * A textarea with syntax highlighting for {{variables}} and autocomplete
  * Uses overlay pattern: transparent textarea over highlighted backdrop
  */
-const HighlightedTextarea = forwardRef(({
+const HighlightedTextarea = forwardRef<HTMLTextAreaElement, HighlightedTextareaProps>(({
   value = '',
   onChange,
   onSelect,
@@ -46,9 +69,9 @@ const HighlightedTextarea = forwardRef(({
   style: propStyle,
   ...props
 }, ref) => {
-  const containerRef = useRef(null);
-  const textareaRef = useRef(null);
-  const backdropRef = useRef(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const backdropRef = useRef<HTMLPreElement>(null);
   
   // Autocomplete state
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -57,7 +80,7 @@ const HighlightedTextarea = forwardRef(({
   const [triggerStart, setTriggerStart] = useState(-1);
 
   // Build list of all available variables
-  const allVariables = useMemo(() => {
+  const allVariables = useMemo<VariableInfo[]>(() => {
     const systemVars = getSystemVariableNames().map(name => ({
       name,
       label: SYSTEM_VARIABLES[name]?.label || name,
@@ -98,7 +121,7 @@ const HighlightedTextarea = forwardRef(({
   const { nameMap: promptNameMap } = usePromptNameLookup(value);
 
   // Generate highlighted HTML for backdrop
-  const getHighlightedHtml = useCallback((text) => {
+  const getHighlightedHtml = useCallback((text: string): string => {
     if (!text) return '\u00A0'; // Non-breaking space for empty
     
     // Escape HTML entities
@@ -144,7 +167,7 @@ const HighlightedTextarea = forwardRef(({
   }, []);
 
   // Check for autocomplete trigger
-  const checkForTrigger = useCallback((text, cursorPos) => {
+  const checkForTrigger = useCallback((text: string, cursorPos: number) => {
     const textBefore = text.substring(0, cursorPos);
     const lastOpenBrace = textBefore.lastIndexOf('{{');
     
@@ -167,7 +190,7 @@ const HighlightedTextarea = forwardRef(({
   }, []);
 
   // Handle input changes
-  const handleInput = useCallback((e) => {
+  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange?.(e);
     
     // Check for autocomplete trigger
@@ -179,7 +202,7 @@ const HighlightedTextarea = forwardRef(({
   }, [onChange, checkForTrigger]);
 
   // Insert selected variable
-  const insertVariable = useCallback((variable) => {
+  const insertVariable = useCallback((variable: VariableInfo) => {
     const textarea = textareaRef.current;
     if (!textarea || triggerStart === -1) return;
     
@@ -215,7 +238,7 @@ const HighlightedTextarea = forwardRef(({
   }, [value, triggerStart, onChange]);
 
   // Handle key events for autocomplete navigation
-  const handleKeyDown = useCallback((e) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!showAutocomplete) return;
     
     switch (e.key) {
@@ -241,7 +264,7 @@ const HighlightedTextarea = forwardRef(({
     }
   }, [showAutocomplete, filteredVariables, selectedIndex, insertVariable]);
 
-  const handleBlurInternal = useCallback((e) => {
+  const handleBlurInternal = useCallback((e: React.FocusEvent<HTMLTextAreaElement>) => {
     // Delay hiding to allow click on autocomplete items
     setTimeout(() => {
       setShowAutocomplete(false);
@@ -255,7 +278,7 @@ const HighlightedTextarea = forwardRef(({
   // Shared text styles - CRITICAL: must match exactly between textarea and backdrop
   // Note: border is NOT included here - it's applied only via className to textarea
   // The backdrop has no border, which is correct since it sits behind the textarea
-  const textStyles = {
+  const textStyles: React.CSSProperties = {
     fontFamily: "'Poppins', sans-serif",
     fontSize: '0.875rem',
     lineHeight: '1.625',
@@ -406,3 +429,4 @@ const HighlightedTextarea = forwardRef(({
 HighlightedTextarea.displayName = 'HighlightedTextarea';
 
 export default HighlightedTextarea;
+export type { HighlightedTextareaProps, UserVariable, VariableInfo };

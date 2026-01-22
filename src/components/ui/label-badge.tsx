@@ -3,7 +3,7 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // Predefined label colors - consistent across the app
-const LABEL_COLORS = {
+const LABEL_COLORS: Record<string, string> = {
   Business: "bg-amber-500/10 text-amber-600",
   Technical: "bg-green-500/10 text-green-600",
   Marketing: "bg-blue-500/10 text-blue-600",
@@ -20,11 +20,20 @@ const LABEL_COLORS = {
   Docs: "bg-lime-500/10 text-lime-600",
 };
 
-const getLabelColor = (label) => {
+const getLabelColor = (label: string): string => {
   return LABEL_COLORS[label] || "bg-muted text-muted-foreground";
 };
 
-const LabelBadge = React.forwardRef(({ 
+type LabelBadgeSize = "xs" | "sm" | "default";
+
+interface LabelBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
+  label: string;
+  size?: LabelBadgeSize;
+  removable?: boolean;
+  onRemove?: (label: string) => void;
+}
+
+const LabelBadge = React.forwardRef<HTMLSpanElement, LabelBadgeProps>(({ 
   className, 
   label,
   size = "default",
@@ -32,7 +41,7 @@ const LabelBadge = React.forwardRef(({
   onRemove,
   ...props 
 }, ref) => {
-  const sizeClasses = {
+  const sizeClasses: Record<LabelBadgeSize, string> = {
     xs: "text-[8px] px-1 py-0.5",
     sm: "text-compact px-1.5 py-0.5",
     default: "text-compact px-1.5 py-0.5",
@@ -67,3 +76,4 @@ const LabelBadge = React.forwardRef(({
 LabelBadge.displayName = "LabelBadge";
 
 export { LabelBadge, LABEL_COLORS, getLabelColor };
+export type { LabelBadgeProps, LabelBadgeSize };
