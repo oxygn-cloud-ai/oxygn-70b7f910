@@ -9,8 +9,14 @@ import { cn } from '@/lib/utils';
 import useTreeData from '@/hooks/useTreeData';
 import { useSupabase } from '@/hooks/useSupabase';
 
+interface ReferenceField {
+  key: string;
+  label: string;
+  description: string;
+}
+
 // Fields available for reference
-const REFERENCE_FIELDS = [
+const REFERENCE_FIELDS: ReferenceField[] = [
   { key: 'output_response', label: 'AI Response', description: 'The AI-generated response' },
   { key: 'user_prompt_result', label: 'User Prompt Result', description: 'Result stored in user prompt field' },
   { key: 'input_admin_prompt', label: 'System Prompt', description: 'The admin/system prompt' },
@@ -18,8 +24,27 @@ const REFERENCE_FIELDS = [
   { key: 'prompt_name', label: 'Name', description: 'The prompt name' },
 ];
 
+interface TreeNode {
+  row_id: string;
+  prompt_name?: string;
+  is_assistant?: boolean;
+  parent_row_id?: string | null;
+  position?: number;
+  children: TreeNode[];
+}
+
+interface PromptTreeNodeProps {
+  node: TreeNode;
+  level?: number;
+  selectedPromptId: string | null;
+  onSelectPrompt: (node: TreeNode) => void;
+  expandedNodes: Set<string>;
+  onToggleExpand: (nodeId: string) => void;
+  searchQuery: string;
+}
+
 // Recursive tree node component
-const PromptTreeNode = ({ 
+const PromptTreeNode: React.FC<PromptTreeNodeProps> = ({ 
   node, 
   level = 0, 
   selectedPromptId, 
@@ -39,7 +64,7 @@ const PromptTreeNode = ({
   // Check if any descendants match search
   const hasMatchingDescendants = useMemo(() => {
     if (!searchQuery) return true;
-    const checkDescendants = (n) => {
+    const checkDescendants = (n: TreeNode): boolean => {
       if (n.prompt_name?.toLowerCase().includes(searchQuery.toLowerCase())) return true;
       return n.children?.some(checkDescendants) || false;
     };
@@ -114,28 +139,35 @@ const PromptTreeNode = ({
   );
 };
 
+interface PromptReferencePickerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onInsert: (reference: string) => void;
+  familyRootPromptRowId?: string | null;
+}
+
 /**
  * Modal for selecting a prompt and field to create a reference variable
  * Returns syntax: {{q.ref[UUID].field}}
  */
-const PromptReferencePicker = ({ 
+const PromptReferencePicker: React.FC<PromptReferencePickerProps> = ({ 
   isOpen, 
   onClose, 
   onInsert,
-  familyRootPromptRowId = null, // If provided, filter to only show prompts in this family
+  familyRootPromptRowId = null,
 }) => {
   const supabase = useSupabase();
   const { treeData, isLoading } = useTreeData(supabase);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPrompt, setSelectedPrompt] = useState(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<TreeNode | null>(null);
   const [selectedField, setSelectedField] = useState('');
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Build tree structure from flat data
-  const buildTree = useCallback((items) => {
-    const itemMap = new Map();
-    const roots = [];
+  const buildTree = useCallback((items: Array<{ row_id: string; parent_row_id?: string | null; position?: number; prompt_name?: string; is_assistant?: boolean }>): TreeNode[] => {
+    const itemMap = new Map<string, TreeNode>();
+    const roots: TreeNode[] = [];
 
     // First pass: create map
     items.forEach(item => {
@@ -145,15 +177,16 @@ const PromptReferencePicker = ({
     // Second pass: build tree
     items.forEach(item => {
       const node = itemMap.get(item.row_id);
+      if (!node) return;
       if (item.parent_row_id && itemMap.has(item.parent_row_id)) {
-        itemMap.get(item.parent_row_id).children.push(node);
+        itemMap.get(item.parent_row_id)!.children.push(node);
       } else {
         roots.push(node);
       }
     });
 
     // Sort children by position
-    const sortChildren = (nodes) => {
+    const sortChildren = (nodes: TreeNode[]) => {
       nodes.sort((a, b) => (a.position || 0) - (b.position || 0));
       nodes.forEach(node => {
         if (node.children.length > 0) {
@@ -173,7 +206,7 @@ const PromptReferencePicker = ({
     if (!familyRootPromptRowId) return fullTree;
     
     // Find and return only the family tree
-    const findFamilyRoot = (nodes) => {
+    const findFamilyRoot = (nodes: TreeNode[]): TreeNode[] => {
       for (const node of nodes) {
         if (node.row_id === familyRootPromptRowId) {
           return [node];
@@ -189,7 +222,7 @@ const PromptReferencePicker = ({
     return findFamilyRoot(fullTree);
   }, [fullTree, familyRootPromptRowId]);
 
-  const handleToggleExpand = useCallback((nodeId) => {
+  const handleToggleExpand = useCallback((nodeId: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
@@ -201,7 +234,7 @@ const PromptReferencePicker = ({
     });
   }, []);
 
-  const handleSelectPrompt = useCallback((node) => {
+  const handleSelectPrompt = useCallback((node: TreeNode) => {
     setSelectedPrompt(node);
     // Auto-expand when selecting
     if (node.children?.length > 0) {
@@ -271,7 +304,7 @@ const PromptReferencePicker = ({
                     <PromptTreeNode
                       key={node.row_id}
                       node={node}
-                      selectedPromptId={selectedPrompt?.row_id}
+                      selectedPromptId={selectedPrompt?.row_id ?? null}
                       onSelectPrompt={handleSelectPrompt}
                       expandedNodes={expandedNodes}
                       onToggleExpand={handleToggleExpand}
@@ -345,3 +378,4 @@ const PromptReferencePicker = ({
 
 export default PromptReferencePicker;
 export { REFERENCE_FIELDS };
+export type { ReferenceField };

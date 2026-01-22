@@ -25,7 +25,16 @@ import { useTemplates } from '@/hooks/useTemplates';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
-const SaveAsTemplateDialog = ({
+interface SaveAsTemplateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  promptId: string | null;
+  promptName?: string;
+  hasChildren?: boolean;
+  onSuccess?: () => void;
+}
+
+const SaveAsTemplateDialog: React.FC<SaveAsTemplateDialogProps> = ({
   open,
   onOpenChange,
   promptId,
@@ -37,7 +46,7 @@ const SaveAsTemplateDialog = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('general');
-  const [isShared, setIsShared] = useState(true); // Default: shared with all users
+  const [isShared, setIsShared] = useState(true);
   const [includeChildren, setIncludeChildren] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -191,7 +200,7 @@ const SaveAsTemplateDialog = ({
               <Checkbox
                 id="include-children"
                 checked={includeChildren}
-                onCheckedChange={setIncludeChildren}
+                onCheckedChange={(checked) => setIncludeChildren(checked as boolean)}
               />
               <div>
                 <Label 
