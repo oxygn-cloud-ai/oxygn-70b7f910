@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Braces, Clock, User, FileText, ChevronRight, Link2 } from 'lucide-react';
+import { Braces, Clock, User, FileText, ChevronRight, Link2, LucideIcon } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -17,33 +17,51 @@ import { cn } from '@/lib/utils';
 import {
   SYSTEM_VARIABLES,
   SYSTEM_VARIABLE_TYPES,
-  getSystemVariableNames,
 } from '@/config/systemVariables';
 import PromptReferencePicker from './PromptReferencePicker';
+
+interface UserVariable {
+  name: string;
+}
+
+interface VariableGroup {
+  label: string;
+  icon: LucideIcon;
+  vars: string[];
+}
+
+interface VariablePickerProps {
+  onInsert: (varName: string) => void;
+  userVariables?: Array<UserVariable | string>;
+  className?: string;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+  align?: 'start' | 'center' | 'end';
+  familyRootPromptRowId?: string | null;
+}
 
 /**
  * Compact variable picker with icon trigger
  * Shows system variables and user-defined variables in a popover
  */
-const VariablePicker = ({ 
+const VariablePicker: React.FC<VariablePickerProps> = ({ 
   onInsert, 
   userVariables = [], 
   className,
   side = 'bottom',
   align = 'end',
-  familyRootPromptRowId = null, // Filter prompt references to this family
+  familyRootPromptRowId = null,
 }) => {
   const [open, setOpen] = useState(false);
-  const [expandedSection, setExpandedSection] = useState(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [showPromptPicker, setShowPromptPicker] = useState(false);
 
-  const handleInsert = (varName) => {
+  const handleInsert = (varName: string) => {
     onInsert(varName);
     setOpen(false);
   };
 
   // Group system variables by category
-  const systemVarGroups = {
+  const systemVarGroups: Record<string, VariableGroup> = {
     datetime: {
       label: 'Date & Time',
       icon: Clock,
@@ -71,11 +89,11 @@ const VariablePicker = ({
     },
   };
 
-  const toggleSection = (section) => {
+  const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const renderVariable = (varName) => {
+  const renderVariable = (varName: string) => {
     const sysVar = SYSTEM_VARIABLES[varName];
     const isStatic = sysVar?.type === SYSTEM_VARIABLE_TYPES.STATIC;
     
@@ -195,16 +213,19 @@ const VariablePicker = ({
                 
                 {expandedSection === 'user-defined' && (
                   <div className="ml-4 mt-0.5 border-l border-border pl-2">
-                    {userVariables.map(v => (
-                      <button
-                        key={v.name || v}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleInsert(v.name || v)}
-                        className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded"
-                      >
-                        <span className="font-mono text-foreground">{`{{${v.name || v}}}`}</span>
-                      </button>
-                    ))}
+                    {userVariables.map(v => {
+                      const varName = typeof v === 'string' ? v : v.name;
+                      return (
+                        <button
+                          key={varName}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleInsert(varName)}
+                          className="w-full text-left px-2 py-1.5 text-xs hover:bg-muted rounded"
+                        >
+                          <span className="font-mono text-foreground">{`{{${varName}}}`}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

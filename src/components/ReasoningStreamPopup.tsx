@@ -1,23 +1,31 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 
+interface ReasoningStreamPopupProps {
+  isOpen: boolean;
+  onClose: (open: boolean) => void;
+  thinkingText: string | null;
+  promptName?: string;
+  model?: string;
+}
+
 /**
  * Full-screen popup for viewing streaming reasoning content.
  * Auto-scrolls to bottom as new content arrives with debounce.
  */
-const ReasoningStreamPopup = ({ 
+const ReasoningStreamPopup: React.FC<ReasoningStreamPopupProps> = ({ 
   isOpen, 
   onClose, 
   thinkingText,
   promptName,
   model 
 }) => {
-  const scrollRef = useRef(null);
-  const scrollTimeoutRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Auto-scroll to bottom as new content arrives (debounced)
   useEffect(() => {

@@ -16,7 +16,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const TemplateCodesHelp = () => (
+interface LevelConfig {
+  level: number;
+  name: string;
+  prefix: string;
+  suffix: string;
+}
+
+interface TopLevelSetConfig {
+  levels: LevelConfig[];
+}
+
+interface NamingConfig {
+  levels: LevelConfig[];
+  topLevelSets: Record<string, TopLevelSetConfig>;
+}
+
+interface SettingValue {
+  value: string;
+}
+
+interface PromptNamingSettingsProps {
+  settings: Record<string, SettingValue>;
+  updateSetting: (key: string, value: string) => Promise<void>;
+}
+
+const TemplateCodesHelp: React.FC = () => (
   <Popover>
     <PopoverTrigger asChild>
       <HelpCircle className="h-4 w-4 text-muted-foreground hover:text-foreground cursor-pointer transition-colors" />
@@ -25,7 +50,7 @@ const TemplateCodesHelp = () => (
       <div className="space-y-3">
         <h4 className="font-semibold text-sm">Available Template Codes</h4>
         <div className="space-y-2">
-          {TEMPLATE_CODES.map(({ code, description, example }) => (
+          {TEMPLATE_CODES.map(({ code, description }) => (
             <div key={code} className="text-xs">
               <code className="bg-muted px-1 py-0.5 rounded font-mono">{code}</code>
               <span className="text-muted-foreground ml-2">{description}</span>
@@ -37,7 +62,7 @@ const TemplateCodesHelp = () => (
           <div className="grid grid-cols-2 gap-1 text-xs">
             {DATE_FORMAT_EXAMPLES.map(({ format, example }) => (
               <div key={format}>
-                <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">{'{{date:' + format + '}}'}</code>
+                <code className="bg-muted px-1 py-0.5 rounded font-mono text-[10px]">{{'date:' + format + '}}</code>
                 <span className="text-muted-foreground ml-1">→ {example}</span>
               </div>
             ))}
@@ -48,7 +73,7 @@ const TemplateCodesHelp = () => (
   </Popover>
 );
 
-const DEFAULT_NAMING_CONFIG = {
+const DEFAULT_NAMING_CONFIG: NamingConfig = {
   levels: [
     { level: 0, name: 'Prompt', prefix: '', suffix: '' },
     { level: 1, name: 'Sub-prompt', prefix: '', suffix: '' },
@@ -57,12 +82,12 @@ const DEFAULT_NAMING_CONFIG = {
   topLevelSets: {}
 };
 
-export const PromptNamingSettings = ({ settings, updateSetting }) => {
-  const [config, setConfig] = useState(DEFAULT_NAMING_CONFIG);
+export const PromptNamingSettings: React.FC<PromptNamingSettingsProps> = ({ settings, updateSetting }) => {
+  const [config, setConfig] = useState<NamingConfig>(DEFAULT_NAMING_CONFIG);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [newSetName, setNewSetName] = useState('');
-  const [expandedSets, setExpandedSets] = useState({});
+  const [expandedSets, setExpandedSets] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (settings['prompt_naming_defaults']?.value) {
@@ -75,7 +100,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     }
   }, [settings]);
 
-  const handleLevelChange = (levelIndex, field, value) => {
+  const handleLevelChange = (levelIndex: number, field: keyof LevelConfig, value: string | number) => {
     setConfig(prev => {
       const newLevels = [...prev.levels];
       newLevels[levelIndex] = { ...newLevels[levelIndex], [field]: value };
@@ -97,7 +122,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     setHasChanges(true);
   };
 
-  const handleRemoveLevel = (levelIndex) => {
+  const handleRemoveLevel = (levelIndex: number) => {
     if (config.levels.length <= 1) {
       toast.error('Must have at least one level');
       return;
@@ -134,7 +159,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     setHasChanges(true);
   };
 
-  const handleRemoveTopLevelSet = (setName) => {
+  const handleRemoveTopLevelSet = (setName: string) => {
     setConfig(prev => {
       const newSets = { ...prev.topLevelSets };
       delete newSets[setName];
@@ -143,7 +168,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     setHasChanges(true);
   };
 
-  const handleSetLevelChange = (setName, levelIndex, field, value) => {
+  const handleSetLevelChange = (setName: string, levelIndex: number, field: keyof LevelConfig, value: string | number) => {
     setConfig(prev => {
       const newSets = { ...prev.topLevelSets };
       const newLevels = [...newSets[setName].levels];
@@ -154,7 +179,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     setHasChanges(true);
   };
 
-  const handleAddSetLevel = (setName) => {
+  const handleAddSetLevel = (setName: string) => {
     setConfig(prev => {
       const newSets = { ...prev.topLevelSets };
       const currentLevels = newSets[setName].levels;
@@ -172,7 +197,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     setHasChanges(true);
   };
 
-  const handleRemoveSetLevel = (setName, levelIndex) => {
+  const handleRemoveSetLevel = (setName: string, levelIndex: number) => {
     const currentLevels = config.topLevelSets[setName]?.levels || [];
     if (currentLevels.length <= 1) {
       toast.error('Must have at least one level');
@@ -191,7 +216,7 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     setHasChanges(true);
   };
 
-  const toggleSetExpanded = (setName) => {
+  const toggleSetExpanded = (setName: string) => {
     setExpandedSets(prev => ({ ...prev, [setName]: !prev[setName] }));
   };
 
@@ -208,7 +233,12 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     }
   };
 
-  const renderLevelTable = (levels, onLevelChange, onRemoveLevel, onAddLevel) => (
+  const renderLevelTable = (
+    levels: LevelConfig[], 
+    onLevelChange: (index: number, field: keyof LevelConfig, value: string) => void, 
+    onRemoveLevel: (index: number) => void, 
+    onAddLevel: () => void
+  ) => (
     <div className="space-y-3">
       <Table>
         <TableHeader>
@@ -402,3 +432,5 @@ export const PromptNamingSettings = ({ settings, updateSetting }) => {
     </Card>
   );
 };
+
+export default PromptNamingSettings;

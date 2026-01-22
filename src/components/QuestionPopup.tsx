@@ -4,29 +4,50 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { X, Send, Loader2, MessageCircleQuestion, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+interface Progress {
+  current: number;
+  max: number;
+}
+
+interface CollectedVariable {
+  name: string;
+  value: string;
+}
+
+interface QuestionPopupProps {
+  isOpen: boolean;
+  onClose: () => void;
+  question: string;
+  variableName?: string;
+  description?: string;
+  progress?: Progress;
+  collectedVariables?: CollectedVariable[];
+  onSubmit: (answer: string) => void;
+}
+
 /**
  * QuestionPopup - Displays AI questions to user in question prompts
  * 
  * Uses icon-only actions per M3 design system rules.
  * No Button components - only icon buttons with tooltips.
  */
-export function QuestionPopup({
+export const QuestionPopup: React.FC<QuestionPopupProps> = ({
   isOpen,
   onClose,
   question,
   variableName,
   description,
-  progress,           // { current: number, max: number }
-  collectedVariables, // [{ name: string, value: string }, ...]
+  progress,
+  collectedVariables,
   onSubmit,
-}) {
+}) => {
   const [inputValue, setInputValue] = useState('');
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
-  const textareaRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Focus textarea when popup opens
   useEffect(() => {
-    let timeoutId;
+    let timeoutId: NodeJS.Timeout | undefined;
     if (isOpen && textareaRef.current) {
       timeoutId = setTimeout(() => textareaRef.current?.focus(), 100);
     }
@@ -48,7 +69,7 @@ export function QuestionPopup({
     setInputValue('');
   };
   
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -63,6 +84,7 @@ export function QuestionPopup({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-md bg-surface-container-high border-outline-variant p-0 gap-0"
+        // @ts-ignore - hideCloseButton is a custom prop
         hideCloseButton={true}
         onPointerDownOutside={(e) => e.preventDefault()}
       >
@@ -195,6 +217,6 @@ export function QuestionPopup({
       </DialogContent>
     </Dialog>
   );
-}
+};
 
 export default QuestionPopup;
