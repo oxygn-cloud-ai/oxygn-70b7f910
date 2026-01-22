@@ -10,7 +10,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const DeleteConfirmationDialog = ({ isOpen, onOpenChange, confirmCount, onConfirm }) => {
+interface DeleteConfirmationDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  confirmCount: number;
+  onConfirm: () => void;
+}
+
+const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({ 
+  isOpen, 
+  onOpenChange, 
+  confirmCount, 
+  onConfirm 
+}) => {
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>

@@ -11,7 +11,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const CascadeRunProgress = () => {
+interface SkippedPrompt {
+  promptRowId: string;
+  promptName: string;
+}
+
+const CascadeRunProgress: React.FC = () => {
   const {
     isRunning,
     isPaused,
@@ -52,13 +57,14 @@ const CascadeRunProgress = () => {
     ? (completedPrompts.length / totalPrompts) * 100 
     : 0;
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const skippedCount = skippedPrompts?.length || 0;
+  const skippedList = (skippedPrompts || []) as SkippedPrompt[];
+  const skippedCount = skippedList.length;
 
   return (
     <div className="w-full bg-primary/10 border-b border-border px-4 py-2">
@@ -102,7 +108,7 @@ const CascadeRunProgress = () => {
                 <TooltipContent side="bottom" className="max-w-xs">
                   <p className="font-medium mb-1">Excluded from cascade:</p>
                   <ul className="text-xs space-y-0.5">
-                    {skippedPrompts.map((p, i) => (
+                    {skippedList.map((p, i) => (
                       <li key={p.promptRowId || i} className="truncate">
                         • {p.promptName}
                       </li>

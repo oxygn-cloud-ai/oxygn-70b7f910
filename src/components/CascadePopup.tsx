@@ -1,7 +1,21 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const CascadePopup = ({ isOpen, onClose, itemName, fieldName, fieldContent }) => {
+interface CascadePopupProps {
+  isOpen: boolean;
+  onClose: (open: boolean) => void;
+  itemName: string;
+  fieldName: string;
+  fieldContent: string;
+}
+
+const CascadePopup: React.FC<CascadePopupProps> = ({ 
+  isOpen, 
+  onClose, 
+  itemName, 
+  fieldName, 
+  fieldContent 
+}) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
