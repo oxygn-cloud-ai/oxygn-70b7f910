@@ -3,19 +3,95 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
+type ItemType = 'prompts' | 'templates' | 'jsonSchemas' | 'exportTemplates';
+
+interface DeletedPrompt {
+  row_id: string;
+  prompt_name: string;
+  parent_row_id: string | null;
+  updated_at: string;
+  icon_name: string | null;
+  owner_id: string | null;
+}
+
+interface DeletedTemplate {
+  row_id: string;
+  template_name: string;
+  category: string | null;
+  updated_at: string;
+  owner_id: string | null;
+}
+
+interface DeletedJsonSchema {
+  row_id: string;
+  schema_name: string;
+  category: string | null;
+  updated_at: string;
+  owner_id: string | null;
+}
+
+interface DeletedExportTemplate {
+  row_id: string;
+  template_name: string;
+  export_type: string | null;
+  updated_at: string;
+  owner_id: string | null;
+}
+
+interface DeletedItems {
+  prompts: DeletedPrompt[];
+  templates: DeletedTemplate[];
+  jsonSchemas: DeletedJsonSchema[];
+  exportTemplates: DeletedExportTemplate[];
+}
+
+interface DeletedCounts {
+  prompts: number;
+  templates: number;
+  jsonSchemas: number;
+  exportTemplates: number;
+  total: number;
+}
+
+interface UseDeletedItemsReturn {
+  deletedItems: DeletedItems;
+  counts: DeletedCounts;
+  isLoading: boolean;
+  fetchAllDeleted: () => Promise<DeletedItems>;
+  fetchCounts: () => Promise<DeletedCounts>;
+  restoreItem: (type: ItemType, rowId: string) => Promise<boolean>;
+  permanentlyDeleteItem: (type: ItemType, rowId: string) => Promise<boolean>;
+  restoreAll: (type?: ItemType | null) => Promise<boolean>;
+  permanentlyDeleteAll: (type?: ItemType | null) => Promise<boolean>;
+}
+
+const getTableName = (type: ItemType): string => {
+  switch (type) {
+    case 'prompts':
+      return import.meta.env.VITE_PROMPTS_TBL;
+    case 'templates':
+      return import.meta.env.VITE_TEMPLATES_TBL;
+    case 'jsonSchemas':
+      return 'q_json_schema_templates';
+    case 'exportTemplates':
+      return 'q_export_templates';
+    default:
+      throw new Error('Unknown item type');
+  }
+};
+
 /**
  * Hook for managing deleted items across all types (prompts, templates, JSON schemas, export templates)
- * @param {boolean} isAdmin - If true, fetches all deleted items across all users (admin bypass)
  */
-export const useDeletedItems = (isAdmin = false) => {
-  const [deletedItems, setDeletedItems] = useState({
+export const useDeletedItems = (isAdmin = false): UseDeletedItemsReturn => {
+  const [deletedItems, setDeletedItems] = useState<DeletedItems>({
     prompts: [],
     templates: [],
     jsonSchemas: [],
     exportTemplates: []
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [counts, setCounts] = useState({
+  const [counts, setCounts] = useState<DeletedCounts>({
     prompts: 0,
     templates: 0,
     jsonSchemas: 0,
@@ -24,7 +100,7 @@ export const useDeletedItems = (isAdmin = false) => {
   });
 
   // Fetch all deleted items for current user only
-  const fetchAllDeleted = useCallback(async () => {
+  const fetchAllDeleted = useCallback(async (): Promise<DeletedItems> => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -74,10 +150,10 @@ export const useDeletedItems = (isAdmin = false) => {
         exportTemplatesQuery
       ]);
 
-      const prompts = promptsRes.data || [];
-      const templates = templatesRes.data || [];
-      const jsonSchemas = jsonSchemasRes.data || [];
-      const exportTemplates = exportTemplatesRes.data || [];
+      const prompts = (promptsRes.data || []) as DeletedPrompt[];
+      const templates = (templatesRes.data || []) as DeletedTemplate[];
+      const jsonSchemas = (jsonSchemasRes.data || []) as DeletedJsonSchema[];
+      const exportTemplates = (exportTemplatesRes.data || []) as DeletedExportTemplate[];
 
       setDeletedItems({
         prompts,
@@ -105,25 +181,9 @@ export const useDeletedItems = (isAdmin = false) => {
   }, [isAdmin]);
 
   // Restore a single item (RLS protects cross-tenant access)
-  const restoreItem = useCallback(async (type, rowId) => {
+  const restoreItem = useCallback(async (type: ItemType, rowId: string): Promise<boolean> => {
     try {
-      let tableName;
-      switch (type) {
-        case 'prompts':
-          tableName = import.meta.env.VITE_PROMPTS_TBL;
-          break;
-        case 'templates':
-          tableName = import.meta.env.VITE_TEMPLATES_TBL;
-          break;
-        case 'jsonSchemas':
-          tableName = 'q_json_schema_templates';
-          break;
-        case 'exportTemplates':
-          tableName = 'q_export_templates';
-          break;
-        default:
-          throw new Error('Unknown item type');
-      }
+      const tableName = getTableName(type);
 
       const { error } = await supabase
         .from(tableName)
@@ -135,7 +195,7 @@ export const useDeletedItems = (isAdmin = false) => {
       // Update local state
       setDeletedItems(prev => ({
         ...prev,
-        [type]: prev[type].filter(item => item.row_id !== rowId)
+        [type]: prev[type].filter((item: { row_id: string }) => item.row_id !== rowId)
       }));
 
       setCounts(prev => ({
@@ -161,25 +221,9 @@ export const useDeletedItems = (isAdmin = false) => {
   }, []);
 
   // Permanently delete a single item (RLS protects cross-tenant access)
-  const permanentlyDeleteItem = useCallback(async (type, rowId) => {
+  const permanentlyDeleteItem = useCallback(async (type: ItemType, rowId: string): Promise<boolean> => {
     try {
-      let tableName;
-      switch (type) {
-        case 'prompts':
-          tableName = import.meta.env.VITE_PROMPTS_TBL;
-          break;
-        case 'templates':
-          tableName = import.meta.env.VITE_TEMPLATES_TBL;
-          break;
-        case 'jsonSchemas':
-          tableName = 'q_json_schema_templates';
-          break;
-        case 'exportTemplates':
-          tableName = 'q_export_templates';
-          break;
-        default:
-          throw new Error('Unknown item type');
-      }
+      const tableName = getTableName(type);
 
       const { error } = await supabase
         .from(tableName)
@@ -191,7 +235,7 @@ export const useDeletedItems = (isAdmin = false) => {
       // Update local state
       setDeletedItems(prev => ({
         ...prev,
-        [type]: prev[type].filter(item => item.row_id !== rowId)
+        [type]: prev[type].filter((item: { row_id: string }) => item.row_id !== rowId)
       }));
 
       setCounts(prev => ({
@@ -217,7 +261,7 @@ export const useDeletedItems = (isAdmin = false) => {
   }, []);
 
   // Restore all items of a specific type (or all types if type is null) for current user only
-  const restoreAll = useCallback(async (type = null) => {
+  const restoreAll = useCallback(async (type: ItemType | null = null): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -225,26 +269,12 @@ export const useDeletedItems = (isAdmin = false) => {
         return false;
       }
 
-      const typesToRestore = type ? [type] : ['prompts', 'templates', 'jsonSchemas', 'exportTemplates'];
+      const typesToRestore: ItemType[] = type 
+        ? [type] 
+        : ['prompts', 'templates', 'jsonSchemas', 'exportTemplates'];
       
       for (const t of typesToRestore) {
-        let tableName;
-        switch (t) {
-          case 'prompts':
-            tableName = import.meta.env.VITE_PROMPTS_TBL;
-            break;
-          case 'templates':
-            tableName = import.meta.env.VITE_TEMPLATES_TBL;
-            break;
-          case 'jsonSchemas':
-            tableName = 'q_json_schema_templates';
-            break;
-          case 'exportTemplates':
-            tableName = 'q_export_templates';
-            break;
-          default:
-            continue;
-        }
+        const tableName = getTableName(t);
 
         let query = supabase
           .from(tableName)
@@ -272,7 +302,7 @@ export const useDeletedItems = (isAdmin = false) => {
   }, [fetchAllDeleted, isAdmin]);
 
   // Permanently delete all items of a specific type (or all types if type is null) for current user only
-  const permanentlyDeleteAll = useCallback(async (type = null) => {
+  const permanentlyDeleteAll = useCallback(async (type: ItemType | null = null): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -280,26 +310,12 @@ export const useDeletedItems = (isAdmin = false) => {
         return false;
       }
 
-      const typesToDelete = type ? [type] : ['prompts', 'templates', 'jsonSchemas', 'exportTemplates'];
+      const typesToDelete: ItemType[] = type 
+        ? [type] 
+        : ['prompts', 'templates', 'jsonSchemas', 'exportTemplates'];
       
       for (const t of typesToDelete) {
-        let tableName;
-        switch (t) {
-          case 'prompts':
-            tableName = import.meta.env.VITE_PROMPTS_TBL;
-            break;
-          case 'templates':
-            tableName = import.meta.env.VITE_TEMPLATES_TBL;
-            break;
-          case 'jsonSchemas':
-            tableName = 'q_json_schema_templates';
-            break;
-          case 'exportTemplates':
-            tableName = 'q_export_templates';
-            break;
-          default:
-            continue;
-        }
+        const tableName = getTableName(t);
 
         let query = supabase
           .from(tableName)
@@ -327,7 +343,7 @@ export const useDeletedItems = (isAdmin = false) => {
   }, [fetchAllDeleted, isAdmin]);
 
   // Get just the counts without full data for current user only
-  const fetchCounts = useCallback(async () => {
+  const fetchCounts = useCallback(async (): Promise<DeletedCounts> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -371,7 +387,7 @@ export const useDeletedItems = (isAdmin = false) => {
         exportTemplatesCountQuery
       ]);
 
-      const newCounts = {
+      const newCounts: DeletedCounts = {
         prompts: promptsRes.count || 0,
         templates: templatesRes.count || 0,
         jsonSchemas: jsonSchemasRes.count || 0,

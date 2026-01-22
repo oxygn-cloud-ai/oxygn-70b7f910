@@ -1,21 +1,52 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+interface AssistantHealth {
+  row_id: string;
+  openai_assistant_id: string | null;
+  assistant_exists: boolean;
+  vector_store_exists: boolean;
+  issues: string[];
+  [key: string]: unknown;
+}
+
+interface CacheEntry {
+  data: AssistantHealth;
+  timestamp: number;
+}
+
+interface UseResourceHealthReturn {
+  health: AssistantHealth | null;
+  isChecking: boolean;
+  isRepairing: boolean;
+  error: string | null;
+  checkHealth: (forceRefresh?: boolean) => Promise<AssistantHealth | null>;
+  repair: () => Promise<unknown>;
+  invalidateCache: () => void;
+}
+
+interface UseAllResourceHealthReturn {
+  assistants: AssistantHealth[];
+  isChecking: boolean;
+  error: string | null;
+  checkAll: () => Promise<AssistantHealth[]>;
+  repairAssistant: (assistantRowId: string) => Promise<unknown>;
+}
+
 /**
  * Hook for checking and repairing OpenAI resource health for an assistant
- * @param {string} assistantRowId - The assistant's row_id
  */
-export const useResourceHealth = (assistantRowId) => {
-  const [health, setHealth] = useState(null);
+export const useResourceHealth = (assistantRowId: string | null): UseResourceHealthReturn => {
+  const [health, setHealth] = useState<AssistantHealth | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
-  const [error, setError] = useState(null);
-  const cacheRef = useRef({});
+  const [error, setError] = useState<string | null>(null);
+  const cacheRef = useRef<Record<string, CacheEntry>>({});
 
   // Check if cached result is still valid
-  const getCachedHealth = useCallback((id) => {
+  const getCachedHealth = useCallback((id: string): AssistantHealth | null => {
     const cached = cacheRef.current[id];
     if (!cached) return null;
     if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
@@ -26,7 +57,7 @@ export const useResourceHealth = (assistantRowId) => {
   }, []);
 
   // Store result in cache
-  const setCachedHealth = useCallback((id, data) => {
+  const setCachedHealth = useCallback((id: string, data: AssistantHealth): void => {
     cacheRef.current[id] = {
       data,
       timestamp: Date.now(),
@@ -34,12 +65,12 @@ export const useResourceHealth = (assistantRowId) => {
   }, []);
 
   // Invalidate cache for an assistant
-  const invalidateCache = useCallback((id) => {
+  const invalidateCache = useCallback((id: string): void => {
     delete cacheRef.current[id];
   }, []);
 
   // Check health of a single assistant
-  const checkHealth = useCallback(async (forceRefresh = false) => {
+  const checkHealth = useCallback(async (forceRefresh = false): Promise<AssistantHealth | null> => {
     if (!assistantRowId) return null;
 
     // Return cached result if available and not forcing refresh
@@ -75,7 +106,7 @@ export const useResourceHealth = (assistantRowId) => {
       return data;
     } catch (err) {
       console.error('[useResourceHealth] Check error:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return null;
     } finally {
       setIsChecking(false);
@@ -83,7 +114,7 @@ export const useResourceHealth = (assistantRowId) => {
   }, [assistantRowId, getCachedHealth, setCachedHealth]);
 
   // Repair an assistant's resources
-  const repair = useCallback(async () => {
+  const repair = useCallback(async (): Promise<unknown> => {
     if (!assistantRowId) return null;
 
     setIsRepairing(true);
@@ -112,7 +143,7 @@ export const useResourceHealth = (assistantRowId) => {
       return data;
     } catch (err) {
       console.error('[useResourceHealth] Repair error:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return null;
     } finally {
       setIsRepairing(false);
@@ -133,19 +164,19 @@ export const useResourceHealth = (assistantRowId) => {
     error,
     checkHealth,
     repair,
-    invalidateCache: () => invalidateCache(assistantRowId),
+    invalidateCache: () => assistantRowId && invalidateCache(assistantRowId),
   };
 };
 
 /**
  * Hook for checking health of all assistants (bulk operation)
  */
-export const useAllResourceHealth = () => {
-  const [assistants, setAssistants] = useState([]);
+export const useAllResourceHealth = (): UseAllResourceHealthReturn => {
+  const [assistants, setAssistants] = useState<AssistantHealth[]>([]);
   const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const checkAll = useCallback(async () => {
+  const checkAll = useCallback(async (): Promise<AssistantHealth[]> => {
     setIsChecking(true);
     setError(null);
 
@@ -166,7 +197,7 @@ export const useAllResourceHealth = () => {
       return data?.assistants || [];
     } catch (err) {
       console.error('[useAllResourceHealth] Check error:', err);
-      setError(err.message);
+      setError((err as Error).message);
       return [];
     } finally {
       setIsChecking(false);
@@ -174,7 +205,7 @@ export const useAllResourceHealth = () => {
   }, []);
 
   // Repair a specific assistant and refresh list
-  const repairAssistant = useCallback(async (assistantRowId) => {
+  const repairAssistant = useCallback(async (assistantRowId: string): Promise<unknown> => {
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('resource-health', {
         body: {
