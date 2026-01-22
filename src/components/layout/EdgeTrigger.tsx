@@ -1,17 +1,43 @@
+/**
+ * EdgeTrigger Component (TypeScript)
+ * 
+ * A slim vertical trigger button that appears on screen edge
+ * when a panel is hidden. Allows users to re-open the hidden panel.
+ */
+
 import React from "react";
 import { motion } from "framer-motion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { LucideIcon } from "lucide-react";
 
-/**
- * EdgeTrigger - A slim vertical trigger button that appears on screen edge
- * when a panel is hidden. Allows users to re-open the hidden panel.
- */
-const MotionButton = React.forwardRef((props, ref) => (
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface EdgeTriggerProps {
+  side?: 'left' | 'right';
+  onClick?: () => void;
+  icon: LucideIcon;
+  tooltip: string;
+}
+
+// ============================================================================
+// ForwardRef wrapper for motion.button
+// ============================================================================
+
+const MotionButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<typeof motion.button>
+>((props, ref) => (
   <motion.button ref={ref} {...props} />
 ));
 MotionButton.displayName = "MotionButton";
 
-const EdgeTrigger = ({ 
+// ============================================================================
+// EdgeTrigger Component
+// ============================================================================
+
+const EdgeTrigger: React.FC<EdgeTriggerProps> = ({ 
   side = "left", 
   onClick, 
   icon: Icon, 

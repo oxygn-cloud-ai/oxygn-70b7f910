@@ -1,18 +1,72 @@
+/**
+ * SearchModal Component (TypeScript)
+ * 
+ * Command palette interface for searching prompts, templates, and navigating.
+ */
+
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, FileText, LayoutTemplate, Settings, Heart, ArrowRight, Command } from "lucide-react";
+import { 
+  Search, 
+  FileText, 
+  LayoutTemplate, 
+  Settings, 
+  Heart, 
+  ArrowRight, 
+  Command,
+  LucideIcon
+} from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
 import { trackEvent } from "@/lib/posthog";
+import type { NavId } from '@/types/layout.types';
 
-const SearchModal = ({
+// ============================================================================
+// Types
+// ============================================================================
+
+interface PromptItem {
+  row_id?: string;
+  id?: string;
+  prompt_name?: string;
+  name?: string;
+  starred?: boolean;
+  children?: PromptItem[];
+}
+
+interface TemplateItem {
+  row_id?: string;
+  id?: string;
+  template_name?: string;
+  schema_name?: string;
+}
+
+interface NavItem {
+  id: NavId;
+  label: string;
+  icon: LucideIcon;
+}
+
+export interface SearchModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  treeData?: PromptItem[];
+  templates?: TemplateItem[];
+  onSelectPrompt?: (id: string) => void;
+  onSelectTemplate?: (template: TemplateItem) => void;
+  onNavigate?: (navId: NavId) => void;
+}
+
+// ============================================================================
+// SearchModal Component
+// ============================================================================
+
+const SearchModal: React.FC<SearchModalProps> = ({
   isOpen,
   onClose,
   treeData = [],
@@ -22,7 +76,7 @@ const SearchModal = ({
   onNavigate,
 }) => {
   const [search, setSearch] = useState("");
-  const searchDebounceRef = useRef(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasTrackedOpenRef = useRef(false);
 
   // Track modal open and reset search
@@ -62,10 +116,10 @@ const SearchModal = ({
 
   // Flatten tree data for search
   const flatPrompts = useMemo(() => {
-    const flatten = (items, result = []) => {
+    const flatten = (items: PromptItem[], result: PromptItem[] = []): PromptItem[] => {
       items.forEach(item => {
         result.push(item);
-        if (item.children?.length > 0) {
+        if (item.children?.length) {
           flatten(item.children, result);
         }
       });
@@ -75,26 +129,32 @@ const SearchModal = ({
   }, [treeData]);
 
   // Navigation items
-  const navItems = [
+  const navItems: NavItem[] = [
     { id: "prompts", label: "Prompts", icon: FileText },
     { id: "templates", label: "Templates", icon: LayoutTemplate },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "health", label: "Health", icon: Heart },
   ];
 
-  const handleSelect = (type, item) => {
+  const handleSelect = (
+    type: 'prompt' | 'template' | 'nav', 
+    item: PromptItem | TemplateItem | NavItem
+  ): void => {
     // Track search selection
     trackEvent('search_result_selected', {
       result_type: type,
-      item_id: type === 'nav' ? item.id : (item.row_id || item.id),
+      item_id: type === 'nav' 
+        ? (item as NavItem).id 
+        : ((item as PromptItem | TemplateItem).row_id || (item as PromptItem | TemplateItem).id),
     });
     
     if (type === "prompt") {
-      onSelectPrompt?.(item.row_id || item.id);
+      const promptItem = item as PromptItem;
+      onSelectPrompt?.(promptItem.row_id || promptItem.id || '');
     } else if (type === "template") {
-      onSelectTemplate?.(item);
+      onSelectTemplate?.(item as TemplateItem);
     } else if (type === "nav") {
-      onNavigate?.(item.id);
+      onNavigate?.((item as NavItem).id);
     }
     onClose();
   };

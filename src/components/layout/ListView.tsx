@@ -1,4 +1,11 @@
-import React, { useState, useMemo } from "react";
+/**
+ * ListView Component (TypeScript)
+ * 
+ * Flat list view of prompts with bulk selection, hover actions,
+ * and owner avatars. Alternative to tree view.
+ */
+
+import React, { useState, useMemo, forwardRef } from "react";
 import { 
   FileText, 
   MessageSquare, 
@@ -11,34 +18,100 @@ import {
   Plus,
   Upload,
   Ban,
-  FileX
+  FileX,
+  LucideIcon
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const IconButton = React.forwardRef(({ icon: Icon, label, onClick, className = "" }, ref) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button
-        ref={ref}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick?.();
-        }}
-        className={`w-6 h-6 flex items-center justify-center rounded-m3-sm text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-150 ${className}`}
-        style={{ width: "24px", height: "24px" }}
-      >
-        <Icon className="h-4 w-4" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent className="text-label-sm">
-      {label}
-    </TooltipContent>
-  </Tooltip>
-));
+// ============================================================================
+// Types
+// ============================================================================
+
+interface PromptOwner {
+  initials?: string;
+  color?: string;
+}
+
+interface PromptItem {
+  row_id: string;
+  prompt_name?: string;
+  name?: string;
+  is_assistant?: boolean;
+  starred?: boolean;
+  has_uncommitted_changes?: boolean;
+  exclude_from_cascade?: boolean;
+  exclude_from_export?: boolean;
+  input_admin_prompt?: string;
+  preview?: string;
+  owner_id?: string;
+  owner?: PromptOwner;
+  children?: PromptItem[];
+}
+
+interface IconButtonProps {
+  icon: LucideIcon;
+  label: string;
+  onClick?: () => void;
+  className?: string;
+}
+
+interface OwnerAvatarProps {
+  initials: string;
+  color: string;
+}
+
+interface ListRowProps {
+  prompt: PromptItem;
+  isSelected: boolean;
+  onSelect: () => void;
+  isActive: boolean;
+  onClick: () => void;
+  onToggleStar?: (id: string) => void;
+  onDelete?: (id: string) => void;
+}
+
+export interface ListViewProps {
+  onSelectPrompt?: (id: string) => void;
+  activePromptId?: string | null;
+  treeData?: PromptItem[];
+  onToggleStar?: (id: string) => void;
+  onDelete?: (id: string) => void;
+}
+
+// ============================================================================
+// IconButton Component
+// ============================================================================
+
+const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ icon: Icon, label, onClick, className = "" }, ref) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          ref={ref}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick?.();
+          }}
+          className={`w-6 h-6 flex items-center justify-center rounded-m3-sm text-on-surface-variant hover:bg-on-surface/[0.08] transition-colors duration-150 ${className}`}
+          style={{ width: "24px", height: "24px" }}
+        >
+          <Icon className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="text-label-sm">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
+);
 IconButton.displayName = 'IconButton';
 
-const OwnerAvatar = ({ initials, color }) => (
+// ============================================================================
+// OwnerAvatar Component
+// ============================================================================
+
+const OwnerAvatar: React.FC<OwnerAvatarProps> = ({ initials, color }) => (
   <div 
     className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-compact font-medium ${color}`}
     style={{ width: "24px", height: "24px" }}
@@ -47,18 +120,30 @@ const OwnerAvatar = ({ initials, color }) => (
   </div>
 );
 
-const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar, onDelete }) => {
+// ============================================================================
+// ListRow Component
+// ============================================================================
+
+const ListRow: React.FC<ListRowProps> = ({ 
+  prompt, 
+  isSelected, 
+  onSelect, 
+  isActive, 
+  onClick, 
+  onToggleStar, 
+  onDelete 
+}) => {
   const [isHovered, setIsHovered] = useState(false);
   
   // Get owner initials from owner_id or fallback
-  const getOwnerInitials = () => {
+  const getOwnerInitials = (): string => {
     if (prompt.owner?.initials) return prompt.owner.initials;
     // Generate from prompt name if no owner
     const name = prompt.prompt_name || prompt.name || "?";
     return name.slice(0, 2).toUpperCase();
   };
 
-  const getOwnerColor = () => {
+  const getOwnerColor = (): string => {
     if (prompt.owner?.color) return prompt.owner.color;
     // Generate color based on owner_id hash
     const colors = ["bg-blue-500", "bg-purple-500", "bg-green-500", "bg-orange-500", "bg-pink-500"];
@@ -181,21 +266,25 @@ const ListRow = ({ prompt, isSelected, onSelect, isActive, onClick, onToggleStar
   );
 };
 
-const ListView = ({ 
+// ============================================================================
+// ListView Component
+// ============================================================================
+
+const ListView: React.FC<ListViewProps> = ({ 
   onSelectPrompt, 
   activePromptId,
   treeData = [],
   onToggleStar,
   onDelete
 }) => {
-  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Flatten tree data for list view
   const flatPrompts = useMemo(() => {
-    const flatten = (items, result = []) => {
+    const flatten = (items: PromptItem[], result: PromptItem[] = []): PromptItem[] => {
       items.forEach(item => {
         result.push(item);
-        if (item.children?.length > 0) {
+        if (item.children?.length) {
           flatten(item.children, result);
         }
       });
@@ -204,7 +293,7 @@ const ListView = ({
     return flatten(treeData);
   }, [treeData]);
 
-  const toggleSelection = (id) => {
+  const toggleSelection = (id: string): void => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
