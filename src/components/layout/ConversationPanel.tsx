@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
-  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare, Brain, Square
+  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, Brain, Square
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,8 +13,84 @@ import { useModels } from "@/hooks/useModels";
 // Lazy load ReactMarkdown for performance
 const ReactMarkdown = lazy(() => import("react-markdown"));
 
+/**
+ * Message structure
+ */
+interface Message {
+  row_id?: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  tool_calls?: unknown[];
+}
+
+/**
+ * Thread structure
+ */
+interface Thread {
+  row_id: string;
+  title?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Tool activity structure
+ */
+interface ToolActivity {
+  name: string;
+  status: "running" | "completed" | "error";
+  [key: string]: unknown;
+}
+
+/**
+ * Progress structure for run tracking
+ */
+interface RunProgress {
+  current?: number;
+  total?: number;
+  currentPromptName?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Prompt Family Chat hook interface
+ */
+interface PromptFamilyChatHook {
+  messages: Message[];
+  isLoading: boolean;
+  isStreaming: boolean;
+  isExecutingTools: boolean;
+  streamingMessage: string;
+  thinkingText: string;
+  toolActivity: ToolActivity[];
+  threads: Thread[];
+  activeThread: Thread | null;
+  activeThreadId: string | null;
+  sessionModel: string | null;
+  setSessionModel: (model: string | null) => void;
+  sessionReasoningEffort: string;
+  setSessionReasoningEffort: (effort: string) => void;
+  sendMessage: (
+    message: string, 
+    threadId: string, 
+    options?: { model?: string | null; reasoningEffort?: string }
+  ) => Promise<void>;
+  createThread: (title?: string) => Promise<Thread | null>;
+  switchThread: (threadId: string) => void;
+  deleteThread: (threadId: string) => Promise<void>;
+  cancelStream?: () => void;
+}
+
+/**
+ * Props for MemoizedMessage component
+ */
+interface MemoizedMessageProps {
+  msg: Message;
+  isStreaming?: boolean;
+}
+
 // Memoized message component to prevent unnecessary re-renders
-const MemoizedMessage = memo(({ msg, isStreaming }) => (
+const MemoizedMessage = memo<MemoizedMessageProps>(({ msg, isStreaming }) => (
   <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
     <div 
       className={`max-w-[85%] px-2.5 py-2 rounded-m3-lg text-body-sm ${
@@ -36,15 +112,23 @@ const MemoizedMessage = memo(({ msg, isStreaming }) => (
     </div>
   </div>
 ), (prev, next) => {
-  // Only re-render if content or role actually changed
   return prev.msg.content === next.msg.content && 
          prev.msg.role === next.msg.role &&
          prev.msg.row_id === next.msg.row_id &&
          prev.isStreaming === next.isStreaming;
 });
+MemoizedMessage.displayName = 'MemoizedMessage';
+
+/**
+ * Props for ToolActivityIndicator component
+ */
+interface ToolActivityIndicatorProps {
+  toolActivity: ToolActivity[];
+  isExecuting: boolean;
+}
 
 // Tool Activity Indicator
-const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
+const ToolActivityIndicator: React.FC<ToolActivityIndicatorProps> = ({ toolActivity, isExecuting }) => {
   if (!toolActivity || toolActivity.length === 0) return null;
 
   return (
@@ -76,14 +160,31 @@ const ToolActivityIndicator = ({ toolActivity, isExecuting }) => {
   );
 };
 
+/**
+ * Props for ThreadSelector component
+ */
+interface ThreadSelectorProps {
+  threads: Thread[];
+  activeThread: Thread | null;
+  onSelectThread?: (threadId: string) => void;
+  onCreateThread?: () => void;
+  onDeleteThread?: (threadId: string) => void;
+}
+
 // Thread Selector Dropdown
-const ThreadSelector = ({ threads, activeThread, onSelectThread, onCreateThread, onDeleteThread }) => {
+const ThreadSelector: React.FC<ThreadSelectorProps> = ({ 
+  threads, 
+  activeThread, 
+  onSelectThread, 
+  onCreateThread, 
+  onDeleteThread 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -151,12 +252,33 @@ const ThreadSelector = ({ threads, activeThread, onSelectThread, onCreateThread,
   );
 };
 
-const ConversationPanel = ({ 
+/**
+ * ConversationPanel component props
+ */
+interface ConversationPanelProps {
+  onClose?: () => void;
+  promptName?: string;
+  // Prompt Family Chat props
+  promptFamilyChat?: PromptFamilyChatHook;
+  // Legacy props (kept for backwards compatibility)
+  messages?: Message[];
+  isLoadingMessages?: boolean;
+  isSending?: boolean;
+  onSendMessage?: (message: string) => Promise<void>;
+  onCancel?: () => void;
+  progress?: RunProgress;
+  onToggleReadingPane?: () => void;
+  readingPaneOpen?: boolean;
+}
+
+/**
+ * ConversationPanel component
+ * Chat UI panel with message rendering, auto-scroll, and sending controls
+ */
+const ConversationPanel: React.FC<ConversationPanelProps> = ({ 
   onClose,
   promptName = "Prompt",
-  // Prompt Family Chat props
   promptFamilyChat,
-  // Legacy props (kept for backwards compatibility)
   messages: legacyMessages,
   isLoadingMessages: legacyIsLoadingMessages,
   isSending: legacyIsSending,
@@ -167,8 +289,8 @@ const ConversationPanel = ({
   readingPaneOpen = true,
 }) => {
   const [inputValue, setInputValue] = useState("");
-  const scrollRef = useRef(null);
-  const textareaRef = useRef(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Get models for selector
   const { getActiveModels, getModelConfig } = useModels();
@@ -179,14 +301,12 @@ const ConversationPanel = ({
     const textarea = textareaRef.current;
     if (!textarea) return;
     
-    // Reset height to auto to get proper scrollHeight
     textarea.style.height = 'auto';
     
     const lineHeight = 20;
-    const maxHeight = lineHeight * 20; // 20 lines max
-    const minHeight = lineHeight; // 1 line min
+    const maxHeight = lineHeight * 20;
+    const minHeight = lineHeight;
     
-    // Set height based on content, clamped between min and max
     const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
     textarea.style.height = newHeight + 'px';
   }, []);
@@ -210,7 +330,6 @@ const ConversationPanel = ({
   const thinkingText = usePromptFamilyMode ? promptFamilyChat.thinkingText : '';
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
-  const isStreaming = usePromptFamilyMode ? promptFamilyChat.isStreaming : false;
 
   // Get session model/reasoning from hook
   const sessionModel = usePromptFamilyMode ? promptFamilyChat.sessionModel : null;
@@ -226,17 +345,17 @@ const ConversationPanel = ({
 
   // Smart auto-scroll: track if user is near bottom
   const isNearBottom = useRef(true);
-  const scrollTimeoutRef = useRef(null);
-  const scrollCleanupRef = useRef(null);
-  const retryTimeoutRef = useRef(null);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollCleanupRef = useRef<(() => void) | null>(null);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Attach scroll listener to track user position (Radix ScrollArea workaround with retry)
+  // Attach scroll listener with retry
   useEffect(() => {
     let retryCount = 0;
     const maxRetries = 5;
     
     const attachListener = () => {
-      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
       if (!viewport) {
         if (retryCount < maxRetries) {
           retryCount++;
@@ -257,12 +376,10 @@ const ConversationPanel = ({
     attachListener();
     
     return () => {
-      // Clear any pending retry timeout
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
         retryTimeoutRef.current = null;
       }
-      // Call stored cleanup function
       scrollCleanupRef.current?.();
       scrollCleanupRef.current = null;
     };
@@ -270,15 +387,13 @@ const ConversationPanel = ({
 
   // Auto-scroll only if user is near bottom, debounced
   useEffect(() => {
-    // Only scroll if user is near bottom
     if (!isNearBottom.current) return;
     
-    // Debounce scroll operations
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     
     scrollTimeoutRef.current = setTimeout(() => {
       if (scrollRef.current && isNearBottom.current) {
-        const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
         if (viewport) {
           viewport.scrollTop = viewport.scrollHeight;
         }
@@ -291,20 +406,16 @@ const ConversationPanel = ({
   }, [messages, isSending, streamingMessage]);
 
   const handleSend = async () => {
-    console.log('[ChatDebug] handleSend called, isSending:', isSending, 'inputValue:', inputValue.slice(0, 50));
-    if (!inputValue.trim() || isSending) {
-      console.log('[ChatDebug] handleSend blocked - empty input or already sending');
-      return;
-    }
+    if (!inputValue.trim() || isSending) return;
+    
     const message = inputValue.trim();
     setInputValue("");
     
-    if (usePromptFamilyMode) {
-      // Ensure we have a thread - pass returned thread ID to sendMessage
+    if (usePromptFamilyMode && promptFamilyChat) {
       let threadId = promptFamilyChat.activeThreadId;
       if (!threadId) {
         const newThread = await promptFamilyChat.createThread('New Chat');
-        threadId = newThread?.row_id;
+        threadId = newThread?.row_id ?? null;
       }
       if (threadId) {
         await promptFamilyChat.sendMessage(message, threadId, {
@@ -317,7 +428,7 @@ const ConversationPanel = ({
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -346,7 +457,7 @@ const ConversationPanel = ({
       >
         <span className="text-body-sm font-medium text-on-surface shrink-0">Chat</span>
         <div className="flex-1 min-w-0">
-          {usePromptFamilyMode ? (
+          {usePromptFamilyMode && promptFamilyChat ? (
             <div className="flex items-center gap-2">
               <ThreadSelector
                 threads={promptFamilyChat.threads}
@@ -382,11 +493,11 @@ const ConversationPanel = ({
               <TooltipContent className="text-[10px]">Show prompt panel</TooltipContent>
             </Tooltip>
           )}
-          {usePromptFamilyMode && promptFamilyChat.activeThreadId && (
+          {usePromptFamilyMode && promptFamilyChat?.activeThreadId && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={promptFamilyChat.createThread}
+                  onClick={() => promptFamilyChat.createThread()}
                   className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
                 >
                   <Plus className="h-4 w-4" />
@@ -450,7 +561,7 @@ const ConversationPanel = ({
               />
             ))}
             
-            {/* Reasoning/Thinking indicator - shown while AI is processing */}
+            {/* Reasoning/Thinking indicator */}
             {isSending && usePromptFamilyMode && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] px-2.5 py-2 bg-surface-container rounded-m3-lg space-y-1.5">
@@ -493,8 +604,6 @@ const ConversationPanel = ({
                 progress={progress}
               />
             )}
-            
-            {/* Streaming indicator removed - thinking indicator already covers this case */}
           </div>
         )}
       </ScrollArea>
@@ -532,34 +641,34 @@ const ConversationPanel = ({
             <div />
           )}
           <div className="flex gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Paperclip className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Attach</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Mic className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Voice</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={handleSend}
-                disabled={!inputValue.trim() || isSending}
-                className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
-              >
-                {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Send</TooltipContent>
-          </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Paperclip className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Attach</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                  <Mic className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Voice</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={handleSend}
+                  disabled={!inputValue.trim() || isSending}
+                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
+                >
+                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Send</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>

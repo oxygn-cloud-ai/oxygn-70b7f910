@@ -1,5 +1,5 @@
 import React from "react";
-import { FileText, LayoutTemplate, PanelRightOpen, PanelLeftOpen } from "lucide-react";
+import { FileText, PanelRightOpen, PanelLeftOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import {
@@ -8,8 +8,191 @@ import {
   SettingsContent,
   HealthContent,
 } from "@/components/content";
+import type { NavId } from "@/types/layout.types";
 
-const ReadingPane = ({ 
+/**
+ * Prompt data structure
+ */
+interface PromptData {
+  row_id: string;
+  prompt_name?: string;
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  output_response?: string;
+  model?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Variable data structure
+ */
+interface VariableData {
+  row_id: string;
+  variable_name?: string;
+  variable_value?: string;
+  default_value?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Template data structure
+ */
+interface TemplateData {
+  row_id?: string;
+  id?: string;
+  template_name?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Schema data structure
+ */
+interface SchemaData {
+  row_id: string;
+  schema_name?: string;
+  json_schema?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * Model data structure
+ */
+interface ModelData {
+  row_id: string;
+  model_id?: string;
+  model_name?: string;
+  is_active?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Settings data structure
+ */
+interface SettingsData {
+  [key: string]: unknown;
+}
+
+/**
+ * Cost tracking data structure
+ */
+interface CostTrackingData {
+  totalCost?: number;
+  dailyCost?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Conversation tool defaults structure
+ */
+interface ConversationToolDefaults {
+  file_search_enabled?: boolean;
+  code_interpreter_enabled?: boolean;
+  function_calling_enabled?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Run progress data structure
+ */
+interface RunProgress {
+  current?: number;
+  total?: number;
+  currentPromptName?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Templates hook interface
+ */
+interface TemplatesHook {
+  templates?: TemplateData[];
+  isLoading?: boolean;
+  fetchTemplates?: () => Promise<void>;
+  [key: string]: unknown;
+}
+
+/**
+ * JSON Schema templates hook interface
+ */
+interface JsonSchemaTemplatesHook {
+  templates?: SchemaData[];
+  isLoading?: boolean;
+  fetchTemplates?: () => Promise<void>;
+  [key: string]: unknown;
+}
+
+/**
+ * Prompt library item structure
+ */
+interface PromptLibraryItem {
+  row_id: string;
+  name: string;
+  content?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * ReadingPane component props
+ */
+interface ReadingPaneProps {
+  hasSelection?: boolean;
+  selectedPromptId?: string | null;
+  promptData?: PromptData | null;
+  isLoadingPrompt?: boolean;
+  onUpdateField?: (fieldName: string, value: unknown) => void;
+  variables?: VariableData[];
+  isLoadingVariables?: boolean;
+  onAddVariable?: () => void;
+  onUpdateVariable?: (rowId: string, field: string, value: unknown) => void;
+  onDeleteVariable?: (rowId: string) => void;
+  selectedPromptHasChildren?: boolean;
+  onExport?: (promptId: string) => void;
+  activeNav?: NavId;
+  activeSubItem?: string | null;
+  selectedTemplate?: TemplateData | null;
+  activeTemplateTab?: string;
+  onToggleConversation?: () => void;
+  conversationPanelOpen?: boolean;
+  onToggleFolderPanel?: () => void;
+  folderPanelOpen?: boolean;
+  onToggleReadingPane?: () => void;
+  // Run prompt handlers
+  onRunPrompt?: (promptId: string) => void;
+  onRunCascade?: (promptId: string) => void;
+  isRunningPrompt?: boolean;
+  isRunningCascade?: boolean;
+  onCancelRun?: () => void;
+  runProgress?: RunProgress;
+  // Cascade lock
+  isCascadeRunning?: boolean;
+  singleRunPromptId?: string | null;
+  // Settings props
+  settings?: SettingsData;
+  isLoadingSettings?: boolean;
+  onUpdateSetting?: (key: string, value: unknown) => void;
+  models?: ModelData[];
+  isLoadingModels?: boolean;
+  onToggleModel?: (rowId: string) => void;
+  onAddModel?: (data: Record<string, unknown>) => Promise<void>;
+  onUpdateModel?: (rowId: string, data: Record<string, unknown>) => Promise<void>;
+  onDeleteModel?: (rowId: string) => Promise<void>;
+  onAddModels?: (models: Record<string, unknown>[]) => Promise<void>;
+  // Cost analytics and conversation defaults
+  costTracking?: CostTrackingData;
+  conversationToolDefaults?: ConversationToolDefaults;
+  // Prompt library for templates
+  promptLibrary?: PromptLibraryItem[];
+  // Templates props
+  templatesHook?: TemplatesHook;
+  jsonSchemaTemplatesHook?: JsonSchemaTemplatesHook;
+  onEditSchema?: (schemaId: string) => void;
+}
+
+/**
+ * ReadingPane component
+ * Main content area that displays prompts, settings, health, or templates
+ */
+const ReadingPane: React.FC<ReadingPaneProps> = ({ 
   hasSelection = true, 
   selectedPromptId,
   promptData,
@@ -41,7 +224,7 @@ const ReadingPane = ({
   // Cascade lock
   isCascadeRunning = false,
   singleRunPromptId = null,
-  // Settings props - Phase 6
+  // Settings props
   settings = {},
   isLoadingSettings = false,
   onUpdateSetting,
@@ -52,18 +235,18 @@ const ReadingPane = ({
   onUpdateModel,
   onDeleteModel,
   onAddModels,
-  // Phase 4 - Cost analytics and conversation defaults
+  // Cost analytics and conversation defaults
   costTracking,
   conversationToolDefaults,
   // Prompt library for templates
   promptLibrary,
-  // Templates props - Phase 8-9
+  // Templates props
   templatesHook,
   jsonSchemaTemplatesHook,
   onEditSchema,
 }) => {
 
-  // Settings mode - all settings sections (now with real data)
+  // Settings mode
   if (activeNav === "settings") {
     return (
       <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
@@ -88,7 +271,7 @@ const ReadingPane = ({
     );
   }
 
-  // Health mode - health check sections
+  // Health mode
   if (activeNav === "health") {
     return (
       <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
@@ -99,7 +282,7 @@ const ReadingPane = ({
     );
   }
 
-  // Templates mode - template editor (now with real data)
+  // Templates mode
   if (activeNav === "templates") {
     return (
       <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
@@ -110,7 +293,7 @@ const ReadingPane = ({
             templatesHook={templatesHook}
             jsonSchemaTemplatesHook={jsonSchemaTemplatesHook}
             models={models}
-            onTemplateChange={(template) => {
+            onTemplateChange={(template: TemplateData) => {
               // Refresh templates list when template changes
               if (templatesHook?.fetchTemplates) templatesHook.fetchTemplates();
               if (jsonSchemaTemplatesHook?.fetchTemplates) jsonSchemaTemplatesHook.fetchTemplates();
@@ -123,7 +306,7 @@ const ReadingPane = ({
     );
   }
 
-  // Prompts mode (default) - prompt editor
+  // Prompts mode (default) - no selection
   if (!hasSelection) {
     return (
       <div className="flex-1 flex flex-col bg-surface min-h-0 overflow-hidden">
@@ -134,7 +317,10 @@ const ReadingPane = ({
             {!folderPanelOpen && onToggleFolderPanel && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button onClick={onToggleFolderPanel} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                  <button 
+                    onClick={onToggleFolderPanel} 
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
+                  >
                     <PanelLeftOpen className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
@@ -147,7 +333,10 @@ const ReadingPane = ({
             {!conversationPanelOpen && onToggleConversation && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button onClick={onToggleConversation} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
+                  <button 
+                    onClick={onToggleConversation} 
+                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
+                  >
                     <PanelRightOpen className="h-4 w-4" />
                   </button>
                 </TooltipTrigger>
@@ -167,6 +356,7 @@ const ReadingPane = ({
     );
   }
 
+  // Prompts mode with selection
   return (
     <PromptsContent
       hasSelection={hasSelection}
