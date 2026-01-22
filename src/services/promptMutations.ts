@@ -1,10 +1,54 @@
+/**
+ * Prompt Mutations Service
+ * Handles creating, duplicating, moving, and updating prompts
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PromptData } from '@/types';
 import { deletePrompt } from './promptDeletion';
 import { getLevelNamingConfig, generatePromptName } from '@/utils/namingTemplates';
 import { calculateNewPositions } from '@/utils/positionUtils';
 import { generatePositionAtEnd, generatePositionBetween } from '@/utils/lexPosition';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-export const movePromptPosition = async (supabase, itemId, siblings, currentIndex, direction) => {
+/**
+ * Prompt context for hierarchical naming
+ */
+interface PromptContext {
+  level: number;
+  topLevelName: string | null;
+}
+
+/**
+ * Inherited properties from parent prompt
+ */
+interface InheritedProps {
+  thread_mode?: string | null;
+  child_thread_strategy?: string | null;
+  default_child_thread_strategy?: string | null;
+  model?: string | null;
+  model_on?: boolean;
+  web_search_on?: boolean;
+  confluence_enabled?: boolean;
+}
+
+/**
+ * Move a prompt to a new position among siblings
+ * 
+ * @param supabase - Supabase client instance
+ * @param itemId - Prompt row ID to move
+ * @param siblings - Array of sibling prompts
+ * @param currentIndex - Current index in siblings array
+ * @param direction - Direction to move ('up' or 'down')
+ * @returns True if move succeeded
+ */
+export const movePromptPosition = async (
+  supabase: SupabaseClient, 
+  itemId: string, 
+  siblings: PromptData[], 
+  currentIndex: number, 
+  direction: 'up' | 'down'
+): Promise<boolean> => {
   const result = calculateNewPositions(siblings, currentIndex, direction);
   
   if (!result) {
@@ -24,15 +68,20 @@ export const movePromptPosition = async (supabase, itemId, siblings, currentInde
   return true;
 };
 
-// Helper to calculate the depth level and find top-level ancestor
-const getPromptContext = async (supabase, parentId) => {
+/**
+ * Calculate the depth level and find top-level ancestor
+ */
+const getPromptContext = async (
+  supabase: SupabaseClient, 
+  parentId: string | null
+): Promise<PromptContext> => {
   if (!parentId) {
     return { level: 0, topLevelName: null };
   }
 
-  let currentId = parentId;
+  let currentId: string | null = parentId;
   let level = 1;
-  let topLevelName = null;
+  let topLevelName: string | null = null;
   
   // Walk up the tree to find depth and top-level ancestor
   while (currentId) {
@@ -57,10 +106,17 @@ const getPromptContext = async (supabase, parentId) => {
   return { level, topLevelName };
 };
 
-// Helper to create a conversation record for a top-level prompt (Responses API - no instantiation needed)
-const createConversation = async (supabase, promptRowId, promptName, instructions = '') => {
+/**
+ * Create a conversation record for a top-level prompt (Responses API - no instantiation needed)
+ */
+const createConversation = async (
+  supabase: SupabaseClient, 
+  promptRowId: string, 
+  promptName: string, 
+  instructions: string = ''
+): Promise<string | null> => {
   try {
-    const insertData = {
+    const insertData: Record<string, unknown> = {
       prompt_row_id: promptRowId,
       name: promptName,
       status: 'active', // Responses API is always ready
@@ -83,16 +139,21 @@ const createConversation = async (supabase, promptRowId, promptName, instruction
       return null;
     }
 
-    console.log('Created conversation record:', conversation.row_id);
-    return conversation.row_id;
+    console.log('Created conversation record:', conversation?.row_id);
+    return conversation?.row_id || null;
   } catch (error) {
     console.error('Error in createConversation:', error);
     return null;
   }
 };
 
-// Helper to get last position_lex at a given level
-const getLastPositionKey = async (supabase, parentRowId) => {
+/**
+ * Get last position_lex at a given level
+ */
+const getLastPositionKey = async (
+  supabase: SupabaseClient, 
+  parentRowId: string | null
+): Promise<string | null> => {
   let query = supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .select('position_lex')
@@ -111,17 +172,35 @@ const getLastPositionKey = async (supabase, parentRowId) => {
   return data?.[0]?.position_lex || null;
 };
 
-export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = '', userId = null, defaultConversationInstructions = '', insertAfterPromptId = null) => {
+/**
+ * Add a new prompt
+ * 
+ * @param supabase - Supabase client instance
+ * @param parentId - Parent prompt ID (null for top-level)
+ * @param defaultAdminPrompt - Default system prompt content
+ * @param userId - User ID (required for RLS)
+ * @param defaultConversationInstructions - Instructions for conversation
+ * @param insertAfterPromptId - Insert as sibling after this prompt
+ * @returns Created prompt data
+ */
+export const addPrompt = async (
+  supabase: SupabaseClient, 
+  parentId: string | null = null, 
+  defaultAdminPrompt: string = '', 
+  userId: string | null = null, 
+  defaultConversationInstructions: string = '', 
+  insertAfterPromptId: string | null = null
+): Promise<PromptData[]> => {
   // CRITICAL: Validate userId to prevent RLS issues where INSERT succeeds but SELECT fails
   if (!userId) {
     const authError = new Error('Cannot create prompt: User ID is required. Please ensure you are logged in.');
-    authError.code = 'AUTH_REQUIRED';
+    (authError as Error & { code?: string }).code = 'AUTH_REQUIRED';
     console.error('[addPrompt] Missing userId - user may not be logged in');
     throw authError;
   }
 
   // Calculate position based on insertion context
-  let newPositionLex;
+  let newPositionLex: string | undefined;
   let effectiveParentId = parentId;
   
   if (insertAfterPromptId) {
@@ -173,7 +252,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   const { level, topLevelName } = await getPromptContext(supabase, effectiveParentId);
   
   // Fetch parent properties to inherit for child prompts
-  let inheritedProps = {};
+  let inheritedProps: InheritedProps = {};
   if (effectiveParentId) {
     const { data: parentPrompt } = await supabase
       .from(import.meta.env.VITE_PROMPTS_TBL)
@@ -196,7 +275,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   }
   
   // Fetch global model defaults (same as template-based creation)
-  let modelDefaults = {};
+  const modelDefaults: Record<string, unknown> = {};
   const { data: defaultModelSetting } = await supabase
     .from(import.meta.env.VITE_SETTINGS_TBL)
     .select('setting_value')
@@ -219,8 +298,8 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
         'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
       
       defaultSettingFields.forEach(field => {
-        if (defaultsData[`${field}_on`]) {
-          modelDefaults[field] = defaultsData[field];
+        if ((defaultsData as Record<string, unknown>)[`${field}_on`]) {
+          modelDefaults[field] = (defaultsData as Record<string, unknown>)[field];
           modelDefaults[`${field}_on`] = true;
         }
       });
@@ -270,7 +349,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   const promptName = generatePromptName(levelConfig, siblingCount || 0, new Date());
   
   // Prepare insert data - apply model defaults first, then inherit/override from parent
-  const insertData = {
+  const insertData: Record<string, unknown> = {
     parent_row_id: effectiveParentId,
     prompt_name: promptName,
     input_admin_prompt: defaultAdminPrompt || null,
@@ -292,7 +371,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
   if (inheritedProps.model) {
     insertData.model = inheritedProps.model;
     insertData.model_on = inheritedProps.model_on;
-  };
+  }
   
   // Insert the new prompt
   const { data, error } = await supabase
@@ -314,7 +393,7 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
       'This usually means the owner_id does not match your user ID. ' +
       'Please ensure you are logged in.'
     );
-    rlsError.code = 'RLS_SELECT_BLOCKED';
+    (rlsError as Error & { code?: string }).code = 'RLS_SELECT_BLOCKED';
     console.error('[addPrompt] Empty data after INSERT:', { 
       userId, 
       effectiveParentId,
@@ -339,14 +418,88 @@ export const addPrompt = async (supabase, parentId = null, defaultAdminPrompt = 
     level 
   });
 
-  return data;
+  return data as PromptData[];
 };
 
-export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) => {
+/**
+ * Helper for duplicating child prompts (not top-level, so no assistant needed)
+ */
+const duplicateChildPrompt = async (
+  supabase: SupabaseClient, 
+  sourcePromptId: string, 
+  newParentId: string, 
+  userId: string
+): Promise<PromptData> => {
+  const { data: sourcePrompt, error: fetchError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('*')
+    .eq('row_id', sourcePromptId)
+    .maybeSingle();
+
+  if (fetchError) throw fetchError;
+  if (!sourcePrompt) throw new Error('Source prompt not found');
+
+  // Get last position for the new parent's children
+  const lastKey = await getLastPositionKey(supabase, newParentId);
+  const newPositionLex = generatePositionAtEnd(lastKey);
+
+  const { 
+    row_id, 
+    created_at, 
+    updated_at, 
+    parent_row_id, 
+    position, 
+    position_lex, 
+    ...promptFields 
+  } = sourcePrompt;
+  
+  const { data: newPrompt, error: insertError } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .insert([{
+      ...promptFields,
+      parent_row_id: newParentId,
+      position_lex: newPositionLex,
+      owner_id: userId, // Always use authenticated user's ID
+    }])
+    .select()
+    .maybeSingle();
+
+  if (insertError) throw insertError;
+
+  // Recursively duplicate children of this child
+  const { data: children } = await supabase
+    .from(import.meta.env.VITE_PROMPTS_TBL)
+    .select('row_id')
+    .eq('parent_row_id', sourcePromptId)
+    .eq('is_deleted', false)
+    .order('position_lex');
+
+  if (children && children.length > 0) {
+    for (const child of children) {
+      await duplicateChildPrompt(supabase, child.row_id, newPrompt.row_id, userId);
+    }
+  }
+
+  return newPrompt as PromptData;
+};
+
+/**
+ * Duplicate a prompt and all its children
+ * 
+ * @param supabase - Supabase client instance
+ * @param sourcePromptId - Prompt ID to duplicate
+ * @param userId - User ID (required for RLS)
+ * @returns Duplicated prompt data
+ */
+export const duplicatePrompt = async (
+  supabase: SupabaseClient, 
+  sourcePromptId: string, 
+  userId: string | null = null
+): Promise<PromptData> => {
   // CRITICAL: Validate userId to prevent orphaned duplicates that user can't see
   if (!userId) {
     const authError = new Error('Cannot duplicate prompt: User ID is required. Please ensure you are logged in.');
-    authError.code = 'AUTH_REQUIRED';
+    (authError as Error & { code?: string }).code = 'AUTH_REQUIRED';
     console.error('[duplicatePrompt] Missing userId - user may not be logged in');
     throw authError;
   }
@@ -421,57 +574,23 @@ export const duplicatePrompt = async (supabase, sourcePromptId, userId = null) =
     is_top_level: !sourcePrompt.parent_row_id 
   });
 
-  return newPrompt;
+  return newPrompt as PromptData;
 };
 
-// Helper for duplicating child prompts (not top-level, so no assistant needed)
-const duplicateChildPrompt = async (supabase, sourcePromptId, newParentId, userId) => {
-  const { data: sourcePrompt, error: fetchError } = await supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('*')
-    .eq('row_id', sourcePromptId)
-    .maybeSingle();
-
-  if (fetchError) throw fetchError;
-  if (!sourcePrompt) throw new Error('Source prompt not found');
-
-  // Get last position for the new parent's children
-  const lastKey = await getLastPositionKey(supabase, newParentId);
-  const newPositionLex = generatePositionAtEnd(lastKey);
-
-  const { row_id, created_at, updated_at, parent_row_id, position, position_lex, ...promptFields } = sourcePrompt;
-  
-  const { data: newPrompt, error: insertError } = await supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .insert([{
-      ...promptFields,
-      parent_row_id: newParentId,
-      position_lex: newPositionLex,
-      owner_id: userId, // Always use authenticated user's ID
-    }])
-    .select()
-    .maybeSingle();
-
-  if (insertError) throw insertError;
-
-  // Recursively duplicate children of this child
-  const { data: children } = await supabase
-    .from(import.meta.env.VITE_PROMPTS_TBL)
-    .select('row_id')
-    .eq('parent_row_id', sourcePromptId)
-    .eq('is_deleted', false)
-    .order('position_lex');
-
-  if (children && children.length > 0) {
-    for (const child of children) {
-      await duplicateChildPrompt(supabase, child.row_id, newPrompt.row_id, userId);
-    }
-  }
-
-  return newPrompt;
-};
-
-export const updatePromptField = async (supabase, promptId, field, value) => {
+/**
+ * Update a single field on a prompt
+ * 
+ * @param supabase - Supabase client instance
+ * @param promptId - Prompt row ID
+ * @param field - Field name to update
+ * @param value - New value for the field
+ */
+export const updatePromptField = async (
+  supabase: SupabaseClient, 
+  promptId: string, 
+  field: string, 
+  value: unknown
+): Promise<void> => {
   const { error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .update({ [field]: value })
@@ -480,7 +599,18 @@ export const updatePromptField = async (supabase, promptId, field, value) => {
   if (error) throw error;
 };
 
-export const updatePromptIcon = async (supabase, promptId, iconName) => {
+/**
+ * Update a prompt's icon
+ * 
+ * @param supabase - Supabase client instance
+ * @param promptId - Prompt row ID
+ * @param iconName - New icon name
+ */
+export const updatePromptIcon = async (
+  supabase: SupabaseClient, 
+  promptId: string, 
+  iconName: string | null
+): Promise<void> => {
   const { error } = await supabase
     .from(import.meta.env.VITE_PROMPTS_TBL)
     .update({ icon_name: iconName })
@@ -489,4 +619,5 @@ export const updatePromptIcon = async (supabase, promptId, iconName) => {
   if (error) throw error;
 };
 
+// Re-export deletePrompt from promptDeletion
 export { deletePrompt };
