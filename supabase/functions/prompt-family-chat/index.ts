@@ -1271,8 +1271,13 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
           }
         }
         
-        streamResult = { content, toolCalls, usage: initialResult.usage, status: 'completed' };
-      } else if (initialResult.status === 'failed' || initialResult.status === 'cancelled') {
+      streamResult = { content, toolCalls, usage: initialResult.usage, status: 'completed' };
+      
+      // Emit content for immediate completion (no streaming occurred)
+      if (content) {
+        emitter.emit({ type: 'output_text_done', text: content });
+      }
+    } else if (initialResult.status === 'failed' || initialResult.status === 'cancelled') {
         emitter.emit({ type: 'error', error: `Request ${initialResult.status}` });
         emitter.close();
         return;
@@ -1323,13 +1328,10 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
       console.log('Final content length:', finalContent.length);
 
-      // Emit final content
-      emitter.emit({
-        choices: [{
-          delta: { content: finalContent },
-          finish_reason: 'stop'
-        }]
-      });
+      // Emit final content using typed event format (matches client parser)
+      if (finalContent) {
+        emitter.emit({ type: 'output_text_done', text: finalContent });
+      }
 
       emitter.close();
 
