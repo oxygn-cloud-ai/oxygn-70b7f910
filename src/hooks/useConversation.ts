@@ -2,9 +2,41 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 
-export const useConversation = (promptRowId) => {
+export interface Conversation {
+  row_id: string;
+  prompt_row_id: string | null;
+  name: string | null;
+  instructions: string | null;
+  use_global_tool_defaults: boolean | null;
+  status: string | null;
+  api_version: string | null;
+  openai_assistant_id?: string | null;
+  vector_store_id?: string | null;
+  model_override?: string | null;
+  temperature_override?: string | null;
+  code_interpreter_enabled?: boolean | null;
+  file_search_enabled?: boolean | null;
+  function_calling_enabled?: boolean | null;
+  confluence_enabled?: boolean | null;
+  [key: string]: unknown;
+}
+
+interface ConversationInitialData {
+  name?: string;
+  instructions?: string;
+}
+
+interface UseConversationReturn {
+  conversation: Conversation | null;
+  isLoading: boolean;
+  createConversation: (initialData?: ConversationInitialData) => Promise<Conversation | null>;
+  updateConversation: (updates: Partial<Conversation>) => Promise<boolean>;
+  refetch: () => Promise<void>;
+}
+
+export const useConversation = (promptRowId: string | null): UseConversationReturn => {
   const supabase = useSupabase();
-  const [conversation, setConversation] = useState(null);
+  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const creatingRef = useRef(false); // Prevent duplicate creation
 
@@ -52,13 +84,13 @@ export const useConversation = (promptRowId) => {
         if (createError) {
           console.error('Error creating conversation record:', createError);
           creatingRef.current = false;
-        } else {
+        } else if (newConversation) {
           console.log('Created conversation record:', newConversation.row_id);
-          setConversation(newConversation);
+          setConversation(newConversation as Conversation);
           creatingRef.current = false;
         }
       } else {
-        setConversation(data);
+        setConversation(data as Conversation | null);
       }
     } catch (error) {
       console.error('Error fetching conversation:', error);
@@ -74,7 +106,7 @@ export const useConversation = (promptRowId) => {
     fetchConversation();
   }, [fetchConversation]);
 
-  const createConversation = useCallback(async (initialData = {}) => {
+  const createConversation = useCallback(async (initialData: ConversationInitialData = {}): Promise<Conversation | null> => {
     if (!supabase || !promptRowId) return null;
 
     try {
@@ -92,8 +124,8 @@ export const useConversation = (promptRowId) => {
         .maybeSingle();
 
       if (error) throw error;
-      setConversation(data);
-      return data;
+      setConversation(data as Conversation);
+      return data as Conversation;
     } catch (error) {
       console.error('Error creating conversation:', error);
       toast.error('Failed to create conversation');
@@ -101,7 +133,7 @@ export const useConversation = (promptRowId) => {
     }
   }, [supabase, promptRowId]);
 
-  const updateConversation = useCallback(async (updates) => {
+  const updateConversation = useCallback(async (updates: Partial<Conversation>): Promise<boolean> => {
     if (!supabase || !conversation?.row_id) return false;
 
     try {
@@ -111,7 +143,7 @@ export const useConversation = (promptRowId) => {
         .eq('row_id', conversation.row_id);
 
       if (error) throw error;
-      setConversation(prev => ({ ...prev, ...updates }));
+      setConversation(prev => prev ? { ...prev, ...updates } : null);
       return true;
     } catch (error) {
       console.error('Error updating conversation:', error);

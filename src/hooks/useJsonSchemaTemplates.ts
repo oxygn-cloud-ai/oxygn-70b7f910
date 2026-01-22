@@ -2,21 +2,66 @@ import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
+import type { Json } from '@/integrations/supabase/types';
 
-export const useJsonSchemaTemplates = () => {
-  const [templates, setTemplates] = useState([]);
+export interface JsonSchemaTemplate {
+  row_id: string;
+  owner_id: string | null;
+  schema_name: string;
+  schema_description: string | null;
+  category: string | null;
+  json_schema: Json;
+  node_config: Json | null;
+  child_creation: Json | null;
+  action_config: Json | null;
+  model_config: Json | null;
+  system_prompt_template: string | null;
+  sample_output: Json | null;
+  is_deleted: boolean | null;
+  is_private: boolean | null;
+  contributor_display_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface CreateTemplateParams {
+  schemaName: string;
+  schemaDescription?: string;
+  category?: string;
+  jsonSchema: Record<string, unknown>;
+  nodeConfig?: Record<string, unknown> | null;
+  childCreation?: Record<string, unknown> | null;
+  actionConfig?: Record<string, unknown> | null;
+  modelConfig?: Record<string, unknown> | null;
+  systemPromptTemplate?: string | null;
+  sampleOutput?: Record<string, unknown> | null;
+}
+
+interface UseJsonSchemaTemplatesReturn {
+  templates: JsonSchemaTemplate[];
+  isLoading: boolean;
+  isSaving: boolean;
+  fetchTemplates: () => Promise<JsonSchemaTemplate[]>;
+  createTemplate: (params: CreateTemplateParams) => Promise<JsonSchemaTemplate>;
+  updateTemplate: (rowId: string, updates: Partial<JsonSchemaTemplate>) => Promise<JsonSchemaTemplate>;
+  deleteTemplate: (rowId: string, isAdmin?: boolean) => Promise<boolean>;
+  duplicateTemplate: (template: JsonSchemaTemplate) => Promise<JsonSchemaTemplate>;
+  getTemplate: (rowId: string) => Promise<JsonSchemaTemplate | null>;
+}
+
+export const useJsonSchemaTemplates = (): UseJsonSchemaTemplatesReturn => {
+  const [templates, setTemplates] = useState<JsonSchemaTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch JSON schema templates (own + system templates)
-  const fetchTemplates = useCallback(async () => {
+  const fetchTemplates = useCallback(async (): Promise<JsonSchemaTemplate[]> => {
     setIsLoading(true);
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
       // Query own templates + system templates (owner_id IS NULL)
-      // RLS also handles this, but explicit query for clarity
       let query = supabase
         .from('q_json_schema_templates')
         .select('*')
@@ -37,8 +82,9 @@ export const useJsonSchemaTemplates = () => {
       }
 
       console.log('[useJsonSchemaTemplates] Fetched templates:', data?.length || 0);
-      setTemplates(data || []);
-      return data || [];
+      const result = (data || []) as JsonSchemaTemplate[];
+      setTemplates(result);
+      return result;
     } catch (error) {
       console.error('[useJsonSchemaTemplates] Fetch error:', error);
       toast.error('Failed to load schema templates');
@@ -60,7 +106,7 @@ export const useJsonSchemaTemplates = () => {
     modelConfig,
     systemPromptTemplate,
     sampleOutput
-  }) => {
+  }: CreateTemplateParams): Promise<JsonSchemaTemplate> => {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -71,34 +117,35 @@ export const useJsonSchemaTemplates = () => {
         .insert({
           owner_id: user.id,
           schema_name: schemaName,
-          schema_description: schemaDescription,
+          schema_description: schemaDescription || null,
           category: category || 'general',
-          json_schema: jsonSchema,
-          node_config: nodeConfig || null,
-          child_creation: childCreation || null,
-          action_config: actionConfig || null,
-          model_config: modelConfig || null,
+          json_schema: jsonSchema as Json,
+          node_config: nodeConfig as Json || null,
+          child_creation: childCreation as Json || null,
+          action_config: actionConfig as Json || null,
+          model_config: modelConfig as Json || null,
           system_prompt_template: systemPromptTemplate || null,
-          sample_output: sampleOutput || null
+          sample_output: sampleOutput as Json || null
         })
         .select()
         .maybeSingle();
 
       if (error) throw error;
 
-      setTemplates(prev => [...prev, data].sort((a, b) => 
+      const template = data as JsonSchemaTemplate;
+      setTemplates(prev => [...prev, template].sort((a, b) => 
         a.schema_name.localeCompare(b.schema_name)
       ));
       toast.success('Schema template saved');
       
       // Track schema template created
       trackEvent('schema_template_created', {
-        template_id: data.row_id,
+        template_id: template.row_id,
         template_name: schemaName,
         category: category || 'general',
       });
       
-      return data;
+      return template;
     } catch (error) {
       console.error('Error creating schema template:', error);
       toast.error('Failed to save schema template');
@@ -109,7 +156,7 @@ export const useJsonSchemaTemplates = () => {
   }, []);
 
   // Update an existing template
-  const updateTemplate = useCallback(async (rowId, updates) => {
+  const updateTemplate = useCallback(async (rowId: string, updates: Partial<JsonSchemaTemplate>): Promise<JsonSchemaTemplate> => {
     setIsSaving(true);
     try {
       const { data, error } = await supabase
@@ -124,9 +171,10 @@ export const useJsonSchemaTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
+      const template = data as JsonSchemaTemplate;
+      setTemplates(prev => prev.map(t => t.row_id === rowId ? template : t));
       toast.success('Schema template updated');
-      return data;
+      return template;
     } catch (error) {
       console.error('Error updating schema template:', error);
       toast.error('Failed to update schema template');
@@ -137,7 +185,7 @@ export const useJsonSchemaTemplates = () => {
   }, []);
 
   // Delete a template (soft delete)
-  const deleteTemplate = useCallback(async (rowId, isAdmin = false) => {
+  const deleteTemplate = useCallback(async (rowId: string, isAdmin = false): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -186,22 +234,22 @@ export const useJsonSchemaTemplates = () => {
   }, []);
 
   // Duplicate a template
-  const duplicateTemplate = useCallback(async (template) => {
+  const duplicateTemplate = useCallback(async (template: JsonSchemaTemplate): Promise<JsonSchemaTemplate> => {
     return createTemplate({
       schemaName: `${template.schema_name} (copy)`,
-      schemaDescription: template.schema_description,
-      category: template.category,
-      jsonSchema: template.json_schema,
-      nodeConfig: template.node_config,
-      childCreation: template.child_creation,
-      actionConfig: template.action_config,
-      modelConfig: template.model_config,
+      schemaDescription: template.schema_description || undefined,
+      category: template.category || undefined,
+      jsonSchema: template.json_schema as Record<string, unknown>,
+      nodeConfig: template.node_config as Record<string, unknown> | null,
+      childCreation: template.child_creation as Record<string, unknown> | null,
+      actionConfig: template.action_config as Record<string, unknown> | null,
+      modelConfig: template.model_config as Record<string, unknown> | null,
       systemPromptTemplate: template.system_prompt_template
     });
   }, [createTemplate]);
 
   // Get a single template by ID
-  const getTemplate = useCallback(async (rowId) => {
+  const getTemplate = useCallback(async (rowId: string): Promise<JsonSchemaTemplate | null> => {
     try {
       const { data, error } = await supabase
         .from('q_json_schema_templates')
@@ -210,7 +258,7 @@ export const useJsonSchemaTemplates = () => {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as JsonSchemaTemplate | null;
     } catch (error) {
       console.error('Error fetching schema template:', error);
       return null;

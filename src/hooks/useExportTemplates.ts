@@ -2,14 +2,47 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
+import type { Json } from '@/integrations/supabase/types';
 
-export const useExportTemplates = () => {
-  const [templates, setTemplates] = useState([]);
+export interface ExportTemplate {
+  row_id: string;
+  owner_id: string | null;
+  template_name: string;
+  export_type: string;
+  selected_fields: string[] | null;
+  selected_variables: Json | null;
+  confluence_config: Json | null;
+  is_deleted: boolean | null;
+  is_private: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface SaveTemplateParams {
+  templateName: string;
+  exportType: string;
+  selectedFields: string[];
+  selectedVariables: Record<string, string[]>;
+  confluenceConfig?: Record<string, unknown>;
+}
+
+interface UseExportTemplatesReturn {
+  templates: ExportTemplate[];
+  isLoading: boolean;
+  isSaving: boolean;
+  fetchTemplates: (exportType?: string | null) => Promise<ExportTemplate[]>;
+  saveTemplate: (params: SaveTemplateParams) => Promise<ExportTemplate>;
+  updateTemplate: (rowId: string, updates: Partial<ExportTemplate>) => Promise<ExportTemplate>;
+  deleteTemplate: (rowId: string, isAdmin?: boolean) => Promise<boolean>;
+}
+
+export const useExportTemplates = (): UseExportTemplatesReturn => {
+  const [templates, setTemplates] = useState<ExportTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch all export templates for the current user (excluding deleted)
-  const fetchTemplates = useCallback(async (exportType = null) => {
+  const fetchTemplates = useCallback(async (exportType: string | null = null): Promise<ExportTemplate[]> => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -32,8 +65,9 @@ export const useExportTemplates = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      setTemplates(data || []);
-      return data || [];
+      const result = (data || []) as ExportTemplate[];
+      setTemplates(result);
+      return result;
     } catch (error) {
       console.error('Error fetching export templates:', error);
       return [];
@@ -49,7 +83,7 @@ export const useExportTemplates = () => {
     selectedFields,
     selectedVariables,
     confluenceConfig
-  }) => {
+  }: SaveTemplateParams): Promise<ExportTemplate> => {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,18 +96,19 @@ export const useExportTemplates = () => {
           template_name: templateName,
           export_type: exportType,
           selected_fields: selectedFields,
-          selected_variables: selectedVariables,
-          confluence_config: confluenceConfig
+          selected_variables: selectedVariables as Json,
+          confluence_config: confluenceConfig as Json
         })
         .select()
         .maybeSingle();
 
       if (error) throw error;
 
-      setTemplates(prev => [data, ...prev]);
+      const template = data as ExportTemplate;
+      setTemplates(prev => [template, ...prev]);
       toast.success('Export template saved');
       trackEvent('export_template_created', { template_name: templateName, export_type: exportType });
-      return data;
+      return template;
     } catch (error) {
       console.error('Error saving export template:', error);
       toast.error('Failed to save template');
@@ -84,7 +119,7 @@ export const useExportTemplates = () => {
   }, []);
 
   // Update an existing template
-  const updateTemplate = useCallback(async (rowId, updates) => {
+  const updateTemplate = useCallback(async (rowId: string, updates: Partial<ExportTemplate>): Promise<ExportTemplate> => {
     setIsSaving(true);
     try {
       const { data, error } = await supabase
@@ -96,10 +131,11 @@ export const useExportTemplates = () => {
 
       if (error) throw error;
 
-      setTemplates(prev => prev.map(t => t.row_id === rowId ? data : t));
+      const template = data as ExportTemplate;
+      setTemplates(prev => prev.map(t => t.row_id === rowId ? template : t));
       toast.success('Template updated');
       trackEvent('export_template_updated', { row_id: rowId });
-      return data;
+      return template;
     } catch (error) {
       console.error('Error updating export template:', error);
       toast.error('Failed to update template');
@@ -110,7 +146,7 @@ export const useExportTemplates = () => {
   }, []);
 
   // Delete a template (soft delete)
-  const deleteTemplate = useCallback(async (rowId, isAdmin = false) => {
+  const deleteTemplate = useCallback(async (rowId: string, isAdmin = false): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
