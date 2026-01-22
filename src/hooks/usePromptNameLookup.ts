@@ -4,14 +4,34 @@ import { supabase } from '@/integrations/supabase/client';
 // Pattern to match q.ref[UUID].field syntax
 const UUID_PATTERN = /\{\{q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)\}\}/gi;
 
+export interface RefDetail {
+  uuid: string;
+  field: string;
+  fullMatch: string;
+}
+
+export interface PromptNameEntry {
+  name: string;
+  row_id: string;
+}
+
+interface CacheEntry {
+  data: PromptNameEntry;
+  timestamp: number;
+}
+
+// Simple in-memory cache for prompt names
+const nameCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 60000; // 1 minute
+
 /**
  * Extract all UUIDs from text that match the q.ref[UUID].field pattern
  */
-export const extractRefUuids = (text) => {
+export const extractRefUuids = (text: string | null | undefined): string[] => {
   if (!text) return [];
   
-  const uuids = new Set();
-  let match;
+  const uuids = new Set<string>();
+  let match: RegExpExecArray | null;
   
   // Reset regex lastIndex
   UUID_PATTERN.lastIndex = 0;
@@ -27,11 +47,11 @@ export const extractRefUuids = (text) => {
  * Extract all q.ref references with their field names
  * Returns array of { uuid, field } objects
  */
-export const extractRefDetails = (text) => {
+export const extractRefDetails = (text: string | null | undefined): RefDetail[] => {
   if (!text) return [];
   
-  const refs = [];
-  let match;
+  const refs: RefDetail[] = [];
+  let match: RegExpExecArray | null;
   
   // Reset regex lastIndex
   UUID_PATTERN.lastIndex = 0;
@@ -47,16 +67,18 @@ export const extractRefDetails = (text) => {
   return refs;
 };
 
-// Simple in-memory cache for prompt names
-const nameCache = new Map();
-const CACHE_TTL = 60000; // 1 minute
+interface UsePromptNameLookupReturn {
+  nameMap: Map<string, PromptNameEntry>;
+  isLoading: boolean;
+  uuids: string[];
+}
 
 /**
  * Hook to batch-fetch prompt names for UUIDs found in text
  * Returns a Map of UUID -> { name, row_id }
  */
-export const usePromptNameLookup = (textContent) => {
-  const [nameMap, setNameMap] = useState(new Map());
+export const usePromptNameLookup = (textContent: string | null | undefined): UsePromptNameLookupReturn => {
+  const [nameMap, setNameMap] = useState<Map<string, PromptNameEntry>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
   // Extract UUIDs from text content
@@ -74,8 +96,8 @@ export const usePromptNameLookup = (textContent) => {
 
       // Check cache first
       const now = Date.now();
-      const uncachedUuids = [];
-      const cachedResults = new Map();
+      const uncachedUuids: string[] = [];
+      const cachedResults = new Map<string, PromptNameEntry>();
 
       uuids.forEach(uuid => {
         const cached = nameCache.get(uuid);
@@ -109,8 +131,8 @@ export const usePromptNameLookup = (textContent) => {
         // Build result map and update cache
         const resultMap = new Map(cachedResults);
         
-        (data || []).forEach(prompt => {
-          const entry = {
+        (data || []).forEach((prompt: { row_id: string; prompt_name: string | null }) => {
+          const entry: PromptNameEntry = {
             name: prompt.prompt_name || 'Untitled',
             row_id: prompt.row_id,
           };
@@ -148,7 +170,7 @@ export const usePromptNameLookup = (textContent) => {
 /**
  * Fetch prompt names for a list of UUIDs (non-hook version for use in callbacks)
  */
-export const fetchPromptNames = async (uuids) => {
+export const fetchPromptNames = async (uuids: string[]): Promise<Map<string, PromptNameEntry>> => {
   if (!uuids || uuids.length === 0) return new Map();
 
   try {
@@ -162,8 +184,8 @@ export const fetchPromptNames = async (uuids) => {
       return new Map();
     }
 
-    const resultMap = new Map();
-    (data || []).forEach(prompt => {
+    const resultMap = new Map<string, PromptNameEntry>();
+    (data || []).forEach((prompt: { row_id: string; prompt_name: string | null }) => {
       resultMap.set(prompt.row_id, {
         name: prompt.prompt_name || 'Untitled',
         row_id: prompt.row_id,
@@ -180,7 +202,7 @@ export const fetchPromptNames = async (uuids) => {
 /**
  * Clear the name cache (useful for testing or after bulk updates)
  */
-export const clearNameCache = () => {
+export const clearNameCache = (): void => {
   nameCache.clear();
 };
 

@@ -1,20 +1,46 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+type ServiceName = 'confluence' | 'gemini' | 'google' | 'manus' | string;
+
+interface CredentialStatus {
+  email?: boolean;
+  api_token?: boolean;
+  api_key?: boolean;
+  [key: string]: boolean | undefined;
+}
+
+type CredentialStatusMap = Record<ServiceName, CredentialStatus>;
+
+interface UseUserCredentialsReturn {
+  isLoading: boolean;
+  credentialStatus: CredentialStatusMap;
+  configuredServices: string[];
+  getCredentialStatus: (service: ServiceName) => Promise<CredentialStatus>;
+  setCredential: (service: ServiceName, key: string, value: string) => Promise<boolean>;
+  deleteCredential: (service: ServiceName, key?: string | null) => Promise<boolean>;
+  listConfiguredServices: () => Promise<string[]>;
+  refreshStatus: (service: ServiceName) => Promise<CredentialStatus>;
+  isServiceConfigured: (service: ServiceName) => boolean;
+}
+
 /**
  * Hook for managing user credentials via the credentials-manager edge function.
  * Credentials are encrypted at rest and never returned to the frontend.
  * Only status (configured/not configured) is exposed.
  */
-export const useUserCredentials = () => {
+export const useUserCredentials = (): UseUserCredentialsReturn => {
   const [isLoading, setIsLoading] = useState(false);
-  const [credentialStatus, setCredentialStatus] = useState({});
-  const [configuredServices, setConfiguredServices] = useState([]);
+  const [credentialStatus, setCredentialStatus] = useState<CredentialStatusMap>({});
+  const [configuredServices, setConfiguredServices] = useState<string[]>([]);
 
   /**
    * Invoke the credentials-manager edge function
    */
-  const invokeCredentialsManager = useCallback(async (action, params = {}) => {
+  const invokeCredentialsManager = useCallback(async <T = unknown>(
+    action: string,
+    params: Record<string, unknown> = {}
+  ): Promise<T> => {
     const { data, error } = await supabase.functions.invoke('credentials-manager', {
       body: { action, ...params }
     });
@@ -29,17 +55,17 @@ export const useUserCredentials = () => {
       throw new Error(data.error);
     }
 
-    return data;
+    return data as T;
   }, []);
 
   /**
    * Get the configuration status for a service (e.g., 'confluence')
    * Returns an object like { email: true, api_token: false }
    */
-  const getCredentialStatus = useCallback(async (service) => {
+  const getCredentialStatus = useCallback(async (service: ServiceName): Promise<CredentialStatus> => {
     setIsLoading(true);
     try {
-      const data = await invokeCredentialsManager('get_status', { service });
+      const data = await invokeCredentialsManager<{ status?: CredentialStatus }>('get_status', { service });
       const status = data?.status || {};
       setCredentialStatus(prev => ({ ...prev, [service]: status }));
       return status;
@@ -54,7 +80,7 @@ export const useUserCredentials = () => {
   /**
    * Set a credential for a service (will be encrypted server-side)
    */
-  const setCredential = useCallback(async (service, key, value) => {
+  const setCredential = useCallback(async (service: ServiceName, key: string, value: string): Promise<boolean> => {
     setIsLoading(true);
     try {
       await invokeCredentialsManager('set', { service, key, value });
@@ -72,7 +98,7 @@ export const useUserCredentials = () => {
   /**
    * Delete a credential (or all credentials for a service if key is omitted)
    */
-  const deleteCredential = useCallback(async (service, key = null) => {
+  const deleteCredential = useCallback(async (service: ServiceName, key: string | null = null): Promise<boolean> => {
     setIsLoading(true);
     try {
       await invokeCredentialsManager('delete', { service, key });
@@ -90,10 +116,10 @@ export const useUserCredentials = () => {
   /**
    * List all services that have configured credentials
    */
-  const listConfiguredServices = useCallback(async () => {
+  const listConfiguredServices = useCallback(async (): Promise<string[]> => {
     setIsLoading(true);
     try {
-      const data = await invokeCredentialsManager('list_services');
+      const data = await invokeCredentialsManager<{ services?: string[] }>('list_services');
       const services = data?.services || [];
       setConfiguredServices(services);
       return services;
@@ -108,7 +134,7 @@ export const useUserCredentials = () => {
   /**
    * Refresh status for a specific service
    */
-  const refreshStatus = useCallback(async (service) => {
+  const refreshStatus = useCallback(async (service: ServiceName): Promise<CredentialStatus> => {
     return getCredentialStatus(service);
   }, [getCredentialStatus]);
 
@@ -118,7 +144,7 @@ export const useUserCredentials = () => {
    * For Gemini/Google: api_key must be set
    * For Manus: api_key must be set
    */
-  const isServiceConfigured = useCallback((service) => {
+  const isServiceConfigured = useCallback((service: ServiceName): boolean => {
     const status = credentialStatus[service];
     if (!status) return false;
 

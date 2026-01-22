@@ -1,16 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSupabase } from './useSupabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+
+export interface ManusTask {
+  task_id: string;
+  status: 'created' | 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  requires_input?: boolean;
+  result_message?: string;
+  task_url?: string;
+  stop_reason?: string;
+  attachments?: unknown[];
+  [key: string]: unknown;
+}
+
+interface UseManusTaskSubscriptionReturn {
+  task: ManusTask | null;
+  error: Error | null;
+  isComplete: boolean;
+  isFailed: boolean;
+  isCancelled: boolean;
+  isRunning: boolean;
+  isPending: boolean;
+  requiresInput: boolean;
+  result: string | undefined;
+  taskUrl: string | undefined;
+  stopReason: string | undefined;
+  attachments: unknown[];
+}
 
 /**
  * Hook to subscribe to Manus task updates via Realtime
- * @param {string} taskId - The Manus task ID to subscribe to
- * @returns {Object} Task state and status helpers
  */
-export function useManusTaskSubscription(taskId) {
-  const [task, setTask] = useState(null);
-  const [error, setError] = useState(null);
+export function useManusTaskSubscription(taskId: string | null): UseManusTaskSubscriptionReturn {
+  const [task, setTask] = useState<ManusTask | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const supabase = useSupabase();
-  const channelRef = useRef(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     if (!taskId || !supabase) return;
@@ -27,7 +52,7 @@ export function useManusTaskSubscription(taskId) {
         console.error('[useManusTaskSubscription] Error fetching task:', fetchError);
         setError(fetchError);
       } else {
-        setTask(data);
+        setTask(data as ManusTask | null);
       }
     };
     
@@ -47,7 +72,7 @@ export function useManusTaskSubscription(taskId) {
         (payload) => {
           console.log('[useManusTaskSubscription] Task update:', payload.eventType);
           if (payload.new) {
-            setTask(payload.new);
+            setTask(payload.new as ManusTask);
           }
         }
       )
@@ -58,7 +83,7 @@ export function useManusTaskSubscription(taskId) {
     channelRef.current = channel;
 
     return () => {
-      if (channelRef.current) {
+      if (channelRef.current && supabase) {
         supabase.removeChannel(channelRef.current);
       }
     };
