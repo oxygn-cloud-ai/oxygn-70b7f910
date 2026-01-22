@@ -12,23 +12,30 @@ import { useLiveApiDashboard } from "@/contexts/LiveApiDashboardContext";
 import { useCascadeRun } from "@/contexts/CascadeRunContext";
 import { estimateCost } from "@/utils/costEstimator";
 import { toast } from "@/components/ui/sonner";
+import type { 
+  ActiveCall, 
+  MetricRowProps, 
+  SettingRowProps as DashboardSettingRowProps, 
+  ToolBadgeProps,
+  CumulativeStats 
+} from './types';
 
 // Format token count with K suffix
-const formatTokens = (count) => {
+const formatTokens = (count: number | undefined | null): string => {
   if (!count || count === 0) return '0';
   if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
   return String(count);
 };
 
 // Format cost in dollars
-const formatCost = (cost) => {
+const formatCost = (cost: number | undefined | null): string => {
   if (!cost || cost === 0) return '$0.00';
   if (cost < 0.01) return `$${cost.toFixed(4)}`;
   return `$${cost.toFixed(3)}`;
 };
 
 // Format elapsed time
-const formatTime = (seconds) => {
+const formatTime = (seconds: number | undefined | null): string => {
   if (!seconds || seconds === 0) return '0:00';
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -36,7 +43,7 @@ const formatTime = (seconds) => {
 };
 
 // Calculate tokens per second
-const calculateSpeed = (call) => {
+const calculateSpeed = (call: ActiveCall | undefined): string | null => {
   if (!call?.firstTokenAt || !call?.lastTokenAt || !call?.tokenCount) return null;
   const durationMs = call.lastTokenAt - call.firstTokenAt;
   if (durationMs <= 0) return null;
@@ -44,7 +51,7 @@ const calculateSpeed = (call) => {
 };
 
 // Metric row component
-const MetricRow = ({ label, value, icon: Icon, sublabel }) => (
+const MetricRow: React.FC<MetricRowProps> = ({ label, value, icon: Icon, sublabel }) => (
   <div className="flex items-center justify-between py-1.5">
     <div className="flex items-center gap-2">
       {Icon && <Icon className="h-3.5 w-3.5 text-on-surface-variant" />}
@@ -58,7 +65,7 @@ const MetricRow = ({ label, value, icon: Icon, sublabel }) => (
 );
 
 // Setting row for resolved settings display
-const SettingRow = ({ label, value }) => (
+const SettingRow: React.FC<DashboardSettingRowProps> = ({ label, value }) => (
   <div className="flex items-center justify-between py-1">
     <span className="text-[11px] text-on-surface-variant">{label}</span>
     <span className="text-[11px] text-on-surface font-mono">{value}</span>
@@ -66,7 +73,7 @@ const SettingRow = ({ label, value }) => (
 );
 
 // Tool badge component
-const ToolBadge = ({ enabled, icon: Icon, label }) => (
+const ToolBadge: React.FC<ToolBadgeProps> = ({ enabled, icon: Icon, label }) => (
   <div className={`flex items-center gap-1 px-2 py-1 rounded-m3-sm text-[10px] ${
     enabled 
       ? 'bg-primary/10 text-primary' 
@@ -77,7 +84,7 @@ const ToolBadge = ({ enabled, icon: Icon, label }) => (
   </div>
 );
 
-const DashboardTabContent = () => {
+const DashboardTabContent: React.FC = () => {
   const { activeCalls, hasActiveCalls, cancelCall, cumulativeStats } = useLiveApiDashboard();
   const { 
     isRunning: isCascadeRunning, 
@@ -96,14 +103,14 @@ const DashboardTabContent = () => {
 
   // Timer state
   const [elapsed, setElapsed] = useState(0);
-  const timerRef = useRef(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Auto-scroll for reasoning
-  const reasoningRef = useRef(null);
+  const reasoningRef = useRef<HTMLDivElement | null>(null);
   const [autoScroll, setAutoScroll] = useState(true);
 
   // Get the primary active call
-  const primaryCall = activeCalls[0];
+  const primaryCall = (activeCalls as ActiveCall[])[0];
   
   // Calculate live metrics
   const liveSpeed = useMemo(() => calculateSpeed(primaryCall), [primaryCall?.tokenCount, primaryCall?.firstTokenAt, primaryCall?.lastTokenAt]);
@@ -149,7 +156,7 @@ const DashboardTabContent = () => {
   }, [primaryCall?.thinkingSummary, autoScroll]);
 
   // Copy reasoning to clipboard
-  const handleCopyReasoning = () => {
+  const handleCopyReasoning = (): void => {
     if (primaryCall?.thinkingSummary) {
       navigator.clipboard.writeText(primaryCall.thinkingSummary);
       toast.success('Copied to clipboard');
@@ -165,13 +172,13 @@ const DashboardTabContent = () => {
         <p className="text-[10px] text-on-surface-variant/70 mt-1">Run a prompt to see live metrics</p>
         
         {/* Last run summary */}
-        {cumulativeStats.callCount > 0 && (
+        {(cumulativeStats as CumulativeStats).callCount > 0 && (
           <div className="mt-6 p-3 bg-surface-container-low rounded-m3-md">
             <p className="text-[10px] text-on-surface-variant uppercase tracking-wider mb-2">Last Session</p>
             <div className="flex items-center gap-4 text-body-sm text-on-surface">
-              <span>{cumulativeStats.callCount} calls</span>
-              <span>{formatTokens(cumulativeStats.inputTokens + cumulativeStats.outputTokens)} tokens</span>
-              <span>{formatCost(cumulativeStats.totalCost)}</span>
+              <span>{(cumulativeStats as CumulativeStats).callCount} calls</span>
+              <span>{formatTokens((cumulativeStats as CumulativeStats).inputTokens + (cumulativeStats as CumulativeStats).outputTokens)} tokens</span>
+              <span>{formatCost((cumulativeStats as CumulativeStats).totalCost)}</span>
             </div>
           </div>
         )}
@@ -331,7 +338,7 @@ const DashboardTabContent = () => {
         <MetricRow 
           label="Output Tokens" 
           value={formatTokens(primaryCall?.outputTokens)} 
-          icon={primaryCall?.outputTokens > 0 ? Zap : undefined}
+          icon={primaryCall?.outputTokens && primaryCall.outputTokens > 0 ? Zap : undefined}
         />
         <MetricRow 
           label="Context Usage" 
@@ -368,7 +375,7 @@ const DashboardTabContent = () => {
       </div>
 
       {/* Cascade Stats */}
-      {isCascadeRunning && cumulativeStats.callCount > 0 && (
+      {isCascadeRunning && (cumulativeStats as CumulativeStats).callCount > 0 && (
         <div className="bg-surface-container-low rounded-m3-lg p-3 space-y-1">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="h-4 w-4 text-on-surface-variant" />
@@ -377,15 +384,15 @@ const DashboardTabContent = () => {
           
           <MetricRow 
             label="Calls" 
-            value={cumulativeStats.callCount} 
+            value={(cumulativeStats as CumulativeStats).callCount} 
           />
           <MetricRow 
             label="Total Tokens" 
-            value={formatTokens(cumulativeStats.inputTokens + cumulativeStats.outputTokens)} 
+            value={formatTokens((cumulativeStats as CumulativeStats).inputTokens + (cumulativeStats as CumulativeStats).outputTokens)} 
           />
           <MetricRow 
             label="Total Cost" 
-            value={formatCost(cumulativeStats.totalCost)} 
+            value={formatCost((cumulativeStats as CumulativeStats).totalCost)} 
           />
         </div>
       )}

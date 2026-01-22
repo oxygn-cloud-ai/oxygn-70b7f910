@@ -26,8 +26,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { 
+  DeletedItem, 
+  ItemType, 
+  ItemTypeConfig, 
+  DeleteDialogState, 
+  EmptyTrashDialogState,
+  DeletedItemRowProps,
+  EmptyStateProps 
+} from './types';
+import type { LucideIcon } from 'lucide-react';
 
-const ITEM_TYPES = [
+const ITEM_TYPES: ItemTypeConfig[] = [
   { key: 'all', label: 'All', icon: Trash2 },
   { key: 'prompts', label: 'Prompts', icon: FileText },
   { key: 'templates', label: 'Templates', icon: LayoutTemplate },
@@ -35,11 +45,11 @@ const ITEM_TYPES = [
   { key: 'exportTemplates', label: 'Export Templates', icon: FileJson }
 ];
 
-const formatDate = (dateStr) => {
+const formatDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return 'Unknown';
   const date = new Date(dateStr);
   const now = new Date();
-  const diffMs = now - date;
+  const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
   if (diffDays === 0) return 'Today';
@@ -49,8 +59,8 @@ const formatDate = (dateStr) => {
   return date.toLocaleDateString();
 };
 
-const DeletedItemRow = ({ item, type, onRestore, onDelete }) => {
-  const getItemName = () => {
+const DeletedItemRow: React.FC<DeletedItemRowProps> = ({ item, type, onRestore, onDelete }) => {
+  const getItemName = (): string => {
     switch (type) {
       case 'prompts': return item.prompt_name || 'Untitled Prompt';
       case 'templates': return item.template_name || 'Untitled Template';
@@ -60,7 +70,7 @@ const DeletedItemRow = ({ item, type, onRestore, onDelete }) => {
     }
   };
 
-  const getItemMeta = () => {
+  const getItemMeta = (): string => {
     switch (type) {
       case 'prompts': return item.parent_row_id ? 'Child prompt' : 'Top-level prompt';
       case 'templates': return item.category || 'No category';
@@ -70,7 +80,7 @@ const DeletedItemRow = ({ item, type, onRestore, onDelete }) => {
     }
   };
 
-  const getIcon = () => {
+  const getIcon = (): LucideIcon => {
     switch (type) {
       case 'prompts': return FileText;
       case 'templates': return LayoutTemplate;
@@ -119,7 +129,7 @@ const DeletedItemRow = ({ item, type, onRestore, onDelete }) => {
   );
 };
 
-const EmptyState = ({ filter }) => (
+const EmptyState: React.FC<EmptyStateProps> = ({ filter }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center">
     <Trash2 className="h-10 w-10 text-on-surface-variant/30 mb-3" />
     <p className="text-body-sm text-on-surface-variant">
@@ -131,7 +141,7 @@ const EmptyState = ({ filter }) => (
   </div>
 );
 
-const DeletedItemsContent = () => {
+const DeletedItemsContent: React.FC = () => {
   const { isAdmin } = useAuth();
   
   const {
@@ -145,10 +155,10 @@ const DeletedItemsContent = () => {
     permanentlyDeleteAll
   } = useDeletedItems(isAdmin);
 
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [activeFilter, setActiveFilter] = useState<ItemType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteDialog, setDeleteDialog] = useState({ open: false, type: null, rowId: null, name: '' });
-  const [emptyTrashDialog, setEmptyTrashDialog] = useState({ open: false, type: null });
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({ open: false, type: null, rowId: null, name: '' });
+  const [emptyTrashDialog, setEmptyTrashDialog] = useState<EmptyTrashDialogState>({ open: false, type: null });
 
   useEffect(() => {
     fetchAllDeleted();
@@ -156,16 +166,16 @@ const DeletedItemsContent = () => {
 
   // Filter items based on active filter and search query
   const filteredItems = useMemo(() => {
-    const getItems = () => {
+    const getItems = (): DeletedItem[] => {
       if (activeFilter === 'all') {
         return [
-          ...deletedItems.prompts.map(item => ({ ...item, _type: 'prompts' })),
-          ...deletedItems.templates.map(item => ({ ...item, _type: 'templates' })),
-          ...deletedItems.jsonSchemas.map(item => ({ ...item, _type: 'jsonSchemas' })),
-          ...deletedItems.exportTemplates.map(item => ({ ...item, _type: 'exportTemplates' }))
-        ].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+          ...((deletedItems?.prompts || []) as DeletedItem[]).map(item => ({ ...item, _type: 'prompts' as ItemType })),
+          ...((deletedItems?.templates || []) as DeletedItem[]).map(item => ({ ...item, _type: 'templates' as ItemType })),
+          ...((deletedItems?.jsonSchemas || []) as DeletedItem[]).map(item => ({ ...item, _type: 'jsonSchemas' as ItemType })),
+          ...((deletedItems?.exportTemplates || []) as DeletedItem[]).map(item => ({ ...item, _type: 'exportTemplates' as ItemType }))
+        ].sort((a, b) => new Date(b.updated_at || '').getTime() - new Date(a.updated_at || '').getTime());
       }
-      return deletedItems[activeFilter]?.map(item => ({ ...item, _type: activeFilter })) || [];
+      return ((deletedItems?.[activeFilter] || []) as DeletedItem[]).map(item => ({ ...item, _type: activeFilter }));
     };
 
     const items = getItems();
@@ -179,37 +189,37 @@ const DeletedItemsContent = () => {
     });
   }, [deletedItems, activeFilter, searchQuery]);
 
-  const handleRestore = async (type, rowId) => {
+  const handleRestore = async (type: ItemType, rowId: string): Promise<void> => {
     await restoreItem(type, rowId);
   };
 
-  const handleDeleteClick = (type, rowId, name) => {
+  const handleDeleteClick = (type: ItemType, rowId: string, name: string): void => {
     setDeleteDialog({ open: true, type, rowId, name });
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (): Promise<void> => {
     if (deleteDialog.type && deleteDialog.rowId) {
       await permanentlyDeleteItem(deleteDialog.type, deleteDialog.rowId);
     }
     setDeleteDialog({ open: false, type: null, rowId: null, name: '' });
   };
 
-  const handleEmptyTrashClick = () => {
+  const handleEmptyTrashClick = (): void => {
     setEmptyTrashDialog({ open: true, type: activeFilter === 'all' ? null : activeFilter });
   };
 
-  const handleConfirmEmptyTrash = async () => {
+  const handleConfirmEmptyTrash = async (): Promise<void> => {
     await permanentlyDeleteAll(emptyTrashDialog.type);
     trackEvent('trash_emptied', { type: emptyTrashDialog.type || 'all' });
     setEmptyTrashDialog({ open: false, type: null });
   };
 
-  const handleRestoreAll = async () => {
+  const handleRestoreAll = async (): Promise<void> => {
     await restoreAll(activeFilter === 'all' ? null : activeFilter);
     trackEvent('trash_restore_all', { type: activeFilter });
   };
 
-  const currentCount = activeFilter === 'all' ? counts.total : counts[activeFilter];
+  const currentCount = activeFilter === 'all' ? counts?.total || 0 : counts?.[activeFilter] || 0;
 
   return (
     <div className="h-full flex flex-col bg-surface overflow-hidden">
@@ -217,9 +227,9 @@ const DeletedItemsContent = () => {
       <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant shrink-0">
         <Trash2 className="h-5 w-5 text-on-surface-variant" />
         <h2 className="text-title-sm text-on-surface font-medium">Deleted Items</h2>
-        {counts.total > 0 && (
+        {(counts?.total || 0) > 0 && (
           <span className="px-2 py-0.5 bg-surface-container rounded-m3-full text-label-sm text-on-surface-variant">
-            {counts.total}
+            {counts?.total}
           </span>
         )}
         <div className="flex-1" />
@@ -255,11 +265,11 @@ const DeletedItemsContent = () => {
             >
               <Icon className="h-3.5 w-3.5" />
               <span>{label}</span>
-              {key !== 'all' && counts[key] > 0 && (
+              {key !== 'all' && (counts?.[key as ItemType] || 0) > 0 && (
                 <span className={`text-[10px] px-1.5 rounded-m3-full ${
                   activeFilter === key ? 'bg-on-primary/20' : 'bg-surface-container'
                 }`}>
-                  {counts[key]}
+                  {counts?.[key as ItemType]}
                 </span>
               )}
             </button>
@@ -326,7 +336,7 @@ const DeletedItemsContent = () => {
                 <React.Fragment key={`${item._type}-${item.row_id}`}>
                   <DeletedItemRow
                     item={item}
-                    type={item._type}
+                    type={item._type!}
                     onRestore={handleRestore}
                     onDelete={handleDeleteClick}
                   />
@@ -338,7 +348,7 @@ const DeletedItemsContent = () => {
         </SettingCard>
 
         {/* Info text */}
-        {counts.total > 0 && (
+        {(counts?.total || 0) > 0 && (
           <p className="text-[10px] text-on-surface-variant text-center">
             Items in trash can be restored or permanently deleted. Permanent deletion cannot be undone.
           </p>

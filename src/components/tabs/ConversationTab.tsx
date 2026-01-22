@@ -22,8 +22,18 @@ import { ALL_SETTINGS } from '../../config/modelCapabilities';
 import { useModels } from '../../hooks/useModels';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import ConfluencePagesSection from '../ConfluencePagesSection';
+import type { 
+  ConversationTabProps, 
+  SettingRowProps, 
+  SettingInfo, 
+  SliderDebounceRefs,
+  ThreadStrategy,
+  FileUploadEvent,
+  ModelData,
+  ConversationFile 
+} from './types';
 
-const ConversationTab = ({ promptRowId, selectedItemData }) => {
+const ConversationTab: React.FC<ConversationTabProps> = ({ promptRowId, selectedItemData }) => {
   const supabase = useSupabase();
   const { conversation, isLoading, updateConversation } = useConversation(promptRowId);
   const { files, isUploading, isSyncing, uploadFile, deleteFile, syncFiles } = useConversationFiles(conversation?.row_id);
@@ -45,17 +55,22 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [childDefaultsOpen, setChildDefaultsOpen] = useState(false);
-  const [defaultChildThreadStrategy, setDefaultChildThreadStrategy] = useState('isolated');
-  const lastErrorShown = useRef(null);
+  const [defaultChildThreadStrategy, setDefaultChildThreadStrategy] = useState<ThreadStrategy>('isolated');
+  const lastErrorShown = useRef<string | null>(null);
+  
+  // Debounce refs for slider values - must be before any early returns
+  const sliderDebounceRef = useRef<SliderDebounceRefs>({});
 
   // Get default model from global settings
   const defaultModel = useMemo(() => {
-    return settings?.default_model?.value || models?.[0]?.model_id || '';
+    return settings?.default_model?.value || (models as ModelData[])?.[0]?.model_id || '';
   }, [settings, models]);
 
   // Get current effective model
   const currentModel = modelOverride || selectedItemData?.model || defaultModel;
-  const currentModelData = models?.find(m => m.model_id === currentModel || m.model_name === currentModel);
+  const currentModelData = (models as ModelData[])?.find(
+    (m) => m.model_id === currentModel || m.model_name === currentModel
+  );
 
   useEffect(() => {
     if (conversation) {
@@ -83,12 +98,21 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   // Load parent prompt's default child thread strategy
   useEffect(() => {
     if (selectedItemData?.default_child_thread_strategy) {
-      setDefaultChildThreadStrategy(selectedItemData.default_child_thread_strategy);
+      setDefaultChildThreadStrategy(selectedItemData.default_child_thread_strategy as ThreadStrategy);
     }
   }, [selectedItemData?.default_child_thread_strategy]);
 
+  // Cleanup slider debounce timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(sliderDebounceRef.current).forEach((timer) => {
+        if (timer) clearTimeout(timer);
+      });
+    };
+  }, []);
+
   // Save parent prompt field (not assistant field)
-  const handleParentPromptSave = async (field, value) => {
+  const handleParentPromptSave = async (field: string, value: string | null): Promise<void> => {
     if (!supabase || !promptRowId) return;
     try {
       await supabase
@@ -101,11 +125,11 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
     }
   };
 
-  const handleSave = async (field, value) => {
+  const handleSave = async (field: string, value: unknown): Promise<void> => {
     await updateConversation({ [field]: value });
   };
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e: FileUploadEvent): Promise<void> => {
     const selectedFiles = Array.from(e.target.files || []);
     if (selectedFiles.length > 0) {
       await uploadFile(selectedFiles);
@@ -120,7 +144,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   if (!conversation) {
     return (
       <div className="flex items-center justify-center h-full p-8">
-        <div className="text-center text-muted-foreground">
+        <div className="text-center text-on-surface-variant">
           <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p>Loading assistant configuration...</p>
         </div>
@@ -131,25 +155,14 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   // Responses API assistants are always active
   const isActive = true;
 
-  // Debounce refs for slider values
-  const sliderDebounceRef = useRef({});
-
-  // Cleanup slider debounce timers on unmount
-  useEffect(() => {
-    return () => {
-      Object.values(sliderDebounceRef.current).forEach(timer => {
-        if (timer) clearTimeout(timer);
-      });
-    };
-  }, []);
-  const SettingRow = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
-    const settingInfo = ALL_SETTINGS[field];
+  const SettingRow: React.FC<SettingRowProps> = ({ field, value, setValue, onSave, type = 'input', min, max, step }) => {
+    const settingInfo: SettingInfo | undefined = ALL_SETTINGS[field];
     const supported = isSettingSupported(field, currentModel);
     
     if (!settingInfo) return null;
 
     // Debounced slider change handler
-    const handleSliderChange = ([v]) => {
+    const handleSliderChange = ([v]: number[]): void => {
       setValue(v.toString());
       
       // Clear existing debounce timer
@@ -172,14 +185,14 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button type="button" className="h-4 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground">
+                    <button type="button" className="h-4 w-4 flex items-center justify-center text-on-surface-variant hover:text-on-surface">
                       <Info className="h-3 w-3" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <div className="space-y-1">
                       <h4 className="font-medium text-xs">{settingInfo.label}</h4>
-                      {settingInfo.details && <p className="text-[10px] text-muted-foreground">{settingInfo.details}</p>}
+                      {settingInfo.details && <p className="text-[10px] text-on-surface-variant">{settingInfo.details}</p>}
                       {settingInfo.docUrl && (
                         <a href={settingInfo.docUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline">
                           Documentation <ExternalLink className="h-2.5 w-2.5" />
@@ -191,10 +204,10 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
               </TooltipProvider>
             )}
           </div>
-          {type === 'slider' && <span className="text-xs text-muted-foreground">{value || 'Default'}</span>}
+          {type === 'slider' && <span className="text-xs text-on-surface-variant">{value || 'Default'}</span>}
         </div>
         {!supported ? (
-          <p className="text-xs text-muted-foreground italic">Not supported by this model</p>
+          <p className="text-xs text-on-surface-variant italic">Not supported by this model</p>
         ) : type === 'slider' ? (
           <Slider
             value={[parseFloat(value) || (field === 'top_p' ? 1 : field === 'temperature' ? 1 : 0)]}
@@ -202,7 +215,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
             onValueChange={handleSliderChange}
           />
         ) : type === 'switch' ? (
-          <Switch checked={!!value} onCheckedChange={(v) => { setValue(v); onSave(v); }} />
+          <Switch checked={!!value} onCheckedChange={(v) => { setValue(v.toString()); onSave(v ? 'true' : null); }} />
         ) : (
           <Input
             value={value}
@@ -212,7 +225,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
             className="h-8 text-sm"
           />
         )}
-        <p className="text-[10px] text-muted-foreground mt-0.5">{settingInfo.description}</p>
+        <p className="text-[10px] text-on-surface-variant mt-0.5">{settingInfo.description}</p>
       </div>
     );
   };
@@ -220,17 +233,17 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
   return (
     <div className="space-y-4 p-4 h-full overflow-auto scrollbar-thin">
       {/* Status Header */}
-      <div className="flex items-center justify-between p-3 rounded-lg bg-card border border-border">
+      <div className="flex items-center justify-between p-3 rounded-m3-lg bg-surface-container-low border border-outline-variant">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
+          <div className="p-2 rounded-m3-lg bg-primary/10">
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <span className="font-semibold text-foreground">Conversation Configuration</span>
+            <span className="font-semibold text-on-surface">Conversation Configuration</span>
             <div className="flex items-center gap-2 mt-0.5">
               <Badge variant="success">● Ready</Badge>
               {currentModelData && (
-                <span className="text-xs text-muted-foreground">{currentModelData.model_name}</span>
+                <span className="text-xs text-on-surface-variant">{currentModelData.model_name}</span>
               )}
             </div>
           </div>
@@ -248,11 +261,11 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
           <div>
             <Label className="flex items-center gap-1">
               System Instructions
-              <TooltipProvider><Tooltip><TooltipTrigger><Info className="h-3 w-3 text-muted-foreground" /></TooltipTrigger>
+              <TooltipProvider><Tooltip><TooltipTrigger><Info className="h-3 w-3 text-on-surface-variant" /></TooltipTrigger>
                 <TooltipContent className="max-w-xs"><p>Global personality and behavior for this conversation. Applied to ALL child prompts as the first system message.</p></TooltipContent>
               </Tooltip></TooltipProvider>
             </Label>
-            <p className="text-xs text-muted-foreground mb-1.5">Use template variables like {'{{input_admin_prompt}}'} to inject prompt field values.</p>
+            <p className="text-xs text-on-surface-variant mb-1.5">Use template variables like {'{{input_admin_prompt}}'} to inject prompt field values.</p>
             <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} onBlur={() => handleSave('instructions', instructions)} placeholder={settings?.def_assistant_instructions || undefined} rows={4} />
           </div>
         </CardContent>
@@ -262,12 +275,12 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Files ({files.length})</CardTitle>
+            <CardTitle className="text-sm">Files ({(files as ConversationFile[]).length})</CardTitle>
             <div className="flex gap-1">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={syncFiles} disabled={!isActive || isSyncing}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 !text-on-surface-variant hover:!text-on-surface hover:!bg-surface-container" onClick={syncFiles} disabled={!isActive || isSyncing}>
                       <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
                     </Button>
                   </TooltipTrigger>
@@ -279,7 +292,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" asChild disabled={isUploading}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 !text-on-surface-variant hover:!text-on-surface hover:!bg-surface-container" asChild disabled={isUploading}>
                         <span><Upload className="h-3 w-3" /></span>
                       </Button>
                     </TooltipTrigger>
@@ -291,12 +304,12 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
           </div>
         </CardHeader>
         <CardContent>
-          {files.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No files attached</p>
+          {(files as ConversationFile[]).length === 0 ? (
+            <p className="text-sm text-on-surface-variant">No files attached</p>
           ) : (
             <div className="space-y-1">
-              {files.map(file => (
-                <div key={file.row_id} className="flex items-center justify-between text-sm py-1 px-2 bg-muted rounded">
+              {(files as ConversationFile[]).map((file) => (
+                <div key={file.row_id} className="flex items-center justify-between text-sm py-1 px-2 bg-surface-container rounded-m3-sm">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <FileText className="h-3 w-3 flex-shrink-0" />
                     <TooltipProvider>
@@ -310,7 +323,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                             {file.openai_file_id ? (
                               <div><strong>File ID:</strong> {file.openai_file_id}</div>
                             ) : (
-                              <div className="text-muted-foreground">Not yet uploaded to vector store</div>
+                              <div className="text-on-surface-variant">Not yet uploaded to vector store</div>
                             )}
                           </div>
                         </TooltipContent>
@@ -323,7 +336,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent" onClick={() => deleteFile(file.row_id)}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0 !text-on-surface-variant hover:!text-on-surface hover:!bg-surface-container" onClick={() => deleteFile(file.row_id)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </TooltipTrigger>
@@ -346,7 +359,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
       <Collapsible open={modelSettingsOpen} onOpenChange={setModelSettingsOpen}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardHeader className="pb-2 cursor-pointer hover:bg-surface-container/50 transition-colors">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Model Settings</CardTitle>
                 {modelSettingsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -362,26 +375,26 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue placeholder="Inherit from prompt" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
+                  <SelectContent className="bg-surface-container-high z-50">
                     <SelectItem value="inherit">Inherit from prompt</SelectItem>
-                    {models?.map(m => <SelectItem key={m.model_id} value={m.model_id}>{m.model_name}</SelectItem>)}
+                    {(models as ModelData[])?.map((m) => <SelectItem key={m.model_id} value={m.model_id || ''}>{m.model_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Current: {currentModelData?.model_name || currentModel || 'None'}</p>
+                <p className="text-[10px] text-on-surface-variant mt-0.5">Current: {currentModelData?.model_name || currentModel || 'None'}</p>
               </div>
 
               {/* Assistant-level settings */}
               <div className="space-y-3">
-                <p className="text-xs font-medium text-muted-foreground border-b pb-1">Assistant-Level Settings</p>
+                <p className="text-xs font-medium text-on-surface-variant border-b border-outline-variant pb-1">Assistant-Level Settings</p>
                 <SettingRow field="temperature" value={temperature} setValue={setTemperature} onSave={(v) => handleSave('temperature_override', v)} type="slider" min={0} max={2} step={0.1} />
                 <SettingRow field="top_p" value={topP} setValue={setTopP} onSave={(v) => handleSave('top_p_override', v)} type="slider" min={0} max={1} step={0.05} />
               </div>
 
               {/* Run-time settings */}
               <div className="space-y-3">
-                <p className="text-xs font-medium text-muted-foreground border-b pb-1">Run-Time Settings (applied when executing)</p>
+                <p className="text-xs font-medium text-on-surface-variant border-b border-outline-variant pb-1">Run-Time Settings (applied when executing)</p>
                 <SettingRow field="max_tokens" value={maxTokens} setValue={setMaxTokens} onSave={(v) => handleSave('max_tokens_override', v)} type="input" />
-                <p className="text-[10px] text-muted-foreground italic">Additional run-time settings (frequency_penalty, presence_penalty, stop, etc.) are inherited from the parent prompt configuration.</p>
+                <p className="text-[10px] text-on-surface-variant italic">Additional run-time settings (frequency_penalty, presence_penalty, stop, etc.) are inherited from the parent prompt configuration.</p>
               </div>
             </CardContent>
           </CollapsibleContent>
@@ -392,7 +405,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
       <Collapsible open={childDefaultsOpen} onOpenChange={setChildDefaultsOpen}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardHeader className="pb-2 cursor-pointer hover:bg-surface-container/50 transition-colors">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Child Prompt Defaults</CardTitle>
                 {childDefaultsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -406,27 +419,27 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                   <Label className="text-xs">Default Thread Strategy</Label>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
+                      <Button variant="ghost" size="icon" className="h-4 w-4 !text-on-surface-variant hover:!text-on-surface hover:!bg-surface-container">
                         <Info className="h-3 w-3" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-72 bg-popover" side="top">
+                    <PopoverContent className="w-72 bg-surface-container-high" side="top">
                       <div className="space-y-2">
                         <h4 className="font-medium text-sm">Thread Strategy</h4>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-on-surface-variant">
                           <strong>Parent Thread:</strong> Child prompt executions use the parent assistant's Studio thread, maintaining shared conversation history.
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-on-surface-variant">
                           <strong>Isolated Thread:</strong> Each child prompt has its own thread(s), keeping conversations separate.
                         </p>
-                        <p className="text-xs text-muted-foreground italic">This sets the default for new child prompts. Each child can override this setting.</p>
+                        <p className="text-xs text-on-surface-variant italic">This sets the default for new child prompts. Each child can override this setting.</p>
                       </div>
                     </PopoverContent>
                   </Popover>
                 </div>
                 <Select 
                   value={defaultChildThreadStrategy} 
-                  onValueChange={(v) => { 
+                  onValueChange={(v: ThreadStrategy) => { 
                     setDefaultChildThreadStrategy(v); 
                     handleParentPromptSave('default_child_thread_strategy', v); 
                   }}
@@ -434,12 +447,12 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
+                  <SelectContent className="bg-surface-container-high z-50">
                     <SelectItem value="parent">Use Parent Thread</SelectItem>
                     <SelectItem value="isolated">Isolated Threads</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-[10px] text-on-surface-variant mt-0.5">
                   {defaultChildThreadStrategy === 'parent' 
                     ? 'New child prompts will share the parent Studio thread' 
                     : 'New child prompts will have their own isolated threads'}
@@ -454,7 +467,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
       <Collapsible open={toolsOpen} onOpenChange={setToolsOpen}>
         <Card>
           <CollapsibleTrigger asChild>
-            <CardHeader className="pb-2 cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardHeader className="pb-2 cursor-pointer hover:bg-surface-container/50 transition-colors">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Tools & Capabilities</CardTitle>
                 {toolsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -479,24 +492,24 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                   </div>
                 </>
               )}
-              <div className="border-t pt-3 mt-3">
+              <div className="border-t border-outline-variant pt-3 mt-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Label>Confluence Live Browsing</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-4 w-4 !text-muted-foreground hover:!text-foreground hover:!bg-sidebar-accent">
+                        <Button variant="ghost" size="icon" className="h-4 w-4 !text-on-surface-variant hover:!text-on-surface hover:!bg-surface-container">
                           <Info className="h-3 w-3" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-72 bg-popover" side="top">
+                      <PopoverContent className="w-72 bg-surface-container-high" side="top">
                         <div className="space-y-2">
                           <h4 className="font-medium text-sm">Confluence Live Browsing</h4>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-on-surface-variant">
                             When enabled, the assistant can search, read, and navigate Confluence pages during conversations. 
                             This allows real-time access to your team's documentation.
                           </p>
-                          <p className="text-xs text-muted-foreground italic">
+                          <p className="text-xs text-on-surface-variant italic">
                             Requires Confluence credentials in Settings.
                           </p>
                         </div>
@@ -511,7 +524,7 @@ const ConversationTab = ({ promptRowId, selectedItemData }) => {
                     }}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[10px] text-on-surface-variant mt-1">
                   {confluenceEnabled 
                     ? 'Assistant can search and read Confluence pages live' 
                     : 'Attached pages are used as static context only'}
