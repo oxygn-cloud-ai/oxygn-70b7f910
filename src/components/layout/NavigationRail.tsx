@@ -1,3 +1,10 @@
+/**
+ * NavigationRail Component (TypeScript)
+ * 
+ * Primary navigation sidebar with nav items, dropdown menu, and about dialog.
+ * Uses framer-motion for animations and tracks section time for analytics.
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -11,7 +18,8 @@ import {
   Keyboard,
   EyeOff,
   RotateCcw,
-  Info
+  Info,
+  LucideIcon
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -28,14 +36,75 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { trackEvent } from '@/lib/posthog';
+import type { NavId } from '@/types/layout.types';
 
-// ForwardRef wrapper for motion.button to work with DropdownMenuTrigger
-const MotionMenuButton = React.forwardRef((props, ref) => (
+// ============================================================================
+// Types
+// ============================================================================
+
+interface NavItemConfig {
+  id: NavId;
+  icon: LucideIcon;
+  label: string;
+  shortcut: string;
+}
+
+interface NavItemProps {
+  icon: LucideIcon;
+  label: string;
+  isActive?: boolean;
+  isHovered?: boolean;
+  onClick?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  shortcut?: string;
+}
+
+interface SettingsData {
+  version?: { value?: string };
+  build?: { value?: string };
+  [key: string]: unknown;
+}
+
+export interface NavigationRailProps {
+  activeNav?: NavId;
+  onNavChange?: (nav: NavId) => void;
+  onNavHover?: (nav: NavId) => void;
+  onNavLeave?: () => void;
+  onToggleFolderPanel?: () => void;
+  folderPanelOpen?: boolean;
+  onShowShortcuts?: () => void;
+  onHideNavRail?: () => void;
+  onResetLayout?: () => void;
+  settings?: SettingsData;
+}
+
+// ============================================================================
+// ForwardRef wrapper for motion.button
+// ============================================================================
+
+const MotionMenuButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<typeof motion.button>
+>((props, ref) => (
   <motion.button ref={ref} {...props} />
 ));
 MotionMenuButton.displayName = "MotionMenuButton";
 
-const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onClick, onMouseEnter, onMouseLeave, shortcut }) => (
+// ============================================================================
+// NavItem Component
+// ============================================================================
+
+const NavItem: React.FC<NavItemProps> = ({ 
+  icon: Icon, 
+  label, 
+  isActive = false, 
+  isHovered = false, 
+  onClick, 
+  onMouseEnter, 
+  onMouseLeave, 
+  shortcut 
+}) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <motion.div 
@@ -45,7 +114,6 @@ const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onCli
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
-
         <button
           onClick={onClick}
           className={`
@@ -86,33 +154,37 @@ const NavItem = ({ icon: Icon, label, isActive = false, isHovered = false, onCli
   </Tooltip>
 );
 
-const NavigationRail = ({ 
+// ============================================================================
+// NavigationRail Component
+// ============================================================================
+
+const NavigationRail: React.FC<NavigationRailProps> = ({ 
   activeNav = "prompts", 
   onNavChange, 
   onNavHover, 
   onNavLeave, 
   onToggleFolderPanel, 
-  folderPanelOpen,
+  folderPanelOpen = true,
   onShowShortcuts,
   onHideNavRail,
   onResetLayout,
   settings = {}
 }) => {
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [hoveredId, setHoveredId] = useState<NavId | null>(null);
+  const sectionStartTimeRef = useRef<number>(Date.now());
+  const previousSectionRef = useRef<NavId>(activeNav);
   
   // Get version and build from settings
   const version = settings?.version?.value || '3.0';
   const build = settings?.build?.value || '1';
-  const navItems = [
+  
+  const navItems: NavItemConfig[] = [
     { id: "prompts", icon: FileText, label: "Prompts", shortcut: "1" },
     { id: "templates", icon: LayoutTemplate, label: "Templates", shortcut: "2" },
     { id: "settings", icon: Settings, label: "Settings", shortcut: "3" },
     { id: "health", icon: Heart, label: "Health", shortcut: "4" },
   ];
-
-  const [hoveredId, setHoveredId] = useState(null);
-  const sectionStartTimeRef = useRef(Date.now());
-  const previousSectionRef = useRef(activeNav);
 
   // Track time spent in section when switching or unmounting
   useEffect(() => {
@@ -129,7 +201,7 @@ const NavigationRail = ({
 
   // Track time on unmount (page close/refresh)
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = (): void => {
       const timeSpent = Math.round((Date.now() - sectionStartTimeRef.current) / 1000);
       trackEvent('section_time_spent', {
         section: previousSectionRef.current,
@@ -150,12 +222,12 @@ const NavigationRail = ({
     };
   }, []);
 
-  const handleMouseEnter = (id) => {
+  const handleMouseEnter = (id: NavId): void => {
     setHoveredId(id);
     onNavHover?.(id);
   };
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = (): void => {
     setHoveredId(null);
     onNavLeave?.();
   };
@@ -237,7 +309,7 @@ const NavigationRail = ({
           }
         }}
       >
-        {navItems.map((item, index) => (
+        {navItems.map((item) => (
           <motion.div
             key={item.id}
             variants={{

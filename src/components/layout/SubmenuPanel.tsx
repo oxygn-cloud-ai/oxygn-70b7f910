@@ -1,3 +1,9 @@
+/**
+ * SubmenuPanel Component (TypeScript)
+ * 
+ * Displays context-specific submenus for templates, settings, and health sections.
+ */
+
 import React from "react";
 import { 
   MessageSquare, 
@@ -20,10 +26,44 @@ import {
   BookOpen,
   Key,
   CloudCog,
-  Sparkles
+  Sparkles,
+  LucideIcon
 } from "lucide-react";
 
-const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
+// ============================================================================
+// Types
+// ============================================================================
+
+interface SubmenuItemProps {
+  icon: LucideIcon;
+  label: string;
+  description?: string;
+  isActive?: boolean;
+  onClick?: () => void;
+}
+
+interface SubmenuProps {
+  onItemClick?: (itemId: string) => void;
+  activeSubItem?: string | null;
+}
+
+export interface SubmenuPanelProps {
+  hoveredNav?: string | null;
+  activeSubItem?: string | null;
+  onItemClick?: (itemId: string) => void;
+}
+
+// ============================================================================
+// SubmenuItem Component
+// ============================================================================
+
+const SubmenuItem: React.FC<SubmenuItemProps> = ({ 
+  icon: Icon, 
+  label, 
+  description, 
+  isActive = false, 
+  onClick 
+}) => (
   <button
     onClick={onClick}
     className={`
@@ -39,14 +79,19 @@ const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick
     <div className="flex-1 min-w-0">
       <p className="text-label-sm font-medium truncate">{label}</p>
       {description && (
-        <p className={`text-[10px] truncate mt-0.5 ${isActive ? "opacity-80" : "text-on-surface-variant"}`}>{description}</p>
+        <p className={`text-[10px] truncate mt-0.5 ${isActive ? "opacity-80" : "text-on-surface-variant"}`}>
+          {description}
+        </p>
       )}
     </div>
   </button>
 );
 
-// Flat menu layout (no section titles) - matches Health pattern
-const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
+// ============================================================================
+// TemplatesSubmenu Component
+// ============================================================================
+
+const TemplatesSubmenu: React.FC<SubmenuProps> = ({ onItemClick, activeSubItem }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -81,8 +126,11 @@ const TemplatesSubmenu = ({ onItemClick, activeSubItem }) => (
   </div>
 );
 
-// Flat menu layout (no section titles) - matches Health pattern
-const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
+// ============================================================================
+// SettingsSubmenu Component
+// ============================================================================
+
+const SettingsSubmenu: React.FC<SubmenuProps> = ({ onItemClick, activeSubItem }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -180,7 +228,11 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
   </div>
 );
 
-const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
+// ============================================================================
+// HealthSubmenu Component
+// ============================================================================
+
+const HealthSubmenu: React.FC<SubmenuProps> = ({ onItemClick, activeSubItem }) => (
   <div className="p-1.5">
     <div className="flex flex-col gap-0.5">
       <SubmenuItem 
@@ -229,15 +281,28 @@ const HealthSubmenu = ({ onItemClick, activeSubItem }) => (
   </div>
 );
 
-const SubmenuPanel = ({ hoveredNav, activeSubItem, onItemClick }) => {
-  const submenus = {
-    templates: TemplatesSubmenu,
-    settings: SettingsSubmenu,
-    health: HealthSubmenu,
-  };
+// ============================================================================
+// Submenu Registry
+// ============================================================================
 
+const submenus: Record<string, React.FC<SubmenuProps>> = {
+  templates: TemplatesSubmenu,
+  settings: SettingsSubmenu,
+  health: HealthSubmenu,
+};
+
+// ============================================================================
+// SubmenuPanel Component
+// ============================================================================
+
+const SubmenuPanel: React.FC<SubmenuPanelProps> = ({ 
+  hoveredNav, 
+  activeSubItem, 
+  onItemClick 
+}) => {
+  if (!hoveredNav) return null;
+  
   const SubmenuComponent = submenus[hoveredNav];
-
   if (!SubmenuComponent) return null;
 
   return (

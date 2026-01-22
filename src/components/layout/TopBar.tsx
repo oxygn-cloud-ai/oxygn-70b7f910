@@ -1,15 +1,42 @@
+/**
+ * TopBar Component (TypeScript)
+ * 
+ * Top application bar with logo, theme toggle, tooltip toggle,
+ * undo/toast history, and user avatar dropdown.
+ */
+
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircleQuestion, Moon, Sun, LogOut } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { ToastHistoryPopover } from "@/components/ToastHistoryPopover";
 import { UndoHistoryPopover } from "@/components/UndoHistoryPopover";
 import { useTooltipSettings } from "@/contexts/TooltipContext";
 
-const TopBar = ({ 
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface TopBarProps {
+  isDark?: boolean;
+  onToggleDark?: () => void;
+  onUndoAction?: () => void;
+}
+
+// ============================================================================
+// TopBar Component
+// ============================================================================
+
+const TopBar: React.FC<TopBarProps> = ({ 
   isDark = false, 
   onToggleDark,
   onUndoAction
@@ -23,12 +50,12 @@ const TopBar = ({
   const email = userProfile?.email || user?.email;
   const initials = displayName
     .split(' ')
-    .map(n => n[0])
+    .map((n: string) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
 
-  const handleSignOut = async () => {
+  const handleSignOut = async (): Promise<void> => {
     await signOut();
   };
 

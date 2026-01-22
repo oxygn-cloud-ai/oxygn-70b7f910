@@ -1,17 +1,93 @@
-import React, { useState, useMemo } from "react";
+/**
+ * SearchResults Component (TypeScript)
+ * 
+ * Displays filtered search results for prompts, templates, and conversations.
+ */
+
+import React, { useMemo, ReactNode } from "react";
 import { 
   FileText, 
-  FolderOpen, 
   MessageSquare, 
   Layout, 
   Star,
-  Clock,
   ArrowRight,
   X
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const SearchResults = ({ 
+// ============================================================================
+// Types
+// ============================================================================
+
+interface PromptItem {
+  row_id: string;
+  prompt_name?: string;
+  name?: string;
+  starred?: boolean;
+  input_admin_prompt?: string;
+  children?: PromptItem[];
+}
+
+interface TemplateItem {
+  row_id: string;
+  template_name?: string;
+  schema_name?: string;
+  category?: string;
+}
+
+interface ThreadItem {
+  row_id: string;
+  title?: string;
+  name?: string;
+  updated_at?: string;
+}
+
+interface SearchResultSelection {
+  type: 'prompt' | 'template' | 'thread';
+  item: PromptItem | TemplateItem | ThreadItem;
+}
+
+export interface SearchResultsProps {
+  isOpen?: boolean;
+  searchQuery?: string;
+  onClose?: () => void;
+  onSelectResult?: (selection: SearchResultSelection) => void;
+  treeData?: PromptItem[];
+  templates?: TemplateItem[];
+  threads?: ThreadItem[];
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+const getCategoryColor = (category: string): string => {
+  const colors: Record<string, string> = {
+    Support: "bg-tertiary-container text-on-tertiary-container",
+    Onboarding: "bg-secondary-container text-on-secondary-container",
+    Analysis: "bg-primary-container text-on-primary-container",
+    Email: "bg-surface-container-highest text-on-surface-variant",
+    Survey: "bg-secondary-container text-on-secondary-container"
+  };
+  return colors[category] || "bg-surface-container-high text-on-surface-variant";
+};
+
+const highlightMatch = (text: string | undefined | null, query: string): ReactNode => {
+  if (!query || !text) return text || '';
+  const regex = new RegExp(`(${query})`, 'gi');
+  const parts = String(text).split(regex);
+  return parts.map((part, i) => 
+    regex.test(part) ? (
+      <span key={i} className="bg-primary/20 text-primary font-medium">{part}</span>
+    ) : part
+  );
+};
+
+// ============================================================================
+// SearchResults Component
+// ============================================================================
+
+const SearchResults: React.FC<SearchResultsProps> = ({ 
   isOpen = true, 
   searchQuery = "", 
   onClose,
@@ -22,10 +98,10 @@ const SearchResults = ({
 }) => {
   // Flatten tree data for search
   const flatPrompts = useMemo(() => {
-    const flatten = (items, result = []) => {
+    const flatten = (items: PromptItem[], result: PromptItem[] = []): PromptItem[] => {
       items.forEach(item => {
         result.push(item);
-        if (item.children?.length > 0) {
+        if (item.children?.length) {
           flatten(item.children, result);
         }
       });
@@ -58,28 +134,6 @@ const SearchResults = ({
       ).slice(0, 3)
     };
   }, [searchQuery, flatPrompts, templates, threads]);
-
-  const getCategoryColor = (category) => {
-    const colors = {
-      Support: "bg-tertiary-container text-on-tertiary-container",
-      Onboarding: "bg-secondary-container text-on-secondary-container",
-      Analysis: "bg-primary-container text-on-primary-container",
-      Email: "bg-surface-container-highest text-on-surface-variant",
-      Survey: "bg-secondary-container text-on-secondary-container"
-    };
-    return colors[category] || "bg-surface-container-high text-on-surface-variant";
-  };
-
-  const highlightMatch = (text, query) => {
-    if (!query || !text) return text || '';
-    const regex = new RegExp(`(${query})`, 'gi');
-    const parts = String(text).split(regex);
-    return parts.map((part, i) => 
-      regex.test(part) ? (
-        <span key={i} className="bg-primary/20 text-primary font-medium">{part}</span>
-      ) : part
-    );
-  };
 
   if (!isOpen) return null;
 
