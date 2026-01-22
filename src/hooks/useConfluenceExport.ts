@@ -6,7 +6,111 @@ import { toast } from '@/components/ui/sonner';
 
 const DEFAULT_PAGE_TITLE = 'A New Qonsol Generated Page';
 
-export const useConfluenceExport = () => {
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface TemplateMapping {
+  type: 'static' | 'source' | 'field' | 'variable';
+  value?: string;
+  source?: VariableSource;
+  promptId?: string;
+  fieldId?: string;
+  variableName?: string;
+}
+
+export interface TemplateMappings {
+  [variableName: string]: TemplateMapping;
+}
+
+export interface VariableSource {
+  promptId: string;
+  sourceType: 'field' | 'variable';
+  sourceId: string;
+}
+
+export interface ConfluenceTemplate {
+  id: string;
+  name: string;
+  body?: string;
+  variables?: string[];
+  [key: string]: unknown;
+}
+
+export interface ExportDataItem {
+  row_id: string;
+  prompt_name?: string;
+  output_response?: string;
+  user_prompt_result?: string;
+  input_user_prompt?: string;
+  input_admin_prompt?: string;
+  note?: string;
+  system_variables?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface CreatePageResult {
+  success: boolean;
+  pageId?: string;
+  pageUrl?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface UseConfluenceExportReturn {
+  // State
+  spaces: unknown[];
+  templates: ConfluenceTemplate[];
+  spaceTree: unknown[];
+  selectedSpaceKey: string | null;
+  selectedParentId: string | null;
+  selectedTemplate: ConfluenceTemplate | null;
+  templateMappings: TemplateMappings;
+  pageTitle: string;
+  useBlankPage: boolean;
+  pageTitleSource: VariableSource | null;
+  isLoadingTree: boolean;
+  isLoadingTemplates: boolean;
+  isCreatingPage: boolean;
+  
+  // Actions
+  initialize: () => Promise<void>;
+  selectSpace: (spaceKey: string | null) => Promise<void>;
+  selectParent: (parentId: string | null) => void;
+  selectTemplate: (template: ConfluenceTemplate | null) => void;
+  chooseBlankPage: () => void;
+  updateMapping: (variableName: string, mapping: TemplateMapping) => void;
+  setPageTitle: React.Dispatch<React.SetStateAction<string>>;
+  setPageTitleSource: React.Dispatch<React.SetStateAction<VariableSource | null>>;
+  exportToConfluence: (exportData: ExportDataItem[]) => Promise<CreatePageResult>;
+  reset: () => void;
+  getPageChildren: (nodeId: string, spaceKey: string, nodeType?: string) => Promise<unknown[]>;
+  setSpaceTree: React.Dispatch<React.SetStateAction<unknown[]>>;
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Escape HTML special characters
+ */
+function escapeHtml(text: unknown): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\n/g, '<br/>');
+}
+
+// ============================================================================
+// Hook Implementation
+// ============================================================================
+
+export const useConfluenceExport = (): UseConfluenceExportReturn => {
   const {
     spaces,
     templates,
@@ -25,24 +129,24 @@ export const useConfluenceExport = () => {
     setSpaceTree
   } = useConfluencePages();
 
-  const [selectedSpaceKey, setSelectedSpaceKey] = useState(null);
-  const [selectedParentId, setSelectedParentId] = useState(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [templateMappings, setTemplateMappings] = useState({});
-  const [pageTitle, setPageTitle] = useState('');
-  const [useBlankPage, setUseBlankPage] = useState(true);
+  const [selectedSpaceKey, setSelectedSpaceKey] = useState<string | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ConfluenceTemplate | null>(null);
+  const [templateMappings, setTemplateMappings] = useState<TemplateMappings>({});
+  const [pageTitle, setPageTitle] = useState<string>('');
+  const [useBlankPage, setUseBlankPage] = useState<boolean>(true);
   
-  // New: Page title can be dynamic from a variable source
+  // Page title can be dynamic from a variable source
   // { promptId, sourceType: 'field' | 'variable', sourceId } or null for static
-  const [pageTitleSource, setPageTitleSource] = useState(null);
+  const [pageTitleSource, setPageTitleSource] = useState<VariableSource | null>(null);
 
   // Initialize - load spaces
-  const initialize = useCallback(async () => {
+  const initialize = useCallback(async (): Promise<void> => {
     await listSpaces();
   }, [listSpaces]);
 
   // Select a space - load its tree and templates
-  const selectSpace = useCallback(async (spaceKey) => {
+  const selectSpace = useCallback(async (spaceKey: string | null): Promise<void> => {
     setSelectedSpaceKey(spaceKey);
     setSelectedParentId(null);
     setSelectedTemplate(null);
@@ -60,18 +164,18 @@ export const useConfluenceExport = () => {
   }, [getSpaceTree, listTemplates, clearSpaceTree, clearTemplates]);
 
   // Select parent page/folder - stores the page ID for Confluence API
-  const selectParent = useCallback((parentId) => {
+  const selectParent = useCallback((parentId: string | null): void => {
     console.log('[useConfluenceExport] selectParent called with:', parentId);
     setSelectedParentId(parentId);
   }, []);
 
   // Select a template
-  const selectTemplate = useCallback((template) => {
+  const selectTemplate = useCallback((template: ConfluenceTemplate | null): void => {
     setSelectedTemplate(template);
     setUseBlankPage(false);
     // Initialize mappings for template variables
     if (template?.variables) {
-      const initialMappings = {};
+      const initialMappings: TemplateMappings = {};
       template.variables.forEach(varName => {
         initialMappings[varName] = { type: 'static', value: '' };
       });
@@ -80,14 +184,14 @@ export const useConfluenceExport = () => {
   }, []);
 
   // Use blank page instead of template
-  const chooseBlankPage = useCallback(() => {
+  const chooseBlankPage = useCallback((): void => {
     setUseBlankPage(true);
     setSelectedTemplate(null);
     setTemplateMappings({});
   }, []);
 
   // Update a template variable mapping
-  const updateMapping = useCallback((variableName, mapping) => {
+  const updateMapping = useCallback((variableName: string, mapping: TemplateMapping): void => {
     setTemplateMappings(prev => ({
       ...prev,
       [variableName]: mapping
@@ -95,7 +199,7 @@ export const useConfluenceExport = () => {
   }, []);
 
   // Resolve a value from export data based on source
-  const resolveSourceValue = useCallback((source, exportData) => {
+  const resolveSourceValue = useCallback((source: VariableSource | null, exportData: ExportDataItem[]): string => {
     if (!source || !exportData || exportData.length === 0) return '';
     
     // Find the prompt data
@@ -104,32 +208,36 @@ export const useConfluenceExport = () => {
       // Fallback to first prompt if not found
       const firstPrompt = exportData[0];
       if (source.sourceType === 'field') {
-        return firstPrompt[source.sourceId] || '';
+        return String(firstPrompt[source.sourceId] || '');
       } else if (source.sourceType === 'variable') {
-        return firstPrompt[`var_${source.sourceId}`] || '';
+        return String(firstPrompt[`var_${source.sourceId}`] || '');
       }
       return '';
     }
     
     if (source.sourceType === 'field') {
-      return promptData[source.sourceId] || '';
+      return String(promptData[source.sourceId] || '');
     } else if (source.sourceType === 'variable') {
-      return promptData[`var_${source.sourceId}`] || '';
+      return String(promptData[`var_${source.sourceId}`] || '');
     }
     
     return '';
   }, []);
 
   // Helper to resolve {{variable}} placeholders in content, including q.ref[UUID] patterns
-  const resolveContentVariables = useCallback((content, exportItem, allExportData = []) => {
+  const resolveContentVariables = useCallback((
+    content: string | null | undefined,
+    exportItem: ExportDataItem,
+    allExportData: ExportDataItem[] = []
+  ): string => {
     if (!content) return '';
     
     // Build variables map from var_* prefixed keys
-    const varMap = {};
+    const varMap: Record<string, string> = {};
     Object.keys(exportItem).forEach(key => {
       if (key.startsWith('var_')) {
         const varName = key.replace('var_', '');
-        varMap[varName] = exportItem[key];
+        varMap[varName] = String(exportItem[key] || '');
       }
     });
     
@@ -160,7 +268,7 @@ export const useConfluenceExport = () => {
   }, []);
 
   // Build the page body from template and mappings
-  const buildPageBody = useCallback((exportData) => {
+  const buildPageBody = useCallback((exportData: ExportDataItem[]): string => {
     if (useBlankPage || !selectedTemplate) {
       // Build a simple page from export data
       let body = '<h1>Exported Content</h1>';
@@ -211,21 +319,21 @@ export const useConfluenceExport = () => {
         // New unified source format
         const rawValue = resolveSourceValue(mapping.source, exportData);
         // Find the prompt to get its variables for resolution
-        const promptData = exportData.find(p => p.row_id === mapping.source.promptId) || exportData[0];
+        const promptData = exportData.find(p => p.row_id === mapping.source!.promptId) || exportData[0];
         value = resolveContentVariables(rawValue, promptData, exportData);
       } else if (mapping.type === 'field' && exportData.length > 0) {
         // Legacy support: field from first prompt or specific prompt
         const promptData = mapping.promptId 
           ? exportData.find(p => p.row_id === mapping.promptId) || exportData[0]
           : exportData[0];
-        const rawValue = promptData[mapping.fieldId] || '';
+        const rawValue = String(promptData[mapping.fieldId || ''] || '');
         value = resolveContentVariables(rawValue, promptData, exportData);
       } else if (mapping.type === 'variable' && exportData.length > 0) {
         // Legacy support: variable from specific prompt
         const promptData = mapping.promptId 
           ? exportData.find(p => p.row_id === mapping.promptId) || exportData[0]
           : exportData[0];
-        value = promptData[`var_${mapping.variableName}`] || '';
+        value = String(promptData[`var_${mapping.variableName}`] || '');
       }
       // Note: 'all' type is removed - no longer supported
       
@@ -238,7 +346,7 @@ export const useConfluenceExport = () => {
   }, [useBlankPage, selectedTemplate, templateMappings, resolveSourceValue, resolveContentVariables]);
 
   // Create the page
-  const exportToConfluence = useCallback(async (exportData) => {
+  const exportToConfluence = useCallback(async (exportData: ExportDataItem[]): Promise<CreatePageResult> => {
     console.log('[useConfluenceExport] exportToConfluence called:', {
       exportDataLength: exportData?.length,
       exportDataSample: exportData?.[0] ? Object.keys(exportData[0]) : [],
@@ -305,15 +413,15 @@ export const useConfluenceExport = () => {
       // Track export failure
       trackEvent('export_failed', {
         export_type: 'confluence',
-        error_message: error.message,
+        error_message: error instanceof Error ? error.message : String(error),
       });
-      trackException(error, { context: 'confluence_export' });
+      trackException(error instanceof Error ? error : new Error(String(error)), { context: 'confluence_export' });
       throw error;
     }
   }, [selectedSpaceKey, selectedParentId, pageTitle, pageTitleSource, buildPageBody, createPage, findUniqueTitle, useBlankPage, resolveSourceValue, templateMappings]);
 
   // Reset state
-  const reset = useCallback(() => {
+  const reset = useCallback((): void => {
     setSelectedSpaceKey(null);
     setSelectedParentId(null);
     setSelectedTemplate(null);
@@ -328,7 +436,7 @@ export const useConfluenceExport = () => {
   return {
     // State
     spaces,
-    templates,
+    templates: templates as ConfluenceTemplate[],
     spaceTree,
     selectedSpaceKey,
     selectedParentId,
@@ -356,15 +464,3 @@ export const useConfluenceExport = () => {
     setSpaceTree
   };
 };
-
-// Helper to escape HTML
-function escapeHtml(text) {
-  if (!text) return '';
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/\n/g, '<br/>');
-}
