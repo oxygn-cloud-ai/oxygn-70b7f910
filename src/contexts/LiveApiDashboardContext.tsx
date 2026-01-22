@@ -1,18 +1,78 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo, ReactNode } from 'react';
 import { estimateCost } from '@/utils/costEstimator';
-
-const LiveApiDashboardContext = createContext(null);
 
 // Debounce interval for output text updates (ms)
 const OUTPUT_DEBOUNCE_MS = 120;
 // Debounce interval for token increment batching (ms)
 const TOKEN_FLUSH_MS = 200;
 
+export interface ResolvedSettings {
+  model?: string;
+  [key: string]: unknown;
+}
+
+export interface ActiveCall {
+  id: number;
+  status: 'queued' | 'running' | 'completed' | 'error' | 'cancelled';
+  startedAt: Date;
+  thinkingSummary: string;
+  outputText: string;
+  responseId: string | null;
+  isCascadeCall: boolean;
+  // Token tracking
+  estimatedInputTokens: number;
+  outputTokens: number;
+  // Speed tracking
+  firstTokenAt: number | null;
+  lastTokenAt: number | null;
+  tokenCount: number;
+  // Cost tracking
+  estimatedCost: number;
+  // Context window
+  contextWindow: number;
+  // Resolved settings
+  resolvedSettings: ResolvedSettings | null;
+  resolvedTools: unknown[] | null;
+  model?: string;
+  // Manus-specific fields
+  provider: string;
+  manusTaskId: string | null;
+  manusTaskUrl: string | null;
+  manusProgress: unknown | null;
+  // Cancel function
+  cancelFn?: () => Promise<void>;
+  [key: string]: unknown;
+}
+
+export interface CumulativeStats {
+  inputTokens: number;
+  outputTokens: number;
+  totalCost: number;
+  callCount: number;
+}
+
+export interface LiveApiDashboardContextValue {
+  activeCalls: ActiveCall[];
+  hasActiveCalls: boolean;
+  addCall: (callInfo: Partial<ActiveCall>) => number;
+  updateCall: (id: number, updates: Partial<ActiveCall>) => void;
+  updateResolvedSettings: (id: number, settings: ResolvedSettings, tools: unknown[] | null) => void;
+  appendThinking: (id: number, delta: string) => void;
+  appendOutputText: (id: number, delta: string) => void;
+  incrementOutputTokens: (id: number, tokenDelta?: number) => void;
+  removeCall: (id: number) => void;
+  cancelCall: (id: number) => Promise<void>;
+  cumulativeStats: CumulativeStats;
+  resetCumulativeStats: () => void;
+}
+
+const LiveApiDashboardContext = createContext<LiveApiDashboardContextValue | null>(null);
+
 /**
  * Hook to access the LiveApiDashboard context.
  * Returns safe defaults if used outside provider (for gradual migration).
  */
-export const useLiveApiDashboard = () => {
+export const useLiveApiDashboard = (): LiveApiDashboardContextValue => {
   const ctx = useContext(LiveApiDashboardContext);
   if (!ctx) {
     // Safe defaults if used outside provider
@@ -26,7 +86,7 @@ export const useLiveApiDashboard = () => {
       appendOutputText: () => {},
       incrementOutputTokens: () => {},
       removeCall: () => {},
-      cancelCall: () => {},
+      cancelCall: async () => {},
       // Cumulative stats for cascade mode
       cumulativeStats: { inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 },
       resetCumulativeStats: () => {},
@@ -35,12 +95,24 @@ export const useLiveApiDashboard = () => {
   return ctx;
 };
 
+interface LiveApiDashboardProviderProps {
+  children: ReactNode;
+}
+
+interface PendingOutput {
+  [key: string]: string | ReturnType<typeof setTimeout>;
+}
+
+interface PendingTokens {
+  [key: string]: { tokens: number; firstTime: number; lastTime: number } | ReturnType<typeof setTimeout>;
+}
+
 /**
  * Provider for tracking active API calls with detailed status.
  * Includes token tracking, cost estimation, and streaming speed metrics.
  */
-export const LiveApiDashboardProvider = ({ children }) => {
-  const [activeCalls, setActiveCalls] = useState([]);
+export const LiveApiDashboardProvider = ({ children }: LiveApiDashboardProviderProps) => {
+  const [activeCalls, setActiveCalls] = useState<ActiveCall[]>([]);
   const callIdRef = useRef(0);
   
   // Ref to keep activeCalls accessible in stable callbacks
@@ -50,7 +122,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, [activeCalls]);
   
   // Cumulative stats for cascade mode
-  const [cumulativeStats, setCumulativeStats] = useState({
+  const [cumulativeStats, setCumulativeStats] = useState<CumulativeStats>({
     inputTokens: 0,
     outputTokens: 0,
     totalCost: 0,
@@ -58,9 +130,9 @@ export const LiveApiDashboardProvider = ({ children }) => {
   });
 
   // Add a new call to the dashboard with extended metrics
-  const addCall = useCallback((callInfo) => {
+  const addCall = useCallback((callInfo: Partial<ActiveCall>): number => {
     const id = ++callIdRef.current;
-    const newCall = {
+    const newCall: ActiveCall = {
       id,
       status: 'queued',
       startedAt: new Date(),
@@ -94,7 +166,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, []);
 
   // Update resolved settings from SSE event
-  const updateResolvedSettings = useCallback((id, settings, tools) => {
+  const updateResolvedSettings = useCallback((id: number, settings: ResolvedSettings, tools: unknown[] | null): void => {
     setActiveCalls((prev) =>
       prev.map((c) => (c.id === id ? { 
         ...c, 
@@ -106,14 +178,14 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, []);
 
   // Update call properties
-  const updateCall = useCallback((id, updates) => {
+  const updateCall = useCallback((id: number, updates: Partial<ActiveCall>): void => {
     setActiveCalls((prev) =>
       prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
     );
   }, []);
 
   // Append thinking text delta
-  const appendThinking = useCallback((id, delta) => {
+  const appendThinking = useCallback((id: number, delta: string): void => {
     if (!delta) return; // Guard against null/undefined
     // Guard against objects being passed as delta - only accept strings
     if (typeof delta !== 'string') {
@@ -130,10 +202,10 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, []);
 
   // Ref to accumulate pending output text deltas for debouncing
-  const pendingOutputRef = useRef({});
+  const pendingOutputRef = useRef<PendingOutput>({});
   
   // Ref to accumulate pending token increments for batching
-  const pendingTokensRef = useRef({});
+  const pendingTokensRef = useRef<PendingTokens>({});
 
   // Cleanup pending timeouts on unmount
   useEffect(() => {
@@ -141,7 +213,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
       // Clear all pending output timeouts
       Object.keys(pendingOutputRef.current).forEach((key) => {
         if (key.endsWith('_timeout')) {
-          clearTimeout(pendingOutputRef.current[key]);
+          clearTimeout(pendingOutputRef.current[key] as ReturnType<typeof setTimeout>);
         }
       });
       pendingOutputRef.current = {};
@@ -149,7 +221,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
       // Clear all pending token timeouts
       Object.keys(pendingTokensRef.current).forEach((key) => {
         if (key.endsWith('_timeout')) {
-          clearTimeout(pendingTokensRef.current[key]);
+          clearTimeout(pendingTokensRef.current[key] as ReturnType<typeof setTimeout>);
         }
       });
       pendingTokensRef.current = {};
@@ -157,7 +229,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, []);
 
   // Append output text delta (streaming main response) - debounced
-  const appendOutputText = useCallback((id, delta) => {
+  const appendOutputText = useCallback((id: number, delta: string): void => {
     if (!delta) return; // Guard against null/undefined
     // Guard against objects being passed as delta - only accept strings
     if (typeof delta !== 'string') {
@@ -167,13 +239,13 @@ export const LiveApiDashboardProvider = ({ children }) => {
     
     // Accumulate to ref for debouncing
     const key = String(id);
-    pendingOutputRef.current[key] = (pendingOutputRef.current[key] || '') + delta;
+    pendingOutputRef.current[key] = ((pendingOutputRef.current[key] as string) || '') + delta;
     
     // Debounced flush every OUTPUT_DEBOUNCE_MS
     const timeoutKey = `${key}_timeout`;
     if (!pendingOutputRef.current[timeoutKey]) {
       pendingOutputRef.current[timeoutKey] = setTimeout(() => {
-        const accumulated = pendingOutputRef.current[key] || '';
+        const accumulated = (pendingOutputRef.current[key] as string) || '';
         delete pendingOutputRef.current[key];
         delete pendingOutputRef.current[timeoutKey];
         
@@ -191,18 +263,18 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, []);
 
   // Flush pending token increments for a specific call
-  const flushPendingTokens = useCallback((callId) => {
+  const flushPendingTokens = useCallback((callId: number): void => {
     const key = String(callId);
-    const pending = pendingTokensRef.current[key];
+    const pending = pendingTokensRef.current[key] as { tokens: number; firstTime: number; lastTime: number } | undefined;
     
-    if (!pending) return;
+    if (!pending || typeof pending !== 'object' || !('tokens' in pending)) return;
     
     const { tokens, firstTime, lastTime } = pending;
     delete pendingTokensRef.current[key];
     
     const timeoutKey = `${key}_timeout`;
     if (pendingTokensRef.current[timeoutKey]) {
-      clearTimeout(pendingTokensRef.current[timeoutKey]);
+      clearTimeout(pendingTokensRef.current[timeoutKey] as ReturnType<typeof setTimeout>);
       delete pendingTokensRef.current[timeoutKey];
     }
     
@@ -223,16 +295,18 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, []);
 
   // Increment output tokens - BATCHED (called during streaming)
-  const incrementOutputTokens = useCallback((id, tokenDelta = 1) => {
+  const incrementOutputTokens = useCallback((id: number, tokenDelta = 1): void => {
     const now = Date.now();
     const key = String(id);
     
     // Accumulate tokens
-    if (!pendingTokensRef.current[key]) {
+    const existing = pendingTokensRef.current[key] as { tokens: number; firstTime: number; lastTime: number } | undefined;
+    if (!existing || typeof existing !== 'object' || !('tokens' in existing)) {
       pendingTokensRef.current[key] = { tokens: 0, firstTime: now, lastTime: now };
     }
-    pendingTokensRef.current[key].tokens += tokenDelta;
-    pendingTokensRef.current[key].lastTime = now;
+    const current = pendingTokensRef.current[key] as { tokens: number; firstTime: number; lastTime: number };
+    current.tokens += tokenDelta;
+    current.lastTime = now;
     
     // Schedule flush (TOKEN_FLUSH_MS debounce)
     const timeoutKey = `${key}_timeout`;
@@ -244,18 +318,18 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, [flushPendingTokens]);
 
   // Remove a call from the dashboard and update cumulative stats
-  const removeCall = useCallback((id) => {
+  const removeCall = useCallback((id: number): void => {
     // Flush any pending output before removing (prevents lost final text)
     const key = String(id);
     const outputTimeoutKey = `${key}_timeout`;
     
     if (pendingOutputRef.current[outputTimeoutKey]) {
-      clearTimeout(pendingOutputRef.current[outputTimeoutKey]);
+      clearTimeout(pendingOutputRef.current[outputTimeoutKey] as ReturnType<typeof setTimeout>);
       delete pendingOutputRef.current[outputTimeoutKey];
     }
     
     // Apply any accumulated output text before removing
-    const pendingOutput = pendingOutputRef.current[key];
+    const pendingOutput = pendingOutputRef.current[key] as string | undefined;
     if (pendingOutput) {
       delete pendingOutputRef.current[key];
       setActiveCalls((prev) =>
@@ -275,7 +349,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
       if (call && call.isCascadeCall) {
         // Calculate cost from actual token counts using model pricing
         const callCost = estimateCost({
-          model: call.model,
+          model: call.model || '',
           inputTokens: call.estimatedInputTokens || 0,
           outputTokens: call.outputTokens || 0,
         });
@@ -293,13 +367,13 @@ export const LiveApiDashboardProvider = ({ children }) => {
   }, [flushPendingTokens]);
 
   // Reset cumulative stats (call when cascade starts)
-  const resetCumulativeStats = useCallback(() => {
+  const resetCumulativeStats = useCallback((): void => {
     setCumulativeStats({ inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 });
   }, []);
 
   // Cancel a specific call - uses ref to avoid dependency on activeCalls
   const cancelCall = useCallback(
-    async (id) => {
+    async (id: number): Promise<void> => {
       const call = activeCallsRef.current.find((c) => c.id === id);
       if (call?.cancelFn) {
         try {
@@ -314,7 +388,7 @@ export const LiveApiDashboardProvider = ({ children }) => {
   );
 
   // Memoize context value to prevent consumer re-renders when nothing changed
-  const value = useMemo(() => ({
+  const value = useMemo<LiveApiDashboardContextValue>(() => ({
     activeCalls,
     hasActiveCalls: activeCalls.length > 0,
     addCall,

@@ -1,22 +1,65 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { identifyUser, resetUser, trackEvent } from '@/lib/posthog';
+import type { User, Session } from '@supabase/supabase-js';
 
-const AuthContext = createContext({});
+export interface UserProfile {
+  display_name: string | null;
+  avatar_url: string | null;
+  email: string | null;
+}
 
-export const useAuth = () => useContext(AuthContext);
+export interface AuthError {
+  message: string;
+}
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
+export interface AuthResult {
+  error: AuthError | null;
+}
+
+export interface AuthContextValue {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  isAdmin: boolean;
+  userProfile: UserProfile | null;
+  signInWithGoogle: () => Promise<AuthResult>;
+  signInWithPassword: (email: string, password: string) => Promise<AuthResult>;
+  signUpWithPassword: (email: string, password: string) => Promise<AuthResult>;
+  signOut: () => Promise<AuthResult>;
+  isAuthenticated: boolean;
+}
+
+const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  session: null,
+  loading: true,
+  isAdmin: false,
+  userProfile: null,
+  signInWithGoogle: async () => ({ error: null }),
+  signInWithPassword: async () => ({ error: null }),
+  signUpWithPassword: async () => ({ error: null }),
+  signOut: async () => ({ error: null }),
+  isAuthenticated: false,
+});
+
+export const useAuth = (): AuthContextValue => useContext(AuthContext);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const mountedRef = useRef(true);
   const initialSessionHandledRef = useRef(false);
 
-  const checkAdminStatus = async (userId) => {
+  const checkAdminStatus = async (userId: string): Promise<void> => {
     if (!userId) {
       setIsAdmin(false);
       return;
@@ -32,7 +75,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const fetchUserProfile = async (userId) => {
+  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     if (!userId) {
       setUserProfile(null);
       return null;
@@ -45,8 +88,8 @@ export const AuthProvider = ({ children }) => {
         .maybeSingle();
       
       if (!error && data) {
-        setUserProfile(data);
-        return data;
+        setUserProfile(data as UserProfile);
+        return data as UserProfile;
       }
       return null;
     } catch (err) {
@@ -56,7 +99,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const setupAuthenticatedUser = async (currentUser, shouldTrackLogin = false, provider = 'unknown') => {
+  const setupAuthenticatedUser = async (
+    currentUser: User, 
+    shouldTrackLogin = false, 
+    provider = 'unknown'
+  ): Promise<void> => {
     if (!mountedRef.current) return;
     
     let adminStatus = false;
@@ -145,12 +192,12 @@ export const AuthProvider = ({ children }) => {
 
   // Whitelisted emails for password login (preview testing)
   // Read from env variable - no hardcoded fallback for security
-  const WHITELISTED_EMAILS = (import.meta.env.VITE_WHITELISTED_EMAILS || '')
+  const WHITELISTED_EMAILS: string[] = (import.meta.env.VITE_WHITELISTED_EMAILS || '')
     .split(',')
-    .map(e => e.trim().toLowerCase())
+    .map((e: string) => e.trim().toLowerCase())
     .filter(Boolean);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<AuthResult> => {
     const redirectUrl = `${window.location.origin}/projects`;
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -171,7 +218,7 @@ export const AuthProvider = ({ children }) => {
     return { error: null };
   };
 
-  const signInWithPassword = async (email, password) => {
+  const signInWithPassword = async (email: string, password: string): Promise<AuthResult> => {
     // Only allow whitelisted emails
     if (!WHITELISTED_EMAILS.includes(email.toLowerCase())) {
       const error = { message: 'Email/password login is only available for authorized accounts' };
@@ -192,7 +239,7 @@ export const AuthProvider = ({ children }) => {
     return { error: null };
   };
 
-  const signUpWithPassword = async (email, password) => {
+  const signUpWithPassword = async (email: string, password: string): Promise<AuthResult> => {
     // Only allow whitelisted emails
     if (!WHITELISTED_EMAILS.includes(email.toLowerCase())) {
       const error = { message: 'Email/password signup is only available for authorized accounts' };
@@ -217,7 +264,7 @@ export const AuthProvider = ({ children }) => {
     return { error: null };
   };
 
-  const signOut = async () => {
+  const signOut = async (): Promise<AuthResult> => {
     // Track logout before resetting
     trackEvent('user_logout', {
       email: user?.email,
@@ -230,10 +277,10 @@ export const AuthProvider = ({ children }) => {
     } else {
       toast.success('Signed out successfully');
     }
-    return { error };
+    return { error: error || null };
   };
 
-  const value = {
+  const value: AuthContextValue = {
     user,
     session,
     loading,
