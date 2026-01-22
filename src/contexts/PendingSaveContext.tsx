@@ -1,23 +1,31 @@
-import React, { createContext, useContext, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useRef, useCallback, ReactNode } from 'react';
 import logger from '@/utils/logger';
 
-const PendingSaveContext = createContext(null);
+export interface PendingSaveContextValue {
+  registerSave: (savePromise: Promise<unknown>) => void;
+  flushPendingSaves: () => Promise<void>;
+}
+
+const PendingSaveContext = createContext<PendingSaveContextValue | null>(null);
+
+interface PendingSaveProviderProps {
+  children: ReactNode;
+}
 
 /**
  * Provider that tracks pending save operations across the app.
  * This enables callers (like handleRunPrompt) to wait for all in-flight 
  * saves to complete before proceeding with actions that depend on fresh DB data.
  */
-export const PendingSaveProvider = ({ children }) => {
+export const PendingSaveProvider = ({ children }: PendingSaveProviderProps) => {
   // Use ref to avoid re-renders when saves are registered/completed
-  const pendingSavesRef = useRef(new Set());
+  const pendingSavesRef = useRef<Set<Promise<unknown>>>(new Set());
   
   /**
    * Register a save promise for tracking.
    * The promise will auto-remove from the set when it settles.
-   * @param {Promise} savePromise - The promise returned by the save operation
    */
-  const registerSave = useCallback((savePromise) => {
+  const registerSave = useCallback((savePromise: Promise<unknown>): void => {
     if (!savePromise || typeof savePromise.then !== 'function') {
       // Not a promise, ignore
       return;
@@ -35,9 +43,8 @@ export const PendingSaveProvider = ({ children }) => {
    * Wait for all pending saves to complete.
    * Uses Promise.allSettled to handle both successes and failures.
    * Includes a safety timeout to prevent infinite waiting.
-   * @returns {Promise<void>}
    */
-  const flushPendingSaves = useCallback(async () => {
+  const flushPendingSaves = useCallback(async (): Promise<void> => {
     const pending = Array.from(pendingSavesRef.current);
     
     if (pending.length === 0) {
@@ -49,8 +56,8 @@ export const PendingSaveProvider = ({ children }) => {
     // Use Promise.allSettled to wait for all, even if some fail
     // Add a 30-second timeout as a safety net (increased from 10s for large operations)
     const TIMEOUT_MS = 30000;
-    let timeoutId;
-    const timeout = new Promise((_, reject) => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => reject(new Error('Pending saves timeout')), TIMEOUT_MS);
     });
     
@@ -59,10 +66,10 @@ export const PendingSaveProvider = ({ children }) => {
         Promise.allSettled(pending),
         timeout
       ]);
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId!);
       logger.debug('[PendingSave] All saves flushed successfully');
     } catch (err) {
-      logger.warn('[PendingSave] Flush timed out or failed:', err.message);
+      logger.warn('[PendingSave] Flush timed out or failed:', (err as Error).message);
       // Log which saves are still pending for debugging
       const stillPending = pendingSavesRef.current.size;
       if (stillPending > 0) {
@@ -83,7 +90,7 @@ export const PendingSaveProvider = ({ children }) => {
  * Hook to access the pending save registry.
  * Returns { registerSave, flushPendingSaves }
  */
-export const usePendingSaves = () => {
+export const usePendingSaves = (): PendingSaveContextValue => {
   const context = useContext(PendingSaveContext);
   
   if (!context) {

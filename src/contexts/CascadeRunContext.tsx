@@ -1,10 +1,100 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
-const CascadeRunContext = createContext(null);
+export interface CompletedPrompt {
+  promptRowId: string;
+  promptName: string;
+  response: unknown;
+}
 
-export const useCascadeRun = () => {
+export interface SkippedPrompt {
+  promptRowId: string;
+  promptName: string;
+}
+
+export interface ErrorPromptData {
+  row_id?: string;
+  prompt_name?: string;
+  [key: string]: unknown;
+}
+
+export interface ActionPreviewData {
+  [key: string]: unknown;
+}
+
+export interface QuestionData {
+  question: string;
+  variableName: string;
+  description?: string;
+  maxQuestions?: number;
+}
+
+export interface QuestionProgress {
+  current: number;
+  max: number;
+}
+
+export interface CollectedQuestionVar {
+  name: string;
+  value: string;
+}
+
+export type ErrorAction = 'retry' | 'skip' | 'stop';
+
+export interface CascadeRunContextValue {
+  // State
+  isRunning: boolean;
+  isPaused: boolean;
+  isCancelling: boolean;
+  currentLevel: number;
+  totalLevels: number;
+  currentPromptName: string;
+  currentPromptRowId: string | null;
+  currentPromptIndex: number;
+  totalPrompts: number;
+  completedPrompts: CompletedPrompt[];
+  skippedPrompts: SkippedPrompt[];
+  startTime: number | null;
+  error: string | null;
+  errorPrompt: ErrorPromptData | null;
+  singleRunPromptId: string | null;
+  actionPreview: ActionPreviewData | null;
+  skipAllPreviews: boolean;
+  // Question prompt state
+  pendingQuestion: QuestionData | null;
+  questionProgress: QuestionProgress;
+  collectedQuestionVars: CollectedQuestionVar[];
+  
+  // Actions
+  startCascade: (levels: number, promptCount: number, skippedCount?: number) => void;
+  updateProgress: (level: number, promptName: string, promptIndex: number, promptRowId?: string | null) => void;
+  markPromptComplete: (promptRowId: string, promptName: string, response: unknown) => void;
+  markPromptSkipped: (promptRowId: string, promptName: string) => void;
+  completeCascade: () => void;
+  cancel: () => Promise<void>;
+  pause: () => void;
+  resume: () => void;
+  isCancelled: () => boolean;
+  checkPaused: () => boolean;
+  showError: (promptData: ErrorPromptData, errorMessage: string) => Promise<ErrorAction>;
+  resolveError: (action: ErrorAction) => void;
+  showActionPreview: (previewData: ActionPreviewData) => Promise<boolean>;
+  resolveActionPreview: (confirmed: boolean) => void;
+  setSkipAllPreviews: React.Dispatch<React.SetStateAction<boolean>>;
+  startSingleRun: (promptRowId: string) => void;
+  endSingleRun: () => void;
+  registerCancelHandler: (handler: () => Promise<void>) => () => void;
+  // Question prompt actions
+  showQuestion: (questionData: QuestionData) => Promise<string | null>;
+  resolveQuestion: (answer: string | null) => void;
+  addCollectedQuestionVar: (name: string, value: string) => void;
+  resetQuestionState: () => void;
+}
+
+const CascadeRunContext = createContext<CascadeRunContextValue | null>(null);
+
+export const useCascadeRun = (): CascadeRunContextValue => {
   const context = useContext(CascadeRunContext);
   if (!context) {
     throw new Error('useCascadeRun must be used within a CascadeRunProvider');
@@ -12,46 +102,50 @@ export const useCascadeRun = () => {
   return context;
 };
 
-export const CascadeRunProvider = ({ children }) => {
+interface CascadeRunProviderProps {
+  children: ReactNode;
+}
+
+export const CascadeRunProvider = ({ children }: CascadeRunProviderProps) => {
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [currentLevel, setCurrentLevel] = useState(0);
   const [totalLevels, setTotalLevels] = useState(0);
   const [currentPromptName, setCurrentPromptName] = useState('');
-  const [currentPromptRowId, setCurrentPromptRowId] = useState(null);
+  const [currentPromptRowId, setCurrentPromptRowId] = useState<string | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [totalPrompts, setTotalPrompts] = useState(0);
-  const [completedPrompts, setCompletedPrompts] = useState([]);
-  const [skippedPrompts, setSkippedPrompts] = useState([]);
-  const [startTime, setStartTime] = useState(null);
-  const [error, setError] = useState(null);
-  const [errorPrompt, setErrorPrompt] = useState(null);
+  const [completedPrompts, setCompletedPrompts] = useState<CompletedPrompt[]>([]);
+  const [skippedPrompts, setSkippedPrompts] = useState<SkippedPrompt[]>([]);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [errorPrompt, setErrorPrompt] = useState<ErrorPromptData | null>(null);
   
   // Single run state (for non-cascade runs)
-  const [singleRunPromptId, setSingleRunPromptId] = useState(null);
+  const [singleRunPromptId, setSingleRunPromptId] = useState<string | null>(null);
   
   // Action preview state (for showing ActionPreviewDialog)
-  const [actionPreview, setActionPreview] = useState(null);
+  const [actionPreview, setActionPreview] = useState<ActionPreviewData | null>(null);
   
   // Skip all previews state (for bypassing all action previews during cascade)
   const [skipAllPreviews, setSkipAllPreviews] = useState(false);
   
   // Question prompt state (for run-mode question interrupts)
-  const [pendingQuestion, setPendingQuestion] = useState(null);
-  const [questionProgress, setQuestionProgress] = useState({ current: 0, max: 10 });
-  const [collectedQuestionVars, setCollectedQuestionVars] = useState([]);
+  const [pendingQuestion, setPendingQuestion] = useState<QuestionData | null>(null);
+  const [questionProgress, setQuestionProgress] = useState<QuestionProgress>({ current: 0, max: 10 });
+  const [collectedQuestionVars, setCollectedQuestionVars] = useState<CollectedQuestionVar[]>([]);
   
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
-  const errorResolverRef = useRef(null);
-  const actionPreviewResolverRef = useRef(null);
-  const questionResolverRef = useRef(null);
+  const errorResolverRef = useRef<((action: ErrorAction) => void) | null>(null);
+  const actionPreviewResolverRef = useRef<((confirmed: boolean) => void) | null>(null);
+  const questionResolverRef = useRef<((answer: string | null) => void) | null>(null);
   
   // Cancel handler ref for true OpenAI cancellation
-  const cancelHandlerRef = useRef(null);
+  const cancelHandlerRef = useRef<(() => Promise<void>) | null>(null);
 
-  const startCascade = useCallback((levels, promptCount, skippedCount = 0) => {
+  const startCascade = useCallback((levels: number, promptCount: number, skippedCount = 0): void => {
     setIsRunning(true);
     setIsPaused(false);
     setCurrentLevel(0);
@@ -78,22 +172,22 @@ export const CascadeRunProvider = ({ children }) => {
     pauseRef.current = false;
   }, []);
 
-  const markPromptSkipped = useCallback((promptRowId, promptName) => {
+  const markPromptSkipped = useCallback((promptRowId: string, promptName: string): void => {
     setSkippedPrompts(prev => [...prev, { promptRowId, promptName }]);
   }, []);
 
-  const updateProgress = useCallback((level, promptName, promptIndex, promptRowId = null) => {
+  const updateProgress = useCallback((level: number, promptName: string, promptIndex: number, promptRowId: string | null = null): void => {
     setCurrentLevel(level);
     setCurrentPromptName(promptName);
     setCurrentPromptIndex(promptIndex);
     if (promptRowId) setCurrentPromptRowId(promptRowId);
   }, []);
 
-  const markPromptComplete = useCallback((promptRowId, promptName, response) => {
+  const markPromptComplete = useCallback((promptRowId: string, promptName: string, response: unknown): void => {
     setCompletedPrompts(prev => [...prev, { promptRowId, promptName, response }]);
   }, []);
 
-  const completeCascade = useCallback(() => {
+  const completeCascade = useCallback((): void => {
     setIsRunning(false);
     setIsPaused(false);
     setCurrentPromptName('');
@@ -113,12 +207,12 @@ export const CascadeRunProvider = ({ children }) => {
   }, []);
 
   // Register a cancel handler for true OpenAI cancellation
-  const registerCancelHandler = useCallback((handler) => {
+  const registerCancelHandler = useCallback((handler: () => Promise<void>): (() => void) => {
     cancelHandlerRef.current = handler;
     return () => { cancelHandlerRef.current = null; };
   }, []);
 
-  const cancel = useCallback(async () => {
+  const cancel = useCallback(async (): Promise<void> => {
     // Set cancel flag immediately (for loop checks)
     cancelRef.current = true;
     setIsCancelling(true);
@@ -164,7 +258,7 @@ export const CascadeRunProvider = ({ children }) => {
     }
   }, [completedPrompts.length]);
 
-  const pause = useCallback(() => {
+  const pause = useCallback((): void => {
     pauseRef.current = true;
     setIsPaused(true);
     
@@ -174,7 +268,7 @@ export const CascadeRunProvider = ({ children }) => {
     });
   }, [completedPrompts.length]);
 
-  const resume = useCallback(() => {
+  const resume = useCallback((): void => {
     pauseRef.current = false;
     setIsPaused(false);
     
@@ -184,19 +278,19 @@ export const CascadeRunProvider = ({ children }) => {
     });
   }, [completedPrompts.length]);
 
-  const isCancelled = useCallback(() => cancelRef.current, []);
-  const checkPaused = useCallback(() => pauseRef.current, []);
+  const isCancelled = useCallback((): boolean => cancelRef.current, []);
+  const checkPaused = useCallback((): boolean => pauseRef.current, []);
 
-  const showError = useCallback((promptData, errorMessage) => {
+  const showError = useCallback((promptData: ErrorPromptData, errorMessage: string): Promise<ErrorAction> => {
     setError(errorMessage);
     setErrorPrompt(promptData);
     
-    return new Promise((resolve) => {
+    return new Promise<ErrorAction>((resolve) => {
       errorResolverRef.current = resolve;
     });
   }, []);
 
-  const resolveError = useCallback((action) => {
+  const resolveError = useCallback((action: ErrorAction): void => {
     setError(null);
     setErrorPrompt(null);
     if (errorResolverRef.current) {
@@ -206,14 +300,14 @@ export const CascadeRunProvider = ({ children }) => {
   }, []);
 
   // Action preview functions (for ActionPreviewDialog)
-  const showActionPreview = useCallback((previewData) => {
+  const showActionPreview = useCallback((previewData: ActionPreviewData): Promise<boolean> => {
     setActionPreview(previewData);
-    return new Promise((resolve) => {
+    return new Promise<boolean>((resolve) => {
       actionPreviewResolverRef.current = resolve;
     });
   }, []);
 
-  const resolveActionPreview = useCallback((confirmed) => {
+  const resolveActionPreview = useCallback((confirmed: boolean): void => {
     setActionPreview(null);
     if (actionPreviewResolverRef.current) {
       actionPreviewResolverRef.current(confirmed);
@@ -222,7 +316,7 @@ export const CascadeRunProvider = ({ children }) => {
   }, []);
 
   // Single run functions (for non-cascade runs)
-  const startSingleRun = useCallback((promptRowId) => {
+  const startSingleRun = useCallback((promptRowId: string): void => {
     // Reset question state on new single run
     setPendingQuestion(null);
     setQuestionProgress({ current: 0, max: 10 });
@@ -234,7 +328,7 @@ export const CascadeRunProvider = ({ children }) => {
     setSingleRunPromptId(promptRowId);
   }, []);
 
-  const endSingleRun = useCallback(() => {
+  const endSingleRun = useCallback((): void => {
     // Reset question state on end single run
     setPendingQuestion(null);
     setQuestionProgress({ current: 0, max: 10 });
@@ -247,18 +341,18 @@ export const CascadeRunProvider = ({ children }) => {
   }, []);
 
   // Question prompt methods (for run-mode question interrupts)
-  const showQuestion = useCallback((questionData) => {
+  const showQuestion = useCallback((questionData: QuestionData): Promise<string | null> => {
     setPendingQuestion(questionData);
     setQuestionProgress(prev => ({ 
       current: prev.current + 1, 
       max: questionData.maxQuestions || prev.max 
     }));
-    return new Promise((resolve) => {
+    return new Promise<string | null>((resolve) => {
       questionResolverRef.current = resolve;
     });
   }, []);
 
-  const resolveQuestion = useCallback((answer) => {
+  const resolveQuestion = useCallback((answer: string | null): void => {
     // answer is string if user submitted, null if cancelled
     setPendingQuestion(null);
     if (questionResolverRef.current) {
@@ -267,11 +361,11 @@ export const CascadeRunProvider = ({ children }) => {
     }
   }, []);
 
-  const addCollectedQuestionVar = useCallback((name, value) => {
+  const addCollectedQuestionVar = useCallback((name: string, value: string): void => {
     setCollectedQuestionVars(prev => [...prev, { name, value }]);
   }, []);
 
-  const resetQuestionState = useCallback(() => {
+  const resetQuestionState = useCallback((): void => {
     setPendingQuestion(null);
     setQuestionProgress({ current: 0, max: 10 });
     setCollectedQuestionVars([]);
@@ -281,7 +375,7 @@ export const CascadeRunProvider = ({ children }) => {
     }
   }, []);
 
-  const value = {
+  const value: CascadeRunContextValue = {
     // State
     isRunning,
     isPaused,
