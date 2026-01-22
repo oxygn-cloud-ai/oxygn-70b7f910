@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
@@ -6,11 +6,29 @@ import { trackEvent } from '@/lib/posthog';
 
 const TOOL_DEFAULTS_QUERY_KEY = ['conversationToolDefaults'];
 
-export const useConversationToolDefaults = () => {
+export interface ToolDefaultsRow {
+  row_id: string;
+  code_interpreter_enabled?: boolean | null;
+  file_search_enabled?: boolean | null;
+  function_calling_enabled?: boolean | null;
+  confluence_browser_enabled?: boolean | null;
+  [key: string]: unknown;
+}
+
+export type ToolDefaultsUpdate = Partial<Omit<ToolDefaultsRow, 'row_id'>>;
+
+interface UseConversationToolDefaultsReturn {
+  defaults: ToolDefaultsRow | null;
+  isLoading: boolean;
+  updateDefaults: (updates: ToolDefaultsUpdate) => Promise<boolean>;
+  refetch: () => void;
+}
+
+export const useConversationToolDefaults = (): UseConversationToolDefaultsReturn => {
   const supabase = useSupabase();
   const queryClient = useQueryClient();
 
-  const fetchDefaults = useCallback(async () => {
+  const fetchDefaults = useCallback(async (): Promise<ToolDefaultsRow | null> => {
     if (!supabase) return null;
 
     const { data, error } = await supabase
@@ -20,7 +38,7 @@ export const useConversationToolDefaults = () => {
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    return data as ToolDefaultsRow | null;
   }, [supabase]);
 
   const {
@@ -34,7 +52,7 @@ export const useConversationToolDefaults = () => {
   });
 
   const mutation = useMutation({
-    mutationFn: async (updates) => {
+    mutationFn: async (updates: ToolDefaultsUpdate): Promise<boolean> => {
       if (!supabase) throw new Error('No backend client');
       if (!defaults?.row_id) throw new Error('No defaults row found');
 
@@ -57,7 +75,7 @@ export const useConversationToolDefaults = () => {
     },
   });
 
-  const updateDefaults = useCallback(async (updates) => {
+  const updateDefaults = useCallback(async (updates: ToolDefaultsUpdate): Promise<boolean> => {
     try {
       const result = await mutation.mutateAsync(updates);
       return !!result;
@@ -70,6 +88,6 @@ export const useConversationToolDefaults = () => {
     defaults: defaults ?? null,
     isLoading,
     updateDefaults,
-    refetch,
+    refetch: () => refetch(),
   };
 };

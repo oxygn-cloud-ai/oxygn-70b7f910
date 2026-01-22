@@ -2,9 +2,29 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchPrompts } from '../services/promptService';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/integrations/supabase/types';
 
-const useTreeData = (supabase) => {
-  const [treeData, setTreeData] = useState([]);
+export interface TreeNode {
+  row_id: string;
+  prompt_name: string;
+  parent_row_id: string | null;
+  position?: string | null;
+  node_type?: string | null;
+  is_starred?: boolean | null;
+  icon?: string | null;
+  children?: TreeNode[];
+  [key: string]: unknown;
+}
+
+interface UseTreeDataReturn {
+  treeData: TreeNode[];
+  isLoading: boolean;
+  refreshTreeData: () => Promise<void>;
+}
+
+const useTreeData = (supabase: SupabaseClient<Database> | null): UseTreeDataReturn => {
+  const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const isMountedRef = useRef(true);
@@ -14,7 +34,7 @@ const useTreeData = (supabase) => {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const refreshTreeData = useCallback(async () => {
+  const refreshTreeData = useCallback(async (): Promise<void> => {
     if (!supabase) {
       if (isMountedRef.current) setTreeData([]);
       return;
@@ -22,14 +42,18 @@ const useTreeData = (supabase) => {
     
     try {
       const data = await fetchPrompts(supabase, user?.id);
-      if (isMountedRef.current) setTreeData(data || []);
+      if (isMountedRef.current) setTreeData((data as TreeNode[]) || []);
     } catch (error) {
       console.error('Error refreshing tree data:', error);
       if (isMountedRef.current) {
         toast.error('Failed to refresh tree data', {
           source: 'useTreeData.refreshTreeData',
-          errorCode: error?.code || 'TREE_REFRESH_ERROR',
-          details: JSON.stringify({ userId: user?.id, error: error?.message, stack: error?.stack }, null, 2),
+          errorCode: (error as { code?: string })?.code || 'TREE_REFRESH_ERROR',
+          details: JSON.stringify({ 
+            userId: user?.id, 
+            error: (error as Error)?.message, 
+            stack: (error as Error)?.stack 
+          }, null, 2),
         });
         setTreeData([]);
       }
