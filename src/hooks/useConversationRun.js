@@ -511,6 +511,7 @@ export const useConversationRun = () => {
       resumeResponseId,
       resumeAnswer,
       resumeVariableName,
+      resumeCallId,
     }) => {
       if (!supabase || !childPromptRowId) return { response: null };
 
@@ -591,6 +592,7 @@ export const useConversationRun = () => {
                   previous_response_id: resumeResponseId,
                   answer: resumeAnswer,
                   variable_name: resumeVariableName,
+                  call_id: resumeCallId,
                 }
               } : {}),
             }),
