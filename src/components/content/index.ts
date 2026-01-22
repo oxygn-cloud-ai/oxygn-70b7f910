@@ -1,4 +1,5 @@
 export { default as AuthContent } from './AuthContent';
+export { default as HealthContent } from './HealthContent';
 export { default as DashboardTabContent } from './DashboardTabContent';
 export { default as DeletedItemsContent } from './DeletedItemsContent';
 export { default as HealthContent } from './HealthContent';
