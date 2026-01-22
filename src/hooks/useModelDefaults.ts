@@ -3,8 +3,31 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from '@/lib/posthog';
 
-export const useModelDefaults = () => {
-  const [modelDefaults, setModelDefaults] = useState({});
+export interface ModelDefaultRow {
+  row_id?: string;
+  model_id: string;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  top_p?: number | null;
+  frequency_penalty?: number | null;
+  presence_penalty?: number | null;
+  reasoning_effort?: string | null;
+  updated_at?: string;
+  [key: string]: unknown;
+}
+
+type ModelDefaultsMap = Record<string, ModelDefaultRow>;
+
+interface UseModelDefaultsReturn {
+  modelDefaults: ModelDefaultsMap;
+  isLoading: boolean;
+  updateModelDefault: (modelId: string, field: string, value: unknown) => Promise<boolean>;
+  getModelDefault: (modelId: string) => ModelDefaultRow | null;
+  refetch: () => Promise<void>;
+}
+
+export const useModelDefaults = (): UseModelDefaultsReturn => {
+  const [modelDefaults, setModelDefaults] = useState<ModelDefaultsMap>({});
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
 
@@ -13,7 +36,7 @@ export const useModelDefaults = () => {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const fetchModelDefaults = useCallback(async () => {
+  const fetchModelDefaults = useCallback(async (): Promise<void> => {
     try {
       const { data, error } = await supabase
         .from(import.meta.env.VITE_MODEL_DEFAULTS_TBL)
@@ -22,9 +45,9 @@ export const useModelDefaults = () => {
       if (error) throw error;
 
       // Convert array to object keyed by model_id
-      const defaultsObj = {};
+      const defaultsObj: ModelDefaultsMap = {};
       if (data) {
-        data.forEach(row => {
+        data.forEach((row: ModelDefaultRow) => {
           defaultsObj[row.model_id] = row;
         });
       }
@@ -35,8 +58,11 @@ export const useModelDefaults = () => {
       if (isMountedRef.current) {
         toast.error('Failed to fetch model defaults', {
           source: 'useModelDefaults.fetchModelDefaults',
-          errorCode: error?.code || 'MODEL_DEFAULTS_FETCH_ERROR',
-          details: JSON.stringify({ error: error?.message, stack: error?.stack }, null, 2),
+          errorCode: (error as { code?: string })?.code || 'MODEL_DEFAULTS_FETCH_ERROR',
+          details: JSON.stringify({ 
+            error: (error as Error)?.message, 
+            stack: (error as Error)?.stack 
+          }, null, 2),
         });
       }
     } finally {
@@ -48,7 +74,11 @@ export const useModelDefaults = () => {
     fetchModelDefaults();
   }, [fetchModelDefaults]);
 
-  const updateModelDefault = async (modelId, field, value) => {
+  const updateModelDefault = async (
+    modelId: string, 
+    field: string, 
+    value: unknown
+  ): Promise<boolean> => {
     try {
       const existing = modelDefaults[modelId];
       
@@ -75,7 +105,7 @@ export const useModelDefaults = () => {
         [modelId]: {
           ...prev[modelId],
           model_id: modelId,
-        [field]: value
+          [field]: value
         }
       }));
 
@@ -83,16 +113,21 @@ export const useModelDefaults = () => {
       return true;
     } catch (error) {
       console.error('Error updating model default:', error);
-      toast.error(`Failed to update: ${error.message}`, {
+      toast.error(`Failed to update: ${(error as Error).message}`, {
         source: 'useModelDefaults.updateModelDefault',
-        errorCode: error?.code || 'MODEL_DEFAULT_UPDATE_ERROR',
-        details: JSON.stringify({ modelId, field, error: error?.message, stack: error?.stack }, null, 2),
+        errorCode: (error as { code?: string })?.code || 'MODEL_DEFAULT_UPDATE_ERROR',
+        details: JSON.stringify({ 
+          modelId, 
+          field, 
+          error: (error as Error)?.message, 
+          stack: (error as Error)?.stack 
+        }, null, 2),
       });
       return false;
     }
   };
 
-  const getModelDefault = useCallback((modelId) => {
+  const getModelDefault = useCallback((modelId: string): ModelDefaultRow | null => {
     return modelDefaults[modelId] || null;
   }, [modelDefaults]);
 
