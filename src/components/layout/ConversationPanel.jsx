@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
-  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare
+  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare, Brain
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -207,6 +207,7 @@ const ConversationPanel = ({
     : legacyIsSending;
 
   const streamingMessage = usePromptFamilyMode ? promptFamilyChat.streamingMessage : '';
+  const thinkingText = usePromptFamilyMode ? promptFamilyChat.thinkingText : '';
   const toolActivity = usePromptFamilyMode ? promptFamilyChat.toolActivity : [];
   const isExecutingTools = usePromptFamilyMode ? promptFamilyChat.isExecutingTools : false;
   const isStreaming = usePromptFamilyMode ? promptFamilyChat.isStreaming : false;
@@ -448,6 +449,21 @@ const ConversationPanel = ({
                 isStreaming={msg.row_id === 'streaming'}
               />
             ))}
+            
+            {/* Reasoning/Thinking indicator - shown while AI is processing */}
+            {thinkingText && isSending && usePromptFamilyMode && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] px-2.5 py-2 bg-surface-container rounded-m3-lg space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
+                    <Brain className="h-3 w-3 text-primary animate-pulse" />
+                    <span className="font-medium">Reasoning</span>
+                  </div>
+                  <div className="text-[11px] text-on-surface-variant whitespace-pre-wrap max-h-32 overflow-y-auto">
+                    {thinkingText}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Tool activity indicator */}
             {isExecutingTools && (
