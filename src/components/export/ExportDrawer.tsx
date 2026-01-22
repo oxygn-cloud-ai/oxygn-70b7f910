@@ -14,14 +14,129 @@ import { ExportFieldSelector } from './ExportFieldSelector';
 import { ExportTypeSelector } from './ExportTypeSelector';
 import { ConfluenceConfig } from './types/confluence/ConfluenceConfig';
 import { ExportTemplatePicker } from './ExportTemplatePicker';
-const STEPS = [
+
+// Types
+interface TreeNode {
+  row_id: string;
+  prompt_name?: string;
+  is_assistant?: boolean;
+  children?: TreeNode[];
+}
+
+interface PromptData {
+  row_id: string;
+  prompt_name?: string;
+  [key: string]: unknown;
+}
+
+interface VariableData {
+  variable_name: string;
+  variable_value?: string;
+  [key: string]: unknown;
+}
+
+interface StandardField {
+  id: string;
+  label: string;
+  description: string;
+}
+
+interface ConfluenceExport {
+  spaces: unknown[];
+  templates: unknown[];
+  spaceTree: unknown[];
+  selectedSpaceKey: string | null;
+  selectedParentId: string | null;
+  selectedTemplate: unknown | null;
+  templateMappings: Record<string, unknown>;
+  pageTitle: string;
+  useBlankPage: boolean;
+  pageTitleSource: string;
+  isLoadingTree: boolean;
+  isLoadingTemplates: boolean;
+  isCreatingPage: boolean;
+  initialize: () => void;
+  selectSpace: (key: string) => void;
+  selectParent: (id: string) => void;
+  selectTemplate: (template: unknown) => void;
+  chooseBlankPage: () => void;
+  updateMapping: (varName: string, mapping: unknown) => void;
+  setPageTitle: (title: string) => void;
+  setPageTitleSource: (source: string) => void;
+  getPageChildren: (pageId: string) => Promise<unknown[]>;
+  setSpaceTree: (tree: unknown[]) => void;
+  exportToConfluence: (data: unknown[]) => Promise<{ page?: { url?: string } }>;
+}
+
+interface ExportSteps {
+  SELECT_PROMPTS: number;
+  SELECT_FIELDS: number;
+  SELECT_TYPE: number;
+  CONFIGURE: number;
+}
+
+interface ExportTypes {
+  CONFLUENCE: string;
+  [key: string]: string;
+}
+
+interface TemplateData {
+  selectedFields?: string[];
+  selectedVariables?: Record<string, string[]>;
+  confluenceConfig?: {
+    templateMappings?: Record<string, unknown>;
+    useBlankPage?: boolean;
+  };
+}
+
+interface ExportDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentStep: number;
+  selectedPromptIds: string[];
+  selectedFields: string[];
+  selectedVariables: Record<string, string[]>;
+  exportType: string | null;
+  promptsData: PromptData[];
+  variablesData: Record<string, VariableData[]>;
+  treeData: TreeNode[];
+  isLoadingPrompts: boolean;
+  isLoadingVariables: boolean;
+  canProceed: boolean;
+  onGoBack: () => void;
+  onGoNext: () => void;
+  onTogglePrompt: (id: string) => void;
+  onToggleWithDescendants: (node: TreeNode, allSelected: boolean) => void;
+  onSelectAllPrompts: (ids: string[]) => void;
+  onClearPrompts: () => void;
+  onToggleField: (fieldId: string) => void;
+  onToggleVariable: (promptId: string, varName: string) => void;
+  onSetExportType: (type: string) => void;
+  onFetchPrompts: (ids: string[]) => void;
+  onFetchVariables: (ids: string[]) => void;
+  onSetSelectedFields?: (fields: string[]) => void;
+  onSetSelectedVariables?: (vars: Record<string, string[]>) => void;
+  getExportData: unknown[];
+  EXPORT_STEPS: ExportSteps;
+  EXPORT_TYPES: ExportTypes;
+  STANDARD_FIELDS: StandardField[];
+  confluenceExport: ConfluenceExport;
+}
+
+interface StepConfig {
+  key: number;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const STEPS: StepConfig[] = [
   { key: 1, label: 'Select Prompts', icon: FileStack },
   { key: 2, label: 'Select Fields', icon: ListChecks },
   { key: 3, label: 'Destination', icon: Send },
   { key: 4, label: 'Configure', icon: Settings2 },
 ];
 
-export const ExportDrawer = ({
+export const ExportDrawer: React.FC<ExportDrawerProps> = ({
   isOpen,
   onClose,
   currentStep,
@@ -55,7 +170,6 @@ export const ExportDrawer = ({
   confluenceExport
 }) => {
   // When moving to step 2, fetch prompt data and variables
-  // Only fetch if data hasn't been loaded yet (prevents duplicate fetching when openExport pre-fetches)
   useEffect(() => {
     if (currentStep === EXPORT_STEPS.SELECT_FIELDS && selectedPromptIds.length > 0 && promptsData.length === 0) {
       console.log('[ExportDrawer] Fetching prompts (not pre-loaded), IDs:', selectedPromptIds.length);
@@ -72,7 +186,7 @@ export const ExportDrawer = ({
   }, [currentStep, exportType, confluenceExport, EXPORT_STEPS.CONFIGURE, EXPORT_TYPES.CONFLUENCE]);
 
   // Handle loading an export template
-  const handleLoadTemplate = useCallback((templateData) => {
+  const handleLoadTemplate = useCallback((templateData: TemplateData) => {
     if (templateData.selectedFields && onSetSelectedFields) {
       onSetSelectedFields(templateData.selectedFields);
     }
@@ -107,20 +221,19 @@ export const ExportDrawer = ({
         console.log('[ExportDrawer] Space key:', confluenceExport.selectedSpaceKey);
         console.log('[ExportDrawer] Parent ID:', confluenceExport.selectedParentId);
         
-        if (!exportData || exportData.length === 0) {
+        if (!exportData || (exportData as unknown[]).length === 0) {
           console.error('[ExportDrawer] No export data available');
           return;
         }
         
-        // No longer pass title - hook handles it internally with auto-increment
-        const result = await confluenceExport.exportToConfluence(exportData);
+        const result = await confluenceExport.exportToConfluence(exportData as unknown[]);
         if (result?.page?.url) {
           window.open(result.page.url, '_blank');
         }
         onClose();
       } catch (error) {
         console.error('[ExportDrawer] Export failed:', error);
-        console.error('[ExportDrawer] Error message:', error.message);
+        console.error('[ExportDrawer] Error message:', (error as Error).message);
       }
     }
   };
@@ -166,34 +279,34 @@ export const ExportDrawer = ({
       case EXPORT_STEPS.CONFIGURE:
         if (exportType === EXPORT_TYPES.CONFLUENCE) {
           return (
-          <ConfluenceConfig
-            spaces={confluenceExport.spaces}
-            templates={confluenceExport.templates}
-            spaceTree={confluenceExport.spaceTree}
-            selectedSpaceKey={confluenceExport.selectedSpaceKey}
-            selectedParentId={confluenceExport.selectedParentId}
-            selectedTemplate={confluenceExport.selectedTemplate}
-            templateMappings={confluenceExport.templateMappings}
-            pageTitle={confluenceExport.pageTitle}
-            useBlankPage={confluenceExport.useBlankPage}
-            pageTitleSource={confluenceExport.pageTitleSource}
-            isLoadingTree={confluenceExport.isLoadingTree}
-            isLoadingTemplates={confluenceExport.isLoadingTemplates}
-            promptsData={promptsData}
-            variablesData={variablesData}
-            selectedFields={selectedFields}
-            selectedVariables={selectedVariables}
-            onSelectSpace={confluenceExport.selectSpace}
-            onSelectParent={confluenceExport.selectParent}
-            onSelectTemplate={confluenceExport.selectTemplate}
-            onChooseBlankPage={confluenceExport.chooseBlankPage}
-            onUpdateMapping={confluenceExport.updateMapping}
-            onSetPageTitle={confluenceExport.setPageTitle}
-            onSetPageTitleSource={confluenceExport.setPageTitleSource}
-            onGetPageChildren={confluenceExport.getPageChildren}
-            onSetSpaceTree={confluenceExport.setSpaceTree}
-            STANDARD_FIELDS={STANDARD_FIELDS}
-          />
+            <ConfluenceConfig
+              spaces={confluenceExport.spaces}
+              templates={confluenceExport.templates}
+              spaceTree={confluenceExport.spaceTree}
+              selectedSpaceKey={confluenceExport.selectedSpaceKey}
+              selectedParentId={confluenceExport.selectedParentId}
+              selectedTemplate={confluenceExport.selectedTemplate}
+              templateMappings={confluenceExport.templateMappings}
+              pageTitle={confluenceExport.pageTitle}
+              useBlankPage={confluenceExport.useBlankPage}
+              pageTitleSource={confluenceExport.pageTitleSource}
+              isLoadingTree={confluenceExport.isLoadingTree}
+              isLoadingTemplates={confluenceExport.isLoadingTemplates}
+              promptsData={promptsData}
+              variablesData={variablesData}
+              selectedFields={selectedFields}
+              selectedVariables={selectedVariables}
+              onSelectSpace={confluenceExport.selectSpace}
+              onSelectParent={confluenceExport.selectParent}
+              onSelectTemplate={confluenceExport.selectTemplate}
+              onChooseBlankPage={confluenceExport.chooseBlankPage}
+              onUpdateMapping={confluenceExport.updateMapping}
+              onSetPageTitle={confluenceExport.setPageTitle}
+              onSetPageTitleSource={confluenceExport.setPageTitleSource}
+              onGetPageChildren={confluenceExport.getPageChildren}
+              onSetSpaceTree={confluenceExport.setSpaceTree}
+              STANDARD_FIELDS={STANDARD_FIELDS}
+            />
           );
         }
         return <div className="text-center text-muted-foreground py-8">Coming soon</div>;
@@ -207,8 +320,8 @@ export const ExportDrawer = ({
   const isExporting = confluenceExport?.isCreatingPage;
 
   // Calculate summary text
-  const getSummaryText = () => {
-    const parts = [];
+  const getSummaryText = (): string => {
+    const parts: string[] = [];
     parts.push(`${selectedPromptIds.length} prompt${selectedPromptIds.length !== 1 ? 's' : ''}`);
     if (currentStep >= 2) {
       parts.push(`${selectedFields.length} field${selectedFields.length !== 1 ? 's' : ''}`);
@@ -303,7 +416,7 @@ export const ExportDrawer = ({
           
           {/* Step Navigation Tabs */}
           <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
-            {STEPS.map((step, index) => {
+            {STEPS.map((step) => {
               const Icon = step.icon;
               const isActive = currentStep === step.key;
               const isCompleted = currentStep > step.key;
