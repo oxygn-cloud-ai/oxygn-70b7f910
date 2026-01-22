@@ -510,6 +510,11 @@ async function streamOpenAIResponse(
               if (item.type === 'function_call') {
                 toolCalls.push(item);
               }
+              // Detect built-in tool execution in polling fallback (correct OpenAI types)
+              if (['file_search', 'web_search_preview', 'code_interpreter'].includes(item.type)) {
+                console.log('Built-in tool in polling response:', item.type, 'results:', item.results?.length || 0);
+                emitter.emit({ type: 'tool_activity', tool: item.type, status: 'completed' });
+              }
             }
           }
           
@@ -642,8 +647,8 @@ async function streamOpenAIResponse(
               if (item.type === 'function_call') {
                 toolCalls.push(item);
               }
-              // Detect built-in tool execution and emit activity
-              if (['file_search_call', 'web_search_call', 'code_interpreter_call'].includes(item.type)) {
+              // Detect built-in tool execution and emit activity (correct OpenAI types)
+              if (['file_search', 'web_search_preview', 'code_interpreter'].includes(item.type)) {
                 console.log('Built-in tool executed:', item.type, 'results:', item.results?.length || 0);
                 emitter.emit({ type: 'tool_activity', tool: item.type, status: 'completed' });
               }
@@ -832,8 +837,8 @@ async function executeToolsAndSubmitStreaming(
         if (item.type === 'function_call') {
           nextToolCalls.push(item);
         }
-        // Detect built-in tool execution in completed response
-        if (['file_search_call', 'web_search_call', 'code_interpreter_call'].includes(item.type)) {
+        // Detect built-in tool execution in completed response (correct OpenAI types)
+        if (['file_search', 'web_search_preview', 'code_interpreter'].includes(item.type)) {
           console.log('Built-in tool in completed response:', item.type, 'results:', item.results?.length || 0);
           emitter.emit({ type: 'tool_activity', tool: item.type, status: 'completed' });
         }

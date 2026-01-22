@@ -1518,9 +1518,9 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
   const outputItems = currentResult.output || [];
   const functionCalls = outputItems.filter((o: any) => o.type === 'function_call');
   
-  // Built-in tools return different output types
+  // Built-in tools return different output types (correct OpenAI types)
   const builtInToolCalls = outputItems.filter((o: any) => 
-    ['file_search_call', 'web_search_call', 'code_interpreter_call'].includes(o.type)
+    ['file_search', 'web_search_preview', 'code_interpreter'].includes(o.type)
   );
   
   console.log('Question node: output items:', outputItems.length, 
@@ -1532,24 +1532,17 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
   if (builtInToolCalls.length > 0) {
     console.log('Question node: built-in tools executed:', builtInToolCalls.map((t: any) => t.type));
     
-    // Check if file_search was called and returned results
+    // Log built-in tool results with correct type names
     for (const toolCall of builtInToolCalls) {
-      if (toolCall.type === 'file_search_call' && toolCall.results) {
+      if (toolCall.type === 'file_search' && toolCall.results) {
         console.log('Question node: file_search returned', toolCall.results.length, 'results');
       }
-      if (toolCall.type === 'web_search_call' && toolCall.results) {
+      if (toolCall.type === 'web_search_preview' && toolCall.results) {
         console.log('Question node: web_search returned', toolCall.results.length, 'results');
       }
-      if (toolCall.type === 'code_interpreter_call') {
+      if (toolCall.type === 'code_interpreter') {
         console.log('Question node: code_interpreter executed');
       }
-    }
-    
-    // If status is still in_progress after built-in tools, continue polling
-    // Built-in tools are handled automatically by OpenAI, we just need to wait for completion
-    if (currentResult.status === 'in_progress') {
-      console.log('Question node: built-in tools completed, continuing to poll for final result');
-      // Continue polling loop will handle this
     }
   }
   
