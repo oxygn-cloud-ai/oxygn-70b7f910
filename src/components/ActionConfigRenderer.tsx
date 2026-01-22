@@ -5,7 +5,7 @@
  * Supports text, number, select, textarea, boolean, json_path, schema_keys, and prompt_picker field types.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,25 +14,80 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, ChevronRight, Folder } from 'lucide-react';
 import { CONFIG_FIELD_TYPES } from '@/config/actionTypes';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { extractSchemaKeys } from '@/utils/schemaUtils';
 import useTreeData from '@/hooks/useTreeData';
 import { useSupabase } from '@/hooks/useSupabase';
 
-const ActionConfigRenderer = ({ 
+// Types for schema keys extracted from JSON schema
+interface SchemaKey {
+  key: string;
+  type: string;
+  isArray?: boolean;
+}
+
+// Types for select field options
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+// Types for config field schema
+interface ConfigField {
+  key: string;
+  type: string;
+  label: string;
+  required?: boolean;
+  helpText?: string;
+  placeholder?: string;
+  defaultValue?: string | number | boolean;
+  options?: (string | SelectOption)[];
+  min?: number;
+  max?: number;
+  dependsOn?: {
+    key: string;
+    value: unknown;
+  };
+}
+
+// Types for tree nodes
+interface TreeNode {
+  row_id: string;
+  prompt_name: string;
+  children?: TreeNode[];
+}
+
+interface FlattenedTreeNode extends TreeNode {
+  fullName: string;
+}
+
+// Types for library items
+interface LibraryItem {
+  row_id: string;
+  name: string;
+}
+
+interface ActionConfigRendererProps {
+  schema?: ConfigField[];
+  config?: Record<string, unknown>;
+  onChange?: (config: Record<string, unknown>) => void;
+  disabled?: boolean;
+  currentSchema?: Record<string, unknown> | null;
+}
+
+const ActionConfigRenderer: React.FC<ActionConfigRendererProps> = ({ 
   schema = [], 
   config = {}, 
   onChange,
   disabled = false,
-  currentSchema = null, // The current JSON schema for SCHEMA_KEYS field type
+  currentSchema = null,
 }) => {
   const supabase = useSupabase();
   const { items: libraryItems, isLoading: libraryLoading } = usePromptLibrary();
   const { treeData, isLoading: treeLoading } = useTreeData(supabase);
 
-  const handleFieldChange = (key, value) => {
+  const handleFieldChange = (key: string, value: unknown): void => {
     onChange?.({
       ...config,
       [key]: value,
@@ -40,14 +95,14 @@ const ActionConfigRenderer = ({
   };
 
   // Extract keys from currentSchema for SCHEMA_KEYS field type
-  const schemaKeys = React.useMemo(() => {
+  const schemaKeys: SchemaKey[] = useMemo(() => {
     if (!currentSchema) return [];
-    return extractSchemaKeys(currentSchema);
+    return extractSchemaKeys(currentSchema) as SchemaKey[];
   }, [currentSchema]);
 
   // Multi-select schema keys (for selecting multiple keys)
-  const renderSchemaKeysField = (field) => {
-    const selectedKeys = config[field.key] || [];
+  const renderSchemaKeysField = (field: ConfigField): React.ReactNode => {
+    const selectedKeys = (config[field.key] as string[]) || [];
     const fieldId = `action-config-${field.key}`;
 
     return (
@@ -95,10 +150,10 @@ const ActionConfigRenderer = ({
   };
 
   // Single-select schema key (for picking ONE key like json_path)
-  const renderSingleSchemaKeyField = (field) => {
+  const renderSingleSchemaKeyField = (field: ConfigField): React.ReactNode => {
     // Handle value as string or first element of array
     const rawValue = config[field.key];
-    const selectedKey = Array.isArray(rawValue) ? rawValue[0] : (rawValue || '');
+    const selectedKey = Array.isArray(rawValue) ? rawValue[0] : (rawValue as string || '');
     const fieldId = `action-config-${field.key}`;
     
     // Filter to only array types for json_path
@@ -161,23 +216,23 @@ const ActionConfigRenderer = ({
     );
   };
 
-  const renderPromptPickerField = (field) => {
-    const selectedValue = config[field.key] || '';
+  const renderPromptPickerField = (field: ConfigField): React.ReactNode => {
+    const selectedValue = (config[field.key] as string) || '';
     const fieldId = `action-config-${field.key}`;
 
     // Flatten tree to get all prompts
-    const flattenTree = (nodes, parentName = '') => {
-      return nodes.reduce((acc, node) => {
+    const flattenTree = (nodes: TreeNode[], parentName: string = ''): FlattenedTreeNode[] => {
+      return nodes.reduce<FlattenedTreeNode[]>((acc, node) => {
         const fullName = parentName ? `${parentName} / ${node.prompt_name}` : node.prompt_name;
         acc.push({ ...node, fullName });
-        if (node.children?.length > 0) {
+        if (node.children?.length) {
           acc.push(...flattenTree(node.children, fullName));
         }
         return acc;
       }, []);
     };
 
-    const allPrompts = flattenTree(treeData);
+    const allPrompts = flattenTree(treeData as TreeNode[]);
 
     return (
       <div key={field.key} className="space-y-2">
@@ -211,9 +266,10 @@ const ActionConfigRenderer = ({
     );
   };
 
-  const renderLibraryPickerField = (field) => {
-    const selectedValue = config[field.key] || '';
+  const renderLibraryPickerField = (field: ConfigField): React.ReactNode => {
+    const selectedValue = (config[field.key] as string) || '';
     const fieldId = `action-config-${field.key}`;
+    const items = libraryItems as LibraryItem[];
 
     return (
       <div key={field.key} className="space-y-2">
@@ -238,7 +294,7 @@ const ActionConfigRenderer = ({
               <SelectItem value="_none">
                 <span className="text-on-surface-variant">None</span>
               </SelectItem>
-              {libraryItems.map((item) => (
+              {items.map((item) => (
                 <SelectItem key={item.row_id} value={item.row_id}>
                   {item.name}
                 </SelectItem>
@@ -250,7 +306,7 @@ const ActionConfigRenderer = ({
     );
   };
 
-  const renderField = (field) => {
+  const renderField = (field: ConfigField): React.ReactNode => {
     const fieldId = `action-config-${field.key}`;
     const value = config[field.key] ?? field.defaultValue ?? '';
     
@@ -258,7 +314,7 @@ const ActionConfigRenderer = ({
     if (field.dependsOn) {
       const dependencyValue = config[field.dependsOn.key];
       if (dependencyValue !== field.dependsOn.value) {
-        return null; // Don't render this field
+        return null;
       }
     }
 
@@ -277,7 +333,7 @@ const ActionConfigRenderer = ({
 
       case CONFIG_FIELD_TYPES.SELECT: {
         // Normalize options: support both string arrays AND {value, label} objects
-        const normalizedOptions = (field.options || []).map(opt => 
+        const normalizedOptions: SelectOption[] = (field.options || []).map(opt => 
           typeof opt === 'string' ? { value: opt, label: opt } : opt
         );
 
@@ -291,7 +347,7 @@ const ActionConfigRenderer = ({
               <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Select
-              value={value}
+              value={value as string}
               onValueChange={(v) => handleFieldChange(field.key, v)}
               disabled={disabled}
             >
@@ -343,7 +399,7 @@ const ActionConfigRenderer = ({
             <Input
               id={fieldId}
               type="number"
-              value={value}
+              value={value as number}
               onChange={(e) => handleFieldChange(field.key, parseInt(e.target.value, 10) || 0)}
               min={field.min}
               max={field.max}
@@ -365,7 +421,7 @@ const ActionConfigRenderer = ({
             )}
             <Textarea
               id={fieldId}
-              value={value}
+              value={value as string}
               onChange={(e) => handleFieldChange(field.key, e.target.value)}
               placeholder={field.placeholder}
               disabled={disabled}
@@ -386,7 +442,7 @@ const ActionConfigRenderer = ({
             )}
             <Input
               id={fieldId}
-              value={value}
+              value={value as string}
               onChange={(e) => handleFieldChange(field.key, e.target.value)}
               placeholder={field.placeholder || "e.g., sections or items"}
               disabled={disabled}
@@ -411,7 +467,7 @@ const ActionConfigRenderer = ({
             )}
             <Input
               id={fieldId}
-              value={value}
+              value={value as string}
               onChange={(e) => handleFieldChange(field.key, e.target.value)}
               placeholder={field.placeholder}
               disabled={disabled}

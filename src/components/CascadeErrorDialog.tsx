@@ -9,10 +9,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, SkipForward, RefreshCw, StopCircle, FileQuestion, AlertCircle } from 'lucide-react';
+import { AlertTriangle, SkipForward, RefreshCw, StopCircle, FileQuestion, AlertCircle, LucideIcon } from 'lucide-react';
+
+interface ErrorDetails {
+  type: string;
+  icon?: LucideIcon;
+  suggestion: string | null;
+}
 
 // Helper to parse error and provide actionable suggestions
-const getErrorDetails = (error) => {
+const getErrorDetails = (error: string | null): ErrorDetails => {
   if (!error) return { type: 'unknown', suggestion: null };
   
   const errorLower = error.toLowerCase();
@@ -44,7 +50,7 @@ const getErrorDetails = (error) => {
   return { type: 'unknown', icon: AlertTriangle, suggestion: null };
 };
 
-const CascadeErrorDialog = () => {
+const CascadeErrorDialog: React.FC = () => {
   const { error, errorPrompt, resolveError, isRunning } = useCascadeRun();
 
   const isOpen = isRunning && !!error && !!errorPrompt;

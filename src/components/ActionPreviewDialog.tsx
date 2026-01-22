@@ -21,19 +21,52 @@ import {
   GitBranch, 
   FileText, 
   FolderTree,
-  ArrowRight,
   CheckCircle2,
 } from 'lucide-react';
+
+interface ActionConfig {
+  json_path?: string | string[];
+  name_field?: string;
+  content_field?: string;
+  placement?: 'children' | 'siblings' | 'top_level' | 'specific_prompt';
+  target_prompt_id?: string;
+}
+
+interface PreviewItem {
+  name: string;
+  contentPreview: string;
+}
+
+interface AnalysisResult {
+  items: PreviewItem[];
+  error: string | null;
+  availableArrays?: string[];
+}
+
+interface ActionPreviewDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  jsonResponse: Record<string, unknown> | null;
+  config: ActionConfig | null;
+  promptName: string;
+  onConfirm?: () => void;
+  onCancel?: () => void;
+}
 
 /**
  * Get a nested value from an object using dot notation
  */
-const getNestedValue = (obj, path) => {
+const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
   if (!path || path === 'root') return obj;
-  return path.split('.').reduce((o, k) => o?.[k], obj);
+  return path.split('.').reduce<unknown>((o, k) => {
+    if (o && typeof o === 'object' && k in o) {
+      return (o as Record<string, unknown>)[k];
+    }
+    return undefined;
+  }, obj);
 };
 
-const ActionPreviewDialog = ({
+const ActionPreviewDialog: React.FC<ActionPreviewDialogProps> = ({
   open,
   onOpenChange,
   jsonResponse,
@@ -51,7 +84,7 @@ const ActionPreviewDialog = ({
   } = config || {};
 
   // Extract and analyze the items that will be created
-  const analysisResult = useMemo(() => {
+  const analysisResult = useMemo<AnalysisResult>(() => {
     if (!jsonResponse) {
       return { items: [], error: 'No JSON response' };
     }
@@ -70,7 +103,7 @@ const ActionPreviewDialog = ({
     }
 
     // Extract names for preview
-    const previewItems = items.map((item, idx) => {
+    const previewItems: PreviewItem[] = items.map((item: Record<string, unknown>, idx: number) => {
       let name = 'Unnamed';
       
       // Try configured name field
@@ -78,11 +111,11 @@ const ActionPreviewDialog = ({
         name = String(item[name_field]);
       }
       // Auto-detect common name fields
-      else if (item.title) name = item.title;
-      else if (item.name) name = item.name;
-      else if (item.prompt_name) name = item.prompt_name;
-      else if (item.heading) name = item.heading;
-      else if (typeof item === 'string') name = item.slice(0, 50);
+      else if (item.title) name = String(item.title);
+      else if (item.name) name = String(item.name);
+      else if (item.prompt_name) name = String(item.prompt_name);
+      else if (item.heading) name = String(item.heading);
+      else if (typeof item === 'string') name = (item as string).slice(0, 50);
       else name = `Item ${idx + 1}`;
 
       // Get content preview
@@ -116,12 +149,12 @@ const ActionPreviewDialog = ({
     }
   }, [placement, promptName, target_prompt_id]);
 
-  const handleConfirm = () => {
+  const handleConfirm = (): void => {
     onConfirm?.();
     onOpenChange(false);
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     onCancel?.();
     onOpenChange(false);
   };
@@ -144,7 +177,7 @@ const ActionPreviewDialog = ({
           {analysisResult.error && (
             <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-m3-sm">
               <p className="text-body-sm text-red-500">{analysisResult.error}</p>
-              {analysisResult.availableArrays?.length > 0 && (
+              {analysisResult.availableArrays && analysisResult.availableArrays.length > 0 && (
                 <p className="text-[10px] text-on-surface-variant mt-1">
                   Available arrays: {analysisResult.availableArrays.join(', ')}
                 </p>
