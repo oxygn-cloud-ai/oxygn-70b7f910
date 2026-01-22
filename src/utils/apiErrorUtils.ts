@@ -2,9 +2,40 @@
  * Utility functions for parsing and displaying user-friendly API error messages
  */
 
-// Known error patterns and their user-friendly messages
-// IMPORTANT: Order matters! More specific patterns must come BEFORE generic patterns.
-const ERROR_PATTERNS = [
+// ============= Types =============
+
+export interface ErrorPattern {
+  pattern: RegExp;
+  code: string;
+  title: string;
+  message: string;
+  recoverable: boolean;
+}
+
+export interface ParsedApiError {
+  code: string;
+  title: string;
+  message: string;
+  recoverable: boolean;
+  original: string;
+}
+
+export interface FormattedError {
+  title: string;
+  description: string;
+  code: string;
+  recoverable: boolean;
+}
+
+export interface ErrorInput {
+  message?: string;
+  error_code?: string;
+  code?: string;
+}
+
+// ============= Error Patterns =============
+
+const ERROR_PATTERNS: ErrorPattern[] = [
   // === OpenAI Quota/Billing (most specific first) ===
   {
     pattern: /exceeded your current quota/i,
@@ -30,7 +61,7 @@ const ERROR_PATTERNS = [
     recoverable: true,
   },
   
-  // === Timeout (must come BEFORE NETWORK_ERROR) ===
+  // === Timeout ===
   {
     pattern: /idle.?timeout|no response data received|connection may have stalled/i,
     code: 'IDLE_TIMEOUT',
@@ -48,7 +79,7 @@ const ERROR_PATTERNS = [
     recoverable: true,
   },
   
-  // === MANUS-SPECIFIC ERRORS (must come BEFORE generic api key patterns) ===
+  // === MANUS-SPECIFIC ERRORS ===
   {
     pattern: /MANUS_NOT_CONFIGURED|manus.*not configured/i,
     code: 'MANUS_NOT_CONFIGURED',
@@ -134,7 +165,7 @@ const ERROR_PATTERNS = [
     recoverable: true,
   },
   
-  // === GENERIC API KEY (after Manus-specific) ===
+  // === GENERIC API KEY ===
   {
     pattern: /invalid.*api.*key/i,
     code: 'INVALID_API_KEY',
@@ -166,7 +197,7 @@ const ERROR_PATTERNS = [
     recoverable: false,
   },
   
-  // === Network Errors (specific patterns to avoid false positives) ===
+  // === Network Errors ===
   {
     pattern: /failed to fetch|network error|ERR_NETWORK|ECONNREFUSED|ENOTFOUND|net::ERR_|NetworkError/i,
     code: 'NETWORK_ERROR',
@@ -175,7 +206,7 @@ const ERROR_PATTERNS = [
     recoverable: true,
   },
   
-  // === Server Errors (last resort for 500s) ===
+  // === Server Errors ===
   {
     pattern: /server.*error|internal.*error|error.*500|status.*500|code.*500|\b500\b.*error/i,
     code: 'SERVER_ERROR',
@@ -185,16 +216,18 @@ const ERROR_PATTERNS = [
   },
 ];
 
+// ============= Error Parsing =============
+
 /**
  * Parse an error and return user-friendly information
- * @param {Error|string|object} error - The error to parse
- * @returns {{code: string, title: string, message: string, recoverable: boolean, original: string}}
  */
-export const parseApiError = (error) => {
-  const errorMessage = typeof error === 'string' ? error : error?.message || 'Unknown error';
+export const parseApiError = (error: string | Error | ErrorInput): ParsedApiError => {
+  const errorMessage = typeof error === 'string' 
+    ? error 
+    : (error as ErrorInput)?.message || 'Unknown error';
   
   // Priority 1: Match on explicit error_code if present
-  const errorCode = error?.error_code || error?.code;
+  const errorCode = (error as ErrorInput)?.error_code || (error as ErrorInput)?.code;
   if (errorCode) {
     const matchByCode = ERROR_PATTERNS.find(p => p.code === errorCode);
     if (matchByCode) {
@@ -221,7 +254,7 @@ export const parseApiError = (error) => {
     }
   }
   
-  // Default fallback for unknown errors
+  // Default fallback
   return {
     code: 'UNKNOWN_ERROR',
     title: 'Error',
@@ -233,40 +266,36 @@ export const parseApiError = (error) => {
 
 /**
  * Check if an error is recoverable (can be retried)
- * @param {Error|string} error - The error to check
- * @returns {boolean}
  */
-export const isRecoverableError = (error) => {
+export const isRecoverableError = (error: string | Error | ErrorInput): boolean => {
   return parseApiError(error).recoverable;
 };
 
 /**
  * Check if error is a quota/billing issue
- * @param {Error|string} error - The error to check
- * @returns {boolean}
  */
-export const isQuotaError = (error) => {
+export const isQuotaError = (error: string | Error | ErrorInput): boolean => {
   const parsed = parseApiError(error);
   return parsed.code === 'QUOTA_EXCEEDED';
 };
 
 /**
  * Check if error is a rate limit
- * @param {Error|string} error - The error to check
- * @returns {boolean}
  */
-export const isRateLimitError = (error) => {
-  const errorMessage = typeof error === 'string' ? error : error?.message || '';
+export const isRateLimitError = (error: string | Error | ErrorInput): boolean => {
+  const errorMessage = typeof error === 'string' 
+    ? error 
+    : (error as ErrorInput)?.message || '';
   return /rate limit/i.test(errorMessage);
 };
 
 /**
  * Format error for display in toast or dialog
- * @param {Error|string} error - The error to format
- * @param {string} [promptName] - Optional prompt name for context
- * @returns {{title: string, description: string}}
  */
-export const formatErrorForDisplay = (error, promptName) => {
+export const formatErrorForDisplay = (
+  error: string | Error | ErrorInput,
+  promptName?: string
+): FormattedError => {
   const parsed = parseApiError(error);
   
   const title = promptName 
@@ -279,4 +308,12 @@ export const formatErrorForDisplay = (error, promptName) => {
     code: parsed.code,
     recoverable: parsed.recoverable,
   };
+};
+
+export default {
+  parseApiError,
+  isRecoverableError,
+  isQuotaError,
+  isRateLimitError,
+  formatErrorForDisplay,
 };

@@ -5,7 +5,7 @@
  * Supports naming templates like {{n}}, {{nn}}, {{A}}, {{date:FORMAT}}.
  */
 
-import { processNamingTemplate } from '../../utils/namingTemplates.js';
+import { processNamingTemplate } from '../../utils/namingTemplates';
 import { generatePositionAtEnd } from '../../utils/lexPosition';
 
 const PROMPTS_TABLE = 'q_prompts';

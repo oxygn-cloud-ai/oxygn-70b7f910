@@ -7,14 +7,45 @@
 
 import { SYSTEM_VARIABLES, SYSTEM_VARIABLE_TYPES } from '@/config/systemVariables';
 
+// ============= Types =============
+
+export interface User {
+  email?: string;
+  [key: string]: unknown;
+}
+
+export interface PromptData {
+  row_id?: string;
+  prompt_name?: string;
+  output_response?: string;
+  user_prompt_result?: string;
+  [key: string]: unknown;
+}
+
+export interface BuildSystemVariablesOptions {
+  promptData?: PromptData;
+  parentData?: PromptData | null;
+  topLevelData?: PromptData | null;
+  user?: User | null;
+  storedVariables?: Record<string, unknown>;
+}
+
+export interface SystemVariableContext {
+  user: User | null;
+  promptName: string;
+  topLevelPromptName: string;
+  parentPromptName: string;
+}
+
+export interface SystemVariableDefinition {
+  type: string;
+  getValue?: (context: SystemVariableContext) => string;
+}
+
+// ============= Variable Resolution =============
+
 /**
  * Build all system variables for a prompt run
- * @param {Object} options - Options for variable resolution
- * @param {Object} options.promptData - Current prompt data
- * @param {Object} options.parentData - Parent prompt data (if available)
- * @param {Object} options.user - Current user object (from auth context)
- * @param {Object} options.storedVariables - Variables stored on the prompt (from system_variables field)
- * @returns {Object} Resolved system variables map
  */
 export const buildSystemVariablesForRun = ({
   promptData = {},
@@ -22,18 +53,11 @@ export const buildSystemVariablesForRun = ({
   topLevelData = null,
   user = null,
   storedVariables = {},
-} = {}) => {
-  const resolved = {};
+}: BuildSystemVariablesOptions = {}): Record<string, string> => {
+  const resolved: Record<string, string> = {};
   
   // Build context for static variable resolution
-  // - topLevelData = root prompt of the cascade/family (level 0, prompt 0)
-  // - parentData = immediate parent of the current prompt (direct parent_row_id)
-  // 
-  // FALLBACK CHAIN for topLevelPromptName:
-  // For non-cascade single-prompt runs, topLevelData is null.
-  // In this case, we fall back to parentData (if exists) or promptData.
-  // This is intentional - in single-run mode, the "top-level" is conceptually the entry point.
-  const context = {
+  const context: SystemVariableContext = {
     user: user,
     promptName: promptData?.prompt_name || '',
     topLevelPromptName: topLevelData?.prompt_name || parentData?.prompt_name || promptData?.prompt_name || '',
@@ -41,7 +65,7 @@ export const buildSystemVariablesForRun = ({
   };
   
   // 1. Resolve all static system variables (auto-populated)
-  Object.entries(SYSTEM_VARIABLES).forEach(([varName, def]) => {
+  Object.entries(SYSTEM_VARIABLES as Record<string, SystemVariableDefinition>).forEach(([varName, def]) => {
     if (def.type === SYSTEM_VARIABLE_TYPES.STATIC && def.getValue) {
       try {
         resolved[varName] = def.getValue(context);
@@ -52,7 +76,6 @@ export const buildSystemVariablesForRun = ({
   });
   
   // 2. Add stored variables from the prompt's system_variables field
-  // These are user-editable variables like q.policy.version, q.client.name that were set when the prompt was created
   if (storedVariables && typeof storedVariables === 'object') {
     Object.entries(storedVariables).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -63,7 +86,6 @@ export const buildSystemVariablesForRun = ({
   
   // 3. Add prompt context variables
   if (promptData) {
-    // Prompt fields that can be referenced
     if (promptData.prompt_name) {
       resolved['q.prompt.name'] = promptData.prompt_name;
     }
@@ -80,7 +102,6 @@ export const buildSystemVariablesForRun = ({
     if (parentData.row_id) {
       resolved['q.parent.prompt.id'] = parentData.row_id;
     }
-    // Parent's output response (if available)
     if (parentData.output_response) {
       resolved['q.parent.output_response'] = parentData.output_response;
     }
@@ -94,17 +115,16 @@ export const buildSystemVariablesForRun = ({
 
 /**
  * Apply template variable substitution to text
- * @param {string} text - Text containing {{varName}} placeholders
- * @param {Object} variables - Map of variable names to values
- * @returns {string} Text with variables substituted
  */
-export const applyTemplateVariables = (text, variables = {}) => {
+export const applyTemplateVariables = (
+  text: string,
+  variables: Record<string, unknown> = {}
+): string => {
   if (!text || typeof text !== 'string') return text;
   if (!variables || Object.keys(variables).length === 0) return text;
   
   let result = text;
   
-  // Replace all {{varName}} patterns
   Object.entries(variables).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
       const pattern = new RegExp(`\\{\\{${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\}\\}`, 'g');
@@ -117,15 +137,13 @@ export const applyTemplateVariables = (text, variables = {}) => {
 
 /**
  * Extract variable names from text
- * @param {string} text - Text to scan for variables
- * @returns {string[]} Array of variable names found
  */
-export const extractVariableNames = (text) => {
+export const extractVariableNames = (text: string): string[] => {
   if (!text || typeof text !== 'string') return [];
   
   const pattern = /\{\{([^}]+)\}\}/g;
-  const names = [];
-  let match;
+  const names: string[] = [];
+  let match: RegExpExecArray | null;
   
   while ((match = pattern.exec(text)) !== null) {
     const name = match[1].trim();
