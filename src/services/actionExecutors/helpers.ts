@@ -10,8 +10,10 @@ import { TypedSupabaseClient, ModelDefaults, LibraryPrompt, ParentSettings } fro
 // Table references - validated at import time
 const SETTINGS_TABLE = getEnvOrThrow('VITE_SETTINGS_TBL');
 const MODEL_DEFAULTS_TABLE = getEnvOrThrow('VITE_MODEL_DEFAULTS_TBL');
-const LIBRARY_TABLE = getEnvOrThrow('VITE_PROMPT_LIBRARY_TBL');
 const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
+
+// Lazy load - only validated when getLibraryPrompt is actually called
+const getLibraryTable = () => getEnvOrThrow('VITE_PROMPT_LIBRARY_TBL');
 
 /**
  * Get nested value from object using dot notation path.
@@ -115,7 +117,7 @@ export const getLibraryPrompt = async (
   if (!libraryPromptId) return null;
 
   const { data } = await supabase
-    .from(LIBRARY_TABLE)
+    .from(getLibraryTable())
     .select('row_id, name, content, description, category')
     .eq('row_id', libraryPromptId)
     .maybeSingle();
