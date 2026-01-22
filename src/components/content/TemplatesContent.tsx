@@ -3,23 +3,21 @@ import { useModels } from '@/hooks/useModels';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { 
   FileText, Braces, Link2, Copy, Download, Trash2,
-  LayoutTemplate, Variable, Code, Eye, Plus, GripVertical,
+  LayoutTemplate, Variable, Code, Plus,
   ChevronRight, ChevronDown, Settings, ArrowRight, Layers,
-  Edit3, Check, X, AlertCircle, Upload, Paperclip, CheckCircle2,
-  Clock, XCircle, Loader2, Save, Sliders, Play, Workflow,
-  MoreVertical, Star, Share2, PanelRightOpen, PanelLeftOpen, Library, Search,
-  Bot, Thermometer, Zap, Globe, Briefcase, GitBranch, Hash,
-  List, ToggleLeft, User, Database, EyeOff, RefreshCw
+  Edit3, Check, X, AlertCircle, Upload, Paperclip,
+  Loader2, Save, Sliders, Play, Workflow,
+  MoreVertical, Star, Share2, PanelLeftOpen, Library, Search,
+  Bot, Zap, Globe, Briefcase, GitBranch,
+  type LucideIcon
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LabelPicker } from "@/components/ui/label-picker";
-import { LabelBadge } from "@/components/ui/label-badge";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { SettingCard } from "@/components/ui/setting-card";
 import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,23 +26,146 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SettingSelect, SettingModelSelect } from "@/components/ui/setting-select";
-import { VariablePicker, ResizablePromptArea } from "@/components/shared";
+import { ResizablePromptArea } from "@/components/shared";
 import TemplateStructureEditor from "@/components/templates/TemplateStructureEditor";
 import TemplateVariablesTab from "@/components/templates/TemplateVariablesTab";
 import JsonSchemaEditor from "@/components/templates/JsonSchemaEditor";
+import { LabelBadge } from "@/components/ui/label-badge";
 
-// Source options for variable mappings
-const SOURCE_OPTIONS = [
+// ========================
+// Type Definitions
+// ========================
+
+interface SourceOption {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface VariableDefinition {
+  name: string;
+  type: string;
+  description?: string;
+  source?: string;
+  required?: boolean;
+  default?: string;
+}
+
+interface TemplateStructure {
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  output_response?: string;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  reasoning_effort?: string;
+  is_assistant?: boolean;
+  code_interpreter_on?: boolean;
+  file_search_on?: boolean;
+  web_search_on?: boolean;
+  function_calling_on?: boolean;
+  confluence_enabled?: boolean;
+  jira_enabled?: boolean;
+  children?: StructureNode[];
+  _id?: string;
+  id?: string;
+  row_id?: string;
+  prompt_name?: string;
+  name?: string;
+}
+
+interface StructureNode {
+  _id?: string;
+  id?: string;
+  row_id?: string;
+  prompt_name?: string;
+  name?: string;
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  model?: string;
+  temperature?: string | number;
+  is_assistant?: boolean;
+  web_search_on?: boolean;
+  confluence_enabled?: boolean;
+  file_search_on?: boolean;
+  children?: StructureNode[];
+  type?: string;
+}
+
+interface TemplateMapping {
+  variable: string;
+  source: string;
+  value?: string;
+}
+
+interface TemplateData {
+  row_id?: string;
+  template_name?: string;
+  template_description?: string;
+  schema_name?: string;
+  schema_description?: string;
+  name?: string;
+  description?: string;
+  structure?: TemplateStructure;
+  variable_definitions?: VariableDefinition[];
+  json_schema?: unknown;
+  category?: string;
+  labels?: string[];
+  mappings?: TemplateMapping[];
+}
+
+interface ModelData {
+  model_id?: string;
+  id?: string;
+  model_name?: string;
+  is_active?: boolean;
+}
+
+interface LibraryItem {
+  row_id: string;
+  name?: string;
+  content?: string;
+  category?: string;
+}
+
+interface TemplatesHook {
+  updateTemplate?: (rowId: string, data: Partial<TemplateData>) => Promise<void>;
+  deleteTemplate?: (rowId: string) => Promise<void>;
+  createTemplate?: (data: Partial<TemplateData>) => Promise<TemplateData>;
+  extractTemplateVariables?: (structure: TemplateStructure) => string[];
+}
+
+interface JsonSchemaTemplatesHook {
+  updateTemplate?: (rowId: string, data: Partial<TemplateData>) => Promise<void>;
+  deleteTemplate?: (rowId: string) => Promise<void>;
+  createTemplate?: (data: { schemaName: string; schemaDescription: string; jsonSchema: unknown; category?: string }) => Promise<TemplateData>;
+}
+
+interface TemplatesContentProps {
+  selectedTemplate?: TemplateData | null;
+  activeTemplateTab?: 'prompts' | 'schemas' | 'mappings';
+  templatesHook?: TemplatesHook;
+  jsonSchemaTemplatesHook?: JsonSchemaTemplatesHook;
+  onTemplateChange?: (template: TemplateData | null) => void;
+  models?: ModelData[];
+  folderPanelOpen?: boolean;
+  onToggleFolderPanel?: () => void;
+}
+
+type EditorTab = 'prompt' | 'structure' | 'settings' | 'variables' | 'schema' | 'fields' | 'mappings';
+
+// ========================
+// Constants
+// ========================
+
+const SOURCE_OPTIONS: SourceOption[] = [
   { id: "manual", label: "Manual Input", icon: Edit3 },
   { id: "parent_output", label: "Parent Output", icon: ArrowRight },
   { id: "confluence", label: "Confluence Page", icon: FileText },
   { id: "variable", label: "Variable Reference", icon: Variable },
 ];
 
-// No mock data - all data comes from props
-
-// Variable definitions for hover tooltips
-const VARIABLE_DEFINITIONS = {
+const VARIABLE_DEFINITIONS: Record<string, VariableDefinition> = {
   customer_message: { name: "customer_message", type: "text", description: "The customer's original inquiry or message", source: "User Input", required: true },
   ticket_count: { name: "ticket_count", type: "number", description: "Number of previous support tickets", source: "Database", required: false, default: "0" },
   company_name: { name: "company_name", type: "text", description: "Name of the company", source: "Settings", required: true },
@@ -52,12 +173,19 @@ const VARIABLE_DEFINITIONS = {
   parent_output: { name: "parent.output", type: "reference", description: "Output from parent prompt", source: "Cascade", required: false },
 };
 
-// Component to render text with highlighted variables
-const HighlightedText = ({ text }) => {
+// ========================
+// Helper Components
+// ========================
+
+interface HighlightedTextProps {
+  text: string;
+}
+
+const HighlightedText = ({ text }: HighlightedTextProps) => {
   const variablePattern = /\{\{(\w+(?:\.\w+)?)\}\}/g;
-  const parts = [];
+  const parts: React.ReactNode[] = [];
   let lastIndex = 0;
-  let match;
+  let match: RegExpExecArray | null;
 
   while ((match = variablePattern.exec(text)) !== null) {
     if (match.index > lastIndex) {
@@ -100,8 +228,15 @@ const HighlightedText = ({ text }) => {
   return <>{parts}</>;
 };
 
-// Tab Button for editor tabs
-const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
+interface TabButtonProps {
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  badge?: boolean;
+}
+
+const TabButton = ({ icon: Icon, label, isActive, onClick, badge }: TabButtonProps) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
@@ -122,8 +257,12 @@ const TabButton = ({ icon: Icon, label, isActive, onClick, badge }) => (
   </Tooltip>
 );
 
-// Library Picker Dropdown
-const LibraryPickerDropdown = ({ libraryItems = [], onSelect }) => {
+interface LibraryPickerDropdownProps {
+  libraryItems?: LibraryItem[];
+  onSelect?: (content: string) => void;
+}
+
+const LibraryPickerDropdown = ({ libraryItems = [], onSelect }: LibraryPickerDropdownProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   
   const filteredPrompts = libraryItems.filter(prompt => 
@@ -180,10 +319,17 @@ const LibraryPickerDropdown = ({ libraryItems = [], onSelect }) => {
   );
 };
 
-// EditablePromptArea is now replaced by ResizablePromptArea from shared components
+// ========================
+// Tab Content Components
+// ========================
 
-// Prompt Tab Content (for Prompt Templates)
-const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = [] }) => {
+interface TemplatePromptTabContentProps {
+  templateData?: TemplateData | null;
+  onUpdateField: (field: string, value: unknown) => void;
+  libraryItems?: LibraryItem[];
+}
+
+const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = [] }: TemplatePromptTabContentProps) => {
   const systemPrompt = templateData?.structure?.input_admin_prompt || '';
   const userPrompt = templateData?.structure?.input_user_prompt || '';
   const outputResponse = templateData?.structure?.output_response || '';
@@ -197,7 +343,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
         defaultHeight={160}
         onLibraryPick
         libraryItems={libraryItems}
-        onSave={(value) => onUpdateField('structure.input_admin_prompt', value)}
+        onSave={(value: string) => onUpdateField('structure.input_admin_prompt', value)}
         storageKey={`template-${templateData?.row_id || 'new'}-system`}
       />
 
@@ -208,7 +354,7 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
         defaultHeight={64}
         onLibraryPick
         libraryItems={libraryItems}
-        onSave={(value) => onUpdateField('structure.input_user_prompt', value)}
+        onSave={(value: string) => onUpdateField('structure.input_user_prompt', value)}
         storageKey={`template-${templateData?.row_id || 'new'}-user`}
       />
 
@@ -227,14 +373,6 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Regenerate</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]">
                   <Copy className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
@@ -250,8 +388,13 @@ const TemplatePromptTabContent = ({ templateData, onUpdateField, libraryItems = 
   );
 };
 
-// Settings Tab Content (for Prompt Templates) - with dynamic model-aware parameters
-const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }) => {
+interface TemplateSettingsTabContentProps {
+  templateData?: TemplateData | null;
+  onUpdateField: (field: string, value: unknown) => void;
+  models?: ModelData[];
+}
+
+const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }: TemplateSettingsTabContentProps) => {
   const { getModelConfig } = useModels();
 
   const currentModel = templateData?.structure?.model || models.find(m => m.is_active)?.model_id || '';
@@ -259,12 +402,10 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
   const supportedSettings = modelConfig.supportedSettings || [];
 
   const [temperature, setTemperature] = useState([templateData?.structure?.temperature || 0.7]);
-  const [maxTokens, setMaxTokens] = useState(templateData?.structure?.max_tokens || String(modelConfig.maxTokens));
+  const [maxTokens, setMaxTokens] = useState(String(templateData?.structure?.max_tokens || modelConfig.maxTokens || 4096));
   
-  // Debounce ref for slider saves
-  const sliderDebounceRef = useRef({});
+  const sliderDebounceRef = useRef<Record<string, NodeJS.Timeout>>({});
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       Object.values(sliderDebounceRef.current).forEach(timer => {
@@ -273,36 +414,27 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
     };
   }, []);
 
-  // Update max tokens when model changes
   useEffect(() => {
     if (!templateData?.structure?.max_tokens) {
-      setMaxTokens(String(modelConfig.maxTokens));
+      setMaxTokens(String(modelConfig.maxTokens || 4096));
     }
   }, [modelConfig.maxTokens, templateData?.structure?.max_tokens]);
 
-  const handleModelChange = (modelId) => {
+  const handleModelChange = (modelId: string) => {
     onUpdateField?.('structure.model', modelId);
-    // Don't auto-reset max_tokens - preserve user's setting
-    // Edge function uses model defaults if needed
   };
   
-  // Debounced slider change handler
-  const handleDebouncedSliderChange = (field, value, setter) => {
+  const handleDebouncedSliderChange = (field: string, value: number[], setter: (val: number[]) => void) => {
     setter(value);
     
-    // Clear existing debounce timer
     if (sliderDebounceRef.current[field]) {
       clearTimeout(sliderDebounceRef.current[field]);
     }
     
-    // Set new debounce timer (500ms delay)
     sliderDebounceRef.current[field] = setTimeout(() => {
       onUpdateField?.(field, value[0]);
     }, 500);
   };
-
-  // Get display name for current model
-  const currentModelDisplay = models.find(m => m.model_id === currentModel || m.id === currentModel)?.model_name || currentModel;
 
   return (
     <div className="space-y-4">
@@ -313,7 +445,6 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         label="Model"
       />
 
-      {/* Temperature - only show if model supports it */}
       {modelConfig.supportsTemperature && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -334,12 +465,9 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         </div>
       )}
 
-      {/* Max Tokens - always use max_tokens (edge function handles API param) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">
-            Max Tokens
-          </label>
+          <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Max Tokens</label>
           <span className="text-[10px] text-on-surface-variant">Max: {modelConfig.maxTokens?.toLocaleString() ?? 'N/A'}</span>
         </div>
         <input
@@ -353,7 +481,6 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
         />
       </div>
 
-      {/* Reasoning Effort - only for GPT-5 and O-series */}
       {supportedSettings.includes('reasoning_effort') && (
         <SettingSelect
           value={templateData?.structure?.reasoning_effort || 'medium'}
@@ -366,14 +493,6 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
           label="Reasoning Effort"
         />
       )}
-
-      <SettingSelect
-        value=""
-        onValueChange={() => {}}
-        options={[]}
-        label="JSON Schema (Optional)"
-        placeholder="Select a schema..."
-      />
 
       <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
         <div className="flex items-center justify-between">
@@ -408,7 +527,7 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
                 <span className="text-tree text-on-surface">{tool.label}</span>
               </div>
               <Switch 
-                checked={templateData?.structure?.[tool.key] || false}
+                checked={(templateData?.structure as Record<string, unknown>)?.[tool.key] as boolean || false}
                 onCheckedChange={(checked) => onUpdateField?.(`structure.${tool.key}`, checked)}
               />
             </div>
@@ -419,11 +538,16 @@ const TemplateSettingsTabContent = ({ templateData, onUpdateField, models = [] }
   );
 };
 
-// Node Editor Panel for Structure Tab
-const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
-  const [editedNode, setEditedNode] = useState({ ...node });
+interface StructureNodeEditorProps {
+  node: StructureNode;
+  onUpdate: (node: StructureNode) => void;
+  onClose: () => void;
+}
 
-  const handleFieldChange = (field, value) => {
+const StructureNodeEditor = ({ node, onUpdate, onClose }: StructureNodeEditorProps) => {
+  const [editedNode, setEditedNode] = useState<StructureNode>({ ...node });
+
+  const handleFieldChange = (field: keyof StructureNode, value: unknown) => {
     setEditedNode(prev => ({ ...prev, [field]: value }));
   };
 
@@ -442,10 +566,7 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button 
-                onClick={handleSave}
-                className="w-7 h-7 flex items-center justify-center rounded-m3-full text-primary hover:bg-primary/10"
-              >
+              <button onClick={handleSave} className="w-7 h-7 flex items-center justify-center rounded-m3-full text-primary hover:bg-primary/10">
                 <Check className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -453,10 +574,7 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button 
-                onClick={onClose}
-                className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-              >
+              <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
                 <X className="h-4 w-4" />
               </button>
             </TooltipTrigger>
@@ -465,7 +583,6 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
         </div>
       </div>
 
-      {/* Prompt Name */}
       <div className="space-y-1">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Prompt Name</label>
         <input
@@ -477,7 +594,6 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
         />
       </div>
 
-      {/* System Prompt */}
       <div className="space-y-1">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">System Prompt</label>
         <textarea
@@ -488,7 +604,6 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
         />
       </div>
 
-      {/* User Prompt */}
       <div className="space-y-1">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">User Prompt</label>
         <textarea
@@ -499,51 +614,26 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
         />
       </div>
 
-      {/* Settings Row */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
-          <div className="flex items-center gap-1.5">
-            <Bot className="h-3.5 w-3.5 text-on-surface-variant" />
-            <span className="text-tree text-on-surface">Assistant</span>
+        {[
+          { key: 'is_assistant', icon: Bot, label: 'Assistant' },
+          { key: 'web_search_on', icon: Globe, label: 'Web Search' },
+          { key: 'confluence_enabled', icon: FileText, label: 'Confluence' },
+          { key: 'file_search_on', icon: Search, label: 'File Search' },
+        ].map(item => (
+          <div key={item.key} className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
+            <div className="flex items-center gap-1.5">
+              <item.icon className="h-3.5 w-3.5 text-on-surface-variant" />
+              <span className="text-tree text-on-surface">{item.label}</span>
+            </div>
+            <Switch 
+              checked={(editedNode as Record<string, unknown>)[item.key] as boolean || false}
+              onCheckedChange={(checked) => handleFieldChange(item.key as keyof StructureNode, checked)}
+            />
           </div>
-          <Switch 
-            checked={editedNode.is_assistant || false}
-            onCheckedChange={(checked) => handleFieldChange('is_assistant', checked)}
-          />
-        </div>
-        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
-          <div className="flex items-center gap-1.5">
-            <Globe className="h-3.5 w-3.5 text-on-surface-variant" />
-            <span className="text-tree text-on-surface">Web Search</span>
-          </div>
-          <Switch 
-            checked={editedNode.web_search_on || false}
-            onCheckedChange={(checked) => handleFieldChange('web_search_on', checked)}
-          />
-        </div>
-        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
-          <div className="flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 text-on-surface-variant" />
-            <span className="text-tree text-on-surface">Confluence</span>
-          </div>
-          <Switch 
-            checked={editedNode.confluence_enabled || false}
-            onCheckedChange={(checked) => handleFieldChange('confluence_enabled', checked)}
-          />
-        </div>
-        <div className="flex items-center justify-between p-2 bg-surface-container-low rounded-m3-sm border border-outline-variant">
-          <div className="flex items-center gap-1.5">
-            <Search className="h-3.5 w-3.5 text-on-surface-variant" />
-            <span className="text-tree text-on-surface">File Search</span>
-          </div>
-          <Switch 
-            checked={editedNode.file_search_on || false}
-            onCheckedChange={(checked) => handleFieldChange('file_search_on', checked)}
-          />
-        </div>
+        ))}
       </div>
 
-      {/* Model Settings */}
       <div className="space-y-2">
         <label className="text-[10px] text-on-surface-variant uppercase tracking-wider">Model Settings</label>
         <div className="grid grid-cols-2 gap-2">
@@ -573,21 +663,23 @@ const StructureNodeEditor = ({ node, onUpdate, onClose }) => {
   );
 };
 
-// Structure Tab Content - for Prompt Templates (shows hierarchy of child prompts)
-const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [localStructure, setLocalStructure] = useState(structure);
+interface TemplateStructureTabContentProps {
+  structure?: TemplateStructure | null;
+  onStructureChange?: (structure: TemplateStructure) => void;
+}
 
-  // Sync local structure with prop
+const TemplateStructureTabContent = ({ structure, onStructureChange }: TemplateStructureTabContentProps) => {
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [localStructure, setLocalStructure] = useState<TemplateStructure | null>(structure || null);
+
   useEffect(() => {
-    setLocalStructure(structure);
+    setLocalStructure(structure || null);
   }, [structure]);
 
-  // Find node by id recursively
-  const findNodeById = (node, id) => {
+  const findNodeById = (node: TemplateStructure | StructureNode | null, id: string): StructureNode | null => {
     if (!node) return null;
     const nodeId = node._id || node.id || node.row_id;
-    if (nodeId === id) return node;
+    if (nodeId === id) return node as StructureNode;
     if (node.children) {
       for (const child of node.children) {
         const found = findNodeById(child, id);
@@ -597,9 +689,7 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
     return null;
   };
 
-  // Update node in structure recursively
-  const updateNodeInStructure = (node, id, updates) => {
-    if (!node) return node;
+  const updateNodeInStructure = (node: TemplateStructure | StructureNode, id: string, updates: Partial<StructureNode>): TemplateStructure | StructureNode => {
     const nodeId = node._id || node.id || node.row_id;
     if (nodeId === id) {
       return { ...node, ...updates };
@@ -607,31 +697,36 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
     if (node.children) {
       return {
         ...node,
-        children: node.children.map(child => updateNodeInStructure(child, id, updates))
+        children: node.children.map(child => updateNodeInStructure(child, id, updates) as StructureNode)
       };
     }
     return node;
   };
 
-  const handleNodeUpdate = (updatedNode) => {
+  const handleNodeUpdate = (updatedNode: StructureNode) => {
+    if (!localStructure) return;
     const nodeId = updatedNode._id || updatedNode.id || updatedNode.row_id;
-    const newStructure = updateNodeInStructure(localStructure, nodeId, updatedNode);
+    if (!nodeId) return;
+    const newStructure = updateNodeInStructure(localStructure, nodeId, updatedNode) as TemplateStructure;
     setLocalStructure(newStructure);
     onStructureChange?.(newStructure);
   };
 
-  // Recursively count total children
-  const countChildren = (node) => {
+  const countChildren = (node: TemplateStructure | StructureNode | null): number => {
     if (!node?.children?.length) return 0;
     return node.children.length + node.children.reduce((acc, child) => acc + countChildren(child), 0);
   };
 
   const totalChildren = countChildren(localStructure);
-  const hasChildren = localStructure?.children?.length > 0;
-  const selectedNode = selectedNodeId ? findNodeById(localStructure, selectedNodeId) : null;
+  const hasChildren = (localStructure?.children?.length || 0) > 0;
+  const selectedNode = selectedNodeId && localStructure ? findNodeById(localStructure, selectedNodeId) : null;
 
-  // Recursive structure node renderer
-  const StructureTreeNode = ({ node, level = 0 }) => {
+  interface StructureTreeNodeProps {
+    node: TemplateStructure | StructureNode;
+    level?: number;
+  }
+
+  const StructureTreeNode = ({ node, level = 0 }: StructureTreeNodeProps) => {
     const [expanded, setExpanded] = useState(true);
     const nodeChildren = node?.children || [];
     const hasNodeChildren = nodeChildren.length > 0;
@@ -645,45 +740,26 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
             isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-on-surface/[0.08]'
           }`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
-          onClick={() => setSelectedNodeId(isSelected ? null : nodeId)}
+          onClick={() => setSelectedNodeId(isSelected ? null : (nodeId || null))}
         >
           {hasNodeChildren ? (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} 
-              className="p-0.5"
-            >
-              {expanded ? (
-                <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />
-              )}
+            <button onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} className="p-0.5">
+              {expanded ? <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" /> : <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />}
             </button>
-          ) : (
-            <div className="w-4" />
-          )}
+          ) : <div className="w-4" />}
           
           <FileText className={`h-3.5 w-3.5 ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`} />
-          
           <span className={`text-body-sm flex-1 truncate ${isSelected ? 'text-primary font-medium' : 'text-on-surface'}`}>
             {node?.prompt_name || node?.name || "Unnamed Prompt"}
           </span>
           
-          {node?.is_assistant && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-              assistant
-            </span>
-          )}
-          
-          {hasNodeChildren && (
-            <span className="text-[10px] text-on-surface-variant">
-              {nodeChildren.length} child{nodeChildren.length !== 1 ? 'ren' : ''}
-            </span>
-          )}
+          {node?.is_assistant && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">assistant</span>}
+          {hasNodeChildren && <span className="text-[10px] text-on-surface-variant">{nodeChildren.length} child{nodeChildren.length !== 1 ? 'ren' : ''}</span>}
 
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={(e) => { e.stopPropagation(); setSelectedNodeId(nodeId); }}
+                onClick={(e) => { e.stopPropagation(); setSelectedNodeId(nodeId || null); }}
                 className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]"
               >
                 <Edit3 className="h-3.5 w-3.5" />
@@ -693,17 +769,9 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
           </Tooltip>
         </div>
         
-        {expanded && hasNodeChildren && (
-          <div>
-            {nodeChildren.map((child, idx) => (
-              <StructureTreeNode 
-                key={child._id || child.id || child.row_id || idx} 
-                node={child} 
-                level={level + 1} 
-              />
-            ))}
-          </div>
-        )}
+        {expanded && hasNodeChildren && nodeChildren.map((child, idx) => (
+          <StructureTreeNode key={child._id || child.id || child.row_id || idx} node={child} level={level + 1} />
+        ))}
       </div>
     );
   };
@@ -723,27 +791,17 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <GitBranch className="h-4 w-4 text-on-surface-variant" />
-          <span className="text-label-sm text-on-surface-variant uppercase">
-            Prompt Hierarchy ({totalChildren + 1} prompt{totalChildren > 0 ? 's' : ''})
-          </span>
+          <span className="text-label-sm text-on-surface-variant uppercase">Prompt Hierarchy ({totalChildren + 1} prompt{totalChildren > 0 ? 's' : ''})</span>
         </div>
-        {selectedNode && (
-          <span className="text-[10px] text-primary">Click prompt to edit</span>
-        )}
+        {selectedNode && <span className="text-[10px] text-primary">Click prompt to edit</span>}
       </div>
 
       <div className="bg-surface-container-low rounded-m3-lg border border-outline-variant p-2">
-        {/* Root prompt */}
         <StructureTreeNode node={localStructure} level={0} />
       </div>
 
-      {/* Node Editor Panel */}
       {selectedNode && (
-        <StructureNodeEditor 
-          node={selectedNode}
-          onUpdate={handleNodeUpdate}
-          onClose={() => setSelectedNodeId(null)}
-        />
+        <StructureNodeEditor node={selectedNode} onUpdate={handleNodeUpdate} onClose={() => setSelectedNodeId(null)} />
       )}
 
       {!hasChildren && !selectedNode && (
@@ -761,9 +819,7 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
           <Layers className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <div>
             <p className="text-body-sm text-on-surface">Cascade template</p>
-            <p className="text-[10px] text-on-surface-variant">
-              Contains {totalChildren} child prompt{totalChildren !== 1 ? 's' : ''} that will be created as a hierarchy
-            </p>
+            <p className="text-[10px] text-on-surface-variant">Contains {totalChildren} child prompt{totalChildren !== 1 ? 's' : ''} that will be created as a hierarchy</p>
           </div>
         </div>
       )}
@@ -771,196 +827,29 @@ const TemplateStructureTabContent = ({ structure, onStructureChange }) => {
   );
 };
 
+interface MappingRowProps {
+  mapping: TemplateMapping;
+  onEdit?: (mapping: TemplateMapping) => void;
+}
 
-const getFileIcon = (type) => {
-  if (type.includes('pdf')) return FileText;
-  if (type.includes('json')) return Braces;
-  if (type.includes('word') || type.includes('document')) return FileText;
-  return Paperclip;
-};
-
-// Format file size
-const formatFileSize = (bytes) => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-// Attachments Tab Component
-const AttachmentsTab = () => {
-  const [isDragging, setIsDragging] = useState(false);
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      {/* Upload Dropzone */}
-      <div 
-        className={`border-2 border-dashed rounded-m3-lg p-6 text-center transition-colors ${
-          isDragging 
-            ? "border-primary bg-primary/5" 
-            : "border-outline-variant hover:border-on-surface-variant"
-        }`}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={() => setIsDragging(false)}
-      >
-        <Upload className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
-        <p className="text-body-sm text-on-surface">Drop files here or click to upload</p>
-        <p className="text-[10px] text-on-surface-variant mt-1">PDF, DOCX, TXT, JSON up to 10MB</p>
-      </div>
-
-      <div className="space-y-1.5">
-        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files (0)</span>
-        <div className="space-y-2 text-center py-4">
-          <p className="text-body-sm text-on-surface-variant">No files attached</p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// AttachmentsTabWithFiles component accepts real files via props
-
-// Continue with file list (empty by default)
-const AttachmentsTabWithFiles = ({ files = [] }) => {
-  const [isDragging, setIsDragging] = useState(false);
-
-  return (
-    <div className="space-y-4 max-w-2xl">
-      <div 
-        className={`border-2 border-dashed rounded-m3-lg p-6 text-center transition-colors ${
-          isDragging 
-            ? "border-primary bg-primary/5" 
-            : "border-outline-variant hover:border-on-surface-variant"
-        }`}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={() => setIsDragging(false)}
-      >
-        <Upload className="h-8 w-8 text-on-surface-variant mx-auto mb-2" />
-        <p className="text-body-sm text-on-surface">Drop files here or click to upload</p>
-      </div>
-      <div className="space-y-1.5">
-        <span className="text-label-sm text-on-surface-variant uppercase">Attached Files ({files.length})</span>
-        {files.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant text-center py-4">No files attached</p>
-        ) : files.map(file => {
-            const FileIcon = getFileIcon(file.type);
-            return (
-              <div key={file.id} className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant group">
-                <div className="w-8 h-8 flex items-center justify-center bg-surface-container-high rounded-m3-sm">
-                  <FileIcon className="h-4 w-4 text-on-surface-variant" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-body-sm text-on-surface truncate">{file.name}</p>
-                  <p className="text-[10px] text-on-surface-variant">{formatFileSize(file.size)} • {file.uploadedAt}</p>
-                </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-destructive opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Remove</TooltipContent>
-                </Tooltip>
-              </div>
-            );
-          })}
-      </div>
-    </div>
-  );
-};
-
-// Structure Tree Node Component
-const StructureNode = ({ node, level = 0 }) => {
-  const [expanded, setExpanded] = useState(node.expanded);
-  const hasChildren = node.children && node.children.length > 0;
-  
-  const typeColors = {
-    system: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-    user: "bg-green-500/10 text-green-600 border-green-500/20",
-    output: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-    section: "bg-surface-container text-on-surface-variant border-outline-variant",
-  };
-
-  return (
-    <div>
-      <div 
-        className={`flex items-center gap-2 p-2 rounded-m3-sm hover:bg-on-surface/[0.08] cursor-pointer group`}
-        style={{ paddingLeft: `${level * 16 + 8}px` }}
-      >
-        <GripVertical className="h-3.5 w-3.5 text-on-surface-variant/50 opacity-0 group-hover:opacity-100" />
-        
-        {hasChildren ? (
-          <button onClick={() => setExpanded(!expanded)} className="p-0.5">
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-on-surface-variant" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-on-surface-variant" />
-            )}
-          </button>
-        ) : (
-          <div className="w-4" />
-        )}
-        
-        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${typeColors[node.type] || typeColors.section}`}>
-          {node.type}
-        </span>
-        
-        <span className="text-body-sm text-on-surface flex-1">{node.name || node.prompt_name || "Unnamed"}</span>
-        
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant opacity-0 group-hover:opacity-100 hover:bg-on-surface/[0.08]">
-              <Settings className="h-3.5 w-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent className="text-[10px]">Settings</TooltipContent>
-        </Tooltip>
-      </div>
-      
-      {expanded && hasChildren && (
-        <div>
-          {node.children.map((child, idx) => (
-            <StructureNode key={child.id || child._id || idx} node={child} level={level + 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Variable Mapping Row Component
-const MappingRow = ({ mapping, onEdit }) => {
+const MappingRow = ({ mapping, onEdit }: MappingRowProps) => {
   const source = SOURCE_OPTIONS.find(s => s.id === mapping.source);
   const SourceIcon = source?.icon || Variable;
 
   return (
     <div className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant">
-      <code className="text-body-sm text-on-surface font-mono font-medium w-32 truncate">
-        {mapping.variable}
-      </code>
-      
+      <code className="text-body-sm text-on-surface font-mono font-medium w-32 truncate">{mapping.variable}</code>
       <ArrowRight className="h-3.5 w-3.5 text-on-surface-variant flex-shrink-0" />
-      
       <div className="flex items-center gap-2 flex-1">
         <span className="flex items-center gap-1.5 text-[10px] px-2 py-1 bg-secondary-container text-secondary-container-foreground rounded-m3-sm">
           <SourceIcon className="h-3 w-3" />
           {source?.label}
         </span>
-        
-        {mapping.value && (
-          <code className="text-tree text-on-surface-variant font-mono truncate">
-            {mapping.value}
-          </code>
-        )}
+        {mapping.value && <code className="text-tree text-on-surface-variant font-mono truncate">{mapping.value}</code>}
       </div>
-      
       <Tooltip>
         <TooltipTrigger asChild>
-          <button 
-            onClick={() => onEdit?.(mapping)}
-            className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-          >
+          <button onClick={() => onEdit?.(mapping)} className="w-6 h-6 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
             <Edit3 className="h-3.5 w-3.5" />
           </button>
         </TooltipTrigger>
@@ -970,94 +859,26 @@ const MappingRow = ({ mapping, onEdit }) => {
   );
 };
 
-// Enhanced Preview Panel with Live Variable Resolution
-const EnhancedPreviewPanel = ({ template, variables = [] }) => {
-  const [resolveMode, setResolveMode] = useState(false);
-  
-  const resolvedValues = useMemo(() => {
-    const values = {};
-    variables.forEach(v => {
-      const name = v.name || v.variable_name;
-      values[name] = v.default || v.default_value || `[${name}]`;
-    });
-    return values;
-  }, [variables]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-label-sm text-on-surface-variant uppercase">Live Preview</span>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-on-surface-variant">Resolve Variables</span>
-          <Switch checked={resolveMode} onCheckedChange={setResolveMode} />
-        </div>
-      </div>
-      
-      <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant">
-        <div className="space-y-3">
-          <div className="p-3 bg-surface-container rounded-m3-md">
-            <span className="text-[10px] text-on-surface-variant uppercase">System Prompt</span>
-            <p className="text-body-sm text-on-surface mt-1">
-              {template?.structure?.input_admin_prompt || "No system prompt defined"}
-            </p>
-          </div>
-          
-          <div className="p-3 bg-surface-container rounded-m3-md">
-            <span className="text-[10px] text-on-surface-variant uppercase">User Prompt</span>
-            <p className="text-body-sm text-on-surface mt-1">
-              {template?.structure?.input_user_prompt || "No user prompt defined"}
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Variable Status */}
-      {variables.length > 0 && (
-        <div className="space-y-2">
-          <span className="text-[10px] text-on-surface-variant uppercase">Variable Status</span>
-          <div className="grid grid-cols-2 gap-2">
-            {variables.slice(0, 4).map((v, idx) => {
-              const name = v.name || v.variable_name;
-              return (
-                <div key={idx} className="flex items-center gap-2 p-2 bg-surface-container rounded-m3-sm">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                  <code className="text-[10px] text-on-surface font-mono">{name}</code>
-                  {resolveMode && resolvedValues[name] && (
-                    <span className="text-[10px] text-on-surface-variant truncate ml-auto">= {resolvedValues[name]}</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      
-      <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-m3-md">
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
-        <span className="text-body-sm text-green-700">All variables resolved</span>
-      </div>
-    </div>
-  );
-};
+// ========================
+// Main Component
+// ========================
 
 const TemplatesContent = ({ 
   selectedTemplate, 
   activeTemplateTab = "prompts",
-  // Real data hooks - Phase 5
   templatesHook,
   jsonSchemaTemplatesHook,
   onTemplateChange,
   models = [],
   folderPanelOpen,
   onToggleFolderPanel,
-}) => {
+}: TemplatesContentProps) => {
   const { items: libraryItems } = usePromptLibrary();
-  const [activeEditorTab, setActiveEditorTab] = useState("prompt");
-  const [editedTemplate, setEditedTemplate] = useState(null);
+  const [activeEditorTab, setActiveEditorTab] = useState<EditorTab>("prompt");
+  const [editedTemplate, setEditedTemplate] = useState<TemplateData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Sync editedTemplate with selectedTemplate
   useEffect(() => {
     if (selectedTemplate) {
       setEditedTemplate({ ...selectedTemplate });
@@ -1067,7 +888,6 @@ const TemplatesContent = ({
     }
   }, [selectedTemplate?.row_id]);
 
-  // Reset active tab when switching template types
   useEffect(() => {
     if (activeTemplateTab === "prompts") {
       setActiveEditorTab("prompt");
@@ -1078,7 +898,6 @@ const TemplatesContent = ({
     }
   }, [activeTemplateTab]);
 
-  // Get the display name and description from template
   const templateName = useMemo(() => {
     if (!editedTemplate) return "";
     return editedTemplate.template_name || editedTemplate.schema_name || editedTemplate.name || "Untitled";
@@ -1089,46 +908,39 @@ const TemplatesContent = ({
     return editedTemplate.template_description || editedTemplate.schema_description || editedTemplate.description || "";
   }, [editedTemplate]);
 
-  // Extract variables from template
   const extractedVariables = useMemo(() => {
     if (!editedTemplate?.structure || !templatesHook?.extractTemplateVariables) return [];
     const varNames = templatesHook.extractTemplateVariables(editedTemplate.structure);
     return varNames.map(name => ({ name, type: "string", required: true }));
   }, [editedTemplate, templatesHook]);
 
-  // Variable definitions from template
   const variableDefinitions = useMemo(() => {
     if (!editedTemplate?.variable_definitions) return [];
-    if (Array.isArray(editedTemplate.variable_definitions)) {
-      return editedTemplate.variable_definitions;
-    }
+    if (Array.isArray(editedTemplate.variable_definitions)) return editedTemplate.variable_definitions;
     return [];
   }, [editedTemplate]);
 
   const displayVariables = variableDefinitions.length > 0 ? variableDefinitions : extractedVariables;
 
-  // Handle field updates for template
-  const handleUpdateField = useCallback((fieldPath, value) => {
+  const handleUpdateField = useCallback((fieldPath: string, value: unknown) => {
     setEditedTemplate(prev => {
       if (!prev) return prev;
-      // Handle nested paths like 'structure.input_admin_prompt'
       if (fieldPath.includes('.')) {
         const parts = fieldPath.split('.');
-        const newTemplate = { ...prev };
+        const newTemplate = { ...prev } as Record<string, unknown>;
         let current = newTemplate;
         for (let i = 0; i < parts.length - 1; i++) {
-          current[parts[i]] = { ...(current[parts[i]] || {}) };
-          current = current[parts[i]];
+          current[parts[i]] = { ...((current[parts[i]] as Record<string, unknown>) || {}) };
+          current = current[parts[i]] as Record<string, unknown>;
         }
         current[parts[parts.length - 1]] = value;
-        return newTemplate;
+        return newTemplate as TemplateData;
       }
       return { ...prev, [fieldPath]: value };
     });
     setHasUnsavedChanges(true);
   }, []);
 
-  // Save handler
   const handleSave = useCallback(async () => {
     if (!editedTemplate?.row_id) return;
     
@@ -1157,7 +969,6 @@ const TemplatesContent = ({
     }
   }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, onTemplateChange]);
 
-  // Delete handler
   const handleDelete = useCallback(async () => {
     if (!editedTemplate?.row_id) return;
     
@@ -1169,7 +980,6 @@ const TemplatesContent = ({
     onTemplateChange?.(null);
   }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, onTemplateChange]);
 
-  // Duplicate handler
   const handleDuplicate = useCallback(async () => {
     if (!editedTemplate) return;
     
@@ -1193,19 +1003,14 @@ const TemplatesContent = ({
     }
   }, [editedTemplate, activeTemplateTab, templatesHook, jsonSchemaTemplatesHook, templateName, templateDescription, onTemplateChange]);
 
-  // Empty state when no template selected
   if (!selectedTemplate) {
     return (
       <div className="flex-1 flex flex-col bg-surface min-h-0">
-        {/* Header with toggle button */}
         <div className="h-14 flex items-center px-3 border-b border-outline-variant shrink-0">
           {!folderPanelOpen && onToggleFolderPanel && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button 
-                  onClick={onToggleFolderPanel} 
-                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container"
-                >
+                <button onClick={onToggleFolderPanel} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-surface-container">
                   <PanelLeftOpen className="h-4 w-4" />
                 </button>
               </TooltipTrigger>
@@ -1213,7 +1018,6 @@ const TemplatesContent = ({
             </Tooltip>
           )}
         </div>
-        {/* Empty state content */}
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-on-surface-variant">
             <LayoutTemplate className="h-16 w-16 mx-auto mb-4 opacity-30" />
@@ -1227,28 +1031,18 @@ const TemplatesContent = ({
 
   return (
     <div className="flex-1 flex flex-col bg-surface min-h-0">
-      {/* Header - 56px */}
       <div className="h-14 flex items-center justify-between px-3 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-2">
           <h2 className="text-title-sm text-on-surface font-medium">{templateName}</h2>
           {activeTemplateTab === "prompts" && (
-            <LabelPicker 
-              labels={editedTemplate?.labels || []} 
-              onLabelsChange={(labels) => handleUpdateField('labels', labels)}
-              maxDisplay={2}
-            />
+            <LabelPicker labels={editedTemplate?.labels || []} onLabelsChange={(labels) => handleUpdateField('labels', labels)} maxDisplay={2} />
           )}
         </div>
         <div className="flex items-center gap-1">
-          {/* Save button - shown when there are unsaved changes */}
           {hasUnsavedChanges && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <button 
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-primary/10 disabled:opacity-50"
-                >
+                <button onClick={handleSave} disabled={isSaving} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-primary hover:bg-primary/10 disabled:opacity-50">
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 </button>
               </TooltipTrigger>
@@ -1272,7 +1066,6 @@ const TemplatesContent = ({
         </div>
       </div>
 
-      {/* Tabs with Actions */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-outline-variant shrink-0">
         <div className="flex items-center gap-0.5">
           {activeTemplateTab === "prompts" && (
@@ -1283,7 +1076,6 @@ const TemplatesContent = ({
               <TabButton icon={Variable} label="Variables" isActive={activeEditorTab === "variables"} onClick={() => setActiveEditorTab("variables")} />
             </>
           )}
-          {/* JsonSchemaEditor has internal tabs - no external tabs needed for schemas */}
           {activeTemplateTab === "mappings" && (
             <>
               <TabButton icon={FileText} label="Fields" isActive={activeEditorTab === "fields"} onClick={() => setActiveEditorTab("fields")} />
@@ -1321,28 +1113,16 @@ const TemplatesContent = ({
         )}
       </div>
 
-      {/* Content Area */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
-          {/* Prompt Tab - for Prompt Templates */}
-{activeEditorTab === "prompt" && activeTemplateTab === "prompts" && (
-            <TemplatePromptTabContent 
-              templateData={editedTemplate}
-              onUpdateField={handleUpdateField}
-              libraryItems={libraryItems}
-            />
+          {activeEditorTab === "prompt" && activeTemplateTab === "prompts" && (
+            <TemplatePromptTabContent templateData={editedTemplate} onUpdateField={handleUpdateField} libraryItems={libraryItems as LibraryItem[]} />
           )}
 
-          {/* Settings Tab - for Prompt Templates */}
           {activeEditorTab === "settings" && activeTemplateTab === "prompts" && (
-            <TemplateSettingsTabContent 
-              templateData={editedTemplate}
-              onUpdateField={handleUpdateField}
-              models={models}
-            />
+            <TemplateSettingsTabContent templateData={editedTemplate} onUpdateField={handleUpdateField} models={models} />
           )}
 
-          {/* Variables Tab - for Prompt Templates - uses working component */}
           {activeEditorTab === "variables" && activeTemplateTab === "prompts" && (
             <TemplateVariablesTab 
               structure={editedTemplate?.structure}
@@ -1351,7 +1131,6 @@ const TemplatesContent = ({
             />
           )}
 
-          {/* Structure Tab - for Prompt Templates - uses unified TemplateStructureEditor */}
           {activeEditorTab === "structure" && activeTemplateTab === "prompts" && (
             <TemplateStructureEditor 
               structure={editedTemplate?.structure} 
@@ -1361,7 +1140,6 @@ const TemplatesContent = ({
           )}
         </div>
 
-        {/* Schema Editor - handles visual, JSON, and preview tabs internally */}
         {activeTemplateTab === "schemas" && editedTemplate && (
           <div className="max-w-3xl">
             <JsonSchemaEditor 
@@ -1370,7 +1148,7 @@ const TemplatesContent = ({
                 if (jsonSchemaTemplatesHook?.updateTemplate) {
                   await jsonSchemaTemplatesHook.updateTemplate(rowId, updates);
                 }
-                setEditedTemplate(prev => ({ ...prev, ...updates }));
+                setEditedTemplate(prev => prev ? { ...prev, ...updates } : null);
                 setHasUnsavedChanges(false);
                 onTemplateChange?.(editedTemplate);
               }}
@@ -1378,7 +1156,6 @@ const TemplatesContent = ({
           </div>
         )}
 
-        {/* Mappings Fields Tab */}
         {activeTemplateTab === "mappings" && activeEditorTab === "fields" && (
           <div className="space-y-4 max-w-2xl">
             <div className="space-y-1.5">
@@ -1387,9 +1164,7 @@ const TemplatesContent = ({
                 {["System Prompt", "User Prompt", "Output", "Variables", "Model Settings"].map(field => (
                   <span key={field} className="text-body-sm px-2 py-1 bg-secondary-container text-secondary-container-foreground rounded-m3-sm flex items-center gap-1">
                     {field}
-                    <button className="hover:text-destructive">
-                      <X className="h-3 w-3" />
-                    </button>
+                    <button className="hover:text-destructive"><X className="h-3 w-3" /></button>
                   </span>
                 ))}
               </div>
@@ -1409,7 +1184,6 @@ const TemplatesContent = ({
           </div>
         )}
 
-        {/* Mappings Tab */}
         {activeTemplateTab === "mappings" && activeEditorTab === "mappings" && (
           <div className="space-y-3 max-w-2xl">
             <div className="flex items-center justify-between">
@@ -1438,9 +1212,7 @@ const TemplatesContent = ({
               )}
             </div>
             
-            <p className="text-[10px] text-on-surface-variant">
-              Map template variables to data sources for automatic population.
-            </p>
+            <p className="text-[10px] text-on-surface-variant">Map template variables to data sources for automatic population.</p>
           </div>
         )}
       </div>
