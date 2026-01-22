@@ -30,6 +30,9 @@ export const usePromptFamilyChat = (promptRowId) => {
   // Ref to track switchThread request ID for race condition prevention
   const switchRequestIdRef = useRef(0);
   
+  // Ref to track tool activity count (avoids stale closure in sendMessage)
+  const toolActivityCountRef = useRef(0);
+  
   // Keep ref in sync with state
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -340,6 +343,17 @@ export const usePromptFamilyChat = (promptRowId) => {
     // Register this streaming call with ApiCallContext (legacy)
     const unregisterCall = registerCall();
     abortControllerRef.current = new AbortController();
+    
+    // 5-minute fetch timeout matching backend IDLE_TIMEOUT_MS
+    const fetchTimeoutId = setTimeout(() => {
+      if (abortControllerRef.current) {
+        console.warn('[Chat] Fetch timeout - aborting after 5 minutes');
+        abortControllerRef.current.abort();
+      }
+    }, 300000);
+    
+    // Reset tool activity ref
+    toolActivityCountRef.current = 0;
 
     // Estimate input tokens for dashboard
     const estimatedInputTokens = estimateRequestTokens({
@@ -524,11 +538,15 @@ export const usePromptFamilyChat = (promptRowId) => {
               
               // Handle tool events
               if (parsed.type === 'tool_start') {
-                setToolActivity(prev => [...prev, {
-                  name: parsed.tool,
-                  args: parsed.args,
-                  status: 'running'
-                }]);
+                setToolActivity(prev => {
+                  const newActivity = [...prev, {
+                    name: parsed.tool,
+                    args: parsed.args,
+                    status: 'running'
+                  }];
+                  toolActivityCountRef.current = newActivity.length;
+                  return newActivity;
+                });
                 setIsExecutingTools(true);
               } else if (parsed.type === 'tool_end') {
                 setToolActivity(prev => prev.map(t => 
@@ -555,7 +573,8 @@ export const usePromptFamilyChat = (promptRowId) => {
       // Only add assistant message if we have content (prevent blank bubbles)
       if (fullContent.trim().length > 0) {
         await addMessage('assistant', fullContent, null, effectiveThreadId);
-      } else if (toolActivity.length === 0) {
+      } else if (toolActivityCountRef.current === 0) {
+        // Use ref instead of stale state closure
         notify.warning('No response received', {
           source: 'usePromptFamilyChat',
           description: 'The AI returned an empty response. Please try again.',
@@ -584,10 +603,14 @@ export const usePromptFamilyChat = (promptRowId) => {
         streamingFlushTimeout = null;
       }
       
+      // Clear fetch timeout on success
+      clearTimeout(fetchTimeoutId);
+      
       setStreamingMessage('');
       setThinkingText(''); // Clear thinking text in final cleanup
       setIsStreaming(false);
       setToolActivity([]);
+      toolActivityCountRef.current = 0; // Reset ref
       setIsExecutingTools(false);
       unregisterCall();
       abortControllerRef.current = null;
@@ -615,6 +638,9 @@ export const usePromptFamilyChat = (promptRowId) => {
         streamingFlushTimeout = null;
       }
       
+      // Clear fetch timeout on error
+      clearTimeout(fetchTimeoutId);
+      
       // Don't show error toast for aborted requests
       if (error.name !== 'AbortError') {
         console.error('Error sending message:', error);
@@ -632,8 +658,10 @@ export const usePromptFamilyChat = (promptRowId) => {
         trackException(error, { context: 'prompt_family_chat' });
       }
       setStreamingMessage('');
+      setThinkingText(''); // Clear thinking text in error path (FIX: was missing)
       setIsStreaming(false);
       setToolActivity([]);
+      toolActivityCountRef.current = 0; // Reset ref
       setIsExecutingTools(false);
       unregisterCall();
       abortControllerRef.current = null;
