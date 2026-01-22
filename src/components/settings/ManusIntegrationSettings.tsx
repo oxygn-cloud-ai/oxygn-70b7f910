@@ -13,8 +13,9 @@ import {
   Zap, Key, Bot, CheckCircle, XCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { KeyValidation, ConnectionStatus } from './types';
 
-const ManusIntegrationSettings = () => {
+const ManusIntegrationSettings: React.FC = () => {
   const { 
     getCredentialStatus, 
     setCredential, 
@@ -28,8 +29,8 @@ const ManusIntegrationSettings = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [keyValidation, setKeyValidation] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
+  const [keyValidation, setKeyValidation] = useState<KeyValidation | null>(null);
   const [isWebhookRegistered, setIsWebhookRegistered] = useState(false);
   
   const hasCredentials = isServiceConfigured('manus');
@@ -39,7 +40,7 @@ const ManusIntegrationSettings = () => {
     getCredentialStatus('manus');
   }, [getCredentialStatus]);
 
-  const handleSaveCredentials = async () => {
+  const handleSaveCredentials = async (): Promise<void> => {
     const trimmedKey = apiKey.trim();
     if (!trimmedKey) {
       toast.error('API key is required');
@@ -63,7 +64,7 @@ const ManusIntegrationSettings = () => {
     }
   };
 
-  const handleDeleteCredentials = async () => {
+  const handleDeleteCredentials = async (): Promise<void> => {
     setIsSaving(true);
     try {
       await deleteCredential('manus', 'api_key');
@@ -81,7 +82,7 @@ const ManusIntegrationSettings = () => {
   };
 
   // Test connection by validating API key with Manus
-  const handleTestConnection = async () => {
+  const handleTestConnection = async (): Promise<void> => {
     setIsValidating(true);
     setKeyValidation(null);
     try {
@@ -118,7 +119,7 @@ const ManusIntegrationSettings = () => {
         toast.error('Connection test failed', { description: parsed.message });
       }
     } catch (err) {
-      const parsed = parseApiError(err.message);
+      const parsed = parseApiError(err instanceof Error ? err.message : 'Unknown error');
       setKeyValidation({ success: false, message: parsed.title });
       toast.error('Connection test failed', { description: parsed.message });
     } finally {
@@ -126,7 +127,7 @@ const ManusIntegrationSettings = () => {
     }
   };
 
-  const handleRegisterWebhook = async () => {
+  const handleRegisterWebhook = async (): Promise<void> => {
     setIsTesting(true);
     setConnectionStatus(null);
     try {
@@ -166,7 +167,7 @@ const ManusIntegrationSettings = () => {
         sonnerToast.error(parsed.title, { description: parsed.message });
       }
     } catch (err) {
-      const parsed = parseApiError(err.message);
+      const parsed = parseApiError(err instanceof Error ? err.message : 'Unknown error');
       setConnectionStatus({ success: false, message: parsed.title });
       toast.error(parsed.title, { description: parsed.message });
       sonnerToast.error(parsed.title, { description: parsed.message });

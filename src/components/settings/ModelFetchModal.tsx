@@ -9,8 +9,9 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import type { ModelFetchModalProps, FetchedModel, EditedModelsMap, EditedModelFields } from './types';
 
-const ModelFetchModal = ({ 
+const ModelFetchModal: React.FC<ModelFetchModalProps> = ({ 
   open, 
   onOpenChange, 
   provider, 
@@ -19,12 +20,12 @@ const ModelFetchModal = ({
   onAddModels,
   isAdding = false 
 }) => {
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [editedModels, setEditedModels] = useState({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editedModels, setEditedModels] = useState<EditedModelsMap>({});
 
   // Get existing model IDs and api_model_ids for duplicate checking
   const existingIds = useMemo(() => {
-    const ids = new Set();
+    const ids = new Set<string>();
     existingModels.forEach(m => {
       if (m.model_id) ids.add(m.model_id.toLowerCase());
       if (m.api_model_id) ids.add(m.api_model_id.toLowerCase());
@@ -33,9 +34,9 @@ const ModelFetchModal = ({
   }, [existingModels]);
 
   // Check if a model already exists
-  const modelExists = (model) => {
-    return existingIds.has(model.model_id?.toLowerCase()) || 
-           existingIds.has(model.api_model_id?.toLowerCase());
+  const modelExists = (model: FetchedModel): boolean => {
+    return existingIds.has(model.model_id?.toLowerCase() || '') || 
+           existingIds.has(model.api_model_id?.toLowerCase() || '');
   };
 
   // Get available (non-existing) models
@@ -44,7 +45,7 @@ const ModelFetchModal = ({
   }, [fetchedModels, existingIds]);
 
   // Toggle selection
-  const toggleSelect = (modelId) => {
+  const toggleSelect = (modelId: string): void => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(modelId)) {
@@ -57,7 +58,7 @@ const ModelFetchModal = ({
   };
 
   // Select all available
-  const toggleSelectAll = () => {
+  const toggleSelectAll = (): void => {
     if (selectedIds.size === availableModels.length) {
       setSelectedIds(new Set());
     } else {
@@ -66,7 +67,7 @@ const ModelFetchModal = ({
   };
 
   // Update editable field
-  const updateField = (modelId, field, value) => {
+  const updateField = (modelId: string, field: keyof EditedModelFields, value: string): void => {
     setEditedModels(prev => ({
       ...prev,
       [modelId]: {
@@ -77,28 +78,29 @@ const ModelFetchModal = ({
   };
 
   // Get effective value (edited or original)
-  const getValue = (model, field) => {
-    return editedModels[model.model_id]?.[field] ?? model[field];
+  const getValue = <K extends keyof FetchedModel>(model: FetchedModel, field: K): FetchedModel[K] | string => {
+    const edited = editedModels[model.model_id]?.[field as keyof EditedModelFields];
+    return edited !== undefined ? edited : model[field];
   };
 
   // Handle add
-  const handleAdd = () => {
-    const modelsToAdd = availableModels
+  const handleAdd = (): void => {
+    const modelsToAdd: FetchedModel[] = availableModels
       .filter(m => selectedIds.has(m.model_id))
       .map(m => ({
         ...m,
-        model_name: getValue(m, 'model_name'),
-        context_window: getValue(m, 'context_window') ? parseInt(getValue(m, 'context_window')) : null,
-        max_output_tokens: getValue(m, 'max_output_tokens') ? parseInt(getValue(m, 'max_output_tokens')) : null,
-        input_cost_per_million: getValue(m, 'input_cost_per_million') ? parseFloat(getValue(m, 'input_cost_per_million')) : null,
-        output_cost_per_million: getValue(m, 'output_cost_per_million') ? parseFloat(getValue(m, 'output_cost_per_million')) : null,
+        model_name: getValue(m, 'model_name') as string | undefined,
+        context_window: getValue(m, 'context_window') ? parseInt(String(getValue(m, 'context_window'))) : null,
+        max_output_tokens: getValue(m, 'max_output_tokens') ? parseInt(String(getValue(m, 'max_output_tokens'))) : null,
+        input_cost_per_million: getValue(m, 'input_cost_per_million') ? parseFloat(String(getValue(m, 'input_cost_per_million'))) : null,
+        output_cost_per_million: getValue(m, 'output_cost_per_million') ? parseFloat(String(getValue(m, 'output_cost_per_million'))) : null,
       }));
     
     onAddModels?.(modelsToAdd);
   };
 
   // Reset state when closing
-  const handleOpenChange = (isOpen) => {
+  const handleOpenChange = (isOpen: boolean): void => {
     if (!isOpen) {
       setSelectedIds(new Set());
       setEditedModels({});
@@ -203,7 +205,7 @@ const ModelFetchModal = ({
                     {/* Context Window */}
                     <input
                       type="number"
-                      value={getValue(model, 'context_window') || ''}
+                      value={String(getValue(model, 'context_window') || '')}
                       onChange={(e) => updateField(model.model_id, 'context_window', e.target.value)}
                       disabled={exists}
                       placeholder="—"
@@ -213,7 +215,7 @@ const ModelFetchModal = ({
                     {/* Max Output */}
                     <input
                       type="number"
-                      value={getValue(model, 'max_output_tokens') || ''}
+                      value={String(getValue(model, 'max_output_tokens') || '')}
                       onChange={(e) => updateField(model.model_id, 'max_output_tokens', e.target.value)}
                       disabled={exists}
                       placeholder="—"
@@ -224,7 +226,7 @@ const ModelFetchModal = ({
                     <input
                       type="number"
                       step="0.01"
-                      value={getValue(model, 'input_cost_per_million') || ''}
+                      value={String(getValue(model, 'input_cost_per_million') || '')}
                       onChange={(e) => updateField(model.model_id, 'input_cost_per_million', e.target.value)}
                       disabled={exists}
                       placeholder="—"
@@ -235,7 +237,7 @@ const ModelFetchModal = ({
                     <input
                       type="number"
                       step="0.01"
-                      value={getValue(model, 'output_cost_per_million') || ''}
+                      value={String(getValue(model, 'output_cost_per_million') || '')}
                       onChange={(e) => updateField(model.model_id, 'output_cost_per_million', e.target.value)}
                       disabled={exists}
                       placeholder="—"

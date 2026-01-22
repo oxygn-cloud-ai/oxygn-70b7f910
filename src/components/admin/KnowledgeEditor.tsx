@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Save, X, Tag, ChevronDown, Loader2, Eye, EyeOff
 } from 'lucide-react';
@@ -8,9 +8,10 @@ import { SettingRow } from '@/components/ui/setting-row';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import ReactMarkdown from 'react-markdown';
 import { ResizablePromptArea } from '@/components/shared';
+import type { KnowledgeEditorProps, KnowledgeFormData } from './types';
 
-const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
-  const [formData, setFormData] = useState({
+const KnowledgeEditor: React.FC<KnowledgeEditorProps> = ({ item, topics, onSave, onCancel }) => {
+  const [formData, setFormData] = useState<KnowledgeFormData>({
     topic: item?.topic || 'overview',
     title: item?.title || '',
     content: item?.content || '',
@@ -22,7 +23,7 @@ const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
   const [keywordInput, setKeywordInput] = useState('');
   const [showTopicDropdown, setShowTopicDropdown] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.content.trim()) return;
 
@@ -34,7 +35,7 @@ const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
     }
   };
 
-  const addKeyword = () => {
+  const addKeyword = (): void => {
     const kw = keywordInput.trim().toLowerCase();
     if (kw && !formData.keywords.includes(kw)) {
       setFormData(prev => ({
@@ -45,14 +46,14 @@ const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
     }
   };
 
-  const removeKeyword = (kw) => {
+  const removeKeyword = (kw: string): void => {
     setFormData(prev => ({
       ...prev,
       keywords: prev.keywords.filter(k => k !== kw)
     }));
   };
 
-  const handleKeywordKeyDown = (e) => {
+  const handleKeywordKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') {
       e.preventDefault();
       addKeyword();
@@ -222,7 +223,7 @@ const KnowledgeEditor = ({ item, topics, onSave, onCancel }) => {
             value={formData.content}
             placeholder="Write knowledge content in Markdown format..."
             defaultHeight={240}
-            onSave={(value) => setFormData(prev => ({ ...prev, content: value }))}
+            onSave={(value: string) => setFormData(prev => ({ ...prev, content: value }))}
             storageKey={`knowledge-${item?.row_id || 'new'}-content`}
           />
         )}
