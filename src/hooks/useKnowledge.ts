@@ -3,6 +3,65 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface KnowledgeItem {
+  row_id: string;
+  topic: string;
+  title: string;
+  content: string;
+  keywords?: string[] | null;
+  priority?: number | null;
+  is_active?: boolean | null;
+  is_auto_generated?: boolean | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  embedding?: string | null;
+  version?: number | null;
+  created_at?: string | null;
+  created_by?: string | null;
+  updated_at?: string | null;
+  updated_by?: string | null;
+}
+
+export interface KnowledgeItemInput {
+  topic: string;
+  title: string;
+  content: string;
+  keywords?: string[];
+  priority?: number;
+}
+
+export interface KnowledgeHistoryItem {
+  row_id: string;
+  knowledge_row_id?: string | null;
+  topic?: string | null;
+  title?: string | null;
+  content?: string | null;
+  version?: number | null;
+  edited_at?: string | null;
+  edited_by?: string | null;
+}
+
+export interface BulkImportResult {
+  created: number;
+  updated: number;
+  errors: Array<{ item: string; error: string }>;
+}
+
+export interface EmbeddingRegenerationResult {
+  success: boolean;
+  error?: string;
+  processed?: number;
+  failed?: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+
 const TOPICS = [
   'overview',
   'prompts',
@@ -18,14 +77,20 @@ const TOPICS = [
   'database',
   'edge_functions',
   'api'
-];
+] as const;
+
+export type KnowledgeTopic = typeof TOPICS[number];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useKnowledge = () => {
-  const [items, setItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedTopic, setSelectedTopic] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const isMountedRef = useRef(true);
+  const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [selectedTopic, setSelectedTopic] = useState<KnowledgeTopic | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const isMountedRef = useRef<boolean>(true);
 
   // Reset mounted ref on mount/unmount
   useEffect(() => {
@@ -34,7 +99,7 @@ export const useKnowledge = () => {
   }, []);
 
   // Fetch all knowledge items
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     try {
       let query = supabase
@@ -51,7 +116,7 @@ export const useKnowledge = () => {
       const { data, error } = await query;
       if (error) throw error;
       
-      let filtered = data || [];
+      let filtered = (data || []) as KnowledgeItem[];
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         filtered = filtered.filter(item => 
@@ -73,13 +138,13 @@ export const useKnowledge = () => {
   }, [selectedTopic, searchQuery]);
 
   // Create a new knowledge item
-  const createItem = useCallback(async (itemData) => {
+  const createItem = useCallback(async (itemData: KnowledgeItemInput): Promise<KnowledgeItem | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       // Generate embedding via edge function
-      let embedding = null;
+      let embedding: number[] | null = null;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const embeddingResponse = await fetch(
@@ -88,7 +153,7 @@ export const useKnowledge = () => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
+              'Authorization': `Bearer ${session?.access_token}`
             },
             body: JSON.stringify({
               text: `${itemData.title}\n\n${itemData.content}`
@@ -117,10 +182,11 @@ export const useKnowledge = () => {
 
       if (error) throw error;
       
-      setItems(prev => [...prev, data]);
+      const newItem = data as KnowledgeItem;
+      setItems(prev => [...prev, newItem]);
       toast.success('Knowledge item created');
       trackEvent('knowledge_item_created', { topic: itemData.topic, title: itemData.title });
-      return data;
+      return newItem;
     } catch (error) {
       console.error('Error creating knowledge:', error);
       toast.error('Failed to create knowledge item');
@@ -129,7 +195,7 @@ export const useKnowledge = () => {
   }, []);
 
   // Update a knowledge item
-  const updateItem = useCallback(async (rowId, itemData) => {
+  const updateItem = useCallback(async (rowId: string, itemData: Partial<KnowledgeItemInput>): Promise<KnowledgeItem | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -141,20 +207,22 @@ export const useKnowledge = () => {
         .eq('row_id', rowId)
         .maybeSingle();
 
+      const current = currentItem as KnowledgeItem | null;
+
       // Save to history
-      if (currentItem) {
+      if (current) {
         await supabase.from('q_app_knowledge_history').insert({
           knowledge_row_id: rowId,
-          topic: currentItem.topic,
-          title: currentItem.title,
-          content: currentItem.content,
-          version: currentItem.version,
+          topic: current.topic,
+          title: current.title,
+          content: current.content,
+          version: current.version,
           edited_by: user.id
         });
       }
 
       // Generate new embedding if content changed
-      let embedding = null;
+      let embedding: number[] | null = null;
       if (itemData.title || itemData.content) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -164,10 +232,10 @@ export const useKnowledge = () => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${session.access_token}`
+                'Authorization': `Bearer ${session?.access_token}`
               },
               body: JSON.stringify({
-                text: `${itemData.title || currentItem?.title}\n\n${itemData.content || currentItem?.content}`
+                text: `${itemData.title || current?.title}\n\n${itemData.content || current?.content}`
               })
             }
           );
@@ -181,11 +249,11 @@ export const useKnowledge = () => {
         }
       }
 
-      const updateData = {
+      const updateData: Record<string, unknown> = {
         ...itemData,
         updated_by: user.id,
         updated_at: new Date().toISOString(),
-        version: (currentItem?.version || 0) + 1
+        version: (current?.version || 0) + 1
       };
 
       if (embedding) {
@@ -201,10 +269,11 @@ export const useKnowledge = () => {
 
       if (error) throw error;
       
-      setItems(prev => prev.map(i => i.row_id === rowId ? data : i));
+      const updated = data as KnowledgeItem;
+      setItems(prev => prev.map(i => i.row_id === rowId ? updated : i));
       toast.success('Knowledge item updated');
       trackEvent('knowledge_item_updated', { row_id: rowId });
-      return data;
+      return updated;
     } catch (error) {
       console.error('Error updating knowledge:', error);
       toast.error('Failed to update knowledge item');
@@ -213,7 +282,7 @@ export const useKnowledge = () => {
   }, []);
 
   // Soft delete a knowledge item
-  const deleteItem = useCallback(async (rowId) => {
+  const deleteItem = useCallback(async (rowId: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('q_app_knowledge')
@@ -234,7 +303,7 @@ export const useKnowledge = () => {
   }, []);
 
   // Get item history
-  const getItemHistory = useCallback(async (rowId) => {
+  const getItemHistory = useCallback(async (rowId: string): Promise<KnowledgeHistoryItem[]> => {
     try {
       const { data, error } = await supabase
         .from('q_app_knowledge_history')
@@ -243,7 +312,7 @@ export const useKnowledge = () => {
         .order('edited_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as KnowledgeHistoryItem[];
     } catch (error) {
       console.error('Error fetching history:', error);
       return [];
@@ -251,7 +320,7 @@ export const useKnowledge = () => {
   }, []);
 
   // Export items (with optional topic filter)
-  const exportItems = useCallback(async (topicFilter = null) => {
+  const exportItems = useCallback(async (topicFilter: KnowledgeTopic | null = null): Promise<{ data: KnowledgeItem[]; error: Error | null }> => {
     try {
       let query = supabase
         .from('q_app_knowledge')
@@ -266,16 +335,16 @@ export const useKnowledge = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return { data: data || [], error: null };
+      return { data: (data || []) as KnowledgeItem[], error: null };
     } catch (error) {
       console.error('Error exporting knowledge:', error);
-      return { data: [], error };
+      return { data: [], error: error as Error };
     }
   }, []);
 
   // Bulk import items with upsert logic
-  const bulkImportItems = useCallback(async (importItems) => {
-    const results = { created: 0, updated: 0, errors: [] };
+  const bulkImportItems = useCallback(async (importItems: KnowledgeItemInput[]): Promise<BulkImportResult> => {
+    const results: BulkImportResult = { created: 0, updated: 0, errors: [] };
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -327,20 +396,22 @@ export const useKnowledge = () => {
             results.created++;
           }
         } catch (itemError) {
-          results.errors.push({ item: item.title, error: itemError.message });
+          const err = itemError as Error;
+          results.errors.push({ item: item.title, error: err.message });
         }
       }
 
       return results;
     } catch (error) {
       console.error('Error in bulk import:', error);
-      results.errors.push({ item: 'auth', error: error.message });
+      const err = error as Error;
+      results.errors.push({ item: 'auth', error: err.message });
       return results;
     }
   }, []);
 
   // Trigger batch embedding regeneration
-  const regenerateEmbeddings = useCallback(async () => {
+  const regenerateEmbeddings = useCallback(async (): Promise<EmbeddingRegenerationResult> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
@@ -364,7 +435,8 @@ export const useKnowledge = () => {
       return { success: true, ...result };
     } catch (error) {
       console.error('Error regenerating embeddings:', error);
-      return { success: false, error: error.message };
+      const err = error as Error;
+      return { success: false, error: err.message };
     }
   }, []);
 
