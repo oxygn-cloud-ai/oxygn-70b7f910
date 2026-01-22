@@ -7,103 +7,22 @@
  */
 
 import { generatePositionAtEnd } from '../../utils/lexPosition';
+import { getEnvOrThrow } from '@/utils/safeEnv';
 import { 
   TypedSupabaseClient, 
   ExecutorParams, 
   ExecutorResult,
-  ModelDefaults,
   ParentSettings,
-  LibraryPrompt
 } from './types';
+import { 
+  getNestedValue, 
+  getDefaultSettings, 
+  getModelDefaults, 
+  getLibraryPrompt 
+} from './helpers';
 
-// Table references from environment
-const PROMPTS_TABLE = import.meta.env.VITE_PROMPTS_TBL;
-const SETTINGS_TABLE = import.meta.env.VITE_SETTINGS_TBL;
-const MODEL_DEFAULTS_TABLE = import.meta.env.VITE_MODEL_DEFAULTS_TBL;
-const LIBRARY_TABLE = import.meta.env.VITE_PROMPT_LIBRARY_TBL || 'q_prompt_library';
-
-/**
- * Get nested value from object using dot notation path
- */
-const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
-  if (!path) return obj;
-  
-  const keys = path.split('.');
-  let value: unknown = obj;
-  
-  for (const key of keys) {
-    if (value === null || value === undefined) return undefined;
-    
-    if (Array.isArray(value) && /^\d+$/.test(key)) {
-      value = value[parseInt(key, 10)];
-    } else if (typeof value === 'object') {
-      value = (value as Record<string, unknown>)[key];
-    } else {
-      return undefined;
-    }
-  }
-  
-  return value;
-};
-
-/**
- * Get default prompt settings from the database
- */
-const getDefaultSettings = async (supabase: TypedSupabaseClient): Promise<Record<string, string>> => {
-  const { data } = await supabase
-    .from(SETTINGS_TABLE)
-    .select('setting_key, setting_value')
-    .in('setting_key', ['def_admin_prompt', 'default_user_prompt', 'default_model']);
-
-  const settings: Record<string, string> = {};
-  data?.forEach(row => {
-    if (row.setting_key && row.setting_value) {
-      settings[row.setting_key] = row.setting_value;
-    }
-  });
-  return settings;
-};
-
-/**
- * Get model defaults for a specific model
- */
-const getModelDefaults = async (
-  supabase: TypedSupabaseClient, 
-  modelId: string | null | undefined
-): Promise<ModelDefaults> => {
-  if (!modelId) return { model_id: null } as ModelDefaults;
-
-  const { data } = await supabase
-    .from(MODEL_DEFAULTS_TABLE)
-    .select('*')
-    .eq('model_id', modelId)
-    .maybeSingle();
-
-  if (!data) return { model_id: modelId, model: modelId, model_on: true } as unknown as ModelDefaults;
-
-  const defaults: Record<string, unknown> = { model_id: modelId, model: modelId, model_on: true };
-  const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
-    'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
-
-  fields.forEach(field => {
-    const onKey = `${field}_on` as keyof typeof data;
-    if (data[onKey]) {
-      defaults[field] = data[field as keyof typeof data];
-      defaults[`${field}_on`] = true;
-    }
-  });
-
-  return defaults as ModelDefaults;
-};
-
-interface ExtendedParentSettings extends ParentSettings {
-  web_search_on?: boolean | null;
-  confluence_enabled?: boolean | null;
-  thread_mode?: string | null;
-  child_thread_strategy?: string | null;
-  response_format?: string | null;
-  response_format_on?: boolean | null;
-}
+// Table reference - validated at import time
+const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
 
 /**
  * Get inheritable settings from parent prompt
@@ -111,8 +30,8 @@ interface ExtendedParentSettings extends ParentSettings {
 const getParentSettings = async (
   supabase: TypedSupabaseClient, 
   parentRowId: string | null
-): Promise<ExtendedParentSettings> => {
-  if (!parentRowId) return {} as ExtendedParentSettings;
+): Promise<ParentSettings> => {
+  if (!parentRowId) return {} as ParentSettings;
 
   const { data } = await supabase
     .from(PROMPTS_TABLE)
@@ -125,25 +44,7 @@ const getParentSettings = async (
     .eq('row_id', parentRowId)
     .maybeSingle();
 
-  return (data || {}) as ExtendedParentSettings;
-};
-
-/**
- * Get library prompt content if specified
- */
-const getLibraryPrompt = async (
-  supabase: TypedSupabaseClient, 
-  libraryPromptId: string | null | undefined
-): Promise<LibraryPrompt | null> => {
-  if (!libraryPromptId) return null;
-
-  const { data } = await supabase
-    .from(LIBRARY_TABLE)
-    .select('row_id, name, content, description, category')
-    .eq('row_id', libraryPromptId)
-    .maybeSingle();
-
-  return data as LibraryPrompt | null;
+  return (data || {}) as ParentSettings;
 };
 
 /**

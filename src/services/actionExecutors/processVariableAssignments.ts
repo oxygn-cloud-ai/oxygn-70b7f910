@@ -7,9 +7,11 @@
 
 import { trackEvent } from '@/lib/posthog';
 import { validateVariableName } from '@/utils/variableResolver';
+import { getEnvOrThrow } from '@/utils/safeEnv';
 import { TypedSupabaseClient } from './types';
 
-const VARIABLES_TABLE = import.meta.env.VITE_PROMPT_VARIABLES_TBL || 'q_prompt_variables';
+// Table reference - validated at import time
+const VARIABLES_TABLE = getEnvOrThrow('VITE_PROMPT_VARIABLES_TBL');
 
 interface VariableAssignmentsConfig {
   enabled?: boolean;

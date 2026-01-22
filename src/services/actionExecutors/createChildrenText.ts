@@ -7,70 +7,21 @@
 
 import { processNamingTemplate } from '../../utils/namingTemplates';
 import { generatePositionAtEnd } from '../../utils/lexPosition';
+import { getEnvOrThrow } from '@/utils/safeEnv';
 import { 
   TypedSupabaseClient, 
   ExecutorParams, 
   ExecutorResult,
-  ModelDefaults,
   ParentSettings,
-  LibraryPrompt
 } from './types';
+import { 
+  getDefaultSettings, 
+  getModelDefaults, 
+  getLibraryPrompt 
+} from './helpers';
 
-// Table references from environment
-const PROMPTS_TABLE = import.meta.env.VITE_PROMPTS_TBL;
-const SETTINGS_TABLE = import.meta.env.VITE_SETTINGS_TBL;
-const MODEL_DEFAULTS_TABLE = import.meta.env.VITE_MODEL_DEFAULTS_TBL;
-const LIBRARY_TABLE = import.meta.env.VITE_PROMPT_LIBRARY_TBL || 'q_prompt_library';
-
-/**
- * Get default prompt settings from the database
- */
-const getDefaultSettings = async (supabase: TypedSupabaseClient): Promise<Record<string, string>> => {
-  const { data } = await supabase
-    .from(SETTINGS_TABLE)
-    .select('setting_key, setting_value')
-    .in('setting_key', ['def_admin_prompt', 'default_user_prompt', 'default_model']);
-
-  const settings: Record<string, string> = {};
-  data?.forEach(row => {
-    if (row.setting_key && row.setting_value) {
-      settings[row.setting_key] = row.setting_value;
-    }
-  });
-  return settings;
-};
-
-/**
- * Get model defaults for a specific model
- */
-const getModelDefaults = async (
-  supabase: TypedSupabaseClient, 
-  modelId: string | null
-): Promise<ModelDefaults> => {
-  if (!modelId) return { model_id: null } as ModelDefaults;
-
-  const { data } = await supabase
-    .from(MODEL_DEFAULTS_TABLE)
-    .select('*')
-    .eq('model_id', modelId)
-    .maybeSingle();
-
-  if (!data) return { model_id: modelId, model: modelId, model_on: true } as unknown as ModelDefaults;
-
-  const defaults: Record<string, unknown> = { model_id: modelId, model: modelId, model_on: true };
-  const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
-    'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
-
-  fields.forEach(field => {
-    const onKey = `${field}_on` as keyof typeof data;
-    if (data[onKey]) {
-      defaults[field] = data[field as keyof typeof data];
-      defaults[`${field}_on`] = true;
-    }
-  });
-
-  return defaults as ModelDefaults;
-};
+// Table reference - validated at import time
+const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
 
 /**
  * Get inheritable settings from parent prompt
@@ -92,24 +43,6 @@ const getParentSettings = async (
     .maybeSingle();
 
   return (data || {}) as ParentSettings;
-};
-
-/**
- * Get library prompt content if specified
- */
-const getLibraryPrompt = async (
-  supabase: TypedSupabaseClient, 
-  libraryPromptId: string | null | undefined
-): Promise<LibraryPrompt | null> => {
-  if (!libraryPromptId) return null;
-
-  const { data } = await supabase
-    .from(LIBRARY_TABLE)
-    .select('row_id, name, content, description, category')
-    .eq('row_id', libraryPromptId)
-    .maybeSingle();
-
-  return data as LibraryPrompt | null;
 };
 
 /**
@@ -202,10 +135,10 @@ export const executeCreateChildrenText = async ({
       max_tokens_on: parentSettings.max_tokens_on ?? modelDefaults.max_tokens_on,
       max_completion_tokens: parentSettings.max_completion_tokens ?? modelDefaults.max_completion_tokens,
       max_completion_tokens_on: parentSettings.max_completion_tokens_on ?? modelDefaults.max_completion_tokens_on,
-      web_search_on: (parentSettings as unknown as Record<string, unknown>).web_search_on,
-      confluence_enabled: (parentSettings as unknown as Record<string, unknown>).confluence_enabled,
-      thread_mode: (parentSettings as unknown as Record<string, unknown>).thread_mode,
-      child_thread_strategy: (parentSettings as unknown as Record<string, unknown>).child_thread_strategy,
+      web_search_on: parentSettings.web_search_on,
+      confluence_enabled: parentSettings.confluence_enabled,
+      thread_mode: parentSettings.thread_mode,
+      child_thread_strategy: parentSettings.child_thread_strategy,
     };
 
     if (copy_library_prompt_id) {

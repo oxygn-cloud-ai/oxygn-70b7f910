@@ -3,15 +3,16 @@
  * 
  * Saves the current node structure as a reusable template.
  */
+import { getEnvOrThrow } from '@/utils/safeEnv';
 import { 
   TypedSupabaseClient, 
   ExecutorParams, 
   ExecutorResult
 } from './types';
 
-// Table references from environment
-const PROMPTS_TABLE = import.meta.env.VITE_PROMPTS_TBL;
-const TEMPLATES_TABLE = import.meta.env.VITE_TEMPLATES_TBL;
+// Table references - validated at import time
+const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
+const TEMPLATES_TABLE = getEnvOrThrow('VITE_TEMPLATES_TBL');
 
 interface TemplateStructure {
   name: string;
@@ -82,7 +83,7 @@ const buildTemplateStructure = async (
       .select('row_id')
       .eq('parent_row_id', promptRowId)
       .eq('is_deleted', false)
-      .order('position', { ascending: true });
+      .order('position_lex', { ascending: true });
 
     if (childError) throw childError;
 
