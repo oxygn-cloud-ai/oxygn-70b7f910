@@ -1,10 +1,12 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { estimateCost } from '@/utils/costEstimator';
 
 const LiveApiDashboardContext = createContext(null);
 
 // Debounce interval for output text updates (ms)
-const OUTPUT_DEBOUNCE_MS = 100;
+const OUTPUT_DEBOUNCE_MS = 120;
+// Debounce interval for token increment batching (ms)
+const TOKEN_FLUSH_MS = 200;
 
 /**
  * Hook to access the LiveApiDashboard context.
@@ -40,6 +42,12 @@ export const useLiveApiDashboard = () => {
 export const LiveApiDashboardProvider = ({ children }) => {
   const [activeCalls, setActiveCalls] = useState([]);
   const callIdRef = useRef(0);
+  
+  // Ref to keep activeCalls accessible in stable callbacks
+  const activeCallsRef = useRef(activeCalls);
+  useEffect(() => {
+    activeCallsRef.current = activeCalls;
+  }, [activeCalls]);
   
   // Cumulative stats for cascade mode
   const [cumulativeStats, setCumulativeStats] = useState({
@@ -123,16 +131,28 @@ export const LiveApiDashboardProvider = ({ children }) => {
 
   // Ref to accumulate pending output text deltas for debouncing
   const pendingOutputRef = useRef({});
+  
+  // Ref to accumulate pending token increments for batching
+  const pendingTokensRef = useRef({});
 
   // Cleanup pending timeouts on unmount
   useEffect(() => {
     return () => {
-      // Clear all pending timeouts
+      // Clear all pending output timeouts
       Object.keys(pendingOutputRef.current).forEach((key) => {
         if (key.endsWith('_timeout')) {
           clearTimeout(pendingOutputRef.current[key]);
         }
       });
+      pendingOutputRef.current = {};
+      
+      // Clear all pending token timeouts
+      Object.keys(pendingTokensRef.current).forEach((key) => {
+        if (key.endsWith('_timeout')) {
+          clearTimeout(pendingTokensRef.current[key]);
+        }
+      });
+      pendingTokensRef.current = {};
     };
   }, []);
 
@@ -170,33 +190,72 @@ export const LiveApiDashboardProvider = ({ children }) => {
     }
   }, []);
 
-  // Increment output tokens (called during streaming)
+  // Flush pending token increments for a specific call
+  const flushPendingTokens = useCallback((callId) => {
+    const key = String(callId);
+    const pending = pendingTokensRef.current[key];
+    
+    if (!pending) return;
+    
+    const { tokens, firstTime, lastTime } = pending;
+    delete pendingTokensRef.current[key];
+    
+    const timeoutKey = `${key}_timeout`;
+    if (pendingTokensRef.current[timeoutKey]) {
+      clearTimeout(pendingTokensRef.current[timeoutKey]);
+      delete pendingTokensRef.current[timeoutKey];
+    }
+    
+    if (tokens > 0) {
+      setActiveCalls((prev) =>
+        prev.map((c) => {
+          if (c.id !== callId) return c;
+          return {
+            ...c,
+            outputTokens: (c.outputTokens || 0) + tokens,
+            tokenCount: (c.tokenCount || 0) + tokens,
+            firstTokenAt: c.firstTokenAt || firstTime,
+            lastTokenAt: lastTime,
+          };
+        })
+      );
+    }
+  }, []);
+
+  // Increment output tokens - BATCHED (called during streaming)
   const incrementOutputTokens = useCallback((id, tokenDelta = 1) => {
     const now = Date.now();
-    setActiveCalls((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        return {
-          ...c,
-          outputTokens: (c.outputTokens || 0) + tokenDelta,
-          tokenCount: (c.tokenCount || 0) + tokenDelta,
-          firstTokenAt: c.firstTokenAt || now,
-          lastTokenAt: now,
-        };
-      })
-    );
-  }, []);
+    const key = String(id);
+    
+    // Accumulate tokens
+    if (!pendingTokensRef.current[key]) {
+      pendingTokensRef.current[key] = { tokens: 0, firstTime: now, lastTime: now };
+    }
+    pendingTokensRef.current[key].tokens += tokenDelta;
+    pendingTokensRef.current[key].lastTime = now;
+    
+    // Schedule flush (TOKEN_FLUSH_MS debounce)
+    const timeoutKey = `${key}_timeout`;
+    if (!pendingTokensRef.current[timeoutKey]) {
+      pendingTokensRef.current[timeoutKey] = setTimeout(() => {
+        flushPendingTokens(id);
+      }, TOKEN_FLUSH_MS);
+    }
+  }, [flushPendingTokens]);
 
   // Remove a call from the dashboard and update cumulative stats
   const removeCall = useCallback((id) => {
     // Clean up any pending output flush for this call
     const key = String(id);
-    const timeoutKey = `${key}_timeout`;
-    if (pendingOutputRef.current[timeoutKey]) {
-      clearTimeout(pendingOutputRef.current[timeoutKey]);
+    const outputTimeoutKey = `${key}_timeout`;
+    if (pendingOutputRef.current[outputTimeoutKey]) {
+      clearTimeout(pendingOutputRef.current[outputTimeoutKey]);
       delete pendingOutputRef.current[key];
-      delete pendingOutputRef.current[timeoutKey];
+      delete pendingOutputRef.current[outputTimeoutKey];
     }
+    
+    // Flush and clean up pending token increments
+    flushPendingTokens(id);
     
     setActiveCalls((prev) => {
       const call = prev.find((c) => c.id === id);
@@ -218,17 +277,17 @@ export const LiveApiDashboardProvider = ({ children }) => {
       }
       return prev.filter((c) => c.id !== id);
     });
-  }, []);
+  }, [flushPendingTokens]);
 
   // Reset cumulative stats (call when cascade starts)
   const resetCumulativeStats = useCallback(() => {
     setCumulativeStats({ inputTokens: 0, outputTokens: 0, totalCost: 0, callCount: 0 });
   }, []);
 
-  // Cancel a specific call
+  // Cancel a specific call - uses ref to avoid dependency on activeCalls
   const cancelCall = useCallback(
     async (id) => {
-      const call = activeCalls.find((c) => c.id === id);
+      const call = activeCallsRef.current.find((c) => c.id === id);
       if (call?.cancelFn) {
         try {
           await call.cancelFn();
@@ -238,10 +297,11 @@ export const LiveApiDashboardProvider = ({ children }) => {
       }
       removeCall(id);
     },
-    [activeCalls, removeCall]
+    [removeCall]
   );
 
-  const value = {
+  // Memoize context value to prevent consumer re-renders when nothing changed
+  const value = useMemo(() => ({
     activeCalls,
     hasActiveCalls: activeCalls.length > 0,
     addCall,
@@ -254,7 +314,19 @@ export const LiveApiDashboardProvider = ({ children }) => {
     cancelCall,
     cumulativeStats,
     resetCumulativeStats,
-  };
+  }), [
+    activeCalls,
+    cumulativeStats,
+    addCall,
+    updateCall,
+    updateResolvedSettings,
+    appendThinking,
+    appendOutputText,
+    incrementOutputTokens,
+    removeCall,
+    cancelCall,
+    resetCumulativeStats,
+  ]);
 
   return (
     <LiveApiDashboardContext.Provider value={value}>

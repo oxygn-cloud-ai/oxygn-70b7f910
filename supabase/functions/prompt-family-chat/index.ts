@@ -1161,8 +1161,12 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
       emitter.emit({ type: 'progress', message: 'Calling AI model...' });
 
+      // API call with stale conversation recovery
+      let apiResponse: Response;
+      let retryAttempted = false;
+
       // Initial API call
-      const initialResponse = await fetch('https://api.openai.com/v1/responses', {
+      apiResponse = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${openAIApiKey}`,
@@ -1171,24 +1175,73 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         body: JSON.stringify(requestBody),
       });
 
-      if (!initialResponse.ok) {
-        const errorText = await initialResponse.text();
-        console.error('Responses API error:', initialResponse.status, errorText);
+      // Handle error with potential retry for stale conversation state
+      if (!apiResponse.ok) {
+        const errorText = await apiResponse.text();
+        console.error('Responses API error:', apiResponse.status, errorText);
         
-        let upstreamError = 'AI request failed';
-        try {
-          const parsed = JSON.parse(errorText);
-          upstreamError = parsed.error?.message || parsed.message || upstreamError;
-        } catch {
-          upstreamError = errorText.slice(0, 200);
+        let parsedError: any = null;
+        try { parsedError = JSON.parse(errorText); } catch {}
+        
+        const upstreamMessage = parsedError?.error?.message || '';
+        const isStaleConversation = 
+          upstreamMessage.includes('No tool output found') ||
+          upstreamMessage.includes('Cannot continue from response') ||
+          parsedError?.error?.code === 'invalid_previous_response_id';
+        
+        // Retry without previous_response_id if stale conversation detected
+        if (isStaleConversation && requestBody.previous_response_id && !retryAttempted) {
+          console.warn('Detected stale conversation state - clearing and retrying');
+          retryAttempted = true;
+          
+          // Clear stale response_id from database
+          await supabase
+            .from(TABLES.THREADS)
+            .update({ last_response_id: null })
+            .eq('row_id', threadRowId);
+          
+          // Remove from request and retry
+          delete requestBody.previous_response_id;
+          
+          apiResponse = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openAIApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+          
+          if (!apiResponse.ok) {
+            const retryErrorText = await apiResponse.text();
+            console.error('Retry also failed:', retryErrorText);
+            let retryUpstreamError = 'AI request failed after retry';
+            try {
+              const retryParsed = JSON.parse(retryErrorText);
+              retryUpstreamError = retryParsed?.error?.message || retryParsed?.message || retryUpstreamError;
+            } catch {
+              retryUpstreamError = retryErrorText.slice(0, 200);
+            }
+            emitter.emit({ type: 'error', error: retryUpstreamError, upstream_status: apiResponse.status });
+            emitter.close();
+            return;
+          }
+        } else {
+          // Not retryable or already retried
+          let upstreamError = 'AI request failed';
+          try {
+            upstreamError = parsedError?.error?.message || parsedError?.message || upstreamError;
+          } catch {
+            upstreamError = errorText.slice(0, 200);
+          }
+          
+          emitter.emit({ type: 'error', error: upstreamError, upstream_status: apiResponse.status });
+          emitter.close();
+          return;
         }
-        
-        emitter.emit({ type: 'error', error: upstreamError, upstream_status: initialResponse.status });
-        emitter.close();
-        return;
       }
 
-      const initialResult = await initialResponse.json();
+      const initialResult = await apiResponse.json();
       let latestResponseId = initialResult.id;
       console.log('Initial response:', latestResponseId, 'status:', initialResult.status);
 
