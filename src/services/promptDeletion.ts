@@ -1,7 +1,23 @@
+/**
+ * Prompt Deletion Service
+ * Handles soft-deletion and restoration of prompts
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { handleSupabaseError } from './errorHandling';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-export const deletePrompt = async (supabase, id) => {
+/**
+ * Soft-delete a prompt and all its children
+ * For top-level prompts, also cleans up associated conversation records
+ * 
+ * @param supabase - Supabase client instance
+ * @param id - Prompt row ID to delete
+ */
+export const deletePrompt = async (
+  supabase: SupabaseClient, 
+  id: string
+): Promise<void> => {
   try {
     // First, check if this is a top-level prompt with an assistant
     const { data: prompt, error: fetchError } = await supabase
@@ -11,7 +27,7 @@ export const deletePrompt = async (supabase, id) => {
       .maybeSingle();
 
     // PGRST116 means no rows found
-    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    if (fetchError && (fetchError as { code?: string }).code !== 'PGRST116') throw fetchError;
     if (!prompt) return; // Nothing to delete
 
     // If top-level, delete the conversation record (no OpenAI call needed for Responses API)
@@ -47,7 +63,7 @@ export const deletePrompt = async (supabase, id) => {
     }
 
     // Mark prompt and children as deleted
-    const markAsDeleted = async (itemId) => {
+    const markAsDeleted = async (itemId: string): Promise<void> => {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ is_deleted: true })
@@ -62,7 +78,7 @@ export const deletePrompt = async (supabase, id) => {
       
       if (childrenError) throw childrenError;
 
-      for (const child of children) {
+      for (const child of children || []) {
         await markAsDeleted(child.row_id);
       }
     };
@@ -70,16 +86,24 @@ export const deletePrompt = async (supabase, id) => {
     await markAsDeleted(id);
     trackEvent('prompt_deleted', { prompt_id: id });
   } catch (error) {
-    trackException(error, { context: 'promptDeletion.deletePrompt', prompt_id: id });
-    handleSupabaseError(error, 'deleting prompt');
+    trackException(error as Error, { context: 'promptDeletion.deletePrompt', prompt_id: id });
+    handleSupabaseError(error as Error, 'deleting prompt');
   }
 };
 
-// Restore a soft-deleted prompt and its children
-export const restorePrompt = async (supabase, id) => {
+/**
+ * Restore a soft-deleted prompt and all its children
+ * 
+ * @param supabase - Supabase client instance
+ * @param id - Prompt row ID to restore
+ */
+export const restorePrompt = async (
+  supabase: SupabaseClient, 
+  id: string
+): Promise<void> => {
   try {
     // Restore the prompt and all its children recursively
-    const markAsRestored = async (itemId) => {
+    const markAsRestored = async (itemId: string): Promise<void> => {
       const { error } = await supabase
         .from(import.meta.env.VITE_PROMPTS_TBL)
         .update({ is_deleted: false })
@@ -102,8 +126,9 @@ export const restorePrompt = async (supabase, id) => {
     };
 
     await markAsRestored(id);
+    trackEvent('prompt_restored', { prompt_id: id });
   } catch (error) {
-    handleSupabaseError(error, 'restoring prompt');
+    handleSupabaseError(error as Error, 'restoring prompt');
     throw error;
   }
 };

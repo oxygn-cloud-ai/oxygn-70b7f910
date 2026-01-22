@@ -8,19 +8,133 @@
 import { getActionType, getDefaultActionConfig } from '@/config/actionTypes';
 import { ALL_SETTINGS } from '@/config/modelCapabilities';
 
+/**
+ * Template schema structure
+ */
+export interface TemplateSchema {
+  type: string;
+  properties?: Record<string, unknown>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+/**
+ * Model configuration in a template
+ */
+export interface TemplateModelConfig {
+  model?: string;
+  tools?: {
+    web_search?: boolean;
+    confluence?: boolean;
+    code_interpreter?: boolean;
+    file_search?: boolean;
+  };
+  [key: string]: unknown;
+}
+
+/**
+ * Node configuration in a template
+ */
+export interface TemplateNodeConfig {
+  node_type?: 'standard' | 'action' | 'question';
+  post_action?: string | null;
+}
+
+/**
+ * Child creation metadata
+ */
+export interface ChildCreationConfig {
+  enabled?: boolean;
+  keyPath?: string;
+  nameField?: string;
+  contentField?: string;
+  childNodeType?: string;
+  keyPattern?: string;
+  nameSource?: string;
+  contentKeySuffix?: string;
+  placement?: string;
+}
+
+/**
+ * Action configuration
+ */
+export interface ActionConfig {
+  json_path?: string;
+  name_field?: string;
+  content_field?: string;
+  child_node_type?: string;
+  section_pattern?: string;
+  name_source?: string;
+  content_key_suffix?: string;
+  placement?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Complete template structure
+ */
+export interface Template {
+  id?: string;
+  schema?: TemplateSchema | null;
+  modelConfig?: TemplateModelConfig | null;
+  nodeConfig?: TemplateNodeConfig | null;
+  childCreation?: ChildCreationConfig | null;
+  actionConfig?: ActionConfig | null;
+  systemPromptTemplate?: string | null;
+}
+
+/**
+ * Prompt data for template operations
+ */
+export interface PromptDataForTemplate {
+  response_format?: string | Record<string, unknown>;
+  node_type?: string;
+  post_action?: string | null;
+  post_action_config?: string | Record<string, unknown>;
+  model?: string;
+  model_on?: boolean;
+  input_admin_prompt?: string;
+  web_search_on?: boolean;
+  confluence_enabled?: boolean;
+  code_interpreter_on?: boolean;
+  file_search_on?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Template application result
+ */
+export interface TemplateUpdates {
+  response_format?: string;
+  node_type?: string;
+  post_action?: string;
+  post_action_config?: ActionConfig;
+  model?: string;
+  model_on?: boolean;
+  input_admin_prompt?: string;
+  web_search_on?: boolean;
+  confluence_enabled?: boolean;
+  code_interpreter_on?: boolean;
+  file_search_on?: boolean;
+  [key: string]: unknown;
+}
+
 // Get all setting keys that can be applied to prompts
 const MODEL_SETTINGS_KEYS = Object.keys(ALL_SETTINGS).filter(key => 
-  ALL_SETTINGS[key].type !== 'hidden'
+  (ALL_SETTINGS as Record<string, { type: string }>)[key].type !== 'hidden'
 );
 
 /**
  * Apply a template's full configuration to prompt data
- * @param {Object} template - Template with schema, modelConfig, nodeConfig, etc.
- * @param {Object} currentData - Current prompt data to update
- * @returns {Object} Updated fields to apply
+ * @param template - Template with schema, modelConfig, nodeConfig, etc.
+ * @param currentData - Current prompt data to update
+ * @returns Updated fields to apply
  */
-export const applyTemplateToPrompt = (template, currentData = {}) => {
-  const updates = {};
+export const applyTemplateToPrompt = (
+  template: Template, 
+  currentData: PromptDataForTemplate = {}
+): TemplateUpdates => {
+  const updates: TemplateUpdates = {};
 
   // 1. Apply JSON schema to response_format
   if (template.schema) {
@@ -70,8 +184,9 @@ export const applyTemplateToPrompt = (template, currentData = {}) => {
     
     // Apply model settings with their enabled flags (from config)
     for (const setting of MODEL_SETTINGS_KEYS) {
-      if (template.modelConfig[setting]?.enabled) {
-        updates[setting] = template.modelConfig[setting].value;
+      const settingConfig = template.modelConfig[setting] as { enabled?: boolean; value?: unknown } | undefined;
+      if (settingConfig?.enabled) {
+        updates[setting] = settingConfig.value;
         updates[`${setting}_on`] = true;
       }
     }
@@ -104,13 +219,16 @@ export const applyTemplateToPrompt = (template, currentData = {}) => {
 /**
  * Derive action configuration from childCreation metadata
  */
-const deriveActionConfigFromChildCreation = (actionId, childCreation) => {
+const deriveActionConfigFromChildCreation = (
+  actionId: string, 
+  childCreation: ChildCreationConfig
+): ActionConfig | null => {
   if (!childCreation) return null;
 
   const actionType = getActionType(actionId);
   if (!actionType) return null;
 
-  const config = getDefaultActionConfig(actionId);
+  const config = getDefaultActionConfig(actionId) as ActionConfig;
 
   switch (actionId) {
     case 'create_children_json':
@@ -138,11 +256,11 @@ const deriveActionConfigFromChildCreation = (actionId, childCreation) => {
 
 /**
  * Extract template configuration from current prompt settings
- * @param {Object} promptData - Current prompt data
- * @returns {Object} Template configuration object
+ * @param promptData - Current prompt data
+ * @returns Template configuration object
  */
-export const extractTemplateFromPrompt = (promptData) => {
-  const template = {
+export const extractTemplateFromPrompt = (promptData: PromptDataForTemplate): Template => {
+  const template: Template = {
     schema: null,
     modelConfig: null,
     nodeConfig: null,
@@ -159,7 +277,7 @@ export const extractTemplateFromPrompt = (promptData) => {
         : promptData.response_format;
       
       if (format?.json_schema?.schema) {
-        template.schema = format.json_schema.schema;
+        template.schema = format.json_schema.schema as TemplateSchema;
       }
     } catch {
       // Invalid JSON, skip
@@ -169,7 +287,7 @@ export const extractTemplateFromPrompt = (promptData) => {
   // 2. Extract node configuration
   if (promptData.node_type || promptData.post_action) {
     template.nodeConfig = {
-      node_type: promptData.node_type || 'standard',
+      node_type: (promptData.node_type as TemplateNodeConfig['node_type']) || 'standard',
       post_action: promptData.post_action || null,
     };
   }
@@ -178,11 +296,11 @@ export const extractTemplateFromPrompt = (promptData) => {
   if (promptData.post_action_config) {
     template.actionConfig = typeof promptData.post_action_config === 'string'
       ? JSON.parse(promptData.post_action_config)
-      : promptData.post_action_config;
+      : promptData.post_action_config as ActionConfig;
   }
 
   // 4. Extract model configuration
-  const modelSettings = {};
+  const modelSettings: TemplateModelConfig = {};
   let hasModelConfig = false;
 
   if (promptData.model_on && promptData.model) {
@@ -202,7 +320,7 @@ export const extractTemplateFromPrompt = (promptData) => {
   }
 
   // Tool settings
-  const toolSettings = {};
+  const toolSettings: NonNullable<TemplateModelConfig['tools']> = {};
   let hasTools = false;
   
   if (promptData.web_search_on !== undefined) {
@@ -241,20 +359,29 @@ export const extractTemplateFromPrompt = (promptData) => {
 
 /**
  * Check if a template is a "full template" (has node + action config)
- * @param {Object} template - Template object
- * @returns {boolean} True if full template
+ * @param template - Template object
+ * @returns True if full template
  */
-export const isFullTemplate = (template) => {
+export const isFullTemplate = (template: Template | null | undefined): boolean => {
   return !!(template?.nodeConfig && template?.actionConfig);
 };
 
 /**
- * Get template summary for display
- * @param {Object} template - Template object
- * @returns {Object} Summary with features list
+ * Template summary for display
  */
-export const getTemplateSummary = (template) => {
-  const features = [];
+export interface TemplateSummary {
+  features: string[];
+  isFullTemplate: boolean;
+  hasChildCreation: boolean;
+}
+
+/**
+ * Get template summary for display
+ * @param template - Template object
+ * @returns Summary with features list
+ */
+export const getTemplateSummary = (template: Template): TemplateSummary => {
+  const features: string[] = [];
   
   if (template.schema) features.push('JSON Schema');
   if (template.nodeConfig) features.push('Node Type');
@@ -265,6 +392,6 @@ export const getTemplateSummary = (template) => {
   return {
     features,
     isFullTemplate: isFullTemplate(template),
-    hasChildCreation: template.childCreation?.enabled,
+    hasChildCreation: !!template.childCreation?.enabled,
   };
 };
