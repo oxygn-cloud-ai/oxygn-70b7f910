@@ -93,6 +93,8 @@ export type ExecutorFunction = (params: ExecutorParams) => Promise<ExecutorResul
 
 export interface ModelDefaults {
   model_id: string | null;
+  model?: string | null;
+  model_on?: boolean | null;
   temperature: string | null;
   temperature_on: boolean | null;
   max_tokens: string | null;
@@ -107,17 +109,22 @@ export interface ModelDefaults {
   frequency_penalty_on: boolean | null;
   presence_penalty: string | null;
   presence_penalty_on: boolean | null;
+  reasoning_effort?: string | null;
+  reasoning_effort_on?: boolean | null;
+  response_format?: string | null;
+  response_format_on?: boolean | null;
   [key: string]: unknown;
 }
 
 export interface ParentSettings {
   model: string | null;
+  model_on?: boolean | null;
   temperature: string | null;
   temperature_on: boolean | null;
   max_tokens: string | null;
   max_tokens_on: boolean | null;
-  max_output_tokens: string | null;
-  max_output_tokens_on: boolean | null;
+  max_output_tokens?: string | null;
+  max_output_tokens_on?: boolean | null;
   max_completion_tokens: string | null;
   max_completion_tokens_on: boolean | null;
   top_p: string | null;
@@ -128,6 +135,13 @@ export interface ParentSettings {
   presence_penalty_on: boolean | null;
   reasoning_effort: string | null;
   reasoning_effort_on: boolean | null;
+  response_format?: string | null;
+  response_format_on?: boolean | null;
+  web_search_on?: boolean | null;
+  confluence_enabled?: boolean | null;
+  thread_mode?: string | null;
+  child_thread_strategy?: string | null;
+  input_admin_prompt?: string | null;
 }
 
 export interface LibraryPrompt {

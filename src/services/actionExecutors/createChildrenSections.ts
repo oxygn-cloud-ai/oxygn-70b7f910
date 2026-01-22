@@ -7,93 +7,21 @@
  * Supports creating either standard or action node children.
  */
 import { generatePositionAtEnd } from '../../utils/lexPosition';
+import { getEnvOrThrow } from '@/utils/safeEnv';
 import { 
   TypedSupabaseClient, 
   ExecutorParams, 
   ExecutorResult,
-  ModelDefaults,
-  LibraryPrompt
+  ParentSettings,
 } from './types';
+import { 
+  getDefaultSettings, 
+  getModelDefaults, 
+  getLibraryPrompt 
+} from './helpers';
 
-// Table references from environment
-const PROMPTS_TABLE = import.meta.env.VITE_PROMPTS_TBL;
-const SETTINGS_TABLE = import.meta.env.VITE_SETTINGS_TBL;
-const MODEL_DEFAULTS_TABLE = import.meta.env.VITE_MODEL_DEFAULTS_TBL;
-const LIBRARY_TABLE = import.meta.env.VITE_PROMPT_LIBRARY_TBL || 'q_prompt_library';
-
-interface PromptSettings {
-  model: string | null;
-  model_on: boolean | null;
-  web_search_on: boolean | null;
-  confluence_enabled: boolean | null;
-  thread_mode: string | null;
-  child_thread_strategy: string | null;
-  temperature: string | null;
-  temperature_on: boolean | null;
-  max_tokens: string | null;
-  max_tokens_on: boolean | null;
-  max_completion_tokens: string | null;
-  max_completion_tokens_on: boolean | null;
-  top_p: string | null;
-  top_p_on: boolean | null;
-  frequency_penalty: string | null;
-  frequency_penalty_on: boolean | null;
-  presence_penalty: string | null;
-  presence_penalty_on: boolean | null;
-  input_admin_prompt: string | null;
-  response_format: string | null;
-  response_format_on: boolean | null;
-}
-
-/**
- * Get default prompt settings from the database
- */
-const getDefaultSettings = async (supabase: TypedSupabaseClient): Promise<Record<string, string>> => {
-  const { data } = await supabase
-    .from(SETTINGS_TABLE)
-    .select('setting_key, setting_value')
-    .in('setting_key', ['def_admin_prompt', 'default_user_prompt', 'default_model']);
-
-  const settings: Record<string, string> = {};
-  data?.forEach(row => {
-    if (row.setting_key && row.setting_value) {
-      settings[row.setting_key] = row.setting_value;
-    }
-  });
-  return settings;
-};
-
-/**
- * Get model defaults for a specific model
- */
-const getModelDefaults = async (
-  supabase: TypedSupabaseClient, 
-  modelId: string | null
-): Promise<ModelDefaults> => {
-  if (!modelId) return { model_id: null } as ModelDefaults;
-
-  const { data } = await supabase
-    .from(MODEL_DEFAULTS_TABLE)
-    .select('*')
-    .eq('model_id', modelId)
-    .maybeSingle();
-
-  if (!data) return { model_id: modelId, model: modelId, model_on: true } as unknown as ModelDefaults;
-
-  const defaults: Record<string, unknown> = { model_id: modelId, model: modelId, model_on: true };
-  const fields = ['temperature', 'max_tokens', 'max_completion_tokens', 'top_p', 'frequency_penalty', 
-    'presence_penalty', 'reasoning_effort', 'stop', 'n', 'stream', 'response_format', 'logit_bias', 'o_user', 'seed', 'tool_choice'];
-
-  fields.forEach(field => {
-    const onKey = `${field}_on` as keyof typeof data;
-    if (data[onKey]) {
-      defaults[field] = data[field as keyof typeof data];
-      defaults[`${field}_on`] = true;
-    }
-  });
-
-  return defaults as ModelDefaults;
-};
+// Table reference - validated at import time
+const PROMPTS_TABLE = getEnvOrThrow('VITE_PROMPTS_TBL');
 
 /**
  * Get inheritable settings from a prompt (parent or action prompt itself)
@@ -101,8 +29,8 @@ const getModelDefaults = async (
 const getPromptSettings = async (
   supabase: TypedSupabaseClient, 
   promptRowId: string | null
-): Promise<PromptSettings> => {
-  if (!promptRowId) return {} as PromptSettings;
+): Promise<ParentSettings> => {
+  if (!promptRowId) return {} as ParentSettings;
 
   const { data } = await supabase
     .from(PROMPTS_TABLE)
@@ -116,25 +44,7 @@ const getPromptSettings = async (
     .eq('row_id', promptRowId)
     .maybeSingle();
 
-  return (data || {}) as PromptSettings;
-};
-
-/**
- * Get library prompt content if specified
- */
-const getLibraryPrompt = async (
-  supabase: TypedSupabaseClient, 
-  libraryPromptId: string | null | undefined
-): Promise<LibraryPrompt | null> => {
-  if (!libraryPromptId) return null;
-
-  const { data } = await supabase
-    .from(LIBRARY_TABLE)
-    .select('row_id, name, content, description, category')
-    .eq('row_id', libraryPromptId)
-    .maybeSingle();
-
-  return data as LibraryPrompt | null;
+  return (data || {}) as ParentSettings;
 };
 
 /**
@@ -319,7 +229,7 @@ export const executeCreateChildrenSections = async ({
         has_content: !!content 
       },
       model: actionPromptSettings.model || modelDefaults.model_id,
-      model_on: actionPromptSettings.model_on ?? (modelDefaults as unknown as Record<string, unknown>).model_on,
+      model_on: actionPromptSettings.model_on ?? modelDefaults.model_on,
       temperature: actionPromptSettings.temperature ?? modelDefaults.temperature,
       temperature_on: actionPromptSettings.temperature_on ?? modelDefaults.temperature_on,
       max_tokens: actionPromptSettings.max_tokens ?? modelDefaults.max_tokens,
