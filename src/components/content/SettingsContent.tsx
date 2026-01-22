@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   Settings, Palette, Bell, User, 
   Link2, MessageSquare, Sparkles,
-  Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
+  Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, Save, XCircle, History, BookOpen, Key, Tag
+  Globe, Zap, Save, History, BookOpen, Key, Tag,
+  LucideIcon
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
@@ -15,7 +16,6 @@ import { Switch } from "@/components/ui/switch";
 import { SettingCard } from "@/components/ui/setting-card";
 import { SettingRow } from "@/components/ui/setting-row";
 import { SettingDivider } from "@/components/ui/setting-divider";
-import { SettingInput } from "@/components/ui/setting-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getThemePreference, setThemePreference } from '@/components/ui/sonner';
 import { useSupabase } from "@/hooks/useSupabase";
@@ -37,38 +37,168 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const SETTING_KEY_PUBLISHED_RELEASE = 'published_release';
-// No mock data - all models come from database via useModels hook
+// ============================================================================
+// Types
+// ============================================================================
 
-const DEFAULT_NAMING_LEVELS = [
+interface SettingValue {
+  value?: string;
+  [key: string]: unknown;
+}
+
+interface SettingsMap {
+  [key: string]: SettingValue | undefined;
+}
+
+interface ModelData {
+  row_id: string;
+  model_id: string;
+  model_name: string;
+  provider?: string;
+  context_window?: number | null;
+  max_output_tokens?: number | null;
+  input_cost_per_million?: number | null;
+  output_cost_per_million?: number | null;
+  supports_temperature?: boolean;
+  api_model_id?: string;
+  token_param?: string;
+  is_active?: boolean;
+}
+
+interface ModelFormData {
+  model_id: string;
+  model_name: string;
+  provider: string;
+  context_window: string;
+  max_output_tokens: string;
+  input_cost_per_million: string;
+  output_cost_per_million: string;
+  supports_temperature: boolean;
+  api_model_id: string;
+  token_param: string;
+}
+
+interface ModelUsage {
+  totalTokens: number;
+  totalCost: number;
+  callCount: number;
+}
+
+interface ModelUsageMap {
+  [modelId: string]: ModelUsage;
+}
+
+interface ConversationData {
+  row_id?: string;
+  id?: string;
+  name?: string;
+  model_override?: string;
+  model?: string;
+  prompt_row_id?: string;
+  prompt_name?: string;
+  created_at?: string;
+}
+
+interface PublishedRelease {
+  build: string;
+  published_at: string;
+  published_by: string;
+}
+
+interface ConnectionStatus {
+  success: boolean;
+  message: string;
+}
+
+interface NamingLevel {
+  level: number;
+  name: string;
+  prefix: string;
+  suffix: string;
+}
+
+interface NotificationPreferences {
+  email_notifications: boolean;
+  cascade_completion: boolean;
+  error_alerts: boolean;
+  usage_warnings: boolean;
+}
+
+interface ConversationToolDefaults {
+  [key: string]: unknown;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const SETTING_KEY_PUBLISHED_RELEASE = 'published_release';
+
+const DEFAULT_NAMING_LEVELS: NamingLevel[] = [
   { level: 0, name: "Prompt", prefix: "", suffix: "" },
   { level: 1, name: "Sub-prompt", prefix: "", suffix: "" },
   { level: 2, name: "Task", prefix: "", suffix: "" },
 ];
 
-// General Settings Section - Connected to real settings
-const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoadingSettings }) => {
-  const [editedValues, setEditedValues] = useState({});
+// ============================================================================
+// Section Props Types
+// ============================================================================
+
+interface CommonSettingsProps {
+  settings?: SettingsMap;
+  onUpdateSetting?: (key: string, value: string) => Promise<void>;
+  isLoadingSettings?: boolean;
+}
+
+interface GeneralSectionProps extends CommonSettingsProps {
+  models?: ModelData[];
+}
+
+interface AIModelsSectionProps {
+  models?: ModelData[];
+  isLoading?: boolean;
+  onToggleModel?: (modelId: string) => void;
+  onAddModel?: (model: Partial<ModelData>) => Promise<void>;
+  onUpdateModel?: (rowId: string, model: Partial<ModelData>) => Promise<void>;
+  onDeleteModel?: (rowId: string) => Promise<void>;
+  onAddModels?: (models: Partial<ModelData>[]) => Promise<boolean>;
+  settings?: SettingsMap;
+  onUpdateSetting?: (key: string, value: string) => Promise<void>;
+}
+
+interface ConversationDefaultsSectionProps extends CommonSettingsProps {
+  conversationToolDefaults?: ConversationToolDefaults;
+}
+
+// ============================================================================
+// GeneralSection
+// ============================================================================
+
+const GeneralSection: React.FC<GeneralSectionProps> = ({ 
+  settings = {}, 
+  onUpdateSetting, 
+  models = [], 
+  isLoadingSettings 
+}) => {
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const { retentionMinutes, updateRetention, undoStack, clearAllUndo } = useUndo();
   const [localRetention, setLocalRetention] = useState(retentionMinutes);
   const { build: githubBuild, releaseUrl, releaseDate, isLoading: isBuildLoading, error: buildError } = useBuildInfo();
   
-  // Published release state and hooks
   const { isAdmin, userProfile } = useAuth();
   const [isPublishing, setIsPublishing] = useState(false);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
 
-  // Sync local retention with context
   useEffect(() => {
     setLocalRetention(retentionMinutes);
   }, [retentionMinutes]);
 
-  const handleValueChange = (key, value) => {
+  const handleValueChange = (key: string, value: string) => {
     setEditedValues(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async (key) => {
+  const handleSave = async (key: string) => {
     if (!onUpdateSetting) return;
     setIsSaving(true);
     try {
@@ -83,7 +213,7 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
     }
   };
 
-  const handleRetentionChange = (value) => {
+  const handleRetentionChange = (value: string) => {
     const numValue = parseInt(value) || 30;
     setLocalRetention(numValue);
   };
@@ -94,19 +224,18 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
     trackEvent('undo_retention_updated', { retention_minutes: localRetention });
   };
 
-  const getValue = (key, fallback = '') => {
+  const getValue = (key: string, fallback = '') => {
     if (editedValues[key] !== undefined) return editedValues[key];
     return settings[key]?.value || fallback;
   };
 
-  const hasChanges = (key) => {
+  const hasChanges = (key: string) => {
     return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
   };
 
   const hasRetentionChanges = localRetention !== retentionMinutes;
 
-  // Parse published release from settings with loading guard
-  const publishedRelease = useMemo(() => {
+  const publishedRelease = useMemo<PublishedRelease | null>(() => {
     if (isLoadingSettings) return null;
     const raw = settings[SETTING_KEY_PUBLISHED_RELEASE]?.value;
     if (!raw) return null;
@@ -117,7 +246,6 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
     }
   }, [settings, isLoadingSettings]);
 
-  // Format date consistently with Build row
   const formattedPublishedDate = publishedRelease?.published_at
     ? new Date(publishedRelease.published_at).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -126,7 +254,6 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
       })
     : null;
 
-  // Build description for Release row
   const releaseDescription = useMemo(() => {
     if (isLoadingSettings) return "Loading...";
     if (!publishedRelease) return "Not yet published";
@@ -136,13 +263,9 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
     return formattedPublishedDate ? `Published ${formattedPublishedDate}` : "Published";
   }, [isLoadingSettings, publishedRelease, formattedPublishedDate]);
 
-  // Case-insensitive build comparison - guard against undefined === undefined
   const isCurrentBuildPublished = Boolean(githubBuild) && publishedRelease?.build?.toLowerCase() === githubBuild?.toLowerCase();
-
-  // Button visibility logic
   const canPublish = isAdmin && githubBuild && !isBuildLoading && !isPublishing;
 
-  // Publish handler with case-insensitive error check
   const handlePublishRelease = async () => {
     if (!githubBuild || !onUpdateSetting) return;
     
@@ -161,10 +284,9 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
         build: githubBuild,
         published_by: userProfile?.display_name
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to publish release:', err);
-      // Case-insensitive error check
-      const errorMsg = err?.message?.toLowerCase() || '';
+      const errorMsg = (err as Error)?.message?.toLowerCase() || '';
       const message = errorMsg.includes('row-level security') || errorMsg.includes('permission')
         ? 'Permission denied. Admin access required.'
         : 'Failed to mark as published. Please try again.';
@@ -189,8 +311,8 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
               >
                 <option value="">Select model...</option>
                 {models.map((model) => (
-                  <option key={model.row_id || model.id} value={model.model_id || model.id}>
-                    {model.model_name || model.name}
+                  <option key={model.row_id} value={model.model_id}>
+                    {model.model_name}
                   </option>
                 ))}
               </select>
@@ -245,10 +367,7 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
             </div>
           </SettingRow>
           <SettingDivider />
-          <SettingRow 
-            label="Release" 
-            description={releaseDescription}
-          >
+          <SettingRow label="Release" description={releaseDescription}>
             <div className="flex items-center gap-2">
               {isLoadingSettings ? (
                 <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
@@ -386,7 +505,6 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
               <TooltipTrigger asChild>
                 <button
                   onClick={() => {
-                    // List of all localStorage keys used for UI state
                     const uiStateKeys = [
                       'qonsol-folder-panel-open',
                       'qonsol-conversation-panel-open',
@@ -394,7 +512,6 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
                       'qonsol-selected-prompt-id',
                       'qonsol-expanded-folders',
                     ];
-                    // Also clear all prompt/output height keys and panel layout
                     Object.keys(localStorage).forEach(key => {
                       if (key.startsWith('qonsol-prompt-height-') || 
                           key.startsWith('qonsol-output-height-') ||
@@ -451,10 +568,7 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
             </div>
           </SettingRow>
           <SettingDivider />
-          <SettingRow 
-            label="Retention period" 
-            description="Auto-cleanup older versions"
-          >
+          <SettingRow label="Retention period" description="Auto-cleanup older versions">
             <div className="flex items-center gap-2">
               <select
                 value={getValue('version_retention_days', '90')}
@@ -533,14 +647,16 @@ const GeneralSection = ({ settings = {}, onUpdateSetting, models = [], isLoading
   );
 };
 
-// Prompt Naming Section - Connected to q_settings
-const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
-  const [levels, setLevels] = useState(DEFAULT_NAMING_LEVELS);
+// ============================================================================
+// PromptNamingSection
+// ============================================================================
+
+const PromptNamingSection: React.FC<CommonSettingsProps> = ({ settings = {}, onUpdateSetting }) => {
+  const [levels, setLevels] = useState<NamingLevel[]>(DEFAULT_NAMING_LEVELS);
   const [expandedSet, setExpandedSet] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load from settings on mount
   useEffect(() => {
     const savedNaming = settings['prompt_naming_defaults']?.value;
     if (savedNaming) {
@@ -555,7 +671,7 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
     }
   }, [settings]);
 
-  const handleLevelChange = (index, field, value) => {
+  const handleLevelChange = (index: number, field: keyof NamingLevel, value: string | number) => {
     setLevels(prev => prev.map((lvl, i) => 
       i === index ? { ...lvl, [field]: value } : lvl
     ));
@@ -567,7 +683,7 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
     setHasChanges(true);
   };
 
-  const handleRemoveLevel = (index) => {
+  const handleRemoveLevel = (index: number) => {
     if (levels.length <= 1) return;
     setLevels(prev => prev.filter((_, i) => i !== index).map((lvl, i) => ({ ...lvl, level: i })));
     setHasChanges(true);
@@ -580,7 +696,7 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
       await onUpdateSetting('prompt_naming_defaults', JSON.stringify({ levels }));
       setHasChanges(false);
       toast.success('Naming defaults saved');
-    } catch (e) {
+    } catch {
       toast.error('Failed to save naming defaults');
     } finally {
       setIsSaving(false);
@@ -589,7 +705,6 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
 
   return (
     <div className="space-y-4">
-      {/* Template Codes Help */}
       <div className="flex items-center justify-between p-3 bg-surface-container-low rounded-m3-lg">
         <p className="text-body-sm text-on-surface-variant">
           Use template codes in prefix/suffix fields for dynamic naming.
@@ -629,10 +744,8 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
         </div>
       </div>
 
-      {/* Default Naming Table */}
       <SettingCard label="Default Naming (All Prompts)">
         <div className="space-y-2">
-          {/* Table Header */}
           <div className="grid grid-cols-[40px,1fr,1fr,1fr,100px,40px] gap-2 px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider">
             <span>Level</span>
             <span>Default Name</span>
@@ -642,7 +755,6 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
             <span></span>
           </div>
           
-          {/* Table Rows */}
           {levels.map((level, index) => (
             <div key={index} className="grid grid-cols-[40px,1fr,1fr,1fr,100px,40px] gap-2 items-center p-2 bg-surface-container rounded-m3-sm">
               <span className="text-body-sm text-on-surface-variant">{index}</span>
@@ -682,7 +794,6 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
             </div>
           ))}
           
-          {/* Add Level */}
           <button 
             onClick={handleAddLevel}
             className="flex items-center gap-1.5 px-2 py-1.5 text-body-sm text-on-surface-variant hover:text-on-surface transition-colors"
@@ -693,14 +804,12 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
         </div>
       </SettingCard>
 
-      {/* Top-Level Set Overrides */}
       <SettingCard label="Top-Level Set Overrides">
         <div className="space-y-3">
           <p className="text-[10px] text-on-surface-variant">
             Create custom naming patterns for specific top-level prompt sets.
           </p>
           
-          {/* Add new set */}
           <div className="flex gap-2">
             <input 
               type="text"
@@ -713,7 +822,6 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
             </button>
           </div>
 
-          {/* Existing set example */}
           <div className="border border-outline-variant rounded-m3-md overflow-hidden">
             <button 
               onClick={() => setExpandedSet(!expandedSet)}
@@ -752,16 +860,19 @@ const PromptNamingSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Conversation Defaults Section - Connected to real settings
-const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
-  const [editedValues, setEditedValues] = useState({});
+// ============================================================================
+// ConversationDefaultsSection
+// ============================================================================
+
+const ConversationDefaultsSection: React.FC<ConversationDefaultsSectionProps> = ({ settings = {}, onUpdateSetting }) => {
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleValueChange = (key, value) => {
+  const handleValueChange = (key: string, value: string) => {
     setEditedValues(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async (key) => {
+  const handleSave = async (key: string) => {
     if (!onUpdateSetting) return;
     setIsSaving(true);
     try {
@@ -776,18 +887,17 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
     }
   };
 
-  const getValue = (key, fallback = '') => {
+  const getValue = (key: string, fallback = '') => {
     if (editedValues[key] !== undefined) return editedValues[key];
     return settings[key]?.value || fallback;
   };
 
-  const hasChanges = (key) => {
+  const hasChanges = (key: string) => {
     return editedValues[key] !== undefined && editedValues[key] !== (settings[key]?.value || '');
   };
 
   return (
     <div className="space-y-4">
-      {/* Default Context Prompt */}
       <SettingCard label="Default Context Prompt">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -817,16 +927,15 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
         </div>
       </SettingCard>
 
-      {/* Default System Instructions */}
       <SettingCard label="Default System Instructions">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-on-surface-variant">Instructions for new top-level conversations</span>
-            {hasChanges('default_system_instructions') && (
+            {hasChanges('def_assistant_instructions') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => handleSave('default_system_instructions')}
+                    onClick={() => handleSave('def_assistant_instructions')}
                     disabled={isSaving}
                     className="w-6 h-6 flex items-center justify-center rounded-m3-full text-primary hover:bg-on-surface/[0.08]"
                   >
@@ -839,65 +948,15 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
           </div>
           <textarea 
             rows={4}
-            value={getValue('default_system_instructions')}
-            onChange={(e) => handleValueChange('default_system_instructions', e.target.value)}
-            placeholder="Default instructions for new top-level conversations..."
+            value={getValue('def_assistant_instructions', 'You are a helpful AI assistant for this conversation.')}
+            onChange={(e) => handleValueChange('def_assistant_instructions', e.target.value)}
+            placeholder="Default system instructions..."
             className="w-full p-2.5 bg-surface-container rounded-m3-md border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y"
           />
         </div>
       </SettingCard>
 
-      {/* Default Tools */}
-      <SettingCard label="Default Tools">
-        <div className="space-y-3">
-          <p className="text-[10px] text-on-surface-variant">Default tools enabled for new conversations</p>
-          <div className="space-y-2">
-            {[
-              { key: 'default_code_interpreter', icon: Code, label: "Code Interpreter", description: "Allows the AI to write and run Python code" },
-              { key: 'default_file_search', icon: Search, label: "File Search", description: "Enables searching through uploaded files" },
-              { key: 'default_function_calling', icon: Zap, label: "Function Calling", description: "Allows defining custom functions for the AI" },
-            ].map(tool => (
-              <div key={tool.key} className="flex items-center justify-between p-2.5 bg-surface-container rounded-m3-sm">
-                <div className="flex items-center gap-2">
-                  <tool.icon className="h-4 w-4 text-on-surface-variant" />
-                  <div>
-                    <span className="text-body-sm text-on-surface">{tool.label}</span>
-                    <p className="text-[10px] text-on-surface-variant">{tool.description}</p>
-                  </div>
-                </div>
-                <Switch 
-                  checked={getValue(tool.key) === 'true'} 
-                  onCheckedChange={(checked) => {
-                    handleValueChange(tool.key, checked ? 'true' : 'false');
-                    if (onUpdateSetting) onUpdateSetting(tool.key, checked ? 'true' : 'false');
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </SettingCard>
-
-      {/* Default Thread Mode */}
-      <SettingCard label="Default Thread Mode">
-        <div className="space-y-2">
-          <select 
-            value={getValue('default_thread_mode', 'new')}
-            onChange={(e) => {
-              handleValueChange('default_thread_mode', e.target.value);
-              if (onUpdateSetting) onUpdateSetting('default_thread_mode', e.target.value);
-            }}
-            className="w-full h-9 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="new">New Thread - Create fresh conversation for each execution</option>
-            <option value="reuse">Reuse Thread - Maintain conversation history</option>
-          </select>
-          <p className="text-[10px] text-on-surface-variant">Default thread behavior for new child prompts</p>
-        </div>
-      </SettingCard>
-
-      {/* Empty Prompt Fallback */}
-      <SettingCard label="Empty Prompt Fallback Message">
+      <SettingCard label="Empty Prompt Fallback">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <input 
@@ -928,19 +987,22 @@ const ConversationDefaultsSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Conversations Section - Connected to real Supabase data
-const ConversationsSection = () => {
-  const supabase = useSupabase();
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [conversations, setConversations] = useState([]);
+// ============================================================================
+// ConversationsSection
+// ============================================================================
+
+const ConversationsSection: React.FC = () => {
+  const supabaseClient = useSupabase();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [conversations, setConversations] = useState<ConversationData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchConversations = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabaseClient) return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('conversation-manager', {
+      const { data, error } = await supabaseClient.functions.invoke('conversation-manager', {
         body: { action: 'list' }
       });
       if (error) throw error;
@@ -951,17 +1013,17 @@ const ConversationsSection = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [supabase]);
+  }, [supabaseClient]);
 
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
 
   const handleDelete = async () => {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0 || !supabaseClient) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabase.functions.invoke('conversation-manager', {
+      const { error } = await supabaseClient.functions.invoke('conversation-manager', {
         body: { action: 'delete', ids: selectedIds }
       });
       if (error) throw error;
@@ -976,12 +1038,12 @@ const ConversationsSection = () => {
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const toggleSelect = (id) => {
+  const toggleSelect = (id: string) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
@@ -991,7 +1053,7 @@ const ConversationsSection = () => {
     if (selectedIds.length === conversations.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(conversations.map(c => c.row_id || c.id));
+      setSelectedIds(conversations.map(c => c.row_id || c.id || ''));
     }
   };
 
@@ -1041,7 +1103,6 @@ const ConversationsSection = () => {
           </div>
         ) : (
           <>
-            {/* Table Header */}
             <div className="grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider border-b border-outline-variant">
               <div className="flex items-center justify-center">
                 <Checkbox 
@@ -1056,19 +1117,18 @@ const ConversationsSection = () => {
               <span>Created</span>
             </div>
 
-            {/* Table Rows */}
             <div className="divide-y divide-outline-variant">
               {conversations.map(conv => (
                 <div 
                   key={conv.row_id || conv.id} 
                   className={`grid grid-cols-[32px,1fr,100px,120px,80px] gap-2 px-2 py-2.5 items-center transition-colors ${
-                    selectedIds.includes(conv.row_id || conv.id) ? "bg-secondary-container/30" : ""
+                    selectedIds.includes(conv.row_id || conv.id || '') ? "bg-secondary-container/30" : ""
                   }`}
                 >
                   <div className="flex items-center justify-center">
                     <Checkbox 
-                      checked={selectedIds.includes(conv.row_id || conv.id)}
-                      onCheckedChange={() => toggleSelect(conv.row_id || conv.id)}
+                      checked={selectedIds.includes(conv.row_id || conv.id || '')}
+                      onCheckedChange={() => toggleSelect(conv.row_id || conv.id || '')}
                       className="h-3.5 w-3.5"
                     />
                   </div>
@@ -1099,15 +1159,26 @@ const ConversationsSection = () => {
   );
 };
 
-// AI Models Section - Uses real data from database with per-model usage stats and inline settings
-const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddModel, onUpdateModel, onDeleteModel, onAddModels, settings = {}, onUpdateSetting }) => {
-  const [expandedModel, setExpandedModel] = useState(null);
-  const [usagePeriod, setUsagePeriod] = useState('all');
-  const [modelUsage, setModelUsage] = useState({});
+// ============================================================================
+// AIModelsSection
+// ============================================================================
+
+const AIModelsSection: React.FC<AIModelsSectionProps> = ({ 
+  models = [], 
+  isLoading = false, 
+  onToggleModel, 
+  onAddModel, 
+  onUpdateModel, 
+  onDeleteModel, 
+  onAddModels,
+}) => {
+  const [expandedModel, setExpandedModel] = useState<string | null>(null);
+  const [usagePeriod, setUsagePeriod] = useState<'all' | '30days' | '7days'>('all');
+  const [modelUsage, setModelUsage] = useState<ModelUsageMap>({});
   const [loadingUsage, setLoadingUsage] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingModel, setEditingModel] = useState(null);
-  const [formData, setFormData] = useState({
+  const [editingModel, setEditingModel] = useState<string | null>(null);
+  const [formData, setFormData] = useState<ModelFormData>({
     model_id: '',
     model_name: '',
     provider: 'openai',
@@ -1119,17 +1190,15 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     api_model_id: '',
     token_param: 'max_tokens',
   });
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   
-  // Fetch modal state
   const [fetchModalOpen, setFetchModalOpen] = useState(false);
-  const [fetchProvider, setFetchProvider] = useState(null);
-  const [fetchedModels, setFetchedModels] = useState([]);
+  const [fetchProvider, setFetchProvider] = useState<string | null>(null);
+  const [fetchedModels, setFetchedModels] = useState<Partial<ModelData>[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [isAddingModels, setIsAddingModels] = useState(false);
 
-  // Handle fetch models from provider
-  const handleFetchModels = async (provider) => {
+  const handleFetchModels = async (provider: string) => {
     setIsFetching(true);
     setFetchProvider(provider);
     try {
@@ -1143,16 +1212,15 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
       setFetchedModels(data?.models || []);
       setFetchModalOpen(true);
       trackEvent('models_fetched', { provider, count: data?.models?.length || 0 });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching models:', err);
-      toast.error(err.message || `Failed to fetch ${provider} models`);
+      toast.error((err as Error).message || `Failed to fetch ${provider} models`);
     } finally {
       setIsFetching(false);
     }
   };
 
-  // Handle adding models from modal
-  const handleAddFetchedModels = async (modelsToAdd) => {
+  const handleAddFetchedModels = async (modelsToAdd: Partial<ModelData>[]) => {
     setIsAddingModels(true);
     try {
       const result = await onAddModels?.(modelsToAdd);
@@ -1166,7 +1234,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     }
   };
   
-  // Fetch usage stats from q_ai_costs
   useEffect(() => {
     const fetchUsage = async () => {
       try {
@@ -1188,8 +1255,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
         const { data, error } = await query;
         if (error) throw error;
         
-        // Aggregate by model
-        const aggregated = {};
+        const aggregated: ModelUsageMap = {};
         (data || []).forEach(row => {
           const modelId = row.model || 'unknown';
           if (!aggregated[modelId]) {
@@ -1209,7 +1275,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     fetchUsage();
   }, [usagePeriod]);
 
-  const getUsageForModel = (modelId) => {
+  const getUsageForModel = (modelId: string): ModelUsage => {
     if (modelUsage[modelId]) return modelUsage[modelId];
     for (const [key, value] of Object.entries(modelUsage)) {
       if (key.startsWith(modelId) || modelId.startsWith(key)) {
@@ -1219,17 +1285,15 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     return { totalTokens: 0, totalCost: 0, callCount: 0 };
   };
 
-  const formatTokens = (tokens) => {
+  const formatTokens = (tokens: number | null | undefined) => {
     if (tokens === null || tokens === undefined) return 'N/A';
     if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
     if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
     return tokens.toString();
   };
 
-  const handleToggle = (modelId) => {
-    if (onToggleModel) {
-      onToggleModel(modelId);
-    }
+  const handleToggle = (modelId: string) => {
+    onToggleModel?.(modelId);
   };
 
   const resetForm = () => {
@@ -1249,7 +1313,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     setEditingModel(null);
   };
 
-  const handleEdit = (model) => {
+  const handleEdit = (model: ModelData) => {
     setEditingModel(model.row_id);
     setFormData({
       model_id: model.model_id || '',
@@ -1272,7 +1336,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
       return;
     }
 
-    const modelData = {
+    const modelData: Partial<ModelData> = {
       model_id: formData.model_id,
       model_name: formData.model_name,
       provider: formData.provider,
@@ -1293,13 +1357,12 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
     resetForm();
   };
 
-  const handleDelete = async (rowId) => {
+  const handleDelete = async (rowId: string) => {
     await onDeleteModel?.(rowId);
     setDeleteConfirm(null);
   };
 
-  // Form component for add/edit
-  const ModelForm = ({ isEditing }) => (
+  const ModelForm: React.FC<{ isEditing: boolean }> = ({ isEditing }) => (
     <div className="p-3 bg-surface-container-low rounded-m3-md border border-outline-variant space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-body-sm text-on-surface font-medium">{isEditing ? 'Edit Model' : 'Add New Model'}</span>
@@ -1345,7 +1408,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
             <option value="google">Google</option>
-            <option value="manus">Manus</option>
             <option value="other">Other</option>
           </select>
         </div>
@@ -1355,7 +1417,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             type="text"
             value={formData.api_model_id}
             onChange={(e) => setFormData(prev => ({ ...prev, api_model_id: e.target.value }))}
-            placeholder="Same as Model ID if empty"
+            placeholder="Same as Model ID"
             className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
@@ -1386,8 +1448,8 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             onChange={(e) => setFormData(prev => ({ ...prev, token_param: e.target.value }))}
             className="w-full h-8 px-2 mt-1 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
           >
-            <option value="max_tokens">max_tokens (GPT-4)</option>
-            <option value="max_completion_tokens">max_completion_tokens (GPT-5)</option>
+            <option value="max_tokens">max_tokens</option>
+            <option value="max_completion_tokens">max_completion_tokens</option>
           </select>
         </div>
         <div>
@@ -1418,7 +1480,7 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
         <Checkbox 
           id="supports_temp" 
           checked={formData.supports_temperature}
-          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, supports_temperature: checked }))}
+          onCheckedChange={(checked) => setFormData(prev => ({ ...prev, supports_temperature: checked === true }))}
         />
         <label htmlFor="supports_temp" className="text-body-sm text-on-surface">Supports Temperature</label>
       </div>
@@ -1443,13 +1505,12 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
 
   return (
     <div className="space-y-3">
-      {/* Period Selector and Action Buttons */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-body-sm text-on-surface-variant">Usage period:</span>
           <select
             value={usagePeriod}
-            onChange={(e) => setUsagePeriod(e.target.value)}
+            onChange={(e) => setUsagePeriod(e.target.value as 'all' | '30days' | '7days')}
             className="h-7 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
           >
             <option value="all">All Time</option>
@@ -1458,7 +1519,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
           </select>
         </div>
         <div className="flex items-center gap-1">
-          {/* Fetch OpenAI Models */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -1474,7 +1534,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             <TooltipContent className="text-[10px]">Fetch OpenAI Models</TooltipContent>
           </Tooltip>
 
-          {/* Fetch Gemini Models */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -1490,7 +1549,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
             <TooltipContent className="text-[10px]">Fetch Gemini Models</TooltipContent>
           </Tooltip>
 
-          {/* Add Model Manually */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -1520,7 +1578,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
         </div>
       </div>
 
-      {/* Model Fetch Modal */}
       <ModelFetchModal
         open={fetchModalOpen}
         onOpenChange={setFetchModalOpen}
@@ -1531,15 +1588,11 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
         isAdding={isAddingModels}
       />
 
-      {/* Add Form */}
       {showAddForm && <ModelForm isEditing={false} />}
-
-      {/* Edit Form (shown inline when editing) */}
       {editingModel && <ModelForm isEditing={true} />}
 
       <SettingCard label="Available Models">
         <div className="space-y-1">
-          {/* Table Header */}
           <div className="grid grid-cols-[1fr,90px,80px,60px,70px] gap-2 px-3 py-2 text-[10px] text-on-surface-variant uppercase tracking-wider">
             <span>Model</span>
             <span className="text-right">Tokens Used</span>
@@ -1567,7 +1620,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
               return (
                 <div key={model.model_id || model.row_id}>
                   {i > 0 && <SettingDivider />}
-                  {/* Model Row */}
                   <div className="grid grid-cols-[1fr,90px,80px,60px,70px] gap-2 px-3 py-2 items-center">
                     <div className="flex items-center gap-2">
                       <button
@@ -1619,7 +1671,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
                     </div>
                   </div>
                   
-                  {/* Delete Confirmation */}
                   {deleteConfirm === model.row_id && (
                     <div className="px-3 py-2 bg-red-500/10 border-t border-outline-variant flex items-center justify-between">
                       <span className="text-body-sm text-red-500">Delete {model.model_name}?</span>
@@ -1640,7 +1691,6 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
                     </div>
                   )}
                   
-                  {/* Expanded Settings Panel */}
                   {isExpanded && (
                     <div className="px-3 py-3 bg-surface-container-low border-t border-outline-variant">
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-tree">
@@ -1687,8 +1737,11 @@ const AIModelsSection = ({ models = [], isLoading = false, onToggleModel, onAddM
   );
 };
 
-// Theme Section - Connected to real theme persistence
-const ThemeSection = () => {
+// ============================================================================
+// ThemeSection
+// ============================================================================
+
+const ThemeSection: React.FC = () => {
   const [theme, setTheme] = useState(getThemePreference());
 
   useEffect(() => {
@@ -1699,7 +1752,7 @@ const ThemeSection = () => {
     return () => window.removeEventListener('theme-preference-change', handleChange);
   }, []);
 
-  const handleThemeChange = (value) => {
+  const handleThemeChange = (value: string) => {
     setThemePreference(value);
     setTheme(value);
   };
@@ -1731,22 +1784,23 @@ const ThemeSection = () => {
           ))}
         </div>
       </SettingCard>
-
     </div>
   );
 };
 
-// Notifications Section - Connected to q_settings
-const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
-  const [prefs, setPrefs] = useState({
+// ============================================================================
+// NotificationsSection
+// ============================================================================
+
+const NotificationsSection: React.FC<CommonSettingsProps> = ({ settings = {}, onUpdateSetting }) => {
+  const [prefs, setPrefs] = useState<NotificationPreferences>({
     email_notifications: true,
     cascade_completion: true,
     error_alerts: true,
     usage_warnings: false,
   });
-  const [isSaving, setIsSaving] = useState({});
+  const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
 
-  // Load from settings on mount
   useEffect(() => {
     const savedPrefs = settings['notification_preferences']?.value;
     if (savedPrefs) {
@@ -1759,7 +1813,7 @@ const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
     }
   }, [settings]);
 
-  const handleToggle = async (key, value) => {
+  const handleToggle = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!onUpdateSetting) return;
     
     const newPrefs = { ...prefs, [key]: value };
@@ -1768,8 +1822,7 @@ const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
     
     try {
       await onUpdateSetting('notification_preferences', JSON.stringify(newPrefs));
-    } catch (e) {
-      // Revert on error
+    } catch {
       setPrefs(prefs);
       toast.error('Failed to save preference');
     } finally {
@@ -1788,7 +1841,7 @@ const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
           />
         </SettingRow>
         <SettingDivider />
-        <SettingRow label="Cascade completion" description="Notify when cascades finish">
+        <SettingRow label="Cascade completion" description="Notify when cascade runs complete">
           <Switch 
             checked={prefs.cascade_completion} 
             onCheckedChange={(v) => handleToggle('cascade_completion', v)}
@@ -1796,7 +1849,7 @@ const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
           />
         </SettingRow>
         <SettingDivider />
-        <SettingRow label="Error alerts" description="Get notified about failures">
+        <SettingRow label="Error alerts" description="Get notified of errors">
           <Switch 
             checked={prefs.error_alerts} 
             onCheckedChange={(v) => handleToggle('error_alerts', v)}
@@ -1816,90 +1869,80 @@ const NotificationsSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Profile Section - Connected to auth context
-const ProfileSection = () => {
+// ============================================================================
+// ProfileSection
+// ============================================================================
+
+const ProfileSection: React.FC = () => {
   const { user, userProfile } = useAuth();
   
-  const displayName = userProfile?.display_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
-  const email = userProfile?.email || user?.email || 'No email';
-  const avatarUrl = userProfile?.avatar_url || user?.user_metadata?.avatar_url;
-
   return (
     <SettingCard>
-      <div className="flex items-center gap-3 mb-4">
-        {avatarUrl ? (
-          <img 
-            src={avatarUrl} 
-            alt={displayName}
-            className="w-12 h-12 rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center">
-            <User className="h-6 w-6 text-on-surface-variant" />
-          </div>
-        )}
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+          {userProfile?.avatar_url ? (
+            <img 
+              src={userProfile.avatar_url} 
+              alt="Profile" 
+              className="w-16 h-16 rounded-full object-cover"
+            />
+          ) : (
+            <User className="h-8 w-8 text-primary" />
+          )}
+        </div>
         <div>
-          <h4 className="text-title-sm text-on-surface font-medium">{displayName}</h4>
-          <p className="text-body-sm text-on-surface-variant">{email}</p>
+          <h3 className="text-body-sm text-on-surface font-medium">
+            {userProfile?.display_name || 'User'}
+          </h3>
+          <p className="text-[10px] text-on-surface-variant">{user?.email}</p>
         </div>
       </div>
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <label className="text-[10px] text-on-surface-variant">Display Name</label>
-          <input 
-            type="text"
-            value={displayName}
-            readOnly
-            className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] text-on-surface-variant">Email</label>
-          <input 
-            type="text"
-            value={email}
-            readOnly
-            className="w-full h-8 px-2.5 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface-variant"
-          />
-        </div>
-        <p className="text-[10px] text-on-surface-variant/70 italic">
-          Profile is managed through your Google account.
-        </p>
+      <SettingDivider />
+      <div className="pt-3 space-y-2">
+        <SettingRow label="Display Name" description="Your visible name">
+          <span className="text-body-sm text-on-surface">{userProfile?.display_name || '—'}</span>
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow label="Email" description="Account email address">
+          <span className="text-body-sm text-on-surface">{user?.email || '—'}</span>
+        </SettingRow>
       </div>
     </SettingCard>
   );
 };
 
-// Confluence Section - Connected to real settings with integrated credential management
-const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
+// ============================================================================
+// ConfluenceSection
+// ============================================================================
+
+const ConfluenceSection: React.FC<CommonSettingsProps> = ({ settings = {}, onUpdateSetting }) => {
+  const supabaseClient = useSupabase();
   const { 
     credentialStatus, 
     getCredentialStatus, 
     setCredential, 
     deleteCredential,
-    isServiceConfigured,
     isLoading: isCredLoading 
   } = useUserCredentials();
+  
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
   const [confluenceEmail, setConfluenceEmail] = useState('');
   const [confluenceToken, setConfluenceToken] = useState('');
   const [showToken, setShowToken] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [editedUrl, setEditedUrl] = useState('');
   const [hasUrlChanges, setHasUrlChanges] = useState(false);
-  
-  // Fetch credential status on mount
+  const [editedUrl, setEditedUrl] = useState('');
+
   useEffect(() => {
     getCredentialStatus('confluence');
   }, [getCredentialStatus]);
+
+  const confluenceStatus = credentialStatus['confluence'] || {};
+  const hasUserCredentials = confluenceStatus.email === true && confluenceStatus.api_token === true;
+  const confluenceUrl = settings['confluence_base_url']?.value || '';
+  const isConnected = hasUserCredentials && Boolean(confluenceUrl);
   
-  // Check if confluence is configured - base URL from settings, credentials per-user
-  const confluenceUrl = settings['confluence_base_url']?.value || settings['CONFLUENCE_URL']?.value || settings['confluence_url']?.value || '';
-  const hasUserCredentials = isServiceConfigured('confluence');
-  const isConnected = !!(confluenceUrl && hasUserCredentials);
-  
-  // Sync edited URL with settings
   useEffect(() => {
     setEditedUrl(confluenceUrl);
     setHasUrlChanges(false);
@@ -1907,7 +1950,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   
   const autoSync = settings['confluence_auto_sync']?.value === 'true';
 
-  const handleUrlChange = (value) => {
+  const handleUrlChange = (value: string) => {
     setEditedUrl(value);
     setHasUrlChanges(value !== confluenceUrl);
   };
@@ -1927,7 +1970,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
     }
   };
 
-  const handleToggleAutoSync = async (value) => {
+  const handleToggleAutoSync = async (value: boolean) => {
     if (!onUpdateSetting) return;
     try {
       await onUpdateSetting('confluence_auto_sync', value ? 'true' : 'false');
@@ -1950,7 +1993,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
       setConfluenceToken('');
       await getCredentialStatus('confluence');
       trackEvent('confluence_credentials_saved');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save credentials');
     } finally {
       setIsSaving(false);
@@ -1964,7 +2007,7 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
       toast.success('Confluence credentials removed');
       await getCredentialStatus('confluence');
       trackEvent('confluence_credentials_deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove credentials');
     } finally {
       setIsSaving(false);
@@ -1972,10 +2015,11 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   };
 
   const handleTestConnection = async () => {
+    if (!supabaseClient) return;
     setIsTesting(true);
     setConnectionStatus(null);
     try {
-      const { data, error } = await supabase.functions.invoke('confluence-manager', {
+      const { data, error } = await supabaseClient.functions.invoke('confluence-manager', {
         body: { action: 'test-connection' }
       });
       if (error) {
@@ -1986,14 +2030,13 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
       } else {
         setConnectionStatus({ success: false, message: data?.message || 'Connection failed' });
       }
-    } catch (err) {
-      setConnectionStatus({ success: false, message: err.message || 'Connection failed' });
+    } catch (err: unknown) {
+      setConnectionStatus({ success: false, message: (err as Error).message || 'Connection failed' });
     } finally {
       setIsTesting(false);
     }
   };
 
-  // Extract domain from URL for display
   let displayDomain = 'Not configured';
   if (confluenceUrl) {
     try {
@@ -2006,7 +2049,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
 
   return (
     <div className="space-y-4">
-      {/* Connection Status Card */}
       <SettingCard label="Connection">
         <div className="flex items-center gap-3 mb-3">
           <Link2 className="h-5 w-5 text-on-surface-variant" />
@@ -2023,7 +2065,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
           )}
         </div>
 
-        {/* Test Connection */}
         {hasUserCredentials && confluenceUrl && (
           <div className="mb-3">
             <div className="flex items-center gap-2">
@@ -2049,7 +2090,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
         )}
       </SettingCard>
 
-      {/* Base URL Card */}
       <SettingCard label="Confluence URL">
         <SettingRow label="Base URL" description="Your Atlassian Cloud URL (e.g. https://company.atlassian.net)">
           <div className="flex items-center gap-2">
@@ -2078,7 +2118,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
         </SettingRow>
       </SettingCard>
 
-      {/* Credentials Card */}
       <SettingCard label="Credentials">
         <div className="flex items-center gap-3 mb-3">
           <Key className="h-5 w-5 text-on-surface-variant" />
@@ -2176,7 +2215,6 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
         </div>
       </SettingCard>
 
-      {/* Settings Card */}
       <SettingCard label="Settings">
         <div className="space-y-3">
           <SettingRow label="Auto-sync pages" description="Sync linked pages automatically">
@@ -2192,34 +2230,40 @@ const ConfluenceSection = ({ settings = {}, onUpdateSetting }) => {
   );
 };
 
-// Knowledge Base Section (Admin only) - moved up after removing Workbench
+// ============================================================================
+// KnowledgeSection
+// ============================================================================
 
-// Knowledge Base Section (Admin only)
-const KnowledgeSection = () => <KnowledgeManager />;
+const KnowledgeSection: React.FC = () => <KnowledgeManager />;
 
-// Manus Integration Section - lazy loaded
+// ============================================================================
+// ManusIntegrationWrapper
+// ============================================================================
+
 const ManusSection = React.lazy(() => import('@/components/settings/ManusIntegrationSettings'));
-const ManusIntegrationWrapper = () => (
+
+const ManusIntegrationWrapper: React.FC = () => (
   <React.Suspense fallback={<div className="p-4 text-on-surface-variant">Loading...</div>}>
     <ManusSection />
   </React.Suspense>
 );
 
-// Gemini API Key Section
-const GeminiSection = () => {
+// ============================================================================
+// GeminiSection
+// ============================================================================
+
+const GeminiSection: React.FC = () => {
   const { 
     credentialStatus, 
     getCredentialStatus, 
     setCredential, 
     deleteCredential,
-    isServiceConfigured,
     isLoading: isCredLoading 
   } = useUserCredentials();
   const [isSaving, setIsSaving] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
 
-  // Check Gemini status on mount
   useEffect(() => {
     getCredentialStatus('gemini');
   }, [getCredentialStatus]);
@@ -2238,7 +2282,7 @@ const GeminiSection = () => {
       setApiKey('');
       toast.success('Gemini API key saved');
       trackEvent('gemini_api_key_saved');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save API key');
     } finally {
       setIsSaving(false);
@@ -2251,7 +2295,7 @@ const GeminiSection = () => {
       await deleteCredential('gemini', 'api_key');
       toast.success('Gemini API key removed');
       trackEvent('gemini_api_key_deleted');
-    } catch (error) {
+    } catch {
       toast.error('Failed to remove API key');
     } finally {
       setIsSaving(false);
@@ -2260,7 +2304,6 @@ const GeminiSection = () => {
 
   return (
     <div className="space-y-4">
-      {/* Status Card */}
       <SettingCard label="Connection">
         <div className="flex items-center gap-3 mb-3">
           <Sparkles className="h-5 w-5 text-on-surface-variant" />
@@ -2282,7 +2325,6 @@ const GeminiSection = () => {
         </div>
       </SettingCard>
 
-      {/* API Key Card */}
       <SettingCard label="API Key">
         <div className="space-y-3">
           <SettingRow 
@@ -2354,7 +2396,6 @@ const GeminiSection = () => {
         </div>
       </SettingCard>
 
-      {/* Info Card */}
       <SettingCard label="About">
         <div className="space-y-2">
           <p className="text-body-sm text-on-surface-variant">
@@ -2370,23 +2411,52 @@ const GeminiSection = () => {
   );
 };
 
+// ============================================================================
 // Settings Sections Configuration
-const SETTINGS_SECTIONS = {
-  "qonsol": { component: GeneralSection, icon: Settings, title: "General" },
-  "naming": { component: PromptNamingSection, icon: Type, title: "Prompt Naming" },
-  "models": { component: AIModelsSection, icon: Cpu, title: "AI Models" },
-  "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
-  "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
-  "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
-  "gemini": { component: GeminiSection, icon: Sparkles, title: "Google Gemini" },
-  "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
-  "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
-  "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
-  "profile": { component: ProfileSection, icon: User, title: "Profile" },
-  "knowledge": { component: KnowledgeSection, icon: BookOpen, title: "Knowledge Base" },
+// ============================================================================
+
+interface SettingsSectionConfig {
+  component: React.FC<unknown>;
+  icon: LucideIcon;
+  title: string;
+}
+
+const SETTINGS_SECTIONS: Record<string, SettingsSectionConfig> = {
+  "qonsol": { component: GeneralSection as React.FC<unknown>, icon: Settings, title: "General" },
+  "naming": { component: PromptNamingSection as React.FC<unknown>, icon: Type, title: "Prompt Naming" },
+  "models": { component: AIModelsSection as React.FC<unknown>, icon: Cpu, title: "AI Models" },
+  "assistants": { component: ConversationDefaultsSection as React.FC<unknown>, icon: MessageSquare, title: "Conversation Defaults" },
+  "conversations": { component: ConversationsSection as React.FC<unknown>, icon: MessageSquare, title: "Conversations" },
+  "confluence": { component: ConfluenceSection as React.FC<unknown>, icon: FileText, title: "Confluence" },
+  "gemini": { component: GeminiSection as React.FC<unknown>, icon: Sparkles, title: "Google Gemini" },
+  "manus": { component: ManusIntegrationWrapper as React.FC<unknown>, icon: Bot, title: "Manus AI" },
+  "appearance": { component: ThemeSection as React.FC<unknown>, icon: Palette, title: "Appearance" },
+  "notifications": { component: NotificationsSection as React.FC<unknown>, icon: Bell, title: "Notifications" },
+  "profile": { component: ProfileSection as React.FC<unknown>, icon: User, title: "Profile" },
+  "knowledge": { component: KnowledgeSection as React.FC<unknown>, icon: BookOpen, title: "Knowledge Base" },
 };
 
-const SettingsContent = ({ 
+// ============================================================================
+// Main SettingsContent Component
+// ============================================================================
+
+export interface SettingsContentProps {
+  activeSubItem?: string;
+  settings?: SettingsMap;
+  isLoadingSettings?: boolean;
+  onUpdateSetting?: (key: string, value: string) => Promise<void>;
+  models?: ModelData[];
+  isLoadingModels?: boolean;
+  onToggleModel?: (modelId: string) => void;
+  onAddModel?: (model: Partial<ModelData>) => Promise<void>;
+  onUpdateModel?: (rowId: string, model: Partial<ModelData>) => Promise<void>;
+  onDeleteModel?: (rowId: string) => Promise<void>;
+  onAddModels?: (models: Partial<ModelData>[]) => Promise<boolean>;
+  costTracking?: unknown;
+  conversationToolDefaults?: ConversationToolDefaults;
+}
+
+const SettingsContent: React.FC<SettingsContentProps> = ({ 
   activeSubItem = "qonsol",
   settings = {},
   isLoadingSettings = false,
@@ -2398,10 +2468,8 @@ const SettingsContent = ({
   onUpdateModel,
   onDeleteModel,
   onAddModels,
-  costTracking,
   conversationToolDefaults,
 }) => {
-  // Special case: Trash has its own full-page component
   if (activeSubItem === 'trash') {
     return <DeletedItemsContent />;
   }
@@ -2410,8 +2478,7 @@ const SettingsContent = ({
   const SectionComponent = section.component;
   const Icon = section.icon;
 
-  // Prepare props to pass to section components based on which section is active
-  const getSectionProps = () => {
+  const getSectionProps = (): Record<string, unknown> => {
     const commonSettingsProps = { 
       settings, 
       onUpdateSetting, 
@@ -2455,13 +2522,11 @@ const SettingsContent = ({
 
   return (
     <div className="flex-1 flex flex-col bg-surface min-h-0">
-      {/* Header */}
       <div className="h-14 flex items-center gap-3 px-4 border-b border-outline-variant" style={{ height: "56px" }}>
         <Icon className="h-5 w-5 text-on-surface-variant" />
         <h2 className="text-title-sm text-on-surface font-medium">{section.title}</h2>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         <div className="max-w-3xl">
           <SectionComponent {...getSectionProps()} />
