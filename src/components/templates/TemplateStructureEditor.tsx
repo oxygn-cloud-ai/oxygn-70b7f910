@@ -14,21 +14,158 @@ import { SettingCard } from '@/components/ui/setting-card';
 import { SettingRow } from '@/components/ui/setting-row';
 import { SettingDivider } from '@/components/ui/setting-divider';
 import { SettingModelSelect, SettingSelect } from '@/components/ui/setting-select';
-import { useDrag, useDrop } from 'react-dnd';
+import { useDrag, useDrop, DragSourceMonitor, DropTargetMonitor } from 'react-dnd';
+import { LucideIcon } from 'lucide-react';
 
 const DRAG_TYPE = 'TEMPLATE_NODE';
+
+// --- Type Definitions ---
+interface TemplateNode {
+  _id?: string;
+  prompt_name?: string;
+  input_admin_prompt?: string;
+  input_user_prompt?: string;
+  note?: string;
+  model?: string | null;
+  model_on?: boolean;
+  temperature?: string | null;
+  temperature_on?: boolean;
+  max_tokens?: string | null;
+  max_tokens_on?: boolean;
+  max_completion_tokens?: string | null;
+  max_completion_tokens_on?: boolean;
+  top_p?: string | null;
+  top_p_on?: boolean;
+  frequency_penalty?: string | null;
+  frequency_penalty_on?: boolean;
+  presence_penalty?: string | null;
+  presence_penalty_on?: boolean;
+  stop?: string | null;
+  stop_on?: boolean;
+  response_format?: string | null;
+  response_format_on?: boolean;
+  is_assistant?: boolean;
+  assistant_instructions?: string;
+  thread_mode?: string | null;
+  child_thread_strategy?: string | null;
+  default_child_thread_strategy?: string | null;
+  web_search_on?: boolean;
+  confluence_enabled?: boolean;
+  children?: TemplateNode[];
+}
+
+interface VariableDefinition {
+  name?: string;
+  variable_name?: string;
+  default_value?: string;
+  value?: string;
+  type?: string;
+}
+
+interface LibraryItem {
+  row_id: string;
+  name: string;
+  content?: string;
+}
+
+interface TemplateStructureEditorProps {
+  structure: TemplateNode;
+  onChange: (structure: TemplateNode) => void;
+  variableDefinitions?: VariableDefinition[];
+  libraryItems?: LibraryItem[];
+  templateId?: string;
+}
+
+interface SiblingInfo {
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+interface FindNodeResult {
+  node: TemplateNode;
+  path: number[];
+}
+
+type DropPosition = 'before' | 'after' | 'child' | null;
+
+interface DragItem {
+  id: string;
+  node: TemplateNode;
+}
+
+interface TreeIconButtonProps {
+  icon: LucideIcon;
+  onClick: (e: React.MouseEvent) => void;
+  tooltip: string;
+  variant?: 'default' | 'destructive';
+  disabled?: boolean;
+}
+
+interface TabButtonProps {
+  icon: LucideIcon;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+}
+
+interface NodeEditorProps {
+  node: TemplateNode;
+  onUpdate: (updates: Partial<TemplateNode>) => void;
+  variableDefinitions?: VariableDefinition[];
+  isRoot: boolean;
+  libraryItems?: LibraryItem[];
+  templateId?: string;
+  nodeId?: string;
+}
+
+interface PromptsSectionProps {
+  node: TemplateNode;
+  onUpdate: (updates: Partial<TemplateNode>) => void;
+  variables: { variable_name: string; variable_value: string; type: string }[];
+  libraryItems?: LibraryItem[];
+  templateId?: string;
+  nodeId?: string;
+}
+
+interface ModelSettingsSectionProps {
+  node: TemplateNode;
+  onUpdate: (updates: Partial<TemplateNode>) => void;
+  models: any[];
+}
+
+interface ConversationSectionProps {
+  node: TemplateNode;
+  onUpdate: (updates: Partial<TemplateNode>) => void;
+  isRoot: boolean;
+}
+
+interface ToolsSectionProps {
+  node: TemplateNode;
+  onUpdate: (updates: Partial<TemplateNode>) => void;
+}
+
+interface DraggableTreeNodeProps {
+  node: TemplateNode;
+  depth?: number;
+}
 
 /**
  * Visual structure editor for template prompt hierarchy
  */
-const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = [], libraryItems = [], templateId = 'default' }) => {
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [expandedNodes, setExpandedNodes] = useState(new Set(['root']));
-  const [renamingNodeId, setRenamingNodeId] = useState(null);
+const TemplateStructureEditor: React.FC<TemplateStructureEditorProps> = ({ 
+  structure, 
+  onChange, 
+  variableDefinitions = [], 
+  libraryItems = [], 
+  templateId = 'default' 
+}) => {
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(['root']));
+  const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   // Ensure root has an ID - moved BEFORE selectedNode computation
-  const structureWithId = useMemo(() => {
+  const structureWithId = useMemo((): TemplateNode => {
     return structure?._id ? structure : { ...structure, _id: 'root' };
   }, [structure]);
 
@@ -37,10 +174,10 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     if (structureWithId && !selectedNodeId) {
       setSelectedNodeId('root');
     }
-  }, [structureWithId]);
+  }, [structureWithId, selectedNodeId]);
 
   // Find node by ID in the tree
-  const findNode = useCallback((node, id, path = []) => {
+  const findNode = useCallback((node: TemplateNode | null, id: string, path: number[] = []): FindNodeResult | null => {
     if (!node) return null;
     const nodeId = node._id || 'root';
     if (nodeId === id) return { node, path };
@@ -54,14 +191,14 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, []);
 
   // Get selected node data - now uses structureWithId
-  const selectedNode = useMemo(() => {
+  const selectedNode = useMemo((): TemplateNode | null => {
     if (!selectedNodeId) return null;
     return findNode(structureWithId, selectedNodeId)?.node || null;
   }, [selectedNodeId, structureWithId, findNode]);
 
   // Update a specific node in the tree
-  const updateNode = useCallback((nodeId, updates) => {
-    const updateInTree = (node) => {
+  const updateNode = useCallback((nodeId: string, updates: Partial<TemplateNode>) => {
+    const updateInTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       const currentId = node._id || 'root';
       if (currentId === nodeId) {
@@ -81,8 +218,8 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId, onChange]);
 
   // Add child to a node
-  const addChild = useCallback((parentId) => {
-    const newChild = {
+  const addChild = useCallback((parentId: string) => {
+    const newChild: TemplateNode = {
       _id: uuidv4(),
       prompt_name: 'New Prompt',
       input_admin_prompt: '',
@@ -110,7 +247,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       children: [],
     };
 
-    const addToTree = (node) => {
+    const addToTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       const currentId = node._id || 'root';
       if (currentId === parentId) {
@@ -131,14 +268,14 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     const newStructure = addToTree(structureWithId);
     onChange(newStructure);
     setExpandedNodes(prev => new Set([...prev, parentId]));
-    setSelectedNodeId(newChild._id);
+    setSelectedNodeId(newChild._id!);
   }, [structureWithId, onChange]);
 
   // Delete a node
-  const deleteNode = useCallback((nodeId) => {
+  const deleteNode = useCallback((nodeId: string) => {
     if (nodeId === 'root') return; // Can't delete root
 
-    const removeFromTree = (node) => {
+    const removeFromTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       if (node.children) {
         return {
@@ -159,18 +296,18 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId, onChange, selectedNodeId]);
 
   // Duplicate a node
-  const duplicateNode = useCallback((nodeId) => {
+  const duplicateNode = useCallback((nodeId: string) => {
     if (nodeId === 'root') return;
 
-    const duplicateInTree = (node) => {
+    const duplicateInTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       if (node.children) {
-        const newChildren = [];
+        const newChildren: TemplateNode[] = [];
         for (const child of node.children) {
           newChildren.push(duplicateInTree(child));
           if (child._id === nodeId) {
             // Create a deep copy with new IDs
-            const deepCopy = (n) => ({
+            const deepCopy = (n: TemplateNode): TemplateNode => ({
               ...n,
               _id: uuidv4(),
               prompt_name: n.prompt_name + ' (copy)',
@@ -189,10 +326,10 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId, onChange]);
 
   // Move node up or down within its siblings
-  const moveNode = useCallback((nodeId, direction) => {
+  const moveNode = useCallback((nodeId: string, direction: 'up' | 'down') => {
     if (nodeId === 'root') return;
 
-    const moveInTree = (node) => {
+    const moveInTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       if (node.children && node.children.length > 0) {
         const idx = node.children.findIndex(c => c._id === nodeId);
@@ -218,13 +355,13 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId, onChange]);
 
   // Drag-drop reorder: move draggedId to be a sibling of targetId at specified position
-  const reorderNode = useCallback((draggedId, targetId, position = 'after') => {
+  const reorderNode = useCallback((draggedId: string, targetId: string, position: 'before' | 'after' = 'after') => {
     if (draggedId === targetId || draggedId === 'root') return;
     
     // Find dragged node and remove it from tree
-    let draggedNode = null;
+    let draggedNode: TemplateNode | null = null;
     
-    const removeFromTree = (node) => {
+    const removeFromTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       if (node.children && node.children.length > 0) {
         const idx = node.children.findIndex(c => c._id === draggedId);
@@ -240,11 +377,11 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     };
     
     // Insert node at target position
-    const insertAtTarget = (node) => {
+    const insertAtTarget = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       if (node.children && node.children.length > 0) {
         const targetIdx = node.children.findIndex(c => c._id === targetId);
-        if (targetIdx !== -1) {
+        if (targetIdx !== -1 && draggedNode) {
           const newChildren = [...node.children];
           const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
           newChildren.splice(insertIdx, 0, draggedNode);
@@ -264,11 +401,11 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId, onChange]);
 
   // Reparent: move draggedId to become a child of targetId
-  const reparentNode = useCallback((draggedId, newParentId) => {
+  const reparentNode = useCallback((draggedId: string, newParentId: string) => {
     if (draggedId === newParentId || draggedId === 'root') return;
     
     // Check if newParentId is a descendant of draggedId (would create cycle)
-    const isDescendant = (parentNode, checkId) => {
+    const isDescendant = (parentNode: TemplateNode | null, checkId: string): boolean => {
       if (!parentNode) return false;
       if (parentNode._id === checkId) return true;
       if (parentNode.children) {
@@ -282,10 +419,10 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
       return; // Can't reparent to own descendant
     }
     
-    let draggedNode = null;
+    let draggedNode: TemplateNode | null = null;
     
     // Remove from current location
-    const removeFromTree = (node) => {
+    const removeFromTree = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       if (node.children && node.children.length > 0) {
         const idx = node.children.findIndex(c => c._id === draggedId);
@@ -301,10 +438,10 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     };
     
     // Add as child of new parent
-    const addToNewParent = (node) => {
+    const addToNewParent = (node: TemplateNode): TemplateNode => {
       if (!node) return node;
       const currentId = node._id || 'root';
-      if (currentId === newParentId) {
+      if (currentId === newParentId && draggedNode) {
         const newChildren = [...(node.children || []), draggedNode];
         return { ...node, children: newChildren };
       }
@@ -324,10 +461,10 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId, onChange, findNode]);
 
   // Get sibling info for a node (for move up/down buttons)
-  const getSiblingInfo = useCallback((nodeId) => {
+  const getSiblingInfo = useCallback((nodeId: string): SiblingInfo => {
     if (nodeId === 'root') return { isFirst: true, isLast: true };
     
-    const findInTree = (node) => {
+    const findInTree = (node: TemplateNode): SiblingInfo | null => {
       if (!node) return null;
       if (node.children && node.children.length > 0) {
         const idx = node.children.findIndex(c => c._id === nodeId);
@@ -349,7 +486,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, [structureWithId]);
 
   // Start renaming a node
-  const startRenaming = useCallback((nodeId, currentName) => {
+  const startRenaming = useCallback((nodeId: string, currentName: string) => {
     setRenamingNodeId(nodeId);
     setRenameValue(currentName || '');
   }, []);
@@ -370,7 +507,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   }, []);
 
   // Toggle node expansion
-  const toggleExpanded = (nodeId) => {
+  const toggleExpanded = (nodeId: string) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
@@ -383,14 +520,14 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   };
 
   // Extract variables from text
-  const extractVariables = (text) => {
+  const extractVariables = (text: string | null | undefined): string[] => {
     if (!text) return [];
     const matches = text.match(/\{\{([^}]+)\}\}/g) || [];
     return matches.map(m => m.slice(2, -2).trim());
   };
 
   // Icon button for tree actions
-  const TreeIconButton = ({ icon: Icon, onClick, tooltip, variant = 'default', disabled = false }) => (
+  const TreeIconButton: React.FC<TreeIconButtonProps> = ({ icon: Icon, onClick, tooltip, variant = 'default', disabled = false }) => (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
@@ -412,7 +549,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
   );
 
   // Draggable tree node component
-  const DraggableTreeNode = ({ node, depth = 0 }) => {
+  const DraggableTreeNode: React.FC<DraggableTreeNodeProps> = ({ node, depth = 0 }) => {
     if (!node) return null;
     const nodeId = node._id || 'root';
     const isExpanded = expandedNodes.has(nodeId);
@@ -431,23 +568,23 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     // Drag source - only non-root nodes can be dragged
     const [{ isDragging }, dragRef, previewRef] = useDrag({
       type: DRAG_TYPE,
-      item: { id: nodeId, node },
+      item: { id: nodeId, node } as DragItem,
       canDrag: !isRoot && !isRenaming,
-      collect: (monitor) => ({
+      collect: (monitor: DragSourceMonitor) => ({
         isDragging: monitor.isDragging(),
       }),
     });
 
     // Track drop position for visual feedback
-    const [dropPosition, setDropPosition] = useState(null); // 'before' | 'after' | 'child'
+    const [dropPosition, setDropPosition] = useState<DropPosition>(null);
 
     // Drop target - supports reordering (edges) and reparenting (center)
     const [{ isOver, canDrop }, dropRef] = useDrop({
       accept: DRAG_TYPE,
-      canDrop: (item) => {
+      canDrop: (item: DragItem) => {
         if (item.id === nodeId) return false;
         // Check if dropping on self's descendant (would create cycle)
-        const isDescendant = (parentNode, checkId) => {
+        const isDescendant = (parentNode: TemplateNode | null, checkId: string): boolean => {
           if (!parentNode) return false;
           if (parentNode._id === checkId) return true;
           if (parentNode.children) {
@@ -457,7 +594,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         };
         return !isDescendant(item.node, nodeId);
       },
-      hover: (item, monitor) => {
+      hover: (item: DragItem, monitor: DropTargetMonitor) => {
         if (!monitor.canDrop()) {
           setDropPosition(null);
           return;
@@ -480,7 +617,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
           setDropPosition('child');
         }
       },
-      drop: (item, monitor) => {
+      drop: (item: DragItem, monitor: DropTargetMonitor) => {
         if (monitor.didDrop()) return;
         
         if (dropPosition === 'child') {
@@ -492,7 +629,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         }
         setDropPosition(null);
       },
-      collect: (monitor) => ({
+      collect: (monitor: DropTargetMonitor) => ({
         isOver: monitor.isOver({ shallow: true }),
         canDrop: monitor.canDrop(),
       }),
@@ -504,13 +641,13 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
     }, [isOver]);
 
     // Combine refs
-    const combinedRef = (el) => {
+    const combinedRef = (el: HTMLDivElement | null) => {
       previewRef(el);
       dropRef(el);
     };
 
     // Visual indicator styles based on drop position
-    const getDropStyles = () => {
+    const getDropStyles = (): string => {
       if (!isOver || !canDrop || !dropPosition) return '';
       if (dropPosition === 'child') return 'ring-2 ring-primary bg-primary/10';
       if (dropPosition === 'before') return 'border-t-2 border-t-primary';
@@ -606,7 +743,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
                   />
                   <TreeIconButton
                     icon={Edit2}
-                    onClick={(e) => { e.stopPropagation(); startRenaming(nodeId, node.prompt_name); }}
+                    onClick={(e) => { e.stopPropagation(); startRenaming(nodeId, node.prompt_name || ''); }}
                     tooltip="Rename"
                   />
                   <TreeIconButton
@@ -628,7 +765,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         
         {isExpanded && hasChildren && (
           <div>
-            {node.children.map(child => <DraggableTreeNode key={child._id} node={child} depth={depth + 1} />)}
+            {node.children!.map(child => <DraggableTreeNode key={child._id} node={child} depth={depth + 1} />)}
           </div>
         )}
       </div>
@@ -666,12 +803,12 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
         {selectedNode ? (
           <NodeEditor
             node={selectedNode}
-            onUpdate={(updates) => updateNode(selectedNodeId, updates)}
+            onUpdate={(updates) => updateNode(selectedNodeId!, updates)}
             variableDefinitions={variableDefinitions}
             isRoot={selectedNodeId === 'root'}
             libraryItems={libraryItems}
             templateId={templateId}
-            nodeId={selectedNodeId}
+            nodeId={selectedNodeId!}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-on-surface-variant text-tree">
@@ -687,7 +824,7 @@ const TemplateStructureEditor = ({ structure, onChange, variableDefinitions = []
 /**
  * Tab button for node editor sections
  */
-const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
+const TabButton: React.FC<TabButtonProps> = ({ icon: Icon, label, isActive, onClick }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
@@ -709,7 +846,15 @@ const TabButton = ({ icon: Icon, label, isActive, onClick }) => (
 /**
  * Comprehensive editor for a single node with all settings
  */
-const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot, libraryItems = [], templateId = 'default', nodeId = 'root' }) => {
+const NodeEditor: React.FC<NodeEditorProps> = ({ 
+  node, 
+  onUpdate, 
+  variableDefinitions, 
+  isRoot, 
+  libraryItems = [], 
+  templateId = 'default', 
+  nodeId = 'root' 
+}) => {
   const [activeSection, setActiveSection] = useState('prompts');
   const { models } = useModels();
   
@@ -717,7 +862,7 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot, libraryItems 
   const transformedVariables = useMemo(() => {
     if (!variableDefinitions) return [];
     return variableDefinitions.map(v => ({
-      variable_name: v.name || v.variable_name,
+      variable_name: v.name || v.variable_name || '',
       variable_value: v.default_value || v.value || '',
       type: v.type || 'text'
     }));
@@ -762,7 +907,7 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot, libraryItems 
             <ModelSettingsSection 
               node={node} 
               onUpdate={onUpdate} 
-              models={models}
+              models={models || []}
             />
           )}
 
@@ -789,7 +934,14 @@ const NodeEditor = ({ node, onUpdate, variableDefinitions, isRoot, libraryItems 
 /**
  * Prompts section - matching prompt editor patterns
  */
-const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], templateId = 'default', nodeId = 'root' }) => {
+const PromptsSection: React.FC<PromptsSectionProps> = ({ 
+  node, 
+  onUpdate, 
+  variables, 
+  libraryItems = [], 
+  templateId = 'default', 
+  nodeId = 'root' 
+}) => {
   // Generate unique storage keys for this node's fields
   const systemStorageKey = `template-${templateId}-${nodeId}-system`;
   const userStorageKey = `template-${templateId}-${nodeId}-user`;
@@ -813,7 +965,7 @@ const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], template
         value={node.input_admin_prompt || ''}
         placeholder="System instructions for the AI..."
         defaultHeight={160}
-        onSave={(value) => onUpdate({ input_admin_prompt: value })}
+        onSave={(value: string) => onUpdate({ input_admin_prompt: value })}
         variables={variables}
         libraryItems={libraryItems}
         storageKey={systemStorageKey}
@@ -825,7 +977,7 @@ const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], template
         value={node.input_user_prompt || ''}
         placeholder="User message template..."
         defaultHeight={80}
-        onSave={(value) => onUpdate({ input_user_prompt: value })}
+        onSave={(value: string) => onUpdate({ input_user_prompt: value })}
         variables={variables}
         libraryItems={libraryItems}
         storageKey={userStorageKey}
@@ -837,7 +989,7 @@ const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], template
         value={node.note || ''}
         placeholder="Internal notes about this prompt..."
         defaultHeight={80}
-        onSave={(value) => onUpdate({ note: value })}
+        onSave={(value: string) => onUpdate({ note: value })}
         storageKey={notesStorageKey}
       />
     </div>
@@ -847,9 +999,9 @@ const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], template
 /**
  * Model settings section - matching prompt editor patterns
  */
-const ModelSettingsSection = ({ node, onUpdate, models }) => {
+const ModelSettingsSection: React.FC<ModelSettingsSectionProps> = ({ node, onUpdate, models }) => {
   const { getModelConfig } = useModels();
-  const sliderDebounceRef = useRef({});
+  const sliderDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Cleanup slider debounce timers on unmount
   useEffect(() => {
@@ -889,7 +1041,7 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
   }, [node?.presence_penalty]);
 
   // Debounced slider change handler
-  const handleSliderChange = (field, value, setter) => {
+  const handleSliderChange = (field: string, value: number[], setter: React.Dispatch<React.SetStateAction<number[]>>) => {
     setter(value);
     
     if (sliderDebounceRef.current[field]) {
@@ -900,8 +1052,6 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
       onUpdate({ [field]: String(value[0]) });
     }, 500);
   };
-
-  const hasSetting = (setting) => supportedSettings.includes(setting);
 
   return (
     <div className="space-y-4">
@@ -925,7 +1075,7 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
       {/* Supported settings tags */}
       {supportedSettings.length > 0 && (
         <div className="flex flex-wrap gap-1">
-          {supportedSettings.map(setting => (
+          {supportedSettings.map((setting: string) => (
             <span key={setting} className="text-[9px] px-1.5 py-0.5 bg-surface-container rounded text-on-surface-variant">
               {setting.replace(/_/g, ' ')}
             </span>
@@ -967,23 +1117,24 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
         {/* STRICT SEPARATION: Max Tokens OR Max Completion Tokens based on model */}
         {(() => {
           // Determine token setting based on node's model
-          const nodeModel = node.model || defaultModel;
+          const nodeModel = node.model || '';
           const isGpt5Class = nodeModel?.match(/^(gpt-5|o\d)/i);
           const tokenKey = isGpt5Class ? 'max_completion_tokens' : 'max_tokens';
+          const tokenOnKey = isGpt5Class ? 'max_completion_tokens_on' : 'max_tokens_on';
           const tokenLabel = isGpt5Class ? 'Max Completion Tokens' : 'Max Tokens';
           
           return (
             <>
               <SettingRow label={tokenLabel}>
                 <Switch
-                  checked={node[`${tokenKey}_on`] || false}
-                  onCheckedChange={(checked) => onUpdate({ [`${tokenKey}_on`]: checked })}
+                  checked={(node as any)[tokenOnKey] || false}
+                  onCheckedChange={(checked) => onUpdate({ [tokenOnKey]: checked })}
                 />
               </SettingRow>
-              {node[`${tokenKey}_on`] && (
+              {(node as any)[tokenOnKey] && (
                 <Input
                   type="number"
-                  value={node[tokenKey] || ''}
+                  value={(node as any)[tokenKey] || ''}
                   onChange={(e) => onUpdate({ [tokenKey]: e.target.value })}
                   placeholder="4096"
                   min={1}
@@ -1113,7 +1264,7 @@ const ModelSettingsSection = ({ node, onUpdate, models }) => {
 /**
  * Conversation configuration section
  */
-const ConversationSection = ({ node, onUpdate, isRoot }) => {
+const ConversationSection: React.FC<ConversationSectionProps> = ({ node, onUpdate, isRoot }) => {
   const threadModeOptions = [
     { value: 'inherit', label: 'Inherit from parent' },
     { value: 'isolated', label: 'Isolated (new thread each time)' },
@@ -1154,7 +1305,7 @@ const ConversationSection = ({ node, onUpdate, isRoot }) => {
             value={node.assistant_instructions || ''}
             placeholder="You are a helpful assistant that..."
             defaultHeight={120}
-            onSave={(value) => onUpdate({ assistant_instructions: value })}
+            onSave={(value: string) => onUpdate({ assistant_instructions: value })}
           />
 
           {/* Thread Settings */}
@@ -1196,7 +1347,7 @@ const ConversationSection = ({ node, onUpdate, isRoot }) => {
 /**
  * Tools section
  */
-const ToolsSection = ({ node, onUpdate }) => (
+const ToolsSection: React.FC<ToolsSectionProps> = ({ node, onUpdate }) => (
   <div className="space-y-4">
     <SettingCard label="AI Tools">
       <SettingRow 

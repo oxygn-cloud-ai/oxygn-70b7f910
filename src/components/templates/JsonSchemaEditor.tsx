@@ -5,18 +5,74 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Plus, Trash2, ChevronRight, ChevronDown, Save, Loader2, Code, Eye, Sparkles, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import { formatSchemaForPrompt } from '@/utils/schemaUtils';
-import { validateJsonSchema, validateDataAgainstSchema, formatValidationErrors, parseJson } from '@/utils/jsonSchemaValidator';
+import { validateJsonSchema, validateDataAgainstSchema, parseJson } from '@/utils/jsonSchemaValidator';
 import { useAuth } from '@/contexts/AuthContext';
 
-const PROPERTY_TYPES = [
+// --- Type Definitions ---
+interface PropertyType {
+  value: string;
+  label: string;
+}
+
+interface SchemaCategory {
+  value: string;
+  label: string;
+}
+
+interface SchemaProperty {
+  type: string;
+  description?: string;
+  properties?: Record<string, SchemaProperty>;
+  items?: SchemaProperty;
+  required?: string[];
+  additionalProperties?: boolean;
+  enum?: string[];
+  _key?: string;
+  _required?: boolean;
+}
+
+interface SchemaData {
+  type: string;
+  properties?: Record<string, SchemaProperty>;
+  required?: string[];
+}
+
+interface JsonSchemaTemplate {
+  row_id: string;
+  schema_name?: string;
+  schema_description?: string;
+  category?: string;
+  json_schema: any;
+  sample_output?: any;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  errors: { path?: string; message: string }[];
+  warnings?: string[];
+}
+
+interface PropertyEditorProps {
+  property: SchemaProperty & { _key?: string; _required?: boolean };
+  path: (string | number)[];
+  onUpdate: (path: (string | number)[], value: any) => void;
+  onDelete: (path: (string | number)[]) => void;
+  depth?: number;
+}
+
+interface JsonSchemaEditorProps {
+  template: JsonSchemaTemplate;
+  onUpdate: (rowId: string, data: Partial<JsonSchemaTemplate>) => Promise<void>;
+}
+
+const PROPERTY_TYPES: PropertyType[] = [
   { value: 'string', label: 'String' },
   { value: 'number', label: 'Number' },
   { value: 'integer', label: 'Integer' },
@@ -25,23 +81,23 @@ const PROPERTY_TYPES = [
   { value: 'object', label: 'Object' },
 ];
 
-const SCHEMA_CATEGORIES = [
+const SCHEMA_CATEGORIES: SchemaCategory[] = [
   { value: 'general', label: 'General' },
   { value: 'action', label: 'Action' },
   { value: 'extraction', label: 'Extraction' },
   { value: 'analysis', label: 'Analysis' },
 ];
 
-const PropertyEditor = ({ property, path, onUpdate, onDelete, depth = 0 }) => {
+const PropertyEditor: React.FC<PropertyEditorProps> = ({ property, path, onUpdate, onDelete, depth = 0 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = property.type === 'object' || property.type === 'array';
   
-  const handleFieldChange = (field, value) => {
+  const handleFieldChange = (field: string, value: any) => {
     onUpdate(path, { ...property, [field]: value });
   };
 
-  const handleTypeChange = (newType) => {
-    const updated = { ...property, type: newType };
+  const handleTypeChange = (newType: string) => {
+    const updated: SchemaProperty = { ...property, type: newType };
     // Reset nested structure when type changes
     if (newType === 'object') {
       updated.properties = updated.properties || {};
@@ -151,7 +207,7 @@ const PropertyEditor = ({ property, path, onUpdate, onDelete, depth = 0 }) => {
           <Select 
             value={property.items?.type || 'string'} 
             onValueChange={(v) => {
-              const newItems = v === 'object' 
+              const newItems: SchemaProperty = v === 'object' 
                 ? { type: 'object', properties: {}, required: [], additionalProperties: false }
                 : { type: v };
               handleFieldChange('items', newItems);
@@ -224,21 +280,21 @@ const PropertyEditor = ({ property, path, onUpdate, onDelete, depth = 0 }) => {
   );
 };
 
-const JsonSchemaEditor = ({ template, onUpdate }) => {
+const JsonSchemaEditor: React.FC<JsonSchemaEditorProps> = ({ template, onUpdate }) => {
   const { isAdmin } = useAuth();
-  const [editedTemplate, setEditedTemplate] = useState(template);
-  const [activeView, setActiveView] = useState('visual');
+  const [editedTemplate, setEditedTemplate] = useState<JsonSchemaTemplate>(template);
+  const [activeView, setActiveView] = useState<'visual' | 'json' | 'preview'>('visual');
   const [rawJson, setRawJson] = useState('');
-  const [jsonError, setJsonError] = useState(null);
+  const [jsonError, setJsonError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   
   // New state for validation
-  const [schemaValidation, setSchemaValidation] = useState({ isValid: true, errors: [], warnings: [] });
-  const [sampleValidation, setSampleValidation] = useState({ isValid: true, errors: [] });
+  const [schemaValidation, setSchemaValidation] = useState<ValidationResult>({ isValid: true, errors: [], warnings: [] });
+  const [sampleValidation, setSampleValidation] = useState<ValidationResult>({ isValid: true, errors: [] });
   const [customSampleOutput, setCustomSampleOutput] = useState('');
   const [useCustomSample, setUseCustomSample] = useState(false);
-  const [sampleJsonError, setSampleJsonError] = useState(null);
+  const [sampleJsonError, setSampleJsonError] = useState<string | null>(null);
 
   // Initialize raw JSON view and custom sample
   React.useEffect(() => {
@@ -267,7 +323,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
   }, [template.row_id]);
 
   // Parse schema for visual editor - handle multiple nesting levels
-  const schemaData = useMemo(() => {
+  const schemaData = useMemo((): SchemaData => {
     try {
       const jsonSchema = editedTemplate.json_schema;
       if (!jsonSchema) return { type: 'object', properties: {}, required: [] };
@@ -295,53 +351,53 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
     }
   }, [editedTemplate.json_schema]);
 
-  const handleFieldChange = (field, value) => {
+  const handleFieldChange = (field: string, value: any) => {
     setEditedTemplate(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
 
-  const handlePropertyUpdate = useCallback((path, value) => {
+  const handlePropertyUpdate = useCallback((path: (string | number)[], value: any) => {
     setEditedTemplate(prev => {
       const newSchema = JSON.parse(JSON.stringify(prev.json_schema));
       const innerSchema = newSchema.json_schema?.schema || newSchema.schema || newSchema;
       
       // Handle rename operation
       if (path[path.length - 1] === '__rename__') {
-        const { oldKey, newKey, property } = value;
+        const { oldKey, newKey } = value;
         const parentPath = path.slice(0, -1);
         let target = innerSchema;
         for (const key of parentPath) {
-          target = target[key];
+          target = target[key as keyof typeof target];
         }
-        if (target && target[oldKey]) {
-          target[newKey] = target[oldKey];
-          delete target[oldKey];
+        if (target && (target as any)[oldKey]) {
+          (target as any)[newKey] = (target as any)[oldKey];
+          delete (target as any)[oldKey];
         }
       } else {
         // Normal update
         let target = innerSchema;
         for (let i = 0; i < path.length - 1; i++) {
-          target = target[path[i]];
+          target = target[path[i] as keyof typeof target];
         }
-        target[path[path.length - 1]] = value;
+        (target as any)[path[path.length - 1]] = value;
       }
       
       return { ...prev, json_schema: newSchema };
     });
     setRawJson(JSON.stringify(editedTemplate.json_schema, null, 2));
     setHasChanges(true);
-  }, []);
+  }, [editedTemplate.json_schema]);
 
-  const handlePropertyDelete = useCallback((path) => {
+  const handlePropertyDelete = useCallback((path: (string | number)[]) => {
     setEditedTemplate(prev => {
       const newSchema = JSON.parse(JSON.stringify(prev.json_schema));
       const innerSchema = newSchema.json_schema?.schema || newSchema.schema || newSchema;
       
       let target = innerSchema;
       for (let i = 0; i < path.length - 1; i++) {
-        target = target[path[i]];
+        target = target[path[i] as keyof typeof target];
       }
-      delete target[path[path.length - 1]];
+      delete (target as any)[path[path.length - 1]];
       
       return { ...prev, json_schema: newSchema };
     });
@@ -360,14 +416,14 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
     setHasChanges(true);
   };
 
-  const handleRawJsonChange = (value) => {
+  const handleRawJsonChange = (value: string) => {
     setRawJson(value);
     setHasChanges(true);
     
     // First check JSON syntax
     const parseResult = parseJson(value);
     if (!parseResult.isValid) {
-      setJsonError(parseResult.error);
+      setJsonError(parseResult.error || 'Invalid JSON');
       setSchemaValidation({ isValid: false, errors: [{ path: '', message: 'Invalid JSON syntax' }], warnings: [] });
       return;
     }
@@ -390,14 +446,14 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
   };
 
   // Handle custom sample output changes
-  const handleCustomSampleChange = (value) => {
+  const handleCustomSampleChange = (value: string) => {
     setCustomSampleOutput(value);
     setHasChanges(true);
     
     // First check JSON syntax
     const parseResult = parseJson(value);
     if (!parseResult.isValid) {
-      setSampleJsonError(parseResult.error);
+      setSampleJsonError(parseResult.error || 'Invalid JSON');
       setSampleValidation({ isValid: false, errors: [{ path: '', message: 'Invalid JSON syntax' }] });
       return;
     }
@@ -410,7 +466,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
   };
 
   // Toggle custom sample mode
-  const handleToggleCustomSample = (enabled) => {
+  const handleToggleCustomSample = (enabled: boolean) => {
     setUseCustomSample(enabled);
     setHasChanges(true);
     
@@ -472,9 +528,9 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
   };
 
   // Generate preview output
-  const previewOutput = useMemo(() => {
+  const previewOutput = useMemo((): string => {
     try {
-      const generateSample = (prop) => {
+      const generateSample = (prop: SchemaProperty): any => {
         if (prop.type === 'string') return prop.enum ? prop.enum[0] : 'example';
         if (prop.type === 'number' || prop.type === 'integer') return 0;
         if (prop.type === 'boolean') return true;
@@ -485,7 +541,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
           return [generateSample(prop.items || { type: 'string' })];
         }
         if (prop.type === 'object' && prop.properties) {
-          const obj = {};
+          const obj: Record<string, any> = {};
           for (const [key, val] of Object.entries(prop.properties)) {
             obj[key] = generateSample(val);
           }
@@ -495,7 +551,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
       };
       
       if (schemaData.properties) {
-        const sample = {};
+        const sample: Record<string, any> = {};
         for (const [key, prop] of Object.entries(schemaData.properties)) {
           sample[key] = generateSample(prop);
         }
@@ -515,7 +571,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
   const getJsonTabIndicator = () => {
     if (jsonError) return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
     if (!schemaValidation.isValid) return <span className="w-1.5 h-1.5 rounded-full bg-destructive" />;
-    if (schemaValidation.warnings.length > 0) return <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />;
+    if (schemaValidation.warnings && schemaValidation.warnings.length > 0) return <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />;
     return <span className="w-1.5 h-1.5 rounded-full bg-green-500" />;
   };
 
@@ -580,7 +636,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
 
           {/* View Tabs */}
           <div className="flex items-center justify-between">
-            <Tabs value={activeView} onValueChange={setActiveView}>
+            <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'visual' | 'json' | 'preview')}>
               <TabsList className="h-8">
                 <TabsTrigger value="visual" className="text-xs gap-1">
                   <Sparkles className="h-3 w-3" />
@@ -662,7 +718,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
                 )}
                 
                 {/* Schema Warnings */}
-                {!jsonError && schemaValidation.isValid && schemaValidation.warnings.length > 0 && (
+                {!jsonError && schemaValidation.isValid && schemaValidation.warnings && schemaValidation.warnings.length > 0 && (
                   <div className="flex items-start gap-2 p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded text-xs">
                     <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <div className="space-y-1">
@@ -675,7 +731,7 @@ const JsonSchemaEditor = ({ template, onUpdate }) => {
                 )}
                 
                 {/* Valid Schema Indicator */}
-                {!jsonError && schemaValidation.isValid && schemaValidation.warnings.length === 0 && (
+                {!jsonError && schemaValidation.isValid && (!schemaValidation.warnings || schemaValidation.warnings.length === 0) && (
                   <div className="flex items-center gap-2 p-2 bg-green-500/10 text-green-600 dark:text-green-400 rounded text-xs">
                     <CheckCircle2 className="h-4 w-4" />
                     <span>Schema is valid</span>
