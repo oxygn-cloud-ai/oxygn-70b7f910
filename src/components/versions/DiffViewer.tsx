@@ -9,10 +9,23 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import type { DiffChange, TextDiffLine, DeepDiffChange, VersionInfo } from './types';
 
-const DiffViewer = ({ open, onOpenChange, changes, versionInfo }) => {
+interface DiffViewerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  changes: DiffChange[] | null;
+  versionInfo: VersionInfo | null;
+}
 
-  const renderTextDiff = (textDiff) => {
+const DiffViewer: React.FC<DiffViewerProps> = ({ 
+  open, 
+  onOpenChange, 
+  changes, 
+  versionInfo 
+}) => {
+
+  const renderTextDiff = (textDiff: TextDiffLine[]) => {
     if (!textDiff || textDiff.length === 0) {
       return <div className="text-on-surface-variant text-body-sm italic">No text changes</div>;
     }
@@ -39,7 +52,7 @@ const DiffViewer = ({ open, onOpenChange, changes, versionInfo }) => {
     );
   };
 
-  const renderDeepDiff = (deepDiff) => {
+  const renderDeepDiff = (deepDiff: DeepDiffChange[]) => {
     if (!deepDiff || deepDiff.length === 0) {
       return <div className="text-on-surface-variant text-body-sm italic">No changes</div>;
     }
@@ -68,7 +81,7 @@ const DiffViewer = ({ open, onOpenChange, changes, versionInfo }) => {
     );
   };
 
-  const renderSimpleDiff = (change) => {
+  const renderSimpleDiff = (change: DiffChange) => {
     return (
       <div className="text-body-sm space-y-1">
         {change.oldValue !== undefined && (

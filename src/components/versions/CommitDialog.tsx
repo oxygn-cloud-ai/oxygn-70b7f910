@@ -5,11 +5,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 
-const CommitDialog = ({ open, onOpenChange, onCommit, isCommitting }) => {
+interface CommitDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCommit: (message: string, tagName?: string) => Promise<void>;
+  isCommitting: boolean;
+}
+
+const CommitDialog: React.FC<CommitDialogProps> = ({ 
+  open, 
+  onOpenChange, 
+  onCommit, 
+  isCommitting 
+}) => {
   const [message, setMessage] = useState('');
   const [tagName, setTagName] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
     await onCommit(message.trim(), tagName.trim() || undefined);
