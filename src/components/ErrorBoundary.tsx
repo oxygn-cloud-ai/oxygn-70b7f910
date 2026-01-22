@@ -1,21 +1,33 @@
-import { Component } from 'react';
+import { Component, ReactNode, ErrorInfo } from 'react';
 import { trackException } from '@/lib/posthog';
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  message?: string;
+  fallback?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
 
 /**
  * Error Boundary component to catch React rendering errors.
  * Prevents the entire app from crashing when a component fails.
  */
-class ErrorBoundary extends Component {
-  constructor(props) {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
     
     // Log to console for debugging
@@ -53,11 +65,11 @@ class ErrorBoundary extends Component {
     }
   }
 
-  handleRetry = () => {
+  handleRetry = (): void => {
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       // Custom fallback UI or default
       if (this.props.fallback) {

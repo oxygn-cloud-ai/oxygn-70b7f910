@@ -1,16 +1,37 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Cpu, Brain, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-const REASONING_OPTIONS = [
+interface ReasoningOption {
+  value: string;
+  label: string;
+  desc: string;
+}
+
+const REASONING_OPTIONS: ReasoningOption[] = [
   { value: 'auto', label: 'Auto', desc: 'Model default' },
   { value: 'low', label: 'Low', desc: 'Faster' },
   { value: 'medium', label: 'Medium', desc: 'Balanced' },
   { value: 'high', label: 'High', desc: 'Deeper' },
 ];
 
-const ModelReasoningSelector = ({
+interface ModelInfo {
+  model_id: string;
+  model_name: string;
+}
+
+interface ModelReasoningSelectorProps {
+  selectedModel: string | null;
+  onModelChange: (modelId: string | null) => void;
+  activeModels?: ModelInfo[];
+  defaultModelName?: string;
+  reasoningEffort?: string;
+  onReasoningChange?: (effort: string) => void;
+  supportsReasoning?: boolean;
+}
+
+const ModelReasoningSelector: React.FC<ModelReasoningSelectorProps> = ({
   selectedModel,
   onModelChange,
   activeModels = [],
@@ -21,16 +42,16 @@ const ModelReasoningSelector = ({
 }) => {
   const [modelOpen, setModelOpen] = useState(false);
   const [reasoningOpen, setReasoningOpen] = useState(false);
-  const modelRef = useRef(null);
-  const reasoningRef = useRef(null);
+  const modelRef = useRef<HTMLDivElement>(null);
+  const reasoningRef = useRef<HTMLDivElement>(null);
 
   // Click-outside handlers
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (modelRef.current && !modelRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent): void => {
+      if (modelRef.current && !modelRef.current.contains(e.target as Node)) {
         setModelOpen(false);
       }
-      if (reasoningRef.current && !reasoningRef.current.contains(e.target)) {
+      if (reasoningRef.current && !reasoningRef.current.contains(e.target as Node)) {
         setReasoningOpen(false);
       }
     };
@@ -112,7 +133,7 @@ const ModelReasoningSelector = ({
               {REASONING_OPTIONS.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => { onReasoningChange(opt.value); setReasoningOpen(false); }}
+                  onClick={() => { onReasoningChange?.(opt.value); setReasoningOpen(false); }}
                   className="w-full flex items-center justify-between px-3 py-1.5 text-body-sm hover:bg-surface-container"
                 >
                   <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, KeyboardEvent } from 'react';
 import { Plus, Trash2, MessageSquare, Search, Pencil, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,32 @@ import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trackEvent } from '@/lib/posthog';
 
-const ThreadSidebar = ({
+interface Thread {
+  row_id: string;
+  name?: string | null;
+  preview?: string | null;
+  last_message_at?: string | null;
+}
+
+interface ActiveThread {
+  row_id: string;
+}
+
+interface ThreadSidebarProps {
+  threads: Thread[];
+  activeThread?: ActiveThread | null;
+  isLoading?: boolean;
+  onSelectThread: (threadId: string) => void;
+  onCreateThread?: () => void;
+  onDeleteThread: (threadId: string) => void;
+  onRenameThread?: (threadId: string, newName: string) => void;
+  onClose?: () => void;
+}
+
+const ThreadSidebar: React.FC<ThreadSidebarProps> = ({
   threads,
   activeThread,
-  isLoading,
+  isLoading = false,
   onSelectThread,
   onCreateThread,
   onDeleteThread,
@@ -21,7 +43,7 @@ const ThreadSidebar = ({
   onClose,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingThreadId, setEditingThreadId] = useState(null);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
   const filteredThreads = threads.filter(thread => 
@@ -29,13 +51,13 @@ const ThreadSidebar = ({
     thread.preview?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleStartRename = (thread, e) => {
+  const handleStartRename = (thread: Thread, e: React.MouseEvent): void => {
     e.stopPropagation();
     setEditingThreadId(thread.row_id);
     setEditName(thread.name || '');
   };
 
-  const handleSaveRename = (threadId) => {
+  const handleSaveRename = (threadId: string): void => {
     if (editName.trim()) {
       onRenameThread?.(threadId, editName.trim());
       trackEvent('chat_thread_renamed', { thread_id: threadId });
@@ -44,9 +66,14 @@ const ThreadSidebar = ({
     setEditName('');
   };
 
-  const handleCancelRename = () => {
+  const handleCancelRename = (): void => {
     setEditingThreadId(null);
     setEditName('');
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>, threadId: string): void => {
+    if (e.key === 'Enter') handleSaveRename(threadId);
+    if (e.key === 'Escape') handleCancelRename();
   };
 
   return (
@@ -146,10 +173,7 @@ const ThreadSidebar = ({
                             onChange={(e) => setEditName(e.target.value)}
                             className="h-5 text-tree"
                             autoFocus
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveRename(thread.row_id);
-                              if (e.key === 'Escape') handleCancelRename();
-                            }}
+                            onKeyDown={(e) => handleKeyDown(e, thread.row_id)}
                           />
                           <Button
                             variant="ghost"

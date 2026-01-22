@@ -13,12 +13,37 @@ import { toast } from '@/components/ui/sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 
-const MessageBubble = ({ message, userProfile, conversationName, onRegenerate }) => {
+interface UserProfile {
+  display_name?: string | null;
+  avatar_url?: string | null;
+}
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
+}
+
+interface MessageBubbleProps {
+  message: Message;
+  userProfile?: UserProfile | null;
+  conversationName?: string;
+  onRegenerate?: () => void;
+}
+
+type FeedbackType = 'up' | 'down' | null;
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+  message, 
+  userProfile, 
+  conversationName, 
+  onRegenerate 
+}) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState(null);
+  const [feedback, setFeedback] = useState<FeedbackType>(null);
 
-  const handleCopy = async () => {
+  const handleCopy = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(message.content);
       setCopied(true);
@@ -29,12 +54,12 @@ const MessageBubble = ({ message, userProfile, conversationName, onRegenerate })
     }
   };
 
-  const handleFeedback = (type) => {
+  const handleFeedback = (type: 'up' | 'down'): void => {
     setFeedback(type);
     toast.success(`Feedback recorded: ${type === 'up' ? 'Helpful' : 'Not helpful'}`);
   };
 
-  const getInitials = () => {
+  const getInitials = (): string => {
     if (userProfile?.display_name) {
       return userProfile.display_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     }
@@ -60,7 +85,7 @@ const MessageBubble = ({ message, userProfile, conversationName, onRegenerate })
       {/* Avatar */}
       {isUser ? (
         <Avatar className="h-6 w-6 shrink-0 ring-1 ring-primary/20">
-          <AvatarImage src={userProfile?.avatar_url} alt={userProfile?.display_name || 'User'} />
+          <AvatarImage src={userProfile?.avatar_url || undefined} alt={userProfile?.display_name || 'User'} />
           <AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-medium">
             {getInitials()}
           </AvatarFallback>
@@ -100,7 +125,12 @@ const MessageBubble = ({ message, userProfile, conversationName, onRegenerate })
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
-              code({ node, inline, className, children, ...props }) {
+              code({ node, inline, className, children, ...props }: {
+                node?: unknown;
+                inline?: boolean;
+                className?: string;
+                children?: React.ReactNode;
+              }) {
                 const match = /language-(\w+)/.exec(className || '');
                 return !inline && match ? (
                   <SyntaxHighlighter

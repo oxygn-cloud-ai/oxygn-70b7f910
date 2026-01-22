@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, FormEvent, KeyboardEvent } from 'react';
 import { Send, Loader2, Paperclip, X, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -8,16 +8,30 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { TOOLTIPS } from '@/config/labels';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ChatInput = ({
+interface ContextItem {
+  id: string;
+  name: string;
+}
+
+interface ChatInputProps {
+  onSend: (message: string) => void;
+  isSending?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  contextItems?: ContextItem[];
+  onRemoveContext?: (id: string) => void;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
-  isSending,
-  disabled,
+  isSending = false,
+  disabled = false,
   placeholder = 'Type your message...',
   contextItems = [],
   onRemoveContext,
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const textareaRef = useRef(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -27,7 +41,7 @@ const ChatInput = ({
     }
   }, [inputValue]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent): void => {
     e.preventDefault();
     if (!inputValue.trim() || isSending || disabled) return;
     onSend(inputValue.trim());
@@ -37,7 +51,7 @@ const ChatInput = ({
     }
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
