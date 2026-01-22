@@ -474,8 +474,14 @@ async function runResponsesAPI(
       errorMessage.toLowerCase().includes('previous response') ||
       (initialResponse.status === 400 && errorMessage.toLowerCase().includes('not found'));
     
-    if (isPreviousResponseNotFound && requestBody.previous_response_id) {
-      console.warn('Previous response not found, clearing thread context and retrying fresh');
+    // Detect stale tool call errors (from cancelled question/tool prompts)
+    const isStaleToolCall = 
+      initialResponse.status === 400 && 
+      errorMessage.toLowerCase().includes('no tool output found');
+    
+    if ((isPreviousResponseNotFound || isStaleToolCall) && requestBody.previous_response_id) {
+      const reason = isStaleToolCall ? 'Stale tool call state' : 'Previous response not found';
+      console.warn(`${reason}, clearing thread context and retrying fresh`);
       
       // Clear the thread's last_response_id if we have threadRowId
       if (options.threadRowId) {
