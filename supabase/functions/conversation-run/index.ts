@@ -709,7 +709,7 @@ async function runResponsesAPI(
                     }
                   }
                 }
-                // Build full summary text for thinking_done
+              // Build full summary text for thinking_done
                 const fullSummaryText = (item.summary || [])
                   .map((s: { text?: string }) => s.text || '')
                   .join('');
@@ -718,6 +718,11 @@ async function runResponsesAPI(
                   text: fullSummaryText,
                   item_id: item.id,
                 });
+              }
+              // Detect built-in tool execution in polling response
+              if (['file_search', 'web_search_preview', 'code_interpreter'].includes(item.type) && emitter) {
+                console.log('Built-in tool in polling response:', item.type, 'results:', item.results?.length || 0);
+                emitter.emit({ type: 'tool_activity', tool: item.type, status: 'completed' });
               }
             }
           }
@@ -1086,6 +1091,11 @@ async function runResponsesAPI(
                     item_id: item.id,
                   });
                 }
+              }
+              // Detect built-in tool execution in streaming response
+              if (['file_search', 'web_search_preview', 'code_interpreter'].includes(item.type) && emitter) {
+                console.log('Built-in tool in streaming response:', item.type, 'results:', item.results?.length || 0);
+                emitter.emit({ type: 'tool_activity', tool: item.type, status: 'completed' });
               }
             }
           }
@@ -1601,8 +1611,12 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
         }
       }
       
-      // If still no function calls after continuation, return whatever we have
-      if (functionCalls.length === 0) {
+      // If function calls were discovered during continuation, fall through to process them
+      if (functionCalls.length > 0) {
+        console.log('Question node: function calls found during continuation, falling through to process');
+        // Fall through to function call processing loop below
+      } else {
+        // Only return here if still no function calls
         return {
           success: true,
           response: responseText || 'Question processing completed.',
@@ -1611,6 +1625,7 @@ Important: Variable names for ask_user_question MUST start with ai_ prefix.${too
         };
       }
     } else {
+      // No built-in tools ran and no function calls - return text response
       return {
         success: true,
         response: responseText,
