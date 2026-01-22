@@ -966,6 +966,7 @@ export const useCascadeExecutor = () => {
                   resumeResponseId: result.interruptData.responseId,
                   resumeAnswer: answer,
                   resumeVariableName: result.interruptData.variableName,
+                  resumeCallId: result.interruptData.callId,
                 });
                 
                 if (isCancelled()) {
