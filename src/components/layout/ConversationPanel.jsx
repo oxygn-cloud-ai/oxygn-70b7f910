@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo, lazy, Suspense } from "react";
 import { 
   Send, Paperclip, Mic, PanelRightClose, Loader2, 
-  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare, Brain
+  Plus, Trash2, ChevronDown, Wrench, Check, Maximize2, MessageSquare, Brain, Square
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -454,9 +454,22 @@ const ConversationPanel = ({
             {isSending && usePromptFamilyMode && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] px-2.5 py-2 bg-surface-container rounded-m3-lg space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
-                    <Brain className="h-3 w-3 text-primary animate-pulse" />
-                    <span className="font-medium">{thinkingText ? 'Reasoning' : 'Thinking'}</span>
+                  <div className="flex items-center justify-between gap-2 text-[10px] text-on-surface-variant">
+                    <div className="flex items-center gap-1.5">
+                      <Brain className="h-3 w-3 text-primary animate-pulse" />
+                      <span className="font-medium">{thinkingText ? 'Reasoning' : 'Thinking'}</span>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button 
+                          onClick={() => promptFamilyChat?.cancelStream?.()}
+                          className="w-5 h-5 flex items-center justify-center rounded-m3-full hover:bg-surface-container-high"
+                        >
+                          <Square className="h-2.5 w-2.5 text-on-surface-variant" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px]">Cancel</TooltipContent>
+                    </Tooltip>
                   </div>
                   {thinkingText && (
                     <div className="text-[11px] text-on-surface-variant whitespace-pre-wrap max-h-32 overflow-y-auto">

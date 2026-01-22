@@ -530,6 +530,14 @@ async function streamOpenAIResponse(
           return { content, toolCalls, usage: data.usage, status: data.status };
         }
         
+        // Emit progress to keep client informed during polling
+        const elapsedSec = Math.round((Date.now() - startTime) / 1000);
+        emitter.emit({ 
+          type: 'progress', 
+          message: `Processing... (${elapsedSec}s elapsed)`,
+          status: data.status || 'queued'
+        });
+        
         await new Promise(resolve => setTimeout(resolve, intervalMs));
       } catch (pollError) {
         console.error('Polling error:', pollError);

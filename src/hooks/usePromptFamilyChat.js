@@ -27,6 +27,9 @@ export const usePromptFamilyChat = (promptRowId) => {
   // Ref to track activeThreadId without causing callback re-creation
   const activeThreadIdRef = useRef(null);
   
+  // Ref to track switchThread request ID for race condition prevention
+  const switchRequestIdRef = useRef(0);
+  
   // Keep ref in sync with state
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
@@ -178,7 +181,11 @@ export const usePromptFamilyChat = (promptRowId) => {
   }, [rootPromptId]);
 
   // Switch to a different thread and fetch its messages
+  // Uses request ID guard to prevent race conditions when switching rapidly
   const switchThread = useCallback(async (threadId) => {
+    // Increment request ID to invalidate any in-flight requests
+    const requestId = ++switchRequestIdRef.current;
+    
     // Clear state immediately for responsive UI
     setActiveThreadId(threadId);
     activeThreadIdRef.current = threadId;
@@ -195,6 +202,9 @@ export const usePromptFamilyChat = (promptRowId) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Not authenticated');
         
+        // Check if this request is still valid before async operation
+        if (requestId !== switchRequestIdRef.current) return;
+        
         const response = await supabase.functions.invoke('thread-manager', {
           body: {
             action: 'get_messages',
@@ -202,6 +212,9 @@ export const usePromptFamilyChat = (promptRowId) => {
             limit: 100,
           }
         });
+        
+        // Check again after async operation completes
+        if (requestId !== switchRequestIdRef.current) return;
         
         if (!response.error) {
           setMessages((response.data?.messages || []).map(m => ({
@@ -213,9 +226,9 @@ export const usePromptFamilyChat = (promptRowId) => {
         }
       } catch (err) {
         console.error('Error fetching messages on thread switch:', err);
-        setMessages([]);
+        if (requestId === switchRequestIdRef.current) setMessages([]);
       } finally {
-        setIsLoading(false);
+        if (requestId === switchRequestIdRef.current) setIsLoading(false);
       }
     }
   }, []);
@@ -479,9 +492,7 @@ export const usePromptFamilyChat = (promptRowId) => {
                 fullContent = parsed.text || fullContent;
                 setStreamingMessage(fullContent);
                 updateCall(dashboardId, { outputText: fullContent });
-                
-                // Clear thinking text after a short delay
-                setTimeout(() => setThinkingText(''), 1500);
+                // thinkingText cleared in final cleanup section
               }
               
               // Handle status updates
@@ -541,7 +552,15 @@ export const usePromptFamilyChat = (promptRowId) => {
         }
       }
 
-      await addMessage('assistant', fullContent, null, effectiveThreadId);
+      // Only add assistant message if we have content (prevent blank bubbles)
+      if (fullContent.trim().length > 0) {
+        await addMessage('assistant', fullContent, null, effectiveThreadId);
+      } else if (toolActivity.length === 0) {
+        notify.warning('No response received', {
+          source: 'usePromptFamilyChat',
+          description: 'The AI returned an empty response. Please try again.',
+        });
+      }
       
       // Notify AI response received with full payload details
       notify.success('AI response received', { 
@@ -566,6 +585,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       }
       
       setStreamingMessage('');
+      setThinkingText(''); // Clear thinking text in final cleanup
       setIsStreaming(false);
       setToolActivity([]);
       setIsExecutingTools(false);
