@@ -1,14 +1,26 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, RefObject, DragEvent } from 'react';
+
+interface DragAutoScrollOptions {
+  edgeThreshold?: number;
+  scrollSpeed?: number;
+}
+
+interface DragAutoScrollReturn {
+  scrollContainerRef: RefObject<HTMLDivElement>;
+  scrollContainerProps: {
+    onDragOver: (e: DragEvent<HTMLDivElement>) => void;
+  };
+}
 
 /**
  * Hook to enable auto-scrolling when dragging near container edges
- * @param {Object} options
- * @param {number} options.edgeThreshold - Distance from edge to trigger scroll (default: 50px)
- * @param {number} options.scrollSpeed - Max scroll speed in px/frame (default: 8)
  */
-export function useDragAutoScroll({ edgeThreshold = 50, scrollSpeed = 8 } = {}) {
-  const scrollContainerRef = useRef(null);
-  const animationFrameRef = useRef(null);
+export function useDragAutoScroll({ 
+  edgeThreshold = 50, 
+  scrollSpeed = 8 
+}: DragAutoScrollOptions = {}): DragAutoScrollReturn {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const isDraggingRef = useRef(false);
   const mouseYRef = useRef(0);
 
@@ -48,7 +60,7 @@ export function useDragAutoScroll({ edgeThreshold = 50, scrollSpeed = 8 } = {}) 
     }
   }, [edgeThreshold, scrollSpeed]);
 
-  const handleDragOver = useCallback((e) => {
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     mouseYRef.current = e.clientY;
     
     if (!animationFrameRef.current && isDraggingRef.current) {

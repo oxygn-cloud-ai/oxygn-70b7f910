@@ -1,19 +1,20 @@
 import { useEffect, useCallback } from 'react';
 import { trackEvent } from '@/lib/posthog';
 
+interface KeyboardShortcutsConfig {
+  onToggleFolderPanel?: () => void;
+  onToggleConversationPanel?: () => void;
+  onSave?: () => void;
+  onRun?: () => void;
+  onEscape?: () => void;
+  onUndo?: () => void;
+  enabled?: boolean;
+}
+
 /**
  * Global keyboard shortcuts hook for the Mockup page
  * 
  * NOTE: Cmd+K search removed - replaced by LiveApiDashboard in TopBar
- * 
- * @param {Object} config - Shortcut configuration
- * @param {Function} config.onToggleFolderPanel - Cmd+B - Toggle folder panel
- * @param {Function} config.onToggleConversationPanel - Cmd+J - Toggle conversation panel
- * @param {Function} config.onSave - Cmd+S - Save current item
- * @param {Function} config.onRun - Cmd+Enter - Run prompt
- * @param {Function} config.onEscape - Escape - Close modals/panels
- * @param {Function} config.onUndo - Cmd+Z - Undo last action
- * @param {boolean} config.enabled - Whether shortcuts are enabled
  */
 export const useKeyboardShortcuts = ({
   onToggleFolderPanel,
@@ -23,13 +24,14 @@ export const useKeyboardShortcuts = ({
   onEscape,
   onUndo,
   enabled = true,
-}) => {
-  const handleKeyDown = useCallback((e) => {
+}: KeyboardShortcutsConfig): void => {
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
 
     // Check if user is typing in an input/textarea
-    const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) ||
-                     e.target.isContentEditable;
+    const target = e.target as HTMLElement;
+    const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+                     target.isContentEditable;
 
     // Cmd/Ctrl + B - Toggle folder panel (works even when typing)
     if ((e.metaKey || e.ctrlKey) && e.key === 'b') {

@@ -9,14 +9,33 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { 
   SYSTEM_VARIABLES, 
-  SYSTEM_VARIABLE_TYPES,
   isUserEditableVariable 
 } from '@/config/systemVariables';
 
-export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => {
-  const [systemVariables, setSystemVariables] = useState(initialSystemVariables || {});
+export type SystemVariablesMap = Record<string, string>;
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+interface UseSystemVariablesReturn {
+  systemVariables: SystemVariablesMap;
+  updateSystemVariable: (varName: string, value: string) => Promise<boolean>;
+  clearSystemVariable: (varName: string) => Promise<boolean>;
+  updateMultipleVariables: (updates: SystemVariablesMap) => Promise<boolean>;
+  getVariableValue: (varName: string) => string;
+  isSaving: boolean;
+  savingVarName: string | null;
+}
+
+export const useSystemVariables = (
+  promptRowId: string | null, 
+  initialSystemVariables: SystemVariablesMap = {}
+): UseSystemVariablesReturn => {
+  const [systemVariables, setSystemVariables] = useState<SystemVariablesMap>(initialSystemVariables || {});
   const [isSaving, setIsSaving] = useState(false);
-  const [savingVarName, setSavingVarName] = useState(null);
+  const [savingVarName, setSavingVarName] = useState<string | null>(null);
 
   // Sync with initial value when it changes
   useEffect(() => {
@@ -28,8 +47,8 @@ export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => 
   /**
    * Validate a value for a specific variable
    */
-  const validateValue = useCallback((varName, value) => {
-    const def = SYSTEM_VARIABLES[varName];
+  const validateValue = useCallback((varName: string, value: string): ValidationResult => {
+    const def = SYSTEM_VARIABLES[varName as keyof typeof SYSTEM_VARIABLES];
     
     // Check if variable is user-editable
     if (!isUserEditableVariable(varName)) {
@@ -49,7 +68,7 @@ export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => 
   /**
    * Update a single system variable
    */
-  const updateSystemVariable = useCallback(async (varName, value) => {
+  const updateSystemVariable = useCallback(async (varName: string, value: string): Promise<boolean> => {
     if (!promptRowId) {
       toast.error('No prompt selected');
       return false;
@@ -67,7 +86,7 @@ export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => 
 
     try {
       // Build updated variables object
-      const updatedVars = { 
+      const updatedVars: SystemVariablesMap = { 
         ...systemVariables, 
         [varName]: value || '' 
       };
@@ -86,7 +105,8 @@ export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => 
 
       // Update local state
       setSystemVariables(updatedVars);
-      toast.success(`${SYSTEM_VARIABLES[varName]?.label || varName} saved`);
+      const def = SYSTEM_VARIABLES[varName as keyof typeof SYSTEM_VARIABLES];
+      toast.success(`${def?.label || varName} saved`);
       return true;
     } catch (err) {
       console.error('Error saving system variable:', err);
@@ -101,21 +121,21 @@ export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => 
   /**
    * Clear a system variable (set to empty string)
    */
-  const clearSystemVariable = useCallback(async (varName) => {
+  const clearSystemVariable = useCallback(async (varName: string): Promise<boolean> => {
     return updateSystemVariable(varName, '');
   }, [updateSystemVariable]);
 
   /**
    * Get the current value of a system variable
    */
-  const getVariableValue = useCallback((varName) => {
+  const getVariableValue = useCallback((varName: string): string => {
     return systemVariables[varName] || '';
   }, [systemVariables]);
 
   /**
    * Bulk update multiple variables at once
    */
-  const updateMultipleVariables = useCallback(async (updates) => {
+  const updateMultipleVariables = useCallback(async (updates: SystemVariablesMap): Promise<boolean> => {
     if (!promptRowId) {
       toast.error('No prompt selected');
       return false;
@@ -134,7 +154,7 @@ export const useSystemVariables = (promptRowId, initialSystemVariables = {}) => 
 
     try {
       // Build updated variables object
-      const updatedVars = { ...systemVariables, ...updates };
+      const updatedVars: SystemVariablesMap = { ...systemVariables, ...updates };
 
       // Save to database
       const { error } = await supabase

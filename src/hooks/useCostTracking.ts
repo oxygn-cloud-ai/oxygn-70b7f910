@@ -2,19 +2,119 @@ import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface ModelPricing {
+  cost_per_1k_input_tokens: number;
+  cost_per_1k_output_tokens: number;
+}
+
+interface TopLevelPrompt {
+  row_id: string;
+  prompt_name: string;
+}
+
+interface TokenUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
+interface RecordCostParams {
+  promptRowId: string;
+  model: string;
+  usage?: TokenUsage;
+  responseId?: string;
+  finishReason?: string;
+  latencyMs?: number;
+  promptName?: string;
+}
+
+interface CostMetadata {
+  model: string;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_total: number;
+  cost_input_usd: number;
+  cost_output_usd: number;
+  cost_total_usd: number;
+  response_id?: string;
+  finish_reason?: string;
+  latency_ms?: number;
+  timestamp: string;
+  pricing: ModelPricing;
+}
+
+interface ModelBreakdown {
+  calls: number;
+  cost: number;
+  tokens: number;
+}
+
+interface LifetimeCosts {
+  totalCalls: number;
+  totalTokensInput: number;
+  totalTokensOutput: number;
+  totalTokens: number;
+  totalCostUsd: number;
+  modelBreakdown: Record<string, ModelBreakdown>;
+  firstCall: string | null;
+  lastCall: string | null;
+}
+
+interface PromptCostInfo {
+  row_id: string;
+  name: string;
+  cost: number;
+  tokens: number;
+  calls: number;
+}
+
+interface UserCostInfo {
+  user_id: string;
+  cost: number;
+  tokens: number;
+  calls: number;
+}
+
+interface DateCostInfo {
+  date: string;
+  cost: number;
+  tokens: number;
+  calls: number;
+}
+
+interface PlatformCostOptions {
+  startDate?: string;
+  endDate?: string;
+  groupBy?: 'day' | 'week' | 'month';
+}
+
+interface PlatformCosts {
+  totalCost: number;
+  totalTokens: number;
+  totalCalls: number;
+  byPrompt: PromptCostInfo[];
+  byUser: UserCostInfo[];
+  byDate: DateCostInfo[];
+}
+
+interface UseCostTrackingReturn {
+  recordCost: (params: RecordCostParams) => Promise<CostMetadata | null>;
+  getLifetimeCosts: (topLevelPromptRowId: string) => Promise<LifetimeCosts | null>;
+  getPlatformCosts: (options?: PlatformCostOptions) => Promise<PlatformCosts | null>;
+  getModelPricing: (modelId: string) => Promise<ModelPricing>;
+}
+
 /**
  * Hook for tracking AI call costs
  * Records costs to q_ai_costs table and updates prompt metadata
  */
-export const useCostTracking = () => {
+export const useCostTracking = (): UseCostTrackingReturn => {
   const { user } = useAuth();
 
   /**
    * Fetch pricing for a model from q_models table
-   * @param {string} modelId - Model ID
-   * @returns {Promise<{cost_per_1k_input_tokens: number, cost_per_1k_output_tokens: number}>}
    */
-  const getModelPricing = useCallback(async (modelId) => {
+  const getModelPricing = useCallback(async (modelId: string): Promise<ModelPricing> => {
     try {
       // Try exact match first from q_models table
       let { data, error } = await supabase
@@ -37,8 +137,8 @@ export const useCostTracking = () => {
       if (data) {
         // Convert from per-million to per-1k tokens
         return { 
-          cost_per_1k_input_tokens: (parseFloat(data.input_cost_per_million) || 0) / 1000,
-          cost_per_1k_output_tokens: (parseFloat(data.output_cost_per_million) || 0) / 1000
+          cost_per_1k_input_tokens: (parseFloat(String(data.input_cost_per_million)) || 0) / 1000,
+          cost_per_1k_output_tokens: (parseFloat(String(data.output_cost_per_million)) || 0) / 1000
         };
       }
 
@@ -51,13 +151,11 @@ export const useCostTracking = () => {
 
   /**
    * Find the top-level prompt for a given prompt
-   * @param {string} promptRowId - Current prompt ID
-   * @returns {Promise<{row_id: string, prompt_name: string} | null>}
    */
-  const findTopLevelPrompt = useCallback(async (promptRowId) => {
+  const findTopLevelPrompt = useCallback(async (promptRowId: string): Promise<TopLevelPrompt | null> => {
     try {
-      let currentId = promptRowId;
-      let currentPrompt = null;
+      let currentId: string | null = promptRowId;
+      let currentPrompt: { row_id: string; prompt_name: string; parent_row_id: string | null } | null = null;
       let iterations = 0;
       const maxIterations = 20; // Prevent infinite loops
 
@@ -91,14 +189,6 @@ export const useCostTracking = () => {
 
   /**
    * Record an AI call cost
-   * @param {Object} params
-   * @param {string} params.promptRowId - The prompt that made the call
-   * @param {string} params.model - Model used
-   * @param {Object} params.usage - Token usage from AI response
-   * @param {string} params.responseId - AI response ID
-   * @param {string} params.finishReason - Finish reason
-   * @param {number} params.latencyMs - Request latency
-   * @param {string} params.promptName - Current prompt name
    */
   const recordCost = useCallback(async ({
     promptRowId,
@@ -108,7 +198,7 @@ export const useCostTracking = () => {
     finishReason,
     latencyMs,
     promptName,
-  }) => {
+  }: RecordCostParams): Promise<CostMetadata | null> => {
     try {
       // Get pricing for the model
       const pricing = await getModelPricing(model);
@@ -187,10 +277,8 @@ export const useCostTracking = () => {
 
   /**
    * Get lifetime costs for a prompt and all its children
-   * @param {string} topLevelPromptRowId - Top-level prompt ID
-   * @returns {Promise<Object>}
    */
-  const getLifetimeCosts = useCallback(async (topLevelPromptRowId) => {
+  const getLifetimeCosts = useCallback(async (topLevelPromptRowId: string): Promise<LifetimeCosts | null> => {
     try {
       const { data, error } = await supabase
         .from(import.meta.env.VITE_AI_COSTS_TBL)
@@ -212,7 +300,7 @@ export const useCostTracking = () => {
         };
       }
 
-      const modelBreakdown = {};
+      const modelBreakdown: Record<string, ModelBreakdown> = {};
       let totalTokensInput = 0;
       let totalTokensOutput = 0;
       let totalTokens = 0;
@@ -222,17 +310,17 @@ export const useCostTracking = () => {
         totalTokensInput += record.tokens_input || 0;
         totalTokensOutput += record.tokens_output || 0;
         totalTokens += record.tokens_total || 0;
-        totalCostUsd += parseFloat(record.cost_total_usd) || 0;
+        totalCostUsd += parseFloat(String(record.cost_total_usd)) || 0;
 
         if (!modelBreakdown[record.model]) {
           modelBreakdown[record.model] = { calls: 0, cost: 0, tokens: 0 };
         }
         modelBreakdown[record.model].calls++;
-        modelBreakdown[record.model].cost += parseFloat(record.cost_total_usd) || 0;
+        modelBreakdown[record.model].cost += parseFloat(String(record.cost_total_usd)) || 0;
         modelBreakdown[record.model].tokens += record.tokens_total || 0;
       });
 
-      const sortedDates = data.map(r => new Date(r.created_at)).sort((a, b) => a - b);
+      const sortedDates = data.map(r => new Date(r.created_at)).sort((a, b) => a.getTime() - b.getTime());
 
       return {
         totalCalls: data.length,
@@ -252,11 +340,9 @@ export const useCostTracking = () => {
 
   /**
    * Get platform-wide cost analytics
-   * @param {Object} options - Query options
-   * @returns {Promise<Object>}
    */
-  const getPlatformCosts = useCallback(async (options = {}) => {
-    const { startDate, endDate, groupBy = 'day' } = options;
+  const getPlatformCosts = useCallback(async (options: PlatformCostOptions = {}): Promise<PlatformCosts | null> => {
+    const { startDate, endDate } = options;
 
     try {
       let query = supabase
@@ -275,14 +361,21 @@ export const useCostTracking = () => {
       if (error) throw error;
 
       // Aggregate by top-level prompt
-      const byPrompt = {};
-      const byUser = {};
-      const byDate = {};
+      const byPrompt: Record<string, PromptCostInfo> = {};
+      const byUser: Record<string, UserCostInfo> = {};
+      const byDate: Record<string, DateCostInfo> = {};
       let totalCost = 0;
       let totalTokens = 0;
 
-      data?.forEach(record => {
-        totalCost += parseFloat(record.cost_total_usd) || 0;
+      data?.forEach((record: { 
+        top_level_prompt_row_id: string;
+        top_level_prompt_name_snapshot: string;
+        user_id: string | null;
+        cost_total_usd: string | number;
+        tokens_total: number;
+        created_at: string;
+      }) => {
+        totalCost += parseFloat(String(record.cost_total_usd)) || 0;
         totalTokens += record.tokens_total || 0;
 
         // By prompt
@@ -296,7 +389,7 @@ export const useCostTracking = () => {
             calls: 0,
           };
         }
-        byPrompt[promptKey].cost += parseFloat(record.cost_total_usd) || 0;
+        byPrompt[promptKey].cost += parseFloat(String(record.cost_total_usd)) || 0;
         byPrompt[promptKey].tokens += record.tokens_total || 0;
         byPrompt[promptKey].calls++;
 
@@ -305,7 +398,7 @@ export const useCostTracking = () => {
         if (!byUser[userKey]) {
           byUser[userKey] = { user_id: userKey, cost: 0, tokens: 0, calls: 0 };
         }
-        byUser[userKey].cost += parseFloat(record.cost_total_usd) || 0;
+        byUser[userKey].cost += parseFloat(String(record.cost_total_usd)) || 0;
         byUser[userKey].tokens += record.tokens_total || 0;
         byUser[userKey].calls++;
 
@@ -314,7 +407,7 @@ export const useCostTracking = () => {
         if (!byDate[dateKey]) {
           byDate[dateKey] = { date: dateKey, cost: 0, tokens: 0, calls: 0 };
         }
-        byDate[dateKey].cost += parseFloat(record.cost_total_usd) || 0;
+        byDate[dateKey].cost += parseFloat(String(record.cost_total_usd)) || 0;
         byDate[dateKey].tokens += record.tokens_total || 0;
         byDate[dateKey].calls++;
       });
