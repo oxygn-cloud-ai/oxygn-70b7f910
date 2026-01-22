@@ -16,6 +16,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { CascadeRunProvider } from "@/contexts/CascadeRunContext";
 import { UndoProvider } from "@/contexts/UndoContext";
 import { PendingSaveProvider } from "@/contexts/PendingSaveContext";
+import { LayoutProvider } from "@/contexts/LayoutContext";
 import PostHogPageView from "@/components/PostHogPageView";
 
 const queryClient = new QueryClient();
@@ -30,29 +31,31 @@ const App = () => (
               <TooltipSettingsProvider>
                 <TooltipProvider>
                   <CascadeRunProvider>
-                    <BrowserRouter>
-                    <PostHogPageView />
-                    <ApiCallProvider>
-                      <LiveApiDashboardProvider>
-                        <AuthProvider>
-                          <NavigationGuard />
-                          <ErrorBoundary message="This page encountered an error.">
-                            <Routes>
-                              <Route path="/auth" element={<Auth />} />
-                              <Route
-                                path="/*"
-                                element={
-                                  <ProtectedRoute>
-                                    <MainLayout />
-                                  </ProtectedRoute>
-                                }
-                              />
-                            </Routes>
-                          </ErrorBoundary>
-                        </AuthProvider>
-                      </LiveApiDashboardProvider>
-                    </ApiCallProvider>
-                    </BrowserRouter>
+                    <LayoutProvider>
+                      <BrowserRouter>
+                      <PostHogPageView />
+                      <ApiCallProvider>
+                        <LiveApiDashboardProvider>
+                          <AuthProvider>
+                            <NavigationGuard />
+                            <ErrorBoundary message="This page encountered an error.">
+                              <Routes>
+                                <Route path="/auth" element={<Auth />} />
+                                <Route
+                                  path="/*"
+                                  element={
+                                    <ProtectedRoute>
+                                      <MainLayout />
+                                    </ProtectedRoute>
+                                  }
+                                />
+                              </Routes>
+                            </ErrorBoundary>
+                          </AuthProvider>
+                        </LiveApiDashboardProvider>
+                      </ApiCallProvider>
+                      </BrowserRouter>
+                    </LayoutProvider>
                   </CascadeRunProvider>
                 </TooltipProvider>
               </TooltipSettingsProvider>
