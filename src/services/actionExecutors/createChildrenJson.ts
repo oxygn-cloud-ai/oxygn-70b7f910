@@ -16,9 +16,11 @@ import {
   LibraryPrompt
 } from './types';
 
-const PROMPTS_TABLE = 'q_prompts';
-const SETTINGS_TABLE = 'q_settings';
-const MODEL_DEFAULTS_TABLE = 'q_model_defaults';
+// Table references from environment
+const PROMPTS_TABLE = import.meta.env.VITE_PROMPTS_TBL;
+const SETTINGS_TABLE = import.meta.env.VITE_SETTINGS_TBL;
+const MODEL_DEFAULTS_TABLE = import.meta.env.VITE_MODEL_DEFAULTS_TBL;
+const LIBRARY_TABLE = import.meta.env.VITE_PROMPT_LIBRARY_TBL || 'q_prompt_library';
 
 /**
  * Get nested value from object using dot notation path
@@ -136,7 +138,7 @@ const getLibraryPrompt = async (
   if (!libraryPromptId) return null;
 
   const { data } = await supabase
-    .from('q_prompt_library')
+    .from(LIBRARY_TABLE)
     .select('row_id, name, content, description, category')
     .eq('row_id', libraryPromptId)
     .maybeSingle();
