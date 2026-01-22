@@ -1,23 +1,30 @@
 import * as React from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 
-/**
- * SettingSelect - A styled select component for settings panels
- * 
- * @param {string} value - Current selected value
- * @param {function} onValueChange - Callback when value changes
- * @param {Array} options - Array of options: { value: string, label: string, description?: string, disabled?: boolean }
- * @param {string} placeholder - Placeholder text
- * @param {string} label - Optional label above the select
- * @param {string} hint - Optional hint text below the select
- * @param {React.ReactNode} icon - Optional icon to show before the value
- * @param {string} className - Additional classes for the container
- * @param {string} triggerClassName - Additional classes for the trigger
- * @param {string} contentClassName - Additional classes for the content
- * @param {boolean} disabled - Disable the select
- */
-const SettingSelect = React.forwardRef(({
+interface SelectOption {
+  value: string;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+}
+
+interface SettingSelectProps {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  options?: SelectOption[];
+  placeholder?: string;
+  label?: string;
+  hint?: string;
+  icon?: LucideIcon;
+  className?: string;
+  triggerClassName?: string;
+  contentClassName?: string;
+  disabled?: boolean;
+}
+
+const SettingSelect = React.forwardRef<HTMLButtonElement, SettingSelectProps>(({
   value,
   onValueChange,
   options = [],
@@ -92,10 +99,27 @@ const SettingSelect = React.forwardRef(({
 
 SettingSelect.displayName = "SettingSelect";
 
-/**
- * SettingModelSelect - A specialized select for model selection with provider display
- */
-const SettingModelSelect = React.forwardRef(({
+interface ModelOption {
+  row_id?: string;
+  id?: string;
+  model_id?: string;
+  model_name?: string;
+  name?: string;
+  provider?: string;
+  is_active?: boolean;
+}
+
+interface SettingModelSelectProps {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  models?: ModelOption[];
+  placeholder?: string;
+  label?: string;
+  className?: string;
+  disabled?: boolean;
+}
+
+const SettingModelSelect = React.forwardRef<HTMLButtonElement, SettingModelSelectProps>(({
   value,
   onValueChange,
   models = [],
@@ -136,7 +160,7 @@ const SettingModelSelect = React.forwardRef(({
             activeModels.map((model) => (
               <SelectItem
                 key={model.row_id || model.id || model.model_id}
-                value={model.model_id || model.id}
+                value={model.model_id || model.id || ""}
                 className="text-tree text-on-surface"
               >
                 <span className="flex items-center justify-between w-full gap-2">
@@ -155,3 +179,4 @@ const SettingModelSelect = React.forwardRef(({
 SettingModelSelect.displayName = "SettingModelSelect";
 
 export { SettingSelect, SettingModelSelect };
+export type { SelectOption, SettingSelectProps, ModelOption, SettingModelSelectProps };

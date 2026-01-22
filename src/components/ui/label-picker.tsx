@@ -1,8 +1,8 @@
 import * as React from "react"
 import { useState } from "react"
-import { Plus, X, Check } from "lucide-react"
+import { Plus, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { LabelBadge, LABEL_COLORS } from "./label-badge"
+import { LabelBadge, LABEL_COLORS, type LabelBadgeSize } from "./label-badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 import {
   Popover,
@@ -13,7 +13,14 @@ import {
 // All available labels
 const AVAILABLE_LABELS = Object.keys(LABEL_COLORS);
 
-const LabelPicker = React.forwardRef(({ 
+interface LabelPickerProps extends React.HTMLAttributes<HTMLDivElement> {
+  labels?: string[];
+  onLabelsChange?: (labels: string[]) => void;
+  maxDisplay?: number;
+  size?: LabelBadgeSize;
+}
+
+const LabelPicker = React.forwardRef<HTMLDivElement, LabelPickerProps>(({ 
   className,
   labels = [],
   onLabelsChange,
@@ -24,7 +31,7 @@ const LabelPicker = React.forwardRef(({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleToggleLabel = (label) => {
+  const handleToggleLabel = (label: string) => {
     if (labels.includes(label)) {
       onLabelsChange?.(labels.filter(l => l !== label));
     } else {
@@ -32,7 +39,7 @@ const LabelPicker = React.forwardRef(({
     }
   };
 
-  const handleRemoveLabel = (label) => {
+  const handleRemoveLabel = (label: string) => {
     onLabelsChange?.(labels.filter(l => l !== label));
   };
 
@@ -132,3 +139,4 @@ const LabelPicker = React.forwardRef(({
 LabelPicker.displayName = "LabelPicker";
 
 export { LabelPicker, AVAILABLE_LABELS };
+export type { LabelPickerProps };
