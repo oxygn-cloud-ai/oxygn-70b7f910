@@ -3,9 +3,25 @@ import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-export const useProjectData = (initialData, projectRowId) => {
-  const [localData, setLocalData] = useState(initialData);
-  const [unsavedChanges, setUnsavedChanges] = useState({});
+export interface ProjectDataRow {
+  row_id?: string;
+  [key: string]: unknown;
+}
+
+interface UseProjectDataReturn {
+  localData: ProjectDataRow;
+  handleChange: (fieldName: string, value: unknown) => void;
+  handleSave: (fieldName: string, valueOverride?: unknown) => Promise<void>;
+  handleReset: (fieldName: string) => void;
+  hasUnsavedChanges: (fieldName: string) => boolean;
+}
+
+export const useProjectData = (
+  initialData: ProjectDataRow,
+  projectRowId: string | null
+): UseProjectDataReturn => {
+  const [localData, setLocalData] = useState<ProjectDataRow>(initialData);
+  const [unsavedChanges, setUnsavedChanges] = useState<Record<string, boolean>>({});
   const supabase = useSupabase();
 
   useEffect(() => {
@@ -13,12 +29,12 @@ export const useProjectData = (initialData, projectRowId) => {
     setUnsavedChanges({});
   }, [initialData]);
 
-  const handleChange = (fieldName, value) => {
+  const handleChange = (fieldName: string, value: unknown): void => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: value }));
     setUnsavedChanges(prev => ({ ...prev, [fieldName]: true }));
   };
 
-  const handleSave = async (fieldName, valueOverride) => {
+  const handleSave = async (fieldName: string, valueOverride?: unknown): Promise<void> => {
     if (!supabase || !projectRowId) return;
 
     // Use provided value if given, otherwise fall back to localData
@@ -41,17 +57,17 @@ export const useProjectData = (initialData, projectRowId) => {
       trackEvent('prompt_field_saved', { field_name: fieldName });
     } catch (error) {
       console.error(`Error saving ${fieldName}:`, error);
-      toast.error(`Failed to save ${fieldName}: ${error.message}`);
-      trackException(error, { context: 'useProjectData.handleSave', field_name: fieldName });
+      toast.error(`Failed to save ${fieldName}: ${(error as Error).message}`);
+      trackException(error as Error, { context: 'useProjectData.handleSave', field_name: fieldName });
     }
   };
 
-  const handleReset = (fieldName) => {
+  const handleReset = (fieldName: string): void => {
     setLocalData(prevData => ({ ...prevData, [fieldName]: initialData[fieldName] }));
     setUnsavedChanges(prev => ({ ...prev, [fieldName]: false }));
   };
 
-  const hasUnsavedChanges = (fieldName) => unsavedChanges[fieldName] || false;
+  const hasUnsavedChanges = (fieldName: string): boolean => unsavedChanges[fieldName] || false;
 
   return {
     localData,

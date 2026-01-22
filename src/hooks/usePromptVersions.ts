@@ -5,10 +5,77 @@ import { toast } from 'sonner';
 
 const VERSIONS_KEY = 'prompt-versions';
 
-export const usePromptVersions = (promptRowId) => {
+export interface PromptVersion {
+  version_id: string;
+  prompt_row_id: string;
+  version_number: number;
+  commit_message: string | null;
+  tag_name: string | null;
+  is_pinned: boolean;
+  committed_by: string | null;
+  committed_at: string;
+  snapshot: Record<string, unknown>;
+}
+
+export interface DiffChange {
+  field: string;
+  before: unknown;
+  after: unknown;
+  type: 'added' | 'removed' | 'modified';
+}
+
+export interface VersionPreview {
+  version: PromptVersion;
+  snapshot: Record<string, unknown>;
+}
+
+interface PromptState {
+  current_version: number;
+  has_uncommitted_changes: boolean;
+  last_committed_at: string | null;
+}
+
+interface VersionHistoryResponse {
+  versions: PromptVersion[];
+  total: number;
+}
+
+interface UsePromptVersionsReturn {
+  // Data
+  versions: PromptVersion[];
+  totalVersions: number;
+  currentVersion: number;
+  hasUncommittedChanges: boolean;
+  lastCommittedAt: string | null | undefined;
+  currentDiff: DiffChange[] | null;
+  previewData: VersionPreview | null;
+  
+  // Loading
+  isLoading: boolean;
+  isCommitting: boolean;
+  isRollingBack: boolean;
+  
+  // Error
+  error: Error | null;
+  
+  // Actions
+  commit: (message: string, tagName?: string) => Promise<{ version_number: number }>;
+  rollback: (versionId: string, createBackup?: boolean) => Promise<{ restored_version_number: number }>;
+  tagVersion: (versionId: string, tagName: string) => Promise<void>;
+  togglePin: (versionId: string, isPinned: boolean) => Promise<void>;
+  getDiff: (versionA: string, versionB: string) => Promise<DiffChange[] | null>;
+  fetchPreview: (versionId: string) => Promise<VersionPreview | null>;
+  clearDiff: () => void;
+  clearPreview: () => void;
+  markDirty: () => void;
+  refetchHistory: () => void;
+  refetchState: () => void;
+}
+
+export const usePromptVersions = (promptRowId: string | null): UsePromptVersionsReturn => {
   const queryClient = useQueryClient();
-  const [currentDiff, setCurrentDiff] = useState(null);
-  const [previewData, setPreviewData] = useState(null);
+  const [currentDiff, setCurrentDiff] = useState<DiffChange[] | null>(null);
+  const [previewData, setPreviewData] = useState<VersionPreview | null>(null);
 
   // Fetch version history
   const {
@@ -18,7 +85,7 @@ export const usePromptVersions = (promptRowId) => {
     refetch: refetchHistory
   } = useQuery({
     queryKey: [VERSIONS_KEY, 'history', promptRowId],
-    queryFn: async () => {
+    queryFn: async (): Promise<VersionHistoryResponse> => {
       if (!promptRowId) return { versions: [], total: 0 };
       
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
@@ -26,7 +93,7 @@ export const usePromptVersions = (promptRowId) => {
       });
       
       if (error) throw new Error(error.message || 'Failed to fetch history');
-      return data;
+      return data as VersionHistoryResponse;
     },
     enabled: !!promptRowId,
     staleTime: 30000,
@@ -39,7 +106,7 @@ export const usePromptVersions = (promptRowId) => {
     refetch: refetchState
   } = useQuery({
     queryKey: [VERSIONS_KEY, 'state', promptRowId],
-    queryFn: async () => {
+    queryFn: async (): Promise<PromptState | null> => {
       if (!promptRowId) return null;
       
       const { data, error } = await supabase
@@ -49,7 +116,7 @@ export const usePromptVersions = (promptRowId) => {
         .single();
       
       if (error) throw error;
-      return data;
+      return data as PromptState;
     },
     enabled: !!promptRowId,
     staleTime: 5000
@@ -57,7 +124,7 @@ export const usePromptVersions = (promptRowId) => {
 
   // Commit mutation
   const commitMutation = useMutation({
-    mutationFn: async ({ message, tagName }) => {
+    mutationFn: async ({ message, tagName }: { message: string; tagName?: string }) => {
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
         body: {
           action: 'commit',
@@ -68,21 +135,21 @@ export const usePromptVersions = (promptRowId) => {
       });
       
       if (error) throw new Error(error.message || 'Commit failed');
-      return data;
+      return data as { version_number: number };
     },
     onSuccess: (data) => {
       toast.success(`Committed as v${data.version_number}`);
       queryClient.invalidateQueries({ queryKey: [VERSIONS_KEY] });
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(`Commit failed: ${error.message}`);
     }
   });
 
   // Rollback mutation
   const rollbackMutation = useMutation({
-    mutationFn: async ({ versionId, createBackup = true }) => {
+    mutationFn: async ({ versionId, createBackup = true }: { versionId: string; createBackup?: boolean }) => {
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
         body: {
           action: 'rollback',
@@ -93,21 +160,21 @@ export const usePromptVersions = (promptRowId) => {
       });
       
       if (error) throw new Error(error.message || 'Rollback failed');
-      return data;
+      return data as { restored_version_number: number };
     },
     onSuccess: (data) => {
       toast.success(`Rolled back to v${data.restored_version_number}`);
       queryClient.invalidateQueries({ queryKey: [VERSIONS_KEY] });
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(`Rollback failed: ${error.message}`);
     }
   });
 
   // Tag mutation
   const tagMutation = useMutation({
-    mutationFn: async ({ versionId, tagName }) => {
+    mutationFn: async ({ versionId, tagName }: { versionId: string; tagName: string }) => {
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
         body: { action: 'tag', version_id: versionId, tag_name: tagName }
       });
@@ -118,14 +185,14 @@ export const usePromptVersions = (promptRowId) => {
       toast.success('Tag updated');
       queryClient.invalidateQueries({ queryKey: [VERSIONS_KEY, 'history', promptRowId] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(`Failed to update tag: ${error.message}`);
     }
   });
 
   // Pin mutation
   const pinMutation = useMutation({
-    mutationFn: async ({ versionId, isPinned }) => {
+    mutationFn: async ({ versionId, isPinned }: { versionId: string; isPinned: boolean }) => {
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
         body: { action: 'pin', version_id: versionId, is_pinned: isPinned }
       });
@@ -136,13 +203,13 @@ export const usePromptVersions = (promptRowId) => {
       toast.success(variables.isPinned ? 'Version pinned' : 'Version unpinned');
       queryClient.invalidateQueries({ queryKey: [VERSIONS_KEY, 'history', promptRowId] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error(`Failed to update pin: ${error.message}`);
     }
   });
 
   // Get diff
-  const getDiff = useCallback(async (versionA, versionB) => {
+  const getDiff = useCallback(async (versionA: string, versionB: string): Promise<DiffChange[] | null> => {
     try {
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
         body: {
@@ -154,26 +221,28 @@ export const usePromptVersions = (promptRowId) => {
       });
       
       if (error) throw new Error(error.message);
-      setCurrentDiff(data.changes);
-      return data.changes;
+      const changes = (data as { changes: DiffChange[] }).changes;
+      setCurrentDiff(changes);
+      return changes;
     } catch (error) {
-      toast.error(`Diff failed: ${error.message}`);
+      toast.error(`Diff failed: ${(error as Error).message}`);
       return null;
     }
   }, [promptRowId]);
 
   // Preview version
-  const fetchPreview = useCallback(async (versionId) => {
+  const fetchPreview = useCallback(async (versionId: string): Promise<VersionPreview | null> => {
     try {
       const { data, error } = await supabase.functions.invoke('prompt-versions', {
         body: { action: 'preview', version_id: versionId }
       });
       
       if (error) throw new Error(error.message);
-      setPreviewData(data);
-      return data;
+      const preview = data as VersionPreview;
+      setPreviewData(preview);
+      return preview;
     } catch (error) {
-      toast.error(`Preview failed: ${error.message}`);
+      toast.error(`Preview failed: ${(error as Error).message}`);
       return null;
     }
   }, []);
@@ -183,7 +252,7 @@ export const usePromptVersions = (promptRowId) => {
 
   // Invalidate version state when prompt changes (coordinate with save flow)
   const markDirty = useCallback(() => {
-    queryClient.setQueryData([VERSIONS_KEY, 'state', promptRowId], (old) => 
+    queryClient.setQueryData([VERSIONS_KEY, 'state', promptRowId], (old: PromptState | undefined) => 
       old ? { ...old, has_uncommitted_changes: true } : old
     );
   }, [queryClient, promptRowId]);
@@ -204,20 +273,20 @@ export const usePromptVersions = (promptRowId) => {
     isRollingBack: rollbackMutation.isPending,
     
     // Error
-    error: historyError,
+    error: historyError as Error | null,
     
     // Actions
-    commit: (message, tagName) => commitMutation.mutateAsync({ message, tagName }),
-    rollback: (versionId, createBackup) => rollbackMutation.mutateAsync({ versionId, createBackup }),
-    tagVersion: (versionId, tagName) => tagMutation.mutateAsync({ versionId, tagName }),
-    togglePin: (versionId, isPinned) => pinMutation.mutateAsync({ versionId, isPinned }),
+    commit: (message: string, tagName?: string) => commitMutation.mutateAsync({ message, tagName }),
+    rollback: (versionId: string, createBackup?: boolean) => rollbackMutation.mutateAsync({ versionId, createBackup }),
+    tagVersion: (versionId: string, tagName: string) => tagMutation.mutateAsync({ versionId, tagName }).then(() => {}),
+    togglePin: (versionId: string, isPinned: boolean) => pinMutation.mutateAsync({ versionId, isPinned }).then(() => {}),
     getDiff,
     fetchPreview,
     clearDiff,
     clearPreview,
     markDirty,
-    refetchHistory,
-    refetchState
+    refetchHistory: () => { refetchHistory(); },
+    refetchState: () => { refetchState(); }
   };
 };
 
