@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Bot, MessageSquare, Loader2 } from 'lucide-react';
+import { Bot, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,12 +11,54 @@ import ChatInput from './ChatInput';
 import ThinkingIndicator from './ThinkingIndicator';
 import EmptyChat from './EmptyChat';
 
-const ChatPanel = ({
+interface Message {
+  row_id?: string;
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
+}
+
+interface ContextItem {
+  id: string;
+  name: string;
+}
+
+interface ProgressData {
+  stage?: string;
+  type?: string;
+  prompt_name?: string;
+  model?: string;
+  files_count?: number;
+  pages_count?: number;
+  inherited_context?: boolean;
+  cached?: boolean;
+}
+
+interface ChatPanelProps {
+  messages: Message[];
+  onSendMessage: (message: string) => void;
+  isLoadingMessages?: boolean;
+  isSending?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  conversationName?: string;
+  contextItems?: ContextItem[];
+  onRemoveContext?: (id: string) => void;
+  childPromptsCount?: number;
+  onToggleThreads?: () => void;
+  activeThreadName?: string;
+  threadCount?: number;
+  onCancel?: () => void;
+  progress?: ProgressData;
+}
+
+const ChatPanel: React.FC<ChatPanelProps> = ({
   messages,
   onSendMessage,
-  isLoadingMessages,
-  isSending,
-  disabled,
+  isLoadingMessages = false,
+  isSending = false,
+  disabled = false,
   placeholder,
   conversationName = 'AI',
   contextItems = [],
@@ -30,7 +72,7 @@ const ChatPanel = ({
 }) => {
   const { userProfile } = useAuth();
   const { pendingCallsCount } = useApiCallContext();
-  const scrollAreaRef = useRef(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -42,7 +84,7 @@ const ChatPanel = ({
     }
   }, [messages, isSending]);
 
-  const handleSendSuggestion = (suggestion) => {
+  const handleSendSuggestion = (suggestion: string): void => {
     onSendMessage(suggestion);
   };
 
