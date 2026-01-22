@@ -91,59 +91,84 @@ export interface ExecutorResult {
 
 export type ExecutorFunction = (params: ExecutorParams) => Promise<ExecutorResult>;
 
+/**
+ * Model defaults structure from database
+ * All fields optional to reflect actual database nullability
+ */
 export interface ModelDefaults {
-  model_id: string | null;
+  model_id?: string | null;
   model?: string | null;
   model_on?: boolean | null;
-  temperature: string | null;
-  temperature_on: boolean | null;
-  max_tokens: string | null;
-  max_tokens_on: boolean | null;
-  max_output_tokens: string | null;
-  max_output_tokens_on: boolean | null;
-  max_completion_tokens: string | null;
-  max_completion_tokens_on: boolean | null;
-  top_p: string | null;
-  top_p_on: boolean | null;
-  frequency_penalty: string | null;
-  frequency_penalty_on: boolean | null;
-  presence_penalty: string | null;
-  presence_penalty_on: boolean | null;
+  temperature?: string | null;
+  temperature_on?: boolean | null;
+  max_tokens?: string | null;
+  max_tokens_on?: boolean | null;
+  max_output_tokens?: string | null;
+  max_output_tokens_on?: boolean | null;
+  max_completion_tokens?: string | null;
+  max_completion_tokens_on?: boolean | null;
+  top_p?: string | null;
+  top_p_on?: boolean | null;
+  frequency_penalty?: string | null;
+  frequency_penalty_on?: boolean | null;
+  presence_penalty?: string | null;
+  presence_penalty_on?: boolean | null;
   reasoning_effort?: string | null;
   reasoning_effort_on?: boolean | null;
   response_format?: string | null;
   response_format_on?: boolean | null;
+  stop?: string | null;
+  stop_on?: boolean | null;
+  n?: number | null;
+  n_on?: boolean | null;
+  stream?: boolean | null;
+  stream_on?: boolean | null;
+  logit_bias?: string | null;
+  logit_bias_on?: boolean | null;
+  o_user?: string | null;
+  o_user_on?: boolean | null;
+  seed?: number | null;
+  seed_on?: boolean | null;
+  tool_choice?: string | null;
+  tool_choice_on?: boolean | null;
   [key: string]: unknown;
 }
 
+/**
+ * Parent settings for inheritance - comprehensive field list
+ * All fields optional to match database nullability and partial returns
+ */
 export interface ParentSettings {
-  model: string | null;
+  model?: string | null;
   model_on?: boolean | null;
-  temperature: string | null;
-  temperature_on: boolean | null;
-  max_tokens: string | null;
-  max_tokens_on: boolean | null;
-  max_output_tokens?: string | null;
-  max_output_tokens_on?: boolean | null;
-  max_completion_tokens: string | null;
-  max_completion_tokens_on: boolean | null;
-  top_p: string | null;
-  top_p_on: boolean | null;
-  frequency_penalty: string | null;
-  frequency_penalty_on: boolean | null;
-  presence_penalty: string | null;
-  presence_penalty_on: boolean | null;
-  reasoning_effort: string | null;
-  reasoning_effort_on: boolean | null;
-  response_format?: string | null;
-  response_format_on?: boolean | null;
   web_search_on?: boolean | null;
   confluence_enabled?: boolean | null;
   thread_mode?: string | null;
   child_thread_strategy?: string | null;
+  response_format?: string | null;
+  response_format_on?: boolean | null;
+  temperature?: string | null;
+  temperature_on?: boolean | null;
+  max_tokens?: string | null;
+  max_tokens_on?: boolean | null;
+  max_output_tokens?: string | null;
+  max_output_tokens_on?: boolean | null;
+  max_completion_tokens?: string | null;
+  max_completion_tokens_on?: boolean | null;
+  top_p?: string | null;
+  top_p_on?: boolean | null;
+  frequency_penalty?: string | null;
+  frequency_penalty_on?: boolean | null;
+  presence_penalty?: string | null;
+  presence_penalty_on?: boolean | null;
+  reasoning_effort?: string | null;
+  reasoning_effort_on?: boolean | null;
   input_admin_prompt?: string | null;
 }
 
+/**
+ * Library prompt structure
+ */
 export interface LibraryPrompt {
   row_id: string;
   name: string;
