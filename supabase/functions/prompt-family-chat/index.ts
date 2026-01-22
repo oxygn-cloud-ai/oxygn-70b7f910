@@ -1342,7 +1342,12 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       console.log('Final content length:', finalContent.length);
 
       // Emit final content using typed event format (matches client parser)
-      if (finalContent) {
+      // Only emit if we haven't already emitted for immediate completion (line 1291)
+      // Check if there was streaming or tool loops that produced new content
+      const alreadyEmittedImmediate = streamResult.status === 'completed' && 
+        streamResult.content && !currentToolCalls.length;
+      
+      if (finalContent && !alreadyEmittedImmediate) {
         emitter.emit({ type: 'output_text_done', text: finalContent });
       }
 
