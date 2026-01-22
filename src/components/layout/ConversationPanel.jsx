@@ -481,14 +481,7 @@ const ConversationPanel = ({
               />
             )}
             
-            {/* Streaming indicator for prompt family mode */}
-            {isSending && usePromptFamilyMode && !streamingMessage && (
-              <div className="flex justify-start">
-                <div className="px-2.5 py-2 bg-surface-container-high rounded-m3-lg" style={{ borderRadius: "14px" }}>
-                  <Loader2 className="h-4 w-4 animate-spin text-on-surface-variant" />
-                </div>
-              </div>
-            )}
+            {/* Streaming indicator removed - thinking indicator already covers this case */}
           </div>
         )}
       </ScrollArea>
