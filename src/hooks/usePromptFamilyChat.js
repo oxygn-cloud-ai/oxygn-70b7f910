@@ -19,6 +19,7 @@ export const usePromptFamilyChat = (promptRowId) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [thinkingText, setThinkingText] = useState(''); // AI reasoning/thinking content
   const [toolActivity, setToolActivity] = useState([]);
   const [isExecutingTools, setIsExecutingTools] = useState(false);
   const [rootPromptId, setRootPromptId] = useState(null);
@@ -411,13 +412,16 @@ export const usePromptFamilyChat = (promptRowId) => {
               // Note: user_input_required is now handled in run mode (conversation-run)
               // Chat mode does not support question prompts - they are ignored here
               
-              // Handle thinking/reasoning events - stream to dashboard
+              // Handle thinking/reasoning events - stream to dashboard AND local state
               if (parsed.type === 'thinking_started') {
+                setThinkingText(''); // Reset for new response
                 updateCall(dashboardId, { status: 'in_progress' });
               } else if (parsed.type === 'thinking_delta') {
+                setThinkingText(prev => prev + (parsed.delta || ''));
                 appendThinking(dashboardId, parsed.delta || '');
               } else if (parsed.type === 'thinking_done') {
-                // Thinking complete, could update status if needed
+                // Use final text if provided
+                if (parsed.text) setThinkingText(parsed.text);
               } else if (parsed.type === 'output_text_delta') {
                 const delta = parsed.delta || '';
                 if (delta) {
@@ -638,6 +642,7 @@ export const usePromptFamilyChat = (promptRowId) => {
     isLoading,
     isStreaming,
     streamingMessage,
+    thinkingText, // AI reasoning/thinking content
     toolActivity,
     isExecutingTools,
     fetchThreads,
