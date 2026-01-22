@@ -2,10 +2,23 @@ import React from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Save, RotateCcw } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-const SettingsAccordion = ({
+interface LocalSettings {
+  [key: string]: string;
+}
+
+interface SettingsAccordionProps {
+  expandedSettings: string[];
+  setExpandedSettings: (value: string[]) => void;
+  localSettings: LocalSettings;
+  handleSettingChange: (key: string, value: string) => void;
+  handleSettingSave: (key: string, value: string) => void;
+  handleSettingReset: (key: string) => void;
+}
+
+const SettingsAccordion: React.FC<SettingsAccordionProps> = ({
   expandedSettings,
   setExpandedSettings,
   localSettings,
@@ -27,22 +40,32 @@ const SettingsAccordion = ({
         <div className="flex justify-between items-center mb-1">
           <label htmlFor={key} className="text-sm font-medium">{label}</label>
           <div className="flex space-x-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleSettingSave(key, localSettings[key])}
-              className="h-6 w-6"
-            >
-              <Save className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleSettingReset(key)}
-              className="h-6 w-6"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSettingSave(key, localSettings[key])}
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Save className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Save</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleSettingReset(key)}
+                    className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Reset</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         {type === 'textarea' ? (

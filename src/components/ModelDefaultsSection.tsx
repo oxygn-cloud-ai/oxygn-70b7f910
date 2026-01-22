@@ -15,7 +15,23 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const ModelDefaultsSection = ({ 
+interface Model {
+  model_id: string;
+  model_name: string;
+  provider: string;
+}
+
+interface ModelDefaults {
+  [key: string]: string | boolean | undefined;
+}
+
+interface ModelDefaultsSectionProps {
+  model: Model;
+  defaults?: ModelDefaults;
+  onUpdateDefault: (modelId: string, field: string, value: string | boolean) => Promise<void>;
+}
+
+const ModelDefaultsSection: React.FC<ModelDefaultsSectionProps> = ({ 
   model, 
   defaults, 
   onUpdateDefault 
@@ -25,15 +41,15 @@ const ModelDefaultsSection = ({
   const { isSettingSupported } = useModels();
   
   // Local state for input values to enable blur-based saving
-  const [localValues, setLocalValues] = useState({});
+  const [localValues, setLocalValues] = useState<Record<string, string>>({});
 
-  const handleCheckChange = useCallback(async (field, checked) => {
+  const handleCheckChange = useCallback(async (field: string, checked: boolean) => {
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
     
     // Set default value if enabling and no value exists
-      if (checked && !modelDefaults[field]) {
+    if (checked && !modelDefaults[field]) {
       // CRITICAL: max_tokens (GPT-4) and max_completion_tokens (GPT-5) are separate settings
-      const defaultValues = {
+      const defaultValues: Record<string, string | boolean> = {
         temperature: '0.7',
         max_tokens: '2048',
         max_completion_tokens: '4096',
@@ -50,11 +66,11 @@ const ModelDefaultsSection = ({
     }
   }, [model.model_id, modelDefaults, onUpdateDefault]);
 
-  const handleValueChange = useCallback((field, value) => {
+  const handleValueChange = useCallback((field: string, value: string) => {
     setLocalValues(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleValueBlur = useCallback(async (field) => {
+  const handleValueBlur = useCallback(async (field: string) => {
     const value = localValues[field];
     if (value !== undefined && value !== modelDefaults[field]) {
       await onUpdateDefault(model.model_id, field, value);
@@ -93,7 +109,7 @@ const ModelDefaultsSection = ({
                 const settingInfo = ALL_SETTINGS[field];
                 const supported = isSettingSupported(field, model.model_id);
                 const isEnabled = modelDefaults[`${field}_on`] || false;
-                const dbValue = modelDefaults[field] || '';
+                const dbValue = (modelDefaults[field] as string) || '';
                 // Use local value if exists, otherwise use database value
                 const value = localValues[field] !== undefined ? localValues[field] : dbValue;
 
@@ -110,8 +126,8 @@ const ModelDefaultsSection = ({
                     <div className="flex items-center space-x-2 mb-2">
                       <Checkbox
                         id={`${model.model_id}-${field}-checkbox`}
-                        checked={isEnabled}
-                        onCheckedChange={(checked) => handleCheckChange(field, checked)}
+                        checked={!!isEnabled}
+                        onCheckedChange={(checked) => handleCheckChange(field, !!checked)}
                         disabled={!supported}
                       />
                       <label 
