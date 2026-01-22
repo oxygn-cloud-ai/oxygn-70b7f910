@@ -8,7 +8,38 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
-export const ExportFieldSelector = ({
+// Types
+interface PromptData {
+  row_id: string;
+  prompt_name?: string;
+  [key: string]: unknown;
+}
+
+interface VariableData {
+  variable_name: string;
+  variable_value?: string;
+  [key: string]: unknown;
+}
+
+interface StandardField {
+  id: string;
+  label: string;
+  description: string;
+}
+
+interface ExportFieldSelectorProps {
+  promptsData: PromptData[];
+  variablesData: Record<string, VariableData[]>;
+  selectedFields: string[];
+  selectedVariables: Record<string, string[]>;
+  isLoadingPrompts: boolean;
+  isLoadingVariables: boolean;
+  onToggleField: (fieldId: string) => void;
+  onToggleVariable: (promptId: string, varName: string) => void;
+  STANDARD_FIELDS: StandardField[];
+}
+
+export const ExportFieldSelector: React.FC<ExportFieldSelectorProps> = ({
   promptsData,
   variablesData,
   selectedFields,
@@ -21,9 +52,9 @@ export const ExportFieldSelector = ({
 }) => {
   const [isFieldsExpanded, setIsFieldsExpanded] = useState(true);
   const [isVariablesExpanded, setIsVariablesExpanded] = useState(true);
-  const [expandedPrompts, setExpandedPrompts] = useState([]);
+  const [expandedPrompts, setExpandedPrompts] = useState<string[]>([]);
 
-  const togglePromptExpand = (promptId) => {
+  const togglePromptExpand = (promptId: string) => {
     setExpandedPrompts(prev => 
       prev.includes(promptId) ? prev.filter(id => id !== promptId) : [...prev, promptId]
     );

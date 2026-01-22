@@ -3,7 +3,27 @@ import { FileText, Table2, CheckSquare, Check, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
-const EXPORT_TYPE_CONFIG = {
+// Types
+interface ExportTypeConfig {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  enabled: boolean;
+  comingSoon?: boolean;
+  color: string;
+}
+
+interface ExportTypes {
+  [key: string]: string;
+}
+
+interface ExportTypeSelectorProps {
+  selectedType: string | null;
+  onSelectType: (type: string) => void;
+  EXPORT_TYPES: ExportTypes;
+}
+
+const EXPORT_TYPE_CONFIG: Record<string, ExportTypeConfig> = {
   confluence: {
     icon: FileText,
     title: 'Confluence Page',
@@ -29,7 +49,7 @@ const EXPORT_TYPE_CONFIG = {
   }
 };
 
-export const ExportTypeSelector = ({
+export const ExportTypeSelector: React.FC<ExportTypeSelectorProps> = ({
   selectedType,
   onSelectType,
   EXPORT_TYPES

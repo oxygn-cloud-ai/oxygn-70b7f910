@@ -4,9 +4,48 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+
+// Types
+interface TreeNode {
+  row_id: string;
+  prompt_name?: string;
+  is_assistant?: boolean;
+  children?: TreeNode[];
+}
+
+interface PromptTreeNodeProps {
+  node: TreeNode;
+  level?: number;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  onToggleWithDescendants: (node: TreeNode, allSelected: boolean) => void;
+  expandedIds: string[];
+  onToggleExpand: (id: string) => void;
+  searchQuery: string;
+}
+
+interface TreeContainerProps {
+  treeData: TreeNode[];
+  selectedPromptIds: string[];
+  onTogglePrompt: (id: string) => void;
+  onToggleWithDescendants: (node: TreeNode, allSelected: boolean) => void;
+  expandedIds: string[];
+  onToggleExpand: (id: string) => void;
+  searchQuery: string;
+}
+
+interface ExportPromptSelectorProps {
+  treeData: TreeNode[];
+  selectedPromptIds: string[];
+  onTogglePrompt: (id: string) => void;
+  onToggleWithDescendants: (node: TreeNode, allSelected: boolean) => void;
+  onSelectAll: (ids: string[]) => void;
+  onClearSelection: () => void;
+}
+
 // Helper to collect all descendant IDs from a node
-const collectDescendantIds = (node) => {
-  const ids = [node.row_id];
+const collectDescendantIds = (node: TreeNode): string[] => {
+  const ids: string[] = [node.row_id];
   if (node.children?.length) {
     node.children.forEach(child => {
       ids.push(...collectDescendantIds(child));
@@ -15,7 +54,16 @@ const collectDescendantIds = (node) => {
   return ids;
 };
 
-const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDescendants, expandedIds, onToggleExpand, searchQuery }) => {
+const PromptTreeNode: React.FC<PromptTreeNodeProps> = ({ 
+  node, 
+  level = 0, 
+  selectedIds, 
+  onToggle, 
+  onToggleWithDescendants, 
+  expandedIds, 
+  onToggleExpand, 
+  searchQuery 
+}) => {
   const isSelected = selectedIds.includes(node.row_id);
   const isExpanded = expandedIds.includes(node.row_id);
   const hasChildren = node.children && node.children.length > 0;
@@ -32,7 +80,7 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDe
   
   const hasMatchingDescendant = useMemo(() => {
     if (!searchQuery) return true;
-    const checkDescendants = (n) => {
+    const checkDescendants = (n: TreeNode): boolean => {
       if (n.prompt_name?.toLowerCase().includes(searchQuery.toLowerCase())) return true;
       return n.children?.some(child => checkDescendants(child)) || false;
     };
@@ -43,13 +91,12 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDe
     return null;
   }
 
-  const handleCheckboxClick = (e) => {
+  const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // When clicking on a node, toggle it and all its descendants
     onToggleWithDescendants(node, allDescendantsSelected);
   };
 
-  const handleExpandClick = (e) => {
+  const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleExpand(node.row_id);
   };
@@ -125,7 +172,7 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDe
         {/* Child count badge */}
         {hasChildren && (
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-            {node.children.length}
+            {node.children!.length}
           </Badge>
         )}
       </div>
@@ -133,7 +180,7 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDe
       {/* Children */}
       {hasChildren && isExpanded && (
         <div className="mt-0.5">
-          {node.children.map(child => (
+          {node.children!.map(child => (
             <PromptTreeNode
               key={child.row_id}
               node={child}
@@ -152,8 +199,16 @@ const PromptTreeNode = ({ node, level = 0, selectedIds, onToggle, onToggleWithDe
   );
 };
 
-const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, onToggleWithDescendants, expandedIds, onToggleExpand, searchQuery }) => {
-  const scrollRef = useRef(null);
+const TreeContainer: React.FC<TreeContainerProps> = ({ 
+  treeData, 
+  selectedPromptIds, 
+  onTogglePrompt, 
+  onToggleWithDescendants, 
+  expandedIds, 
+  onToggleExpand, 
+  searchQuery 
+}) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
 
   useEffect(() => {
@@ -167,7 +222,6 @@ const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, onToggleWi
     };
     
     checkScroll();
-    // Recheck when tree data or expanded state changes
     const timer = setTimeout(checkScroll, 100);
     return () => clearTimeout(timer);
   }, [treeData, expandedIds, searchQuery]);
@@ -226,7 +280,7 @@ const TreeContainer = ({ treeData, selectedPromptIds, onTogglePrompt, onToggleWi
   );
 };
 
-export const ExportPromptSelector = ({
+export const ExportPromptSelector: React.FC<ExportPromptSelectorProps> = ({
   treeData,
   selectedPromptIds,
   onTogglePrompt,
@@ -234,13 +288,13 @@ export const ExportPromptSelector = ({
   onSelectAll,
   onClearSelection
 }) => {
-  const [expandedIds, setExpandedIds] = useState([]);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get all prompt IDs for select all
   const allPromptIds = useMemo(() => {
-    const ids = [];
-    const collectIds = (nodes) => {
+    const ids: string[] = [];
+    const collectIds = (nodes: TreeNode[]) => {
       nodes.forEach(node => {
         ids.push(node.row_id);
         if (node.children?.length) {
@@ -252,7 +306,7 @@ export const ExportPromptSelector = ({
     return ids;
   }, [treeData]);
 
-  const handleToggleExpand = (id) => {
+  const handleToggleExpand = (id: string) => {
     setExpandedIds(prev => {
       if (prev.includes(id)) {
         return prev.filter(x => x !== id);

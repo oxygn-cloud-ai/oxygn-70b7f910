@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, FolderOpen, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { Save, FolderOpen, Trash2, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +10,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +23,35 @@ import {
 import { useExportTemplates } from '@/hooks/useExportTemplates';
 import { trackEvent } from '@/lib/posthog';
 
-export const ExportTemplatePicker = ({
+// Types
+interface ExportTemplate {
+  row_id: string;
+  template_name: string;
+  selected_fields?: string[];
+  selected_variables?: Record<string, string[]>;
+  confluence_config?: Record<string, unknown>;
+}
+
+interface CurrentConfig {
+  selectedFields: string[];
+  selectedVariables: Record<string, string[]>;
+  confluenceConfig?: Record<string, unknown>;
+}
+
+interface TemplateData {
+  selectedFields: string[];
+  selectedVariables: Record<string, string[]>;
+  confluenceConfig: Record<string, unknown>;
+}
+
+interface ExportTemplatePickerProps {
+  exportType: string;
+  currentConfig: CurrentConfig;
+  onLoadTemplate: (data: TemplateData) => void;
+  className?: string;
+}
+
+export const ExportTemplatePicker: React.FC<ExportTemplatePickerProps> = ({
   exportType,
   currentConfig,
   onLoadTemplate,
@@ -48,7 +69,7 @@ export const ExportTemplatePicker = ({
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState(null);
+  const [templateToDelete, setTemplateToDelete] = useState<ExportTemplate | null>(null);
   const [newTemplateName, setNewTemplateName] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const hasFetchedRef = useRef(false);
@@ -62,7 +83,7 @@ export const ExportTemplatePicker = ({
     if (!showLoadDialog) {
       hasFetchedRef.current = false;
     }
-  }, [showLoadDialog, exportType]);
+  }, [showLoadDialog, exportType, fetchTemplates]);
 
   const handleSave = async () => {
     if (!newTemplateName.trim()) return;
@@ -83,7 +104,7 @@ export const ExportTemplatePicker = ({
   };
 
   const handleLoad = () => {
-    const template = templates.find(t => t.row_id === selectedTemplateId);
+    const template = (templates as ExportTemplate[]).find(t => t.row_id === selectedTemplateId);
     if (template) {
       onLoadTemplate({
         selectedFields: template.selected_fields || [],
@@ -96,7 +117,7 @@ export const ExportTemplatePicker = ({
     }
   };
 
-  const handleDeleteClick = (template, e) => {
+  const handleDeleteClick = (template: ExportTemplate, e: React.MouseEvent) => {
     e.stopPropagation();
     setTemplateToDelete(template);
     setShowDeleteConfirm(true);
@@ -112,6 +133,8 @@ export const ExportTemplatePicker = ({
     setShowDeleteConfirm(false);
     setTemplateToDelete(null);
   };
+
+  const typedTemplates = templates as ExportTemplate[];
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -190,7 +213,7 @@ export const ExportTemplatePicker = ({
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : templates.length === 0 ? (
+            ) : typedTemplates.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
                 No saved templates found
               </div>
@@ -198,7 +221,7 @@ export const ExportTemplatePicker = ({
               <div className="space-y-2">
                 <Label>Select Template</Label>
                 <div className="space-y-1 max-h-64 overflow-y-auto">
-                  {templates.map(template => (
+                  {typedTemplates.map(template => (
                     <div
                       key={template.row_id}
                       onClick={() => setSelectedTemplateId(template.row_id)}
@@ -213,8 +236,8 @@ export const ExportTemplatePicker = ({
                         <p className="text-sm font-medium truncate">{template.template_name}</p>
                         <p className="text-xs text-muted-foreground">
                           {template.selected_fields?.length || 0} fields • 
-                          {Object.keys(template.selected_variables || {}).reduce((sum, key) => 
-                            sum + (template.selected_variables[key]?.length || 0), 0
+                          {Object.values(template.selected_variables || {}).reduce((sum, arr) => 
+                            sum + (arr?.length || 0), 0
                           )} variables
                         </p>
                       </div>
