@@ -177,13 +177,47 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [rootPromptId]);
 
-  // Switch to a different thread
-  const switchThread = useCallback((threadId) => {
+  // Switch to a different thread and fetch its messages
+  const switchThread = useCallback(async (threadId) => {
+    // Clear state immediately for responsive UI
     setActiveThreadId(threadId);
-    setMessages([]); // Clear old messages immediately to prevent flash
+    activeThreadIdRef.current = threadId;
+    setMessages([]);
     setStreamingMessage('');
+    setThinkingText('');
     setToolActivity([]);
     setIsExecutingTools(false);
+    
+    // Fetch messages for the selected thread
+    if (threadId) {
+      setIsLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+        
+        const response = await supabase.functions.invoke('thread-manager', {
+          body: {
+            action: 'get_messages',
+            thread_row_id: threadId,
+            limit: 100,
+          }
+        });
+        
+        if (!response.error) {
+          setMessages((response.data?.messages || []).map(m => ({
+            row_id: m.id,
+            role: m.role,
+            content: m.content,
+            created_at: m.created_at,
+          })));
+        }
+      } catch (err) {
+        console.error('Error fetching messages on thread switch:', err);
+        setMessages([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }
   }, []);
 
   // Delete a thread (soft delete)
@@ -445,6 +479,9 @@ export const usePromptFamilyChat = (promptRowId) => {
                 fullContent = parsed.text || fullContent;
                 setStreamingMessage(fullContent);
                 updateCall(dashboardId, { outputText: fullContent });
+                
+                // Clear thinking text after a short delay
+                setTimeout(() => setThinkingText(''), 1500);
               }
               
               // Handle status updates
@@ -621,6 +658,7 @@ export const usePromptFamilyChat = (promptRowId) => {
       
       if (!rootPromptId) {
         setThreads([]);
+        setIsLoading(false);
         return;
       }
       
