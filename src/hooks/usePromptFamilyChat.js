@@ -591,33 +591,102 @@ export const usePromptFamilyChat = (promptRowId) => {
     }
   }, [activeThreadId, promptRowId, addMessage, registerCall, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall, sessionModel, sessionReasoningEffort]);
 
-  // Effects
+  // CONSOLIDATED: Reset, fetch threads, auto-select, and fetch messages in proper sequence
+  // This fixes the race condition where fetchMessages ran before activeThreadId was set
   useEffect(() => {
-    fetchThreads();
-  }, [fetchThreads]);
-
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
-  // CRITICAL FIX: Reset only when ROOT changes (different family), not individual prompts
-  useEffect(() => {
-    // Abort any in-flight request when prompt family changes
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    // Clean up dashboard call if any
-    if (dashboardCallIdRef.current) {
-      removeCall(dashboardCallIdRef.current);
-      dashboardCallIdRef.current = null;
-    }
-    setActiveThreadId(null);
-    setMessages([]);
-    setStreamingMessage('');
-    setToolActivity([]);
-    setIsStreaming(false);
-    setIsExecutingTools(false);
+    let cancelled = false;
+    
+    const loadThreadAndMessages = async () => {
+      // Abort any in-flight request when prompt family changes
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      
+      // Clean up dashboard call if any
+      if (dashboardCallIdRef.current) {
+        removeCall(dashboardCallIdRef.current);
+        dashboardCallIdRef.current = null;
+      }
+      
+      // Reset UI state immediately
+      setActiveThreadId(null);
+      activeThreadIdRef.current = null;
+      setMessages([]);
+      setStreamingMessage('');
+      setThinkingText('');
+      setToolActivity([]);
+      setIsStreaming(false);
+      setIsExecutingTools(false);
+      
+      if (!rootPromptId) {
+        setThreads([]);
+        return;
+      }
+      
+      try {
+        // Step 1: Fetch threads for this prompt family
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        
+        const { data: threadData, error } = await supabase
+          .from('q_threads')
+          .select('*')
+          .eq('root_prompt_row_id', rootPromptId)
+          .eq('owner_id', user.id)
+          .eq('is_active', true)
+          .order('last_message_at', { ascending: false, nullsFirst: false });
+        
+        if (error || cancelled) {
+          console.error('Error fetching threads:', error);
+          return;
+        }
+        
+        setThreads(threadData || []);
+        
+        // Step 2: Auto-select first thread and fetch its messages
+        if (threadData?.length > 0 && !cancelled) {
+          const selectedThread = threadData[0];
+          setActiveThreadId(selectedThread.row_id);
+          activeThreadIdRef.current = selectedThread.row_id;
+          
+          // Step 3: IMMEDIATELY fetch messages for the selected thread
+          setIsLoading(true);
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session || cancelled) return;
+            
+            const response = await supabase.functions.invoke('thread-manager', {
+              body: {
+                action: 'get_messages',
+                thread_row_id: selectedThread.row_id,
+                limit: 100,
+              }
+            });
+            
+            if (!cancelled && !response.error) {
+              setMessages((response.data?.messages || []).map(m => ({
+                row_id: m.id,
+                role: m.role,
+                content: m.content,
+                created_at: m.created_at,
+              })));
+            }
+          } catch (err) {
+            console.error('Error fetching messages:', err);
+            if (!cancelled) setMessages([]);
+          } finally {
+            if (!cancelled) setIsLoading(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error in loadThreadAndMessages:', error);
+      }
+    };
+    
+    loadThreadAndMessages();
+    
+    return () => { cancelled = true; };
   }, [rootPromptId, removeCall]);
 
   // Cancel stream function for external use

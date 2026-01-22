@@ -451,16 +451,18 @@ const ConversationPanel = ({
             ))}
             
             {/* Reasoning/Thinking indicator - shown while AI is processing */}
-            {thinkingText && isSending && usePromptFamilyMode && (
+            {isSending && usePromptFamilyMode && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] px-2.5 py-2 bg-surface-container rounded-m3-lg space-y-1.5">
                   <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
                     <Brain className="h-3 w-3 text-primary animate-pulse" />
-                    <span className="font-medium">Reasoning</span>
+                    <span className="font-medium">{thinkingText ? 'Reasoning' : 'Thinking'}</span>
                   </div>
-                  <div className="text-[11px] text-on-surface-variant whitespace-pre-wrap max-h-32 overflow-y-auto">
-                    {thinkingText}
-                  </div>
+                  {thinkingText && (
+                    <div className="text-[11px] text-on-surface-variant whitespace-pre-wrap max-h-32 overflow-y-auto">
+                      {thinkingText}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
