@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,37 @@ import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDow
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
 
+interface TreeNodeData {
+  id: string;
+  title: string;
+  type?: string;
+  url?: string;
+  hasChildren?: boolean;
+  children?: TreeNodeData[];
+  loaded?: boolean;
+  isContainer?: boolean;
+  isFolder?: boolean;
+  isWhiteboard?: boolean;
+  isDatabase?: boolean;
+  isBlogpost?: boolean;
+  isBlogContainer?: boolean;
+}
+
+interface TreeNodeProps {
+  node: TreeNodeData;
+  level?: number;
+  onAttach: (pageId: string, contentType: string) => void;
+  attachingPageId: string | null;
+  expandedNodes: Set<string>;
+  toggleExpand: (nodeId: string, spaceKey: string) => void;
+  loadingNodes: Set<string>;
+  spaceKey: string;
+  isLast?: boolean;
+  parentLines?: boolean[];
+}
+
 // Confluence-style tree node
-const TreeNode = ({ 
+const TreeNode: React.FC<TreeNodeProps> = ({ 
   node, 
   level = 0, 
   onAttach, 
@@ -40,7 +69,7 @@ const TreeNode = ({
   const canAttach = !isContainer;
 
   // Build tree lines for proper indentation
-  const renderTreeLines = () => {
+  const renderTreeLines = (): ReactNode => {
     if (level === 0) return null;
     
     return (
@@ -159,7 +188,7 @@ const TreeNode = ({
               toggleExpand={toggleExpand}
               loadingNodes={loadingNodes}
               spaceKey={spaceKey}
-              isLast={idx === node.children.length - 1}
+              isLast={idx === node.children!.length - 1}
               parentLines={[...parentLines, !isLast]}
             />
           ))}
@@ -169,7 +198,15 @@ const TreeNode = ({
   );
 };
 
-const ConfluenceSearchModal = ({ 
+interface ConfluenceSearchModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  conversationRowId?: string | null;
+  promptRowId?: string | null;
+  onPageAttached?: () => void;
+}
+
+const ConfluenceSearchModal: React.FC<ConfluenceSearchModalProps> = ({ 
   open, 
   onOpenChange, 
   conversationRowId = null,
@@ -178,10 +215,10 @@ const ConfluenceSearchModal = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpace, setSelectedSpace] = useState('');
-  const [attachingPageId, setAttachingPageId] = useState(null);
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
-  const [loadingNodes, setLoadingNodes] = useState(new Set());
-  const abortControllerRef = useRef(null);
+  const [attachingPageId, setAttachingPageId] = useState<string | null>(null);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const { 
     spaces, 
@@ -222,9 +259,6 @@ const ConfluenceSearchModal = ({
     }
   }, [selectedSpace, getSpaceTree, clearSpaceTree]);
 
-  // Note: Removed auto-expand - it was marking nodes as expanded without loading children
-  // Users can click to expand nodes which will properly load children via toggleExpand
-
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -258,7 +292,7 @@ const ConfluenceSearchModal = ({
     }
   }, [open, clearSearch, clearSpaceTree]);
 
-  const handleAttach = async (pageId, contentType = 'page') => {
+  const handleAttach = async (pageId: string, contentType: string = 'page') => {
     setAttachingPageId(pageId);
     try {
       await attachPage(pageId, contentType);
@@ -275,7 +309,7 @@ const ConfluenceSearchModal = ({
     }
   };
 
-  const toggleExpand = async (nodeId, spaceKey) => {
+  const toggleExpand = async (nodeId: string, spaceKey: string) => {
     const isCurrentlyExpanded = expandedNodes.has(nodeId);
     
     if (isCurrentlyExpanded) {
@@ -285,7 +319,7 @@ const ConfluenceSearchModal = ({
         return next;
       });
     } else {
-      const findNode = (nodes) => {
+      const findNode = (nodes: TreeNodeData[]): TreeNodeData | null => {
         for (const node of nodes) {
           if (node.id === nodeId) return node;
           if (node.children) {
@@ -307,7 +341,7 @@ const ConfluenceSearchModal = ({
           const nodeType = node.type || (node.isFolder ? 'folder' : 'page');
           const children = await getPageChildren(nodeId, spaceKey, nodeType);
           
-          const updateNode = (nodes) => {
+          const updateNode = (nodes: TreeNodeData[]): TreeNodeData[] => {
             return nodes.map(n => {
               if (n.id === nodeId) {
                 return { ...n, children, loaded: true, hasChildren: children.length > 0 };
@@ -319,7 +353,7 @@ const ConfluenceSearchModal = ({
             });
           };
           
-          setSpaceTree(prev => updateNode(prev));
+          setSpaceTree((prev: TreeNodeData[]) => updateNode(prev));
         } finally {
           setLoadingNodes(prev => {
             const next = new Set(prev);
