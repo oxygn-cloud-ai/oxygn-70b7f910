@@ -1,9 +1,10 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
-import { SettingInput } from "@/components/ui/setting-input";
 
-const AuthContent = () => {
-  const [mode, setMode] = useState("login"); // "login" or "signup"
+type AuthMode = "login" | "signup";
+
+const AuthContent: React.FC = () => {
+  const [mode, setMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
 
   return (

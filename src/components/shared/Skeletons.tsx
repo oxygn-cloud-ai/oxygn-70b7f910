@@ -1,26 +1,44 @@
 import React from "react";
 
+type SkeletonSize = "xs" | "sm" | "md" | "lg" | "xl";
+
+interface SkeletonProps {
+  className?: string;
+  animate?: boolean;
+}
+
 // Base skeleton component with shimmer animation
-export const Skeleton = ({ className = "", animate = true }) => (
+export const Skeleton: React.FC<SkeletonProps> = ({ className = "", animate = true }) => (
   <div 
     className={`bg-on-surface/[0.08] rounded-m3-sm ${animate ? "animate-pulse" : ""} ${className}`}
   />
 );
 
+interface SkeletonTextProps {
+  width?: string;
+  size?: SkeletonSize;
+}
+
 // Text skeleton with variable width
-export const SkeletonText = ({ width = "w-24", size = "sm" }) => {
-  const heights = {
+export const SkeletonText: React.FC<SkeletonTextProps> = ({ width = "w-24", size = "sm" }) => {
+  const heights: Record<SkeletonSize, string> = {
     xs: "h-2",
     sm: "h-3",
     md: "h-4",
-    lg: "h-5"
+    lg: "h-5",
+    xl: "h-6"
   };
   return <Skeleton className={`${heights[size]} ${width}`} />;
 };
 
+interface SkeletonCircleProps {
+  size?: SkeletonSize;
+}
+
 // Circle skeleton for avatars/icons
-export const SkeletonCircle = ({ size = "md" }) => {
-  const sizes = {
+export const SkeletonCircle: React.FC<SkeletonCircleProps> = ({ size = "md" }) => {
+  const sizes: Record<SkeletonSize, string> = {
+    xs: "w-4 h-4",
     sm: "w-6 h-6",
     md: "w-8 h-8",
     lg: "w-10 h-10",
@@ -29,8 +47,13 @@ export const SkeletonCircle = ({ size = "md" }) => {
   return <Skeleton className={`${sizes[size]} rounded-full`} />;
 };
 
+interface SkeletonCardProps {
+  lines?: number;
+  hasIcon?: boolean;
+}
+
 // Card skeleton
-export const SkeletonCard = ({ lines = 3, hasIcon = false }) => (
+export const SkeletonCard: React.FC<SkeletonCardProps> = ({ lines = 3, hasIcon = false }) => (
   <div className="p-3 bg-surface-container-low rounded-m3-lg border border-outline-variant space-y-3 animate-fade-in">
     <div className="flex items-center gap-3">
       {hasIcon && <SkeletonCircle size="md" />}
@@ -53,26 +76,37 @@ export const SkeletonCard = ({ lines = 3, hasIcon = false }) => (
   </div>
 );
 
+interface SkeletonListItemProps {
+  hasAvatar?: boolean;
+  hasActions?: boolean;
+}
+
 // List item skeleton
-export const SkeletonListItem = React.forwardRef(({ hasAvatar = false, hasActions = false }, ref) => (
-  <div ref={ref} className="flex items-center gap-3 p-2.5 rounded-m3-sm animate-pulse">
-    {hasAvatar && <SkeletonCircle size="sm" />}
-    <div className="flex-1 space-y-1.5">
-      <SkeletonText width="w-28" size="sm" />
-      <SkeletonText width="w-20" size="xs" />
-    </div>
-    {hasActions && (
-      <div className="flex gap-1">
-        <Skeleton className="w-6 h-6 rounded-m3-full" />
-        <Skeleton className="w-6 h-6 rounded-m3-full" />
+export const SkeletonListItem = React.forwardRef<HTMLDivElement, SkeletonListItemProps>(
+  ({ hasAvatar = false, hasActions = false }, ref) => (
+    <div ref={ref} className="flex items-center gap-3 p-2.5 rounded-m3-sm animate-pulse">
+      {hasAvatar && <SkeletonCircle size="sm" />}
+      <div className="flex-1 space-y-1.5">
+        <SkeletonText width="w-28" size="sm" />
+        <SkeletonText width="w-20" size="xs" />
       </div>
-    )}
-  </div>
-));
+      {hasActions && (
+        <div className="flex gap-1">
+          <Skeleton className="w-6 h-6 rounded-m3-full" />
+          <Skeleton className="w-6 h-6 rounded-m3-full" />
+        </div>
+      )}
+    </div>
+  )
+);
 SkeletonListItem.displayName = "SkeletonListItem";
 
+interface SkeletonThreadListProps {
+  count?: number;
+}
+
 // Thread list skeleton
-export const SkeletonThreadList = ({ count = 3 }) => (
+export const SkeletonThreadList: React.FC<SkeletonThreadListProps> = ({ count = 3 }) => (
   <div className="space-y-1">
     {Array.from({ length: count }).map((_, i) => (
       <SkeletonListItem key={i} hasAvatar={false} />
@@ -80,8 +114,12 @@ export const SkeletonThreadList = ({ count = 3 }) => (
   </div>
 );
 
+interface SkeletonMessageProps {
+  isUser?: boolean;
+}
+
 // Message skeleton for chat
-export const SkeletonMessage = ({ isUser = false }) => (
+export const SkeletonMessage: React.FC<SkeletonMessageProps> = ({ isUser = false }) => (
   <div className={`flex ${isUser ? "justify-end" : "justify-start"} animate-fade-in`}>
     <div 
       className={`max-w-[70%] p-3 rounded-2xl space-y-2 ${
@@ -96,7 +134,7 @@ export const SkeletonMessage = ({ isUser = false }) => (
 );
 
 // Chat skeleton
-export const SkeletonChat = () => (
+export const SkeletonChat: React.FC = () => (
   <div className="space-y-3 p-3">
     <SkeletonMessage isUser={false} />
     <SkeletonMessage isUser={true} />
@@ -105,7 +143,7 @@ export const SkeletonChat = () => (
 );
 
 // Settings row skeleton
-export const SkeletonSettingRow = () => (
+export const SkeletonSettingRow: React.FC = () => (
   <div className="flex items-center justify-between py-2 animate-pulse">
     <div className="space-y-1">
       <SkeletonText width="w-24" size="sm" />
@@ -115,16 +153,25 @@ export const SkeletonSettingRow = () => (
   </div>
 );
 
+interface SkeletonFormFieldProps {
+  label?: boolean;
+}
+
 // Form field skeleton
-export const SkeletonFormField = ({ label = true }) => (
+export const SkeletonFormField: React.FC<SkeletonFormFieldProps> = ({ label = true }) => (
   <div className="space-y-1.5 animate-pulse">
     {label && <SkeletonText width="w-16" size="xs" />}
     <Skeleton className="w-full h-8 rounded-m3-sm" />
   </div>
 );
 
+interface SkeletonTableProps {
+  rows?: number;
+  cols?: number;
+}
+
 // Table skeleton
-export const SkeletonTable = ({ rows = 3, cols = 4 }) => (
+export const SkeletonTable: React.FC<SkeletonTableProps> = ({ rows = 3, cols = 4 }) => (
   <div className="space-y-1 animate-pulse">
     {/* Header */}
     <div className="flex gap-3 p-2">
@@ -144,7 +191,7 @@ export const SkeletonTable = ({ rows = 3, cols = 4 }) => (
 );
 
 // Variable row skeleton
-export const SkeletonVariableRow = () => (
+export const SkeletonVariableRow: React.FC = () => (
   <div className="flex items-center gap-3 p-2.5 bg-surface-container rounded-m3-sm border border-outline-variant animate-pulse">
     <SkeletonCircle size="sm" />
     <div className="flex-1 space-y-1">
@@ -156,7 +203,7 @@ export const SkeletonVariableRow = () => (
 );
 
 // Prompt editor skeleton
-export const SkeletonPromptEditor = () => (
+export const SkeletonPromptEditor: React.FC = () => (
   <div className="space-y-4 animate-fade-in">
     {/* System prompt */}
     <div className="space-y-1.5">

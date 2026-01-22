@@ -1,21 +1,33 @@
 import React from "react";
 import { 
   MessageSquare, FileText, LayoutTemplate, FolderOpen, 
-  Search, Inbox, Star, Clock, Settings, Variable,
-  Link2, Sparkles, Plus, Zap
+  Search, Inbox, Star, Clock, Variable,
+  Link2, Sparkles, Plus, Zap, LucideIcon
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
+type IconSize = "sm" | "md" | "lg" | "xl";
+
+interface EmptyStateWrapperProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
 // Base empty state wrapper with entrance animation
-const EmptyStateWrapper = ({ children, className = "" }) => (
+const EmptyStateWrapper: React.FC<EmptyStateWrapperProps> = ({ children, className = "" }) => (
   <div className={`flex flex-col items-center justify-center text-center p-6 animate-fade-in ${className}`}>
     {children}
   </div>
 );
 
+interface EmptyStateIconProps {
+  icon: LucideIcon;
+  size?: IconSize;
+}
+
 // Icon wrapper with subtle animation
-const EmptyStateIcon = ({ icon: Icon, size = "lg" }) => {
-  const sizes = {
+const EmptyStateIcon: React.FC<EmptyStateIconProps> = ({ icon: Icon, size = "lg" }) => {
+  const sizes: Record<IconSize, string> = {
     sm: "h-8 w-8",
     md: "h-10 w-10",
     lg: "h-12 w-12",
@@ -29,8 +41,17 @@ const EmptyStateIcon = ({ icon: Icon, size = "lg" }) => {
   );
 };
 
+interface EmptyStateProps {
+  icon?: LucideIcon;
+  title: string;
+  description: string;
+  action?: () => void;
+  actionLabel?: string;
+  size?: IconSize;
+}
+
 // Generic empty state
-export const EmptyState = ({ 
+export const EmptyState: React.FC<EmptyStateProps> = ({ 
   icon: Icon = Inbox, 
   title, 
   description, 
@@ -55,7 +76,7 @@ export const EmptyState = ({
 );
 
 // No prompts selected
-export const EmptyPromptSelection = () => (
+export const EmptyPromptSelection: React.FC = () => (
   <EmptyState
     icon={FileText}
     title="Select a Prompt"
@@ -63,8 +84,12 @@ export const EmptyPromptSelection = () => (
   />
 );
 
+interface EmptyThreadsProps {
+  onNewThread?: () => void;
+}
+
 // No threads
-export const EmptyThreads = ({ onNewThread }) => (
+export const EmptyThreads: React.FC<EmptyThreadsProps> = ({ onNewThread }) => (
   <EmptyState
     icon={MessageSquare}
     title="No Conversations Yet"
@@ -74,8 +99,12 @@ export const EmptyThreads = ({ onNewThread }) => (
   />
 );
 
+interface EmptySearchResultsProps {
+  query: string;
+}
+
 // No search results
-export const EmptySearchResults = ({ query }) => (
+export const EmptySearchResults: React.FC<EmptySearchResultsProps> = ({ query }) => (
   <EmptyStateWrapper>
     <EmptyStateIcon icon={Search} size="md" />
     <h3 className="text-title-sm text-on-surface font-medium mb-1">No Results Found</h3>
@@ -87,7 +116,7 @@ export const EmptySearchResults = ({ query }) => (
 );
 
 // No starred items
-export const EmptyStarred = () => (
+export const EmptyStarred: React.FC = () => (
   <EmptyState
     icon={Star}
     title="No Starred Items"
@@ -97,7 +126,7 @@ export const EmptyStarred = () => (
 );
 
 // No recent activity
-export const EmptyRecent = () => (
+export const EmptyRecent: React.FC = () => (
   <EmptyState
     icon={Clock}
     title="No Recent Activity"
@@ -106,8 +135,12 @@ export const EmptyRecent = () => (
   />
 );
 
+interface EmptyTemplatesProps {
+  onCreateTemplate?: () => void;
+}
+
 // No templates
-export const EmptyTemplates = ({ onCreateTemplate }) => (
+export const EmptyTemplates: React.FC<EmptyTemplatesProps> = ({ onCreateTemplate }) => (
   <EmptyState
     icon={LayoutTemplate}
     title="No Templates"
@@ -117,8 +150,12 @@ export const EmptyTemplates = ({ onCreateTemplate }) => (
   />
 );
 
+interface EmptyVariablesProps {
+  onAddVariable?: () => void;
+}
+
 // No variables
-export const EmptyVariables = ({ onAddVariable }) => (
+export const EmptyVariables: React.FC<EmptyVariablesProps> = ({ onAddVariable }) => (
   <EmptyStateWrapper className="py-8">
     <EmptyStateIcon icon={Variable} size="md" />
     <h3 className="text-body-sm text-on-surface font-medium mb-1">No Variables Detected</h3>
@@ -141,8 +178,12 @@ export const EmptyVariables = ({ onAddVariable }) => (
   </EmptyStateWrapper>
 );
 
+interface EmptyLinkedPagesProps {
+  onLinkPage?: () => void;
+}
+
 // No linked pages
-export const EmptyLinkedPages = ({ onLinkPage }) => (
+export const EmptyLinkedPages: React.FC<EmptyLinkedPagesProps> = ({ onLinkPage }) => (
   <EmptyStateWrapper className="py-6">
     <EmptyStateIcon icon={Link2} size="sm" />
     <h3 className="text-body-sm text-on-surface font-medium mb-0.5">No Linked Pages</h3>
@@ -163,8 +204,12 @@ export const EmptyLinkedPages = ({ onLinkPage }) => (
   </EmptyStateWrapper>
 );
 
+interface EmptyFolderProps {
+  folderName?: string;
+}
+
 // Empty folder
-export const EmptyFolder = ({ folderName = "folder" }) => (
+export const EmptyFolder: React.FC<EmptyFolderProps> = ({ folderName = "folder" }) => (
   <EmptyStateWrapper className="py-10">
     <EmptyStateIcon icon={FolderOpen} size="md" />
     <h3 className="text-body-sm text-on-surface font-medium mb-1">Empty {folderName}</h3>
@@ -172,8 +217,12 @@ export const EmptyFolder = ({ folderName = "folder" }) => (
   </EmptyStateWrapper>
 );
 
+interface EmptyConversationProps {
+  onEnableAssistant?: () => void;
+}
+
 // Conversation disabled (assistant mode off)
-export const EmptyConversation = ({ onEnableAssistant }) => (
+export const EmptyConversation: React.FC<EmptyConversationProps> = ({ onEnableAssistant }) => (
   <EmptyStateWrapper className="h-full">
     <EmptyStateIcon icon={MessageSquare} />
     <h3 className="text-title-sm text-on-surface font-medium mb-1">Enable Assistant Mode</h3>
@@ -193,7 +242,7 @@ export const EmptyConversation = ({ onEnableAssistant }) => (
 );
 
 // New chat welcome
-export const WelcomeChat = () => (
+export const WelcomeChat: React.FC = () => (
   <EmptyStateWrapper className="h-full">
     <div className="relative mb-4">
       <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -219,7 +268,7 @@ export const WelcomeChat = () => (
 );
 
 // No output yet
-export const EmptyOutput = () => (
+export const EmptyOutput: React.FC = () => (
   <div className="flex items-center justify-center py-8 text-center animate-fade-in">
     <div>
       <Zap className="h-6 w-6 mx-auto mb-2 text-on-surface-variant/30" />

@@ -2,30 +2,44 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, Lock, Variable, MessageCircleQuestion } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePromptVariables } from '../../hooks/usePromptVariables';
 
-const VariablesTab = ({ selectedItemData, projectRowId }) => {
+interface PromptVariable {
+  row_id: string;
+  variable_name: string;
+  variable_value?: string;
+  variable_description?: string;
+  source_type?: string;
+  source_question?: string;
+  is_required?: boolean;
+}
+
+interface VariablesTabProps {
+  selectedItemData?: Record<string, unknown> | null;
+  projectRowId?: string | null;
+}
+
+const VariablesTab: React.FC<VariablesTabProps> = ({ selectedItemData, projectRowId }) => {
   const { 
     variables, 
     isLoading, 
     addVariable, 
     updateVariable, 
     deleteVariable 
-  } = usePromptVariables(projectRowId);
+  } = usePromptVariables(projectRowId || undefined);
   
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
   const [newValue, setNewValue] = useState('');
   const [newDescription, setNewDescription] = useState('');
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  const systemVariables = selectedItemData?.last_ai_call_metadata || {};
+  const systemVariables = (selectedItemData?.last_ai_call_metadata as Record<string, unknown>) || {};
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -39,12 +53,12 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
     }
   };
 
-  const handleStartEdit = (variable) => {
+  const handleStartEdit = (variable: PromptVariable) => {
     setEditingId(variable.row_id);
     setEditValue(variable.variable_value || '');
   };
 
-  const handleSaveEdit = async (rowId) => {
+  const handleSaveEdit = async (rowId: string) => {
     await updateVariable(rowId, { variable_value: editValue });
     setEditingId(null);
     setEditValue('');
@@ -140,13 +154,13 @@ const VariablesTab = ({ selectedItemData, projectRowId }) => {
           {/* Variables list */}
           {isLoading ? (
             <div className="text-sm text-muted-foreground text-center py-4">Loading...</div>
-          ) : variables.length === 0 && !isAdding ? (
+          ) : (variables as PromptVariable[]).length === 0 && !isAdding ? (
             <div className="text-sm text-muted-foreground text-center py-4">
               No variables defined. Add a variable to use in your prompts.
             </div>
           ) : (
             <div className="space-y-2">
-              {variables.map(variable => (
+              {(variables as PromptVariable[]).map(variable => (
                 <div 
                   key={variable.row_id} 
                   className="flex flex-col gap-1 p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
