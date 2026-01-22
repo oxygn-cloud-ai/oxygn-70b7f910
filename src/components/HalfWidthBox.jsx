@@ -1,0 +1,22 @@
+import React, { useState } from 'react';
+import { Textarea } from "@/components/ui/textarea";
+
+const HalfWidthBox = ({ title, initialContent }) => {
+  const [content, setContent] = useState(initialContent);
+
+  return (
+    <div className="w-[calc(50%-0.5rem)] border rounded-lg p-4 relative">
+      <span className="absolute -top-3 left-2 bg-white px-2 text-sm font-semibold text-gray-600 z-10">
+        {title}
+      </span>
+      <Textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        className="w-full h-full resize-none"
+        placeholder={`Enter content for ${title}`}
+      />
+    </div>
+  );
+};
+
+export default HalfWidthBox;
