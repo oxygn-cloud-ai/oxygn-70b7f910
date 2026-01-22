@@ -1046,6 +1046,9 @@ export const useCascadeExecutor = () => {
 
                 markPromptComplete(prompt.row_id, prompt.prompt_name, result.response);
 
+                // Yield to event loop to keep UI responsive during cascade
+                await new Promise(resolve => setTimeout(resolve, 0));
+
                 // Update the prompt's user_prompt_result and output_response in database
                 const updateData = { 
                   user_prompt_result: result.response,
@@ -1510,6 +1513,9 @@ export const useCascadeExecutor = () => {
             }
           }
         }
+        
+        // Yield to event loop between levels to keep UI responsive
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
 
       const totalElapsedMs = Date.now() - cascadeStartTime;

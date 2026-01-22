@@ -290,7 +290,11 @@ const ConversationPanel = ({
   }, [messages, isSending, streamingMessage]);
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isSending) return;
+    console.log('[ChatDebug] handleSend called, isSending:', isSending, 'inputValue:', inputValue.slice(0, 50));
+    if (!inputValue.trim() || isSending) {
+      console.log('[ChatDebug] handleSend blocked - empty input or already sending');
+      return;
+    }
     const message = inputValue.trim();
     setInputValue("");
     
