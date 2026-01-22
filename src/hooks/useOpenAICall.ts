@@ -7,14 +7,81 @@ import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 const MAX_TOKENS = 16000;
 const ESTIMATED_TOKENS_PER_CHAR = 0.4;
 
-const estimateTokenCount = (text) => Math.ceil(text.length * ESTIMATED_TOKENS_PER_CHAR);
+const estimateTokenCount = (text: string): number => Math.ceil(text.length * ESTIMATED_TOKENS_PER_CHAR);
 
-const truncateText = (text, maxTokens) => {
+const truncateText = (text: string, maxTokens: number): string => {
   const estimatedMaxChars = Math.floor(maxTokens / ESTIMATED_TOKENS_PER_CHAR);
   return text.slice(0, estimatedMaxChars);
 };
 
-export const useOpenAICall = () => {
+export interface ProjectSettings {
+  model?: string | null;
+  temperature?: number | string | null;
+  temperature_on?: boolean | null;
+  max_tokens?: number | string | null;
+  max_tokens_on?: boolean | null;
+  max_completion_tokens?: number | string | null;
+  max_completion_tokens_on?: boolean | null;
+  response_tokens?: number | string | null;
+  response_tokens_on?: boolean | null;
+  top_p?: number | string | null;
+  top_p_on?: boolean | null;
+  frequency_penalty?: number | string | null;
+  frequency_penalty_on?: boolean | null;
+  presence_penalty?: number | string | null;
+  presence_penalty_on?: boolean | null;
+  web_search_on?: boolean | null;
+  [key: string]: unknown;
+}
+
+export interface SaveConfig {
+  supabaseClient: typeof supabase;
+  tableName: string;
+  rowId: string;
+  fieldName: string;
+  onLocalUpdate?: (result: string) => void;
+}
+
+export interface CallOpenAIOptions {
+  onSuccess?: (content: string, data: OpenAIResponseData) => Promise<void>;
+}
+
+export interface OpenAIResponseData {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  [key: string]: unknown;
+}
+
+interface ApiError extends Error {
+  status?: number;
+  body?: unknown;
+}
+
+export interface UseOpenAICallReturn {
+  callOpenAI: (
+    systemMessage: string,
+    userMessage: string,
+    projectSettings: ProjectSettings,
+    options?: CallOpenAIOptions
+  ) => Promise<string | null>;
+  callOpenAIWithSave: (
+    systemMessage: string,
+    userMessage: string,
+    projectSettings: ProjectSettings,
+    saveConfig: SaveConfig
+  ) => Promise<string | null>;
+  isLoading: boolean;
+}
+
+export const useOpenAICall = (): UseOpenAICallReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const { registerCall, addBackgroundCall, removeBackgroundCall } = useApiCallContext();
   const isMountedRef = useRef(true);
@@ -26,11 +93,11 @@ export const useOpenAICall = () => {
     };
   }, []);
 
-  const setLoadingSafe = useCallback((value) => {
+  const setLoadingSafe = useCallback((value: boolean) => {
     if (isMountedRef.current) setIsLoading(value);
   }, []);
 
-  const handleApiError = useCallback((error) => {
+  const handleApiError = useCallback((error: ApiError): { error: string } => {
     const errorMessage = error?.message || 'An unknown error occurred';
     const status = error?.status || 500;
 
@@ -43,21 +110,25 @@ export const useOpenAICall = () => {
     if (status === 429) {
       try {
         const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
-        if (errorBody?.error?.code === 'insufficient_quota') {
+        if ((errorBody as { error?: { code?: string } })?.error?.code === 'insufficient_quota') {
           toast.error('OpenAI API quota exceeded.');
           return { error: 'QUOTA_EXCEEDED' };
         }
-      } catch {}
+      } catch {
+        // Ignore parse errors
+      }
     }
 
     if (status === 400) {
       try {
         const errorBody = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
-        if (errorBody?.error?.code === 'context_length_exceeded') {
+        if ((errorBody as { error?: { code?: string } })?.error?.code === 'context_length_exceeded') {
           toast.error('Input text too long. It will be truncated.');
           return { error: 'CONTEXT_LENGTH_EXCEEDED' };
         }
-      } catch {}
+      } catch {
+        // Ignore parse errors
+      }
     }
 
     toast.error(`API error: ${errorMessage}`);
@@ -68,7 +139,12 @@ export const useOpenAICall = () => {
    * Call OpenAI with optional onSuccess callback for background completion.
    */
   const callOpenAI = useCallback(
-    async (systemMessage, userMessage, projectSettings, options = {}) => {
+    async (
+      systemMessage: string,
+      userMessage: string,
+      projectSettings: ProjectSettings,
+      options: CallOpenAIOptions = {}
+    ): Promise<string | null> => {
       const unregisterCall = registerCall();
       setLoadingSafe(true);
 
@@ -97,15 +173,15 @@ export const useOpenAICall = () => {
 
         let temperature = 0.7;
         if (projectSettings?.temperature_on && projectSettings?.temperature !== undefined) {
-          const parsedTemp = parseFloat(projectSettings.temperature);
+          const parsedTemp = parseFloat(String(projectSettings.temperature));
           if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
             temperature = parsedTemp;
           }
         }
 
-        const requestBody = {
+        const requestBody: Record<string, unknown> = {
           action: 'chat',
-          model: projectSettings?.model || null, // Let backend resolve default
+          model: projectSettings?.model || null,
           messages: [
             { role: 'system', content: finalSystemMessage },
             { role: 'user', content: finalUserMessage.trim() },
@@ -118,14 +194,12 @@ export const useOpenAICall = () => {
         }
 
         // STRICT SEPARATION: Send ONLY the appropriate token param based on model class
-        // GPT-5/o-series use max_completion_tokens, GPT-4 and earlier use max_tokens
-        // NEVER send both in the same request
         const isGpt5Class = (projectSettings?.model || '').match(/^(gpt-5|o\d)/i);
         
         if (isGpt5Class) {
           // GPT-5/o-series: ONLY use max_completion_tokens
           if (projectSettings?.max_completion_tokens_on && projectSettings?.max_completion_tokens) {
-            const maxCompletionTokens = parseInt(projectSettings.max_completion_tokens);
+            const maxCompletionTokens = parseInt(String(projectSettings.max_completion_tokens));
             if (!isNaN(maxCompletionTokens) && maxCompletionTokens > 0) {
               requestBody.max_completion_tokens = maxCompletionTokens;
             }
@@ -133,12 +207,12 @@ export const useOpenAICall = () => {
         } else {
           // GPT-4 and earlier: ONLY use max_tokens
           if (projectSettings?.response_tokens_on && projectSettings?.response_tokens) {
-            const maxTokens = parseInt(projectSettings.response_tokens);
+            const maxTokens = parseInt(String(projectSettings.response_tokens));
             if (!isNaN(maxTokens) && maxTokens > 0) {
               requestBody.max_tokens = maxTokens;
             }
           } else if (projectSettings?.max_tokens_on && projectSettings?.max_tokens) {
-            const maxTokens = parseInt(projectSettings.max_tokens);
+            const maxTokens = parseInt(String(projectSettings.max_tokens));
             if (!isNaN(maxTokens) && maxTokens > 0) {
               requestBody.max_tokens = maxTokens;
             }
@@ -146,17 +220,17 @@ export const useOpenAICall = () => {
         }
 
         if (projectSettings?.top_p_on && projectSettings?.top_p) {
-          const topP = parseFloat(projectSettings.top_p);
+          const topP = parseFloat(String(projectSettings.top_p));
           if (!isNaN(topP) && topP >= 0 && topP <= 1) {
             requestBody.top_p = topP;
           }
         }
 
         if (projectSettings?.frequency_penalty_on) {
-          requestBody.frequency_penalty = parseFloat(projectSettings.frequency_penalty) || 0;
+          requestBody.frequency_penalty = parseFloat(String(projectSettings.frequency_penalty)) || 0;
         }
         if (projectSettings?.presence_penalty_on) {
-          requestBody.presence_penalty = parseFloat(projectSettings.presence_penalty) || 0;
+          requestBody.presence_penalty = parseFloat(String(projectSettings.presence_penalty)) || 0;
         }
 
         console.log('AI request:', { model: requestBody.model, webSearch: requestBody.web_search_enabled });
@@ -166,13 +240,14 @@ export const useOpenAICall = () => {
         });
 
         if (error) {
-          const e = new Error(error.message || 'AI proxy error');
-          e.status = error.status || error.context?.status || 500;
-          e.body = error.context?.body;
+          const e: ApiError = new Error(error.message || 'AI proxy error');
+          e.status = error.status || (error as { context?: { status?: number } }).context?.status || 500;
+          e.body = (error as { context?: { body?: unknown } }).context?.body;
           throw e;
         }
 
-        const content = data?.choices?.[0]?.message?.content;
+        const responseData = data as OpenAIResponseData;
+        const content = responseData?.choices?.[0]?.message?.content;
         if (!content) {
           throw new Error('Empty response from AI');
         }
@@ -180,15 +255,15 @@ export const useOpenAICall = () => {
         // Track AI call success
         trackEvent('ai_call_completed', {
           model: requestBody.model,
-          input_tokens: data?.usage?.prompt_tokens,
-          output_tokens: data?.usage?.completion_tokens,
+          input_tokens: responseData?.usage?.prompt_tokens,
+          output_tokens: responseData?.usage?.completion_tokens,
           web_search: requestBody.web_search_enabled || false,
         });
 
         // Run success callback with content and full response data (for cost tracking)
         if (typeof options?.onSuccess === 'function') {
           try {
-            await options.onSuccess(content, data);
+            await options.onSuccess(content, responseData);
           } catch (e) {
             console.error('onSuccess callback error:', e);
           }
@@ -196,10 +271,10 @@ export const useOpenAICall = () => {
 
         return content;
       } catch (error) {
-        handleApiError(error);
+        handleApiError(error as ApiError);
         trackApiError('openai-proxy', error, {
           model: projectSettings?.model,
-          status_code: error?.status
+          status_code: (error as ApiError)?.status
         });
         trackException(error, { context: 'openai_call' });
         return null;
@@ -215,7 +290,12 @@ export const useOpenAICall = () => {
    * Call OpenAI and save result to database (supports background completion).
    */
   const callOpenAIWithSave = useCallback(
-    async (systemMessage, userMessage, projectSettings, saveConfig) => {
+    async (
+      systemMessage: string,
+      userMessage: string,
+      projectSettings: ProjectSettings,
+      saveConfig: SaveConfig
+    ): Promise<string | null> => {
       const { supabaseClient, tableName, rowId, fieldName, onLocalUpdate } = saveConfig || {};
 
       const backgroundCallId = addBackgroundCall({
@@ -258,3 +338,5 @@ export const useOpenAICall = () => {
 
   return { callOpenAI, callOpenAIWithSave, isLoading };
 };
+
+export default useOpenAICall;

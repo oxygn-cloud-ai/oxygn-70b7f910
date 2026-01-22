@@ -3,12 +3,54 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 
-export const usePromptLibrary = () => {
-  const [items, setItems] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [categories, setCategories] = useState([]);
+export interface LibraryItem {
+  row_id: string;
+  name: string;
+  content: string;
+  description?: string | null;
+  category?: string | null;
+  is_private?: boolean | null;
+  owner_id?: string | null;
+  user_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  [key: string]: unknown;
+}
 
-  const fetchItems = useCallback(async () => {
+export interface LibraryItemUpdates {
+  name?: string;
+  content?: string;
+  description?: string | null;
+  category?: string | null;
+  is_private?: boolean;
+}
+
+export interface UsePromptLibraryReturn {
+  items: LibraryItem[];
+  categories: string[];
+  isLoading: boolean;
+  createItem: (
+    name: string,
+    content: string,
+    description?: string | null,
+    category?: string | null,
+    isPrivate?: boolean
+  ) => Promise<LibraryItem | null>;
+  updateItem: (rowId: string, updates: LibraryItemUpdates) => Promise<LibraryItem | null>;
+  deleteItem: (rowId: string) => Promise<boolean>;
+  getItemsByCategory: (category: string | null) => LibraryItem[];
+  searchItems: (query: string) => LibraryItem[];
+  getOwnItems: () => Promise<LibraryItem[]>;
+  getSharedItems: () => Promise<LibraryItem[]>;
+  refetch: () => Promise<void>;
+}
+
+export const usePromptLibrary = (): UsePromptLibraryReturn => {
+  const [items, setItems] = useState<LibraryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>([]);
+
+  const fetchItems = useCallback(async (): Promise<void> => {
     setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -23,12 +65,12 @@ export const usePromptLibrary = () => {
 
       if (error) throw error;
 
-      setItems(data || []);
+      setItems((data as LibraryItem[]) || []);
 
       // Extract unique categories
       const uniqueCategories = [...new Set((data || [])
-        .map(item => item.category)
-        .filter(Boolean))];
+        .map((item: LibraryItem) => item.category)
+        .filter((cat): cat is string => Boolean(cat)))];
       setCategories(uniqueCategories);
     } catch (error) {
       console.error('Error fetching library items:', error);
@@ -42,7 +84,13 @@ export const usePromptLibrary = () => {
     fetchItems();
   }, [fetchItems]);
 
-  const createItem = useCallback(async (name, content, description = null, category = null, isPrivate = false) => {
+  const createItem = useCallback(async (
+    name: string,
+    content: string,
+    description: string | null = null,
+    category: string | null = null,
+    isPrivate = false
+  ): Promise<LibraryItem | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -72,7 +120,8 @@ export const usePromptLibrary = () => {
 
       if (error) throw error;
 
-      setItems(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      const newItem = data as LibraryItem;
+      setItems(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
       
       if (category && !categories.includes(category)) {
         setCategories(prev => [...prev, category].sort());
@@ -82,11 +131,11 @@ export const usePromptLibrary = () => {
       
       // Track library item created
       trackEvent('library_item_created', {
-        item_id: data.row_id,
+        item_id: newItem.row_id,
         category,
       });
       
-      return data;
+      return newItem;
     } catch (error) {
       console.error('Error creating library item:', error);
       toast.error('Failed to create library item');
@@ -94,7 +143,7 @@ export const usePromptLibrary = () => {
     }
   }, [items, categories]);
 
-  const updateItem = useCallback(async (rowId, updates) => {
+  const updateItem = useCallback(async (rowId: string, updates: LibraryItemUpdates): Promise<LibraryItem | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -109,7 +158,7 @@ export const usePromptLibrary = () => {
       // Check for duplicate name if name is being updated
       if (updates.name) {
         const existing = items.find(i => 
-          i.name.toLowerCase() === updates.name.toLowerCase() && 
+          i.name.toLowerCase() === updates.name!.toLowerCase() && 
           i.owner_id === user.id && 
           i.row_id !== rowId
         );
@@ -128,18 +177,19 @@ export const usePromptLibrary = () => {
 
       if (error) throw error;
 
+      const updatedItem = data as LibraryItem;
       setItems(prev => prev
-        .map(i => i.row_id === rowId ? data : i)
+        .map(i => i.row_id === rowId ? updatedItem : i)
         .sort((a, b) => a.name.localeCompare(b.name))
       );
 
       // Update categories if needed
       if (updates.category && !categories.includes(updates.category)) {
-        setCategories(prev => [...prev, updates.category].sort());
+        setCategories(prev => [...prev, updates.category!].sort());
       }
 
       toast.success('Library item updated');
-      return data;
+      return updatedItem;
     } catch (error) {
       console.error('Error updating library item:', error);
       toast.error('Failed to update library item');
@@ -147,7 +197,7 @@ export const usePromptLibrary = () => {
     }
   }, [items, categories]);
 
-  const deleteItem = useCallback(async (rowId) => {
+  const deleteItem = useCallback(async (rowId: string): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -176,12 +226,12 @@ export const usePromptLibrary = () => {
     }
   }, [items]);
 
-  const getItemsByCategory = useCallback((category) => {
+  const getItemsByCategory = useCallback((category: string | null): LibraryItem[] => {
     if (!category) return items;
     return items.filter(i => i.category === category);
   }, [items]);
 
-  const searchItems = useCallback((query) => {
+  const searchItems = useCallback((query: string): LibraryItem[] => {
     if (!query.trim()) return items;
     const lowerQuery = query.toLowerCase();
     return items.filter(i => 
@@ -191,13 +241,13 @@ export const usePromptLibrary = () => {
     );
   }, [items]);
 
-  const getOwnItems = useCallback(async () => {
+  const getOwnItems = useCallback(async (): Promise<LibraryItem[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
     return items.filter(i => i.owner_id === user.id);
   }, [items]);
 
-  const getSharedItems = useCallback(async () => {
+  const getSharedItems = useCallback(async (): Promise<LibraryItem[]> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
     return items.filter(i => i.owner_id !== user.id && !i.is_private);
@@ -217,3 +267,5 @@ export const usePromptLibrary = () => {
     refetch: fetchItems
   };
 };
+
+export default usePromptLibrary;
