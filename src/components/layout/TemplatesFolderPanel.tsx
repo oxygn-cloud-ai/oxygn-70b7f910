@@ -3,9 +3,6 @@ import {
   LayoutTemplate, 
   Star, 
   Clock, 
-  ChevronRight, 
-  ChevronDown, 
-  FileText,
   Braces,
   Link2,
   Plus,
@@ -13,16 +10,118 @@ import {
   Trash2,
   Upload,
   GripVertical,
-  Loader2
+  Loader2,
+  LucideIcon
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDrag, useDrop } from "react-dnd";
 import { LabelBadge } from "@/components/ui/label-badge";
-import { trackEvent } from "@/lib/posthog";
 
 const ITEM_TYPE = "TEMPLATE_ITEM";
 
-const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick }) => (
+/**
+ * Template item structure from database
+ */
+interface TemplateData {
+  row_id: string;
+  template_name?: string;
+  template_description?: string;
+  category?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Schema item structure from database
+ */
+interface SchemaData {
+  row_id: string;
+  schema_name?: string;
+  schema_description?: string;
+  category?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Mapping template structure
+ */
+interface MappingData {
+  id: string;
+  name: string;
+  description?: string;
+  labels?: string[];
+  starred?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Display template structure (unified for all types)
+ */
+interface DisplayTemplate {
+  id: string;
+  row_id?: string;
+  name: string;
+  description?: string;
+  labels: string[];
+  starred: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Template tab types
+ */
+type TemplateTabType = "prompts" | "schemas" | "mappings";
+
+/**
+ * Props for TemplatesFolderPanel
+ */
+interface TemplatesFolderPanelProps {
+  onSelectTemplate?: (template: DisplayTemplate) => void;
+  selectedTemplateId?: string | null;
+  activeTemplateTab?: TemplateTabType;
+  onTemplateTabChange?: (tab: TemplateTabType) => void;
+  // Real data props
+  templates?: TemplateData[];
+  schemaTemplates?: SchemaData[];
+  mappingTemplates?: MappingData[];
+  isLoadingTemplates?: boolean;
+  isLoadingSchemas?: boolean;
+  onCreateTemplate?: (data: {
+    name: string;
+    description: string;
+    category: string;
+    structure: Record<string, string>;
+    isPrivate: boolean;
+  }) => Promise<TemplateData | null>;
+  onDeleteTemplate?: (rowId: string) => Promise<void>;
+  onCreateSchema?: (data: {
+    schemaName: string;
+    schemaDescription: string;
+    category: string;
+    jsonSchema: Record<string, unknown>;
+  }) => Promise<SchemaData | null>;
+  onDeleteSchema?: (rowId: string) => Promise<void>;
+  onDuplicateTemplate?: (template: DisplayTemplate) => Promise<TemplateData | null>;
+  onDuplicateSchema?: (schema: DisplayTemplate) => Promise<SchemaData | null>;
+}
+
+/**
+ * SmartFolder component props
+ */
+interface SmartFolderProps {
+  icon: LucideIcon;
+  label: string;
+  count: number;
+  isActive?: boolean;
+  onClick?: () => void;
+}
+
+const SmartFolder: React.FC<SmartFolderProps> = ({ 
+  icon: Icon, 
+  label, 
+  count, 
+  isActive = false, 
+  onClick 
+}) => (
   <button
     onClick={onClick}
     className={`
@@ -41,26 +140,55 @@ const SmartFolder = ({ icon: Icon, label, count, isActive = false, onClick }) =>
   </button>
 );
 
-const IconButton = React.forwardRef(({ icon: Icon, label, className = "", onClick }, ref) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <button
-        ref={ref}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClick?.();
-        }}
-        className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] ${className}`}
-      >
-        <Icon className="h-3.5 w-3.5" />
-      </button>
-    </TooltipTrigger>
-    <TooltipContent className="text-[10px]">{label}</TooltipContent>
-  </Tooltip>
-));
+/**
+ * IconButton component props
+ */
+interface IconButtonProps {
+  icon: LucideIcon;
+  label: string;
+  className?: string;
+  onClick?: () => void;
+}
+
+const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+  ({ icon: Icon, label, className = "", onClick }, ref) => (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          ref={ref}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick?.();
+          }}
+          className={`w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.12] ${className}`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="text-[10px]">{label}</TooltipContent>
+    </Tooltip>
+  )
+);
 IconButton.displayName = 'IconButton';
 
-const TemplateTreeItem = ({ 
+/**
+ * TemplateTreeItem component props
+ */
+interface TemplateTreeItemProps {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  isActive?: boolean;
+  starred?: boolean;
+  labels?: string[];
+  onMove?: (draggedId: string, targetId: string, index: number) => void;
+  index: number;
+  onClick?: () => void;
+  onDelete?: () => void;
+  onDuplicate?: () => void;
+}
+
+const TemplateTreeItem: React.FC<TemplateTreeItemProps> = ({ 
   id,
   icon: Icon, 
   label, 
@@ -74,7 +202,7 @@ const TemplateTreeItem = ({
   onDuplicate
 }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   const [{ isDragging }, drag] = useDrag({
     type: ITEM_TYPE,
@@ -86,8 +214,8 @@ const TemplateTreeItem = ({
 
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ITEM_TYPE,
-    canDrop: (item) => item.id !== id,
-    drop: (item) => {
+    canDrop: (item: { id: string }) => item.id !== id,
+    drop: (item: { id: string }) => {
       if (item.id !== id && onMove) {
         onMove(item.id, id, index);
       }
@@ -144,12 +272,15 @@ const TemplateTreeItem = ({
   );
 };
 
-const TemplatesFolderPanel = ({ 
+/**
+ * TemplatesFolderPanel component
+ * Displays and manages different types of templates (prompts, schemas, mappings)
+ */
+const TemplatesFolderPanel: React.FC<TemplatesFolderPanelProps> = ({ 
   onSelectTemplate, 
   selectedTemplateId,
   activeTemplateTab = "prompts",
   onTemplateTabChange,
-  // Real data props - Phase 8-9
   templates = [],
   schemaTemplates = [],
   mappingTemplates = [],
@@ -162,35 +293,32 @@ const TemplatesFolderPanel = ({
   onDuplicateTemplate,
   onDuplicateSchema,
 }) => {
-  const [activeFolder, setActiveFolder] = useState("all");
+  const [activeFolder, setActiveFolder] = useState<"all" | "starred" | "recent">("all");
 
-  // Use controlled state if provided, otherwise internal
   const activeType = activeTemplateTab;
-  const setActiveType = (type) => {
+  const setActiveType = (type: TemplateTabType) => {
     onTemplateTabChange?.(type);
   };
 
-  const handleMove = (draggedId, targetId, targetIndex) => {
+  const handleMove = (draggedId: string, targetId: string, targetIndex: number) => {
     console.log(`Move ${draggedId} to position near ${targetId} (index: ${targetIndex})`);
   };
 
-  // Mapping templates come from exportTemplates prop (empty array fallback)
-
   // Transform real data to display format while keeping original data
-  const displayTemplates = useMemo(() => {
+  const displayTemplates = useMemo<DisplayTemplate[]>(() => {
     switch (activeType) {
       case "prompts":
         return templates.map(t => ({
-          ...t, // Keep all original template properties
+          ...t,
           id: t.row_id,
           name: t.template_name || "Untitled Template",
           description: t.template_description,
           labels: t.category ? [t.category] : [],
-          starred: false, // Not implemented yet
+          starred: false,
         }));
       case "schemas":
         return schemaTemplates.map(s => ({
-          ...s, // Keep all original schema properties
+          ...s,
           id: s.row_id,
           name: s.schema_name || "Untitled Schema",
           description: s.schema_description,
@@ -198,7 +326,13 @@ const TemplatesFolderPanel = ({
           starred: false,
         }));
       case "mappings":
-        return mappingTemplates;
+        return mappingTemplates.map(m => ({
+          ...m,
+          id: m.id,
+          name: m.name,
+          labels: m.labels || [],
+          starred: m.starred || false,
+        }));
       default:
         return templates.map(t => ({
           ...t,
@@ -210,7 +344,7 @@ const TemplatesFolderPanel = ({
     }
   }, [activeType, templates, schemaTemplates, mappingTemplates]);
 
-  const getIcon = () => {
+  const getIcon = (): LucideIcon => {
     switch (activeType) {
       case "prompts": return LayoutTemplate;
       case "schemas": return Braces;
@@ -233,7 +367,13 @@ const TemplatesFolderPanel = ({
         isPrivate: false,
       });
       if (newTemplate) {
-        onSelectTemplate?.(newTemplate);
+        onSelectTemplate?.({
+          ...newTemplate,
+          id: newTemplate.row_id,
+          name: newTemplate.template_name || "New Template",
+          labels: [],
+          starred: false,
+        });
       }
     } else if (activeType === "schemas" && onCreateSchema) {
       const newSchema = await onCreateSchema({
@@ -243,43 +383,63 @@ const TemplatesFolderPanel = ({
         jsonSchema: { type: "object", properties: {}, required: [] },
       });
       if (newSchema) {
-        onSelectTemplate?.(newSchema);
+        onSelectTemplate?.({
+          ...newSchema,
+          id: newSchema.row_id,
+          name: newSchema.schema_name || "New Schema",
+          labels: [],
+          starred: false,
+        });
       }
     }
   };
 
-  const handleDelete = async (template) => {
-    if (activeType === "prompts" && onDeleteTemplate) {
+  const handleDelete = async (template: DisplayTemplate) => {
+    if (activeType === "prompts" && onDeleteTemplate && template.row_id) {
       await onDeleteTemplate(template.row_id);
-    } else if (activeType === "schemas" && onDeleteSchema) {
+    } else if (activeType === "schemas" && onDeleteSchema && template.row_id) {
       await onDeleteSchema(template.row_id);
     }
   };
 
-  const handleDuplicate = async (template) => {
+  const handleDuplicate = async (template: DisplayTemplate) => {
     if (activeType === "prompts" && onDuplicateTemplate) {
       const newTemplate = await onDuplicateTemplate(template);
       if (newTemplate) {
-        onSelectTemplate?.(newTemplate);
+        onSelectTemplate?.({
+          ...newTemplate,
+          id: newTemplate.row_id,
+          name: newTemplate.template_name || "Duplicated Template",
+          labels: [],
+          starred: false,
+        });
       }
     } else if (activeType === "schemas" && onDuplicateSchema) {
       const newSchema = await onDuplicateSchema(template);
       if (newSchema) {
-        onSelectTemplate?.(newSchema);
+        onSelectTemplate?.({
+          ...newSchema,
+          id: newSchema.row_id,
+          name: newSchema.schema_name || "Duplicated Schema",
+          labels: [],
+          starred: false,
+        });
       }
     }
   };
+
+  const tabConfig: { id: TemplateTabType; icon: LucideIcon; label: string }[] = [
+    { id: "prompts", icon: LayoutTemplate, label: "Prompts" },
+    { id: "schemas", icon: Braces, label: "Schemas" },
+    { id: "mappings", icon: Link2, label: "Mappings" },
+  ];
 
   return (
     <div className="h-full flex flex-col bg-surface-container-low overflow-hidden">
       {/* Template Type Tabs */}
       <div className="p-2 border-b border-outline-variant">
         <div className="flex gap-1 p-1 bg-surface-container rounded-m3-sm">
-          {[
-            { id: "prompts", icon: LayoutTemplate, label: "Prompts" },
-            { id: "schemas", icon: Braces, label: "Schemas" },
-            { id: "mappings", icon: Link2, label: "Mappings" },
-          ].map(tab => (
+          {tabConfig.map(tab => (
             <Tooltip key={tab.id}>
               <TooltipTrigger asChild>
                 <button
@@ -347,7 +507,9 @@ const TemplatesFolderPanel = ({
                 <Plus className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">New {activeType === "prompts" ? "Template" : activeType === "schemas" ? "Schema" : "Mapping"}</TooltipContent>
+            <TooltipContent className="text-[10px]">
+              New {activeType === "prompts" ? "Template" : activeType === "schemas" ? "Schema" : "Mapping"}
+            </TooltipContent>
           </Tooltip>
         </div>
         
@@ -389,3 +551,4 @@ const TemplatesFolderPanel = ({
 };
 
 export default TemplatesFolderPanel;
+
