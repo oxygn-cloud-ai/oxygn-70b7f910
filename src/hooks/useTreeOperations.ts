@@ -7,15 +7,44 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUndo } from '@/contexts/UndoContext';
 import { v4 as uuidv4 } from 'uuid';
 import { trackEvent } from '@/lib/posthog';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const useTreeOperations = (supabase, refreshTreeData) => {
+export interface AddItemOptions {
+  skipRefresh?: boolean;
+  insertAfterPromptId?: string | null;
+}
+
+export interface PromptInsertResult {
+  row_id: string;
+  [key: string]: unknown;
+}
+
+export interface UseTreeOperationsReturn {
+  handleAddItem: (parentId: string | null, options?: AddItemOptions) => Promise<PromptInsertResult[] | null>;
+  handleDeleteItem: (itemId: string, itemName?: string) => Promise<boolean>;
+  handleDuplicateItem: (itemId: string) => Promise<PromptInsertResult | null>;
+  handleMoveItem: (itemId: string, targetParentId: string | null) => Promise<boolean>;
+  handleRestoreDeleted: (actionId: string, itemId: string, itemName: string) => Promise<boolean>;
+  handleRestoreMove: (actionId: string, itemId: string, originalParentId: string | null, itemName: string) => Promise<boolean>;
+  handleBatchDelete: (itemIds: string[]) => Promise<boolean>;
+  handleBatchDuplicate: (itemIds: string[]) => Promise<boolean>;
+  handleBatchStar: (itemIds: string[], starred?: boolean) => Promise<boolean>;
+  handleBatchToggleExcludeCascade: (itemIds: string[], exclude?: boolean) => Promise<boolean>;
+  handleBatchToggleExcludeExport: (itemIds: string[], exclude?: boolean) => Promise<boolean>;
+  deletingPromptIds: Set<string>;
+}
+
+export const useTreeOperations = (
+  supabase: SupabaseClient | null,
+  refreshTreeData: () => Promise<void>
+): UseTreeOperationsReturn => {
   const { user } = useAuth();
   const { pushUndo, clearUndo } = useUndo();
   const isAddingRef = useRef(false);
-  const [deletingPromptIds, setDeletingPromptIds] = useState(new Set());
+  const [deletingPromptIds, setDeletingPromptIds] = useState<Set<string>>(new Set());
   
   // Restore a deleted prompt
-  const handleRestoreDeleted = useCallback(async (actionId, itemId, itemName) => {
+  const handleRestoreDeleted = useCallback(async (actionId: string, itemId: string, itemName: string): Promise<boolean> => {
     if (!supabase) return false;
     try {
       await restorePrompt(supabase, itemId);
@@ -31,7 +60,12 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   }, [supabase, refreshTreeData, clearUndo]);
 
   // Restore a moved prompt to its original parent
-  const handleRestoreMove = useCallback(async (actionId, itemId, originalParentId, itemName) => {
+  const handleRestoreMove = useCallback(async (
+    actionId: string,
+    itemId: string,
+    originalParentId: string | null,
+    itemName: string
+  ): Promise<boolean> => {
     if (!supabase) return false;
     try {
       const { error } = await supabase
@@ -53,7 +87,10 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
   
   // skipRefresh: when true, don't refresh tree (useful for bulk operations)
   // insertAfterPromptId: if provided, insert as sibling after this prompt
-  const handleAddItem = useCallback(async (parentId, { skipRefresh = false, insertAfterPromptId = null } = {}) => {
+  const handleAddItem = useCallback(async (
+    parentId: string | null,
+    { skipRefresh = false, insertAfterPromptId = null }: AddItemOptions = {}
+  ): Promise<PromptInsertResult[] | null> => {
     if (!supabase) return null;
     
     // Guard against multiple rapid insertions
@@ -70,15 +107,22 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
         .select('setting_key, setting_value')
         .in('setting_key', ['def_admin_prompt', 'def_assistant_instructions']);
       
-      const settingsMap = {};
-      settingsData?.forEach(row => {
+      const settingsMap: Record<string, string> = {};
+      settingsData?.forEach((row: { setting_key: string; setting_value: string | null }) => {
         settingsMap[row.setting_key] = row.setting_value || '';
       });
       
       const defaultAdminPrompt = settingsMap['def_admin_prompt'] || '';
       const defaultConversationInstructions = settingsMap['def_assistant_instructions'] || '';
       
-      const newItemId = await addPrompt(supabase, parentId, defaultAdminPrompt, user?.id, defaultConversationInstructions, insertAfterPromptId);
+      const newItemId = await addPrompt(
+        supabase,
+        parentId,
+        defaultAdminPrompt,
+        user?.id,
+        defaultConversationInstructions,
+        insertAfterPromptId
+      );
       
       // Validate we actually got a result (defense in depth)
       if (!newItemId || newItemId.length === 0) {
@@ -100,9 +144,10 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       
       return newItemId;
     } catch (error) {
+      const err = error as { message?: string };
       console.error('Error adding new prompt:', error);
       toast.error('Failed to add new prompt', {
-        description: error?.message || 'An unexpected error occurred',
+        description: err?.message || 'An unexpected error occurred',
       });
       return null;
     } finally {
@@ -110,7 +155,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData, user?.id]);
 
-  const handleDeleteItem = useCallback(async (itemId, itemName = 'Prompt') => {
+  const handleDeleteItem = useCallback(async (itemId: string, itemName = 'Prompt'): Promise<boolean> => {
     if (!supabase) return false;
     
     // Add to deleting set to show visual feedback
@@ -168,7 +213,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData, pushUndo, handleRestoreDeleted]);
 
-  const handleDuplicateItem = useCallback(async (itemId) => {
+  const handleDuplicateItem = useCallback(async (itemId: string): Promise<PromptInsertResult | null> => {
     if (!supabase) return null;
     try {
       const newItemId = await duplicatePrompt(supabase, itemId, user?.id);
@@ -184,16 +229,18 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
         
         return newItemId;
       }
+      return null;
     } catch (error) {
+      const err = error as { message?: string };
       console.error('Error duplicating prompt:', error);
       toast.error('Failed to duplicate prompt', {
-        description: error?.message || 'An unexpected error occurred',
+        description: err?.message || 'An unexpected error occurred',
       });
       return null;
     }
   }, [supabase, refreshTreeData, user?.id]);
 
-  const handleMoveItem = useCallback(async (itemId, targetParentId) => {
+  const handleMoveItem = useCallback(async (itemId: string, targetParentId: string | null): Promise<boolean> => {
     if (!supabase) return false;
     try {
       // Get original parent before moving for undo
@@ -244,7 +291,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
 
   // ============ BATCH OPERATIONS ============
   
-  const handleBatchDelete = useCallback(async (itemIds) => {
+  const handleBatchDelete = useCallback(async (itemIds: string[]): Promise<boolean> => {
     if (!supabase || !itemIds?.length) return false;
     try {
       // Delete all items at once
@@ -264,7 +311,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData]);
 
-  const handleBatchDuplicate = useCallback(async (itemIds) => {
+  const handleBatchDuplicate = useCallback(async (itemIds: string[]): Promise<boolean> => {
     if (!supabase || !itemIds?.length) return false;
     try {
       let successCount = 0;
@@ -276,15 +323,16 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
       toast.success(`${successCount} prompt(s) duplicated`);
       return true;
     } catch (error) {
+      const err = error as { message?: string };
       console.error('Error batch duplicating prompts:', error);
       toast.error('Failed to duplicate prompts', {
-        description: error?.message || 'An unexpected error occurred',
+        description: err?.message || 'An unexpected error occurred',
       });
       return false;
     }
   }, [supabase, refreshTreeData, user?.id]);
 
-  const handleBatchStar = useCallback(async (itemIds, starred = true) => {
+  const handleBatchStar = useCallback(async (itemIds: string[], starred = true): Promise<boolean> => {
     if (!supabase || !itemIds?.length) return false;
     try {
       const { error } = await supabase
@@ -303,7 +351,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData]);
 
-  const handleBatchToggleExcludeCascade = useCallback(async (itemIds, exclude = true) => {
+  const handleBatchToggleExcludeCascade = useCallback(async (itemIds: string[], exclude = true): Promise<boolean> => {
     if (!supabase || !itemIds?.length) return false;
     try {
       const { error } = await supabase
@@ -322,7 +370,7 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     }
   }, [supabase, refreshTreeData]);
 
-  const handleBatchToggleExcludeExport = useCallback(async (itemIds, exclude = true) => {
+  const handleBatchToggleExcludeExport = useCallback(async (itemIds: string[], exclude = true): Promise<boolean> => {
     if (!supabase || !itemIds?.length) return false;
     try {
       const { error } = await supabase
@@ -358,3 +406,5 @@ export const useTreeOperations = (supabase, refreshTreeData) => {
     deletingPromptIds
   };
 };
+
+export default useTreeOperations;

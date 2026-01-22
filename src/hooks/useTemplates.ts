@@ -4,18 +4,95 @@ import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { trackEvent } from '@/lib/posthog';
 
+export interface TemplateStructure {
+  prompt_name?: string | null;
+  input_admin_prompt?: string | null;
+  input_user_prompt?: string | null;
+  note?: string | null;
+  icon_name?: string | null;
+  model?: string | null;
+  model_on?: boolean | null;
+  temperature?: number | null;
+  temperature_on?: boolean | null;
+  max_tokens?: number | null;
+  max_tokens_on?: boolean | null;
+  top_p?: number | null;
+  top_p_on?: boolean | null;
+  frequency_penalty?: number | null;
+  frequency_penalty_on?: boolean | null;
+  presence_penalty?: number | null;
+  presence_penalty_on?: boolean | null;
+  response_format?: string | null;
+  response_format_on?: boolean | null;
+  reasoning_effort?: string | null;
+  reasoning_effort_on?: boolean | null;
+  node_type?: string | null;
+  post_action?: string | null;
+  post_action_config?: Record<string, unknown> | null;
+  is_assistant?: boolean | null;
+  thread_mode?: string | null;
+  child_thread_strategy?: string | null;
+  children?: TemplateStructure[];
+  [key: string]: unknown;
+}
+
+export interface Template {
+  row_id: string;
+  template_name: string;
+  template_description?: string | null;
+  category?: string | null;
+  structure?: TemplateStructure | null;
+  variable_definitions?: Record<string, unknown> | null;
+  is_private?: boolean | null;
+  is_deleted?: boolean | null;
+  owner_id?: string | null;
+  version?: number | null;
+  starred?: boolean | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface CreateTemplateParams {
+  name: string;
+  description?: string;
+  category?: string;
+  structure?: TemplateStructure;
+  isPrivate?: boolean;
+}
+
+export interface CreateFromPromptOptions {
+  name: string;
+  description?: string;
+  category?: string;
+  isPrivate?: boolean;
+  includeChildren?: boolean;
+}
+
+export interface UseTemplatesReturn {
+  templates: Template[];
+  isLoading: boolean;
+  fetchTemplates: () => Promise<void>;
+  createTemplate: (params: CreateTemplateParams) => Promise<Template | null>;
+  updateTemplate: (rowId: string, updates: Partial<Template>) => Promise<boolean>;
+  deleteTemplate: (rowId: string, isAdmin?: boolean) => Promise<boolean>;
+  getTemplate: (rowId: string) => Promise<Template | null>;
+  createFromPrompt: (promptRowId: string, options: CreateFromPromptOptions) => Promise<Template | null>;
+  extractTemplateVariables: (structure: TemplateStructure) => string[];
+}
+
 /**
  * Hook for managing templates
  */
-export const useTemplates = () => {
-  const [templates, setTemplates] = useState([]);
+export const useTemplates = (): UseTemplatesReturn => {
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
 
   /**
    * Fetch all templates visible to the user (RLS handles access control)
    */
-  const fetchTemplates = useCallback(async () => {
+  const fetchTemplates = useCallback(async (): Promise<void> => {
     if (!user?.id) return;
     
     setIsLoading(true);
@@ -28,7 +105,7 @@ export const useTemplates = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTemplates(data || []);
+      setTemplates((data as Template[]) || []);
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Failed to load templates');
@@ -50,7 +127,7 @@ export const useTemplates = () => {
     category = 'general',
     structure = {},
     isPrivate = false,
-  }) => {
+  }: CreateTemplateParams): Promise<Template | null> => {
     try {
       const { data, error } = await supabase
         .from(import.meta.env.VITE_TEMPLATES_TBL)
@@ -67,7 +144,7 @@ export const useTemplates = () => {
 
       if (error) throw error;
       
-      setTemplates(prev => [data, ...prev]);
+      setTemplates(prev => [data as Template, ...prev]);
       toast.success('Template created');
       
       // Track template creation
@@ -77,7 +154,7 @@ export const useTemplates = () => {
         category,
       });
       
-      return data;
+      return data as Template;
     } catch (error) {
       console.error('Error creating template:', error);
       toast.error('Failed to create template');
@@ -88,7 +165,7 @@ export const useTemplates = () => {
   /**
    * Update a template
    */
-  const updateTemplate = useCallback(async (rowId, updates) => {
+  const updateTemplate = useCallback(async (rowId: string, updates: Partial<Template>): Promise<boolean> => {
     try {
       // First get current version
       const { data: current } = await supabase
@@ -101,7 +178,7 @@ export const useTemplates = () => {
         .from(import.meta.env.VITE_TEMPLATES_TBL)
         .update({
           ...updates,
-          version: (current?.version || 0) + 1,
+          version: ((current?.version as number) || 0) + 1,
         })
         .eq('row_id', rowId);
 
@@ -122,7 +199,7 @@ export const useTemplates = () => {
   /**
    * Delete a template (soft delete)
    */
-  const deleteTemplate = useCallback(async (rowId, isAdmin = false) => {
+  const deleteTemplate = useCallback(async (rowId: string, isAdmin = false): Promise<boolean> => {
     try {
       if (!user?.id) {
         toast.error('Not authenticated');
@@ -172,7 +249,7 @@ export const useTemplates = () => {
   /**
    * Get a template by ID
    */
-  const getTemplate = useCallback(async (rowId) => {
+  const getTemplate = useCallback(async (rowId: string): Promise<Template | null> => {
     try {
       const { data, error } = await supabase
         .from(import.meta.env.VITE_TEMPLATES_TBL)
@@ -181,7 +258,7 @@ export const useTemplates = () => {
         .maybeSingle();
 
       if (error) throw error;
-      return data; // May be null if not found
+      return data as Template | null;
     } catch (error) {
       console.error('Error fetching template:', error);
       return null;
@@ -190,15 +267,11 @@ export const useTemplates = () => {
 
   /**
    * Create a template from an existing prompt hierarchy
-   * @param {string} promptRowId - The prompt to create from
-   * @param {Object} options - Template options
-   * @param {string} options.name - Template name
-   * @param {string} options.description - Template description
-   * @param {string} options.category - Template category
-   * @param {boolean} options.isPrivate - Whether template is private
-   * @param {boolean} options.includeChildren - Whether to include child prompts
    */
-  const createFromPrompt = useCallback(async (promptRowId, options = {}) => {
+  const createFromPrompt = useCallback(async (
+    promptRowId: string,
+    options: CreateFromPromptOptions
+  ): Promise<Template | null> => {
     const {
       name,
       description = '',
@@ -209,7 +282,7 @@ export const useTemplates = () => {
 
     try {
       // Fetch the prompt and all its children recursively
-      const fetchPromptHierarchy = async (rowId, shouldIncludeChildren = true) => {
+      const fetchPromptHierarchy = async (rowId: string, shouldIncludeChildren = true): Promise<TemplateStructure> => {
         const { data: prompt, error } = await supabase
           .from(import.meta.env.VITE_PROMPTS_TBL)
           .select('*')
@@ -219,7 +292,7 @@ export const useTemplates = () => {
         if (error) throw error;
         if (!prompt) throw new Error(`Prompt not found: ${rowId}`);
 
-        let childStructures = [];
+        let childStructures: TemplateStructure[] = [];
         
         // Only fetch children if includeChildren is true
         if (shouldIncludeChildren) {
@@ -239,24 +312,17 @@ export const useTemplates = () => {
         }
 
         // CRITICAL: Sanitize q.ref[UUID] patterns to prevent cross-family data leakage
-        // Templates should NOT contain hardcoded UUIDs from the source family
-        const sanitizeQRef = (text) => {
+        const sanitizeQRef = (text: string | null | undefined): string | null | undefined => {
           if (!text || typeof text !== 'string') return text;
-          // Replace {{q.ref[UUID].field}} with {{q.ref[TEMPLATE_REF].field}} placeholder
-          // The placeholder indicates this was a reference that needs remapping on instantiation
           return text.replace(/\{\{q\.ref\[[a-f0-9-]{36}\]\.([a-z_]+)\}\}/gi, '{{q.ref[TEMPLATE_REF].$1}}');
         };
 
-        // Include ALL relevant prompt fields in the template structure
-        // REMOVED: _id field - embedding source UUIDs causes cross-family leakage
         return {
-          // NO _id FIELD - this was the root cause of template-based cross-family leaks
           prompt_name: prompt.prompt_name,
           input_admin_prompt: sanitizeQRef(prompt.input_admin_prompt),
           input_user_prompt: sanitizeQRef(prompt.input_user_prompt),
           note: prompt.note,
           icon_name: prompt.icon_name,
-          // Model settings
           model: prompt.model,
           model_on: prompt.model_on,
           temperature: prompt.temperature,
@@ -283,31 +349,24 @@ export const useTemplates = () => {
           stream_on: prompt.stream_on,
           seed: prompt.seed,
           seed_on: prompt.seed_on,
-          // Reasoning settings
           reasoning_effort: prompt.reasoning_effort,
           reasoning_effort_on: prompt.reasoning_effort_on,
           tool_choice: prompt.tool_choice,
           tool_choice_on: prompt.tool_choice_on,
-          // Assistant settings
           is_assistant: prompt.is_assistant,
           thread_mode: prompt.thread_mode,
           child_thread_strategy: prompt.child_thread_strategy,
           default_child_thread_strategy: prompt.default_child_thread_strategy,
-          // Tools
           web_search_on: prompt.web_search_on,
           confluence_enabled: prompt.confluence_enabled,
           code_interpreter_on: prompt.code_interpreter_on,
           file_search_on: prompt.file_search_on,
-          // ACTION NODE FIELDS (critical for action templates)
           node_type: prompt.node_type,
           post_action: prompt.post_action,
           post_action_config: prompt.post_action_config,
           json_schema_template_id: prompt.json_schema_template_id,
-          // REMOVED: extracted_variables - contains runtime data from source family
-          // Exclusion flags
           exclude_from_cascade: prompt.exclude_from_cascade,
           exclude_from_export: prompt.exclude_from_export,
-          // Children
           children: childStructures,
         };
       };
@@ -333,24 +392,23 @@ export const useTemplates = () => {
   /**
    * Extract variables from a template structure
    */
-  const extractTemplateVariables = useCallback((structure) => {
-    const variables = new Set();
+  const extractTemplateVariables = useCallback((structure: TemplateStructure): string[] => {
+    const variables = new Set<string>();
     const variablePattern = /\{\{([^}]+)\}\}/g;
 
-    const extractFromObject = (obj) => {
+    const extractFromObject = (obj: unknown): void => {
       if (!obj) return;
       
       if (typeof obj === 'string') {
         const matches = obj.matchAll(variablePattern);
         for (const match of matches) {
           const varName = match[1].trim();
-          // Include all variables - both user-defined and system (q.*) variables
           variables.add(varName);
         }
       } else if (Array.isArray(obj)) {
         obj.forEach(extractFromObject);
       } else if (typeof obj === 'object') {
-        Object.values(obj).forEach(extractFromObject);
+        Object.values(obj as Record<string, unknown>).forEach(extractFromObject);
       }
     };
 
