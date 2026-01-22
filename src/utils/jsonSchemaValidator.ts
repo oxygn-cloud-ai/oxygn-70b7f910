@@ -1,18 +1,83 @@
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-import addErrors from 'ajv-errors';
-
 /**
  * JSON Schema Validator utility using Ajv
  * Provides validation for both schema structure and data against schemas
  */
 
-// Create Ajv instance with OpenAI-compatible settings
-const createAjv = () => {
+import Ajv, { ValidateFunction, ErrorObject } from 'ajv';
+import addFormats from 'ajv-formats';
+import addErrors from 'ajv-errors';
+
+// ============= Types =============
+
+export interface SchemaValidationError {
+  path: string;
+  message: string;
+}
+
+export interface SchemaValidationResult {
+  isValid: boolean;
+  errors: SchemaValidationError[];
+  warnings: string[];
+}
+
+export interface DataValidationError {
+  path: string;
+  message: string;
+  keyword: string;
+  params?: Record<string, unknown>;
+}
+
+export interface DataValidationResult {
+  isValid: boolean;
+  errors: DataValidationError[];
+}
+
+export interface JsonParseResult {
+  isValid: boolean;
+  data: unknown;
+  error: string | null;
+}
+
+export interface JsonSchemaObject {
+  type?: string | string[];
+  properties?: Record<string, JsonSchemaObject>;
+  required?: string[];
+  items?: JsonSchemaObject;
+  additionalProperties?: boolean;
+  description?: string;
+  enum?: unknown[];
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+  default?: unknown;
+  oneOf?: JsonSchemaObject[];
+  anyOf?: JsonSchemaObject[];
+  [key: string]: unknown;
+}
+
+export interface WrappedSchema {
+  json_schema?: {
+    name?: string;
+    schema?: JsonSchemaObject;
+    json_schema?: {
+      schema?: JsonSchemaObject;
+    };
+  };
+  schema?: JsonSchemaObject;
+  properties?: Record<string, JsonSchemaObject>;
+  type?: string;
+}
+
+// ============= Ajv Setup =============
+
+const createAjv = (): Ajv => {
   const ajv = new Ajv({
     allErrors: true,
     verbose: true,
-    strict: false, // Allow OpenAI-style schemas with additionalProperties: false
+    strict: false,
     validateFormats: true,
   });
   
@@ -22,81 +87,53 @@ const createAjv = () => {
   return ajv;
 };
 
-// Singleton instance
-let ajvInstance = null;
+let ajvInstance: Ajv | null = null;
 
-const getAjv = () => {
+const getAjv = (): Ajv => {
   if (!ajvInstance) {
     ajvInstance = createAjv();
   }
   return ajvInstance;
 };
 
-/**
- * JSON Schema Draft-07 meta-schema (simplified for common validation)
- * Used to validate that a schema is structurally correct
- */
-const JSON_SCHEMA_META = {
-  type: 'object',
-  properties: {
-    type: { 
-      oneOf: [
-        { type: 'string', enum: ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null'] },
-        { type: 'array', items: { type: 'string', enum: ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null'] } }
-      ]
-    },
-    properties: { type: 'object' },
-    required: { type: 'array', items: { type: 'string' } },
-    items: { type: 'object' },
-    additionalProperties: { type: 'boolean' },
-    description: { type: 'string' },
-    enum: { type: 'array' },
-    minimum: { type: 'number' },
-    maximum: { type: 'number' },
-    minLength: { type: 'integer' },
-    maxLength: { type: 'integer' },
-    pattern: { type: 'string' },
-    format: { type: 'string' },
-    default: {},
-  },
-  additionalProperties: true, // Allow unknown keywords
-};
+// ============= Schema Extraction =============
 
 /**
  * Extract the actual schema from various wrapper formats
- * Handles OpenAI format, wrapped format, and direct schemas
  */
-const extractSchema = (input) => {
-  if (!input) return null;
+const extractSchema = (input: unknown): JsonSchemaObject | null => {
+  if (!input || typeof input !== 'object') return null;
+  
+  const wrapped = input as WrappedSchema;
   
   // Handle OpenAI format: { json_schema: { name, schema: {...} } }
-  if (input.json_schema?.schema) {
-    return input.json_schema.schema;
+  if (wrapped.json_schema?.schema) {
+    return wrapped.json_schema.schema;
   }
   // Handle wrapped format: { schema: {...} }
-  if (input.schema?.properties) {
-    return input.schema;
+  if (wrapped.schema?.properties) {
+    return wrapped.schema;
   }
   // Handle direct schema: { type, properties: {...} }
-  if (input.properties || input.type) {
-    return input;
+  if (wrapped.properties || wrapped.type) {
+    return wrapped as JsonSchemaObject;
   }
   // Handle deeply nested: { json_schema: { json_schema: { schema: {...} } } }
-  if (input.json_schema?.json_schema?.schema) {
-    return input.json_schema.json_schema.schema;
+  if (wrapped.json_schema?.json_schema?.schema) {
+    return wrapped.json_schema.json_schema.schema;
   }
   
-  return input;
+  return input as JsonSchemaObject;
 };
+
+// ============= Schema Validation =============
 
 /**
  * Validate that an object is a valid JSON Schema structure
- * @param {object} schema - The JSON Schema to validate
- * @returns {{ isValid: boolean, errors: Array<{ path: string, message: string }>, warnings: Array<string> }}
  */
-export const validateJsonSchema = (schema) => {
-  const errors = [];
-  const warnings = [];
+export const validateJsonSchema = (schema: unknown): SchemaValidationResult => {
+  const errors: SchemaValidationError[] = [];
+  const warnings: string[] = [];
   
   if (!schema) {
     return { isValid: false, errors: [{ path: '', message: 'Schema is empty or undefined' }], warnings };
@@ -107,7 +144,6 @@ export const validateJsonSchema = (schema) => {
     return { isValid: false, errors: [{ path: '', message: 'Could not extract schema from input' }], warnings };
   }
   
-  // Basic structure validation
   if (typeof extractedSchema !== 'object') {
     return { isValid: false, errors: [{ path: '', message: 'Schema must be an object' }], warnings };
   }
@@ -117,29 +153,29 @@ export const validateJsonSchema = (schema) => {
     warnings.push('Schema should have a "type" property or use composition keywords (oneOf, anyOf)');
   }
   
-  // Validate properties structure if present
+  // Validate properties structure
   if (extractedSchema.properties) {
     if (typeof extractedSchema.properties !== 'object') {
       errors.push({ path: 'properties', message: '"properties" must be an object' });
     } else {
-      // Validate each property
       for (const [propName, propDef] of Object.entries(extractedSchema.properties)) {
-        if (typeof propDef !== 'object') {
+        if (typeof propDef !== 'object' || propDef === null) {
           errors.push({ path: `properties.${propName}`, message: `Property "${propName}" must be an object` });
           continue;
         }
         
-        // Check for valid type
-        if (propDef.type && typeof propDef.type === 'string') {
+        const propSchema = propDef as JsonSchemaObject;
+        
+        if (propSchema.type && typeof propSchema.type === 'string') {
           const validTypes = ['string', 'number', 'integer', 'boolean', 'array', 'object', 'null'];
-          if (!validTypes.includes(propDef.type)) {
-            errors.push({ path: `properties.${propName}.type`, message: `Invalid type "${propDef.type}" for property "${propName}"` });
+          if (!validTypes.includes(propSchema.type)) {
+            errors.push({ path: `properties.${propName}.type`, message: `Invalid type "${propSchema.type}" for property "${propName}"` });
           }
         }
         
         // Recursive validation for nested objects
-        if (propDef.type === 'object' && propDef.properties) {
-          const nestedResult = validateJsonSchema(propDef);
+        if (propSchema.type === 'object' && propSchema.properties) {
+          const nestedResult = validateJsonSchema(propSchema);
           nestedResult.errors.forEach(err => {
             errors.push({ path: `properties.${propName}.${err.path}`, message: err.message });
           });
@@ -147,11 +183,11 @@ export const validateJsonSchema = (schema) => {
         }
         
         // Validate array items
-        if (propDef.type === 'array') {
-          if (!propDef.items) {
+        if (propSchema.type === 'array') {
+          if (!propSchema.items) {
             warnings.push(`Array property "${propName}" should have an "items" definition`);
-          } else if (propDef.items.type === 'object' && propDef.items.properties) {
-            const nestedResult = validateJsonSchema(propDef.items);
+          } else if ((propSchema.items as JsonSchemaObject).type === 'object' && (propSchema.items as JsonSchemaObject).properties) {
+            const nestedResult = validateJsonSchema(propSchema.items);
             nestedResult.errors.forEach(err => {
               errors.push({ path: `properties.${propName}.items.${err.path}`, message: err.message });
             });
@@ -165,13 +201,10 @@ export const validateJsonSchema = (schema) => {
   if (extractedSchema.required) {
     if (!Array.isArray(extractedSchema.required)) {
       errors.push({ path: 'required', message: '"required" must be an array' });
-    } else {
-      // Check that required properties exist
-      if (extractedSchema.properties) {
-        for (const reqProp of extractedSchema.required) {
-          if (!extractedSchema.properties[reqProp]) {
-            warnings.push(`Required property "${reqProp}" is not defined in properties`);
-          }
+    } else if (extractedSchema.properties) {
+      for (const reqProp of extractedSchema.required) {
+        if (!extractedSchema.properties[reqProp]) {
+          warnings.push(`Required property "${reqProp}" is not defined in properties`);
         }
       }
     }
@@ -182,21 +215,14 @@ export const validateJsonSchema = (schema) => {
     warnings.push('For OpenAI strict mode, "additionalProperties" should be set to false');
   }
   
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
+  return { isValid: errors.length === 0, errors, warnings };
 };
 
 /**
  * Validate data against a JSON Schema
- * @param {any} data - The data to validate
- * @param {object} schema - The JSON Schema to validate against
- * @returns {{ isValid: boolean, errors: Array<{ path: string, message: string, keyword: string }> }}
  */
-export const validateDataAgainstSchema = (data, schema) => {
-  const errors = [];
+export const validateDataAgainstSchema = (data: unknown, schema: unknown): DataValidationResult => {
+  const errors: DataValidationError[] = [];
   
   if (!schema) {
     return { isValid: false, errors: [{ path: '', message: 'No schema provided', keyword: 'schema' }] };
@@ -210,10 +236,10 @@ export const validateDataAgainstSchema = (data, schema) => {
   try {
     const ajv = getAjv();
     
-    // Clear any cached schemas to avoid conflicts
+    // Clear any cached schemas
     ajv.removeSchema('temp-validation-schema');
     
-    const validate = ajv.compile({
+    const validate: ValidateFunction = ajv.compile({
       $id: 'temp-validation-schema',
       ...extractedSchema,
     });
@@ -221,31 +247,30 @@ export const validateDataAgainstSchema = (data, schema) => {
     const valid = validate(data);
     
     if (!valid && validate.errors) {
-      for (const error of validate.errors) {
+      for (const error of validate.errors as ErrorObject[]) {
         errors.push({
           path: error.instancePath || '',
           message: error.message || 'Validation failed',
           keyword: error.keyword || 'unknown',
-          params: error.params,
+          params: error.params as Record<string, unknown>,
         });
       }
     }
     
-    return { isValid: valid, errors };
+    return { isValid: valid ?? false, errors };
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
     return { 
       isValid: false, 
-      errors: [{ path: '', message: `Schema compilation error: ${err.message}`, keyword: 'compile' }] 
+      errors: [{ path: '', message: `Schema compilation error: ${errorMessage}`, keyword: 'compile' }] 
     };
   }
 };
 
 /**
  * Format validation errors for display
- * @param {Array<{ path: string, message: string }>} errors - Array of validation errors
- * @returns {string} - Human-readable error string
  */
-export const formatValidationErrors = (errors) => {
+export const formatValidationErrors = (errors: SchemaValidationError[] | DataValidationError[]): string => {
   if (!errors || errors.length === 0) return '';
   
   return errors.map(err => {
@@ -256,15 +281,14 @@ export const formatValidationErrors = (errors) => {
 
 /**
  * Check if JSON string is valid
- * @param {string} jsonString - The JSON string to parse
- * @returns {{ isValid: boolean, data: any, error: string | null }}
  */
-export const parseJson = (jsonString) => {
+export const parseJson = (jsonString: string): JsonParseResult => {
   try {
     const data = JSON.parse(jsonString);
     return { isValid: true, data, error: null };
   } catch (err) {
-    return { isValid: false, data: null, error: err.message };
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return { isValid: false, data: null, error: errorMessage };
   }
 };
 

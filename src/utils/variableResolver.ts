@@ -7,63 +7,135 @@
  * - User Variables: {{variableName}} - User-defined, editable
  * - System Variables: {{q.fieldName}} - System-managed, read-only
  * - Chained Variables: {{rowId.fieldName}} - References other prompts
- * 
- * System Variable Prefixes (q.):
- * - q.response - Last AI response content
- * - q.model - Model used for last call
- * - q.tokens_input - Input tokens used
- * - q.tokens_output - Output tokens used
- * - q.tokens_total - Total tokens used
- * - q.cost_input - Cost of input tokens (USD)
- * - q.cost_output - Cost of output tokens (USD)
- * - q.cost_total - Total cost (USD)
- * - q.finish_reason - AI finish reason
- * - q.latency_ms - Response latency
- * - q.response_id - AI response ID
- * - q.timestamp - When the call was made
- * - q.parent.fieldName - Parent prompt fields
- * - q.child[index].fieldName - Child prompt fields
- * - q.meta.fieldName - Additional metadata
  */
 
-// Regex patterns for different variable types
+// ============= Types =============
+
+export interface ExtractedVariable {
+  name: string;
+  type: 'user' | 'system' | 'chained';
+  fullMatch: string;
+}
+
+export interface ParsedChainedVariable {
+  promptId: string;
+  fieldName: string;
+}
+
+export interface ParsedSystemVariable {
+  category: string;
+  path: string[];
+}
+
+export interface VariableValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+export interface SystemVariablesResult {
+  response: string;
+  model: string;
+  tokens_input: number;
+  tokens_output: number;
+  tokens_total: number;
+  cost_input: string;
+  cost_output: string;
+  cost_total: string;
+  finish_reason: string;
+  latency_ms: number;
+  response_id: string;
+  timestamp: string;
+  meta: {
+    system_fingerprint: string;
+    object: string;
+  };
+}
+
+export interface PromptData {
+  row_id?: string;
+  prompt_name?: string;
+  extracted_variables?: Record<string, unknown>;
+  output_response?: string;
+  user_prompt_result?: string;
+  [key: string]: unknown;
+}
+
+export interface ResolutionContext {
+  userVariables?: Record<string, string>;
+  systemVariables?: Record<string, unknown>;
+  promptData?: PromptData;
+  parentData?: PromptData | null;
+  childrenData?: PromptData[];
+  siblingsData?: PromptData[];
+  fetchPromptById?: ((id: string, context: { owner_id?: string | null; root_prompt_row_id?: string | null }) => Promise<PromptData | null>) | null;
+  fetchPromptByName?: ((name: string, context: { owner_id?: string | null; root_prompt_row_id?: string | null }) => Promise<PromptData | null>) | null;
+  owner_id?: string | null;
+  root_prompt_row_id?: string | null;
+}
+
+export interface PricingInfo {
+  cost_per_1k_input_tokens?: number;
+  cost_per_1k_output_tokens?: number;
+}
+
+// ============= Constants =============
+
 const VARIABLE_PATTERN = /\{\{([^}]+)\}\}/g;
 const SYSTEM_VARIABLE_PREFIX = 'q.';
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Named variable pattern: q.nodename.keypath (access by prompt name, not UUID)
 const NAMED_VARIABLE_PATTERN = /^q\.([^.]+)\.(.+)$/;
-// q.ref[UUID].field pattern for prompt references
 const QREF_PATTERN = /^q\.ref\[([a-f0-9-]{36})\]\.([a-z_]+)$/i;
-// Allowed fields for q.ref resolution (matches REFERENCE_FIELDS in PromptReferencePicker)
 const QREF_ALLOWED_FIELDS = ['output_response', 'user_prompt_result', 'input_admin_prompt', 'input_user_prompt', 'prompt_name'];
+
+// ============= Helper Functions =============
+
+/**
+ * Get nested value from object using dot notation path
+ */
+const getNestedValue = (obj: unknown, path: string): unknown => {
+  if (!path || !obj || typeof obj !== 'object') return undefined;
+  
+  const keys = path.split('.');
+  let value: unknown = obj;
+  
+  for (const key of keys) {
+    if (value === null || value === undefined) return undefined;
+    
+    if (Array.isArray(value) && /^\d+$/.test(key)) {
+      value = value[parseInt(key, 10)];
+    } else if (typeof value === 'object') {
+      value = (value as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  
+  return value;
+};
+
+// ============= Variable Extraction =============
 
 /**
  * Extract all variables from a text string
- * @param {string} text - Text to extract variables from
- * @returns {Array<{name: string, type: 'user' | 'system' | 'chained', fullMatch: string}>}
  */
-export const extractVariables = (text) => {
+export const extractVariables = (text: string): ExtractedVariable[] => {
   if (!text || typeof text !== 'string') return [];
   
-  const variables = [];
+  const variables: ExtractedVariable[] = [];
   const matches = text.matchAll(VARIABLE_PATTERN);
   
   for (const match of matches) {
     const variableName = match[1].trim();
     const fullMatch = match[0];
     
-    let type = 'user';
+    let type: 'user' | 'system' | 'chained' = 'user';
     if (variableName.startsWith(SYSTEM_VARIABLE_PREFIX)) {
       type = 'system';
     } else if (variableName.includes('.') && UUID_PATTERN.test(variableName.split('.')[0])) {
       type = 'chained';
     }
     
-    variables.push({
-      name: variableName,
-      type,
-      fullMatch,
-    });
+    variables.push({ name: variableName, type, fullMatch });
   }
   
   return variables;
@@ -71,19 +143,15 @@ export const extractVariables = (text) => {
 
 /**
  * Check if a variable name is a system variable (read-only)
- * @param {string} variableName - Variable name to check
- * @returns {boolean}
  */
-export const isSystemVariable = (variableName) => {
+export const isSystemVariable = (variableName: string): boolean => {
   return variableName?.startsWith(SYSTEM_VARIABLE_PREFIX);
 };
 
 /**
  * Check if a variable name is a chained variable
- * @param {string} variableName - Variable name to check
- * @returns {boolean}
  */
-export const isChainedVariable = (variableName) => {
+export const isChainedVariable = (variableName: string): boolean => {
   if (!variableName || variableName.startsWith(SYSTEM_VARIABLE_PREFIX)) return false;
   const parts = variableName.split('.');
   return parts.length >= 2 && UUID_PATTERN.test(parts[0]);
@@ -91,10 +159,8 @@ export const isChainedVariable = (variableName) => {
 
 /**
  * Parse a chained variable into its components
- * @param {string} variableName - Chained variable name
- * @returns {{promptId: string, fieldName: string} | null}
  */
-export const parseChainedVariable = (variableName) => {
+export const parseChainedVariable = (variableName: string): ParsedChainedVariable | null => {
   if (!isChainedVariable(variableName)) return null;
   
   const firstDotIndex = variableName.indexOf('.');
@@ -106,62 +172,28 @@ export const parseChainedVariable = (variableName) => {
 
 /**
  * Parse a system variable into its components
- * @param {string} variableName - System variable name (e.g., "q.parent.input_admin_prompt")
- * @returns {{category: string, path: string[]} | null}
  */
-export const parseSystemVariable = (variableName) => {
+export const parseSystemVariable = (variableName: string): ParsedSystemVariable | null => {
   if (!isSystemVariable(variableName)) return null;
   
   const withoutPrefix = variableName.substring(SYSTEM_VARIABLE_PREFIX.length);
   const parts = withoutPrefix.split('.');
   
   return {
-    category: parts[0], // e.g., 'parent', 'child', 'meta', 'response', etc.
-    path: parts.slice(1), // remaining path parts
+    category: parts[0],
+    path: parts.slice(1),
   };
 };
 
-/**
- * Get nested value from object using dot notation path
- * e.g., getNestedValue({ data: { items: [1,2,3] } }, 'data.items') => [1,2,3]
- */
-const getNestedValue = (obj, path) => {
-  if (!path || !obj) return undefined;
-  
-  const keys = path.split('.');
-  let value = obj;
-  
-  for (const key of keys) {
-    if (value === null || value === undefined) return undefined;
-    
-    // Handle array index access
-    if (Array.isArray(value) && /^\d+$/.test(key)) {
-      value = value[parseInt(key, 10)];
-    } else {
-      value = value[key];
-    }
-  }
-  
-  return value;
-};
+// ============= Variable Resolution =============
 
 /**
  * Resolve a single variable value
- * @param {string} variableName - Variable name to resolve
- * @param {Object} context - Resolution context containing:
- *   - userVariables: Map of user variable values
- *   - systemVariables: System variables from last_ai_call_metadata
- *   - promptData: Current prompt data
- *   - parentData: Parent prompt data
- *   - childrenData: Array of child prompts
- *   - siblingsData: Array of sibling prompts (for named variable access)
- *   - fetchPromptById: Async function to fetch prompt by ID (should accept owner_id context)
- *   - fetchPromptByName: Async function to fetch prompt by name (should accept owner_id context)
- *   - owner_id: Current user's ID for security filtering
- *   - root_prompt_row_id: Current prompt family root for scoping
- * @returns {Promise<string>}
  */
-export const resolveVariable = async (variableName, context = {}) => {
+export const resolveVariable = async (
+  variableName: string,
+  context: ResolutionContext = {}
+): Promise<string> => {
   const {
     userVariables = {},
     systemVariables = {},
@@ -171,8 +203,8 @@ export const resolveVariable = async (variableName, context = {}) => {
     siblingsData = [],
     fetchPromptById = null,
     fetchPromptByName = null,
-    owner_id = null,           // SECURITY: Owner context for filtering
-    root_prompt_row_id = null, // SECURITY: Family scope for filtering
+    owner_id = null,
+    root_prompt_row_id = null,
   } = context;
   
   // System variables (q.*)
@@ -182,44 +214,39 @@ export const resolveVariable = async (variableName, context = {}) => {
     
     const { category, path } = parsed;
     
-    // Check for q.ref[UUID].field pattern FIRST (before named variable logic)
+    // Check for q.ref[UUID].field pattern FIRST
     const qrefMatch = variableName.match(QREF_PATTERN);
     if (qrefMatch) {
       const [, promptId, field] = qrefMatch;
       
-      // Only allow whitelisted fields for security
       if (!QREF_ALLOWED_FIELDS.includes(field)) {
         console.warn(`q.ref: Field "${field}" not in allowed list`);
         return `{{${variableName}}}`;
       }
       
-      // Check if it's the parent
+      // Check parent
       if (parentData && parentData.row_id === promptId) {
-        return parentData[field] ?? `{{${variableName}}}`;
+        return (parentData[field] as string) ?? `{{${variableName}}}`;
       }
       
       // Check children
       const childMatch = childrenData.find(c => c.row_id === promptId);
       if (childMatch) {
-        return childMatch[field] ?? `{{${variableName}}}`;
+        return (childMatch[field] as string) ?? `{{${variableName}}}`;
       }
       
       // Check siblings
       const siblingMatch = siblingsData.find(s => s.row_id === promptId);
       if (siblingMatch) {
-        return siblingMatch[field] ?? `{{${variableName}}}`;
+        return (siblingMatch[field] as string) ?? `{{${variableName}}}`;
       }
       
-      // Fetch from database if function provided
-      // SECURITY: Pass owner_id context for filtering
+      // Fetch from database
       if (fetchPromptById) {
         try {
-          const prompt = await fetchPromptById(promptId, {
-            owner_id,
-            root_prompt_row_id,
-          });
+          const prompt = await fetchPromptById(promptId, { owner_id, root_prompt_row_id });
           if (prompt) {
-            return prompt[field] ?? `{{${variableName}}}`;
+            return (prompt[field] as string) ?? `{{${variableName}}}`;
           }
           return '[Deleted Reference]';
         } catch (e) {
@@ -230,18 +257,16 @@ export const resolveVariable = async (variableName, context = {}) => {
       return `{{${variableName}}}`;
     }
     
-    // Check for named variable pattern: q.nodename.keypath
+    // Check for named variable pattern
     const namedMatch = variableName.match(NAMED_VARIABLE_PATTERN);
     if (namedMatch) {
       const [, nodeName, keyPath] = namedMatch;
       
-      // Skip reserved categories
       const reservedCategories = ['parent', 'child', 'meta', 'response', 'model', 'tokens_input', 
         'tokens_output', 'tokens_total', 'cost_input', 'cost_output', 'cost_total', 
         'finish_reason', 'latency_ms', 'response_id', 'timestamp', 'previous', 'today', 'user'];
       
       if (!reservedCategories.includes(nodeName.toLowerCase())) {
-        // Search siblings for matching node name
         const sibling = siblingsData.find(s => 
           s.prompt_name?.toLowerCase() === nodeName.toLowerCase()
         );
@@ -253,7 +278,6 @@ export const resolveVariable = async (variableName, context = {}) => {
           }
         }
         
-        // Check parent
         if (parentData?.prompt_name?.toLowerCase() === nodeName.toLowerCase()) {
           if (parentData.extracted_variables) {
             const value = getNestedValue(parentData.extracted_variables, keyPath);
@@ -263,14 +287,9 @@ export const resolveVariable = async (variableName, context = {}) => {
           }
         }
         
-        // Try to fetch by name if function provided
-        // SECURITY: Pass owner_id context for filtering
         if (fetchPromptByName) {
           try {
-            const prompt = await fetchPromptByName(nodeName, {
-              owner_id,
-              root_prompt_row_id,
-            });
+            const prompt = await fetchPromptByName(nodeName, { owner_id, root_prompt_row_id });
             if (prompt?.extracted_variables) {
               const value = getNestedValue(prompt.extracted_variables, keyPath);
               if (value !== undefined) {
@@ -282,88 +301,85 @@ export const resolveVariable = async (variableName, context = {}) => {
           }
         }
         
-        // Return unresolved if not found
         return `{{${variableName}}}`;
       }
     }
     
-    // Direct system variables (q.response, q.model, etc.)
+    // Direct system variables
     if (path.length === 0) {
-      return systemVariables[category] ?? `{{${variableName}}}`;
+      const sysVal = systemVariables[category];
+      return sysVal !== undefined ? String(sysVal) : `{{${variableName}}}`;
     }
     
-    // Parent references (q.parent.fieldName)
+    // Parent references
     if (category === 'parent' && parentData) {
       const fieldName = path.join('.');
-      // Check extracted_variables first for action node data
       if (parentData.extracted_variables) {
         const value = getNestedValue(parentData.extracted_variables, fieldName);
         if (value !== undefined) {
           return typeof value === 'object' ? JSON.stringify(value) : String(value);
         }
       }
-      return parentData[fieldName] ?? `{{${variableName}}}`;
+      const directVal = parentData[fieldName];
+      return directVal !== undefined ? String(directVal) : `{{${variableName}}}`;
     }
     
-    // Child references (q.child[0].fieldName)
+    // Child references
     if (category.startsWith('child')) {
       const indexMatch = category.match(/child\[(\d+)\]/);
       if (indexMatch) {
         const index = parseInt(indexMatch[1], 10);
         if (childrenData[index]) {
           const fieldName = path.join('.');
-          // Check extracted_variables first
           if (childrenData[index].extracted_variables) {
             const value = getNestedValue(childrenData[index].extracted_variables, fieldName);
             if (value !== undefined) {
               return typeof value === 'object' ? JSON.stringify(value) : String(value);
             }
           }
-          return childrenData[index][fieldName] ?? `{{${variableName}}}`;
+          const directVal = childrenData[index][fieldName];
+          return directVal !== undefined ? String(directVal) : `{{${variableName}}}`;
         }
       }
     }
     
-    // Meta references (q.meta.*)
+    // Meta references
     if (category === 'meta') {
       const metaKey = path.join('.');
-      return systemVariables.meta?.[metaKey] ?? `{{${variableName}}}`;
+      const metaVal = (systemVariables.meta as Record<string, unknown>)?.[metaKey];
+      return metaVal !== undefined ? String(metaVal) : `{{${variableName}}}`;
     }
     
     return `{{${variableName}}}`;
   }
   
-  // Chained variables (uuid.fieldName)
+  // Chained variables
   if (isChainedVariable(variableName)) {
     const parsed = parseChainedVariable(variableName);
     if (!parsed) return `{{${variableName}}}`;
     
-    // Check if it's the current prompt
     if (parsed.promptId === promptData.row_id) {
-      return promptData[parsed.fieldName] ?? `{{${variableName}}}`;
+      const val = promptData[parsed.fieldName];
+      return val !== undefined ? String(val) : `{{${variableName}}}`;
     }
     
-    // Check if it's the parent
     if (parentData && parsed.promptId === parentData.row_id) {
-      return parentData[parsed.fieldName] ?? `{{${variableName}}}`;
+      const val = parentData[parsed.fieldName];
+      return val !== undefined ? String(val) : `{{${variableName}}}`;
     }
     
-    // Check children
     const childMatch = childrenData.find(c => c.row_id === parsed.promptId);
     if (childMatch) {
-      return childMatch[parsed.fieldName] ?? `{{${variableName}}}`;
+      const val = childMatch[parsed.fieldName];
+      return val !== undefined ? String(val) : `{{${variableName}}}`;
     }
     
-    // Fetch from database if function provided
-    // SECURITY: Pass owner_id context for filtering
     if (fetchPromptById) {
       try {
-        const prompt = await fetchPromptById(parsed.promptId, {
-          owner_id,
-          root_prompt_row_id,
-        });
+        const prompt = await fetchPromptById(parsed.promptId, { owner_id, root_prompt_row_id });
         if (prompt) {
-          return prompt[parsed.fieldName] ?? `{{${variableName}}}`;
+          const val = prompt[parsed.fieldName];
+          return val !== undefined ? String(val) : `{{${variableName}}}`;
         }
       } catch (e) {
         console.error('Error fetching prompt for chained variable:', e);
@@ -379,11 +395,11 @@ export const resolveVariable = async (variableName, context = {}) => {
 
 /**
  * Resolve all variables in a text string
- * @param {string} text - Text containing variables
- * @param {Object} context - Resolution context (see resolveVariable)
- * @returns {Promise<string>}
  */
-export const resolveAllVariables = async (text, context = {}) => {
+export const resolveAllVariables = async (
+  text: string,
+  context: ResolutionContext = {}
+): Promise<string> => {
   if (!text || typeof text !== 'string') return text;
   
   const variables = extractVariables(text);
@@ -391,10 +407,8 @@ export const resolveAllVariables = async (text, context = {}) => {
   
   let result = text;
   
-  // Process all variables
   for (const variable of variables) {
     const resolvedValue = await resolveVariable(variable.name, context);
-    // Only replace if the value was actually resolved (not still a placeholder)
     if (!resolvedValue.startsWith('{{')) {
       result = result.replace(variable.fullMatch, resolvedValue);
     }
@@ -403,14 +417,32 @@ export const resolveAllVariables = async (text, context = {}) => {
   return result;
 };
 
+// ============= System Variables Building =============
+
+interface OpenAIResponse {
+  id?: string;
+  model?: string;
+  system_fingerprint?: string;
+  object?: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  choices?: Array<{
+    message?: { content?: string };
+    finish_reason?: string;
+  }>;
+}
+
 /**
  * Build system variables from AI call response
- * @param {Object} response - OpenAI API response
- * @param {Object} pricing - Pricing info {cost_per_1k_input, cost_per_1k_output}
- * @param {number} latencyMs - Request latency in ms
- * @returns {Object} System variables object
  */
-export const buildSystemVariables = (response, pricing = {}, latencyMs = 0) => {
+export const buildSystemVariables = (
+  response: OpenAIResponse,
+  pricing: PricingInfo = {},
+  latencyMs: number = 0
+): SystemVariablesResult => {
   const usage = response?.usage || {};
   const choice = response?.choices?.[0] || {};
   
@@ -442,12 +474,12 @@ export const buildSystemVariables = (response, pricing = {}, latencyMs = 0) => {
   };
 };
 
+// ============= Utility Functions =============
+
 /**
- * Get all user-defined variable names from text (excludes system and chained)
- * @param {string} text - Text to scan
- * @returns {string[]} Array of user variable names
+ * Get all user-defined variable names from text
  */
-export const getUserVariableNames = (text) => {
+export const getUserVariableNames = (text: string): string[] => {
   return extractVariables(text)
     .filter(v => v.type === 'user')
     .map(v => v.name);
@@ -455,10 +487,8 @@ export const getUserVariableNames = (text) => {
 
 /**
  * Validate a variable name
- * @param {string} name - Variable name to validate
- * @returns {{valid: boolean, error?: string}}
  */
-export const validateVariableName = (name) => {
+export const validateVariableName = (name: string): VariableValidationResult => {
   if (!name || typeof name !== 'string') {
     return { valid: false, error: 'Variable name is required' };
   }
