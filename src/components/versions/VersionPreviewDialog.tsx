@@ -9,11 +9,29 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
+import type { PromptSnapshot, VersionMetadata } from './types';
 
-const VersionPreviewDialog = ({ open, onOpenChange, snapshot, metadata }) => {
+interface VersionPreviewDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  snapshot: PromptSnapshot | null;
+  metadata: VersionMetadata | null;
+}
+
+interface SectionConfig {
+  label: string;
+  field: keyof PromptSnapshot;
+}
+
+const VersionPreviewDialog: React.FC<VersionPreviewDialogProps> = ({ 
+  open, 
+  onOpenChange, 
+  snapshot, 
+  metadata 
+}) => {
   if (!snapshot) return null;
 
-  const sections = [
+  const sections: SectionConfig[] = [
     { label: 'Prompt Name', field: 'prompt_name' },
     { label: 'System Prompt', field: 'input_admin_prompt' },
     { label: 'User Prompt', field: 'input_user_prompt' },

@@ -9,8 +9,23 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import type { VersionInfo } from './types';
 
-const RollbackDialog = ({ open, onOpenChange, version, onRollback, isRollingBack }) => {
+interface RollbackDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  version: VersionInfo | null;
+  onRollback: (createBackup: boolean) => Promise<void>;
+  isRollingBack: boolean;
+}
+
+const RollbackDialog: React.FC<RollbackDialogProps> = ({ 
+  open, 
+  onOpenChange, 
+  version, 
+  onRollback, 
+  isRollingBack 
+}) => {
   const [createBackup, setCreateBackup] = useState(true);
 
   if (!version) return null;
@@ -38,7 +53,7 @@ const RollbackDialog = ({ open, onOpenChange, version, onRollback, isRollingBack
           <Checkbox
             id="createBackup"
             checked={createBackup}
-            onCheckedChange={setCreateBackup}
+            onCheckedChange={(checked) => setCreateBackup(checked === true)}
           />
           <label htmlFor="createBackup" className="text-body-sm text-on-surface cursor-pointer">
             Create backup of current state before rollback

@@ -8,8 +8,14 @@ import CommitDialog from './CommitDialog';
 import RollbackDialog from './RollbackDialog';
 import DiffViewer from './DiffViewer';
 import VersionPreviewDialog from './VersionPreviewDialog';
+import type { VersionInfo, DiffChange, PromptSnapshot, VersionMetadata } from './types';
 
-const VersionHistoryPanel = ({ promptRowId, onClose }) => {
+interface VersionHistoryPanelProps {
+  promptRowId: string;
+  onClose: () => void;
+}
+
+const VersionHistoryPanel: React.FC<VersionHistoryPanelProps> = ({ promptRowId, onClose }) => {
   const {
     versions,
     totalVersions,
@@ -31,24 +37,29 @@ const VersionHistoryPanel = ({ promptRowId, onClose }) => {
   } = usePromptVersions(promptRowId);
   
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
-  const [rollbackTarget, setRollbackTarget] = useState(null);
-  const [diffTarget, setDiffTarget] = useState(null);
+  const [rollbackTarget, setRollbackTarget] = useState<VersionInfo | null>(null);
+  const [diffTarget, setDiffTarget] = useState<VersionInfo | null>(null);
 
-  const handleCommit = async (message, tagName) => {
+  const handleCommit = async (message: string, tagName?: string) => {
     await commit(message, tagName);
     setCommitDialogOpen(false);
   };
 
-  const handleRollback = async (createBackup) => {
+  const handleRollback = async (createBackup: boolean) => {
     if (!rollbackTarget) return;
     await rollback(rollbackTarget.row_id, createBackup);
     setRollbackTarget(null);
   };
 
-  const handleViewDiff = async (version) => {
+  const handleViewDiff = async (version: VersionInfo) => {
     setDiffTarget(version);
     await getDiff(null, version.row_id);
   };
+
+  // Type cast versions from hook
+  const typedVersions = versions as VersionInfo[];
+  const typedDiff = currentDiff as DiffChange[] | null;
+  const typedPreviewData = previewData as { snapshot: PromptSnapshot; metadata: VersionMetadata } | null;
 
   return (
     <TooltipProvider>
@@ -103,12 +114,12 @@ const VersionHistoryPanel = ({ promptRowId, onClose }) => {
               <div className="text-center py-8 text-on-surface-variant text-body-sm">
                 Loading versions...
               </div>
-            ) : versions.length === 0 ? (
+            ) : typedVersions.length === 0 ? (
               <div className="text-center py-8 text-on-surface-variant text-body-sm">
                 No versions yet. Make changes and commit to create your first version.
               </div>
             ) : (
-              versions.map((version) => (
+              typedVersions.map((version) => (
                 <div
                   key={version.row_id}
                   className="bg-surface-container-low rounded-m3-md p-3 space-y-2"
@@ -141,7 +152,7 @@ const VersionHistoryPanel = ({ promptRowId, onClose }) => {
                   )}
 
                   {/* Changed fields */}
-                  {version.fields_changed?.length > 0 && (
+                  {version.fields_changed && version.fields_changed.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {version.fields_changed.slice(0, 3).map((field) => (
                         <span
@@ -243,21 +254,21 @@ const VersionHistoryPanel = ({ promptRowId, onClose }) => {
           isRollingBack={isRollingBack}
         />
 
-        {currentDiff && (
+        {typedDiff && (
           <DiffViewer
-            open={!!currentDiff}
+            open={!!typedDiff}
             onOpenChange={(open) => !open && clearDiff()}
-            changes={currentDiff}
+            changes={typedDiff}
             versionInfo={diffTarget}
           />
         )}
 
-        {previewData && (
+        {typedPreviewData && (
           <VersionPreviewDialog
-            open={!!previewData}
+            open={!!typedPreviewData}
             onOpenChange={(open) => !open && clearPreview()}
-            snapshot={previewData.snapshot}
-            metadata={previewData.metadata}
+            snapshot={typedPreviewData.snapshot}
+            metadata={typedPreviewData.metadata}
           />
         )}
       </div>
