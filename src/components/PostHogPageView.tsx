@@ -6,7 +6,7 @@ import { trackPageView } from '@/lib/posthog';
  * Component to track page views in SPA
  * Captures route changes and sends to PostHog
  */
-const PostHogPageView = () => {
+const PostHogPageView: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
