@@ -41,8 +41,6 @@ export interface UsePromptFamilyChatReturn {
 
 export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamilyChatReturn => {
   const { removeCall } = useLiveApiDashboard();
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const dashboardCallIdRef = useRef<string | null>(null);
   
   const [rootPromptId, setRootPromptId] = useState<string | null>(null);
   const [sessionModel, setSessionModel] = useState<string | null>(null);
@@ -52,6 +50,18 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   const threadManager = usePromptFamilyThreads(rootPromptId);
   const messageManager = usePromptFamilyChatMessages();
   const streamManager = usePromptFamilyChatStream();
+  
+  // Stable refs for sub-hooks to avoid dependency issues in effects
+  const threadManagerRef = useRef(threadManager);
+  const messageManagerRef = useRef(messageManager);
+  const streamManagerRef = useRef(streamManager);
+  
+  // Keep refs in sync
+  useEffect(() => {
+    threadManagerRef.current = threadManager;
+    messageManagerRef.current = messageManager;
+    streamManagerRef.current = streamManager;
+  });
 
   // Compute root prompt ID by walking up parent chain
   const computeRootPromptId = useCallback(async (pRowId: string): Promise<string> => {
@@ -175,72 +185,33 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     let cancelled = false;
     
     const loadThreadAndMessages = async () => {
-      // Abort any in-flight request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      
-      // Clean up dashboard call
-      if (dashboardCallIdRef.current) {
-        removeCall(dashboardCallIdRef.current);
-        dashboardCallIdRef.current = null;
-      }
+      // Access sub-hooks via refs to avoid dependency issues
+      const tm = threadManagerRef.current;
+      const mm = messageManagerRef.current;
+      const sm = streamManagerRef.current;
       
       // Reset UI state
-      threadManager.setActiveThreadId(null);
-      messageManager.clearMessages();
-      streamManager.resetStreamState();
+      tm.setActiveThreadId(null);
+      mm.clearMessages();
+      sm.resetStreamState();
       
       if (!rootPromptId) {
         return;
       }
       
       try {
-        // Fetch threads
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user || cancelled) return;
+        // Fetch threads using threadManager (populates its own state)
+        await tm.fetchThreads();
         
-        const { data: threadData, error } = await supabase
-          .from('q_threads')
-          .select('*')
-          .eq('root_prompt_row_id', rootPromptId)
-          .eq('owner_id', user.id)
-          .eq('is_active', true)
-          .order('last_message_at', { ascending: false, nullsFirst: false });
+        if (cancelled) return;
         
-        if (error || cancelled) {
-          console.error('Error fetching threads:', error);
-          return;
-        }
-        
-        // Auto-select first thread and fetch messages
-        if (threadData?.length && !cancelled) {
-          const selectedThread = threadData[0];
-          threadManager.setActiveThreadId(selectedThread.row_id);
-          
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session || cancelled) return;
-            
-            const response = await supabase.functions.invoke('thread-manager', {
-              body: {
-                action: 'get_messages',
-                thread_row_id: selectedThread.row_id,
-                limit: 100,
-              }
-            });
-            
-            if (!cancelled && !response.error) {
-              messageManager.setMessages((response.data?.messages || []).map((m: { id: string; role: 'user' | 'assistant'; content: string; created_at?: string }) => ({
-                row_id: m.id,
-                role: m.role,
-                content: m.content,
-                created_at: m.created_at,
-              })));
-            }
-          } catch (err) {
-            console.error('Error fetching messages:', err);
+        // After fetchThreads, check if a thread was auto-selected
+        const activeId = tm.activeThreadId;
+        if (activeId) {
+          // Fetch messages for the auto-selected thread
+          const messages = await tm.switchThread(activeId);
+          if (!cancelled) {
+            mm.setMessages(messages);
           }
         }
       } catch (error) {
@@ -251,7 +222,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     loadThreadAndMessages();
     
     return () => { cancelled = true; };
-  }, [rootPromptId, removeCall, threadManager, messageManager, streamManager]);
+  }, [rootPromptId]);
 
   return {
     // Thread state

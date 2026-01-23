@@ -178,12 +178,8 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
       let responseId: string | null = null;
       const usageData: UsageData = { input_tokens: 0, output_tokens: 0 };
 
-      // Parse state for SSE parser
-      const parseState = {
-        fullContent: '',
-        responseId: null as string | null,
-        usageData: { input_tokens: 0, output_tokens: 0 }
-      };
+      // Minimal state object for SSE parser (not used, callbacks handle state)
+      const parseState = { fullContent: '', responseId: null as string | null, usageData: { input_tokens: 0, output_tokens: 0 } };
 
       if (reader) {
         while (true) {
@@ -358,7 +354,7 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
       
       return null;
     }
-  }, [registerCall, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall, resetStreamState, toolActivity]);
+  }, [registerCall, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall, resetStreamState]);
 
   return {
     isStreaming,
