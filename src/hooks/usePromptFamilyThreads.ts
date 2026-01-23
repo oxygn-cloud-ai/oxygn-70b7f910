@@ -91,7 +91,7 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       
       const newThread = response.data?.thread as ChatThread | undefined;
       if (newThread) {
-        setThreads([newThread]);
+        setThreads(prev => [newThread, ...prev]);
         setActiveThreadId(newThread.row_id);
       }
       
