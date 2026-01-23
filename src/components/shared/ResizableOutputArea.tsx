@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Play, Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2,
+  Copy, Check, Clock, Loader2, Octagon, Bot, CheckCircle2, Link2,
   SwitchCamera
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -255,39 +255,24 @@ const ResizableOutputArea = ({
         
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
-          {onRegenerate && (
-            <>
-              {isRegenerating && runTime && (
-                <span className="text-[10px] text-primary font-medium tabular-nums">
-                  {runTime}
-                </span>
-              )}
-              {isRegenerating && onCancel && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      onClick={onCancel}
-                      className="w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] text-red-500 hover:text-red-600"
-                    >
-                      <Octagon className="h-3.5 w-3.5 fill-current" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Stop</TooltipContent>
-                </Tooltip>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={onRegenerate}
-                    disabled={isRegenerating}
-                    className={`w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] ${isRegenerating ? 'text-primary' : 'text-on-surface-variant'}`}
-                  >
-                    {isRegenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">{isRegenerating ? 'Running...' : 'Play'}</TooltipContent>
-              </Tooltip>
-            </>
+          {/* Run time and cancel shown when regenerating */}
+          {isRegenerating && runTime && (
+            <span className="text-[10px] text-primary font-medium tabular-nums">
+              {runTime}
+            </span>
+          )}
+          {isRegenerating && onCancel && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button 
+                  onClick={onCancel}
+                  className="w-6 h-6 flex items-center justify-center rounded-sm hover:bg-on-surface/[0.08] text-red-500 hover:text-red-600"
+                >
+                  <Octagon className="h-3.5 w-3.5 fill-current" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="text-[10px]">Stop</TooltipContent>
+            </Tooltip>
           )}
           {/* JSON/Text format toggle - only show when content is JSON */}
           {isJsonContent && (
