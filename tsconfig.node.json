@@ -1,17 +1,10 @@
 {
   "compilerOptions": {
     "composite": true,
-    "tsBuildInfoFile": "./.tsbuild/node/tsconfig.node.tsbuildinfo",
-    "declaration": true,
-    "declarationMap": true,
-    "emitDeclarationOnly": true,
-    "outDir": "./.tsbuild/node",
-
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "types": ["node"],
     "strict": true
   },
   "include": ["vite.config.ts"]

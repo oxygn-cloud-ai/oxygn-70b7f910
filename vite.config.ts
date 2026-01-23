@@ -29,6 +29,20 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
   optimizeDeps: {
     include: ["react", "react-dom"],
   },
+  esbuild: {
+    tsconfigRaw: {
+      compilerOptions: {
+        target: "ES2020",
+        useDefineForClassFields: true,
+        strict: true,
+        jsx: "react-jsx" as const,
+        skipLibCheck: true,
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true,
+        isolatedModules: true,
+      },
+    },
+  },
   build: {
     commonjsOptions: {
       include: [/node_modules/],
