@@ -1537,6 +1537,52 @@ const PromptsContent = ({
             onChange={handleFileUpload} 
             disabled={isUploading} 
           />
+
+          {/* Play button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => !isManusModel && onRunPrompt?.(selectedPromptId)}
+                disabled={isRunningPrompt || isManusModel}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full ${
+                  isRunningPrompt ? 'text-primary hover:bg-surface-container' : 
+                  isManusModel ? 'text-on-surface-variant/40 cursor-not-allowed' : 
+                  'text-on-surface-variant hover:bg-surface-container'
+                }`}
+              >
+                {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">
+              {isRunningPrompt ? 'Running...' : 
+               isManusModel ? 'Manus models require cascade execution' : 
+               'Play'}
+            </TooltipContent>
+          </Tooltip>
+
+          {/* Cascade button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => onRunCascade?.(selectedPromptId)}
+                disabled={isRunningCascade || !selectedPromptHasChildren}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${isRunningCascade ? 'text-primary' : !selectedPromptHasChildren ? 'text-on-surface-variant/40' : 'text-on-surface-variant'}`}
+              >
+                {isRunningCascade ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">{isRunningCascade ? 'Running Cascade...' : !selectedPromptHasChildren ? 'No children to cascade' : 'Run Cascade'}</TooltipContent>
+          </Tooltip>
+
+          {/* Export button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={onExport} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
+                <Download className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Export</TooltipContent>
+          </Tooltip>
           
           {onToggleReadingPane && (
             <Tooltip>
@@ -1581,48 +1627,6 @@ const PromptsContent = ({
             isActive={activeTab === 'attachments'} 
             onClick={() => setActiveTab('attachments')} 
           />
-        </div>
-        <div className="flex items-center gap-0.5 ml-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={() => !isManusModel && onRunPrompt?.(selectedPromptId)}
-                disabled={isRunningPrompt || isManusModel}
-                className={`w-8 h-8 flex items-center justify-center rounded-m3-full ${
-                  isRunningPrompt ? 'text-primary hover:bg-surface-container' : 
-                  isManusModel ? 'text-on-surface-variant/40 cursor-not-allowed' : 
-                  'text-on-surface-variant hover:bg-surface-container'
-                }`}
-              >
-                {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">
-              {isRunningPrompt ? 'Running...' : 
-               isManusModel ? 'Manus models require cascade execution' : 
-               'Play'}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button 
-                onClick={() => onRunCascade?.(selectedPromptId)}
-                disabled={isRunningCascade || !selectedPromptHasChildren}
-                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${isRunningCascade ? 'text-primary' : !selectedPromptHasChildren ? 'text-on-surface-variant/40' : 'text-on-surface-variant'}`}
-              >
-                {isRunningCascade ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isRunningCascade ? 'Running Cascade...' : !selectedPromptHasChildren ? 'No children to cascade' : 'Run Cascade'}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button onClick={onExport} className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]">
-                <Download className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="text-[10px]">Export</TooltipContent>
-          </Tooltip>
         </div>
       </div>
 
