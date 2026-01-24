@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getDecryptedCredential } from "../_shared/credentials.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 interface ModelData {
   model_id: string;
@@ -201,8 +201,11 @@ async function fetchGeminiModels(authHeader: string): Promise<ModelData[]> {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {
@@ -240,6 +243,8 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
+    const origin = req.headers.get('Origin');
+    const corsHeaders = getCorsHeaders(origin);
     console.error('[fetch-provider-models] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(

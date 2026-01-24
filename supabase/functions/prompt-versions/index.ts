@@ -1,10 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { TABLES } from '../_shared/tables.ts';
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
-// Helper: Create response with CORS headers
-function jsonResponse(data: any, status = 200) {
+// Helper: Create response with CORS headers (uses dynamic origin)
+function jsonResponse(data: any, status = 200, corsHeaders: Record<string, string>) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }

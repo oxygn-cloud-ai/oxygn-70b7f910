@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 /**
  * Phase 0: Test Edge Function to Verify OpenAI DELETE API Behavior
@@ -25,9 +25,12 @@ interface TestResult {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   const results: TestResult[] = [];
@@ -292,6 +295,8 @@ serve(async (req) => {
     });
 
   } catch (err) {
+    const origin = req.headers.get('Origin');
+    const corsHeaders = getCorsHeaders(origin);
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error('Test failed:', errorMessage);
     return new Response(JSON.stringify({

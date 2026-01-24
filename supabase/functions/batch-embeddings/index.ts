@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getCorsHeaders, handleCorsOptions, corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -86,8 +86,11 @@ async function generateEmbedding(text: string, openAIApiKey: string): Promise<nu
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   // Validate user authentication, domain, and admin status

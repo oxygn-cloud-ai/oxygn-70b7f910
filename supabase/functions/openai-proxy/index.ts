@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 import { validateOpenAIProxyInput } from "../_shared/validation.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -62,9 +62,12 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {

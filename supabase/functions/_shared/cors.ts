@@ -99,13 +99,5 @@ export function handleCorsOptions(corsHeaders: Record<string, string>): Response
   });
 }
 
-/**
- * Legacy compatibility: Static CORS headers for gradual migration.
- * These use dynamic origin detection via a proxy pattern.
- * 
- * @deprecated Use getCorsHeaders(origin) for proper CORS security
- */
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Legacy corsHeaders export removed - all functions must use getCorsHeaders(origin)
+// See module documentation for migration pattern

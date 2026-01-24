@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { validateExecutionManagerInput } from "../_shared/validation.ts";
-import { getCorsHeaders, handleCorsOptions, corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 /**
  * Execution Manager Edge Function
