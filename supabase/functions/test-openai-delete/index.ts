@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Phase 0: Test Edge Function to Verify OpenAI DELETE API Behavior
@@ -15,11 +16,6 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
  * 5. Verify if the response is removed from conversation items
  * 6. Return results with clear verdict
  */
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 interface TestResult {
   step: string;

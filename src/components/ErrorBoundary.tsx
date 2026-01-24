@@ -1,21 +1,46 @@
-import { Component } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { trackException } from '@/lib/posthog';
+
+/**
+ * Props for ErrorBoundary component
+ */
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+  message?: string;
+}
+
+/**
+ * State for ErrorBoundary component
+ */
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
+
+// Explicitly whitelisted trusted origins for postMessage - never use dynamic referrer
+const TRUSTED_ORIGINS = [
+  'https://lovable.dev',
+  'https://www.lovable.dev',
+  'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
+] as const;
 
 /**
  * Error Boundary component to catch React rendering errors.
  * Prevents the entire app from crashing when a component fails.
  */
-class ErrorBoundary extends Component {
-  constructor(props) {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
     
     // Log to console for debugging
@@ -29,21 +54,24 @@ class ErrorBoundary extends Component {
     });
     
     // Report to parent window if in iframe (Lovable's error reporting)
-    // Use specific origins for security, fallback to same-origin check
+    // Only post to explicitly trusted origins - never use dynamic referrer
     try {
       if (window.parent && window.parent !== window) {
-        // Only send to known trusted origins or same origin
-        const trustedOrigins = ['https://lovable.dev', 'https://www.lovable.dev'];
         const currentOrigin = window.location.origin;
-        const targetOrigin = trustedOrigins.includes(currentOrigin) ? currentOrigin : 
-          (document.referrer ? new URL(document.referrer).origin : currentOrigin);
         
-        // Only post if target is trusted or same origin
-        if (trustedOrigins.includes(targetOrigin) || targetOrigin === currentOrigin) {
+        // Find matching trusted origin (current origin must start with one of them)
+        // This prevents any attacker-controlled referrer from receiving error data
+        const targetOrigin = TRUSTED_ORIGINS.find(origin => 
+          currentOrigin === origin || currentOrigin.startsWith(origin)
+        ) || null;
+        
+        // Only post if we found a matching trusted origin
+        if (targetOrigin) {
           window.parent.postMessage({
             type: 'error',
             message: error?.message || 'Unknown error',
-            stack: error?.stack,
+            // Only include stack in dev mode to prevent credential exposure
+            ...(import.meta.env.DEV && { stack: error?.stack }),
             componentStack: errorInfo?.componentStack,
           }, targetOrigin);
         }
@@ -53,11 +81,11 @@ class ErrorBoundary extends Component {
     }
   }
 
-  handleRetry = () => {
+  handleRetry = (): void => {
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       // Custom fallback UI or default
       if (this.props.fallback) {
