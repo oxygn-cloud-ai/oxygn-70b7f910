@@ -1,309 +1,165 @@
 
-# Critical Security Remediation Plan
+# Security Remediation - Audit Findings Resolution Plan
 
-## Assessment Summary
+## Executive Summary
 
-The uploaded security audit document identifies 12 critical, 15 high, 11 medium, and 8 low severity issues. After verifying the current codebase state, I have categorized findings into three groups:
-
-1. **Already Remediated** - Issues that have been fixed in subsequent migrations
-2. **Still Critical** - Issues that require immediate attention
-3. **Lower Priority** - Issues that can be addressed in later phases
-
----
-
-## Already Remediated (Verification Complete)
-
-### 1. Public RLS Policies (Issue 1.7)
-- **Status**: FIXED
-- **Evidence**: The `cyg_*` tables (cyg_prompts, cyg_models, etc.) have been dropped. Database query returns empty set. New `q_*` tables use domain-restricted and ownership-based RLS policies.
-- **No action required**
-
-### 2. Input Validation Layer (Issue 1.5)
-- **Status**: PARTIALLY FIXED
-- **Evidence**: `supabase/functions/_shared/validation.ts` exists with comprehensive validation for:
-  - Thread Manager (UUID, action, limits)
-  - Credentials Manager (service patterns, key limits)
-  - Confluence Manager (all actions validated)
-  - OpenAI Proxy (message structure, temperature ranges, token limits)
-  - Studio Chat (UUID, message length 100KB limit)
-- **Remaining gap**: `conversation-run` does not call a central validator
+The adversarial audit revealed a **critical failure**: the CORS hardening was NOT applied to any edge function. While the utility was created correctly, all 21+ edge functions still use wildcard `Access-Control-Allow-Origin: *`, leaving APIs vulnerable.
 
 ---
 
 ## Critical Issues Requiring Immediate Fix
 
-### Issue 1: PostHog Session Recording Without Input Masking (Audit 1.8)
-**Severity**: CRITICAL
-**File**: `src/lib/posthog.ts:25-28`
+### Issue 1: CORS Wildcard Still Active (CRITICAL)
 
-**Current Code**:
+**Current State**: All edge functions use:
 ```typescript
-session_recording: {
-  maskAllInputs: false,  // CAPTURES ALL USER INPUT
-  maskTextSelector: null, // NO MASKING
-},
+import { corsHeaders } from "../_shared/cors.ts"; // Uses '*'
 ```
 
-**Risk**: Captures passwords, API keys, sensitive prompts in PostHog recordings
-
-**Fix**:
+**Required State**: All edge functions must use:
 ```typescript
-session_recording: {
-  maskAllInputs: true,
-  maskTextSelector: '[data-ph-mask], input[type="password"], .sensitive-input',
-},
+const origin = req.headers.get('Origin');
+const corsHeaders = getCorsHeaders(origin);
 ```
+
+**Affected Files** (21 functions):
+- batch-embeddings, confluence-manager, conversation-cancel
+- conversation-manager, conversation-run, credentials-manager
+- execution-manager, fetch-provider-models, generate-embedding
+- github-release, manus-key-validate, manus-task-create
+- manus-webhook-register, openai-billing, openai-proxy
+- prompt-family-chat, prompt-versions, resource-health
+- studio-chat, test-openai-delete, thread-manager
 
 ---
 
-### Issue 2: Credential Exposure in Error Messages (Audit 1.2)
-**Severity**: CRITICAL
-**File**: `src/services/errorHandling.ts:9-15`
+### Issue 2: ErrorBoundary Origin Prefix Attack (HIGH)
 
-**Current Code**:
+**Current Code** (line 64-66):
 ```typescript
-details: JSON.stringify({ 
-  operation, 
-  error: error?.message, 
-  code: error?.code, 
-  stack: error?.stack  // EXPOSES STACK TRACES IN UI
-}, null, 2),
+currentOrigin === origin || currentOrigin.startsWith(origin)
 ```
 
-**Risk**: Stack traces may contain file paths, internal variable names, or sensitive context
+**Risk**: `https://lovable.dev.attacker.com` would match `https://lovable.dev`
 
-**Fix**:
+**Fix**: Remove `startsWith` and use exact match only.
+
+**Missing Domains**: Add `qonsol.app` to trusted origins.
+
+---
+
+### Issue 3: Legacy CORS Export (CRITICAL)
+
+**Current Code** (cors.ts lines 108-111):
 ```typescript
-// Only include stack in development mode
-const errorDetails = {
-  operation,
-  error: error?.message,
-  code: error?.code,
-  ...(import.meta.env.DEV && { stack: error?.stack }),
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  ...
 };
 ```
 
----
-
-### Issue 3: Wildcard CORS Headers (Audit 1.3)
-**Severity**: HIGH
-**Files**: ALL edge functions (23 functions)
-
-**Current Pattern** (in every edge function):
-```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',  // ALLOWS ANY ORIGIN
-```
-
-**Risk**: Any website can call these authenticated APIs
-
-**Fix**: Create shared CORS utility
-```typescript
-// supabase/functions/_shared/cors.ts
-const ALLOWED_ORIGINS = [
-  'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
-  'https://qonsol.app',
-  'http://localhost:8080', // Dev only
-];
-
-export function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) 
-    ? origin 
-    : ALLOWED_ORIGINS[0];
-    
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Credentials': 'true',
-  };
-}
-```
-
----
-
-### Issue 4: Missing Environment Variable Validation (Audit 1.1)
-**Severity**: CRITICAL
-**File**: `src/integrations/supabase/client.ts` (AUTO-GENERATED - CANNOT MODIFY)
-
-**Assessment**: This file is auto-generated by Lovable Cloud and cannot be edited. The VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are managed by the platform infrastructure.
-
-**Alternative Mitigation**: Add validation in app initialization
-```typescript
-// src/main.tsx - Add before rendering
-const requiredEnvVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'];
-const missing = requiredEnvVars.filter(v => !import.meta.env[v]);
-if (missing.length > 0) {
-  throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-}
-```
-
----
-
-### Issue 5: Unvalidated postMessage Target Origin (Audit 1.4)
-**Severity**: HIGH
-**File**: `src/components/ErrorBoundary.tsx:36-49`
-
-**Current Logic**:
-```typescript
-const targetOrigin = trustedOrigins.includes(currentOrigin) ? currentOrigin : 
-  (document.referrer ? new URL(document.referrer).origin : currentOrigin);
-```
-
-**Risk**: If referrer is malicious, error data goes to attacker
-
-**Fix**:
-```typescript
-// Only post to explicitly trusted origins, never dynamic referrer
-const targetOrigin = trustedOrigins.find(origin => 
-  window.location.href.startsWith(origin)
-) || null;
-
-if (targetOrigin) {
-  window.parent.postMessage({ ... }, targetOrigin);
-}
-// If no trusted origin match, skip postMessage entirely
-```
-
----
-
-### Issue 6: TypeScript Type Safety - Missing Prop Types (Audit 3.2)
-**Severity**: HIGH
-**Files**: 
-- `src/contexts/AuthContext.tsx:10` - `children` untyped
-- `src/components/ProtectedRoute.tsx:5` - `children` untyped
-- `src/components/ErrorBoundary.tsx:9` - `props` untyped
-
-**Fix for AuthContext.tsx**:
-```typescript
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
-
-export const AuthProvider = ({ children }: AuthProviderProps) => {
-```
-
-**Fix for ProtectedRoute.tsx**:
-```typescript
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-```
-
-**Fix for ErrorBoundary.tsx**:
-```typescript
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-  message?: string;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-  errorInfo: React.ErrorInfo | null;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-```
-
----
-
-### Issue 7: Dual Authentication Systems (Audit 2.1)
-**Severity**: MEDIUM
-**Files**: 
-- `src/contexts/AuthContext.tsx` (ACTIVE - used in App.tsx)
-- `src/integrations/supabase/auth.tsx` (UNUSED)
-
-**Fix**: Delete the unused duplicate
-```
-DELETE: src/integrations/supabase/auth.tsx
-```
+**Fix**: Remove this export entirely to force all functions to use `getCorsHeaders(origin)`.
 
 ---
 
 ## Implementation Order
 
-### Phase 1: Immediate Security Fixes (Day 1)
+### Step 1: Update cors.ts Utility
+- Remove legacy `corsHeaders` export (lines 102-111)
+- Add `qonsol.app` domains to `ALLOWED_ORIGINS`
 
-| Priority | Issue | File | Effort |
-|----------|-------|------|--------|
-| P0 | PostHog input masking | `src/lib/posthog.ts` | 15 min |
-| P0 | Error stack exposure | `src/services/errorHandling.ts` | 15 min |
-| P0 | postMessage origin | `src/components/ErrorBoundary.tsx` | 30 min |
-| P0 | Env validation | `src/main.tsx` | 15 min |
+### Step 2: Update All 21 Edge Functions
+For each function:
+1. Get origin from request: `const origin = req.headers.get('Origin');`
+2. Generate dynamic headers: `const corsHeaders = getCorsHeaders(origin);`
+3. Use in OPTIONS handler: `return handleCorsOptions(corsHeaders);`
+4. Use in all responses: `headers: { ...corsHeaders, 'Content-Type': 'application/json' }`
 
-### Phase 2: Type Safety Fixes (Day 2)
+### Step 3: Fix ErrorBoundary
+- Remove `startsWith` from origin matching
+- Add `qonsol.app` production domains to trusted list
 
-| Priority | Issue | Files | Effort |
-|----------|-------|-------|--------|
-| P1 | AuthContext types | `src/contexts/AuthContext.tsx` | 30 min |
-| P1 | ProtectedRoute types | `src/components/ProtectedRoute.tsx` | 15 min |
-| P1 | ErrorBoundary types | `src/components/ErrorBoundary.tsx` | 30 min |
-
-### Phase 3: CORS Hardening (Day 3)
-
-| Priority | Issue | Files | Effort |
-|----------|-------|-------|--------|
-| P1 | Create CORS utility | `supabase/functions/_shared/cors.ts` | 30 min |
-| P1 | Update all 23 edge functions | All functions | 2 hours |
-
-### Phase 4: Cleanup (Day 4)
-
-| Priority | Issue | Files | Effort |
-|----------|-------|-------|--------|
-| P2 | Remove duplicate auth | `src/integrations/supabase/auth.tsx` | 5 min |
-| P2 | Add conversation-run validation | Edge function | 1 hour |
+### Step 4: Documentation Cleanup
+- Fix PostHog comment to reflect actual masking behavior
 
 ---
 
 ## Files to Modify
 
-### New Files
-1. `supabase/functions/_shared/cors.ts` - Shared CORS configuration
-
-### Modified Files
-1. `src/lib/posthog.ts` - Enable input masking
-2. `src/services/errorHandling.ts` - Remove stack from production errors
-3. `src/components/ErrorBoundary.tsx` - Fix postMessage origin + add types
-4. `src/main.tsx` - Add env validation
-5. `src/contexts/AuthContext.tsx` - Add TypeScript types
-6. `src/components/ProtectedRoute.tsx` - Add TypeScript types
-7. All 23 edge functions - Update CORS headers
-
-### Deleted Files
-1. `src/integrations/supabase/auth.tsx` - Unused duplicate
-
----
-
-## Out of Scope (Documented for Future)
-
-The following issues from the audit are NOT addressed in this plan but documented for future phases:
-
-1. **Architectural issues** (MainLayout god component) - Requires major refactoring
-2. **Zero test infrastructure** - Requires new testing strategy
-3. **50+ `any` type usages** - Systematic effort across codebase
-4. **Code splitting / performance** - Optimization phase
-5. **Stale closure issues** - Individual hook audits
+### Modified Files (22):
+1. `supabase/functions/_shared/cors.ts` - Remove legacy export
+2. `src/components/ErrorBoundary.tsx` - Fix origin matching
+3. `src/lib/posthog.ts` - Fix comment
+4. 21 edge function files - Implement dynamic CORS
 
 ---
 
 ## Success Criteria
 
 After implementation:
-- PostHog session recordings mask all input fields
-- Production error messages never include stack traces
-- Edge functions only accept requests from whitelisted origins
-- All React components have proper TypeScript prop types
-- No duplicate authentication providers exist
-- App fails fast with clear message if env vars missing
+- No edge function uses wildcard `*` for CORS
+- All edge functions call `getCorsHeaders(origin)` dynamically
+- ErrorBoundary only matches exact trusted origins
+- `qonsol.app` domains included in both CORS and ErrorBoundary lists
+- Legacy `corsHeaders` export removed from codebase
 
 ---
 
-## Technical Notes
+## Technical Implementation Notes
 
-1. **supabase/client.ts cannot be modified** - It's auto-generated by Lovable Cloud
-2. **CORS changes require function redeployment** - All 23 functions affected
-3. **PostHog masking is client-side** - Does not affect already-recorded sessions
-4. **ErrorBoundary is a class component** - Requires different typing approach than functional components
+### Pattern for Each Edge Function:
+
+```typescript
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+
+serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+  
+  if (req.method === 'OPTIONS') {
+    return handleCorsOptions(corsHeaders);
+  }
+
+  try {
+    // ... handler logic
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});
+```
+
+### Updated ALLOWED_ORIGINS List:
+
+```typescript
+const ALLOWED_ORIGINS: readonly string[] = [
+  // Production
+  'https://qonsol.app',
+  'https://www.qonsol.app',
+  
+  // Lovable preview/deploy URLs
+  'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
+  
+  // Development
+  'http://localhost:8080',
+  'http://localhost:5173',
+  'http://localhost:3000',
+] as const;
+```
+
+### Updated ErrorBoundary TRUSTED_ORIGINS:
+
+```typescript
+const TRUSTED_ORIGINS = [
+  'https://lovable.dev',
+  'https://www.lovable.dev',
+  'https://qonsol.app',
+  'https://www.qonsol.app',
+  'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
+] as const;
+```
