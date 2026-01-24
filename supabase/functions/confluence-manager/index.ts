@@ -1,11 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { TABLES } from "../_shared/tables.ts";
 import { validateConfluenceManagerInput } from "../_shared/validation.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCorsOptions, corsHeaders } from "../_shared/cors.ts";
 
 async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
   const authHeader = req.headers.get('Authorization');

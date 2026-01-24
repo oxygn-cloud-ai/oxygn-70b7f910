@@ -23,8 +23,8 @@ export const initPostHog = () => {
     capture_pageleave: true,
     autocapture: true,
     session_recording: {
-      maskAllInputs: false,
-      maskTextSelector: null,
+      maskAllInputs: true,
+      maskTextSelector: '[data-ph-mask], input[type="password"], .sensitive-input',
     },
     enable_heatmaps: true,
     persistence: 'localStorage',
