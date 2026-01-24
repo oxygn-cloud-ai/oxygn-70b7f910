@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 import { validateStudioChatInput } from "../_shared/validation.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -90,8 +90,11 @@ async function createOpenAIConversation(apiKey: string, metadata?: Record<string
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {

@@ -1,15 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getManusApiKey } from "../_shared/credentials.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 /**
  * Edge function to validate a user's Manus API key without creating a task.
  * Returns key metadata (fingerprint, length, updated_at) but never the actual key.
  */
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {
@@ -161,6 +164,8 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const origin = req.headers.get('Origin');
+    const corsHeaders = getCorsHeaders(origin);
     console.error('[manus-key-validate] Error:', error);
     return new Response(
       JSON.stringify({ 

@@ -25,7 +25,7 @@ import {
   type ToolContext 
 } from "../_shared/tools/index.ts";
 
-import { getCorsHeaders, handleCorsOptions, corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 // Feature flag for gradual rollout - set to 'true' to enable new registry
 const USE_TOOL_REGISTRY = Deno.env.get('USE_TOOL_REGISTRY') === 'true';

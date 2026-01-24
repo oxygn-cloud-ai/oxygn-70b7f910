@@ -1,10 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {
@@ -80,6 +83,8 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const origin = req.headers.get('Origin');
+    const corsHeaders = getCorsHeaders(origin);
     console.error('Error fetching GitHub release:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return new Response(

@@ -7,7 +7,7 @@ let isInitialized = false;
 
 /**
  * Initialize PostHog with EU region configuration
- * Full session recording enabled, no masking
+ * Session recording enabled with input masking for security
  */
 export const initPostHog = () => {
   if (isInitialized || !POSTHOG_API_KEY) {

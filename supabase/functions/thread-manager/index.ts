@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { clearFamilyThread, createOpenAIConversation, fetchConversationHistory } from "../_shared/familyThreads.ts";
 import { validateThreadManagerInput } from "../_shared/validation.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -93,8 +93,11 @@ async function fetchMessagesFromOpenAI(apiKey: string, conversationId: string, l
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {

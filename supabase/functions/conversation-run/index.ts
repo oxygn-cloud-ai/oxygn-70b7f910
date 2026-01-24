@@ -7,7 +7,7 @@ import { getBuiltinTools } from "../_shared/tools.ts";
 import { ERROR_CODES } from "../_shared/errorCodes.ts";
 import { variablesModule } from "../_shared/tools/variables.ts";
 import type { ToolContext } from "../_shared/tools/types.ts";
-import { getCorsHeaders, handleCorsOptions, corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 // Resolve model using DB
 async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {

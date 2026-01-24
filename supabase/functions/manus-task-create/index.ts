@@ -2,11 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getManusApiKey } from "../_shared/credentials.ts";
 import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   try {
@@ -226,6 +229,8 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    const origin = req.headers.get('Origin');
+    const corsHeaders = getCorsHeaders(origin);
     console.error('[manus-task-create] Error:', error);
     return new Response(
       JSON.stringify(buildErrorResponse(ERROR_CODES.INTERNAL_ERROR, error instanceof Error ? error.message : 'Unknown error')),

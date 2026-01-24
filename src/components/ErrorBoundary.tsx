@@ -23,6 +23,8 @@ interface ErrorBoundaryState {
 const TRUSTED_ORIGINS = [
   'https://lovable.dev',
   'https://www.lovable.dev',
+  'https://qonsol.app',
+  'https://www.qonsol.app',
   'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
 ] as const;
 
@@ -59,10 +61,10 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       if (window.parent && window.parent !== window) {
         const currentOrigin = window.location.origin;
         
-        // Find matching trusted origin (current origin must start with one of them)
-        // This prevents any attacker-controlled referrer from receiving error data
+        // Find matching trusted origin (exact match only - no prefix matching)
+        // This prevents any attacker-controlled domain from receiving error data
         const targetOrigin = TRUSTED_ORIGINS.find(origin => 
-          currentOrigin === origin || currentOrigin.startsWith(origin)
+          currentOrigin === origin
         ) || null;
         
         // Only post if we found a matching trusted origin
