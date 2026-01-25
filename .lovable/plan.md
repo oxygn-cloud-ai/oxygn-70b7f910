@@ -1,527 +1,309 @@
 
 
-# Critical Audit: Chat Initialization & Performance Fix Plan
+# Adversarial Implementation Audit Report
 
-## Executive Summary
+## Files Changed
 
-After exhaustive code review, I've identified **3 critical errors**, **2 significant omissions**, **4 architectural concerns**, and **1 type safety issue** in the proposed plan. The plan is directionally correct but incomplete and contains implementation errors that would cause runtime failures.
-
----
-
-## CRITICAL ERROR #1: Race Condition Fix is Incomplete
-
-### Problem
-The plan proposes having `fetchThreads` return the auto-selected thread ID, but this only partially fixes the race condition. The actual bug is more nuanced:
-
-**Current Code (usePromptFamilyChat.ts:183-225):**
-```typescript
-useEffect(() => {
-  const loadThreadAndMessages = async () => {
-    const tm = threadManagerRef.current;  // Ref to hook
-    // ...
-    await tm.fetchThreads();
-    
-    // BUG: tm.activeThreadId reads STATE, not ref!
-    const activeId = tm.activeThreadId;  // This is React state - stale after await!
-```
-
-**The plan says:** "Use returned value from fetchThreads"
-
-**Actual Issue:** `threadManagerRef.current` is updated on every render (line 61-64), but `tm.activeThreadId` is read from the **state** of that ref's value at call time, not the live state. Even with Option B (using `activeThreadIdRef.current`), the ref IS exposed but via the hook's internal ref, not the return interface.
-
-### Correct Fix
-The `fetchThreads` function at line 57-58 DOES update `activeThreadIdRef.current` synchronously:
-```typescript
-if (data?.length && !activeThreadIdRef.current) {
-  setActiveThreadId(data[0].row_id);  // State update (async)
-}
-```
-
-But `activeThreadIdRef` is NOT exposed in the return type (`UsePromptFamilyThreadsReturn`). The plan's Option A is the only valid solution, but requires:
-
-1. **Change return type** of `fetchThreads` from `Promise<void>` to `Promise<string | null>`
-2. **Update the interface** `UsePromptFamilyThreadsReturn.fetchThreads`
-3. **Update `usePromptFamilyChat.ts` return type** which exposes `fetchThreads: threadManager.fetchThreads`
-
-### Type Safety Risk
-Changing `fetchThreads: () => Promise<void>` to `fetchThreads: () => Promise<string | null>` will break the `UsePromptFamilyChatReturn` interface at line 30:
-```typescript
-fetchThreads: () => Promise<void>;  // Must also change
-```
+1. `src/types/chat.ts`
+2. `src/hooks/usePromptFamilyThreads.ts`
+3. `src/hooks/usePromptFamilyChat.ts`
+4. `supabase/functions/_shared/familyThreads.ts`
+5. `src/components/chat/ThreadDropdown.tsx`
 
 ---
 
-## CRITICAL ERROR #2: Root Prompt Resolution - Fallback Logic Missing
+## Per-File Analysis
 
-### Problem
-The plan proposes:
-```typescript
-const { data } = await supabase
-  .from('q_prompts')
-  .select('root_prompt_row_id')
-  .eq('row_id', pRowId)
-  .maybeSingle();
+### 1. `src/types/chat.ts`
 
-return data?.root_prompt_row_id || pRowId;
-```
+**Description of changes:**
+- Changed `title` property to `name` (line 5)
+- Changed `root_prompt_row_id` to allow `null` (line 6)
+- Changed `owner_id` to allow `null` (line 8)
+- Changed `is_active` to allow `null` (line 9)
+- Changed `created_at` to allow `null` (line 11)
+- Added `last_response_id?: string | null` (line 16)
 
-**Risk:** For a ROOT prompt, `root_prompt_row_id` equals `row_id` (per the DB trigger logic). This works correctly.
+**Verification status:** ⚠️ Warning
 
-**BUT:** The database trigger (`compute_root_prompt_row_id`) is `BEFORE INSERT OR UPDATE OF parent_row_id`. If a prompt is inserted without a parent and later gets a parent, the trigger recalculates. However, if `root_prompt_row_id` is ever NULL (data corruption, migration issue, etc.), the fallback `|| pRowId` returns the CURRENT prompt ID, not the actual root.
+**Detailed issues identified:**
+1. **OMISSION**: The plan specified adding only `provider` and `external_session_id` as additional columns, but `last_response_id` was also added (line 16). This is a **correct addition** as it matches the DB schema, but was not in the approved plan.
+2. The interface now correctly matches the `q_threads` table schema.
 
-**Validation Query Results:**
-```
-null_root: 0, total: 170, with_root: 170
-```
-
-Currently all prompts have `root_prompt_row_id` populated. However, the plan's fallback should still be robust:
-
-### Recommended Safer Logic
-```typescript
-const computeRootPromptId = useCallback(async (pRowId: string): Promise<string> => {
-  const { data, error } = await supabase
-    .from('q_prompts')
-    .select('root_prompt_row_id, parent_row_id')
-    .eq('row_id', pRowId)
-    .maybeSingle();
-  
-  if (error) {
-    console.error('[computeRootPromptId] Query failed:', error);
-    return pRowId; // Fallback to self
-  }
-  
-  // If root_prompt_row_id is set, use it
-  if (data?.root_prompt_row_id) {
-    return data.root_prompt_row_id;
-  }
-  
-  // If no parent, this IS the root
-  if (!data?.parent_row_id) {
-    return pRowId;
-  }
-  
-  // Fallback: root_prompt_row_id is NULL but parent exists (data corruption)
-  console.warn('[computeRootPromptId] Missing root_prompt_row_id for prompt with parent:', pRowId);
-  return pRowId; // Return self; system will create isolated thread
-}, []);
-```
+**Risk level:** Low
 
 ---
 
-## CRITICAL ERROR #3: Interface Type Mismatch
+### 2. `src/hooks/usePromptFamilyThreads.ts`
 
-### Problem
-The `ChatThread` type in `src/types/chat.ts` doesn't match the `q_threads` table schema:
+**Description of changes:**
+- Updated `fetchThreads` return type from `Promise<void>` to `Promise<string | null>` (line 12)
+- Modified `fetchThreads` function to return the auto-selected thread ID (lines 35-66)
 
-**ChatThread interface (src/types/chat.ts:3-13):**
-```typescript
-export interface ChatThread {
-  row_id: string;
-  title: string | null;           // ❌ Table has 'name', not 'title'
-  root_prompt_row_id: string;     // ❌ Table allows NULL
-  openai_conversation_id: string | null;
-  owner_id: string;               // ❌ Table allows NULL
-  is_active: boolean;             // ❌ Table allows NULL
-  last_message_at: string | null;
-  created_at: string;             // ❌ Table allows NULL
-  updated_at?: string | null;
-}
-```
+**Verification status:** ✅ Correct
 
-**q_threads table (from DB query):**
-```
-name: text (nullable)  <- not 'title'
-root_prompt_row_id: uuid (nullable)
-owner_id: uuid (nullable)
-is_active: boolean (nullable)
-created_at: timestamp (nullable)
-```
+**Detailed issues identified:**
+1. Implementation matches the approved plan exactly.
+2. The return type correctly allows `null` for error cases.
+3. The function correctly returns `activeThreadIdRef.current` when no auto-selection occurs (line 61).
 
-### Impact
-When fetching threads, the code at `usePromptFamilyThreads.ts:54`:
-```typescript
-setThreads((data || []) as ChatThread[]);
-```
-
-This unsafe cast will:
-1. **Fail silently** when accessing `thread.title` (property doesn't exist, `name` does)
-2. Cause TypeScript to not catch potential `null` access errors
-
-### Fix Required
-Update `ChatThread` interface OR update the thread fetch/select to alias `name` as `title`.
+**Risk level:** Low
 
 ---
 
-## SIGNIFICANT OMISSION #1: Backend Resolution Not Updated
+### 3. `src/hooks/usePromptFamilyChat.ts`
 
-### Problem
-The plan only addresses **frontend** optimization (`src/hooks/usePromptFamilyChat.ts`), but the **identical iterative logic exists in the backend**:
+**Description of changes:**
+- Updated `fetchThreads` return type in interface (line 30)
+- Replaced `computeRootPromptId` with optimized single-query version (lines 67-92)
+- Updated `loadThreadAndMessages` effect to use returned thread ID (lines 192-232)
 
-**`supabase/functions/_shared/familyThreads.ts:99-123`:**
-```typescript
-export async function resolveRootPromptId(
-  supabase: any, 
-  promptRowId: string
-): Promise<string> {
-  let current = promptRowId;
-  let depth = 0;
-  const maxDepth = 15;
-  // ... same iterative loop
-}
-```
+**Verification status:** ✅ Correct
 
-This is called by `conversation-run/index.ts:2052`:
-```typescript
-const rootPromptRowId = await resolveRootPromptId(supabase, child_prompt_row_id);
-```
+**Detailed issues identified:**
+1. Implementation matches the approved plan exactly.
+2. The `computeRootPromptId` function includes all three fallback paths: root_prompt_row_id exists, no parent (is root), and data corruption.
+3. The effect correctly uses the returned `autoSelectedId` instead of stale state.
+4. Cancellation logic is preserved with the `cancelled` flag.
 
-### Impact
-- Cascade/starburst runs will still suffer slow root resolution
-- Inconsistent behavior between chat and cascade execution paths
-
-### Required Addition
-The plan should include updating `supabase/functions/_shared/familyThreads.ts` to also use direct column lookup:
-
-```typescript
-export async function resolveRootPromptId(
-  supabase: any, 
-  promptRowId: string
-): Promise<string> {
-  const { data } = await supabase
-    .from(TABLES.PROMPTS)
-    .select('root_prompt_row_id')
-    .eq('row_id', promptRowId)
-    .maybeSingle();
-  
-  return data?.root_prompt_row_id || promptRowId;
-}
-```
+**Risk level:** Low
 
 ---
 
-## SIGNIFICANT OMISSION #2: Effect Dependency Missing
+### 4. `supabase/functions/_shared/familyThreads.ts`
 
-### Problem
-The consolidated effect in `usePromptFamilyChat.ts:184-225` accesses `threadManagerRef`, `messageManagerRef`, `streamManagerRef` but has NO dependencies on these refs:
+**Description of changes:**
+- Replaced iterative `resolveRootPromptId` function with single-query version (lines 99-127)
+
+**Verification status:** ✅ Correct
+
+**Detailed issues identified:**
+1. Implementation matches the approved plan exactly.
+2. Uses `TABLES.PROMPTS` correctly.
+3. Includes all three fallback paths matching the frontend implementation.
+4. Error logging is consistent with frontend implementation.
+
+**Risk level:** Low
+
+---
+
+### 5. `src/components/chat/ThreadDropdown.tsx`
+
+**Description of changes:**
+- Changed `thread.title` references to `thread.name` (lines 40, 74)
+
+**Verification status:** ✅ Correct
+
+**Detailed issues identified:**
+1. Both occurrences correctly updated to use `thread.name`.
+2. Fallback logic preserved (`|| 'Select chat'` and `|| 'Untitled'`).
+
+**Risk level:** Low
+
+---
+
+## Bugs Found
+
+### Bug #1: OUT-OF-SCOPE FILE NOT UPDATED - `src/components/layout/SearchResults.tsx:197`
+
+**Severity:** Medium
+
+**Description:** The file `SearchResults.tsx` was NOT in the plan scope, but it contains a reference to `thread.title` that will now always evaluate to `undefined`:
 
 ```typescript
-useEffect(() => {
+{highlightMatch(thread.title || thread.name || 'Untitled', searchQuery)}
+```
+
+After the `ChatThread` interface change, `thread.title` no longer exists. While the fallback to `thread.name` will work, this is a **dead code path** that should be cleaned up. TypeScript will NOT catch this because the `thread` variable in SearchResults likely uses an inline type or the old `title` property was optional.
+
+**File:** `src/components/layout/SearchResults.tsx`
+**Line:** 197
+**Remediation:** Change to `{highlightMatch(thread.name || 'Untitled', searchQuery)}`
+
+---
+
+### Bug #2: MISSING TYPE ANNOTATION - `src/components/chat/ThreadSidebar.tsx`
+
+**Severity:** Low
+
+**Description:** The `ThreadSidebar` component (line 13) does not use TypeScript strict typing for its props:
+
+```typescript
+const ThreadSidebar = ({
+  threads,
+  activeThread,
+  isLoading,
   // ...
-  const tm = threadManagerRef.current;
-  const mm = messageManagerRef.current;
-  const sm = streamManagerRef.current;
-  // ...
-}, [rootPromptId]);  // ❌ No ref dependencies - but that's intentional!
+}) => {
 ```
 
-**This is actually CORRECT** - refs don't need to be dependencies. However, the plan doesn't mention verifying this pattern is preserved after changes.
+The props are not typed with the `ChatThread` interface. While the component correctly uses `thread.name` (lines 28, 35, 174), it lacks type safety and could accept incorrectly shaped data.
+
+**File:** `src/components/chat/ThreadSidebar.tsx`
+**Line:** 13-22
+**Remediation:** Add explicit prop types: `threads: ChatThread[]`, `activeThread: ChatThread | null`
 
 ---
 
-## ARCHITECTURAL CONCERN #1: Duplicated Thread Fetch Logic
+### Bug #3: INCONSISTENT PARAMETER NAMING
 
-### Problem
-Two hooks independently implement message fetching from the same endpoint:
+**Severity:** Low (Cosmetic)
 
-1. **`usePromptFamilyThreads.ts:107-155`** - `switchThread()` calls `thread-manager` with `action: 'get_messages'`
-2. **`usePromptFamilyChatMessages.ts:45-78`** - `fetchMessages()` calls `thread-manager` with `action: 'get_messages'`
+**Description:** The `createThread` function parameter is named `title` while the `ChatThread` interface uses `name`:
 
-Both hooks call the same edge function with the same action. The plan proposes modifying `fetchThreads` but doesn't address this duplication.
+- `usePromptFamilyThreads.ts:69`: `const createThread = useCallback(async (title = 'New Chat')`
+- `usePromptFamilyChat.ts:116`: `const createThread = useCallback(async (title = 'New Chat')`
+- Interface property: `ChatThread.name`
 
-### Recommendation
-Document that `switchThread` returns messages directly (as it already does), and `fetchMessages` in the messages hook is a fallback/refresh mechanism. This is acceptable but should be documented.
+This inconsistency could cause confusion.
+
+**Files:** `src/hooks/usePromptFamilyThreads.ts:69`, `src/hooks/usePromptFamilyChat.ts:116`
+**Remediation:** Consider renaming parameter to `name` for consistency, or document the mapping.
 
 ---
 
-## ARCHITECTURAL CONCERN #2: sendMessage Uses Old Thread Reference
+## Critical Risks
 
-### Problem
-In `usePromptFamilyChat.ts:143-181`, `sendMessage` callback depends on `threadManager.activeThreadId`:
+### Risk #1: TypeScript Interface Consumers Not Exhaustively Verified
 
+**Severity:** Medium
+
+**Description:** The `ChatThread` interface is used across multiple files. While the main consumers were updated, a comprehensive search revealed `src/components/layout/SearchResults.tsx` was NOT updated. There may be other consumers that:
+1. Access `thread.title` (now undefined)
+2. Assume non-null properties that are now nullable
+
+**Remediation:**
+1. Run a project-wide TypeScript strict check
+2. Search for all occurrences of `thread.title` and replace with `thread.name`
+3. Verify all `ChatThread` property accesses handle null values
+
+### Risk #2: Unsafe Type Assertions Remain
+
+**Severity:** Low
+
+**Description:** The code still uses `as ChatThread[]` and `as ChatThread` in:
+- `usePromptFamilyThreads.ts:54`
+- `usePromptFamilyThreads.ts:100`
+
+These bypass TypeScript's type checking. While the interface now matches the DB schema, future schema changes could silently break the application.
+
+**Remediation:** Replace type assertions with proper type guards or validation functions.
+
+### Risk #3: Edge Function Deployment Required
+
+**Severity:** Medium
+
+**Description:** The `familyThreads.ts` shared module was modified. All edge functions that import this module must be redeployed for the changes to take effect. The functions that need redeployment include:
+- `conversation-run`
+- `thread-manager`
+- `prompt-family-chat`
+- Any other function importing from `_shared/familyThreads.ts`
+
+**Remediation:** Verify all dependent edge functions are deployed and functional.
+
+---
+
+## Unintended Changes
+
+1. **Addition of `last_response_id` to ChatThread interface** - Line 16 of `src/types/chat.ts` adds `last_response_id?: string | null` which was not explicitly specified in the plan. However, this is a **correct addition** as it matches the DB schema and is used in the codebase.
+
+All other changes align with the approved plan.
+
+---
+
+## Omissions
+
+### Omission #1: SearchResults.tsx NOT Updated
+
+**Description:** The plan's Phase 5 stated:
+> "Ensure it uses `thread.name` not `thread.title` after the interface fix."
+
+The plan identified `ThreadDropdown.tsx` was correctly updated, but the plan audit should have also identified `SearchResults.tsx` as requiring updates. This file was in the "FILES TO VERIFY (No Changes)" section but actually requires changes.
+
+**File:** `src/components/layout/SearchResults.tsx`
+**Line:** 197
+**Impact:** Dead code path accessing non-existent `thread.title` property
+
+### Omission #2: ThreadSidebar.tsx Type Safety
+
+**Description:** The `ThreadSidebar` component lacks TypeScript prop types. While it correctly uses `thread.name`, strict type safety should be enforced.
+
+**File:** `src/components/chat/ThreadSidebar.tsx`
+**Impact:** Low - component works but lacks type safety
+
+---
+
+## Architectural Deviations
+
+None detected. All changes follow the existing architectural patterns:
+1. Frontend hooks maintain consistent composition pattern
+2. Backend shared modules use standard Supabase client patterns
+3. Type definitions maintain consistent nullable patterns
+4. Component prop drilling follows established conventions
+
+---
+
+## Summary
+
+### Overall Assessment: ⚠️ CONDITIONAL PASS
+
+The implementation correctly addresses the three primary objectives from the approved plan:
+1. ✅ **ChatThread interface** - Fixed to match DB schema
+2. ✅ **Root prompt resolution** - Optimized to single query (frontend and backend)
+3. ✅ **Race condition** - Fixed by returning thread ID from `fetchThreads`
+
+**However**, one file outside the explicit scope requires changes (`SearchResults.tsx`) and type safety could be improved in `ThreadSidebar.tsx`.
+
+### Recommendation: **PROCEED WITH REMEDIATION**
+
+The core implementation is correct and functional. The identified issues are minor:
+- One dead code path in `SearchResults.tsx` (functional but inefficient)
+- Missing type annotations in `ThreadSidebar.tsx` (functional but not strictly typed)
+- Cosmetic parameter naming inconsistency
+
+---
+
+## Remediation Plan
+
+### Priority 1: Critical (Must Fix Before Deployment)
+
+**Step 1:** Update `src/components/layout/SearchResults.tsx` line 197:
 ```typescript
-const sendMessage = useCallback(async (
-  // ...
-): Promise<string | null> => {
-  // ...
-  const effectiveThreadId = threadId || threadManager.activeThreadId;
-  // ...
-}, [threadManager.activeThreadId, promptRowId, ...]);  // ✅ Dependency included
+// Before:
+{highlightMatch(thread.title || thread.name || 'Untitled', searchQuery)}
+
+// After:
+{highlightMatch(thread.name || 'Untitled', searchQuery)}
 ```
 
-This is correct - the dependency is included. No issue here.
+### Priority 2: Important (Should Fix)
 
----
-
-## ARCHITECTURAL CONCERN #3: Unique Constraint on Family Threads
-
-### Database Schema (from migration):
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS idx_q_threads_family_unique 
-  ON q_threads(root_prompt_row_id, owner_id) 
-  WHERE is_active = true AND root_prompt_row_id IS NOT NULL;
-```
-
-This enforces ONE active thread per family per user. However, the current code at `usePromptFamilyThreads.ts:73-79` deactivates all previous threads before creating a new one:
-
+**Step 2:** Add TypeScript props to `src/components/chat/ThreadSidebar.tsx`:
 ```typescript
-await supabase
-  .from('q_threads')
-  .update({ is_active: false })
-  .eq('root_prompt_row_id', rootPromptId)
-  .eq('owner_id', user.id)
-  .eq('is_active', true);
-```
-
-**Potential Issue:** If this update fails, the subsequent insert will violate the unique constraint. The code doesn't check for the update error before proceeding.
-
-### Not in Plan Scope
-This is a pre-existing issue, not introduced by the plan. Noting for awareness.
-
----
-
-## ARCHITECTURAL CONCERN #4: q_threads vs q_prompt_family_threads
-
-### Observation
-The codebase has TWO thread tables:
-1. `q_threads` - Used by current implementation
-2. `q_prompt_family_threads` - Referenced in `TABLES.PROMPT_FAMILY_THREADS`
-
-**From `supabase/functions/_shared/tables.ts:30`:**
-```typescript
-PROMPT_FAMILY_THREADS: getEnv('PROMPT_FAMILY_THREADS_TBL', 'q_prompt_family_threads'),
-```
-
-But the actual code uses `q_threads` (via `TABLES.THREADS`). This appears to be legacy/unused but should be verified.
-
-### Not in Plan Scope
-This is a pre-existing architectural decision. The plan correctly uses `q_threads`.
-
----
-
-## TYPE SAFETY ISSUE: Unsafe Type Assertions
-
-### Problem
-Multiple locations use `as ChatThread[]` or `as ChatThread`:
-
-1. `usePromptFamilyThreads.ts:54`:
-   ```typescript
-   setThreads((data || []) as ChatThread[]);
-   ```
-
-2. `usePromptFamilyThreads.ts:92`:
-   ```typescript
-   const newThread = response.data?.thread as ChatThread | undefined;
-   ```
-
-These bypass TypeScript's type checking. Given the interface mismatch identified above, these will silently allow incorrect data shapes.
-
-### Fix Required
-Either:
-1. Fix the `ChatThread` interface to match reality, OR
-2. Create a mapping function that properly transforms DB rows to interface
-
----
-
-## CORRECTED PLAN
-
-### Phase 1: Fix Type Definitions (MUST DO FIRST)
-
-**File: `src/types/chat.ts`**
-
-Update `ChatThread` to match `q_threads` table:
-```typescript
-export interface ChatThread {
-  row_id: string;
-  name: string | null;  // Fixed: was 'title'
-  root_prompt_row_id: string | null;  // Fixed: allow null
-  openai_conversation_id: string | null;
-  owner_id: string | null;  // Fixed: allow null
-  is_active: boolean | null;  // Fixed: allow null
-  last_message_at: string | null;
-  created_at: string | null;  // Fixed: allow null
-  updated_at?: string | null;
-  // Additional columns from DB
-  provider?: string | null;
-  external_session_id?: string | null;
+interface ThreadSidebarProps {
+  threads: ChatThread[];
+  activeThread: ChatThread | null;
+  isLoading: boolean;
+  onSelectThread: (threadId: string) => void;
+  onCreateThread: () => void;
+  onDeleteThread: (threadId: string) => void;
+  onRenameThread?: (threadId: string, newName: string) => void;
+  onClose?: () => void;
 }
+
+const ThreadSidebar: React.FC<ThreadSidebarProps> = ({ ... }) => {
 ```
 
-### Phase 2: Optimize Root Resolution (Frontend)
+### Priority 3: Low (Nice to Have)
 
-**File: `src/hooks/usePromptFamilyChat.ts`**
+**Step 3:** Consider renaming `title` parameter to `name` in `createThread` functions for consistency with the `ChatThread.name` property.
 
-Replace lines 67-83:
-```typescript
-const computeRootPromptId = useCallback(async (pRowId: string): Promise<string> => {
-  const { data, error } = await supabase
-    .from('q_prompts')
-    .select('root_prompt_row_id, parent_row_id')
-    .eq('row_id', pRowId)
-    .maybeSingle();
-  
-  if (error) {
-    console.error('[computeRootPromptId] Query failed:', error);
-    return pRowId;
-  }
-  
-  if (data?.root_prompt_row_id) {
-    return data.root_prompt_row_id;
-  }
-  
-  // No parent means this IS the root
-  if (!data?.parent_row_id) {
-    return pRowId;
-  }
-  
-  // Data corruption fallback
-  console.warn('[computeRootPromptId] Missing root_prompt_row_id:', pRowId);
-  return pRowId;
-}, []);
-```
+### Verification Steps
 
-### Phase 3: Optimize Root Resolution (Backend)
-
-**File: `supabase/functions/_shared/familyThreads.ts`**
-
-Replace lines 99-123:
-```typescript
-export async function resolveRootPromptId(
-  supabase: any, 
-  promptRowId: string
-): Promise<string> {
-  const { data, error } = await supabase
-    .from(TABLES.PROMPTS)
-    .select('root_prompt_row_id, parent_row_id')
-    .eq('row_id', promptRowId)
-    .maybeSingle();
-  
-  if (error) {
-    console.error('[resolveRootPromptId] Query failed:', error);
-    return promptRowId;
-  }
-  
-  if (data?.root_prompt_row_id) {
-    return data.root_prompt_row_id;
-  }
-  
-  if (!data?.parent_row_id) {
-    return promptRowId;
-  }
-  
-  console.warn('[resolveRootPromptId] Missing root_prompt_row_id:', promptRowId);
-  return promptRowId;
-}
-```
-
-### Phase 4: Fix Race Condition
-
-**File: `src/hooks/usePromptFamilyThreads.ts`**
-
-Step 4a - Update interface (line 12):
-```typescript
-fetchThreads: () => Promise<string | null>;  // Changed from Promise<void>
-```
-
-Step 4b - Update function (lines 35-63):
-```typescript
-const fetchThreads = useCallback(async (): Promise<string | null> => {
-  if (!rootPromptId) {
-    setThreads([]);
-    return null;
-  }
-
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    
-    const { data, error } = await supabase
-      .from('q_threads')
-      .select('*')
-      .eq('root_prompt_row_id', rootPromptId)
-      .eq('owner_id', user.id)
-      .eq('is_active', true)
-      .order('last_message_at', { ascending: false, nullsFirst: false });
-
-    if (error) throw error;
-    setThreads((data || []) as ChatThread[]);
-    
-    // Auto-select first thread if none selected
-    if (data?.length && !activeThreadIdRef.current) {
-      setActiveThreadId(data[0].row_id);
-      return data[0].row_id;  // Return the auto-selected ID
-    }
-    return activeThreadIdRef.current;  // Return current selection
-  } catch (error) {
-    console.error('Error fetching threads:', error);
-    return null;
-  }
-}, [rootPromptId]);
-```
-
-**File: `src/hooks/usePromptFamilyChat.ts`**
-
-Step 4c - Update interface (line 30):
-```typescript
-fetchThreads: () => Promise<string | null>;  // Changed from Promise<void>
-```
-
-Step 4d - Update effect (lines 202-216):
-```typescript
-try {
-  // Fetch threads - returns auto-selected thread ID
-  const autoSelectedId = await tm.fetchThreads();
-  
-  if (cancelled) return;
-  
-  // Fetch messages for the auto-selected thread
-  if (autoSelectedId) {
-    const messages = await tm.switchThread(autoSelectedId);
-    if (!cancelled) {
-      mm.setMessages(messages);
-    }
-  }
-} catch (error) {
-  console.error('Error in loadThreadAndMessages:', error);
-}
-```
-
-### Phase 5: Update UI for Thread Name
-
-**File: `src/components/chat/ThreadDropdown.tsx`** (if exists)
-
-Ensure it uses `thread.name` not `thread.title` after the interface fix.
-
----
-
-## TESTING CHECKLIST
-
-1. **Root resolution**: Select a deeply nested child prompt, verify chat initializes in <500ms
-2. **Thread auto-select**: On first load with existing threads, verify messages appear
-3. **New thread creation**: Create new chat, verify messages clear and new thread is active
-4. **Cascade execution**: Run a cascade, verify it uses the same optimized root resolution
-5. **Type safety**: No TypeScript errors after interface changes
-6. **Edge cases**:
-   - Prompt with no threads (should create on first message)
-   - Prompt that IS the root (should return self)
-   - Rapidly switching prompts (race condition should be prevented)
-
----
-
-## FILES TO MODIFY
-
-1. `src/types/chat.ts` - Fix ChatThread interface
-2. `src/hooks/usePromptFamilyChat.ts` - Optimize computeRootPromptId, fix effect
-3. `src/hooks/usePromptFamilyThreads.ts` - Change fetchThreads return type
-4. `supabase/functions/_shared/familyThreads.ts` - Optimize resolveRootPromptId
-
-## FILES TO VERIFY (No Changes)
-
-1. `src/components/chat/ThreadDropdown.tsx` - Verify uses `name` not `title`
-2. `src/components/layout/ConversationPanel.tsx` - Verify thread display logic
-
----
-
-## BUILD BLOCKER NOTE
-
-The **TS6310** error in `tsconfig.json` is a platform infrastructure issue. A workaround exists in `vite.config.ts` using `esbuild.tsconfigRaw`. The proposed changes do not affect this blocker.
+1. Run TypeScript compilation to verify no type errors
+2. Search codebase for remaining `thread.title` references
+3. Verify edge functions are deployed
+4. Test chat initialization on deeply nested prompts
+5. Test thread switching and message loading
+6. Test new thread creation
 
