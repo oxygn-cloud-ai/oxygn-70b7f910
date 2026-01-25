@@ -1,41 +1,53 @@
 
+# Remediation Plan: Build Error and Batch Handler Fixes
 
-# Remediation Plan for Multi-Select Popup Menu Audit Findings
+## Priority 1: Fix Build Error (CRITICAL)
 
-## Scope
-Fix bugs identified in the adversarial audit of the multi-select popup menu implementation, plus address the child prompt highlighting issue.
+### File: `tsconfig.node.json`
+
+Add `"noEmit": false` to fix TS6310 error:
+
+```json
+{
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": false,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true
+  },
+  "include": ["vite.config.ts"]
+}
+```
+
+**Rationale:** When `composite: true` is set and the project is referenced by another tsconfig, TypeScript requires the referenced project to be able to emit declaration files. Setting `noEmit: false` explicitly allows this.
 
 ---
 
-## Part 1: Fix Batch Toggle Behavior Bugs
+## Priority 2: Add Error Handling to Batch Handlers (MEDIUM)
 
 ### File: `src/components/layout/FolderPanel.tsx`
 
-### Step 1.1: Fix Star Batch Toggle Logic
-**Current (Line 679-686):**
-```typescript
-onClick={() => { 
-  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-    onBatchStar?.(Array.from(selectedItems), true);  // BUG: Always stars
-    clearSelection?.();
-  } else {
-    onToggleStar?.(id); 
-  }
-  setOpenMenuId?.(null); 
-}}
-```
+Wrap all batch operations in try/catch with finally block for cleanup:
 
-**Fixed:**
+**Star handler (lines 680-692):**
 ```typescript
 onClick={async () => { 
   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-    // Determine toggle state: if ANY selected item is starred, unstar all; otherwise star all
     const anyStarred = Array.from(selectedItems).some(itemId => {
-      const item = allFlatItems.find(f => f.id === itemId)?.item;
+      const item = allFlatItems?.find(f => f.id === itemId)?.item;
       return item?.starred;
     });
-    await onBatchStar?.(Array.from(selectedItems), !anyStarred);
-    clearSelection?.();
+    try {
+      await onBatchStar?.(Array.from(selectedItems), !anyStarred);
+    } catch (error) {
+      console.error('Batch star operation failed:', error);
+      toast.error('Some items could not be updated');
+    } finally {
+      clearSelection?.();
+    }
   } else {
     onToggleStar?.(id); 
   }
@@ -43,145 +55,60 @@ onClick={async () => {
 }}
 ```
 
-**Also update label:**
-```typescript
-label={isMultiSelectMode && selectedItems?.size 
-  ? `${Array.from(selectedItems).some(itemId => allFlatItems.find(f => f.id === itemId)?.item?.starred) ? 'Unstar' : 'Star'} ${selectedItems.size} items` 
-  : (starred ? "Unstar" : "Star")} 
-```
-
-### Step 1.2: Fix Exclude from Cascade Batch Toggle Logic
-**Current (Line 783-791):**
-```typescript
-onClick={() => { 
-  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-    onBatchToggleExcludeCascade?.(Array.from(selectedItems), true);  // BUG: Always excludes
-    clearSelection?.();
-  } else {
-    onToggleExcludeCascade?.(id); 
-  }
-  setOpenMenuId?.(null); 
-}}
-```
-
-**Fixed:**
-```typescript
-onClick={async () => { 
-  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-    // Determine toggle state: if ANY selected item is excluded, include all; otherwise exclude all
-    const anyExcluded = Array.from(selectedItems).some(itemId => {
-      const item = allFlatItems.find(f => f.id === itemId)?.item;
-      return item?.exclude_from_cascade;
-    });
-    await onBatchToggleExcludeCascade?.(Array.from(selectedItems), !anyExcluded);
-    clearSelection?.();
-  } else {
-    onToggleExcludeCascade?.(id); 
-  }
-  setOpenMenuId?.(null); 
-}}
-```
-
-### Step 1.3: Fix Exclude from Export Batch Toggle Logic
-**Current (Line 801-809):**
-Apply same pattern as Step 1.2, checking `exclude_from_export` property.
+Apply same pattern to:
+- Duplicate handler (lines 757-765)
+- Delete handler (lines 830-838)
+- Exclude from Cascade handler (lines 789-801)
+- Exclude from Export handler (lines 811-823)
 
 ---
 
-## Part 2: Fix Child Prompt Highlighting Issue
+## Priority 3: Fix Performance Issue in useCascadeExecutor (LOW)
 
 ### File: `src/hooks/useCascadeExecutor.ts`
 
-### Step 2.1: Add updateProgress call in executeChildCascade
+**Line 1731-1769:** Change from `for...of` to indexed loop to avoid O(n²) complexity:
 
-**Location:** Inside the for loop in `executeChildCascade` (~line 1731)
-
-**Change:** After fetching childPrompt data (~line 1751), add:
 ```typescript
-// Update progress to highlight the currently running child prompt
-updateProgress(
-  currentDepth,      // Level
-  childPrompt.prompt_name,  // Prompt name
-  idx + 1,           // Prompt index (1-based)
-  childPrompt.row_id // Prompt row ID for highlighting
-);
-```
-
-**Also update imports to include `updateProgress`:**
-```typescript
-const {
-  startCascade,
-  updateProgress,  // ADD THIS
-  markPromptComplete,
-  // ... rest
-} = useCascadeRun();
+for (let idx = 0; idx < children.length; idx++) {
+  const child = children[idx];
+  // ... existing cancellation checks ...
+  
+  // Update progress to highlight the currently running child prompt
+  updateProgress(
+    currentDepth,
+    childPrompt.prompt_name || 'Untitled',
+    idx + 1,  // Now uses loop index directly, O(1)
+    childPrompt.row_id
+  );
+  // ... rest of loop ...
+}
 ```
 
 ---
 
-## Part 3: Add Await to Batch Operations
+## Priority 4: Optional - Memoize Label Computation (LOW)
 
-### File: `src/components/layout/FolderPanel.tsx`
-
-Ensure all batch operations in TreeItem onClick handlers are awaited before calling `clearSelection()`.
-
-Example pattern:
-```typescript
-onClick={async () => { 
-  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-    await onBatchDuplicate?.(Array.from(selectedItems));
-    clearSelection?.();
-  } else {
-    onDuplicate?.(id); 
-  }
-  setOpenMenuId?.(null); 
-}}
-```
-
-Apply to: Star (Step 1.1), Duplicate, Delete, Exclude from Cascade (Step 1.2), Exclude from Export (Step 1.3).
+This is a minor performance optimization that can be deferred. The current implementation is correct but recalculates on every render.
 
 ---
 
-## Part 4: Restore Deleted File (if needed)
+## Priority 5: Restore Deleted File (LOW)
 
 ### File: `.lovable/plan.md`
 
-If this file is needed for documentation/history purposes, restore from git history using:
-```
-git checkout HEAD~1 -- .lovable/plan.md
-```
+Create the file with current implementation documentation or leave as intentionally deleted if not needed for project operation.
 
 ---
 
-## Testing Requirements
+## Files to Modify
 
-1. **Batch Star Toggle**
-   - Select 3 unstarred items → Star → All 3 become starred
-   - Select 3 starred items → Menu shows "Unstar 3 items" → Unstar → All 3 become unstarred
-   - Select mix of starred/unstarred → Should unstar all (because "anyStarred" is true)
-
-2. **Batch Exclude Toggle**
-   - Same pattern as star toggle for cascade and export exclusion
-
-3. **Child Prompt Highlighting**
-   - Run cascade on a parent with 3 children
-   - Observe tree: parent highlights first, then each child highlights in sequence
-   - Spinner should move through the tree during execution
-
-4. **Async Race Conditions**
-   - Batch delete 10 items → Verify selection clears AFTER delete completes
-   - No visual flicker or stale selection state
-
----
-
-## Files Modified
-
-1. `src/components/layout/FolderPanel.tsx` - Batch toggle logic fixes
-2. `src/hooks/useCascadeExecutor.ts` - Child prompt highlighting
+1. `tsconfig.node.json` - Add `noEmit: false`
+2. `src/components/layout/FolderPanel.tsx` - Add try/catch to 5 batch handlers
+3. `src/hooks/useCascadeExecutor.ts` - Convert to indexed for-loop
 
 ## Estimated Complexity
 
-- Lines modified: ~40
-- Risk: Low (targeted fixes to identified bugs)
-- Testing: Medium (requires cascade run testing)
-
+- Lines modified: ~30
+- Risk: Low (targeted fixes)
+- Build should pass after tsconfig fix
