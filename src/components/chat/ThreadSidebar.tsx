@@ -9,8 +9,20 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trackEvent } from '@/lib/posthog';
+import { ChatThread } from '@/types/chat';
 
-const ThreadSidebar = ({
+interface ThreadSidebarProps {
+  threads: ChatThread[];
+  activeThread: ChatThread | null;
+  isLoading: boolean;
+  onSelectThread: (threadId: string) => void;
+  onCreateThread: () => void;
+  onDeleteThread: (threadId: string) => void;
+  onRenameThread?: (threadId: string, newName: string) => void;
+  onClose?: () => void;
+}
+
+const ThreadSidebar: React.FC<ThreadSidebarProps> = ({
   threads,
   activeThread,
   isLoading,
