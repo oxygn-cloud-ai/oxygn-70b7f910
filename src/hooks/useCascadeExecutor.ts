@@ -1728,7 +1728,9 @@ export const useCascadeExecutor = () => {
 
     console.log(`executeChildCascade: Running ${children.length} children at depth ${currentDepth}`);
 
-    for (const child of children) {
+    for (let idx = 0; idx < children.length; idx++) {
+      const child = children[idx];
+      
       // Check for cancellation
       if (isCancelled()) {
         console.log('Auto-cascade cancelled by user');
@@ -1760,11 +1762,11 @@ export const useCascadeExecutor = () => {
         continue;
       }
 
-      // Update progress to highlight the currently running child prompt
+      // Update progress to highlight the currently running child prompt (O(1) with indexed loop)
       updateProgress(
         currentDepth,
         childPrompt.prompt_name || 'Untitled',
-        children.indexOf(child) + 1,
+        idx + 1,
         childPrompt.row_id
       );
 
