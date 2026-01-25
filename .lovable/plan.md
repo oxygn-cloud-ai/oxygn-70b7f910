@@ -1,114 +1,85 @@
 
-# Remediation Plan: Build Error and Batch Handler Fixes
 
-## Priority 1: Fix Build Error (CRITICAL)
+# Remediation Plan: Build Error TS6310 Resolution
 
-### File: `tsconfig.node.json`
+## Executive Summary
+The build is blocked due to TypeScript error TS6310. The approved remediation plan specified modifying `tsconfig.node.json`, but this file appears to be platform-managed. This plan provides an alternative solution.
 
-Add `"noEmit": false` to fix TS6310 error:
+---
 
+## Root Cause Analysis
+
+The error occurs because:
+1. `tsconfig.json` (line 31-34) references `./tsconfig.node.json`
+2. `tsconfig.json` has `"noEmit": true` (line 13)
+3. `tsconfig.node.json` has `"composite": true` but no explicit `noEmit` setting
+4. TypeScript requires referenced composite projects to be able to emit declarations
+
+The conflict: main config says "don't emit" but the referenced project needs to emit for composite to work.
+
+---
+
+## Solution: Remove Project References
+
+Since `tsconfig.node.json` is platform-managed and cannot be modified, we will remove the project references from `tsconfig.json`. This is safe because:
+
+1. `vite.config.ts` is already handled by the `esbuild.tsconfigRaw` workaround in `vite.config.ts`
+2. Vite doesn't require TypeScript project references to function
+3. This matches the documented workaround pattern in memory note
+
+---
+
+## Technical Implementation
+
+### File: `tsconfig.json`
+
+**Current (lines 28-35):**
 ```json
-{
-  "compilerOptions": {
-    "composite": true,
-    "noEmit": false,
-    "skipLibCheck": true,
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowSyntheticDefaultImports": true,
-    "strict": true
-  },
-  "include": ["vite.config.ts"]
-}
-```
-
-**Rationale:** When `composite: true` is set and the project is referenced by another tsconfig, TypeScript requires the referenced project to be able to emit declaration files. Setting `noEmit: false` explicitly allows this.
-
----
-
-## Priority 2: Add Error Handling to Batch Handlers (MEDIUM)
-
-### File: `src/components/layout/FolderPanel.tsx`
-
-Wrap all batch operations in try/catch with finally block for cleanup:
-
-**Star handler (lines 680-692):**
-```typescript
-onClick={async () => { 
-  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-    const anyStarred = Array.from(selectedItems).some(itemId => {
-      const item = allFlatItems?.find(f => f.id === itemId)?.item;
-      return item?.starred;
-    });
-    try {
-      await onBatchStar?.(Array.from(selectedItems), !anyStarred);
-    } catch (error) {
-      console.error('Batch star operation failed:', error);
-      toast.error('Some items could not be updated');
-    } finally {
-      clearSelection?.();
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
     }
-  } else {
-    onToggleStar?.(id); 
-  }
-  setOpenMenuId?.(null); 
-}}
-```
-
-Apply same pattern to:
-- Duplicate handler (lines 757-765)
-- Delete handler (lines 830-838)
-- Exclude from Cascade handler (lines 789-801)
-- Exclude from Export handler (lines 811-823)
-
----
-
-## Priority 3: Fix Performance Issue in useCascadeExecutor (LOW)
-
-### File: `src/hooks/useCascadeExecutor.ts`
-
-**Line 1731-1769:** Change from `for...of` to indexed loop to avoid O(n²) complexity:
-
-```typescript
-for (let idx = 0; idx < children.length; idx++) {
-  const child = children[idx];
-  // ... existing cancellation checks ...
-  
-  // Update progress to highlight the currently running child prompt
-  updateProgress(
-    currentDepth,
-    childPrompt.prompt_name || 'Untitled',
-    idx + 1,  // Now uses loop index directly, O(1)
-    childPrompt.row_id
-  );
-  // ... rest of loop ...
+  ]
 }
 ```
 
----
+**Change to:**
+```json
+  "include": [
+    "src"
+  ]
+}
+```
 
-## Priority 4: Optional - Memoize Label Computation (LOW)
-
-This is a minor performance optimization that can be deferred. The current implementation is correct but recalculates on every render.
-
----
-
-## Priority 5: Restore Deleted File (LOW)
-
-### File: `.lovable/plan.md`
-
-Create the file with current implementation documentation or leave as intentionally deleted if not needed for project operation.
+**Rationale:** Removing the `references` array eliminates the TS6310 conflict while preserving all source file type checking. The `vite.config.ts` is already bypassed via `esbuild.tsconfigRaw`.
 
 ---
 
-## Files to Modify
+## Files Modified
 
-1. `tsconfig.node.json` - Add `noEmit: false`
-2. `src/components/layout/FolderPanel.tsx` - Add try/catch to 5 batch handlers
-3. `src/hooks/useCascadeExecutor.ts` - Convert to indexed for-loop
+1. `tsconfig.json` - Remove lines 31-35 (references array)
 
 ## Estimated Complexity
 
-- Lines modified: ~30
-- Risk: Low (targeted fixes)
-- Build should pass after tsconfig fix
+- Lines removed: 5
+- Risk: Low (references not required for Vite builds)
+- Build should pass after this change
+
+---
+
+## Testing Requirements
+
+1. **Build passes**: No TS6310 error
+2. **Type checking works**: Run `tsc --noEmit` on src files
+3. **Preview loads**: Application renders without errors
+4. **Hot reload works**: Vite HMR functions correctly
+
+---
+
+## Rollback Plan
+
+If build issues arise, restore the references array and investigate alternative solutions with platform support.
+
