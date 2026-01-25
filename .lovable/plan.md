@@ -1,284 +1,168 @@
 
+# Plan: Fix Variable Autocomplete Popup to Show All Variables
 
-# Fixed Plan: Enhanced Editable Text Boxes with Notes Variable Support
+## Problem Identified
 
-## Issue Identified
+The keyboard-triggered autocomplete popup (activated by typing `{{`) in `HighlightedTextarea` artificially limits displayed variables to **10 items** and lacks features present in the `VariablePicker`:
 
-The original plan correctly identified that **MarkdownNotesArea lacks variable highlighting and insertion** (Phase 5), but it **did not include the required prop changes** in `PromptsContent.tsx` to pass variable context to the Notes component.
-
-### Current State (Gap Analysis)
-
-| Component | `variables` prop | `familyRootPromptRowId` prop | Variable Highlighting | Variable Picker |
-|-----------|------------------|------------------------------|----------------------|-----------------|
-| `ResizablePromptArea` (System Prompt) | ✅ Yes | ✅ Yes | ✅ Yes (via HighlightedTextarea) | ✅ Yes |
-| `ResizablePromptArea` (User Prompt) | ✅ Yes | ✅ Yes | ✅ Yes (via HighlightedTextarea) | ✅ Yes |
-| `MarkdownNotesArea` (Notes) | ❌ **Missing** | ❌ **Missing** | ❌ **Missing** | ❌ **Missing** |
-
----
-
-## Corrected Implementation Plan
-
-### Phase 1: Add Variable Props to MarkdownNotesArea (Priority: Critical)
-
-**File: `src/components/shared/MarkdownNotesArea.tsx`**
-
-Add new props to accept variable context:
-
-```typescript
-const MarkdownNotesArea = ({
-  value = '',
-  onChange,
-  onSave,
-  placeholder = 'Add notes...',
-  label = 'Notes',
-  defaultHeight = 80,
-  readOnly = false,
-  storageKey,
-  // NEW: Variable support props
-  variables = [],                    // User-defined variables
-  familyRootPromptRowId = null,     // For prompt reference filtering
-}) => {
-```
+| Feature | VariablePicker (Icon) | Keyboard Autocomplete |
+|---------|----------------------|----------------------|
+| Shows all system variables | ✅ All (grouped) | ❌ Max 10 |
+| Shows user variables | ✅ All | ✅ But capped at 10 total |
+| Runtime variables (q.previous.*) | ❌ Not shown | ❌ Not shown |
+| Prompt References | ✅ Opens picker | ❌ No access |
+| Scrollable | ✅ 300px | ✅ 200px (but limited content) |
 
 ---
 
-### Phase 2: Add Variable Picker to Notes Toolbar (Priority: Critical)
+## Solution
 
-**File: `src/components/shared/MarkdownNotesArea.tsx`**
+### Phase 1: Remove 10-Item Limit
 
-Import and add `VariablePicker` to the toolbar (after the existing formatting buttons):
+**File: `src/components/ui/highlighted-textarea.tsx`**
 
-**Changes required:**
-1. Import `VariablePicker` component
-2. Import `Braces` icon from lucide-react
-3. Add insertion handler for Tiptap editor
-4. Add `VariablePicker` to toolbar UI
+**Line 84-90** - Remove the `.slice(0, 10)` limits:
 
-**Insertion Handler:**
 ```typescript
-const handleInsertVariable = useCallback((varName) => {
-  if (!editor || readOnly) return;
-  
-  // Insert variable at current cursor position
-  editor.chain().focus().insertContent(`{{${varName}}}`).run();
-}, [editor, readOnly]);
-```
+// BEFORE (line 84-90):
+const filteredVariables = useMemo(() => {
+  if (!autocompleteQuery) return allVariables.slice(0, 10);
+  const query = autocompleteQuery.toLowerCase();
+  return allVariables
+    .filter(v => v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query))
+    .slice(0, 10);
+}, [allVariables, autocompleteQuery]);
 
-**Toolbar Addition (after the Code button, around line 520):**
-```typescript
-<div className="w-px h-4 bg-outline-variant mx-1" />
-
-<VariablePicker
-  onInsert={handleInsertVariable}
-  userVariables={variables}
-  familyRootPromptRowId={familyRootPromptRowId}
-  side="bottom"
-  align="end"
-/>
+// AFTER:
+const filteredVariables = useMemo(() => {
+  if (!autocompleteQuery) return allVariables;
+  const query = autocompleteQuery.toLowerCase();
+  return allVariables
+    .filter(v => v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query));
+}, [allVariables, autocompleteQuery]);
 ```
 
 ---
 
-### Phase 3: Add Variable Highlighting to Notes (Priority: Critical)
+### Phase 2: Increase Popup Height for More Visibility
 
-**File: `src/components/shared/MarkdownNotesArea.tsx`**
+**File: `src/components/ui/highlighted-textarea.tsx`**
 
-Create a Tiptap decoration plugin to highlight `{{...}}` patterns in the WYSIWYG editor.
-
-**Option A: CSS-based highlighting (Simpler)**
-
-Add CSS to highlight variables within prose content:
+**Line 366** - Increase max-height from 200px to 300px:
 
 ```typescript
-// In editorProps.attributes.class, append:
-'[&_*]:before:content-none [&_.variable-highlight]:text-primary [&_.variable-highlight]:bg-primary/10 [&_.variable-highlight]:px-0.5 [&_.variable-highlight]:rounded'
-```
+// BEFORE (line 366):
+<ScrollArea className="max-h-[200px]">
 
-Create a Tiptap extension to detect and wrap `{{...}}` patterns:
-
-**New file: `src/components/shared/tiptap-variable-highlight.ts`**
-
-```typescript
-import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
-
-const VARIABLE_PATTERN = /\{\{[^}]+\}\}/g;
-
-export const VariableHighlight = Extension.create({
-  name: 'variableHighlight',
-
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('variableHighlight'),
-        props: {
-          decorations(state) {
-            const decorations: Decoration[] = [];
-            const { doc } = state;
-
-            doc.descendants((node, pos) => {
-              if (!node.isText || !node.text) return;
-
-              let match;
-              while ((match = VARIABLE_PATTERN.exec(node.text)) !== null) {
-                const from = pos + match.index;
-                const to = from + match[0].length;
-                decorations.push(
-                  Decoration.inline(from, to, {
-                    class: 'variable-highlight',
-                  })
-                );
-              }
-            });
-
-            return DecorationSet.create(doc, decorations);
-          },
-        },
-      }),
-    ];
-  },
-});
-```
-
-**Integration in MarkdownNotesArea:**
-```typescript
-import { VariableHighlight } from './tiptap-variable-highlight';
-
-// In useEditor extensions array:
-extensions: [
-  StarterKit.configure({ ... }),
-  Link.configure({ ... }),
-  Placeholder.configure({ ... }),
-  VariableHighlight,  // NEW
-],
-```
-
-**CSS for variable highlighting (add to editorProps):**
-```css
-.variable-highlight {
-  color: var(--primary);
-  background-color: rgba(var(--primary-rgb), 0.1);
-  padding: 0 2px;
-  border-radius: 2px;
-  font-family: monospace;
-}
+// AFTER:
+<ScrollArea className="max-h-[300px]">
 ```
 
 ---
 
-### Phase 4: Update PromptsContent to Pass Variables (Priority: Critical)
+### Phase 3: Add Runtime Variables to System Variables List
 
-**File: `src/components/content/PromptsContent.tsx`**
+The runtime variables (`q.previous.response`, `q.previous.name`) are defined in `SYSTEM_VARIABLES` but are filtered out because they have `runtimeOnly: true`. These should still appear in the autocomplete for users writing cascade prompts.
 
-Update the `MarkdownNotesArea` usage at line 251-258 to pass variable props:
+**File: `src/components/ui/highlighted-textarea.tsx`**
+
+**Line 60-68** - Include runtime variables in the list:
 
 ```typescript
-{/* Notes */}
-<MarkdownNotesArea 
-  label="Notes"
-  value={promptData?.note || ''}
-  placeholder="Add notes about this prompt..."
-  defaultHeight={80}
-  onSave={isLocked ? undefined : (value) => onUpdateField('note', value)}
-  readOnly={isLocked}
-  variables={variables}  // NEW
-  familyRootPromptRowId={promptData?.root_prompt_row_id || promptData?.row_id}  // NEW
-/>
+// BEFORE (line 60-68):
+const allVariables = useMemo(() => {
+  const systemVars = getSystemVariableNames().map(name => ({
+    name,
+    label: SYSTEM_VARIABLES[name]?.label || name,
+    description: SYSTEM_VARIABLES[name]?.description || '',
+    type: VARIABLE_TYPE_LABELS[SYSTEM_VARIABLES[name]?.type] || 'System',
+    isSystem: true,
+    isStatic: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.STATIC,
+  }));
+  // ...
+}, [userVariables]);
+
+// AFTER - Add isRuntime flag for visual indication:
+const allVariables = useMemo(() => {
+  const systemVars = getSystemVariableNames().map(name => ({
+    name,
+    label: SYSTEM_VARIABLES[name]?.label || name,
+    description: SYSTEM_VARIABLES[name]?.description || '',
+    type: VARIABLE_TYPE_LABELS[SYSTEM_VARIABLES[name]?.type] || 'System',
+    isSystem: true,
+    isStatic: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.STATIC,
+    isRuntime: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.RUNTIME,
+  }));
+  // ...
+}, [userVariables]);
 ```
 
 ---
 
-### Phase 5: Update TemplateStructureEditor (Priority: Medium)
+### Phase 4: Add Visual Indicator for Runtime Variables
 
-**File: `src/components/templates/TemplateStructureEditor.tsx`**
+**File: `src/components/ui/highlighted-textarea.tsx`**
 
-Similar update at line 835-842 to pass variables to the Notes area:
+**Line 388-390** - Add runtime indicator alongside the static indicator:
 
 ```typescript
-<MarkdownNotesArea 
-  label="Notes"
-  value={node.note || ''}
-  placeholder="Internal notes about this prompt..."
-  defaultHeight={80}
-  onSave={(value) => onUpdate({ note: value })}
-  storageKey={notesStorageKey}
-  variables={templateVariables || []}  // NEW - if available in scope
-  familyRootPromptRowId={node?.root_prompt_row_id || node?.row_id}  // NEW
-/>
+// BEFORE (line 388-390):
+{variable.isStatic && (
+  <span className="text-[10px] text-muted-foreground">auto</span>
+)}
+
+// AFTER:
+{variable.isStatic && (
+  <span className="text-[10px] text-muted-foreground">auto</span>
+)}
+{variable.isRuntime && (
+  <span className="text-[10px] text-amber-500">cascade</span>
+)}
 ```
 
 ---
 
-## Files to Create
+### Phase 5: Add "Prompt References" Option (Optional Enhancement)
 
-| File | Purpose |
-|------|---------|
-| `src/components/shared/tiptap-variable-highlight.ts` | Tiptap extension for `{{...}}` highlighting |
+To provide parity with VariablePicker, add a link to open the Prompt Reference picker at the bottom of the autocomplete dropdown.
+
+**File: `src/components/ui/highlighted-textarea.tsx`**
+
+This requires:
+1. Adding `familyRootPromptRowId` prop to the component
+2. Adding state for showing the PromptReferencePicker modal
+3. Adding a footer option in the dropdown
+
+**This is a larger change** - recommend as a follow-up enhancement rather than part of this fix.
+
+---
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/shared/MarkdownNotesArea.tsx` | Add `variables` and `familyRootPromptRowId` props, import `VariablePicker`, add toolbar button, add `VariableHighlight` extension |
-| `src/components/content/PromptsContent.tsx` | Pass `variables` and `familyRootPromptRowId` to `MarkdownNotesArea` |
-| `src/components/templates/TemplateStructureEditor.tsx` | Pass variable props to `MarkdownNotesArea` |
+| `src/components/ui/highlighted-textarea.tsx` | Remove 10-item limit, increase popup height, add runtime variable indicator |
 
 ---
 
-## Technical Specifications
+## Expected Result
 
-### Props Interface Update for MarkdownNotesArea
-
-```typescript
-interface MarkdownNotesAreaProps {
-  value?: string;
-  onChange?: (value: string) => void;
-  onSave?: (value: string) => void | Promise<void>;
-  placeholder?: string;
-  label?: string;
-  defaultHeight?: number;
-  readOnly?: boolean;
-  storageKey?: string;
-  // NEW: Variable support
-  variables?: Array<{ name: string; value?: string; description?: string }> | string[];
-  familyRootPromptRowId?: string | null;
-}
-```
-
-### Variable Highlighting CSS (M3 Design System)
-
-```css
-.variable-highlight {
-  @apply text-primary bg-primary/10 px-0.5 rounded font-mono text-[0.95em];
-}
-```
-
----
-
-## Implementation Order
-
-1. **Create** `tiptap-variable-highlight.ts` extension
-2. **Modify** `MarkdownNotesArea.tsx`:
-   - Add new props
-   - Import `VariablePicker` and `VariableHighlight`
-   - Add insertion handler
-   - Add toolbar button
-   - Register extension
-3. **Modify** `PromptsContent.tsx` - pass variable props
-4. **Modify** `TemplateStructureEditor.tsx` - pass variable props
+After implementation:
+- ✅ All 16+ system variables visible when typing `{{}` 
+- ✅ All user-defined variables visible
+- ✅ Runtime variables (`q.previous.response`, `q.previous.name`) shown with "cascade" badge
+- ✅ Scrollable dropdown shows complete list
+- ✅ Search/filter works across all variables without limit
 
 ---
 
 ## Testing Checklist
 
-- [ ] Variables typed in Notes area display with pink highlighting
-- [ ] Braces icon appears in Notes toolbar
-- [ ] Clicking Braces icon opens variable picker popover
-- [ ] Selecting a variable inserts `{{varName}}` at cursor
-- [ ] Prompt References option opens picker modal
-- [ ] Inserted variables are highlighted immediately
-- [ ] Auto-save still works after variable insertion
-- [ ] Undo/discard works with variable content
-- [ ] Variables work in both PromptsContent and TemplateStructureEditor
-
+- [ ] Type `{{` → dropdown shows ALL system variables (not just 10)
+- [ ] Type `{{q.p` → filters correctly, shows matching variables
+- [ ] Runtime variables appear with amber "cascade" label
+- [ ] Static variables show "auto" label
+- [ ] User variables appear after system variables
+- [ ] Dropdown scrolls smoothly for long lists
+- [ ] Arrow key navigation works through full list
+- [ ] Enter/Tab inserts selected variable correctly
