@@ -158,8 +158,11 @@ function computeDeepDiff(oldVal: any, newVal: any, path = ''): Array<{
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   // Timeout wrapper
@@ -172,7 +175,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     
     if (!authHeader) {
-      return jsonResponse({ error: 'Authorization required', code: 'AUTH_REQUIRED' }, 401);
+      return jsonResponse({ error: 'Authorization required', code: 'AUTH_REQUIRED' }, 401, corsHeaders);
     }
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -181,7 +184,7 @@ serve(async (req) => {
     
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return jsonResponse({ error: 'Invalid authentication', code: 'AUTH_INVALID' }, 401);
+      return jsonResponse({ error: 'Invalid authentication', code: 'AUTH_INVALID' }, 401, corsHeaders);
     }
     
     const body = await req.json();
@@ -189,7 +192,7 @@ serve(async (req) => {
     
     const validation = validateInput(action, body);
     if (!validation.valid) {
-      return jsonResponse({ error: validation.error, code: 'INVALID_INPUT' }, 400);
+      return jsonResponse({ error: validation.error, code: 'INVALID_INPUT' }, 400, corsHeaders);
     }
     
     let result: any;
@@ -370,17 +373,21 @@ serve(async (req) => {
     }
     
     clearTimeout(timeout);
-    return jsonResponse(result);
+    return jsonResponse(result, 200, corsHeaders);
     
   } catch (error) {
     clearTimeout(timeout);
     console.error('prompt-versions error:', error);
     
+    // Reconstruct corsHeaders in catch block since it's scoped
+    const catchOrigin = req.headers.get('Origin');
+    const catchCorsHeaders = getCorsHeaders(catchOrigin);
+    
     const message = error instanceof Error ? error.message : 'Unknown error';
     const isAbort = error instanceof Error && error.name === 'AbortError';
     
     if (isAbort) {
-      return jsonResponse({ error: 'Request timeout', code: 'TIMEOUT' }, 504);
+      return jsonResponse({ error: 'Request timeout', code: 'TIMEOUT' }, 504, catchCorsHeaders);
     }
     
     const isClientError = message.includes('not found') || 
@@ -389,7 +396,8 @@ serve(async (req) => {
     
     return jsonResponse(
       { error: message, code: isClientError ? 'CLIENT_ERROR' : 'SERVER_ERROR' },
-      isClientError ? 400 : 500
+      isClientError ? 400 : 500,
+      catchCorsHeaders
     );
   }
 });
