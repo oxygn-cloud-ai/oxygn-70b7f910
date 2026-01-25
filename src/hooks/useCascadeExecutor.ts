@@ -1760,6 +1760,14 @@ export const useCascadeExecutor = () => {
         continue;
       }
 
+      // Update progress to highlight the currently running child prompt
+      updateProgress(
+        currentDepth,
+        childPrompt.prompt_name || 'Untitled',
+        children.indexOf(child) + 1,
+        childPrompt.row_id
+      );
+
       // Build user message
       const userMessage = getPromptMessage(childPrompt, 'Execute this prompt');
 
