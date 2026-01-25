@@ -874,8 +874,11 @@ async function executeToolsAndSubmitStreaming(
 // ============================================================================
 
 serve(async (req) => {
+  const origin = req.headers.get('Origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleCorsOptions(corsHeaders);
   }
 
   // Create SSE stream for real-time events
