@@ -762,12 +762,6 @@ export const useCascadeExecutor = () => {
             continue;
           }
 
-          // Skip top-level prompt (level 0) if it's an assistant - it's the parent, not a child
-          // The conversation-run function expects child prompts with a parent
-          if (levelIdx === 0 && prompt.is_assistant) {
-            console.log(`Skipping assistant prompt at level 0: ${prompt.prompt_name} (provides conversation context)`);
-            continue;
-          }
 
           // Check if cancelled (toast is shown by context's cancel function)
           if (isCancelled()) {
