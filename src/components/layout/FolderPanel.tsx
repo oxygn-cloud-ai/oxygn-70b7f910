@@ -683,8 +683,14 @@ const TreeItem = ({
                       const item = allFlatItems?.find(f => f.id === itemId)?.item;
                       return item?.starred;
                     });
-                    await onBatchStar?.(Array.from(selectedItems), !anyStarred);
-                    clearSelection?.();
+                    try {
+                      await onBatchStar?.(Array.from(selectedItems), !anyStarred);
+                    } catch (error) {
+                      console.error('Batch star operation failed:', error);
+                      toast.error('Some items could not be updated');
+                    } finally {
+                      clearSelection?.();
+                    }
                   } else {
                     onToggleStar?.(id); 
                   }
@@ -756,13 +762,19 @@ const TreeItem = ({
                 label={isMultiSelectMode && selectedItems?.size ? `Duplicate ${selectedItems.size} items` : "Duplicate"} 
                 onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    await onBatchDuplicate?.(Array.from(selectedItems));
-                    clearSelection?.();
+                    try {
+                      await onBatchDuplicate?.(Array.from(selectedItems));
+                    } catch (error) {
+                      console.error('Batch duplicate operation failed:', error);
+                      toast.error('Some items could not be duplicated');
+                    } finally {
+                      clearSelection?.();
+                    }
                   } else {
                     onDuplicate?.(id); 
                   }
                   setOpenMenuId?.(null); 
-                }} 
+                }}
               />
               
               {/* Export - single item only */}
@@ -792,8 +804,14 @@ const TreeItem = ({
                       const item = allFlatItems?.find(f => f.id === itemId)?.item;
                       return item?.exclude_from_cascade;
                     });
-                    await onBatchToggleExcludeCascade?.(Array.from(selectedItems), !anyExcluded);
-                    clearSelection?.();
+                    try {
+                      await onBatchToggleExcludeCascade?.(Array.from(selectedItems), !anyExcluded);
+                    } catch (error) {
+                      console.error('Batch exclude cascade operation failed:', error);
+                      toast.error('Some items could not be updated');
+                    } finally {
+                      clearSelection?.();
+                    }
                   } else {
                     onToggleExcludeCascade?.(id); 
                   }
@@ -814,8 +832,14 @@ const TreeItem = ({
                       const item = allFlatItems?.find(f => f.id === itemId)?.item;
                       return item?.exclude_from_export;
                     });
-                    await onBatchToggleExcludeExport?.(Array.from(selectedItems), !anyExcluded);
-                    clearSelection?.();
+                    try {
+                      await onBatchToggleExcludeExport?.(Array.from(selectedItems), !anyExcluded);
+                    } catch (error) {
+                      console.error('Batch exclude export operation failed:', error);
+                      toast.error('Some items could not be updated');
+                    } finally {
+                      clearSelection?.();
+                    }
                   } else {
                     onToggleExcludeExport?.(id); 
                   }
@@ -829,13 +853,19 @@ const TreeItem = ({
                 label={isMultiSelectMode && selectedItems?.size ? `Delete ${selectedItems.size} items` : "Delete"} 
                 onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    await onBatchDelete?.(Array.from(selectedItems));
-                    clearSelection?.();
+                    try {
+                      await onBatchDelete?.(Array.from(selectedItems));
+                    } catch (error) {
+                      console.error('Batch delete operation failed:', error);
+                      toast.error('Some items could not be deleted');
+                    } finally {
+                      clearSelection?.();
+                    }
                   } else {
                     onDelete?.(id, label); 
                   }
                   setOpenMenuId?.(null); 
-                }} 
+                }}
               />
             </div>
           </div>,
