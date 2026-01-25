@@ -673,11 +673,17 @@ const TreeItem = ({
               {/* Star - batch supported */}
               <IconButton 
                 icon={Star} 
-                label={isMultiSelectMode && selectedItems?.size ? `Star ${selectedItems.size} items` : (starred ? "Unstar" : "Star")} 
+                label={isMultiSelectMode && selectedItems?.size 
+                  ? `${Array.from(selectedItems).some(itemId => allFlatItems?.find(f => f.id === itemId)?.item?.starred) ? 'Unstar' : 'Star'} ${selectedItems.size} items` 
+                  : (starred ? "Unstar" : "Star")} 
                 className={starred && !isMultiSelectMode ? "text-amber-500" : ""} 
-                onClick={() => { 
+                onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    onBatchStar?.(Array.from(selectedItems), true);
+                    const anyStarred = Array.from(selectedItems).some(itemId => {
+                      const item = allFlatItems?.find(f => f.id === itemId)?.item;
+                      return item?.starred;
+                    });
+                    await onBatchStar?.(Array.from(selectedItems), !anyStarred);
                     clearSelection?.();
                   } else {
                     onToggleStar?.(id); 
@@ -748,9 +754,9 @@ const TreeItem = ({
               <IconButton 
                 icon={Copy} 
                 label={isMultiSelectMode && selectedItems?.size ? `Duplicate ${selectedItems.size} items` : "Duplicate"} 
-                onClick={() => { 
+                onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    onBatchDuplicate?.(Array.from(selectedItems));
+                    await onBatchDuplicate?.(Array.from(selectedItems));
                     clearSelection?.();
                   } else {
                     onDuplicate?.(id); 
@@ -777,12 +783,16 @@ const TreeItem = ({
               <IconButton 
                 icon={Ban} 
                 label={isMultiSelectMode && selectedItems?.size 
-                  ? `Exclude ${selectedItems.size} from cascade` 
+                  ? `${Array.from(selectedItems).some(itemId => allFlatItems?.find(f => f.id === itemId)?.item?.exclude_from_cascade) ? 'Include' : 'Exclude'} ${selectedItems.size} from cascade` 
                   : (excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade")} 
                 className={excludedFromCascade && !isMultiSelectMode ? "text-warning" : ""}
-                onClick={() => { 
+                onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    onBatchToggleExcludeCascade?.(Array.from(selectedItems), true);
+                    const anyExcluded = Array.from(selectedItems).some(itemId => {
+                      const item = allFlatItems?.find(f => f.id === itemId)?.item;
+                      return item?.exclude_from_cascade;
+                    });
+                    await onBatchToggleExcludeCascade?.(Array.from(selectedItems), !anyExcluded);
                     clearSelection?.();
                   } else {
                     onToggleExcludeCascade?.(id); 
@@ -795,12 +805,16 @@ const TreeItem = ({
               <IconButton 
                 icon={FileX} 
                 label={isMultiSelectMode && selectedItems?.size 
-                  ? `Exclude ${selectedItems.size} from export` 
+                  ? `${Array.from(selectedItems).some(itemId => allFlatItems?.find(f => f.id === itemId)?.item?.exclude_from_export) ? 'Include' : 'Exclude'} ${selectedItems.size} from export` 
                   : (excludedFromExport ? "Include in Export" : "Exclude from Export")} 
                 className={excludedFromExport && !isMultiSelectMode ? "text-warning" : ""}
-                onClick={() => { 
+                onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    onBatchToggleExcludeExport?.(Array.from(selectedItems), true);
+                    const anyExcluded = Array.from(selectedItems).some(itemId => {
+                      const item = allFlatItems?.find(f => f.id === itemId)?.item;
+                      return item?.exclude_from_export;
+                    });
+                    await onBatchToggleExcludeExport?.(Array.from(selectedItems), !anyExcluded);
                     clearSelection?.();
                   } else {
                     onToggleExcludeExport?.(id); 
@@ -813,9 +827,9 @@ const TreeItem = ({
               <IconButton 
                 icon={Trash2} 
                 label={isMultiSelectMode && selectedItems?.size ? `Delete ${selectedItems.size} items` : "Delete"} 
-                onClick={() => { 
+                onClick={async () => { 
                   if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
-                    onBatchDelete?.(Array.from(selectedItems));
+                    await onBatchDelete?.(Array.from(selectedItems));
                     clearSelection?.();
                   } else {
                     onDelete?.(id, label); 
