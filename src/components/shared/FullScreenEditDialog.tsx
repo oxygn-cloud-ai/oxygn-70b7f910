@@ -314,7 +314,7 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
                   <TooltipTrigger asChild>
                     <button
                       onClick={handleUndo}
-                      disabled={!hasPreviousValue()}
+                      disabled={!hasPreviousValue}
                       className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <Undo2 className="h-4 w-4 text-on-surface-variant" />
