@@ -1,85 +1,113 @@
 
 
-# Remediation Plan: Build Error TS6310 Resolution
+# Fix: Execute Parent Prompt in Cascade Runs
 
-## Executive Summary
-The build is blocked due to TypeScript error TS6310. The approved remediation plan specified modifying `tsconfig.node.json`, but this file appears to be platform-managed. This plan provides an alternative solution.
+## Problem Analysis
+
+When a cascade run is initiated from a parent prompt, the parent prompt itself is **skipped** and only its children are executed. This is caused by explicit skip logic in `useCascadeExecutor.ts` at lines 765-770:
+
+```typescript
+// Skip top-level prompt (level 0) if it's an assistant - it's the parent, not a child
+if (levelIdx === 0 && prompt.is_assistant) {
+  console.log(`Skipping assistant prompt at level 0: ${prompt.prompt_name} (provides conversation context)`);
+  continue;
+}
+```
+
+### Root Cause
+This logic was added under the assumption that the `conversation-run` edge function cannot handle running a prompt that is itself an assistant. However, analysis of the edge function shows this assumption is **incorrect**:
+
+The edge function at lines 1966-1977 explicitly checks if the current prompt has an assistant and uses it directly:
+```typescript
+if (selfAssistant) {
+  assistantData = selfAssistant;
+  topLevelPromptId = child_prompt_row_id;
+  // ...
+}
+```
+
+### Architectural Clarification
+The memory note `architecture/cascade-run-top-level-execution` states:
+> "Top-level prompt must be executed first in cascade runs unless explicitly excluded via exclude_from_cascade flag."
+
+The note also mentions that "top-level assistant itself is architecture-internal" but this refers to the **assistant record** in the `q_assistants` table, not the **prompt** in the `q_prompts` table. The prompt should still be executed; its assistant record provides configuration.
 
 ---
 
-## Root Cause Analysis
+## Solution
 
-The error occurs because:
-1. `tsconfig.json` (line 31-34) references `./tsconfig.node.json`
-2. `tsconfig.json` has `"noEmit": true` (line 13)
-3. `tsconfig.node.json` has `"composite": true` but no explicit `noEmit` setting
-4. TypeScript requires referenced composite projects to be able to emit declarations
-
-The conflict: main config says "don't emit" but the referenced project needs to emit for composite to work.
-
----
-
-## Solution: Remove Project References
-
-Since `tsconfig.node.json` is platform-managed and cannot be modified, we will remove the project references from `tsconfig.json`. This is safe because:
-
-1. `vite.config.ts` is already handled by the `esbuild.tsconfigRaw` workaround in `vite.config.ts`
-2. Vite doesn't require TypeScript project references to function
-3. This matches the documented workaround pattern in memory note
+Remove the skip logic that prevents top-level assistant prompts from being executed.
 
 ---
 
 ## Technical Implementation
 
-### File: `tsconfig.json`
+### File: `src/hooks/useCascadeExecutor.ts`
 
-**Current (lines 28-35):**
-```json
-  "include": [
-    "src"
-  ],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    }
-  ]
-}
+**Current Code (Lines 765-770):**
+```typescript
+          // Skip top-level prompt (level 0) if it's an assistant - it's the parent, not a child
+          // The conversation-run function expects child prompts with a parent
+          if (levelIdx === 0 && prompt.is_assistant) {
+            console.log(`Skipping assistant prompt at level 0: ${prompt.prompt_name} (provides conversation context)`);
+            continue;
+          }
 ```
 
-**Change to:**
-```json
-  "include": [
-    "src"
-  ]
+**Change:** Remove these lines entirely.
+
+The existing check for `exclude_from_cascade` at lines 760-763 remains, which correctly handles user-specified exclusions:
+```typescript
+// Skip if excluded from cascade
+if (prompt.exclude_from_cascade) {
+  console.log(`Skipping excluded prompt: ${prompt.prompt_name}`);
+  continue;
 }
 ```
-
-**Rationale:** Removing the `references` array eliminates the TS6310 conflict while preserving all source file type checking. The `vite.config.ts` is already bypassed via `esbuild.tsconfigRaw`.
 
 ---
 
-## Files Modified
+## Memory Update
 
-1. `tsconfig.json` - Remove lines 31-35 (references array)
-
-## Estimated Complexity
-
-- Lines removed: 5
-- Risk: Low (references not required for Vite builds)
-- Build should pass after this change
+After implementation, update the memory note `architecture/cascade-run-top-level-execution` to clarify:
+- Top-level prompts are always executed regardless of `is_assistant` status
+- Only `exclude_from_cascade` flag prevents execution
+- The assistant record provides configuration context but does not prevent prompt execution
 
 ---
 
 ## Testing Requirements
 
-1. **Build passes**: No TS6310 error
-2. **Type checking works**: Run `tsc --noEmit` on src files
-3. **Preview loads**: Application renders without errors
-4. **Hot reload works**: Vite HMR functions correctly
+1. **Basic Cascade Run**
+   - Create parent prompt with `is_assistant = true`
+   - Add 2-3 child prompts
+   - Run cascade from parent
+   - Verify: Parent prompt executes FIRST, then children in order
+
+2. **Excluded Parent**
+   - Set `exclude_from_cascade = true` on parent
+   - Run cascade
+   - Verify: Parent is skipped, children execute
+
+3. **Non-Assistant Parent**
+   - Create parent with `is_assistant = false`
+   - Run cascade
+   - Verify: Works same as before (no behavior change)
+
+4. **Edge Case: Empty Parent Prompt**
+   - Parent has no `input_admin_prompt` or `input_user_prompt`
+   - Run cascade
+   - Verify: Uses fallback message, doesn't error
 
 ---
 
-## Rollback Plan
+## Files Modified
 
-If build issues arise, restore the references array and investigate alternative solutions with platform support.
+1. `src/hooks/useCascadeExecutor.ts` - Remove 6 lines (765-770)
+
+## Estimated Complexity
+
+- Lines removed: 6
+- Risk: Low (removing incorrect skip logic)
+- Impact: Cascade runs will now include the parent prompt in execution
 
