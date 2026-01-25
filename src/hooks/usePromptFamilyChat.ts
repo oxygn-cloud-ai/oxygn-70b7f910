@@ -27,7 +27,7 @@ export interface UsePromptFamilyChatReturn {
   sessionReasoningEffort: string;
   setSessionReasoningEffort: (effort: string) => void;
   // Actions
-  fetchThreads: () => Promise<void>;
+  fetchThreads: () => Promise<string | null>;  // Returns auto-selected thread ID
   fetchMessages: (threadId: string) => Promise<ChatMessage[]>;
   createThread: (title?: string) => Promise<ChatThread | null>;
   switchThread: (threadId: string) => Promise<void>;
@@ -63,23 +63,32 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     streamManagerRef.current = streamManager;
   });
 
-  // Compute root prompt ID by walking up parent chain
+  // Compute root prompt ID using the pre-computed root_prompt_row_id column
   const computeRootPromptId = useCallback(async (pRowId: string): Promise<string> => {
-    let current = pRowId;
-    let depth = 0;
-    while (depth < 15) {
-      const { data } = await supabase
-        .from('q_prompts')
-        .select('parent_row_id, prompt_name')
-        .eq('row_id', current)
-        .maybeSingle();
-      if (!data?.parent_row_id) {
-        return current;
-      }
-      current = data.parent_row_id;
-      depth++;
+    const { data, error } = await supabase
+      .from('q_prompts')
+      .select('root_prompt_row_id, parent_row_id')
+      .eq('row_id', pRowId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('[computeRootPromptId] Query failed:', error);
+      return pRowId;  // Fallback to self
     }
-    return current;
+    
+    // If root_prompt_row_id is set, use it
+    if (data?.root_prompt_row_id) {
+      return data.root_prompt_row_id;
+    }
+    
+    // No parent means this IS the root
+    if (!data?.parent_row_id) {
+      return pRowId;
+    }
+    
+    // Data corruption fallback: root_prompt_row_id is NULL but parent exists
+    console.warn('[computeRootPromptId] Missing root_prompt_row_id:', pRowId);
+    return pRowId;
   }, []);
 
   // Resolve root prompt when promptRowId changes
@@ -200,16 +209,14 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
       }
       
       try {
-        // Fetch threads using threadManager (populates its own state)
-        await tm.fetchThreads();
+        // Fetch threads - returns auto-selected thread ID directly
+        const autoSelectedId = await tm.fetchThreads();
         
         if (cancelled) return;
         
-        // After fetchThreads, check if a thread was auto-selected
-        const activeId = tm.activeThreadId;
-        if (activeId) {
-          // Fetch messages for the auto-selected thread
-          const messages = await tm.switchThread(activeId);
+        // Fetch messages for the auto-selected thread using returned ID (not stale state)
+        if (autoSelectedId) {
+          const messages = await tm.switchThread(autoSelectedId);
           if (!cancelled) {
             mm.setMessages(messages);
           }

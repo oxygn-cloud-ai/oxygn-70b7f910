@@ -9,7 +9,7 @@ export interface UsePromptFamilyThreadsReturn {
   activeThread: ChatThread | null;
   isLoading: boolean;
   setActiveThreadId: (id: string | null) => void;
-  fetchThreads: () => Promise<void>;
+  fetchThreads: () => Promise<string | null>;  // Fixed: returns auto-selected thread ID
   createThread: (title?: string) => Promise<ChatThread | null>;
   switchThread: (threadId: string) => Promise<ChatMessage[]>;
   deleteThread: (threadId: string) => Promise<boolean>;
@@ -31,16 +31,16 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
     activeThreadIdRef.current = activeThreadId;
   }, [activeThreadId]);
 
-  // Fetch threads for the current prompt family
-  const fetchThreads = useCallback(async () => {
+  // Fetch threads for the current prompt family - returns auto-selected thread ID
+  const fetchThreads = useCallback(async (): Promise<string | null> => {
     if (!rootPromptId) {
       setThreads([]);
-      return;
+      return null;
     }
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return null;
       
       const { data, error } = await supabase
         .from('q_threads')
@@ -56,9 +56,12 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       // Auto-select first thread if none selected
       if (data?.length && !activeThreadIdRef.current) {
         setActiveThreadId(data[0].row_id);
+        return data[0].row_id;  // Return the auto-selected ID
       }
+      return activeThreadIdRef.current;  // Return current selection
     } catch (error) {
       console.error('Error fetching threads:', error);
+      return null;
     }
   }, [rootPromptId]);
 
@@ -71,12 +74,17 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       if (!user) throw new Error('Not authenticated');
 
       // Deactivate existing active threads for this family
-      await supabase
+      const { error: deactivateError } = await supabase
         .from('q_threads')
         .update({ is_active: false })
         .eq('root_prompt_row_id', rootPromptId)
         .eq('owner_id', user.id)
         .eq('is_active', true);
+
+      if (deactivateError) {
+        console.error('Error deactivating threads:', deactivateError);
+        // Continue anyway - the unique constraint will catch issues
+      }
 
       // Create new thread via thread-manager
       const response = await supabase.functions.invoke('thread-manager', {

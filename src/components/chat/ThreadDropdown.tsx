@@ -37,7 +37,7 @@ export const ThreadDropdown = ({
         className="flex items-center gap-1.5 px-2 py-1 rounded-m3-sm bg-surface-container hover:bg-surface-container-high text-body-sm text-on-surface"
       >
         <span className="truncate max-w-[120px]">
-          {activeThread?.title || 'Select chat'}
+          {activeThread?.name || 'Select chat'}
         </span>
         <ChevronDown className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -71,7 +71,7 @@ export const ThreadDropdown = ({
                 }}
                 className="flex-1 text-left text-body-sm text-on-surface truncate"
               >
-                {thread.title || 'Untitled'}
+                {thread.name || 'Untitled'}
               </button>
               <button
                 onClick={(e) => {
