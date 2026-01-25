@@ -65,6 +65,7 @@ const HighlightedTextarea = forwardRef(({
       type: VARIABLE_TYPE_LABELS[SYSTEM_VARIABLES[name]?.type] || 'System',
       isSystem: true,
       isStatic: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.STATIC,
+      isRuntime: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.RUNTIME,
     }));
     
     const userVars = (userVariables || []).map(v => ({
@@ -82,11 +83,10 @@ const HighlightedTextarea = forwardRef(({
 
   // Filter variables based on query
   const filteredVariables = useMemo(() => {
-    if (!autocompleteQuery) return allVariables.slice(0, 10);
+    if (!autocompleteQuery) return allVariables;
     const query = autocompleteQuery.toLowerCase();
     return allVariables
-      .filter(v => v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query))
-      .slice(0, 10);
+      .filter(v => v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query));
   }, [allVariables, autocompleteQuery]);
 
   // Reset selected index when filtered list changes
@@ -363,7 +363,7 @@ const HighlightedTextarea = forwardRef(({
             maxWidth: '320px',
           }}
         >
-          <ScrollArea className="max-h-[200px]">
+          <ScrollArea className="max-h-[300px]">
             <div className="py-1">
               {filteredVariables.map((variable, index) => (
                 <button
@@ -387,6 +387,9 @@ const HighlightedTextarea = forwardRef(({
                   </span>
                   {variable.isStatic && (
                     <span className="text-[10px] text-muted-foreground">auto</span>
+                  )}
+                  {variable.isRuntime && (
+                    <span className="text-[10px] text-primary">cascade</span>
                   )}
                 </button>
               ))}
