@@ -205,8 +205,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signInWithPassword = async (email: string, password: string): Promise<{ error: Error | null }> => {
-    // Only allow whitelisted emails
-    if (!WHITELISTED_EMAILS.includes(email.toLowerCase())) {
+    // Allow emails from allowed domains OR explicitly whitelisted emails
+    const emailDomain = email.toLowerCase().split('@')[1];
+    const isAllowedDomain = ['chocfin.com', 'oxygn.cloud'].includes(emailDomain);
+    const isWhitelisted = WHITELISTED_EMAILS.includes(email.toLowerCase());
+    
+    if (!isAllowedDomain && !isWhitelisted) {
       const error = new Error('Email/password login is only available for authorized accounts');
       toast.error(error.message);
       return { error };
@@ -226,8 +230,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signUpWithPassword = async (email: string, password: string): Promise<{ error: Error | null }> => {
-    // Only allow whitelisted emails
-    if (!WHITELISTED_EMAILS.includes(email.toLowerCase())) {
+    // Allow emails from allowed domains OR explicitly whitelisted emails
+    const emailDomain = email.toLowerCase().split('@')[1];
+    const isAllowedDomain = ['chocfin.com', 'oxygn.cloud'].includes(emailDomain);
+    const isWhitelisted = WHITELISTED_EMAILS.includes(email.toLowerCase());
+    
+    if (!isAllowedDomain && !isWhitelisted) {
       const error = new Error('Email/password signup is only available for authorized accounts');
       toast.error(error.message);
       return { error };
