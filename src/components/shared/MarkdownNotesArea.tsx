@@ -3,6 +3,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import { VariableHighlight } from './tiptap-variable-highlight';
+import VariablePicker from '@/components/VariablePicker';
 import { 
   Bold, 
   Italic, 
@@ -148,6 +150,9 @@ const MarkdownNotesArea = ({
   defaultHeight = 80,
   readOnly = false,
   storageKey,
+  // Variable support props
+  variables = [],
+  familyRootPromptRowId = null,
 }) => {
   const persistKey = storageKey || (label ? `qonsol-notes-collapsed-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
   
@@ -271,6 +276,7 @@ const MarkdownNotesArea = ({
         placeholder,
         emptyEditorClass: 'is-editor-empty',
       }),
+      VariableHighlight,
     ],
     content: localValue || '',
     editable: !readOnly,
@@ -338,6 +344,14 @@ const MarkdownNotesArea = ({
     clearUndoStack();
     toast.success('Discarded changes');
   }, [getOriginalValue, cancelPendingSave, onSave, clearUndoStack, registerSave, editor]);
+
+  // Handle variable insertion from VariablePicker
+  const handleInsertVariable = useCallback((varName) => {
+    if (!editor || readOnly) return;
+    
+    // Insert variable at current cursor position
+    editor.chain().focus().insertContent(`{{${varName}}}`).run();
+  }, [editor, readOnly]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -530,6 +544,16 @@ const MarkdownNotesArea = ({
               onClick={() => editor?.chain().focus().toggleCode().run()}
               active={editor?.isActive('code')}
             />
+            
+            <div className="w-px h-4 bg-outline-variant mx-1" />
+            
+            <VariablePicker
+              onInsert={handleInsertVariable}
+              userVariables={variables}
+              familyRootPromptRowId={familyRootPromptRowId}
+              side="bottom"
+              align="end"
+            />
           </div>
         )}
       </div>
@@ -545,7 +569,7 @@ const MarkdownNotesArea = ({
           <div className="p-3">
             <EditorContent 
               editor={editor} 
-              className="tiptap-editor [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:text-on-surface-variant/50 [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:pointer-events-none"
+              className="tiptap-editor [&_.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.is-editor-empty:first-child::before]:text-on-surface-variant/50 [&_.is-editor-empty:first-child::before]:float-left [&_.is-editor-empty:first-child::before]:h-0 [&_.is-editor-empty:first-child::before]:pointer-events-none [&_.variable-highlight]:text-primary [&_.variable-highlight]:bg-primary/10 [&_.variable-highlight]:px-0.5 [&_.variable-highlight]:rounded [&_.variable-highlight]:font-mono [&_.variable-highlight]:text-[0.95em]"
             />
           </div>
         </div>
