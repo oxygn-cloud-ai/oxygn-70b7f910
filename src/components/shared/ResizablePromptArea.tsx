@@ -3,8 +3,9 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from "react"
 // Ref to track when we're in the middle of a save operation
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
-  Library, Search, Play, Loader2, Copy, Undo2, XCircle
+  Library, Search, Play, Loader2, Copy, Undo2, XCircle, Maximize2
 } from "lucide-react";
+import FullScreenEditDialog from "./FullScreenEditDialog";
 import HighlightedTextarea from "@/components/ui/highlighted-textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
@@ -268,6 +269,7 @@ const ResizablePromptArea = ({
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [cursorPosition, setCursorPosition] = useState(null);
   const [selectionEnd, setSelectionEnd] = useState(null);
+  const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   
   // Field undo/discard management - pass storageKey as entityId to preserve undo across saves
   const {
@@ -691,6 +693,17 @@ const ResizablePromptArea = ({
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">Copy</TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button 
+                onClick={() => setIsFullScreenOpen(true)}
+                className="w-6 h-6 flex items-center justify-center rounded-sm text-on-surface-variant hover:bg-on-surface/[0.08]"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">Full screen</TooltipContent>
+          </Tooltip>
           {onPlay && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -749,6 +762,21 @@ const ResizablePromptArea = ({
           </div>
         </>
       )}
+      
+      {/* Full Screen Edit Dialog */}
+      <FullScreenEditDialog
+        isOpen={isFullScreenOpen}
+        onClose={() => setIsFullScreenOpen(false)}
+        label={label}
+        value={editValue}
+        onSave={onSave}
+        onChange={onChange}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        variables={transformedUserVars}
+        familyRootPromptRowId={familyRootPromptRowId}
+        storageKey={storageKey}
+      />
     </div>
   );
 };
