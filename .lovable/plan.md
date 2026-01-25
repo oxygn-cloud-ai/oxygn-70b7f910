@@ -1,165 +1,358 @@
 
-# Security Remediation - Audit Findings Resolution Plan
+# Multi-Select Popup Menu: Revised Implementation Plan
 
 ## Executive Summary
+Enable the popup menu when items are selected via checkbox, allowing batch actions on all selected prompts. This requires careful handling to avoid duplicating existing functionality and preventing dangerous parallel operations.
 
-The adversarial audit revealed a **critical failure**: the CORS hardening was NOT applied to any edge function. While the utility was created correctly, all 21+ edge functions still use wildcard `Access-Control-Allow-Origin: *`, leaving APIs vulnerable.
+## Current State Analysis
+
+### Existing Implementation
+- **Line 577**: Menu is explicitly disabled when `isMultiSelectMode` is true
+- **Lines 1475-1549**: Floating batch action bar appears when items are selected
+- **Lines 975-1014**: Batch click handlers already exist in FolderPanel
+- **useTreeOperations.ts**: Contains optimized batch handlers using Supabase `.in()` queries
+
+### Critical Finding: Duplication Risk
+The batch action bar already provides: Star, Duplicate, Exclude from Cascade, Exclude from Export, Delete. Adding these to the popup menu creates redundancy.
 
 ---
 
-## Critical Issues Requiring Immediate Fix
+## Proposed Solution
 
-### Issue 1: CORS Wildcard Still Active (CRITICAL)
+### Approach: Unified Menu with Selective Batch Support
 
-**Current State**: All edge functions use:
+Rather than duplicating the batch bar functionality, the popup menu will:
+1. Remain visible in multi-select mode
+2. Show batch-applicable actions with selection count
+3. Disable actions that are dangerous or semantically unclear for batch operations
+4. Reuse existing batch handlers (no new logic duplication)
+
+---
+
+## Technical Implementation
+
+### Step 1: Add TypeScript Interfaces (Type Safety)
+
+Create proper interfaces for component props to satisfy strict type safety:
+
+**File: `src/components/layout/FolderPanel.tsx`**
+
 ```typescript
-import { corsHeaders } from "../_shared/cors.ts"; // Uses '*'
+interface TreeItemProps {
+  item: PromptTreeItem;
+  level?: number;
+  isExpanded?: boolean;
+  onToggle?: (id: string) => void;
+  isActive?: boolean;
+  onMoveInto?: (draggedId: string, targetId: string) => void;
+  onMoveBetween?: (draggedId: string, targetIndex: number, siblingIds: string[]) => void;
+  onSelect?: (id: string | null) => void;
+  onAdd?: (parentId: string) => void;
+  onDelete?: (id: string, name: string) => void;
+  onDuplicate?: (id: string) => void;
+  onExport?: (id: string) => void;
+  expandedFolders: Record<string, boolean>;
+  selectedPromptId?: string;
+  onRunPrompt?: (id: string) => void;
+  onRunCascade?: (id: string) => void;
+  onToggleStar?: (id: string) => void;
+  onToggleExcludeCascade?: (id: string) => void;
+  onToggleExcludeExport?: (id: string) => void;
+  isRunningPrompt?: boolean;
+  isRunningCascade?: boolean;
+  // Multi-select
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  lastSelectedId?: string | null;
+  allFlatItems?: Array<{ id: string; item: PromptTreeItem }>;
+  onRangeSelect?: (fromId: string, toId: string, flatItems: any[]) => void;
+  selectedItems?: Set<string>;
+  onSelectOnlyThis?: (id: string) => void;
+  // NEW: Batch handlers
+  onBatchStar?: (ids: string[], starred: boolean) => Promise<boolean>;
+  onBatchDuplicate?: (ids: string[]) => Promise<boolean>;
+  onBatchDelete?: (ids: string[]) => Promise<boolean>;
+  onBatchToggleExcludeCascade?: (ids: string[], exclude: boolean) => Promise<boolean>;
+  onBatchToggleExcludeExport?: (ids: string[], exclude: boolean) => Promise<boolean>;
+  clearSelection?: () => void;
+  // ... remaining props
+}
 ```
 
-**Required State**: All edge functions must use:
-```typescript
-const origin = req.headers.get('Origin');
-const corsHeaders = getCorsHeaders(origin);
+### Step 2: Remove Multi-Select Guard on Menu
+
+**File: `src/components/layout/FolderPanel.tsx`**
+**Line: 577**
+
+Change from:
+```tsx
+{isMenuOpen && !isMultiSelectMode && menuButtonRef.current && createPortal(
 ```
 
-**Affected Files** (21 functions):
-- batch-embeddings, confluence-manager, conversation-cancel
-- conversation-manager, conversation-run, credentials-manager
-- execution-manager, fetch-provider-models, generate-embedding
-- github-release, manus-key-validate, manus-task-create
-- manus-webhook-register, openai-billing, openai-proxy
-- prompt-family-chat, prompt-versions, resource-health
-- studio-chat, test-openai-delete, thread-manager
-
----
-
-### Issue 2: ErrorBoundary Origin Prefix Attack (HIGH)
-
-**Current Code** (line 64-66):
-```typescript
-currentOrigin === origin || currentOrigin.startsWith(origin)
+To:
+```tsx
+{isMenuOpen && menuButtonRef.current && createPortal(
 ```
 
-**Risk**: `https://lovable.dev.attacker.com` would match `https://lovable.dev`
+### Step 3: Add Selection Count Header in Menu
 
-**Fix**: Remove `startsWith` and use exact match only.
+**Inside the menu portal (after line 578)**
 
-**Missing Domains**: Add `qonsol.app` to trusted origins.
-
----
-
-### Issue 3: Legacy CORS Export (CRITICAL)
-
-**Current Code** (cors.ts lines 108-111):
-```typescript
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  ...
-};
+```tsx
+{isMenuOpen && menuButtonRef.current && createPortal(
+  <div 
+    ref={menuRef}
+    className="fixed flex flex-col bg-surface-container-high rounded-m3-sm shadow-lg z-50 border border-outline-variant"
+    style={getMenuPosition()}
+  >
+    {/* Selection count header - only shown in multi-select mode */}
+    {isMultiSelectMode && selectedItems && selectedItems.size > 0 && (
+      <div className="px-2 py-1 border-b border-outline-variant bg-primary/5">
+        <span className="text-[10px] text-primary font-medium">
+          {selectedItems.size} selected
+        </span>
+      </div>
+    )}
+    <div className="flex items-center gap-0.5 px-1 py-0.5">
+      {/* Action buttons */}
+    </div>
+  </div>,
+  document.body
+)}
 ```
 
-**Fix**: Remove this export entirely to force all functions to use `getCorsHeaders(origin)`.
+### Step 4: Update Action Handlers for Batch Support
 
----
+**Star Action (line 583-588)**
+```tsx
+<IconButton 
+  icon={Star} 
+  label={isMultiSelectMode ? `Star ${selectedItems?.size} items` : (starred ? "Unstar" : "Star")} 
+  className={starred ? "text-amber-500" : ""} 
+  onClick={() => { 
+    if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+      onBatchStar?.(Array.from(selectedItems), true);
+      clearSelection?.();
+    } else {
+      onToggleStar?.(id); 
+    }
+    setOpenMenuId(null); 
+  }}
+/>
+```
 
-## Implementation Order
+**Duplicate Action (line 618)**
+```tsx
+<IconButton 
+  icon={Copy} 
+  label={isMultiSelectMode ? `Duplicate ${selectedItems?.size} items` : "Duplicate"} 
+  onClick={() => { 
+    if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+      onBatchDuplicate?.(Array.from(selectedItems));
+      clearSelection?.();
+    } else {
+      onDuplicate?.(id); 
+    }
+    setOpenMenuId(null); 
+  }} 
+/>
+```
 
-### Step 1: Update cors.ts Utility
-- Remove legacy `corsHeaders` export (lines 102-111)
-- Add `qonsol.app` domains to `ALLOWED_ORIGINS`
+**Delete Action (line 637)**
+```tsx
+<IconButton 
+  icon={Trash2} 
+  label={isMultiSelectMode ? `Delete ${selectedItems?.size} items` : "Delete"} 
+  onClick={() => { 
+    if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+      onBatchDelete?.(Array.from(selectedItems));
+      clearSelection?.();
+    } else {
+      onDelete?.(id, label); 
+    }
+    setOpenMenuId(null); 
+  }} 
+/>
+```
 
-### Step 2: Update All 21 Edge Functions
-For each function:
-1. Get origin from request: `const origin = req.headers.get('Origin');`
-2. Generate dynamic headers: `const corsHeaders = getCorsHeaders(origin);`
-3. Use in OPTIONS handler: `return handleCorsOptions(corsHeaders);`
-4. Use in all responses: `headers: { ...corsHeaders, 'Content-Type': 'application/json' }`
+**Exclude from Cascade (lines 626-630)**
+```tsx
+<IconButton 
+  icon={Ban} 
+  label={isMultiSelectMode ? `Exclude ${selectedItems?.size} from cascade` : (excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade")} 
+  className={excludedFromCascade ? "text-warning" : ""}
+  onClick={() => { 
+    if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+      onBatchToggleExcludeCascade?.(Array.from(selectedItems), true);
+      clearSelection?.();
+    } else {
+      onToggleExcludeCascade?.(id); 
+    }
+    setOpenMenuId(null); 
+  }}
+/>
+```
 
-### Step 3: Fix ErrorBoundary
-- Remove `startsWith` from origin matching
-- Add `qonsol.app` production domains to trusted list
+**Exclude from Export (lines 631-636)**
+```tsx
+<IconButton 
+  icon={FileX} 
+  label={isMultiSelectMode ? `Exclude ${selectedItems?.size} from export` : (excludedFromExport ? "Include in Export" : "Exclude from Export")} 
+  className={excludedFromExport ? "text-warning" : ""}
+  onClick={() => { 
+    if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+      onBatchToggleExcludeExport?.(Array.from(selectedItems), true);
+      clearSelection?.();
+    } else {
+      onToggleExcludeExport?.(id); 
+    }
+    setOpenMenuId(null); 
+  }}
+/>
+```
 
-### Step 4: Documentation Cleanup
-- Fix PostHog comment to reflect actual masking behavior
+### Step 5: Disable Dangerous Actions in Multi-Select Mode
 
----
+**Play Action (lines 589-603)** - DISABLE in batch mode
+```tsx
+{isMultiSelectMode ? (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant/30 cursor-not-allowed">
+        <Play className="h-3 w-3" />
+      </span>
+    </TooltipTrigger>
+    <TooltipContent className="text-[10px]">Select single item to run</TooltipContent>
+  </Tooltip>
+) : isManusModelById?.(id) ? (
+  // existing Manus handling
+) : (
+  // existing Play button
+)}
+```
 
-## Files to Modify
+**Run Cascade (lines 604-611)** - DISABLE in batch mode
+```tsx
+{hasChildren && !isMultiSelectMode && (
+  <IconButton 
+    icon={isRunningCascade ? Loader2 : Workflow} 
+    label="Run Cascade" 
+    onClick={() => { onRunCascade?.(id); setOpenMenuId(null); }}
+    className={isRunningCascade ? "animate-spin" : ""}
+  />
+)}
+```
 
-### Modified Files (22):
-1. `supabase/functions/_shared/cors.ts` - Remove legacy export
-2. `src/components/ErrorBoundary.tsx` - Fix origin matching
-3. `src/lib/posthog.ts` - Fix comment
-4. 21 edge function files - Implement dynamic CORS
+**Add Child (line 617)** - DISABLE in batch mode
+```tsx
+{!isMultiSelectMode && (
+  <IconButton icon={Plus} label="Add Child" onClick={() => { onAdd?.(id); setOpenMenuId(null); }} />
+)}
+```
 
----
+**Save as Template (lines 620-624)** - DISABLE in batch mode
+```tsx
+{!isMultiSelectMode && (
+  <IconButton 
+    icon={LayoutTemplate} 
+    label="Save as Template" 
+    onClick={() => { onSaveAsTemplate?.(id, label, hasChildren); setOpenMenuId(null); }}
+  />
+)}
+```
 
-## Success Criteria
+### Step 6: Copy Variable Reference - Batch Support
 
-After implementation:
-- No edge function uses wildcard `*` for CORS
-- All edge functions call `getCorsHeaders(origin)` dynamically
-- ErrorBoundary only matches exact trusted origins
-- `qonsol.app` domains included in both CORS and ErrorBoundary lists
-- Legacy `corsHeaders` export removed from codebase
-
----
-
-## Technical Implementation Notes
-
-### Pattern for Each Edge Function:
-
-```typescript
-import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-
-serve(async (req) => {
-  const origin = req.headers.get('Origin');
-  const corsHeaders = getCorsHeaders(origin);
-  
-  if (req.method === 'OPTIONS') {
-    return handleCorsOptions(corsHeaders);
+**Line 612-616**
+```tsx
+<IconButton icon={Braces} label={isMultiSelectMode ? `Copy ${selectedItems?.size} references` : "Copy Variable Reference"} onClick={() => {
+  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+    const refs = Array.from(selectedItems).map(itemId => `{{q.ref[${itemId}]}}`).join('\n');
+    navigator.clipboard.writeText(refs);
+    toast.success(`Copied ${selectedItems.size} variable references`);
+  } else {
+    navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
+    toast.success('Copied variable reference');
   }
-
-  try {
-    // ... handler logic
-    return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-});
+  setOpenMenuId(null);
+}} />
 ```
 
-### Updated ALLOWED_ORIGINS List:
+### Step 7: Pass New Props to TreeItem
 
-```typescript
-const ALLOWED_ORIGINS: readonly string[] = [
-  // Production
-  'https://qonsol.app',
-  'https://www.qonsol.app',
-  
-  // Lovable preview/deploy URLs
-  'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
-  
-  // Development
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'http://localhost:3000',
-] as const;
+**FolderPanel render (around line 1415)** - Add to TreeItem props:
+```tsx
+<TreeItem
+  // ... existing props ...
+  // NEW batch props
+  onBatchStar={onBatchStar}
+  onBatchDuplicate={onBatchDuplicate}
+  onBatchDelete={onBatchDelete}
+  onBatchToggleExcludeCascade={onBatchToggleExcludeCascade}
+  onBatchToggleExcludeExport={onBatchToggleExcludeExport}
+  clearSelection={clearSelection}
+/>
 ```
 
-### Updated ErrorBoundary TRUSTED_ORIGINS:
+**Also update recursive child rendering (lines 667-720)** - Same props must be passed.
 
-```typescript
-const TRUSTED_ORIGINS = [
-  'https://lovable.dev',
-  'https://www.lovable.dev',
-  'https://qonsol.app',
-  'https://www.qonsol.app',
-  'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
-] as const;
-```
+### Step 8: Consider Removing Batch Action Bar (Optional)
+
+With batch actions now available in the popup menu, the floating batch action bar may become redundant. Options:
+
+**Option A: Keep Both** (Recommended initially)
+- Menu for quick single-action batch operations
+- Bar for bulk operations with clear visibility
+
+**Option B: Remove Bar**
+- Cleaner UI, single interaction pattern
+- Risk: Less discoverable for users
+
+---
+
+## Actions NOT Supported in Multi-Select Mode
+
+| Action | Reason |
+|--------|--------|
+| Play (Run Prompt) | Parallel API calls, cost/rate concerns |
+| Run Cascade | Same as above, plus state tracking issues |
+| Add Child | Semantically undefined for multiple parents |
+| Save as Template | Unclear semantics, single-item only |
+| Export | Could be batched but needs separate design |
+
+---
+
+## Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Parallel prompt execution | Disable Play/Cascade in batch mode |
+| Type safety violations | Add TypeScript interfaces |
+| Selection race condition | Use functional setState pattern |
+| Partial failure in batch | Existing handlers have try/catch |
+| UX confusion (two batch UIs) | Clear visual differentiation |
+
+---
+
+## Testing Requirements
+
+1. **Single-select behavior unchanged**: Open menu on single item, all actions work as before
+2. **Multi-select batch actions**: Select 3 items, open menu, Star → all 3 starred
+3. **Selection clears after action**: After batch delete, `selectedItems` is empty
+4. **Disabled actions visible**: In multi-select, Play/Cascade show disabled state with tooltip
+5. **Recursive children**: Batch props pass through to nested TreeItems
+6. **Large selection**: Select 50+ items, batch delete, confirm no performance issues
+
+---
+
+## Files Modified
+
+1. `src/components/layout/FolderPanel.tsx` - All changes in this single file
+
+## Estimated Complexity
+
+- Lines added: ~50
+- Lines modified: ~30
+- New props: 6 (batch handlers + clearSelection)
+- Risk: Medium (architectural change to existing pattern)
