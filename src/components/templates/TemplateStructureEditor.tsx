@@ -839,6 +839,8 @@ const PromptsSection = ({ node, onUpdate, variables, libraryItems = [], template
         defaultHeight={80}
         onSave={(value) => onUpdate({ note: value })}
         storageKey={notesStorageKey}
+        variables={variableDefinitions}
+        familyRootPromptRowId={node?.root_prompt_row_id || node?.row_id}
       />
     </div>
   );

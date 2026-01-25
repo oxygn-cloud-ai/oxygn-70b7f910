@@ -255,6 +255,8 @@ const PromptTabContent = ({ promptData, onUpdateField, onRunPrompt, selectedProm
         defaultHeight={80}
         onSave={isLocked ? undefined : (value) => onUpdateField('note', value)}
         readOnly={isLocked}
+        variables={variables}
+        familyRootPromptRowId={promptData?.root_prompt_row_id || promptData?.row_id}
       />
     </div>
   );
