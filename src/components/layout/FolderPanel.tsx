@@ -151,6 +151,80 @@ const DropZone = ({ onDrop, targetIndex, siblingIds, isFirst = false }) => {
   );
 };
 
+// TypeScript interface for TreeItem props
+interface PromptTreeItem {
+  id?: string;
+  row_id?: string;
+  name?: string;
+  prompt_name?: string;
+  children?: PromptTreeItem[];
+  starred?: boolean;
+  exclude_from_cascade?: boolean;
+  exclude_from_export?: boolean;
+  is_assistant?: boolean;
+  icon_name?: string;
+  has_uncommitted_changes?: boolean;
+  updated_at?: string;
+  created_at?: string;
+}
+
+interface TreeItemProps {
+  item: PromptTreeItem;
+  level?: number;
+  isExpanded?: boolean;
+  onToggle?: (id: string) => void;
+  isActive?: boolean;
+  onMoveInto?: (draggedId: string, targetId: string) => void;
+  onMoveBetween?: (draggedId: string, targetIndex: number, siblingIds: string[]) => void;
+  onSelect?: (id: string | null) => void;
+  onAdd?: (parentId: string) => void;
+  onDelete?: (id: string, name: string) => void;
+  onDuplicate?: (id: string) => void;
+  onExport?: (id: string) => void;
+  expandedFolders: Record<string, boolean>;
+  selectedPromptId?: string;
+  onRunPrompt?: (id: string) => void;
+  onRunCascade?: (id: string) => void;
+  onToggleStar?: (id: string) => void;
+  onToggleExcludeCascade?: (id: string) => void;
+  onToggleExcludeExport?: (id: string) => void;
+  isRunningPrompt?: boolean;
+  isRunningCascade?: boolean;
+  // Multi-select
+  isMultiSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
+  lastSelectedId?: string | null;
+  allFlatItems?: Array<{ id: string; item: PromptTreeItem }>;
+  onRangeSelect?: (fromId: string, toId: string, flatItems: Array<{ id: string; item: PromptTreeItem }>) => void;
+  selectedItems?: Set<string>;
+  onSelectOnlyThis?: (id: string) => void;
+  // Icon editing
+  onIconChange?: (promptId: string, iconName: string | null) => Promise<void>;
+  onRefresh?: () => void;
+  supabase?: ReturnType<typeof useSupabase>;
+  // Cascade and single run highlighting
+  currentCascadePromptId?: string | null;
+  singleRunPromptId?: string | null;
+  isCascadeRunning?: boolean;
+  // Deleting state for UI feedback
+  deletingPromptIds?: Set<string>;
+  // Save as template
+  onSaveAsTemplate?: (id: string, name: string, hasChildren: boolean) => void;
+  // Menu state - lifted to FolderPanel
+  openMenuId?: string | null;
+  setOpenMenuId?: (id: string | null) => void;
+  // Manus model lookup function
+  isManusModelById?: (id: string) => boolean;
+  // Batch handlers
+  onBatchStar?: (ids: string[], starred: boolean) => Promise<boolean | void>;
+  onBatchDuplicate?: (ids: string[]) => Promise<boolean | void>;
+  onBatchDelete?: (ids: string[]) => Promise<boolean | void>;
+  onBatchToggleExcludeCascade?: (ids: string[], exclude: boolean) => Promise<boolean | void>;
+  onBatchToggleExcludeExport?: (ids: string[], exclude: boolean) => Promise<boolean | void>;
+  clearSelection?: () => void;
+}
+
 const TreeItem = ({ 
   item,
   level = 0, 
@@ -201,7 +275,14 @@ const TreeItem = ({
   setOpenMenuId,
   // Manus model lookup function
   isManusModelById,
-}) => {
+  // Batch handlers
+  onBatchStar,
+  onBatchDuplicate,
+  onBatchDelete,
+  onBatchToggleExcludeCascade,
+  onBatchToggleExcludeExport,
+  clearSelection,
+}: TreeItemProps) => {
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -574,67 +655,175 @@ const TreeItem = ({
         )}
 
         {/* Click-based menu - rendered via portal */}
-        {isMenuOpen && !isMultiSelectMode && menuButtonRef.current && createPortal(
+        {isMenuOpen && menuButtonRef.current && createPortal(
           <div 
             ref={menuRef}
-            className="fixed flex items-center gap-0.5 bg-surface-container-high rounded-m3-sm shadow-lg px-1 py-0.5 z-50 border border-outline-variant"
+            className="fixed flex flex-col bg-surface-container-high rounded-m3-sm shadow-lg z-50 border border-outline-variant"
             style={getMenuPosition()}
           >
-            <IconButton 
-              icon={Star} 
-              label={starred ? "Unstar" : "Star"} 
-              className={starred ? "text-amber-500" : ""} 
-              onClick={() => { onToggleStar?.(id); setOpenMenuId(null); }}
-            />
-            {isManusModelById?.(id) ? (
-              <IconButton 
-                icon={Play} 
-                label="Manus requires cascade" 
-                className="opacity-40 cursor-not-allowed"
-                onClick={() => toast.info('Manus models require cascade execution')}
-              />
-            ) : (
-              <IconButton 
-                icon={isRunningPrompt ? Loader2 : Play} 
-                label="Play" 
-                onClick={() => { onRunPrompt?.(id); setOpenMenuId(null); }}
-                className={isRunningPrompt ? "animate-spin" : ""}
-              />
+            {/* Selection count header - only shown in multi-select mode */}
+            {isMultiSelectMode && selectedItems && selectedItems.size > 0 && (
+              <div className="px-2 py-1 border-b border-outline-variant bg-primary/5">
+                <span className="text-[10px] text-primary font-medium">
+                  {selectedItems.size} selected
+                </span>
+              </div>
             )}
-            {hasChildren && (
+            <div className="flex items-center gap-0.5 px-1 py-0.5">
+              {/* Star - batch supported */}
               <IconButton 
-                icon={isRunningCascade ? Loader2 : Workflow} 
-                label="Run Cascade" 
-                onClick={() => { onRunCascade?.(id); setOpenMenuId(null); }}
-                className={isRunningCascade ? "animate-spin" : ""}
+                icon={Star} 
+                label={isMultiSelectMode && selectedItems?.size ? `Star ${selectedItems.size} items` : (starred ? "Unstar" : "Star")} 
+                className={starred && !isMultiSelectMode ? "text-amber-500" : ""} 
+                onClick={() => { 
+                  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+                    onBatchStar?.(Array.from(selectedItems), true);
+                    clearSelection?.();
+                  } else {
+                    onToggleStar?.(id); 
+                  }
+                  setOpenMenuId?.(null); 
+                }}
               />
-            )}
-            <IconButton icon={Braces} label="Copy Variable Reference" onClick={() => {
-              navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
-              toast.success('Copied variable reference');
-              setOpenMenuId(null);
-            }} />
-            <IconButton icon={Plus} label="Add Child" onClick={() => { onAdd?.(id); setOpenMenuId(null); }} />
-            <IconButton icon={Copy} label="Duplicate" onClick={() => { onDuplicate?.(id); setOpenMenuId(null); }} />
-            <IconButton icon={Upload} label="Export" onClick={() => { onExport?.(id); setOpenMenuId(null); }} />
-            <IconButton 
-              icon={LayoutTemplate} 
-              label="Save as Template" 
-              onClick={() => { onSaveAsTemplate?.(id, label, hasChildren); setOpenMenuId(null); }}
-            />
-            <IconButton 
-              icon={Ban} 
-              label={excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade"} 
-              className={excludedFromCascade ? "text-warning" : ""}
-              onClick={() => { onToggleExcludeCascade?.(id); setOpenMenuId(null); }}
-            />
-            <IconButton 
-              icon={FileX} 
-              label={excludedFromExport ? "Include in Export" : "Exclude from Export"} 
-              className={excludedFromExport ? "text-warning" : ""}
-              onClick={() => { onToggleExcludeExport?.(id); setOpenMenuId(null); }}
-            />
-            <IconButton icon={Trash2} label="Delete" onClick={() => { onDelete?.(id, label); setOpenMenuId(null); }} />
+              
+              {/* Play - disabled in multi-select mode */}
+              {isMultiSelectMode ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="w-5 h-5 flex items-center justify-center rounded-sm text-on-surface-variant/30 cursor-not-allowed">
+                      <Play className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-[10px]">Select single item to run</TooltipContent>
+                </Tooltip>
+              ) : isManusModelById?.(id) ? (
+                <IconButton 
+                  icon={Play} 
+                  label="Manus requires cascade" 
+                  className="opacity-40 cursor-not-allowed"
+                  onClick={() => toast.info('Manus models require cascade execution')}
+                />
+              ) : (
+                <IconButton 
+                  icon={isRunningPrompt ? Loader2 : Play} 
+                  label="Play" 
+                  onClick={() => { onRunPrompt?.(id); setOpenMenuId?.(null); }}
+                  className={isRunningPrompt ? "animate-spin" : ""}
+                />
+              )}
+              
+              {/* Run Cascade - disabled in multi-select mode */}
+              {hasChildren && !isMultiSelectMode && (
+                <IconButton 
+                  icon={isRunningCascade ? Loader2 : Workflow} 
+                  label="Run Cascade" 
+                  onClick={() => { onRunCascade?.(id); setOpenMenuId?.(null); }}
+                  className={isRunningCascade ? "animate-spin" : ""}
+                />
+              )}
+              
+              {/* Copy Variable Reference - batch supported */}
+              <IconButton 
+                icon={Braces} 
+                label={isMultiSelectMode && selectedItems?.size ? `Copy ${selectedItems.size} references` : "Copy Variable Reference"} 
+                onClick={() => {
+                  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+                    const refs = Array.from(selectedItems).map(itemId => `{{q.ref[${itemId}]}}`).join('\n');
+                    navigator.clipboard.writeText(refs);
+                    toast.success(`Copied ${selectedItems.size} variable references`);
+                  } else {
+                    navigator.clipboard.writeText(`{{q.ref[${id}]}}`);
+                    toast.success('Copied variable reference');
+                  }
+                  setOpenMenuId?.(null);
+                }} 
+              />
+              
+              {/* Add Child - disabled in multi-select mode */}
+              {!isMultiSelectMode && (
+                <IconButton icon={Plus} label="Add Child" onClick={() => { onAdd?.(id); setOpenMenuId?.(null); }} />
+              )}
+              
+              {/* Duplicate - batch supported */}
+              <IconButton 
+                icon={Copy} 
+                label={isMultiSelectMode && selectedItems?.size ? `Duplicate ${selectedItems.size} items` : "Duplicate"} 
+                onClick={() => { 
+                  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+                    onBatchDuplicate?.(Array.from(selectedItems));
+                    clearSelection?.();
+                  } else {
+                    onDuplicate?.(id); 
+                  }
+                  setOpenMenuId?.(null); 
+                }} 
+              />
+              
+              {/* Export - single item only */}
+              {!isMultiSelectMode && (
+                <IconButton icon={Upload} label="Export" onClick={() => { onExport?.(id); setOpenMenuId?.(null); }} />
+              )}
+              
+              {/* Save as Template - disabled in multi-select mode */}
+              {!isMultiSelectMode && (
+                <IconButton 
+                  icon={LayoutTemplate} 
+                  label="Save as Template" 
+                  onClick={() => { onSaveAsTemplate?.(id, label, hasChildren); setOpenMenuId?.(null); }}
+                />
+              )}
+              
+              {/* Exclude from Cascade - batch supported */}
+              <IconButton 
+                icon={Ban} 
+                label={isMultiSelectMode && selectedItems?.size 
+                  ? `Exclude ${selectedItems.size} from cascade` 
+                  : (excludedFromCascade ? "Include in Cascade" : "Exclude from Cascade")} 
+                className={excludedFromCascade && !isMultiSelectMode ? "text-warning" : ""}
+                onClick={() => { 
+                  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+                    onBatchToggleExcludeCascade?.(Array.from(selectedItems), true);
+                    clearSelection?.();
+                  } else {
+                    onToggleExcludeCascade?.(id); 
+                  }
+                  setOpenMenuId?.(null); 
+                }}
+              />
+              
+              {/* Exclude from Export - batch supported */}
+              <IconButton 
+                icon={FileX} 
+                label={isMultiSelectMode && selectedItems?.size 
+                  ? `Exclude ${selectedItems.size} from export` 
+                  : (excludedFromExport ? "Include in Export" : "Exclude from Export")} 
+                className={excludedFromExport && !isMultiSelectMode ? "text-warning" : ""}
+                onClick={() => { 
+                  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+                    onBatchToggleExcludeExport?.(Array.from(selectedItems), true);
+                    clearSelection?.();
+                  } else {
+                    onToggleExcludeExport?.(id); 
+                  }
+                  setOpenMenuId?.(null); 
+                }}
+              />
+              
+              {/* Delete - batch supported */}
+              <IconButton 
+                icon={Trash2} 
+                label={isMultiSelectMode && selectedItems?.size ? `Delete ${selectedItems.size} items` : "Delete"} 
+                onClick={() => { 
+                  if (isMultiSelectMode && selectedItems && selectedItems.size > 0) {
+                    onBatchDelete?.(Array.from(selectedItems));
+                    clearSelection?.();
+                  } else {
+                    onDelete?.(id, label); 
+                  }
+                  setOpenMenuId?.(null); 
+                }} 
+              />
+            </div>
           </div>,
           document.body
         )}
@@ -711,6 +900,13 @@ const TreeItem = ({
                 setOpenMenuId={setOpenMenuId}
                 // Manus model lookup
                 isManusModelById={isManusModelById}
+                // Batch handlers
+                onBatchStar={onBatchStar}
+                onBatchDuplicate={onBatchDuplicate}
+                onBatchDelete={onBatchDelete}
+                onBatchToggleExcludeCascade={onBatchToggleExcludeCascade}
+                onBatchToggleExcludeExport={onBatchToggleExcludeExport}
+                clearSelection={clearSelection}
               />
               <DropZone 
                 onDrop={onMoveBetween}
@@ -972,7 +1168,7 @@ const FolderPanel = ({
     setSelectedItems(new Set(allFlatItems.map(x => x.id)));
   }, [allFlatItems]);
 
-  // Batch action handlers
+  // Batch action handlers - for the floating action bar (called with no args)
   const handleBatchDeleteClick = useCallback(async () => {
     const ids = Array.from(selectedItems);
     if (onBatchDelete) {
@@ -989,7 +1185,7 @@ const FolderPanel = ({
     }
   }, [selectedItems, onBatchDuplicate, clearSelection]);
 
-  const handleBatchStarClick = useCallback(async (starred) => {
+  const handleBatchStarClick = useCallback(async (starred: boolean) => {
     const ids = Array.from(selectedItems);
     if (onBatchStar) {
       await onBatchStar(ids, starred);
@@ -997,7 +1193,7 @@ const FolderPanel = ({
     }
   }, [selectedItems, onBatchStar, clearSelection]);
 
-  const handleBatchExcludeCascadeClick = useCallback(async (exclude) => {
+  const handleBatchExcludeCascadeClick = useCallback(async (exclude: boolean) => {
     const ids = Array.from(selectedItems);
     if (onBatchToggleExcludeCascade) {
       await onBatchToggleExcludeCascade(ids, exclude);
@@ -1005,13 +1201,44 @@ const FolderPanel = ({
     }
   }, [selectedItems, onBatchToggleExcludeCascade, clearSelection]);
 
-  const handleBatchExcludeExportClick = useCallback(async (exclude) => {
+  const handleBatchExcludeExportClick = useCallback(async (exclude: boolean) => {
     const ids = Array.from(selectedItems);
     if (onBatchToggleExcludeExport) {
       await onBatchToggleExcludeExport(ids, exclude);
       clearSelection();
     }
   }, [selectedItems, onBatchToggleExcludeExport, clearSelection]);
+
+  // Batch handlers for TreeItem - called with IDs as parameter (matches TreeItemProps interface)
+  const handleTreeItemBatchStar = useCallback(async (ids: string[], starred: boolean) => {
+    if (onBatchStar) {
+      await onBatchStar(ids, starred);
+    }
+  }, [onBatchStar]);
+
+  const handleTreeItemBatchDuplicate = useCallback(async (ids: string[]) => {
+    if (onBatchDuplicate) {
+      await onBatchDuplicate(ids);
+    }
+  }, [onBatchDuplicate]);
+
+  const handleTreeItemBatchDelete = useCallback(async (ids: string[]) => {
+    if (onBatchDelete) {
+      await onBatchDelete(ids);
+    }
+  }, [onBatchDelete]);
+
+  const handleTreeItemBatchExcludeCascade = useCallback(async (ids: string[], exclude: boolean) => {
+    if (onBatchToggleExcludeCascade) {
+      await onBatchToggleExcludeCascade(ids, exclude);
+    }
+  }, [onBatchToggleExcludeCascade]);
+
+  const handleTreeItemBatchExcludeExport = useCallback(async (ids: string[], exclude: boolean) => {
+    if (onBatchToggleExcludeExport) {
+      await onBatchToggleExcludeExport(ids, exclude);
+    }
+  }, [onBatchToggleExcludeExport]);
 
   // Calculate smart folder counts
   const counts = useMemo(() => {
@@ -1459,6 +1686,13 @@ const FolderPanel = ({
                     setOpenMenuId={setOpenMenuId}
                     // Manus model lookup
                     isManusModelById={isManusModelById}
+                    // Batch handlers
+                    onBatchStar={handleTreeItemBatchStar}
+                    onBatchDuplicate={handleTreeItemBatchDuplicate}
+                    onBatchDelete={handleTreeItemBatchDelete}
+                    onBatchToggleExcludeCascade={handleTreeItemBatchExcludeCascade}
+                    onBatchToggleExcludeExport={handleTreeItemBatchExcludeExport}
+                    clearSelection={clearSelection}
                   />
                   <DropZone 
                     onDrop={handleMoveBetween}
