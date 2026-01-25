@@ -194,7 +194,7 @@ const SearchResults = ({
                 </div>
                 <div className="flex-1 text-left">
                   <span className="text-body-sm text-on-surface">
-                    {highlightMatch(thread.title || thread.name || 'Untitled', searchQuery)}
+                    {highlightMatch(thread.name || 'Untitled', searchQuery)}
                   </span>
                   <span className="ml-1.5 text-[10px] text-on-surface-variant">
                     {thread.updated_at ? new Date(thread.updated_at).toLocaleDateString() : ''}
