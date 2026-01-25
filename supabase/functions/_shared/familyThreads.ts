@@ -93,33 +93,37 @@ export async function fetchConversationHistory(
 }
 
 /**
- * Resolve the root prompt ID by walking up the parent chain
+ * Resolve the root prompt ID using the pre-computed root_prompt_row_id column
  * This ensures all prompts in a family use the same thread
  */
 export async function resolveRootPromptId(
   supabase: any, 
   promptRowId: string
 ): Promise<string> {
-  let current = promptRowId;
-  let depth = 0;
-  const maxDepth = 15;
+  const { data, error } = await supabase
+    .from(TABLES.PROMPTS)
+    .select('root_prompt_row_id, parent_row_id')
+    .eq('row_id', promptRowId)
+    .maybeSingle();
 
-  while (depth < maxDepth) {
-    const { data: prompt } = await supabase
-      .from(TABLES.PROMPTS)
-      .select('parent_row_id')
-      .eq('row_id', current)
-      .maybeSingle();
-
-    if (!prompt?.parent_row_id) {
-      return current; // This is the root
-    }
-    current = prompt.parent_row_id;
-    depth++;
+  if (error) {
+    console.error('[resolveRootPromptId] Query failed:', error);
+    return promptRowId;  // Fallback to self
   }
 
-  console.warn('Max depth reached resolving root prompt, using:', current);
-  return current;
+  // If root_prompt_row_id is set, use it
+  if (data?.root_prompt_row_id) {
+    return data.root_prompt_row_id;
+  }
+
+  // No parent means this IS the root
+  if (!data?.parent_row_id) {
+    return promptRowId;
+  }
+
+  // Data corruption fallback: root_prompt_row_id is NULL but parent exists
+  console.warn('[resolveRootPromptId] Missing root_prompt_row_id:', promptRowId);
+  return promptRowId;
 }
 
 /**

@@ -2,14 +2,18 @@
 
 export interface ChatThread {
   row_id: string;
-  title: string | null;
-  root_prompt_row_id: string;
+  name: string | null;  // Fixed: matches q_threads.name column
+  root_prompt_row_id: string | null;  // Fixed: allow null per DB schema
   openai_conversation_id: string | null;
-  owner_id: string;
-  is_active: boolean;
+  owner_id: string | null;  // Fixed: allow null per DB schema
+  is_active: boolean | null;  // Fixed: allow null per DB schema
   last_message_at: string | null;
-  created_at: string;
+  created_at: string | null;  // Fixed: allow null per DB schema
   updated_at?: string | null;
+  // Additional columns from DB
+  provider?: string | null;
+  external_session_id?: string | null;
+  last_response_id?: string | null;
 }
 
 export interface ChatMessage {
