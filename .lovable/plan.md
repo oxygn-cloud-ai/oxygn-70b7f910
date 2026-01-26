@@ -1,168 +1,295 @@
 
-# Plan: Fix Variable Autocomplete Popup to Show All Variables
 
-## Problem Identified
+# Final Verified Plan: TypeScript Interfaces + Badge Color Fix
 
-The keyboard-triggered autocomplete popup (activated by typing `{{`) in `HighlightedTextarea` artificially limits displayed variables to **10 items** and lacks features present in the `VariablePicker`:
+## Overview
 
-| Feature | VariablePicker (Icon) | Keyboard Autocomplete |
-|---------|----------------------|----------------------|
-| Shows all system variables | ✅ All (grouped) | ❌ Max 10 |
-| Shows user variables | ✅ All | ✅ But capped at 10 total |
-| Runtime variables (q.previous.*) | ❌ Not shown | ❌ Not shown |
-| Prompt References | ✅ Opens picker | ❌ No access |
-| Scrollable | ✅ 300px | ✅ 200px (but limited content) |
+This plan implements strict TypeScript typing and fixes the cascade badge color deviation in `highlighted-textarea.tsx`. All issues identified in the adversarial audit have been verified and addressed.
 
 ---
 
-## Solution
+## Current State (Verified)
 
-### Phase 1: Remove 10-Item Limit
+| Issue | Line(s) | Status |
+|-------|---------|--------|
+| Badge color `text-primary` instead of `text-amber-500` | 392 | Not fixed |
+| User variables missing `isRuntime` property | 71-79 | Not fixed |
+| No TypeScript interfaces | N/A | Missing |
+| No type annotations on forwardRef | 33 | Missing |
+| No type annotations on refs | 49-51 | Missing |
+| No type annotations on callbacks | Multiple | Missing |
 
-**File: `src/components/ui/highlighted-textarea.tsx`**
+---
 
-**Line 84-90** - Remove the `.slice(0, 10)` limits:
+## Implementation Details
+
+### File: `src/components/ui/highlighted-textarea.tsx`
+
+---
+
+### Change 1: Add TypeScript Interfaces (Insert after line 27)
 
 ```typescript
-// BEFORE (line 84-90):
-const filteredVariables = useMemo(() => {
-  if (!autocompleteQuery) return allVariables.slice(0, 10);
-  const query = autocompleteQuery.toLowerCase();
-  return allVariables
-    .filter(v => v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query))
-    .slice(0, 10);
-}, [allVariables, autocompleteQuery]);
+/**
+ * Represents a variable available in the autocomplete dropdown
+ */
+interface AutocompleteVariable {
+  name: string;
+  label: string;
+  description: string;
+  type: string;
+  isSystem: boolean;
+  isStatic: boolean;
+  isRuntime: boolean;
+  value?: string;
+}
 
-// AFTER:
-const filteredVariables = useMemo(() => {
-  if (!autocompleteQuery) return allVariables;
-  const query = autocompleteQuery.toLowerCase();
-  return allVariables
-    .filter(v => v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query));
-}, [allVariables, autocompleteQuery]);
+/**
+ * User variable input format - can be string or object
+ */
+interface UserVariableInput {
+  name: string;
+  description?: string;
+  value?: string;
+}
+
+/**
+ * Props for HighlightedTextarea component
+ * Extends standard textarea attributes to support ...props spread
+ */
+interface HighlightedTextareaProps
+  extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'value' | 'style'> {
+  value?: string;
+  onChange?: (e: { target: { value: string; selectionStart: number; selectionEnd: number } }) => void;
+  placeholder?: string;
+  rows?: number;
+  className?: string;
+  readOnly?: boolean;
+  id?: string;
+  userVariables?: Array<string | UserVariableInput>;
+  style?: React.CSSProperties;
+}
 ```
 
 ---
 
-### Phase 2: Increase Popup Height for More Visibility
-
-**File: `src/components/ui/highlighted-textarea.tsx`**
-
-**Line 366** - Increase max-height from 200px to 300px:
+### Change 2: Type the forwardRef (Line 33)
 
 ```typescript
-// BEFORE (line 366):
-<ScrollArea className="max-h-[200px]">
+// BEFORE:
+const HighlightedTextarea = forwardRef(({
 
 // AFTER:
-<ScrollArea className="max-h-[300px]">
+const HighlightedTextarea = forwardRef<HTMLTextAreaElement, HighlightedTextareaProps>(({
 ```
 
 ---
 
-### Phase 3: Add Runtime Variables to System Variables List
-
-The runtime variables (`q.previous.response`, `q.previous.name`) are defined in `SYSTEM_VARIABLES` but are filtered out because they have `runtimeOnly: true`. These should still appear in the autocomplete for users writing cascade prompts.
-
-**File: `src/components/ui/highlighted-textarea.tsx`**
-
-**Line 60-68** - Include runtime variables in the list:
+### Change 3: Type the Refs (Lines 49-51)
 
 ```typescript
-// BEFORE (line 60-68):
+// BEFORE:
+const containerRef = useRef(null);
+const textareaRef = useRef(null);
+const backdropRef = useRef(null);
+
+// AFTER:
+const containerRef = useRef<HTMLDivElement>(null);
+const textareaRef = useRef<HTMLTextAreaElement>(null);
+const backdropRef = useRef<HTMLPreElement>(null);
+```
+
+---
+
+### Change 4: Type allVariables useMemo (Line 60)
+
+```typescript
+// BEFORE:
 const allVariables = useMemo(() => {
-  const systemVars = getSystemVariableNames().map(name => ({
-    name,
-    label: SYSTEM_VARIABLES[name]?.label || name,
-    description: SYSTEM_VARIABLES[name]?.description || '',
-    type: VARIABLE_TYPE_LABELS[SYSTEM_VARIABLES[name]?.type] || 'System',
-    isSystem: true,
-    isStatic: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.STATIC,
-  }));
-  // ...
-}, [userVariables]);
-
-// AFTER - Add isRuntime flag for visual indication:
-const allVariables = useMemo(() => {
-  const systemVars = getSystemVariableNames().map(name => ({
-    name,
-    label: SYSTEM_VARIABLES[name]?.label || name,
-    description: SYSTEM_VARIABLES[name]?.description || '',
-    type: VARIABLE_TYPE_LABELS[SYSTEM_VARIABLES[name]?.type] || 'System',
-    isSystem: true,
-    isStatic: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.STATIC,
-    isRuntime: SYSTEM_VARIABLES[name]?.type === SYSTEM_VARIABLE_TYPES.RUNTIME,
-  }));
-  // ...
-}, [userVariables]);
-```
-
----
-
-### Phase 4: Add Visual Indicator for Runtime Variables
-
-**File: `src/components/ui/highlighted-textarea.tsx`**
-
-**Line 388-390** - Add runtime indicator alongside the static indicator:
-
-```typescript
-// BEFORE (line 388-390):
-{variable.isStatic && (
-  <span className="text-[10px] text-muted-foreground">auto</span>
-)}
 
 // AFTER:
-{variable.isStatic && (
-  <span className="text-[10px] text-muted-foreground">auto</span>
-)}
-{variable.isRuntime && (
-  <span className="text-[10px] text-amber-500">cascade</span>
-)}
+const allVariables = useMemo<AutocompleteVariable[]>(() => {
 ```
 
 ---
 
-### Phase 5: Add "Prompt References" Option (Optional Enhancement)
+### Change 5: Type systemVars Mapping (Line 61)
 
-To provide parity with VariablePicker, add a link to open the Prompt Reference picker at the bottom of the autocomplete dropdown.
+```typescript
+// BEFORE:
+const systemVars = getSystemVariableNames().map(name => ({
 
-**File: `src/components/ui/highlighted-textarea.tsx`**
-
-This requires:
-1. Adding `familyRootPromptRowId` prop to the component
-2. Adding state for showing the PromptReferencePicker modal
-3. Adding a footer option in the dropdown
-
-**This is a larger change** - recommend as a follow-up enhancement rather than part of this fix.
+// AFTER:
+const systemVars = getSystemVariableNames().map((name): AutocompleteVariable => ({
+```
 
 ---
 
-## Files to Modify
+### Change 6: Add isRuntime to User Variables + Type Mapping (Lines 71-79)
+
+```typescript
+// BEFORE:
+const userVars = (userVariables || []).map(v => ({
+  name: typeof v === 'string' ? v : v.name,
+  label: typeof v === 'string' ? v : v.name,
+  description: typeof v === 'string' ? '' : (v.description || ''),
+  type: 'User Variable',
+  isSystem: false,
+  isStatic: false,
+  value: typeof v === 'string' ? '' : (v.value || ''),
+}));
+
+// AFTER:
+const userVars = (userVariables || []).map((v): AutocompleteVariable => ({
+  name: typeof v === 'string' ? v : v.name,
+  label: typeof v === 'string' ? v : v.name,
+  description: typeof v === 'string' ? '' : (v.description || ''),
+  type: 'User Variable',
+  isSystem: false,
+  isStatic: false,
+  isRuntime: false,
+  value: typeof v === 'string' ? '' : (v.value || ''),
+}));
+```
+
+---
+
+### Change 7: Type getHighlightedHtml Callback (Line 101)
+
+```typescript
+// BEFORE:
+const getHighlightedHtml = useCallback((text) => {
+
+// AFTER:
+const getHighlightedHtml = useCallback((text: string): string => {
+```
+
+---
+
+### Change 8: Type checkForTrigger Callback (Line 147)
+
+```typescript
+// BEFORE:
+const checkForTrigger = useCallback((text, cursorPos) => {
+
+// AFTER:
+const checkForTrigger = useCallback((text: string, cursorPos: number): void => {
+```
+
+---
+
+### Change 9: Type handleInput Callback (Line 170)
+
+```typescript
+// BEFORE:
+const handleInput = useCallback((e) => {
+
+// AFTER:
+const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+```
+
+---
+
+### Change 10: Type insertVariable Callback (Line 182)
+
+```typescript
+// BEFORE:
+const insertVariable = useCallback((variable) => {
+
+// AFTER:
+const insertVariable = useCallback((variable: AutocompleteVariable): void => {
+```
+
+---
+
+### Change 11: Type handleKeyDown Callback (Line 218)
+
+```typescript
+// BEFORE:
+const handleKeyDown = useCallback((e) => {
+
+// AFTER:
+const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>): void => {
+```
+
+---
+
+### Change 12: Type handleBlurInternal Callback (Line 244)
+
+```typescript
+// BEFORE:
+const handleBlurInternal = useCallback((e) => {
+
+// AFTER:
+const handleBlurInternal = useCallback((e: React.FocusEvent<HTMLTextAreaElement>): void => {
+```
+
+---
+
+### Change 13: Fix Cascade Badge Color (Line 392)
+
+```typescript
+// BEFORE:
+<span className="text-[10px] text-primary">cascade</span>
+
+// AFTER:
+<span className="text-[10px] text-amber-500">cascade</span>
+```
+
+---
+
+## Files Modified
 
 | File | Changes |
 |------|---------|
-| `src/components/ui/highlighted-textarea.tsx` | Remove 10-item limit, increase popup height, add runtime variable indicator |
+| `src/components/ui/highlighted-textarea.tsx` | Add 3 interfaces, 10 type annotations, fix badge color, add isRuntime to user vars |
 
 ---
 
-## Expected Result
+## Technical Notes
 
-After implementation:
-- ✅ All 16+ system variables visible when typing `{{}` 
-- ✅ All user-defined variables visible
-- ✅ Runtime variables (`q.previous.response`, `q.previous.name`) shown with "cascade" badge
-- ✅ Scrollable dropdown shows complete list
-- ✅ Search/filter works across all variables without limit
+### Why Extend TextareaHTMLAttributes with Omit?
+The component uses `{...props}` spread (line 351) to forward additional attributes like `disabled`, `name`, `maxLength`, etc. Extending `TextareaHTMLAttributes` ensures TypeScript accepts these. Using `Omit` prevents conflicts with custom `onChange`, `value`, and `style` signatures.
+
+### Why text-amber-500 for Cascade Badge?
+- `text-primary` (pink) is used for variable highlighting and active states throughout the app
+- `text-amber-500` provides distinct visual separation for cascade-specific runtime variables
+- This follows the original approved specification
+
+### Known Limitation: mergeRefs Utility
+The `mergeRefs` function in `src/lib/utils.ts` is not typed. This creates a minor type leak at line 324 where typed refs are passed. This is acceptable technical debt and tracked separately.
+
+### Build Error Note
+The `TS6310` error (`tsconfig.node.json may not disable emit`) is a platform infrastructure issue unrelated to this component. Per memory `architecture/typescript-infrastructure-and-preview-health`, it's handled by the Vite config bypass.
+
+---
+
+## Risk Assessment
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Type errors from existing callers | Low | Interface matches existing implicit contract exactly |
+| Build regression | Low | Types add strictness without changing runtime behavior |
+| Visual inconsistency | None | Amber is standard Tailwind, distinct from primary pink |
+| mergeRefs type leak | Low | Localized, tracked as separate tech debt |
+
+---
+
+## Deferred Items (Tracked)
+
+1. **VariablePicker parity** - Add runtime variables to icon-based picker (creates UX consistency)
+2. **Type mergeRefs utility** - Add TypeScript to `src/lib/utils.ts` (tech debt)
 
 ---
 
 ## Testing Checklist
 
-- [ ] Type `{{` → dropdown shows ALL system variables (not just 10)
-- [ ] Type `{{q.p` → filters correctly, shows matching variables
-- [ ] Runtime variables appear with amber "cascade" label
-- [ ] Static variables show "auto" label
-- [ ] User variables appear after system variables
-- [ ] Dropdown scrolls smoothly for long lists
+- [ ] Component compiles without TypeScript errors
+- [ ] Type `{{` triggers dropdown with all variables
+- [ ] Runtime variables show **amber** "cascade" badge (not pink)
+- [ ] Static variables show muted "auto" badge
+- [ ] User variables render correctly without errors
+- [ ] Existing callers compile without modification
 - [ ] Arrow key navigation works through full list
 - [ ] Enter/Tab inserts selected variable correctly
+
