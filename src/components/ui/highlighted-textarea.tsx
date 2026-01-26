@@ -123,7 +123,7 @@ const HighlightedTextarea = forwardRef<HTMLTextAreaElement, HighlightedTextareaP
   }, [userVariables]);
 
   // Filter variables based on query
-  const filteredVariables = useMemo(() => {
+  const filteredVariables = useMemo<AutocompleteVariable[]>(() => {
     if (!autocompleteQuery) return allVariables;
     const query = autocompleteQuery.toLowerCase();
     return allVariables
