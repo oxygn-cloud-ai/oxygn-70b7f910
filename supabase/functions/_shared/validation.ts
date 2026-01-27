@@ -436,7 +436,7 @@ export function validateFigmaManagerInput(body: any): ValidationResult {
   const { action } = body;
   
   const validActions = [
-    'test-connection', 'list-files', 'get-file', 'get-nodes',
+    'test-connection', 'get-file', 'get-nodes',
     'attach-file', 'detach-file', 'sync-file', 'list-attached', 'add-comment'
   ];
   if (!isValidAction(action, validActions)) {
@@ -445,7 +445,6 @@ export function validateFigmaManagerInput(body: any): ValidationResult {
   
   switch (action) {
     case 'get-file':
-    case 'attach-file':
     case 'get-nodes':
     case 'add-comment':
       if (!isNonEmptyString(body.fileKey, 100)) {
@@ -454,6 +453,9 @@ export function validateFigmaManagerInput(body: any): ValidationResult {
       break;
       
     case 'attach-file':
+      if (!isNonEmptyString(body.fileKey, 100)) {
+        return { valid: false, error: 'fileKey is required' };
+      }
       if (!isValidUUID(body.promptRowId)) {
         return { valid: false, error: 'promptRowId is required and must be a valid UUID' };
       }

@@ -376,7 +376,7 @@ export const ACTION_TYPES = {
     description: 'Create a Jira ticket from the AI response',
     icon: 'Ticket',
     category: 'integration',
-    enabled: true,
+    enabled: false,
     configSchema: [
       {
         key: 'project_key',
