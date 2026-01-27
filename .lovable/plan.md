@@ -1,122 +1,115 @@
 
-# Remediation Plan: Jira/Figma Integration Audit Fixes
+# Fix Plan: Thread Creation Unique Constraint Violation
 
-## Executive Summary
-The audit identified 4 bugs, 4 critical risks, and 5 omissions in the Jira/Figma integration. This plan addresses all findings to unblock progression.
+## Problem Summary
+Chat functionality fails with "Failed to save thread" error (500) because the unique constraint `idx_q_threads_family_unique` prevents multiple active threads per prompt family per user, regardless of thread purpose (`chat` vs `run`).
 
----
-
-## Phase 1: Critical Fixes (Blocking Issues)
-
-### 1.1 Disable Non-Functional Jira Action
-**File:** `src/config/actionTypes.ts`
-
-The `create_jira_ticket` action returns a placeholder error but is marked as enabled, misleading users. Disable until MCP integration is complete.
-
-**Change:** Line 379: Set `enabled: false`
-
----
-
-### 1.2 Add figma-manager to config.toml
-**File:** `supabase/config.toml`
-
-The edge function is missing from config, risking deployment issues.
-
-**Add:**
-```toml
-[functions.figma-manager]
-verify_jwt = true
+## Root Cause
+The unique index `idx_q_threads_family_unique` was created before the `purpose` column was introduced:
+```sql
+CREATE UNIQUE INDEX idx_q_threads_family_unique 
+ON public.q_threads (root_prompt_row_id, owner_id) 
+WHERE is_active = true AND root_prompt_row_id IS NOT NULL
 ```
 
----
+This blocks creating a `purpose='chat'` thread when a `purpose='run'` thread already exists for the same user and prompt family.
 
-### 1.3 Implement Missing list-files Action
-**File:** `supabase/functions/figma-manager/index.ts`
+## Solution Options
 
-The `list-files` action is validated but not implemented. Two options:
+### Option A: Modify Unique Constraint to Include Purpose (Recommended)
+Update the constraint to allow one active thread per purpose:
 
-**Option A (Recommended):** Remove `list-files` from valid actions since Figma API doesn't have a direct "list user files" endpoint - users paste URLs instead.
+```sql
+DROP INDEX IF EXISTS idx_q_threads_family_unique;
 
-**Option B:** Implement using Figma's /me/files endpoint (requires additional API permissions).
-
-**Recommendation:** Remove from validation since the search modal uses URL pasting, not file listing.
-
----
-
-### 1.4 Fix Duplicate Validation Case
-**File:** `supabase/functions/_shared/validation.ts`
-
-Lines 446-467 have duplicate `attach-file` cases. Consolidate into single case that validates both `fileKey` and `promptRowId`.
-
----
-
-## Phase 2: Deployment Verification
-
-### 2.1 Deploy Updated Edge Function
-After fixing config.toml, deploy `figma-manager`:
-```
-Deploy figma-manager edge function
+CREATE UNIQUE INDEX idx_q_threads_family_unique 
+ON public.q_threads (root_prompt_row_id, owner_id, purpose) 
+WHERE is_active = true AND root_prompt_row_id IS NOT NULL;
 ```
 
-### 2.2 Verify Database Tables
-Confirm tables exist and RLS is working:
-- `q_jira_projects`
-- `q_jira_issues`
-- `q_figma_files`
+**Pros:**
+- Preserves architectural intent (one active chat + one active run per family)
+- Minimal code changes required
+- Clean separation of concerns
+
+**Cons:**
+- Requires database migration
+
+### Option B: Deactivate All Thread Types Before Create
+Modify `usePromptFamilyThreads.ts` to deactivate all active threads (not just chat threads) before creating a new one.
+
+**Pros:**
+- No database change required
+
+**Cons:**
+- Would deactivate execution threads, breaking run history
+- Violates architectural separation between chat and run threads
+- Not recommended
 
 ---
 
-## Phase 3: UI Integration (COMPLETED)
+## Recommended Implementation: Option A
 
-### 3.1 Add Figma to Navigation Submenu ✅
-Updated `SubmenuPanel.tsx` to include Figma under Settings section with Figma icon.
+### Step 1: Database Migration
+Create migration to update the unique constraint:
 
-### 3.2 Integrate FigmaFilesSection ✅
-Added to prompt detail view (attachments tab) alongside existing ConfluencePagesSection in `PromptsContent.tsx`.
+```sql
+-- Drop existing constraint that doesn't account for purpose
+DROP INDEX IF EXISTS idx_q_threads_family_unique;
 
-### 3.3 Wire up Settings Content ✅
-- Added Figma icon import to `SettingsContent.tsx`
-- Updated SETTINGS_SECTIONS to use Figma icon
-- Added figma case to getSectionProps switch
+-- Create new constraint that allows one active thread per purpose
+CREATE UNIQUE INDEX idx_q_threads_family_unique 
+ON public.q_threads (root_prompt_row_id, owner_id, purpose) 
+WHERE is_active = true AND root_prompt_row_id IS NOT NULL;
+```
 
----
+### Step 2: No Code Changes Required
+The existing client code in `usePromptFamilyThreads.ts` already correctly:
+- Deactivates only `chat` threads before creating a new chat thread (lines 78-84)
+- Passes `purpose: 'chat'` when creating threads (line 97)
 
-## Phase 4: Jira MCP Integration (Future)
-
-When ready to enable Jira:
-
-### 4.1 Implement MCP Connector Call
-Update `createJiraTicket.ts` to call the Atlassian MCP connector's `createJiraIssue` tool instead of returning placeholder error.
-
-### 4.2 Re-enable Action
-Set `enabled: true` in `actionTypes.ts` after testing.
-
----
-
-## Implementation Order
-
-1. ✅ Disable `create_jira_ticket` action (immediate fix) - DONE
-2. ✅ Add `figma-manager` to `config.toml` - DONE
-3. ✅ Remove `list-files` from validation - DONE
-4. ✅ Fix duplicate validation case - DONE
-5. ✅ Deploy `figma-manager` - DONE
-6. ✅ Database tables verified (q_jira_projects, q_jira_issues, q_figma_files exist)
+### Step 3: Verification
+After migration:
+- Existing `run` threads remain unaffected
+- New `chat` threads can be created alongside existing `run` threads
+- Each purpose type maintains single-active-thread semantics
 
 ---
 
 ## Technical Details
 
-### Files to Modify
+### Current Database State
+```
+row_id: 8be3a08f-10f5-4b30-af5f-39c4656368f0
+root_prompt_row_id: 0d69b830-8837-4281-8801-051c1a1ee4ee
+owner_id: 1da78055-6734-4b6e-8a50-9833d644cfca
+purpose: run
+is_active: true
+```
 
-| File | Change Type | Priority |
-|------|-------------|----------|
-| `src/config/actionTypes.ts` | Set enabled: false | Critical |
-| `supabase/config.toml` | Add function entry | Critical |
-| `supabase/functions/_shared/validation.ts` | Remove list-files, fix duplicate case | Critical |
-| `supabase/functions/figma-manager/index.ts` | No change if removing list-files | N/A |
+### After Fix
+The above `run` thread will continue to exist, and a new `chat` thread can be created:
+```
+root_prompt_row_id: 0d69b830-8837-4281-8801-051c1a1ee4ee
+owner_id: 1da78055-6734-4b6e-8a50-9833d644cfca
+purpose: chat
+is_active: true
+```
 
-### Estimated Effort
-- Phase 1: ~30 minutes
-- Phase 2: ~15 minutes
-- Phase 3: Deferred
-- Phase 4: Future sprint
+### Constraint Behavior After Fix
+- `(root_prompt_row_id, owner_id, purpose='chat')` - One active allowed
+- `(root_prompt_row_id, owner_id, purpose='run')` - One active allowed
+- Both can coexist
+
+---
+
+## Risk Assessment
+| Risk | Level | Mitigation |
+|------|-------|------------|
+| Data loss | None | Index modification only, no data affected |
+| Downtime | None | Index changes are non-blocking |
+| Rollback complexity | Low | Can restore original index if needed |
+
+## Estimated Effort
+- Migration: 5 minutes
+- Testing: 10 minutes
