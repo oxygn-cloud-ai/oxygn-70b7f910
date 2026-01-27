@@ -38,6 +38,15 @@ export const ERROR_CODES = {
   RESPONSE_INCOMPLETE: 'RESPONSE_INCOMPLETE',
   REQUIRES_ACTION_UNSUPPORTED: 'REQUIRES_ACTION_UNSUPPORTED',
   
+  // OpenAI-Specific
+  OPENAI_NOT_CONFIGURED: 'OPENAI_NOT_CONFIGURED',
+  OPENAI_INVALID_KEY: 'OPENAI_INVALID_KEY',
+  OPENAI_API_ERROR: 'OPENAI_API_ERROR',
+  
+  // Gemini-Specific
+  GEMINI_NOT_CONFIGURED: 'GEMINI_NOT_CONFIGURED',
+  GEMINI_INVALID_KEY: 'GEMINI_INVALID_KEY',
+  
   // Manus-Specific
   MANUS_NOT_CONFIGURED: 'MANUS_NOT_CONFIGURED',
   MANUS_INVALID_KEY: 'MANUS_INVALID_KEY',
@@ -93,6 +102,11 @@ export const ERROR_METADATA: Record<ErrorCode, {
   RESPONSE_INCOMPLETE: { httpStatus: 200, recoverable: true, userMessage: 'Response was incomplete' },
   REQUIRES_ACTION_UNSUPPORTED: { httpStatus: 400, recoverable: false, userMessage: 'Tool actions not supported' },
   
+  OPENAI_NOT_CONFIGURED: { httpStatus: 400, recoverable: false, userMessage: 'OpenAI API key not configured. Add your key in Settings → Integrations → OpenAI.' },
+  OPENAI_INVALID_KEY: { httpStatus: 401, recoverable: false, userMessage: 'Invalid OpenAI API key' },
+  OPENAI_API_ERROR: { httpStatus: 502, recoverable: true, userMessage: 'OpenAI API error' },
+  GEMINI_NOT_CONFIGURED: { httpStatus: 400, recoverable: false, userMessage: 'Gemini API key not configured. Add your key in Settings → Integrations.' },
+  GEMINI_INVALID_KEY: { httpStatus: 401, recoverable: false, userMessage: 'Invalid Gemini API key' },
   MANUS_NOT_CONFIGURED: { httpStatus: 400, recoverable: false, userMessage: 'Manus not configured' },
   MANUS_INVALID_KEY: { httpStatus: 401, recoverable: false, userMessage: 'Invalid Manus API key' },
   MANUS_API_ERROR: { httpStatus: 502, recoverable: true, userMessage: 'Manus API error' },
