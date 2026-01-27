@@ -386,4 +386,10 @@
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
+  /* Cursor protection for prompt editors inside resizable panels */
+  .tiptap-prompt-editor [contenteditable]:focus,
+  .tiptap-prompt-editor [contenteditable]:focus * {
+    cursor: text !important;
+  }
 }
