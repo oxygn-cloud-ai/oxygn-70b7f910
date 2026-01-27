@@ -149,6 +149,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("manus")}
       />
       <SubmenuItem 
+        icon={Bot} 
+        label="Anthropic" 
+        description="Claude AI models"
+        isActive={activeSubItem === "anthropic"}
+        onClick={() => onItemClick?.("anthropic")}
+      />
+      <SubmenuItem 
         icon={Palette}
         label="Appearance" 
         description="Theme & colors"

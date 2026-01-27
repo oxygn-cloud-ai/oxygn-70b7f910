@@ -57,6 +57,12 @@ export const ERROR_CODES = {
   MANUS_REQUIRES_INPUT: 'MANUS_REQUIRES_INPUT',
   MANUS_NOT_SUPPORTED: 'MANUS_NOT_SUPPORTED',
   
+  // Anthropic-Specific
+  ANTHROPIC_NOT_CONFIGURED: 'ANTHROPIC_NOT_CONFIGURED',
+  ANTHROPIC_INVALID_KEY: 'ANTHROPIC_INVALID_KEY',
+  ANTHROPIC_API_ERROR: 'ANTHROPIC_API_ERROR',
+  ANTHROPIC_TIMEOUT: 'ANTHROPIC_TIMEOUT',
+  
   // Database
   DB_INSERT_FAILED: 'DB_INSERT_FAILED',
   DB_UPDATE_FAILED: 'DB_UPDATE_FAILED',
@@ -115,6 +121,11 @@ export const ERROR_METADATA: Record<ErrorCode, {
   MANUS_TASK_CANCELLED: { httpStatus: 499, recoverable: false, userMessage: 'Manus task cancelled' },
   MANUS_REQUIRES_INPUT: { httpStatus: 400, recoverable: false, userMessage: 'Manus requires interactive input' },
   MANUS_NOT_SUPPORTED: { httpStatus: 400, recoverable: false, userMessage: 'Manus models require async execution' },
+  
+  ANTHROPIC_NOT_CONFIGURED: { httpStatus: 400, recoverable: false, userMessage: 'Anthropic API key not configured. Add your key in Settings → Integrations → Anthropic.' },
+  ANTHROPIC_INVALID_KEY: { httpStatus: 401, recoverable: false, userMessage: 'Invalid Anthropic API key' },
+  ANTHROPIC_API_ERROR: { httpStatus: 502, recoverable: true, userMessage: 'Anthropic API error' },
+  ANTHROPIC_TIMEOUT: { httpStatus: 504, recoverable: false, userMessage: 'Anthropic API request timed out' },
   
   DB_INSERT_FAILED: { httpStatus: 500, recoverable: true, userMessage: 'Database insert failed' },
   DB_UPDATE_FAILED: { httpStatus: 500, recoverable: true, userMessage: 'Database update failed' },

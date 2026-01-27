@@ -126,8 +126,11 @@ serve(async (req) => {
         } else if (service === 'gemini' || service === 'google') {
           // For gemini/google, check for api_key
           status.api_key = configuredKeys.includes('api_key');
-        } else if (service === 'openai') {
+      } else if (service === 'openai') {
           // For openai, check for api_key
+          status.api_key = configuredKeys.includes('api_key');
+        } else if (service === 'anthropic') {
+          // For anthropic, check for api_key
           status.api_key = configuredKeys.includes('api_key');
         } else {
           // Generic: just indicate which keys exist

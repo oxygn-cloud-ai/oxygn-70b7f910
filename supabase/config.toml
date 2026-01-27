@@ -65,3 +65,6 @@ verify_jwt = true
 
 [functions.prompt-versions]
 verify_jwt = false
+
+[functions.anthropic-key-validate]
+verify_jwt = true
