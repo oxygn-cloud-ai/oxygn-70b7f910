@@ -139,6 +139,8 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
+      console.log('[ChatStream] Starting fetch to prompt-family-chat');
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/prompt-family-chat`,
         {
@@ -157,6 +159,8 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
         }
       );
 
+      console.log('[ChatStream] Response status:', response.status, 'ok:', response.ok);
+
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = 'Failed to get response';
@@ -166,6 +170,7 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
         } catch {
           errorMessage = errorText || errorMessage;
         }
+        console.error('[ChatStream] Error response:', errorMessage);
         throw new Error(errorMessage);
       }
 
@@ -272,10 +277,14 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
         }
       }
 
+      console.log('[ChatStream] Stream ended, fullContent length:', fullContent.length);
+      
       // Add assistant message if we have content
       if (fullContent.trim().length > 0) {
+        console.log('[ChatStream] Adding assistant message to chat');
         await callbacks.onMessageComplete(fullContent, threadId);
       } else if (toolActivityCountRef.current === 0) {
+        console.warn('[ChatStream] Empty response received');
         notify.warning('No response received', {
           source: 'usePromptFamilyChatStream',
           description: 'The AI returned an empty response. Please try again.',

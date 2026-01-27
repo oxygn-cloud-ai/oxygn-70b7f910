@@ -160,16 +160,23 @@ const ConversationPanel = ({
     
     if (usePromptFamilyMode && promptFamilyChat) {
       let threadId = promptFamilyChat.activeThreadId;
+      console.log('[Chat] handleSend - activeThreadId:', threadId);
       if (!threadId) {
+        console.log('[Chat] No active thread, creating new one...');
         const newThread = await promptFamilyChat.createThread('New Chat');
-        threadId = newThread?.row_id || null;
+        if (!newThread) {
+          console.error('[Chat] Failed to create thread');
+          return;
+        }
+        threadId = newThread.row_id;
+        console.log('[Chat] Created thread:', threadId);
       }
-      if (threadId) {
-        await promptFamilyChat.sendMessage(message, threadId, {
-          model: sessionModel,
-          reasoningEffort: sessionReasoningEffort
-        });
-      }
+      console.log('[Chat] Sending message to thread:', threadId);
+      await promptFamilyChat.sendMessage(message, threadId, {
+        model: sessionModel,
+        reasoningEffort: sessionReasoningEffort
+      });
+      console.log('[Chat] sendMessage completed');
     } else if (legacyOnSendMessage) {
       await legacyOnSendMessage(message);
     }

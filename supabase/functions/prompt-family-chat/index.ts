@@ -1531,12 +1531,15 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       }
 
       console.log('Final content length:', finalContent.length);
+      console.log('Output text done already emitted:', outputTextDoneEmitted);
 
       // Emit final content only if not already emitted (prevents duplicates)
       if (finalContent && !outputTextDoneEmitted) {
+        console.log('Emitting output_text_done with text length:', finalContent.length);
         emitter.emit({ type: 'output_text_done', text: finalContent });
       }
 
+      console.log('Closing SSE stream');
       emitter.close();
 
     } catch (error: unknown) {
