@@ -4,6 +4,7 @@ import {
   Plus, Maximize2, Brain, Square
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "@/components/ui/sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SkeletonChat } from "@/components/shared/Skeletons";
 import ThinkingIndicator from "@/components/chat/ThinkingIndicator";
@@ -166,6 +167,7 @@ const ConversationPanel = ({
         const newThread = await promptFamilyChat.createThread('New Chat');
         if (!newThread) {
           console.error('[Chat] Failed to create thread');
+          toast.error('Failed to create chat thread');
           return;
         }
         threadId = newThread.row_id;
