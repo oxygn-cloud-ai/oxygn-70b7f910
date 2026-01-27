@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.anthropic-key-validate]
 verify_jwt = true
+
+[functions.figma-manager]
+verify_jwt = true
