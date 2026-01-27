@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { X, Pause, Play, Loader2, CheckCircle2, SkipForward, FastForward } from 'lucide-react';
+import { Square, Pause, Play, Loader2, CheckCircle2, SkipForward, FastForward } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+interface SkippedPrompt {
+  promptRowId?: string;
+  promptName: string;
+}
 
 const CascadeRunProgress = () => {
   const {
@@ -52,7 +55,7 @@ const CascadeRunProgress = () => {
     ? (completedPrompts.length / totalPrompts) * 100 
     : 0;
 
-  const formatTime = (seconds) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -61,7 +64,7 @@ const CascadeRunProgress = () => {
   const skippedCount = skippedPrompts?.length || 0;
 
   return (
-    <div className="w-full bg-primary/10 border-b border-border px-4 py-2">
+    <div className="w-full bg-primary/10 border-b border-outline-variant px-4 py-2">
       <div className="flex items-center gap-4">
         {/* Status Icon */}
         <div className="flex items-center gap-2">
@@ -91,26 +94,24 @@ const CascadeRunProgress = () => {
           
           {/* Skipped prompts indicator */}
           {skippedCount > 0 && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="flex items-center gap-1 text-muted-foreground/70">
-                    <SkipForward className="h-3 w-3" />
-                    {skippedCount} skipped
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-medium mb-1">Excluded from cascade:</p>
-                  <ul className="text-xs space-y-0.5">
-                    {skippedPrompts.map((p, i) => (
-                      <li key={p.promptRowId || i} className="truncate">
-                        • {p.promptName}
-                      </li>
-                    ))}
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1 text-muted-foreground/70">
+                  <SkipForward className="h-3 w-3" />
+                  {skippedCount} skipped
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-[10px]">
+                <p className="font-medium mb-1">Excluded from cascade:</p>
+                <ul className="space-y-0.5">
+                  {(skippedPrompts as SkippedPrompt[]).map((p, i) => (
+                    <li key={p.promptRowId || i} className="truncate">
+                      • {p.promptName}
+                    </li>
+                  ))}
+                </ul>
+              </TooltipContent>
+            </Tooltip>
           )}
           
           <span>Level {currentLevel}/{totalLevels - 1}</span>
@@ -123,53 +124,58 @@ const CascadeRunProgress = () => {
         {/* Controls */}
         <div className="flex items-center gap-2">
           {/* Skip All Previews Toggle */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5">
-                  <FastForward className={`h-3.5 w-3.5 ${skipAllPreviews ? 'text-primary' : 'text-on-surface-variant'}`} />
-                  <Switch
-                    checked={skipAllPreviews}
-                    onCheckedChange={setSkipAllPreviews}
-                    className="scale-75"
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Skip all action previews</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-1.5">
+                <FastForward className={`h-3.5 w-3.5 ${skipAllPreviews ? 'text-primary' : 'text-on-surface-variant'}`} />
+                <Switch
+                  checked={skipAllPreviews}
+                  onCheckedChange={setSkipAllPreviews}
+                  className="scale-75"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[10px]">
+              Skip all action previews
+            </TooltipContent>
+          </Tooltip>
           
           <div className="w-px h-4 bg-outline-variant" />
           
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={isPaused ? resume : pause}
-            title={isPaused ? 'Resume' : 'Pause'}
-          >
-            {isPaused ? (
-              <Play className="h-3.5 w-3.5" />
-            ) : (
-              <Pause className="h-3.5 w-3.5" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive"
-            onClick={cancel}
-            disabled={isCancelling}
-            title={isCancelling ? 'Cancelling...' : 'Cancel'}
-          >
-            {isCancelling ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <X className="h-3.5 w-3.5" />
-            )}
-          </Button>
+          {/* Pause/Resume button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={isPaused ? resume : pause}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container"
+              >
+                {isPaused ? (
+                  <Play className="h-4 w-4 text-on-surface-variant" />
+                ) : (
+                  <Pause className="h-4 w-4 text-on-surface-variant" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">{isPaused ? 'Resume' : 'Pause'}</TooltipContent>
+          </Tooltip>
+          
+          {/* Stop button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={cancel}
+                disabled={isCancelling}
+                className="w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container disabled:opacity-50"
+              >
+                {isCancelling ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                ) : (
+                  <Square className="h-4 w-4 text-destructive" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px]">{isCancelling ? 'Stopping...' : 'Stop'}</TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </div>

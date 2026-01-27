@@ -49,6 +49,7 @@ import { useCascadeRun } from "@/contexts/CascadeRunContext";
 import { useApiCallContext } from "@/contexts/ApiCallContext";
 import { useExecutionTracing } from "@/hooks/useExecutionTracing";
 import { usePendingSaves } from "@/contexts/PendingSaveContext";
+import CascadeRunProgress from "@/components/CascadeRunProgress";
 
 // Initial loading screen component
 const LoadingScreen = () => (
@@ -273,7 +274,7 @@ const MainLayout = () => {
   // Phase 1: Run prompt and cascade hooks
   const { runPrompt, runConversation, cancelRun, isRunning: isRunningPromptInternal, progress: runProgress } = useConversationRun();
   const { executeCascade, hasChildren: checkHasChildren, executeChildCascade } = useCascadeExecutor();
-  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion, showQuestion, addCollectedQuestionVar } = useCascadeRun();
+  const { isRunning: isCascadeRunning, currentPromptRowId: currentCascadePromptId, singleRunPromptId, actionPreview, showActionPreview, resolveActionPreview, startSingleRun, endSingleRun, pendingQuestion, questionProgress, collectedQuestionVars, resolveQuestion, showQuestion, addCollectedQuestionVar, cancel: cancelCascade } = useCascadeRun();
   // Note: Use isCascadeRunning from useCascadeRun() context as single source of truth
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [runStartingFor, setRunStartingFor] = useState(null); // Debounce state for run button
@@ -290,6 +291,15 @@ const MainLayout = () => {
 
   // Access pending save registry for flushing before runs
   const { flushPendingSaves } = usePendingSaves();
+
+  // Unified cancel handler - calls appropriate cancel based on run type
+  const handleCancelRun = useCallback(async () => {
+    if (isCascadeRunning) {
+      await cancelCascade();
+    } else {
+      await cancelRun();
+    }
+  }, [isCascadeRunning, cancelCascade, cancelRun]);
 
   // Handler for running a single prompt
   const handleRunPrompt = useCallback(async (promptId) => {
@@ -1338,6 +1348,7 @@ const MainLayout = () => {
               onToggleDark={() => setIsDark(!isDark)}
               onUndoAction={handleUndoAction}
             />
+            <CascadeRunProgress />
 
             {/* Main Content with Resizable Panels */}
             <motion.div 
@@ -1390,7 +1401,7 @@ const MainLayout = () => {
                         onRunCascade={handleRunCascade}
                         isRunningPrompt={isRunningPrompt}
                         isRunningCascade={isCascadeRunning}
-                        onCancelRun={cancelRun}
+                        onCancelRun={handleCancelRun}
                         runProgress={runProgress}
                         isCascadeRunning={isCascadeRunning}
                         singleRunPromptId={singleRunPromptId}
