@@ -563,6 +563,7 @@ async function streamOpenAIResponse(
     console.log('Falling back to polling for response:', responseId);
     
     while (Date.now() - startTime < maxWaitMs) {
+      console.log('Polling iteration - elapsed:', Math.round((Date.now() - startTime) / 1000), 's');
       try {
         const response = await fetch(`https://api.openai.com/v1/responses/${responseId}`, {
           headers: { 'Authorization': `Bearer ${openAIApiKey}` },
@@ -574,6 +575,7 @@ async function streamOpenAIResponse(
         }
         
         const data = await response.json();
+        console.log('Polling response status:', data.status);
         
         if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
           let content: string | null = null;
@@ -631,6 +633,8 @@ async function streamOpenAIResponse(
 
   resetIdleTimeout();
   
+  console.log('Starting stream fetch for response:', responseId);
+  
   let streamResponse: Response;
   try {
     streamResponse = await fetch(
@@ -649,6 +653,8 @@ async function streamOpenAIResponse(
     throw streamError;
   }
 
+  console.log('Stream response received, status:', streamResponse.status);
+  
   if (!streamResponse.ok) {
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
     console.error('Stream response error:', streamResponse.status);
