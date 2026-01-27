@@ -914,7 +914,9 @@ const MainLayout = () => {
       if (!threadToUse && createThread) {
         threadToUse = await createThread("New Conversation");
         if (!threadToUse) {
-          throw new Error("Failed to create thread");
+          // createThread is responsible for surfacing the underlying reason (e.g. OPENAI_NOT_CONFIGURED).
+          // Abort without throwing to avoid triggering global error reporting / blank screen.
+          return;
         }
       }
       
@@ -933,7 +935,13 @@ const MainLayout = () => {
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      toast.error("Failed to send message", { description: error.message });
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'string'
+            ? error
+            : 'Unknown error';
+      toast.error("Failed to send message", { description: message });
     } finally {
       setIsSendingMessage(false);
     }
