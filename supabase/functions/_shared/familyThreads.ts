@@ -1,8 +1,12 @@
 // Shared helpers for unified prompt family thread management
 // All prompts in a family (root + descendants) share ONE thread for conversation memory
 // Uses OpenAI Conversations API for persistent conversation storage
+// Threads are isolated by 'purpose': 'chat' for interactive chat, 'run' for prompt execution
 
 import { TABLES } from "./tables.ts";
+
+/** Thread purpose discriminator for isolation */
+export type ThreadPurpose = 'chat' | 'run';
 
 /**
  * Create a new OpenAI conversation
@@ -130,7 +134,12 @@ export async function resolveRootPromptId(
  * Get or create the unified family thread for a prompt hierarchy
  * Creates a real OpenAI conversation for new threads (for OpenAI provider)
  * Supports multiple providers (OpenAI, Manus, etc.)
- * Returns: { row_id, openai_conversation_id, external_session_id, created: boolean }
+ * 
+ * IMPORTANT: Threads are isolated by 'purpose':
+ * - purpose='chat' for interactive chat (PromptFamilyChat)
+ * - purpose='run' for prompt execution (conversation-run)
+ * 
+ * Returns: { row_id, openai_conversation_id, external_session_id, created: boolean, purpose }
  */
 export async function getOrCreateFamilyThread(
   supabase: any,
@@ -138,15 +147,24 @@ export async function getOrCreateFamilyThread(
   ownerId: string,
   promptName?: string,
   openAIApiKey?: string,
-  provider: string = 'openai'
-): Promise<{ row_id: string; openai_conversation_id: string | null; external_session_id: string | null; last_response_id: string | null; created: boolean }> {
-  // Try to find existing active thread for this family AND provider
+  provider: string = 'openai',
+  purpose: ThreadPurpose = 'run'
+): Promise<{ 
+  row_id: string; 
+  openai_conversation_id: string | null; 
+  external_session_id: string | null; 
+  last_response_id: string | null; 
+  created: boolean;
+  purpose: ThreadPurpose;
+}> {
+  // Try to find existing active thread for this family, provider, AND purpose
   const { data: existingThreads, error: findError } = await supabase
     .from(TABLES.THREADS)
-    .select('row_id, openai_conversation_id, external_session_id, last_response_id, provider')
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id, provider, purpose')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
     .eq('provider', provider)
+    .eq('purpose', purpose)
     .eq('is_active', true)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .limit(1);
@@ -162,8 +180,8 @@ export async function getOrCreateFamilyThread(
     if (provider === 'openai') {
       // OpenAI requires valid conv_ format
       if (existing.openai_conversation_id?.startsWith('conv_')) {
-        console.log('Found existing OpenAI family thread:', existing.row_id, 'conversation_id:', existing.openai_conversation_id);
-        return { ...existing, created: false };
+        console.log(`Found existing OpenAI family thread (purpose=${purpose}):`, existing.row_id, 'conversation_id:', existing.openai_conversation_id);
+        return { ...existing, purpose: existing.purpose as ThreadPurpose, created: false };
       }
       // Invalid ID (resp_ or pending-), deactivate and create new
       console.warn('Invalid OpenAI conversation ID found, deactivating thread:', existing.row_id, existing.openai_conversation_id);
@@ -174,20 +192,20 @@ export async function getOrCreateFamilyThread(
     } else if (provider === 'manus') {
       // Manus uses external_session_id, no specific format required
       if (existing.external_session_id) {
-        console.log('Found existing Manus family thread:', existing.row_id, 'session_id:', existing.external_session_id);
-        return { ...existing, created: false };
+        console.log(`Found existing Manus family thread (purpose=${purpose}):`, existing.row_id, 'session_id:', existing.external_session_id);
+        return { ...existing, purpose: existing.purpose as ThreadPurpose, created: false };
       }
     } else {
       // For other providers, just return if exists
-      console.log(`Found existing ${provider} family thread:`, existing.row_id);
-      return { ...existing, created: false };
+      console.log(`Found existing ${provider} family thread (purpose=${purpose}):`, existing.row_id);
+      return { ...existing, purpose: existing.purpose as ThreadPurpose, created: false };
     }
   }
 
-  // Create new thread for this family
+  // Create new thread for this family + purpose combination
   const threadName = promptName 
-    ? `${promptName} - ${new Date().toLocaleDateString()}`
-    : `Conversation - ${new Date().toLocaleDateString()}`;
+    ? `${promptName} - ${purpose === 'chat' ? 'Chat' : 'Run'} - ${new Date().toLocaleDateString()}`
+    : `${purpose === 'chat' ? 'Chat' : 'Run'} - ${new Date().toLocaleDateString()}`;
 
   let conversationId: string | null = null;
   let externalSessionId: string | null = null;
@@ -197,6 +215,7 @@ export async function getOrCreateFamilyThread(
     if (openAIApiKey) {
       conversationId = await createOpenAIConversation(openAIApiKey, {
         root_prompt_id: rootPromptRowId,
+        purpose,
       });
     } else {
       // Fallback to pending placeholder if no API key (shouldn't happen in normal flow)
@@ -223,8 +242,9 @@ export async function getOrCreateFamilyThread(
       openai_conversation_id: conversationId,
       external_session_id: externalSessionId,
       provider,
+      purpose,
     })
-    .select('row_id, openai_conversation_id, external_session_id, last_response_id')
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id, purpose')
     .maybeSingle();
 
   if (createError) {
@@ -232,32 +252,42 @@ export async function getOrCreateFamilyThread(
     throw new Error('Failed to create conversation thread');
   }
 
-  console.log(`Created new ${provider} family thread:`, newThread.row_id);
-  return { ...newThread, created: true };
+  console.log(`Created new ${provider} family thread (purpose=${purpose}):`, newThread.row_id);
+  return { ...newThread, purpose: newThread.purpose as ThreadPurpose, created: true };
 }
 
 /**
  * Clear/reset a family thread (deactivate current, user can create new)
  * Used when user wants to start a fresh conversation
+ * 
+ * @param purpose - If provided, only clears threads of that purpose. If omitted, clears all purposes.
  */
 export async function clearFamilyThread(
   supabase: any,
   rootPromptRowId: string,
-  ownerId: string
+  ownerId: string,
+  purpose?: ThreadPurpose
 ): Promise<boolean> {
-  const { error } = await supabase
+  let query = supabase
     .from(TABLES.THREADS)
     .update({ is_active: false })
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
     .eq('is_active', true);
+  
+  // If purpose specified, only clear that purpose's threads
+  if (purpose) {
+    query = query.eq('purpose', purpose);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('Failed to clear family thread:', error);
     return false;
   }
   
-  console.log('Cleared family thread for root:', rootPromptRowId);
+  console.log('Cleared family thread for root:', rootPromptRowId, purpose ? `(purpose=${purpose})` : '(all purposes)');
   return true;
 }
 
@@ -269,14 +299,16 @@ export async function getFamilyThread(
   supabase: any,
   rootPromptRowId: string,
   ownerId: string,
-  provider: string = 'openai'
-): Promise<{ row_id: string; openai_conversation_id: string | null; external_session_id: string | null; last_response_id: string | null } | null> {
+  provider: string = 'openai',
+  purpose: ThreadPurpose = 'run'
+): Promise<{ row_id: string; openai_conversation_id: string | null; external_session_id: string | null; last_response_id: string | null; purpose: ThreadPurpose } | null> {
   const { data, error } = await supabase
     .from(TABLES.THREADS)
-    .select('row_id, openai_conversation_id, external_session_id, last_response_id')
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id, purpose')
     .eq('root_prompt_row_id', rootPromptRowId)
     .eq('owner_id', ownerId)
     .eq('provider', provider)
+    .eq('purpose', purpose)
     .eq('is_active', true)
     .maybeSingle();
 
@@ -285,7 +317,7 @@ export async function getFamilyThread(
     return null;
   }
 
-  return data;
+  return data ? { ...data, purpose: data.purpose as ThreadPurpose } : null;
 }
 
 /**

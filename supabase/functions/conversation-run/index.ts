@@ -2333,12 +2333,15 @@ serve(async (req) => {
       console.log('Resolved root prompt:', rootPromptRowId, 'from child:', child_prompt_row_id);
 
       // Get or create the unified family thread (with OpenAI Conversation)
+      // Uses purpose='run' for isolation from interactive chat threads
       const familyThread = await getOrCreateFamilyThread(
         supabase, 
         rootPromptRowId, 
         validation.user!.id,
         childPrompt.prompt_name,
-        OPENAI_API_KEY  // Pass API key to create real conversation
+        OPENAI_API_KEY,  // Pass API key to create real conversation
+        'openai',        // provider
+        'run'            // purpose: isolated from 'chat' threads
       );
 
       const activeThreadRowId = familyThread.row_id;

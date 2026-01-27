@@ -1096,13 +1096,15 @@ serve(async (req) => {
       }
       if (cachedTree) buildPromptsMap(cachedTree);
       
-      // Get/create thread
+      // Get/create chat thread - uses purpose='chat' for isolation from prompt execution
       const familyThread = await getOrCreateFamilyThread(
         supabase,
         rootId,
         validation.user!.id,
         'Chat',
-        openAIApiKey
+        openAIApiKey,
+        'openai',  // provider
+        'chat'     // purpose: isolated from 'run' threads
       );
       
       const lastResponseId = familyThread.last_response_id;

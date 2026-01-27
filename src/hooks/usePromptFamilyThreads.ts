@@ -47,6 +47,7 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
         .select('*')
         .eq('root_prompt_row_id', rootPromptId)
         .eq('owner_id', user.id)
+        .eq('purpose', 'chat')  // Only show chat threads, not execution threads
         .eq('is_active', true)
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
