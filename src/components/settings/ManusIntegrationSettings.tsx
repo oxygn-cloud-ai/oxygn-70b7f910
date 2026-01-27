@@ -9,7 +9,7 @@ import { toast as sonnerToast } from "sonner";
 import { parseApiError } from "@/utils/apiErrorUtils";
 import { trackEvent } from '@/lib/posthog';
 import { 
-  Eye, EyeOff, Save, Trash2, ExternalLink, Loader2, 
+  Save, Trash2, ExternalLink, Loader2, 
   Zap, Key, Bot, CheckCircle, XCircle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +24,6 @@ const ManusIntegrationSettings = () => {
   } = useUserCredentials();
   
   const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
@@ -239,23 +238,13 @@ const ManusIntegrationSettings = () => {
           <SettingRow label="API Key" description="Your Manus API key">
             <div className="flex items-center gap-2">
               <input
-                type={showKey ? "text" : "password"}
+                type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={hasCredentials ? "••••••••" : "Enter API key"}
+                autoComplete="off"
                 className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
               />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setShowKey(!showKey)}
-                    className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                  >
-                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="text-[10px]">{showKey ? 'Hide' : 'Show'}</TooltipContent>
-              </Tooltip>
             </div>
           </SettingRow>
           
