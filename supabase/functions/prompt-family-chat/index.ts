@@ -635,6 +635,14 @@ async function streamOpenAIResponse(
   
   console.log('Starting stream fetch for response:', responseId);
   
+  // Create a separate timeout for the initial stream connection (30s)
+  const streamConnectTimeout = 30000;
+  const streamConnectController = new AbortController();
+  const streamConnectTimeoutId = setTimeout(() => {
+    console.log('Stream connect timeout after 30s, falling back to polling');
+    streamConnectController.abort();
+  }, streamConnectTimeout);
+  
   let streamResponse: Response;
   try {
     streamResponse = await fetch(
@@ -642,12 +650,15 @@ async function streamOpenAIResponse(
       {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${openAIApiKey}` },
-        signal: streamController.signal,
+        signal: streamConnectController.signal,
       }
     );
+    clearTimeout(streamConnectTimeoutId);
   } catch (streamError: unknown) {
+    clearTimeout(streamConnectTimeoutId);
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
-    if (streamError instanceof Error && streamError.name === 'AbortError' && abortReason === 'idle') {
+    if (streamError instanceof Error && streamError.name === 'AbortError') {
+      console.log('Stream fetch aborted, falling back to polling');
       return await pollForCompletion();
     }
     throw streamError;
