@@ -128,6 +128,13 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("confluence")}
       />
       <SubmenuItem 
+        icon={Key} 
+        label="OpenAI" 
+        description="API key configuration"
+        isActive={activeSubItem === "openai"}
+        onClick={() => onItemClick?.("openai")}
+      />
+      <SubmenuItem 
         icon={Sparkles} 
         label="Google Gemini" 
         description="API key configuration"
