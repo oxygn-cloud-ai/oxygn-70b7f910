@@ -13,18 +13,8 @@ import {
   SYSTEM_VARIABLE_TYPES,
   getSystemVariableNames 
 } from '@/config/systemVariables';
-import { usePromptNameLookup } from '@/hooks/usePromptNameLookup';
 
 const AUTOSAVE_DELAY = 500;
-
-// Field labels for friendly display
-const FIELD_LABELS: Record<string, string> = {
-  output_response: 'AI Response',
-  user_prompt_result: 'User Result',
-  input_admin_prompt: 'System Prompt',
-  input_user_prompt: 'User Prompt',
-  prompt_name: 'Name',
-};
 
 // Variable type labels
 const VARIABLE_TYPE_LABELS: Record<string, string> = {
@@ -84,6 +74,15 @@ export interface TiptapPromptEditorHandle {
 }
 
 /**
+ * Converts plain text to Tiptap HTML format
+ * Handles consecutive newlines properly using global regex
+ */
+const textToHtml = (text: string): string => {
+  if (!text) return '';
+  return `<p>${text.replace(/\n/g, '</p><p>')}</p>`.replace(/<p><\/p>/g, '<p><br></p>');
+};
+
+/**
  * TiptapPromptEditor - Plain text editor with variable highlighting
  * 
  * Features:
@@ -113,9 +112,11 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedValueRef = useRef(value);
   const isExternalUpdate = useRef(false);
-
-  // Lookup prompt names for q.ref[UUID] patterns
-  const { nameMap: promptNameMap } = usePromptNameLookup(value);
+  
+  // Refs to access current state in keyboard handlers (fixes stale closure bug)
+  const showAutocompleteRef = useRef(showAutocomplete);
+  const filteredVariablesRef = useRef<AutocompleteVariable[]>([]);
+  const selectedIndexRef = useRef(selectedIndex);
 
   // Build list of all available variables
   const allVariables = useMemo<AutocompleteVariable[]>(() => {
@@ -151,6 +152,11 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
       v.name.toLowerCase().includes(query) || v.label.toLowerCase().includes(query)
     );
   }, [allVariables, autocompleteQuery]);
+
+  // Sync refs with state to avoid stale closures in keyboard handler
+  useEffect(() => { showAutocompleteRef.current = showAutocomplete; }, [showAutocomplete]);
+  useEffect(() => { filteredVariablesRef.current = filteredVariables; }, [filteredVariables]);
+  useEffect(() => { selectedIndexRef.current = selectedIndex; }, [selectedIndex]);
 
   // Reset selected index when filtered list changes
   useEffect(() => {
@@ -196,6 +202,9 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
     setShowAutocomplete(true);
   }, []);
 
+  // Insert variable at trigger - using refs to get current state
+  const insertVariableAtTriggerRef = useRef<(variable: AutocompleteVariable) => void>(() => {});
+  
   const editor = useEditor({
     extensions: [
       Document,
@@ -208,7 +217,7 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
       }),
       VariableHighlight,
     ],
-    content: value ? `<p>${value.replace(/\n/g, '</p><p>')}</p>`.replace('<p></p>', '') : '',
+    content: textToHtml(value),
     editable: !readOnly,
     onUpdate: ({ editor }) => {
       if (readOnly || isExternalUpdate.current) return;
@@ -248,22 +257,25 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
         'data-testid': 'tiptap-prompt-editor',
       },
       handleKeyDown: (view, event) => {
-        // Handle autocomplete navigation
-        if (showAutocomplete) {
+        // Handle autocomplete navigation using refs for current state
+        if (showAutocompleteRef.current) {
+          const currentFiltered = filteredVariablesRef.current;
+          const currentIndex = selectedIndexRef.current;
+          
           switch (event.key) {
             case 'ArrowDown':
               event.preventDefault();
-              setSelectedIndex(prev => Math.min(prev + 1, filteredVariables.length - 1));
+              setSelectedIndex(Math.min(currentIndex + 1, currentFiltered.length - 1));
               return true;
             case 'ArrowUp':
               event.preventDefault();
-              setSelectedIndex(prev => Math.max(prev - 1, 0));
+              setSelectedIndex(Math.max(currentIndex - 1, 0));
               return true;
             case 'Enter':
             case 'Tab':
-              if (filteredVariables.length > 0) {
+              if (currentFiltered.length > 0) {
                 event.preventDefault();
-                insertVariableAtTrigger(filteredVariables[selectedIndex]);
+                insertVariableAtTriggerRef.current(currentFiltered[currentIndex]);
                 return true;
               }
               break;
@@ -284,42 +296,83 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
     
     const varText = `{{${variable.name}}}`;
     const currentText = editor.getText({ blockSeparator: '\n' });
-    const cursorPos = editor.state.selection.from;
+    
+    // Get current cursor position in plain text
+    const { from: cursorDocPos } = editor.state.selection;
+    
+    // Calculate cursor position in plain text by traversing document
+    let textPos = 0;
+    let found = false;
+    editor.state.doc.descendants((node, pos) => {
+      if (found) return false;
+      if (pos >= cursorDocPos) {
+        found = true;
+        return false;
+      }
+      if (node.isText) {
+        const nodeEndPos = pos + node.nodeSize;
+        if (cursorDocPos <= nodeEndPos) {
+          textPos += cursorDocPos - pos;
+          found = true;
+          return false;
+        }
+        textPos += node.text?.length || 0;
+      } else if (node.type.name === 'paragraph') {
+        // Add newline for paragraph breaks (except first)
+        if (pos > 0) textPos += 1;
+      }
+      return true;
+    });
     
     // Calculate positions in the plain text
     const beforeTrigger = currentText.substring(0, triggerStart);
-    const afterCursor = currentText.substring(cursorPos);
+    const afterCursor = currentText.substring(textPos);
     const newValue = beforeTrigger + varText + afterCursor;
     
-    // Set content and move cursor
+    // Set content
     isExternalUpdate.current = true;
-    editor.commands.setContent(newValue ? `<p>${newValue.replace(/\n/g, '</p><p>')}</p>`.replace('<p></p>', '') : '');
+    editor.commands.setContent(textToHtml(newValue));
     isExternalUpdate.current = false;
     
-    // Move cursor to end of inserted variable
-    const newCursorPos = triggerStart + varText.length;
+    // Calculate new cursor document position
+    const newTextPos = triggerStart + varText.length;
+    let newDocPos = 1; // Start after first <p>
+    let accumulatedText = 0;
+    
+    editor.state.doc.descendants((node, pos) => {
+      if (accumulatedText >= newTextPos) return false;
+      if (node.isText && node.text) {
+        const remaining = newTextPos - accumulatedText;
+        if (remaining <= node.text.length) {
+          newDocPos = pos + remaining;
+          return false;
+        }
+        accumulatedText += node.text.length;
+      } else if (node.type.name === 'paragraph' && pos > 0) {
+        accumulatedText += 1; // newline
+      }
+      return true;
+    });
+    
+    // Focus and set cursor
     setTimeout(() => {
       editor.commands.focus();
-      // Position cursor at end of inserted text
       try {
-        editor.commands.setTextSelection(newCursorPos);
+        editor.commands.setTextSelection(newDocPos);
       } catch {
-        // Fallback: just focus
+        // Fallback: focus at end
+        editor.commands.focus('end');
       }
     }, 0);
     
     setShowAutocomplete(false);
-    
-    // Trigger save
-    cancelPendingSave();
-    saveTimeoutRef.current = setTimeout(() => {
-      if (newValue !== lastSavedValueRef.current) {
-        performSave(newValue);
-      }
-    }, AUTOSAVE_DELAY);
-    
     onChange?.(newValue);
-  }, [editor, triggerStart, cancelPendingSave, performSave, onChange]);
+  }, [editor, triggerStart, onChange]);
+
+  // Update ref whenever callback changes
+  useEffect(() => {
+    insertVariableAtTriggerRef.current = insertVariableAtTrigger;
+  }, [insertVariableAtTrigger]);
 
   // Insert variable at current cursor (for external VariablePicker)
   const insertVariable = useCallback((varName: string) => {
@@ -343,7 +396,7 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
     const currentText = editor.getText({ blockSeparator: '\n' });
     if (value !== currentText) {
       isExternalUpdate.current = true;
-      editor.commands.setContent(value ? `<p>${value.replace(/\n/g, '</p><p>')}</p>`.replace('<p></p>', '') : '');
+      editor.commands.setContent(textToHtml(value));
       lastSavedValueRef.current = value;
       isExternalUpdate.current = false;
     }
@@ -366,41 +419,6 @@ const TiptapPromptEditor = forwardRef<TiptapPromptEditorHandle, TiptapPromptEdit
       )}
       style={{ minHeight, ...style }}
     >
-      <style>{`
-        .tiptap-prompt-editor .ProseMirror {
-          min-height: inherit;
-          height: 100%;
-          padding: 0;
-          white-space: pre-wrap;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
-        }
-        .tiptap-prompt-editor .ProseMirror p {
-          margin: 0;
-        }
-        .tiptap-prompt-editor .ProseMirror:focus {
-          outline: none;
-        }
-        .tiptap-prompt-editor .ProseMirror .is-editor-empty:first-child::before {
-          content: attr(data-placeholder);
-          color: hsl(var(--muted-foreground));
-          float: left;
-          height: 0;
-          pointer-events: none;
-        }
-        .tiptap-prompt-editor .variable-highlight {
-          color: hsl(var(--primary));
-          background: hsl(var(--primary) / 0.1);
-          border-radius: 3px;
-          padding: 0 2px;
-        }
-        /* Cursor protection against resizable panels */
-        .tiptap-prompt-editor [contenteditable]:focus,
-        .tiptap-prompt-editor [contenteditable]:focus * {
-          cursor: text !important;
-        }
-      `}</style>
-      
       <EditorContent 
         editor={editor}
         className="h-full"
