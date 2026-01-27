@@ -35,6 +35,7 @@ const ALLOWED_ORIGINS: readonly string[] = [
   
   // Lovable preview/deploy URLs
   'https://id-preview--5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovable.app',
+  'https://5c8b7a90-dc2a-4bd7-9069-c2c2cd2e6062.lovableproject.com',
   
   // Development
   'http://localhost:8080',
