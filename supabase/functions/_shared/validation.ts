@@ -428,3 +428,51 @@ export function validateStudioChatInput(body: any): ValidationResult {
   
   return { valid: true };
 }
+
+// ============================================================================
+// Figma Manager Validation
+// ============================================================================
+export function validateFigmaManagerInput(body: any): ValidationResult {
+  const { action } = body;
+  
+  const validActions = [
+    'test-connection', 'list-files', 'get-file', 'get-nodes',
+    'attach-file', 'detach-file', 'sync-file', 'list-attached', 'add-comment'
+  ];
+  if (!isValidAction(action, validActions)) {
+    return { valid: false, error: `Invalid action. Use: ${validActions.join(', ')}` };
+  }
+  
+  switch (action) {
+    case 'get-file':
+    case 'attach-file':
+    case 'get-nodes':
+    case 'add-comment':
+      if (!isNonEmptyString(body.fileKey, 100)) {
+        return { valid: false, error: 'fileKey is required' };
+      }
+      break;
+      
+    case 'attach-file':
+      if (!isValidUUID(body.promptRowId)) {
+        return { valid: false, error: 'promptRowId is required and must be a valid UUID' };
+      }
+      break;
+      
+    case 'detach-file':
+    case 'sync-file':
+      if (!isValidUUID(body.rowId)) {
+        return { valid: false, error: 'rowId is required and must be a valid UUID' };
+      }
+      break;
+      
+    case 'list-attached':
+      // Optional promptRowId filter
+      if (body.promptRowId && !isValidUUID(body.promptRowId)) {
+        return { valid: false, error: 'promptRowId must be a valid UUID' };
+      }
+      break;
+  }
+  
+  return { valid: true };
+}

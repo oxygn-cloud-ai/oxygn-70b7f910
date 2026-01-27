@@ -31,6 +31,10 @@ export const TABLES = {
   PROMPT_FAMILY_MESSAGES: getEnv('PROMPT_FAMILY_MESSAGES_TBL', 'q_prompt_family_messages'),
   // Version history
   PROMPT_VERSIONS: getEnv('PROMPT_VERSIONS_TBL', 'q_prompt_versions'),
+  // Jira and Figma integration tables
+  JIRA_PROJECTS: getEnv('JIRA_PROJECTS_TBL', 'q_jira_projects'),
+  JIRA_ISSUES: getEnv('JIRA_ISSUES_TBL', 'q_jira_issues'),
+  FIGMA_FILES: getEnv('FIGMA_FILES_TBL', 'q_figma_files'),
 } as const;
 
 // Helper to build FK relationship strings dynamically

@@ -63,6 +63,14 @@ export const ERROR_CODES = {
   ANTHROPIC_API_ERROR: 'ANTHROPIC_API_ERROR',
   ANTHROPIC_TIMEOUT: 'ANTHROPIC_TIMEOUT',
   
+  // Jira-Specific
+  JIRA_NOT_CONFIGURED: 'JIRA_NOT_CONFIGURED',
+  JIRA_API_ERROR: 'JIRA_API_ERROR',
+  
+  // Figma-Specific
+  FIGMA_NOT_CONFIGURED: 'FIGMA_NOT_CONFIGURED',
+  FIGMA_API_ERROR: 'FIGMA_API_ERROR',
+  
   // Database
   DB_INSERT_FAILED: 'DB_INSERT_FAILED',
   DB_UPDATE_FAILED: 'DB_UPDATE_FAILED',
@@ -126,6 +134,12 @@ export const ERROR_METADATA: Record<ErrorCode, {
   ANTHROPIC_INVALID_KEY: { httpStatus: 401, recoverable: false, userMessage: 'Invalid Anthropic API key' },
   ANTHROPIC_API_ERROR: { httpStatus: 502, recoverable: true, userMessage: 'Anthropic API error' },
   ANTHROPIC_TIMEOUT: { httpStatus: 504, recoverable: false, userMessage: 'Anthropic API request timed out' },
+  
+  JIRA_NOT_CONFIGURED: { httpStatus: 400, recoverable: false, userMessage: 'Jira not configured. Connect via Settings → Integrations.' },
+  JIRA_API_ERROR: { httpStatus: 502, recoverable: true, userMessage: 'Jira API error' },
+  
+  FIGMA_NOT_CONFIGURED: { httpStatus: 400, recoverable: false, userMessage: 'Figma access token not configured. Add your token in Settings → Integrations → Figma.' },
+  FIGMA_API_ERROR: { httpStatus: 502, recoverable: true, userMessage: 'Figma API error' },
   
   DB_INSERT_FAILED: { httpStatus: 500, recoverable: true, userMessage: 'Database insert failed' },
   DB_UPDATE_FAILED: { httpStatus: 500, recoverable: true, userMessage: 'Database update failed' },

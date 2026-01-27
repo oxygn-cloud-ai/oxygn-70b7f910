@@ -779,6 +779,163 @@ export type Database = {
         }
         Relationships: []
       }
+      q_figma_files: {
+        Row: {
+          created_at: string | null
+          file_key: string
+          file_name: string | null
+          last_modified: string | null
+          last_synced_at: string | null
+          position: number | null
+          prompt_row_id: string | null
+          row_id: string
+          sync_status: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_key: string
+          file_name?: string | null
+          last_modified?: string | null
+          last_synced_at?: string | null
+          position?: number | null
+          prompt_row_id?: string | null
+          row_id?: string
+          sync_status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_key?: string
+          file_name?: string | null
+          last_modified?: string | null
+          last_synced_at?: string | null
+          position?: number | null
+          prompt_row_id?: string | null
+          row_id?: string
+          sync_status?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_figma_files_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
+      q_jira_issues: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          issue_id: string
+          issue_key: string
+          issue_type: string | null
+          issue_url: string | null
+          labels: Json | null
+          last_synced_at: string | null
+          position: number | null
+          priority: string | null
+          project_key: string | null
+          project_name: string | null
+          prompt_row_id: string | null
+          row_id: string
+          status: string | null
+          summary: string | null
+          sync_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          issue_id: string
+          issue_key: string
+          issue_type?: string | null
+          issue_url?: string | null
+          labels?: Json | null
+          last_synced_at?: string | null
+          position?: number | null
+          priority?: string | null
+          project_key?: string | null
+          project_name?: string | null
+          prompt_row_id?: string | null
+          row_id?: string
+          status?: string | null
+          summary?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          issue_id?: string
+          issue_key?: string
+          issue_type?: string | null
+          issue_url?: string | null
+          labels?: Json | null
+          last_synced_at?: string | null
+          position?: number | null
+          priority?: string | null
+          project_key?: string | null
+          project_name?: string | null
+          prompt_row_id?: string | null
+          row_id?: string
+          status?: string | null
+          summary?: string | null
+          sync_status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_jira_issues_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+        ]
+      }
+      q_jira_projects: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          project_id: string
+          project_key: string
+          project_name: string
+          project_type: string | null
+          row_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          project_id: string
+          project_key: string
+          project_name: string
+          project_type?: string | null
+          row_id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          project_id?: string
+          project_key?: string
+          project_name?: string
+          project_type?: string | null
+          row_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       q_json_schema_templates: {
         Row: {
           action_config: Json | null

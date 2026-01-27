@@ -21,6 +21,7 @@ import { templatesModule } from './templates.ts';
 import { confluenceModule } from './confluence.ts';
 import { filesModule } from './files.ts';
 import { githubModule } from './github.ts';
+import { figmaModule } from './figma.ts';
 
 /**
  * All registered tool modules
@@ -35,6 +36,7 @@ const MODULES: ToolModule[] = [
   confluenceModule,
   filesModule,
   githubModule,
+  figmaModule,
 ];
 
 // Handler cache for O(1) lookups

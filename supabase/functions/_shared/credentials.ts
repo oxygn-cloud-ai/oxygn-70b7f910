@@ -109,6 +109,15 @@ export async function getAnthropicApiKey(
 }
 
 /**
+ * Get Figma access token from user credentials (NO global fallback)
+ */
+export async function getFigmaAccessToken(
+  authHeader: string
+): Promise<string | null> {
+  return getDecryptedCredentialWithTimeout(authHeader, 'figma', 'access_token');
+}
+
+/**
  * Check if Manus is configured for a user
  */
 export async function isManusConfigured(authHeader: string): Promise<boolean> {

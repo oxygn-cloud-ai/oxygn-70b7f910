@@ -142,6 +142,10 @@ export const useUserCredentials = () => {
     return status.api_key === true;
   }
 
+  if (service === 'figma') {
+    return status.access_token === true;
+  }
+
   // For other services, check if any key is configured
   return Object.values(status).some(v => v === true);
   }, [credentialStatus]);
