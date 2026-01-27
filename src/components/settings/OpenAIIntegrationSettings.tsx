@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Trash2, Loader2, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { Key, Trash2, Loader2, ExternalLink } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SettingCard } from '@/components/ui/setting-card';
 import { SettingRow } from '@/components/ui/setting-row';
@@ -17,7 +17,6 @@ const OpenAIIntegrationSettings = () => {
   } = useUserCredentials();
   const [isSaving, setIsSaving] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
 
   // Check OpenAI status on mount
   useEffect(() => {
@@ -117,23 +116,13 @@ const OpenAIIntegrationSettings = () => {
             ) : (
               <div className="flex items-center gap-2">
                 <input
-                  type={showKey ? "text" : "password"}
+                  type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-..."
+                  autoComplete="off"
                   className="h-8 w-48 px-2 bg-surface-container rounded-m3-sm border border-outline-variant text-body-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary"
                 />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setShowKey(!showKey)}
-                      className="w-8 h-8 flex items-center justify-center rounded-m3-full text-on-surface-variant hover:bg-on-surface/[0.08]"
-                    >
-                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">{showKey ? 'Hide' : 'Show'} Key</TooltipContent>
-                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
