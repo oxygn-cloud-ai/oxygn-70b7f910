@@ -230,9 +230,12 @@ const ERROR_PATTERNS = [
  * @returns {{code: string, title: string, message: string, recoverable: boolean, original: string}}
  */
 export const parseApiError = (error) => {
-  const errorMessage = typeof error === 'string' ? error : error?.message || 'Unknown error';
+  // Handle plain objects with error/error_code (from edge function responses)
+  const errorMessage = typeof error === 'string' 
+    ? error 
+    : error?.error || error?.message || 'Unknown error';
   
-  // Priority 1: Match on explicit error_code if present
+  // Priority 1: Match on explicit error_code if present (works for both Error objects and plain objects)
   const errorCode = error?.error_code || error?.code;
   if (errorCode) {
     const matchByCode = ERROR_PATTERNS.find(p => p.code === errorCode);
