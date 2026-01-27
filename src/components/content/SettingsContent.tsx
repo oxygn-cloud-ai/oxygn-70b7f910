@@ -5,7 +5,7 @@ import {
   Sun, Moon, Monitor, Check, Eye, EyeOff, Plus, Trash2, Copy,
   RefreshCw, ExternalLink, X, Type, Cpu, FileText,
   HelpCircle, ChevronDown, ChevronUp, Bot, AlertCircle, Loader2,
-  Code, Search, Globe, Zap, Save, XCircle, History, BookOpen, Key, Tag
+  Code, Search, Globe, Zap, Save, XCircle, History, BookOpen, Key, Tag, Figma
 } from "lucide-react";
 import DeletedItemsContent from './DeletedItemsContent';
 import KnowledgeManager from '@/components/admin/KnowledgeManager';
@@ -2406,7 +2406,7 @@ const SETTINGS_SECTIONS = {
   "gemini": { component: GeminiSection, icon: Sparkles, title: "Google Gemini" },
   "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
   "anthropic": { component: AnthropicIntegrationWrapper, icon: Bot, title: "Anthropic" },
-  "figma": { component: FigmaIntegrationWrapper, icon: Palette, title: "Figma" },
+  "figma": { component: FigmaIntegrationWrapper, icon: Figma, title: "Figma" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
@@ -2474,6 +2474,8 @@ const SettingsContent = ({
     case 'openai':
       return {};
     case 'anthropic':
+      return {};
+    case 'figma':
       return {};
     case 'notifications':
       return commonSettingsProps;

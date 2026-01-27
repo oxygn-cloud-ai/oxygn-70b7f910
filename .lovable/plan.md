@@ -66,15 +66,18 @@ Confirm tables exist and RLS is working:
 
 ---
 
-## Phase 3: UI Integration (Optional - Deferred)
+## Phase 3: UI Integration (COMPLETED)
 
-These items are not blocking but represent incomplete work:
+### 3.1 Add Figma to Navigation Submenu ✅
+Updated `SubmenuPanel.tsx` to include Figma under Settings section with Figma icon.
 
-### 3.1 Add Figma to Navigation Submenu
-Update `SubmenuPanel.tsx` to include Figma under Integrations section.
+### 3.2 Integrate FigmaFilesSection ✅
+Added to prompt detail view (attachments tab) alongside existing ConfluencePagesSection in `PromptsContent.tsx`.
 
-### 3.2 Integrate FigmaFilesSection
-Add to prompt detail view alongside existing ConfluencePagesSection.
+### 3.3 Wire up Settings Content ✅
+- Added Figma icon import to `SettingsContent.tsx`
+- Updated SETTINGS_SECTIONS to use Figma icon
+- Added figma case to getSectionProps switch
 
 ---
 
