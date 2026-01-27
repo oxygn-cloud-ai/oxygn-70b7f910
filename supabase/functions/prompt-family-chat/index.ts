@@ -26,8 +26,15 @@ import {
 } from "../_shared/tools/index.ts";
 
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { getOpenAIApiKey, getAnthropicApiKey } from "../_shared/credentials.ts";
 import { ERROR_CODES } from "../_shared/errorCodes.ts";
+import { 
+  buildAnthropicRequest, 
+  callAnthropicAPIStreaming, 
+  parseAnthropicStreamEvent,
+  type AnthropicMessage,
+  type AnthropicStreamEvent 
+} from "../_shared/anthropic.ts";
 
 // Feature flag for gradual rollout - set to 'true' to enable new registry
 const USE_TOOL_REGISTRY = Deno.env.get('USE_TOOL_REGISTRY') === 'true';
@@ -450,8 +457,83 @@ async function handleToolCall(
 }
 
 // ============================================================================
-// STREAMING OPENAI RESPONSE PROCESSOR
+// ANTHROPIC STREAMING RESPONSE PROCESSOR
 // ============================================================================
+
+async function streamAnthropicResponse(
+  response: Response,
+  emitter: SSEEmitter,
+): Promise<{ content: string; usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null }> {
+  if (!response.body) {
+    throw new Error('No response body from Anthropic');
+  }
+
+  let accumulatedContent = '';
+  let finalUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+  
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim() || line.startsWith(':')) continue;
+        
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+          
+          try {
+            const event: AnthropicStreamEvent = JSON.parse(jsonStr);
+            const standardEvent = parseAnthropicStreamEvent(event);
+            
+            if (standardEvent) {
+              if (standardEvent.type === 'text') {
+                accumulatedContent += standardEvent.text;
+                // Emit as output_text_delta to match OpenAI streaming format
+                emitter.emit({ type: 'output_text_delta', delta: standardEvent.text });
+              } else if (standardEvent.type === 'usage') {
+                finalUsage = standardEvent.usage;
+              } else if (standardEvent.type === 'done') {
+                // Stream complete
+              } else if (standardEvent.type === 'error') {
+                emitter.emit({ type: 'error', error: standardEvent.error, error_code: standardEvent.error_code });
+              }
+            }
+            
+            // Track input tokens from message_start
+            if (event.type === 'message_start' && event.message?.usage?.input_tokens) {
+              const inputTokens = event.message.usage.input_tokens;
+              if (finalUsage) {
+                finalUsage.prompt_tokens = inputTokens;
+                finalUsage.total_tokens = inputTokens + finalUsage.completion_tokens;
+              } else {
+                finalUsage = { prompt_tokens: inputTokens, completion_tokens: 0, total_tokens: inputTokens };
+              }
+            }
+          } catch (parseErr) {
+            console.warn('Failed to parse Anthropic stream event:', jsonStr);
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return { content: accumulatedContent, usage: finalUsage };
+}
+
+// ============================================================================
+// STREAMING OPENAI RESPONSE PROCESSOR
 
 async function streamOpenAIResponse(
   responseId: string,
@@ -1181,6 +1263,103 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
       emitter.emit({ type: 'progress', message: 'Calling AI model...' });
 
+      // ======================================================================
+      // PROVIDER ROUTING
+      // ======================================================================
+      const provider = modelConfig?.provider || 'openai';
+      
+      if (provider === 'anthropic') {
+        // --- ANTHROPIC PROVIDER (streaming, no tools) ---
+        console.log('Using Anthropic provider for model:', selectedModel);
+        
+        const anthropicApiKey = await getAnthropicApiKey(authHeader);
+        if (!anthropicApiKey) {
+          emitter.emit({
+            type: 'error',
+            error: 'Anthropic API key not configured. Add your key in Settings → Integrations → Anthropic.',
+            error_code: ERROR_CODES.ANTHROPIC_NOT_CONFIGURED
+          });
+          emitter.close();
+          return;
+        }
+
+        // Reconstruct message history from thread (Anthropic is stateless)
+        const messages: AnthropicMessage[] = [];
+        
+        if (threadRowId) {
+          const { data: threadMessages } = await supabase
+            .from('q_prompt_family_messages')
+            .select('role, content')
+            .eq('thread_row_id', threadRowId)
+            .order('created_at', { ascending: true })
+            .limit(50);
+          
+          if (threadMessages) {
+            for (const msg of threadMessages) {
+              if ((msg.role === 'user' || msg.role === 'assistant') && msg.content) {
+                messages.push({ role: msg.role, content: msg.content });
+              }
+            }
+          }
+        }
+        
+        // Add current user message
+        messages.push({ role: 'user', content: user_message });
+
+        // Build Anthropic request (no tools for now)
+        const anthropicRequest = buildAnthropicRequest(
+          modelConfig?.apiModelId || selectedModel,
+          messages,
+          {
+            systemPrompt: systemContent,
+            maxTokens: modelConfig?.maxOutputTokens || 4096,
+            temperature: modelConfig?.supportsTemperature ? undefined : undefined,
+            stream: true,
+          }
+        );
+
+        console.log('Calling Anthropic Messages API (streaming):', {
+          model: anthropicRequest.model,
+          messageCount: messages.length,
+          hasSystem: !!systemContent,
+        });
+
+        try {
+          const response = await callAnthropicAPIStreaming(anthropicApiKey, anthropicRequest);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Anthropic API error:', response.status, errorText);
+            emitter.emit({ type: 'error', error: errorText || 'Anthropic API call failed' });
+            emitter.close();
+            return;
+          }
+
+          const { content: finalContent, usage } = await streamAnthropicResponse(response, emitter);
+          
+          // Store messages in local table for history reconstruction
+          if (threadRowId) {
+            await supabase.from('q_prompt_family_messages').insert([
+              { thread_row_id: threadRowId, role: 'user', content: user_message },
+              { thread_row_id: threadRowId, role: 'assistant', content: finalContent },
+            ]);
+          }
+
+          // Emit final
+          emitter.emit({ type: 'output_text_done', text: finalContent });
+          emitter.close();
+          return;
+
+        } catch (error) {
+          console.error('Anthropic streaming error:', error);
+          const message = error instanceof Error ? error.message : 'Anthropic streaming failed';
+          emitter.emit({ type: 'error', error: message });
+          emitter.close();
+          return;
+        }
+      }
+      
+      // --- OPENAI PROVIDER (default) ---
       // API call with stale conversation recovery
       let apiResponse: Response;
       let retryAttempted = false;

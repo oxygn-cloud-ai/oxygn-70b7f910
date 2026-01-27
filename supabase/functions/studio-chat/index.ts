@@ -5,8 +5,9 @@ import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 import { validateStudioChatInput } from "../_shared/validation.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { getOpenAIApiKey, getAnthropicApiKey } from "../_shared/credentials.ts";
 import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
+import { buildAnthropicRequest, callAnthropicAPI, parseAnthropicResponse, type AnthropicMessage } from "../_shared/anthropic.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -281,6 +282,7 @@ serve(async (req) => {
     const requestedModel = assistantData.model_override || defaultModel;
     const modelId = await resolveModel(supabase, requestedModel);
     const modelSupportsTemp = await supportsTemperature(supabase, requestedModel);
+    const modelConfig = await fetchModelConfig(supabase, requestedModel);
 
     // Build system instructions with additional context
     let systemContent = assistantData.instructions || 'You are a helpful assistant.';
@@ -291,103 +293,196 @@ serve(async (req) => {
       systemContent += confluenceContext;
     }
 
-    // Build API request body for Responses API
-    const apiRequestBody: any = {
-      model: modelId,
-      input: user_message,
-    };
-
-    // Use previous_response_id for multi-turn chaining (GPT-5 safe)
-    if (lastResponseId?.startsWith('resp_')) {
-      apiRequestBody.previous_response_id = lastResponseId;
-      console.log('Continuing from previous response:', lastResponseId);
-    } else {
-      console.log('No previous_response_id - starting fresh conversation turn');
-    }
-
-    // Add instructions if present
-    if (systemContent && systemContent.trim()) {
-      apiRequestBody.instructions = systemContent.trim();
-    }
-
-    // Add model parameters
+    // Model parameters
     const temperature = assistantData.temperature_override ? parseFloat(assistantData.temperature_override) : undefined;
     const topP = assistantData.top_p_override ? parseFloat(assistantData.top_p_override) : undefined;
     const maxTokens = assistantData.max_tokens_override ? parseInt(assistantData.max_tokens_override, 10) : undefined;
 
-    if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
-      apiRequestBody.temperature = temperature;
-    }
-    if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
-      apiRequestBody.top_p = topP;
-    }
-    if (maxTokens !== undefined && !isNaN(maxTokens)) {
-      apiRequestBody.max_output_tokens = maxTokens;
-    }
-
-    console.log('Calling Responses API for Studio chat:', { 
-      model: modelId, 
-      previous_response_id: lastResponseId,
-      hasInstructions: !!apiRequestBody.instructions,
-    });
-
-    // Call Responses API
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(apiRequestBody),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Responses API error:', error);
-      
-      const errorMessage = error.error?.message || 'Responses API call failed';
-      const isRateLimit = response.status === 429;
-      
-      return new Response(
-        JSON.stringify({ error: errorMessage }),
-        { status: isRateLimit ? 429 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const responseData = await response.json();
-    console.log('Responses API response received:', responseData.id);
-
-    // Extract response content from Responses API format
     let responseText = '';
-    if (responseData.output && Array.isArray(responseData.output)) {
-      for (const item of responseData.output) {
-        if (item.type === 'message' && item.content && Array.isArray(item.content)) {
-          for (const part of item.content) {
-            if (part.type === 'output_text' && part.text) {
-              responseText += part.text;
+    let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    let newResponseId: string | null = null;
+
+    // ========================================================================
+    // PROVIDER ROUTING
+    // ========================================================================
+    const provider = modelConfig?.provider || 'openai';
+    
+    if (provider === 'anthropic') {
+      // --- ANTHROPIC PROVIDER ---
+      console.log('Using Anthropic provider for model:', modelId);
+      
+      const anthropicApiKey = await getAnthropicApiKey(authHeader);
+      if (!anthropicApiKey) {
+        return new Response(
+          JSON.stringify(buildErrorResponse(ERROR_CODES.ANTHROPIC_NOT_CONFIGURED)),
+          { status: getHttpStatus(ERROR_CODES.ANTHROPIC_NOT_CONFIGURED), headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Reconstruct message history from thread (Anthropic is stateless)
+      const messages: AnthropicMessage[] = [];
+      
+      if (activeThreadRowId) {
+        const { data: threadMessages } = await supabase
+          .from('q_prompt_family_messages')
+          .select('role, content')
+          .eq('thread_row_id', activeThreadRowId)
+          .order('created_at', { ascending: true })
+          .limit(50);
+        
+        if (threadMessages) {
+          for (const msg of threadMessages) {
+            if ((msg.role === 'user' || msg.role === 'assistant') && msg.content) {
+              messages.push({ role: msg.role, content: msg.content });
             }
           }
         }
       }
+      
+      // Add current user message
+      messages.push({ role: 'user', content: user_message });
+
+      // Build and call Anthropic API
+      const anthropicRequest = buildAnthropicRequest(
+        modelConfig?.apiModelId || modelId,
+        messages,
+        {
+          systemPrompt: systemContent,
+          maxTokens: maxTokens || modelConfig?.maxOutputTokens || 4096,
+          temperature: modelSupportsTemp ? temperature : undefined,
+          topP: modelSupportsTemp ? topP : undefined,
+        }
+      );
+
+      console.log('Calling Anthropic Messages API:', {
+        model: anthropicRequest.model,
+        messageCount: messages.length,
+        hasSystem: !!systemContent,
+      });
+
+      try {
+        const anthropicResponse = await callAnthropicAPI(anthropicApiKey, anthropicRequest);
+        const parsed = parseAnthropicResponse(anthropicResponse);
+        
+        responseText = parsed.content;
+        usage = parsed.usage;
+        newResponseId = parsed.responseId;
+        
+        console.log('Anthropic response received:', newResponseId);
+      } catch (error) {
+        console.error('Anthropic API error:', error);
+        const message = error instanceof Error ? error.message : 'Anthropic API call failed';
+        return new Response(
+          JSON.stringify({ error: message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Store messages in local table for history reconstruction
+      if (activeThreadRowId) {
+        await supabase.from('q_prompt_family_messages').insert([
+          { thread_row_id: activeThreadRowId, role: 'user', content: user_message },
+          { thread_row_id: activeThreadRowId, role: 'assistant', content: responseText },
+        ]);
+      }
+
+    } else {
+      // --- OPENAI PROVIDER (default) ---
+      
+      // Build API request body for Responses API
+      const apiRequestBody: any = {
+        model: modelId,
+        input: user_message,
+      };
+
+      // Use previous_response_id for multi-turn chaining (GPT-5 safe)
+      if (lastResponseId?.startsWith('resp_')) {
+        apiRequestBody.previous_response_id = lastResponseId;
+        console.log('Continuing from previous response:', lastResponseId);
+      } else {
+        console.log('No previous_response_id - starting fresh conversation turn');
+      }
+
+      // Add instructions if present
+      if (systemContent && systemContent.trim()) {
+        apiRequestBody.instructions = systemContent.trim();
+      }
+
+      if (modelSupportsTemp && temperature !== undefined && !isNaN(temperature)) {
+        apiRequestBody.temperature = temperature;
+      }
+      if (modelSupportsTemp && topP !== undefined && !isNaN(topP)) {
+        apiRequestBody.top_p = topP;
+      }
+      if (maxTokens !== undefined && !isNaN(maxTokens)) {
+        apiRequestBody.max_output_tokens = maxTokens;
+      }
+
+      console.log('Calling Responses API for Studio chat:', { 
+        model: modelId, 
+        previous_response_id: lastResponseId,
+        hasInstructions: !!apiRequestBody.instructions,
+      });
+
+      // Call Responses API
+      const response = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(apiRequestBody),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Responses API error:', error);
+        
+        const errorMessage = error.error?.message || 'Responses API call failed';
+        const isRateLimit = response.status === 429;
+        
+        return new Response(
+          JSON.stringify({ error: errorMessage }),
+          { status: isRateLimit ? 429 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const responseData = await response.json();
+      console.log('Responses API response received:', responseData.id);
+      newResponseId = responseData.id;
+
+      // Extract response content from Responses API format
+      if (responseData.output && Array.isArray(responseData.output)) {
+        for (const item of responseData.output) {
+          if (item.type === 'message' && item.content && Array.isArray(item.content)) {
+            for (const part of item.content) {
+              if (part.type === 'output_text' && part.text) {
+                responseText += part.text;
+              }
+            }
+          }
+        }
+      }
+
+      // Extract usage
+      usage = {
+        prompt_tokens: responseData.usage?.input_tokens || 0,
+        completion_tokens: responseData.usage?.output_tokens || 0,
+        total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
+      };
     }
 
     // Update thread record
     if (activeThreadRowId) {
+      const updateData: any = { last_message_at: new Date().toISOString() };
+      if (newResponseId) {
+        updateData.last_response_id = newResponseId;
+      }
       await supabase
         .from(TABLES.THREADS)
-        .update({ 
-          last_message_at: new Date().toISOString(),
-          last_response_id: responseData.id,
-        })
+        .update(updateData)
         .eq('row_id', activeThreadRowId);
     }
-
-    // Extract usage
-    const usage = {
-      prompt_tokens: responseData.usage?.input_tokens || 0,
-      completion_tokens: responseData.usage?.output_tokens || 0,
-      total_tokens: (responseData.usage?.input_tokens || 0) + (responseData.usage?.output_tokens || 0),
-    };
 
     console.log('Studio chat completed');
 
