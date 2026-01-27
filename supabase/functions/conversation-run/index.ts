@@ -8,7 +8,14 @@ import { ERROR_CODES } from "../_shared/errorCodes.ts";
 import { variablesModule } from "../_shared/tools/variables.ts";
 import type { ToolContext } from "../_shared/tools/types.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
-import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { getOpenAIApiKey, getAnthropicApiKey } from "../_shared/credentials.ts";
+import { 
+  convertToAnthropicFormat, 
+  buildAnthropicRequest, 
+  callAnthropicAPIStreaming,
+  parseAnthropicStreamEvent,
+  type AnthropicStreamEvent 
+} from "../_shared/anthropic.ts";
 
 // Resolve model using DB
 async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {
@@ -1249,6 +1256,272 @@ async function runResponsesAPI(
   return {
     success: true,
     response: responseText,
+    usage,
+    response_id: responseId,
+    requestParams,
+  };
+}
+
+// ============================================================================
+// ANTHROPIC MESSAGES API (Stateless)
+// Unlike OpenAI's Conversations API, Anthropic requires full message history
+// Message history is reconstructed from q_prompt_family_messages table
+// ============================================================================
+
+interface AnthropicResult {
+  success: boolean;
+  response?: string;
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  error?: string;
+  error_code?: string;
+  response_id?: string;
+  requestParams?: any;
+}
+
+async function runAnthropicAPI(
+  supabase: any,
+  authHeader: string,
+  modelId: string,
+  userMessage: string,
+  systemPrompt: string,
+  threadRowId: string | null,
+  options: {
+    temperature?: number;
+    topP?: number;
+    maxOutputTokens?: number;
+  } = {},
+  emitter?: SSEEmitter,
+): Promise<AnthropicResult> {
+  // Get Anthropic API key
+  const anthropicApiKey = await getAnthropicApiKey(authHeader);
+  if (!anthropicApiKey) {
+    return {
+      success: false,
+      error: 'Anthropic API key not configured. Add your key in Settings → Integrations → Anthropic.',
+      error_code: ERROR_CODES.ANTHROPIC_NOT_CONFIGURED,
+    };
+  }
+
+  // Reconstruct message history from database (Anthropic is stateless)
+  const messages: Array<{ role: string; content: string }> = [];
+  
+  if (threadRowId) {
+    const { data: historyMessages } = await supabase
+      .from(TABLES.PROMPT_FAMILY_MESSAGES)
+      .select('role, content, created_at')
+      .eq('thread_row_id', threadRowId)
+      .order('created_at', { ascending: true })
+      .limit(50);
+    
+    if (historyMessages?.length) {
+      for (const msg of historyMessages) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({ role: msg.role, content: msg.content || '' });
+        }
+      }
+      console.log('Anthropic: reconstructed', messages.length, 'messages from history');
+    }
+  }
+  
+  // Add current user message
+  messages.push({ role: 'user', content: userMessage });
+  
+  // Convert to Anthropic format (extracts system messages)
+  const { messages: anthropicMessages, system: extractedSystem } = convertToAnthropicFormat(messages, systemPrompt);
+  
+  // Build Anthropic request
+  const request = buildAnthropicRequest(modelId, anthropicMessages, {
+    systemPrompt: extractedSystem,
+    maxTokens: options.maxOutputTokens || 4096,
+    temperature: options.temperature,
+    topP: options.topP,
+    stream: true,
+  });
+  
+  const requestParams = {
+    model: modelId,
+    instructions: systemPrompt?.substring(0, 100) + (systemPrompt?.length > 100 ? '...' : ''),
+    input: userMessage?.substring(0, 100) + (userMessage?.length > 100 ? '...' : ''),
+    message_count: anthropicMessages.length,
+    temperature: request.temperature,
+    max_tokens: request.max_tokens,
+  };
+  
+  console.log('Calling Anthropic API (streaming):', { 
+    model: modelId, 
+    messageCount: anthropicMessages.length,
+    hasSystem: !!extractedSystem,
+  });
+
+  // Call Anthropic API
+  let response: Response;
+  try {
+    response = await callAnthropicAPIStreaming(anthropicApiKey, request);
+  } catch (fetchError) {
+    console.error('Anthropic API fetch error:', fetchError);
+    return {
+      success: false,
+      error: 'Failed to connect to Anthropic API',
+      error_code: ERROR_CODES.ANTHROPIC_API_ERROR,
+    };
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Anthropic API error:', response.status, errorText);
+    
+    let errorMessage = 'Anthropic API call failed';
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error?.message || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    
+    const isRateLimit = response.status === 429;
+    const isAuthError = response.status === 401;
+    
+    return {
+      success: false,
+      error: errorMessage,
+      error_code: isAuthError ? ERROR_CODES.ANTHROPIC_INVALID_KEY : 
+                 isRateLimit ? ERROR_CODES.RATE_LIMITED : ERROR_CODES.ANTHROPIC_API_ERROR,
+    };
+  }
+
+  // Parse SSE stream from Anthropic
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return {
+      success: false,
+      error: 'No stream body available',
+      error_code: ERROR_CODES.STREAM_ERROR,
+    };
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulatedText = '';
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let responseId = `anthropic-${Date.now()}`;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process complete SSE events
+      let newlineIndex;
+      while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+
+        if (!line || line.startsWith(':')) continue;
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.replace(/^data:\s?/, '').trim();
+        if (!data || data === '[DONE]') continue;
+
+        try {
+          const event: AnthropicStreamEvent = JSON.parse(data);
+          const standardEvent = parseAnthropicStreamEvent(event);
+          
+          if (standardEvent) {
+            switch (standardEvent.type) {
+              case 'text':
+                accumulatedText += standardEvent.text;
+                if (emitter) {
+                  emitter.emit({
+                    type: 'output_text_delta',
+                    delta: standardEvent.text,
+                    item_id: responseId,
+                  });
+                }
+                break;
+              case 'usage':
+                totalOutputTokens = standardEvent.usage.completion_tokens;
+                break;
+              case 'done':
+                if (emitter) {
+                  emitter.emit({
+                    type: 'output_text_done',
+                    text: accumulatedText,
+                    item_id: responseId,
+                  });
+                }
+                break;
+              case 'error':
+                console.error('Anthropic stream error:', standardEvent.error);
+                return {
+                  success: false,
+                  error: standardEvent.error,
+                  error_code: ERROR_CODES.ANTHROPIC_API_ERROR,
+                };
+            }
+          }
+          
+          // Capture input tokens from message_start
+          if (event.type === 'message_start' && event.message?.usage) {
+            totalInputTokens = event.message.usage.input_tokens || 0;
+            responseId = event.message.id || responseId;
+          }
+          
+          // Capture final output tokens from message_delta
+          if (event.type === 'message_delta' && event.usage) {
+            totalOutputTokens = event.usage.output_tokens || totalOutputTokens;
+          }
+        } catch (parseErr) {
+          console.warn('Failed to parse Anthropic stream event:', data, parseErr);
+        }
+      }
+    }
+  } catch (streamError) {
+    console.error('Anthropic stream read error:', streamError);
+    return {
+      success: false,
+      error: 'Stream read error',
+      error_code: ERROR_CODES.STREAM_ERROR,
+    };
+  }
+
+  // Emit usage for live dashboard updates
+  if (emitter) {
+    emitter.emit({
+      type: 'usage_delta',
+      input_tokens: totalInputTokens,
+      output_tokens: totalOutputTokens,
+    });
+  }
+
+  const usage = {
+    prompt_tokens: totalInputTokens,
+    completion_tokens: totalOutputTokens,
+    total_tokens: totalInputTokens + totalOutputTokens,
+  };
+
+  console.log('Anthropic streaming completed:', { responseId, textLength: accumulatedText.length, usage });
+
+  // Store message in history for future requests
+  if (threadRowId && accumulatedText) {
+    try {
+      // Store assistant response
+      await supabase.from(TABLES.PROMPT_FAMILY_MESSAGES).insert({
+        thread_row_id: threadRowId,
+        role: 'assistant',
+        content: accumulatedText,
+      });
+      console.log('Stored Anthropic response in message history');
+    } catch (insertErr) {
+      console.warn('Failed to store Anthropic response in history:', insertErr);
+    }
+  }
+
+  return {
+    success: true,
+    response: accumulatedText,
     usage,
     response_id: responseId,
     requestParams,
@@ -2984,19 +3257,67 @@ serve(async (req) => {
         },
       });
 
-      // Call OpenAI Responses API (with emitter for api_started event)
-      // Pass last_response_id for multi-turn context (avoids reasoning item issues)
-      const result = await runResponsesAPI(
-        assistantData,
-        finalMessage,
-        systemPrompt,
-        conversationId,
-        familyThread.last_response_id,
-        OPENAI_API_KEY,
-        supabase,
-        apiOptions,
-        emitter, // Pass emitter for api_started event with response_id
-      );
+      // ============================================================================
+      // PROVIDER ROUTING - Route to appropriate AI provider based on model config
+      // ============================================================================
+      const resolvedModelForProvider = apiOptions.model || assistantData.model_override || await getDefaultModelFromSettings(supabase);
+      const providerModelConfig = await fetchModelConfig(supabase, resolvedModelForProvider);
+      const provider = providerModelConfig?.provider || 'openai';
+      
+      console.log('Provider routing:', { model: resolvedModelForProvider, provider });
+      
+      let result: ResponsesResult & { requestParams?: any };
+      
+      if (provider === 'anthropic') {
+        // ANTHROPIC PROVIDER - Uses stateless Messages API with history reconstruction
+        console.log('Routing to Anthropic Messages API');
+        
+        // Store user message in history first (for Anthropic's stateless model)
+        try {
+          await supabase.from(TABLES.PROMPT_FAMILY_MESSAGES).insert({
+            thread_row_id: activeThreadRowId,
+            role: 'user',
+            content: finalMessage,
+          });
+        } catch (insertErr) {
+          console.warn('Failed to store user message for Anthropic history:', insertErr);
+        }
+        
+        // Emit api_started placeholder (Anthropic doesn't use response_id the same way)
+        emitter.emit({
+          type: 'api_started',
+          response_id: `anthropic-${Date.now()}`,
+          status: 'in_progress',
+        });
+        
+        result = await runAnthropicAPI(
+          supabase,
+          authHeader,
+          providerModelConfig?.apiModelId || resolvedModelForProvider,
+          finalMessage,
+          systemPrompt,
+          activeThreadRowId,
+          {
+            temperature: apiOptions.temperature,
+            topP: apiOptions.topP,
+            maxOutputTokens: apiOptions.maxOutputTokens,
+          },
+          emitter,
+        );
+      } else {
+        // OPENAI PROVIDER (default) - Uses Responses/Conversations API with server-side state
+        result = await runResponsesAPI(
+          assistantData,
+          finalMessage,
+          systemPrompt,
+          conversationId,
+          familyThread.last_response_id,
+          OPENAI_API_KEY,
+          supabase,
+          apiOptions,
+          emitter, // Pass emitter for api_started event with response_id
+        );
+      }
 
       if (!result.success) {
         const errorText = result.error || 'Responses API call failed';
@@ -3044,8 +3365,14 @@ serve(async (req) => {
         .eq('row_id', child_prompt_row_id);
 
       // Update thread with new response_id for multi-turn context chaining
-      if (result.response_id?.startsWith('resp_')) {
-        const updated = await updateFamilyThreadResponseId(supabase, activeThreadRowId, result.response_id);
+      // OpenAI uses resp_ prefix, Anthropic uses msg_ prefix or anthropic- prefix
+      const hasValidResponseId = result.response_id && (
+        result.response_id.startsWith('resp_') || 
+        result.response_id.startsWith('msg_') ||
+        result.response_id.startsWith('anthropic-')
+      );
+      if (hasValidResponseId) {
+        const updated = await updateFamilyThreadResponseId(supabase, activeThreadRowId, result.response_id!);
         if (!updated) {
           console.warn('Failed to persist response_id - next turn may lose conversation context');
         }
