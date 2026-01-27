@@ -2205,6 +2205,14 @@ const ManusIntegrationWrapper = () => (
   </React.Suspense>
 );
 
+// OpenAI Integration Section - lazy loaded
+const OpenAISection = React.lazy(() => import('@/components/settings/OpenAIIntegrationSettings'));
+const OpenAIIntegrationWrapper = () => (
+  <React.Suspense fallback={<div className="p-4 text-on-surface-variant">Loading...</div>}>
+    <OpenAISection />
+  </React.Suspense>
+);
+
 // Gemini API Key Section
 const GeminiSection = () => {
   const { 
@@ -2378,6 +2386,7 @@ const SETTINGS_SECTIONS = {
   "assistants": { component: ConversationDefaultsSection, icon: MessageSquare, title: "Conversation Defaults" },
   "conversations": { component: ConversationsSection, icon: MessageSquare, title: "Conversations" },
   "confluence": { component: ConfluenceSection, icon: FileText, title: "Confluence" },
+  "openai": { component: OpenAIIntegrationWrapper, icon: Key, title: "OpenAI" },
   "gemini": { component: GeminiSection, icon: Sparkles, title: "Google Gemini" },
   "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
@@ -2442,12 +2451,14 @@ const SettingsContent = ({
         return commonSettingsProps;
       case 'confluence':
         return commonSettingsProps;
-      case 'gemini':
-        return {};
-      case 'notifications':
-        return commonSettingsProps;
-      case 'profile':
-        return {};
+    case 'gemini':
+      return {};
+    case 'openai':
+      return {};
+    case 'notifications':
+      return commonSettingsProps;
+    case 'profile':
+      return {};
       default:
         return commonSettingsProps;
     }
