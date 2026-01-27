@@ -635,11 +635,12 @@ async function streamOpenAIResponse(
   
   console.log('Starting stream fetch for response:', responseId);
   
-  // Create a separate timeout for the initial stream connection (30s)
-  const streamConnectTimeout = 30000;
+  // Create a separate timeout for the initial stream connection (120s)
+  // OpenAI can take 60+ seconds to start streaming for complex requests with many tools
+  const streamConnectTimeout = 120000;
   const streamConnectController = new AbortController();
   const streamConnectTimeoutId = setTimeout(() => {
-    console.log('Stream connect timeout after 30s, falling back to polling');
+    console.log('Stream connect timeout after 120s, falling back to polling');
     streamConnectController.abort();
   }, streamConnectTimeout);
   
