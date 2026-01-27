@@ -118,16 +118,28 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const authHeader = req.headers.get('Authorization')!;
-    const OPENAI_API_KEY = await getOpenAIApiKey(authHeader);
-
-    if (!OPENAI_API_KEY) {
-      return new Response(
-        JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)),
-        { status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED), headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    
+    // Helper to lazily fetch OpenAI API key only when needed
+    let openaiApiKey: string | null = null;
+    const getOpenAIKey = async (): Promise<string | null> => {
+      if (openaiApiKey === null) {
+        openaiApiKey = await getOpenAIApiKey(authHeader);
+      }
+      return openaiApiKey;
+    };
+    
+    const requireOpenAIKey = async (): Promise<string | Response> => {
+      const key = await getOpenAIKey();
+      if (!key) {
+        return new Response(
+          JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)),
+          { status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED), headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      return key;
+    };
     
     let requestBody: any;
     try {
@@ -156,11 +168,15 @@ serve(async (req) => {
     if (action === 'create') {
       const { assistant_row_id, child_prompt_row_id, name, root_prompt_row_id, purpose } = body;
 
+      // Require OpenAI key for create
+      const apiKeyResult = await requireOpenAIKey();
+      if (apiKeyResult instanceof Response) return apiKeyResult;
+
       // Generate a name if not provided
       const threadName = name || `Thread ${new Date().toISOString().split('T')[0]}`;
 
       // Create real OpenAI conversation
-      const conversationId = await createOpenAIConversation(OPENAI_API_KEY, {
+      const conversationId = await createOpenAIConversation(apiKeyResult, {
         root_prompt_id: root_prompt_row_id || '',
       });
 
@@ -269,9 +285,10 @@ serve(async (req) => {
         );
       }
 
-      // Delete from OpenAI
-      if (thread?.openai_conversation_id) {
-        await deleteOpenAIConversation(OPENAI_API_KEY, thread.openai_conversation_id);
+      // Delete from OpenAI (if key is available)
+      const deleteApiKey = await getOpenAIKey();
+      if (deleteApiKey && thread?.openai_conversation_id) {
+        await deleteOpenAIConversation(deleteApiKey, thread.openai_conversation_id);
       }
 
       // Delete from database
@@ -316,8 +333,12 @@ serve(async (req) => {
         );
       }
 
+      // Require OpenAI key for get_messages
+      const messagesApiKey = await requireOpenAIKey();
+      if (messagesApiKey instanceof Response) return messagesApiKey;
+
       // Fetch messages from OpenAI
-      const messages = await fetchMessagesFromOpenAI(OPENAI_API_KEY, thread.openai_conversation_id, limit);
+      const messages = await fetchMessagesFromOpenAI(messagesApiKey, thread.openai_conversation_id, limit);
 
       console.log('Returning messages:', messages.length);
 
