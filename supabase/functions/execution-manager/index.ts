@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES } from "../_shared/tables.ts";
 import { validateExecutionManagerInput } from "../_shared/validation.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
 
 /**
  * Execution Manager Edge Function
@@ -143,7 +144,7 @@ async function checkRateLimit(supabase: any, userId: string, endpoint: string): 
   return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - count };
 }
 
-async function startTrace(supabase: any, userId: string, params: TraceParams) {
+async function startTrace(supabase: any, userId: string, params: TraceParams, openAIApiKey: string | null) {
   const { entry_prompt_row_id, execution_type, thread_row_id } = params;
   
   // 1. Validate ownership and get prompt data
@@ -275,7 +276,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
             .maybeSingle();
           
           if (!retryError && retryTrace) {
-            return finishStartTrace(supabase, retryTrace, entry_prompt_row_id, execution_type, userId, familyVersion);
+            return finishStartTrace(supabase, retryTrace, entry_prompt_row_id, execution_type, userId, familyVersion, openAIApiKey);
           }
         }
       }
@@ -285,7 +286,7 @@ async function startTrace(supabase: any, userId: string, params: TraceParams) {
     throw createError;
   }
   
-  return finishStartTrace(supabase, newTrace, entry_prompt_row_id, execution_type, userId, familyVersion);
+  return finishStartTrace(supabase, newTrace, entry_prompt_row_id, execution_type, userId, familyVersion, openAIApiKey);
 }
 
 async function finishStartTrace(
@@ -294,7 +295,8 @@ async function finishStartTrace(
   entry_prompt_row_id: string, 
   execution_type: string, 
   userId: string, 
-  familyVersion: number
+  familyVersion: number,
+  openAIApiKey: string | null
 ) {
   
   // 5. Find previous trace to mark as replaced (after successful insert)
@@ -317,10 +319,12 @@ async function finishStartTrace(
       .update({ status: 'replaced' })
       .eq('trace_id', previousTrace.trace_id);
     
-    // Background delete OpenAI responses (fire and forget)
-    deletePreviousTraceResponses(previousTrace.trace_id, supabase).catch(err => {
-      console.error('Failed to delete previous trace responses:', err);
-    });
+    // Background delete OpenAI responses (fire and forget) - only if user has API key
+    if (openAIApiKey) {
+      deletePreviousTraceResponses(previousTrace.trace_id, supabase, openAIApiKey).catch(err => {
+        console.error('Failed to delete previous trace responses:', err);
+      });
+    }
   }
   
   console.log(JSON.stringify({
@@ -341,12 +345,8 @@ async function finishStartTrace(
   };
 }
 
-async function deletePreviousTraceResponses(traceId: string, supabase: any) {
-  const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-  if (!OPENAI_API_KEY) {
-    console.warn('No OpenAI API key, skipping response deletion');
-    return;
-  }
+async function deletePreviousTraceResponses(traceId: string, supabase: any, openAIApiKey: string) {
+  // openAIApiKey is now passed from caller - already validated
   
   const { data: spans } = await supabase
     .from('q_execution_spans')
@@ -386,7 +386,7 @@ async function deletePreviousTraceResponses(traceId: string, supabase: any) {
         `https://api.openai.com/v1/responses/${span.openai_response_id}`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+          headers: { 'Authorization': `Bearer ${openAIApiKey}` },
         }
       );
       
@@ -705,10 +705,14 @@ serve(async (req) => {
       });
     }
 
+    // Get user's OpenAI API key for trace cleanup operations (optional - only needed for start_trace)
+    const authHeader = req.headers.get('Authorization')!;
+    const openAIApiKey = await getOpenAIApiKey(authHeader);
+
     let result;
     switch (action) {
       case 'start_trace':
-        result = await startTrace(supabase, user.id, params as TraceParams);
+        result = await startTrace(supabase, user.id, params as TraceParams, openAIApiKey);
         break;
       case 'create_span':
         result = await createSpan(supabase, user.id, params as SpanParams);
