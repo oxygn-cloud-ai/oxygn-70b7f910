@@ -74,12 +74,13 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Deactivate existing active threads for this family
+      // Deactivate existing active chat threads for this family (not run threads)
       const { error: deactivateError } = await supabase
         .from('q_threads')
         .update({ is_active: false })
         .eq('root_prompt_row_id', rootPromptId)
         .eq('owner_id', user.id)
+        .eq('purpose', 'chat')  // Only deactivate chat threads, not run threads
         .eq('is_active', true);
 
       if (deactivateError) {
@@ -87,12 +88,13 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
         // Continue anyway - the unique constraint will catch issues
       }
 
-      // Create new thread via thread-manager
+      // Create new thread via thread-manager with purpose='chat'
       const response = await supabase.functions.invoke('thread-manager', {
         body: {
           action: 'create',
           root_prompt_row_id: rootPromptId,
           name: title,
+          purpose: 'chat',  // Explicitly create chat threads
         }
       });
 
