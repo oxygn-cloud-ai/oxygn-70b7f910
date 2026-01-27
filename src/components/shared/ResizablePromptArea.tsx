@@ -22,7 +22,6 @@ import { usePendingSaves } from "@/contexts/PendingSaveContext";
 
 const MIN_HEIGHT = 100;
 const COLLAPSED_HEIGHT = 0;
-const AUTOSAVE_DELAY = 500;
 
 // Import system variables from config (single source of truth)
 import { SYSTEM_VARIABLES } from '@/config/systemVariables';
@@ -124,8 +123,8 @@ interface ResizablePromptAreaProps {
  * 
  * Features:
  * - Click to edit immediately (no edit mode toggle)
- * - Auto-save 500ms after typing stops
- * - Undo to previous saved version
+ * - Auto-save handled by TiptapPromptEditor internally
+ * - Undo to previous saved version (via button only - Cmd+Z is native Tiptap undo)
  * - Discard to return to original value
  * - Variable highlighting and autocomplete via Tiptap
  */
@@ -176,7 +175,6 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
   });
   
   const editorRef = useRef<TiptapPromptEditorHandle>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
   const [contentHeight, setContentHeight] = useState(defaultHeight);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
@@ -222,8 +220,8 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
   // Access pending save registry
   const { registerSave } = usePendingSaves();
 
-  // Perform the actual save
-  const performSave = useCallback((valueToSave: string) => {
+  // Handle save from TiptapPromptEditor's internal auto-save
+  const handleEditorSave = useCallback((valueToSave: string) => {
     if (valueToSave === lastSavedValue) return;
     
     isSavingRef.current = true;
@@ -242,27 +240,10 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
     }, 0);
   }, [lastSavedValue, onSave, onChange, pushPreviousValue, registerSave]);
 
-  // Cancel any pending save timeout
-  const cancelPendingSave = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-  }, []);
-
-  // Immediate save
-  const handleImmediateSave = useCallback(() => {
-    cancelPendingSave();
-    if (hasUnsavedChanges) {
-      performSave(editValue);
-    }
-  }, [cancelPendingSave, hasUnsavedChanges, editValue, performSave]);
-
-  // Handle undo - restore previous saved value
+  // Handle undo - restore previous saved value (button only, not Cmd+Z)
   const handleUndo = useCallback(() => {
     const previousValue = popPreviousValue();
     if (previousValue !== null) {
-      cancelPendingSave();
       setEditValue(previousValue);
       if (onSave) {
         const savePromise = Promise.resolve(onSave(previousValue));
@@ -273,12 +254,11 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
       setLastSavedValue(previousValue);
       toast.success('Undone');
     }
-  }, [popPreviousValue, cancelPendingSave, onSave, onChange, registerSave]);
+  }, [popPreviousValue, onSave, onChange, registerSave]);
 
   // Handle discard - restore to original value
   const handleDiscard = useCallback(() => {
     const originalValue = getOriginalValue() || '';
-    cancelPendingSave();
     setEditValue(originalValue);
     if (onSave) {
       const savePromise = Promise.resolve(onSave(originalValue));
@@ -289,56 +269,31 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
     setLastSavedValue(originalValue);
     clearUndoStack();
     toast.success('Discarded changes');
-  }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack, registerSave]);
+  }, [getOriginalValue, onSave, onChange, clearUndoStack, registerSave]);
 
-  // Keyboard shortcuts (field-scoped)
+  // Keyboard shortcuts (field-scoped) - Only Cmd+S, NOT Cmd+Z (let Tiptap handle it)
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
       e.stopPropagation();
-      handleImmediateSave();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      handleUndo();
-    }
-  }, [handleImmediateSave, handleUndo]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
+      // Force save via editor
+      const currentValue = editorRef.current?.getEditor()?.getText({ blockSeparator: '\n' }) || editValue;
+      if (currentValue !== lastSavedValue) {
+        handleEditorSave(currentValue);
       }
-    };
-  }, []);
+    }
+    // Note: Cmd+Z is NOT intercepted here - let Tiptap's History extension handle native undo
+  }, [editValue, lastSavedValue, handleEditorSave]);
 
-  // Handle editor change
+  // Handle editor change - just update local state, let editor handle auto-save
   const handleEditorChange = useCallback((newValue: string) => {
     setEditValue(newValue);
-    
-    cancelPendingSave();
-    saveTimeoutRef.current = setTimeout(() => {
-      if (newValue !== lastSavedValue) {
-        performSave(newValue);
-      }
-    }, AUTOSAVE_DELAY);
-  }, [cancelPendingSave, lastSavedValue, performSave]);
+  }, []);
 
   // Handle variable insertion from VariablePicker
   const handleInsertVariable = useCallback((variableText: string) => {
     editorRef.current?.insertVariable(variableText);
   }, []);
-
-  // Handle blur - save immediately if changes exist
-  const handleBlur = useCallback((e: React.FocusEvent) => {
-    const relatedTarget = e.relatedTarget as Node | null;
-    if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
-      return;
-    }
-    handleImmediateSave();
-  }, [handleImmediateSave]);
 
   // State transitions
   const goToCollapsed = () => {
@@ -377,7 +332,7 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
   const currentHeight = getHeight();
 
   return (
-    <div className="space-y-1.5" onBlur={handleBlur} onKeyDown={handleKeyDown}>
+    <div className="space-y-1.5" onKeyDown={handleKeyDown}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
@@ -425,7 +380,7 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
                   <Undo2 className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="text-[10px]">Undo (⌘Z)</TooltipContent>
+              <TooltipContent className="text-[10px]">Undo to previous save</TooltipContent>
             </Tooltip>
           )}
           {canDiscard && (
@@ -494,13 +449,13 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
             className={`w-full p-2.5 bg-surface-container rounded-m3-md leading-relaxed overflow-auto transition-colors border ${
               hasUnsavedChanges ? 'border-primary' : 'border-outline-variant'
             }`}
-            style={{ height: `${currentHeight}px`, resize: 'vertical' }}
+            style={{ height: `${currentHeight}px` }}
           >
             <TiptapPromptEditor
               ref={editorRef}
               value={editValue}
               onChange={handleEditorChange}
-              onSave={performSave}
+              onSave={handleEditorSave}
               placeholder={placeholder}
               userVariables={transformedUserVars}
               familyRootPromptRowId={familyRootPromptRowId}
@@ -538,7 +493,7 @@ const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({
         onClose={() => setIsFullScreenOpen(false)}
         label={label}
         value={editValue}
-        onSave={onSave}
+        onSave={handleEditorSave}
         onChange={onChange}
         placeholder={placeholder}
         readOnly={readOnly}

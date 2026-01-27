@@ -13,8 +13,6 @@ import VariablePicker from '@/components/VariablePicker';
 import { useFieldUndo } from '@/hooks/useFieldUndo';
 import { usePendingSaves } from '@/contexts/PendingSaveContext';
 
-const AUTOSAVE_DELAY = 500;
-
 interface FullScreenEditDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -32,6 +30,7 @@ interface FullScreenEditDialogProps {
 /**
  * Full-screen modal for distraction-free editing
  * Uses TiptapPromptEditor for variable highlighting and autocomplete
+ * Auto-save is handled by TiptapPromptEditor internally - no duplicate timers here
  */
 const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
   isOpen,
@@ -50,7 +49,6 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
   const [lastSavedValue, setLastSavedValue] = useState(value || '');
   
   const editorRef = useRef<TiptapPromptEditorHandle>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
 
   // Field undo/discard management
@@ -94,16 +92,8 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
     }));
   }, [variables]);
 
-  // Cancel any pending save timeout
-  const cancelPendingSave = useCallback(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = null;
-    }
-  }, []);
-
-  // Perform the actual save
-  const performSave = useCallback((valueToSave: string) => {
+  // Handle save from TiptapPromptEditor's internal auto-save
+  const handleEditorSave = useCallback((valueToSave: string) => {
     if (valueToSave === lastSavedValue) return;
     
     isSavingRef.current = true;
@@ -122,20 +112,19 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
     }, 0);
   }, [lastSavedValue, onSave, onChange, pushPreviousValue, registerSave]);
 
-  // Immediate save
+  // Immediate save (for Cmd+S)
   const handleImmediateSave = useCallback(() => {
-    cancelPendingSave();
-    if (hasUnsavedChanges) {
-      performSave(editValue);
+    const currentValue = editorRef.current?.getEditor()?.getText({ blockSeparator: '\n' }) || editValue;
+    if (currentValue !== lastSavedValue) {
+      handleEditorSave(currentValue);
       toast.success('Saved');
     }
-  }, [cancelPendingSave, hasUnsavedChanges, editValue, performSave]);
+  }, [editValue, lastSavedValue, handleEditorSave]);
 
-  // Handle undo
+  // Handle undo (button only - Cmd+Z is native Tiptap undo)
   const handleUndo = useCallback(() => {
     const previousValue = popPreviousValue();
     if (previousValue !== null) {
-      cancelPendingSave();
       setEditValue(previousValue);
       if (onSave) {
         const savePromise = Promise.resolve(onSave(previousValue));
@@ -146,12 +135,11 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
       setLastSavedValue(previousValue);
       toast.success('Undone');
     }
-  }, [popPreviousValue, cancelPendingSave, onSave, onChange, registerSave]);
+  }, [popPreviousValue, onSave, onChange, registerSave]);
 
   // Handle discard
   const handleDiscard = useCallback(() => {
     const originalValue = getOriginalValue() || '';
-    cancelPendingSave();
     setEditValue(originalValue);
     if (onSave) {
       const savePromise = Promise.resolve(onSave(originalValue));
@@ -162,58 +150,44 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
     setLastSavedValue(originalValue);
     clearUndoStack();
     toast.success('Discarded changes');
-  }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack, registerSave]);
+  }, [getOriginalValue, onSave, onChange, clearUndoStack, registerSave]);
 
-  // Handle editor change
+  // Handle editor change - just update local state, let editor handle auto-save
   const handleEditorChange = useCallback((newValue: string) => {
     setEditValue(newValue);
-    
-    cancelPendingSave();
-    saveTimeoutRef.current = setTimeout(() => {
-      if (newValue !== lastSavedValue) {
-        performSave(newValue);
-      }
-    }, AUTOSAVE_DELAY);
-  }, [cancelPendingSave, lastSavedValue, performSave]);
+  }, []);
 
   // Insert variable via VariablePicker
   const handleInsertVariable = useCallback((variableText: string) => {
     editorRef.current?.insertVariable(variableText);
   }, []);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - Only Cmd+S and Escape, NOT Cmd+Z (let Tiptap handle it)
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
       handleImmediateSave();
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      handleUndo();
-    }
+    // Note: Cmd+Z is NOT intercepted here - let Tiptap's History extension handle native undo
     if (e.key === 'Escape') {
       e.preventDefault();
-      handleImmediateSave();
+      // Save on close
+      const currentValue = editorRef.current?.getEditor()?.getText({ blockSeparator: '\n' }) || editValue;
+      if (currentValue !== lastSavedValue) {
+        handleEditorSave(currentValue);
+      }
       onClose();
     }
-  }, [handleImmediateSave, handleUndo, onClose]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, []);
+  }, [handleImmediateSave, editValue, lastSavedValue, handleEditorSave, onClose]);
 
   // Save on close
   const handleClose = useCallback(() => {
-    if (hasUnsavedChanges) {
-      performSave(editValue);
+    const currentValue = editorRef.current?.getEditor()?.getText({ blockSeparator: '\n' }) || editValue;
+    if (currentValue !== lastSavedValue) {
+      handleEditorSave(currentValue);
     }
     onClose();
-  }, [hasUnsavedChanges, performSave, editValue, onClose]);
+  }, [editValue, lastSavedValue, handleEditorSave, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -260,7 +234,7 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
                       <Undo2 className="h-4 w-4 text-on-surface-variant" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent className="text-[10px]">Undo (⌘Z)</TooltipContent>
+                  <TooltipContent className="text-[10px]">Undo to previous save</TooltipContent>
                 </Tooltip>
                 
                 <Tooltip>
@@ -331,7 +305,7 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
               ref={editorRef}
               value={editValue}
               onChange={handleEditorChange}
-              onSave={performSave}
+              onSave={handleEditorSave}
               placeholder={placeholder}
               readOnly={readOnly}
               userVariables={transformedUserVars}
