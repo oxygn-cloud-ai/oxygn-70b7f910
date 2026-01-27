@@ -154,7 +154,7 @@ serve(async (req) => {
 
     // CREATE - Create a new thread with OpenAI conversation
     if (action === 'create') {
-      const { assistant_row_id, child_prompt_row_id, name, root_prompt_row_id } = body;
+      const { assistant_row_id, child_prompt_row_id, name, root_prompt_row_id, purpose } = body;
 
       // Generate a name if not provided
       const threadName = name || `Thread ${new Date().toISOString().split('T')[0]}`;
@@ -175,6 +175,7 @@ serve(async (req) => {
           name: threadName,
           is_active: true,
           owner_id: validation.user?.id,
+          purpose: purpose || 'run',  // Default to 'run' for backwards compatibility
         })
         .select()
         .maybeSingle();
@@ -197,9 +198,9 @@ serve(async (req) => {
 
     // LIST - List threads for an assistant, child prompt, or root prompt family
     if (action === 'list') {
-      const { assistant_row_id, child_prompt_row_id, root_prompt_row_id } = body;
+      const { assistant_row_id, child_prompt_row_id, root_prompt_row_id, purpose } = body;
 
-      console.log('Listing threads:', { assistant_row_id, child_prompt_row_id, root_prompt_row_id });
+      console.log('Listing threads:', { assistant_row_id, child_prompt_row_id, root_prompt_row_id, purpose });
 
       let query = supabase
         .from(TABLES.THREADS)
@@ -215,6 +216,11 @@ serve(async (req) => {
         query = query.eq('assistant_row_id', assistant_row_id);
       } else if (child_prompt_row_id) {
         query = query.eq('child_prompt_row_id', child_prompt_row_id);
+      }
+
+      // Filter by purpose if specified
+      if (purpose) {
+        query = query.eq('purpose', purpose);
       }
 
       const { data: threads, error } = await query;
