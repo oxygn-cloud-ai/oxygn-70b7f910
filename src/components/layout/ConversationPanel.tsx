@@ -173,6 +173,11 @@ const ConversationPanel = ({
         threadId = newThread.row_id;
         console.log('[Chat] Created thread:', threadId);
       }
+      console.log('[Chat] Thread state after creation:', {
+        threadId,
+        activeThreadId: promptFamilyChat.activeThreadId,
+        messages: promptFamilyChat.messages.length
+      });
       console.log('[Chat] Sending message to thread:', threadId);
       await promptFamilyChat.sendMessage(message, threadId, {
         model: sessionModel,

@@ -97,6 +97,11 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
     const unregisterCall = registerCall();
     abortControllerRef.current = new AbortController();
     
+    // Add abort detection logging
+    abortControllerRef.current.signal.addEventListener('abort', () => {
+      console.warn('[ChatStream] Fetch aborted - signal received');
+    });
+    
     // 5-minute fetch timeout
     const fetchTimeoutId = setTimeout(() => {
       if (abortControllerRef.current) {
