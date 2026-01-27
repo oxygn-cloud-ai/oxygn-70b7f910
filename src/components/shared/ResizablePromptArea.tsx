@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 
-// Ref to track when we're in the middle of a save operation
 import { 
   ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, 
   Library, Search, Play, Loader2, Copy, Undo2, XCircle, Maximize2
 } from "lucide-react";
 import FullScreenEditDialog from "./FullScreenEditDialog";
-import HighlightedTextarea from "@/components/ui/highlighted-textarea";
+import TiptapPromptEditor, { TiptapPromptEditorHandle } from "@/components/ui/tiptap-prompt-editor";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -16,11 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { LabelBadge } from "@/components/ui/label-badge";
 import VariablePicker from "@/components/VariablePicker";
 import { useFieldUndo } from "@/hooks/useFieldUndo";
@@ -31,109 +25,10 @@ const COLLAPSED_HEIGHT = 0;
 const AUTOSAVE_DELAY = 500;
 
 // Import system variables from config (single source of truth)
-import { SYSTEM_VARIABLES, SYSTEM_VARIABLE_TYPES } from '@/config/systemVariables';
-
-// Build system variable groups from config for ClickableVariable's "Replace with" popover
-const CLICKABLE_SYSTEM_GROUPS = [
-  {
-    id: "datetime",
-    label: "Date & Time",
-    variables: ['q.today', 'q.now', 'q.year', 'q.month']
-      .filter(name => SYSTEM_VARIABLES[name])
-      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
-  },
-  {
-    id: "user",
-    label: "User",
-    variables: ['q.user.name', 'q.user.email']
-      .filter(name => SYSTEM_VARIABLES[name])
-      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
-  },
-  {
-    id: "prompt",
-    label: "Prompt Context",
-    variables: ['q.prompt.name', 'q.toplevel.prompt.name', 'q.parent.prompt.name']
-      .filter(name => SYSTEM_VARIABLES[name])
-      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
-  },
-  {
-    id: "policy",
-    label: "Policy",
-    variables: ['q.policy.version', 'q.policy.owner', 'q.policy.effective.date', 'q.policy.review.date', 'q.topic']
-      .filter(name => SYSTEM_VARIABLES[name])
-      .map(name => ({ name, label: SYSTEM_VARIABLES[name]?.label || name })),
-  },
-];
-
-// Clickable variable span with popover to change variable
-const ClickableVariable = ({ varName, matchStart, matchEnd, allVariables = [], onReplace }) => {
-  const [open, setOpen] = useState(false);
-
-  const handleSelect = (newVarName) => {
-    onReplace(matchStart, matchEnd, `{{${newVarName}}}`);
-    setOpen(false);
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <span 
-          className="text-primary font-medium cursor-pointer bg-primary/10 px-0.5 rounded hover:bg-primary/20 transition-colors"
-        >
-          {`{{${varName}}}`}
-        </span>
-      </PopoverTrigger>
-      <PopoverContent 
-        className="w-56 p-0 bg-surface-container-high border-outline-variant" 
-        align="start"
-        side="bottom"
-      >
-        <div className="p-2 border-b border-outline-variant">
-          <span className="text-label-sm text-on-surface-variant">Replace with:</span>
-        </div>
-        <div className="max-h-48 overflow-auto">
-          {/* System Variables */}
-          {CLICKABLE_SYSTEM_GROUPS.filter(g => g.variables.length > 0).map(group => (
-            <div key={group.id}>
-              <div className="px-3 py-1.5 text-[10px] text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
-                {group.label}
-              </div>
-              {group.variables.map(v => (
-                <button
-                  key={v.name}
-                  onClick={() => handleSelect(v.name)}
-                  className={`w-full flex items-center px-3 py-1.5 text-body-sm hover:bg-on-surface/[0.08] ${v.name === varName ? 'text-primary' : 'text-on-surface'}`}
-                >
-                  <code className="font-mono text-tree">{v.name}</code>
-                </button>
-              ))}
-            </div>
-          ))}
-          {/* User Variables */}
-          {allVariables.length > 0 && (
-            <div>
-              <div className="px-3 py-1.5 text-compact text-on-surface-variant uppercase tracking-wider bg-surface-container-low">
-                User Variables
-              </div>
-              {allVariables.map(v => (
-                <button
-                  key={v.name}
-                  onClick={() => handleSelect(v.name)}
-                  className={`w-full flex items-center px-3 py-1.5 text-body-sm hover:bg-on-surface/[0.08] ${v.name === varName ? 'text-primary' : 'text-on-surface'}`}
-                >
-                  <code className="font-mono text-tree">{v.name}</code>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
+import { SYSTEM_VARIABLES } from '@/config/systemVariables';
 
 // Library Picker Dropdown
-const LibraryPickerDropdown = ({ libraryItems = [] }) => {
+const LibraryPickerDropdown = ({ libraryItems = [] }: { libraryItems: Array<{ row_id?: string; id?: string; name?: string; category?: string }> }) => {
   const [searchQuery, setSearchQuery] = useState("");
   
   const filteredPrompts = useMemo(() => {
@@ -192,7 +87,7 @@ const LibraryPickerDropdown = ({ libraryItems = [] }) => {
 };
 
 // Chevron button for expand/collapse
-const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
+const ChevronButton = ({ icon: Icon, onClick, tooltipText }: { icon: React.ElementType; onClick: () => void; tooltipText: string }) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <button
@@ -206,16 +101,35 @@ const ChevronButton = ({ icon: Icon, onClick, tooltipText }) => (
   </Tooltip>
 );
 
+interface ResizablePromptAreaProps {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onLibraryPick?: () => void;
+  onChange?: (value: string) => void;
+  onSave?: (value: string) => void | Promise<void>;
+  onPlay?: () => void;
+  isPlaying?: boolean;
+  defaultHeight?: number;
+  variables?: Array<{ variable_name?: string; name?: string; type?: string; variable_value?: string; value?: string; default_value?: string }>;
+  promptReferences?: Array<unknown>;
+  libraryItems?: Array<{ row_id?: string; id?: string; name?: string; category?: string }>;
+  storageKey?: string;
+  readOnly?: boolean;
+  familyRootPromptRowId?: string | null;
+}
+
 /**
  * ResizablePromptArea - Text field with auto-save after 500ms of inactivity
  * 
  * Features:
  * - Click to edit immediately (no edit mode toggle)
  * - Auto-save 500ms after typing stops
- * - Undo to previous saved version (Cmd+Z)
+ * - Undo to previous saved version
  * - Discard to return to original value
+ * - Variable highlighting and autocomplete via Tiptap
  */
-const ResizablePromptArea = ({ 
+const ResizablePromptArea: React.FC<ResizablePromptAreaProps> = ({ 
   label, 
   value, 
   placeholder, 
@@ -230,13 +144,13 @@ const ResizablePromptArea = ({
   libraryItems = [],
   storageKey,
   readOnly = false,
-  familyRootPromptRowId = null, // Filter prompt references to this family
+  familyRootPromptRowId = null,
 }) => {
   const persistKey = storageKey || (label ? `qonsol-prompt-height-${label.toLowerCase().replace(/\s+/g, '-')}` : null);
   
   const [editValue, setEditValue] = useState(value || '');
   const [lastSavedValue, setLastSavedValue] = useState(value || '');
-  const [expandState, setExpandState] = useState(() => {
+  const [expandState, setExpandState] = useState<'collapsed' | 'min' | 'full'>(() => {
     if (persistKey) {
       try {
         const saved = localStorage.getItem(persistKey);
@@ -248,7 +162,7 @@ const ResizablePromptArea = ({
     }
     return 'min';
   });
-  const [manualHeight, setManualHeight] = useState(() => {
+  const [manualHeight, setManualHeight] = useState<number | null>(() => {
     if (persistKey) {
       try {
         const saved = localStorage.getItem(persistKey);
@@ -261,14 +175,10 @@ const ResizablePromptArea = ({
     return null;
   });
   
-  const textareaRef = useRef(null);
-  const saveTimeoutRef = useRef(null);
+  const editorRef = useRef<TiptapPromptEditorHandle>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
-  // Synchronous ref to capture cursor position (prevents stale state when VariablePicker blurs textarea)
-  const selectionRef = useRef({ start: null, end: null });
   const [contentHeight, setContentHeight] = useState(defaultHeight);
-  const [cursorPosition, setCursorPosition] = useState(null);
-  const [selectionEnd, setSelectionEnd] = useState(null);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   
   // Field undo/discard management - pass storageKey as entityId to preserve undo across saves
@@ -292,18 +202,16 @@ const ResizablePromptArea = ({
     }
   }, [persistKey, expandState, manualHeight]);
 
-  // Transform user variables for the picker
+  // Transform user variables for the editor
   const transformedUserVars = useMemo(() => {
     return variables.map(v => ({
-      name: v.variable_name || v.name,
+      name: v.variable_name || v.name || '',
       type: v.type || "text",
-      value: v.variable_value || v.value || v.default_value
+      value: v.variable_value || v.value || v.default_value || ''
     }));
   }, [variables]);
 
   // Sync editValue when value prop changes externally
-  // Only sync if we're not in the middle of saving (prevents race condition)
-  // and if the incoming value differs from what we last saved
   useEffect(() => {
     if (!isSavingRef.current && value !== lastSavedValue) {
       setEditValue(value || '');
@@ -311,29 +219,17 @@ const ResizablePromptArea = ({
     }
   }, [value, lastSavedValue]);
 
-  // Measure content height for 'full' state
-  useEffect(() => {
-    if (textareaRef.current) {
-      const scrollHeight = textareaRef.current.scrollHeight;
-      setContentHeight(Math.max(defaultHeight, scrollHeight));
-    }
-  }, [editValue, defaultHeight]);
-
   // Access pending save registry
   const { registerSave } = usePendingSaves();
 
   // Perform the actual save
-  const performSave = useCallback((valueToSave) => {
+  const performSave = useCallback((valueToSave: string) => {
     if (valueToSave === lastSavedValue) return;
     
-    // Set saving flag to prevent race condition with useEffect
     isSavingRef.current = true;
-    
-    // Push current saved value to undo stack before saving new one
     pushPreviousValue(lastSavedValue);
     
     if (onSave) {
-      // Wrap in Promise.resolve to ensure we get a promise, then register it
       const savePromise = Promise.resolve(onSave(valueToSave));
       registerSave(savePromise);
     } else if (onChange) {
@@ -341,7 +237,6 @@ const ResizablePromptArea = ({
     }
     setLastSavedValue(valueToSave);
     
-    // Reset flag after a tick to allow prop updates to complete
     setTimeout(() => {
       isSavingRef.current = false;
     }, 0);
@@ -355,7 +250,7 @@ const ResizablePromptArea = ({
     }
   }, []);
 
-  // Immediate save (for blur, Cmd+S)
+  // Immediate save
   const handleImmediateSave = useCallback(() => {
     cancelPendingSave();
     if (hasUnsavedChanges) {
@@ -370,7 +265,6 @@ const ResizablePromptArea = ({
       cancelPendingSave();
       setEditValue(previousValue);
       if (onSave) {
-        // Register the save so it can be awaited before runs
         const savePromise = Promise.resolve(onSave(previousValue));
         registerSave(savePromise);
       } else if (onChange) {
@@ -387,7 +281,6 @@ const ResizablePromptArea = ({
     cancelPendingSave();
     setEditValue(originalValue);
     if (onSave) {
-      // Register the save so it can be awaited before runs
       const savePromise = Promise.resolve(onSave(originalValue));
       registerSave(savePromise);
     } else if (onChange) {
@@ -399,17 +292,15 @@ const ResizablePromptArea = ({
   }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack, registerSave]);
 
   // Keyboard shortcuts (field-scoped)
-  const handleKeyDown = useCallback((e) => {
-    // Cmd+S - immediate save
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
-      e.stopImmediatePropagation();
+      e.stopPropagation();
       handleImmediateSave();
     }
-    // Cmd+Z - undo (only when not Shift for redo)
     if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
-      e.stopImmediatePropagation();
+      e.stopPropagation();
       handleUndo();
     }
   }, [handleImmediateSave, handleUndo]);
@@ -423,141 +314,29 @@ const ResizablePromptArea = ({
     };
   }, []);
 
-  // No longer needed - removed broken getSelectionFromEditor that used window.getSelection() for textarea
-
-  // Handle textarea change with auto-save debounce
-  const handleTextareaChange = (e) => {
-    const newValue = e.target.value;
+  // Handle editor change
+  const handleEditorChange = useCallback((newValue: string) => {
     setEditValue(newValue);
     
-    if (e.target.selectionStart !== undefined) {
-      setCursorPosition(e.target.selectionStart);
-    }
-    
-    // Cancel existing timer
-    cancelPendingSave();
-    
-    // Start new auto-save timer
-    saveTimeoutRef.current = setTimeout(() => {
-      if (newValue !== lastSavedValue) {
-        performSave(newValue);
-      }
-    }, AUTOSAVE_DELAY);
-  };
-
-  // Capture cursor position using standard textarea selectionStart/End (not contenteditable APIs)
-  const handleTextareaSelect = useCallback(() => {
-    if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart;
-      const end = textareaRef.current.selectionEnd;
-      setCursorPosition(start);
-      setSelectionEnd(end);
-      selectionRef.current = { start, end };
-    }
-  }, []);
-
-  const handleTextareaClick = useCallback(() => {
-    setTimeout(() => {
-      if (textareaRef.current) {
-        const start = textareaRef.current.selectionStart;
-        const end = textareaRef.current.selectionEnd;
-        setCursorPosition(start);
-        setSelectionEnd(end);
-        selectionRef.current = { start, end };
-      }
-    }, 0);
-  }, []);
-
-  const handleTextareaKeyUp = useCallback(() => {
-    if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart;
-      const end = textareaRef.current.selectionEnd;
-      setCursorPosition(start);
-      setSelectionEnd(end);
-      selectionRef.current = { start, end };
-    }
-  }, []);
-
-  const handleInsertVariable = useCallback((variableText) => {
-    const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
-    
-    // Priority: selectionRef (synchronous) > DOM selectionStart > state > end of text
-    let insertStart, insertEnd;
-    
-    if (typeof selectionRef.current.start === 'number') {
-      insertStart = selectionRef.current.start;
-      insertEnd = selectionRef.current.end ?? insertStart;
-    } else if (textareaRef.current && typeof textareaRef.current.selectionStart === 'number') {
-      insertStart = textareaRef.current.selectionStart;
-      insertEnd = textareaRef.current.selectionEnd ?? insertStart;
-    } else if (cursorPosition !== null) {
-      insertStart = cursorPosition;
-      insertEnd = selectionEnd ?? insertStart;
-    } else {
-      insertStart = editValue.length;
-      insertEnd = editValue.length;
-    }
-    
-    if (insertEnd === null || insertEnd < insertStart) {
-      insertEnd = insertStart;
-    }
-    
-    // Handle partial trigger cleanup (prevents {{{{var}}}})
-    let actualStart = insertStart;
-    const textBefore = editValue.slice(0, insertStart);
-    if (textBefore.endsWith('{{')) {
-      actualStart = insertStart - 2;
-    } else if (textBefore.endsWith('{')) {
-      actualStart = insertStart - 1;
-    }
-    
-    const newValue = editValue.slice(0, actualStart) + insertion + editValue.slice(insertEnd);
-    setEditValue(newValue);
-    
-    const newCursorPos = actualStart + insertion.length;
-    setCursorPosition(newCursorPos);
-    setSelectionEnd(newCursorPos);
-    selectionRef.current = { start: newCursorPos, end: newCursorPos };
-    
-    // Restore focus and cursor position after React updates
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.selectionStart = newCursorPos;
-        textareaRef.current.selectionEnd = newCursorPos;
-      }
-    }, 0);
-    
-    // Trigger auto-save
     cancelPendingSave();
     saveTimeoutRef.current = setTimeout(() => {
       if (newValue !== lastSavedValue) {
         performSave(newValue);
       }
     }, AUTOSAVE_DELAY);
-  }, [cursorPosition, selectionEnd, editValue, cancelPendingSave, lastSavedValue, performSave]);
+  }, [cancelPendingSave, lastSavedValue, performSave]);
 
-  // Handle replacing a variable in the text
-  const handleReplaceVariable = useCallback((start, end, newText) => {
-    const newValue = editValue.slice(0, start) + newText + editValue.slice(end);
-    setEditValue(newValue);
-    
-    // Trigger auto-save
-    cancelPendingSave();
-    saveTimeoutRef.current = setTimeout(() => {
-      if (newValue !== lastSavedValue) {
-        performSave(newValue);
-      }
-    }, AUTOSAVE_DELAY);
-  }, [editValue, cancelPendingSave, lastSavedValue, performSave]);
+  // Handle variable insertion from VariablePicker
+  const handleInsertVariable = useCallback((variableText: string) => {
+    editorRef.current?.insertVariable(variableText);
+  }, []);
 
   // Handle blur - save immediately if changes exist
-  const handleBlur = useCallback((e) => {
-    const relatedTarget = e.relatedTarget;
+  const handleBlur = useCallback((e: React.FocusEvent) => {
+    const relatedTarget = e.relatedTarget as Node | null;
     if (relatedTarget && e.currentTarget.contains(relatedTarget)) {
       return;
     }
-    
     handleImmediateSave();
   }, [handleImmediateSave]);
 
@@ -594,21 +373,11 @@ const ResizablePromptArea = ({
     }
   };
 
-  // Handle resize via drag
-  const handleResize = () => {
-    if (textareaRef.current) {
-      const newHeight = textareaRef.current.offsetHeight;
-      if (newHeight !== getHeight()) {
-        setManualHeight(newHeight);
-      }
-    }
-  };
-
   const isCollapsed = expandState === 'collapsed' && manualHeight === null;
   const currentHeight = getHeight();
 
   return (
-    <div className="space-y-1.5" onBlur={handleBlur}>
+    <div className="space-y-1.5" onBlur={handleBlur} onKeyDown={handleKeyDown}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
@@ -639,7 +408,6 @@ const ResizablePromptArea = ({
             </>
           )}
           <label className="text-[10px] text-on-surface-variant uppercase tracking-wider ml-1">{label}</label>
-          {/* Unsaved changes indicator */}
           {hasUnsavedChanges && (
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           )}
@@ -647,7 +415,6 @@ const ResizablePromptArea = ({
         
         {/* Actions - right side */}
         <div className="flex items-center gap-1">
-          {/* Undo button - only show when there's history */}
           {hasPreviousValue && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -661,7 +428,6 @@ const ResizablePromptArea = ({
               <TooltipContent className="text-[10px]">Undo (⌘Z)</TooltipContent>
             </Tooltip>
           )}
-          {/* Discard button - only show when changed from original */}
           {canDiscard && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -675,7 +441,7 @@ const ResizablePromptArea = ({
               <TooltipContent className="text-[10px]">Discard all changes</TooltipContent>
             </Tooltip>
           )}
-          <VariablePicker onInsert={handleInsertVariable} userVariables={variables} promptReferences={promptReferences} familyRootPromptRowId={familyRootPromptRowId} />
+          <VariablePicker onInsert={handleInsertVariable} userVariables={transformedUserVars} promptReferences={promptReferences} familyRootPromptRowId={familyRootPromptRowId} />
           {onLibraryPick && <LibraryPickerDropdown libraryItems={libraryItems} />}
           <Tooltip>
             <TooltipTrigger asChild>
@@ -721,25 +487,28 @@ const ResizablePromptArea = ({
         </div>
       </div>
 
-      {/* Content area - always editable (no view/edit mode toggle) */}
+      {/* Content area */}
       {!isCollapsed && (
         <>
-          <HighlightedTextarea
-            ref={textareaRef}
-            value={editValue}
-            onChange={handleTextareaChange}
-            onSelect={handleTextareaSelect}
-            onClick={handleTextareaClick}
-            onKeyUp={handleTextareaKeyUp}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            userVariables={transformedUserVars}
-            readOnly={readOnly}
-            style={{ height: `${currentHeight}px` }}
-            className={`w-full p-2.5 bg-surface-container rounded-m3-md text-body-sm text-on-surface leading-relaxed focus:outline-none resize-y overflow-auto transition-colors border ${
+          <div
+            className={`w-full p-2.5 bg-surface-container rounded-m3-md leading-relaxed overflow-auto transition-colors border ${
               hasUnsavedChanges ? 'border-primary' : 'border-outline-variant'
             }`}
-          />
+            style={{ height: `${currentHeight}px`, resize: 'vertical' }}
+          >
+            <TiptapPromptEditor
+              ref={editorRef}
+              value={editValue}
+              onChange={handleEditorChange}
+              onSave={performSave}
+              placeholder={placeholder}
+              userVariables={transformedUserVars}
+              familyRootPromptRowId={familyRootPromptRowId}
+              readOnly={readOnly}
+              minHeight={currentHeight - 20}
+              className="h-full"
+            />
+          </div>
 
           {/* Bottom chevron controls */}
           <div className="flex items-center gap-1 pt-1">

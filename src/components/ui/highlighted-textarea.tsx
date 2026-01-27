@@ -1,3 +1,10 @@
+/**
+ * @deprecated This component uses the overlay pattern (transparent textarea over backdrop)
+ * which causes cursor alignment issues. Use TiptapPromptEditor instead.
+ * 
+ * Kept for potential rollback. Will be removed once TiptapPromptEditor is stable.
+ */
+
 import React, { useRef, useCallback, useState, useEffect, useMemo, forwardRef } from 'react';
 import { cn, mergeRefs } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';

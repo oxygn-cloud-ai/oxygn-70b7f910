@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/sonner';
-import HighlightedTextarea from '@/components/ui/highlighted-textarea';
+import TiptapPromptEditor, { TiptapPromptEditorHandle } from '@/components/ui/tiptap-prompt-editor';
 import VariablePicker from '@/components/VariablePicker';
 import { useFieldUndo } from '@/hooks/useFieldUndo';
 import { usePendingSaves } from '@/contexts/PendingSaveContext';
@@ -31,7 +31,7 @@ interface FullScreenEditDialogProps {
 
 /**
  * Full-screen modal for distraction-free editing
- * Preserves variable highlighting and autocomplete from HighlightedTextarea
+ * Uses TiptapPromptEditor for variable highlighting and autocomplete
  */
 const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
   isOpen,
@@ -48,13 +48,10 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
 }) => {
   const [editValue, setEditValue] = useState(value || '');
   const [lastSavedValue, setLastSavedValue] = useState(value || '');
-  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
-  const [selectionEnd, setSelectionEnd] = useState<number | null>(null);
   
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<TiptapPromptEditorHandle>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
-  const selectionRef = useRef<{ start: number | null; end: number | null }>({ start: null, end: null });
 
   // Field undo/discard management
   const {
@@ -79,16 +76,16 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
     }
   }, [isOpen, value, lastSavedValue]);
 
-  // Focus textarea when dialog opens
+  // Focus editor when dialog opens
   useEffect(() => {
-    if (isOpen && textareaRef.current) {
+    if (isOpen && editorRef.current) {
       setTimeout(() => {
-        textareaRef.current?.focus();
+        editorRef.current?.focus();
       }, 100);
     }
   }, [isOpen]);
 
-  // Transform user variables for the picker
+  // Transform user variables for the editor
   const transformedUserVars = React.useMemo(() => {
     return variables.map(v => ({
       name: v.variable_name || v.name || '',
@@ -167,17 +164,11 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
     toast.success('Discarded changes');
   }, [getOriginalValue, cancelPendingSave, onSave, onChange, clearUndoStack, registerSave]);
 
-  // Handle textarea change with auto-save
-  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
+  // Handle editor change
+  const handleEditorChange = useCallback((newValue: string) => {
     setEditValue(newValue);
     
-    if (e.target.selectionStart !== undefined) {
-      setCursorPosition(e.target.selectionStart);
-    }
-    
     cancelPendingSave();
-    
     saveTimeoutRef.current = setTimeout(() => {
       if (newValue !== lastSavedValue) {
         performSave(newValue);
@@ -185,61 +176,10 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
     }, AUTOSAVE_DELAY);
   }, [cancelPendingSave, lastSavedValue, performSave]);
 
-  // Capture cursor position
-  const handleTextareaSelect = useCallback(() => {
-    if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart;
-      const end = textareaRef.current.selectionEnd;
-      setCursorPosition(start);
-      setSelectionEnd(end);
-      selectionRef.current = { start, end };
-    }
-  }, []);
-
-  // Insert variable at cursor
+  // Insert variable via VariablePicker
   const handleInsertVariable = useCallback((variableText: string) => {
-    const insertion = variableText.startsWith('{{') ? variableText : `{{${variableText}}}`;
-    
-    let insertStart: number, insertEnd: number;
-    
-    if (typeof selectionRef.current.start === 'number') {
-      insertStart = selectionRef.current.start;
-      insertEnd = selectionRef.current.end ?? insertStart;
-    } else if (textareaRef.current && typeof textareaRef.current.selectionStart === 'number') {
-      insertStart = textareaRef.current.selectionStart;
-      insertEnd = textareaRef.current.selectionEnd ?? insertStart;
-    } else if (cursorPosition !== null) {
-      insertStart = cursorPosition;
-      insertEnd = selectionEnd ?? insertStart;
-    } else {
-      insertStart = editValue.length;
-      insertEnd = insertStart;
-    }
-    
-    const before = editValue.substring(0, insertStart);
-    const after = editValue.substring(insertEnd);
-    const newValue = before + insertion + after;
-    const newCursorPos = insertStart + insertion.length;
-    
-    setEditValue(newValue);
-    setCursorPosition(newCursorPos);
-    selectionRef.current = { start: newCursorPos, end: newCursorPos };
-    
-    cancelPendingSave();
-    saveTimeoutRef.current = setTimeout(() => {
-      if (newValue !== lastSavedValue) {
-        performSave(newValue);
-      }
-    }, AUTOSAVE_DELAY);
-    
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.selectionStart = newCursorPos;
-        textareaRef.current.selectionEnd = newCursorPos;
-      }
-    }, 0);
-  }, [editValue, cursorPosition, selectionEnd, cancelPendingSave, lastSavedValue, performSave]);
+    editorRef.current?.insertVariable(variableText);
+  }, []);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -386,20 +326,20 @@ const FullScreenEditDialog: React.FC<FullScreenEditDialogProps> = ({
         
         {/* Editor */}
         <div className="flex-1 p-4 overflow-hidden">
-          <HighlightedTextarea
-            ref={textareaRef}
-            value={editValue}
-            onChange={handleTextareaChange}
-            onSelect={handleTextareaSelect}
-            onClick={handleTextareaSelect}
-            onKeyUp={handleTextareaSelect}
-            placeholder={placeholder}
-            readOnly={readOnly}
-            userVariables={transformedUserVars}
-            rows={20}
-            className="w-full h-full min-h-full resize-none bg-surface-container-low border-outline-variant"
-            style={{ height: '100%' }}
-          />
+          <div className="w-full h-full bg-surface-container-low border border-outline-variant rounded-m3-md p-4 overflow-auto">
+            <TiptapPromptEditor
+              ref={editorRef}
+              value={editValue}
+              onChange={handleEditorChange}
+              onSave={performSave}
+              placeholder={placeholder}
+              readOnly={readOnly}
+              userVariables={transformedUserVars}
+              familyRootPromptRowId={familyRootPromptRowId}
+              className="h-full min-h-full"
+              minHeight={400}
+            />
+          </div>
         </div>
         
         {/* Footer status */}
