@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { getDecryptedCredential } from "../_shared/credentials.ts";
+import { getDecryptedCredential, getOpenAIApiKey } from "../_shared/credentials.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 interface ModelData {
   model_id: string;
@@ -48,10 +49,10 @@ async function validateUser(req: Request): Promise<{ valid: boolean; error?: str
   return { valid: true, user };
 }
 
-async function fetchOpenAIModels(): Promise<ModelData[]> {
-  const apiKey = Deno.env.get('OPENAI_API_KEY');
+async function fetchOpenAIModels(authHeader: string): Promise<ModelData[]> {
+  const apiKey = await getOpenAIApiKey(authHeader);
   if (!apiKey) {
-    throw new Error('OpenAI API key not configured');
+    throw new Error('OpenAI API key not configured. Add your API key in Settings → Integrations → OpenAI.');
   }
 
   const controller = new AbortController();
@@ -230,7 +231,7 @@ serve(async (req) => {
     const authHeader = req.headers.get('Authorization') || '';
 
     if (provider === 'openai') {
-      models = await fetchOpenAIModels();
+      models = await fetchOpenAIModels(authHeader);
     } else if (provider === 'google') {
       models = await fetchGeminiModels(authHeader);
     }

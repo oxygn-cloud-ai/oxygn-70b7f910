@@ -15,6 +15,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -46,7 +48,6 @@ serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       console.error('Missing Supabase configuration');
@@ -56,11 +57,13 @@ serve(async (req) => {
       );
     }
 
+    // Get user's OpenAI API key from credentials
+    const OPENAI_API_KEY = await getOpenAIApiKey(authHeader);
     if (!OPENAI_API_KEY) {
-      console.error('Missing OpenAI API key');
+      console.error('OpenAI API key not configured for user');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured', error_code: 'CONFIG_ERROR' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)),
+        { status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED), headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

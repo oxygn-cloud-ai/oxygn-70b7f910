@@ -5,6 +5,8 @@ import { TABLES } from "../_shared/tables.ts";
 import { fetchModelConfig, resolveApiModelId, fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 import { validateStudioChatInput } from "../_shared/validation.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 const ALLOWED_DOMAINS = ['chocfin.com', 'oxygn.cloud'];
 
@@ -124,12 +126,20 @@ serve(async (req) => {
     
     const { assistant_row_id, user_message, thread_row_id, include_child_context = true } = requestBody;
 
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    const authHeader = req.headers.get('Authorization')!;
+    const openAIApiKey = await getOpenAIApiKey(authHeader);
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!openAIApiKey || !supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Missing required environment variables');
+    }
+
+    if (!openAIApiKey) {
+      return new Response(
+        JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)),
+        { status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED), headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

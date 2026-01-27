@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 interface FileHealth {
   row_id: string;
@@ -449,11 +451,11 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get OpenAI API key
-    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    // Get user's OpenAI API key from credentials
+    const openaiKey = await getOpenAIApiKey(authHeader);
     if (!openaiKey) {
-      return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
-        status: 500,
+      return new Response(JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)), {
+        status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED),
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
