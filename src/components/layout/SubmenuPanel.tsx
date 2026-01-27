@@ -21,7 +21,8 @@ import {
   Key,
   CloudCog,
   Sparkles,
-  Bot
+  Bot,
+  Figma
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
@@ -150,11 +151,18 @@ const SettingsSubmenu = ({ onItemClick, activeSubItem }) => (
         onClick={() => onItemClick?.("manus")}
       />
       <SubmenuItem 
-        icon={Bot} 
+        icon={Bot}
         label="Anthropic" 
         description="Claude AI models"
         isActive={activeSubItem === "anthropic"}
         onClick={() => onItemClick?.("anthropic")}
+      />
+      <SubmenuItem 
+        icon={Figma}
+        label="Figma" 
+        description="Design file integration"
+        isActive={activeSubItem === "figma"}
+        onClick={() => onItemClick?.("figma")}
       />
       <SubmenuItem 
         icon={Palette}

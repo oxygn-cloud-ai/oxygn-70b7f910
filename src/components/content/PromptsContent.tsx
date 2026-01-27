@@ -22,6 +22,7 @@ import VariablesTabContent from "./VariablesTabContent";
 import DashboardTabContent from "./DashboardTabContent";
 import FilesPagesSection from "@/components/FilesPagesSection";
 import ConfluencePagesSection from "@/components/ConfluencePagesSection";
+import FigmaFilesSection from "@/components/FigmaFilesSection";
 import QuestionNodeSettings from "@/components/QuestionNodeSettings";
 import ActionNodeSettings from "@/components/ActionNodeSettings";
 
@@ -1707,6 +1708,7 @@ const PromptsContent = ({
                 conversationRowId={assistantRowId} 
                 promptRowId={promptRowId} 
               />
+              <FigmaFilesSection promptRowId={promptRowId} />
             </div>
           )}
           {activeTab === "dashboard" && (
