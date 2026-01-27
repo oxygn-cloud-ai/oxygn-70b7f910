@@ -49,17 +49,54 @@ export async function getDecryptedCredential(
 }
 
 /**
- * Get Manus API key - tries user credential first, falls back to env var
+ * Get decrypted credential with timeout protection
+ * Returns null on timeout or error - NO FALLBACK to env vars
+ */
+async function getDecryptedCredentialWithTimeout(
+  authHeader: string,
+  service: string,
+  key: string,
+  timeoutMs: number = 5000
+): Promise<string | null> {
+  try {
+    const result = await Promise.race<string | null>([
+      getDecryptedCredential(authHeader, service, key),
+      new Promise<null>((_, reject) => 
+        setTimeout(() => reject(new Error('Credential lookup timeout')), timeoutMs)
+      )
+    ]);
+    return result;
+  } catch (error) {
+    console.warn(`[credentials] Timeout/error fetching ${service}/${key}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Get OpenAI API key from user credentials (NO global fallback)
+ */
+export async function getOpenAIApiKey(
+  authHeader: string
+): Promise<string | null> {
+  return getDecryptedCredentialWithTimeout(authHeader, 'openai', 'api_key');
+}
+
+/**
+ * Get Gemini API key from user credentials (NO global fallback)
+ */
+export async function getGeminiApiKey(
+  authHeader: string
+): Promise<string | null> {
+  return getDecryptedCredentialWithTimeout(authHeader, 'gemini', 'api_key');
+}
+
+/**
+ * Get Manus API key from user credentials (NO global fallback)
  */
 export async function getManusApiKey(
   authHeader: string
 ): Promise<string | null> {
-  // Try user-specific credential first
-  const userKey = await getDecryptedCredential(authHeader, 'manus', 'api_key');
-  if (userKey) return userKey;
-  
-  // Fallback to environment variable (for shared/admin usage)
-  return Deno.env.get('MANUS_API_KEY') || null;
+  return getDecryptedCredentialWithTimeout(authHeader, 'manus', 'api_key');
 }
 
 /**
