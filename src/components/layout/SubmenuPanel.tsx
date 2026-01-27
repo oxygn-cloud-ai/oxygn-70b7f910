@@ -20,7 +20,8 @@ import {
   BookOpen,
   Key,
   CloudCog,
-  Sparkles
+  Sparkles,
+  Bot
 } from "lucide-react";
 
 const SubmenuItem = ({ icon: Icon, label, description, isActive = false, onClick }) => (
