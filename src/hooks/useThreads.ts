@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
+import { parseApiError } from '@/utils/apiErrorUtils';
 
 export const useThreads = (assistantRowId, childPromptRowId) => {
   const supabase = useSupabase();
@@ -45,7 +46,12 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
     } catch (error) {
       if (isMountedRef.current) {
         console.error('Error fetching threads:', error);
-        toast.error('Failed to load threads');
+        const parsed = parseApiError(error);
+        toast.error(parsed.title, {
+          description: parsed.message,
+          source: 'useThreads.fetchThreads',
+          errorCode: parsed.code,
+        });
       }
     } finally {
       if (isMountedRef.current) setIsLoading(false);
@@ -82,10 +88,12 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       return data.thread;
     } catch (error) {
       console.error('Error creating thread:', error);
-      toast.error('Failed to create thread', {
+      const parsed = parseApiError(error);
+      toast.error(parsed.title, {
+        description: parsed.message,
         source: 'useThreads.createThread',
-        errorCode: error?.code || 'THREAD_CREATE_ERROR',
-        details: JSON.stringify({ assistantRowId, childPromptRowId, name, error: error?.message, stack: error?.stack }, null, 2),
+        errorCode: parsed.code,
+        details: JSON.stringify({ assistantRowId, childPromptRowId, name, error: error?.message }, null, 2),
       });
       return null;
     }
@@ -118,10 +126,12 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       return true;
     } catch (error) {
       console.error('Error deleting thread:', error);
-      toast.error('Failed to delete thread', {
+      const parsed = parseApiError(error);
+      toast.error(parsed.title, {
+        description: parsed.message,
         source: 'useThreads.deleteThread',
-        errorCode: error?.code || 'THREAD_DELETE_ERROR',
-        details: JSON.stringify({ threadRowId, error: error?.message, stack: error?.stack }, null, 2),
+        errorCode: parsed.code,
+        details: JSON.stringify({ threadRowId, error: error?.message }, null, 2),
       });
       return false;
     }
@@ -147,7 +157,12 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       return data.messages || [];
     } catch (error) {
       console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
+      const parsed = parseApiError(error);
+      toast.error(parsed.title, {
+        description: parsed.message,
+        source: 'useThreads.fetchMessages',
+        errorCode: parsed.code,
+      });
       return [];
     } finally {
       setIsLoadingMessages(false);
@@ -175,7 +190,12 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       return true;
     } catch (error) {
       console.error('Error renaming thread:', error);
-      toast.error('Failed to rename thread');
+      const parsed = parseApiError(error);
+      toast.error(parsed.title, {
+        description: parsed.message,
+        source: 'useThreads.renameThread',
+        errorCode: parsed.code,
+      });
       return false;
     }
   }, [supabase]);
