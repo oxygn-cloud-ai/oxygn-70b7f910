@@ -1,5 +1,8 @@
 // Chat-related TypeScript types for prompt family conversations
 
+/** Thread purpose discriminator for isolation between chat and prompt execution */
+export type ThreadPurpose = 'chat' | 'run';
+
 export interface ChatThread {
   row_id: string;
   name: string | null;  // Fixed: matches q_threads.name column
@@ -14,6 +17,7 @@ export interface ChatThread {
   provider?: string | null;
   external_session_id?: string | null;
   last_response_id?: string | null;
+  purpose?: ThreadPurpose;  // Thread track: 'chat' for interactive chat, 'run' for execution
 }
 
 export interface ChatMessage {

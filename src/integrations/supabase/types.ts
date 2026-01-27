@@ -1779,6 +1779,7 @@ export type Database = {
           openai_conversation_id: string | null
           owner_id: string | null
           provider: string | null
+          purpose: string
           question_state: Json | null
           root_prompt_row_id: string | null
           row_id: string
@@ -1796,6 +1797,7 @@ export type Database = {
           openai_conversation_id?: string | null
           owner_id?: string | null
           provider?: string | null
+          purpose?: string
           question_state?: Json | null
           root_prompt_row_id?: string | null
           row_id?: string
@@ -1813,6 +1815,7 @@ export type Database = {
           openai_conversation_id?: string | null
           owner_id?: string | null
           provider?: string | null
+          purpose?: string
           question_state?: Json | null
           root_prompt_row_id?: string | null
           row_id?: string
