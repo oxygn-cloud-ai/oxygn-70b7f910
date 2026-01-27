@@ -26,6 +26,8 @@ import {
 } from "../_shared/tools/index.ts";
 
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES } from "../_shared/errorCodes.ts";
 
 // Feature flag for gradual rollout - set to 'true' to enable new registry
 const USE_TOOL_REGISTRY = Deno.env.get('USE_TOOL_REGISTRY') === 'true';
@@ -935,7 +937,8 @@ serve(async (req) => {
         return;
       }
 
-      const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+      const authHeader = req.headers.get('Authorization')!;
+      const openAIApiKey = await getOpenAIApiKey(authHeader);
       const supabaseUrl = Deno.env.get('SUPABASE_URL');
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -946,7 +949,11 @@ serve(async (req) => {
       }
 
       if (!openAIApiKey) {
-        emitter.emit({ type: 'error', error: 'No OpenAI API key configured' });
+        emitter.emit({ 
+          type: 'error', 
+          error: 'OpenAI API key not configured. Add your key in Settings → Integrations → OpenAI.',
+          error_code: ERROR_CODES.OPENAI_NOT_CONFIGURED
+        });
         emitter.close();
         return;
       }
@@ -1054,7 +1061,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
       // Get tools
       let tools: any[];
       let registryContext: ToolContext | null = null;
-      const authHeader = req.headers.get('Authorization');
+      // authHeader already declared above for OpenAI key lookup
       const accessToken = authHeader?.replace('Bearer ', '');
       
       if (USE_TOOL_REGISTRY) {

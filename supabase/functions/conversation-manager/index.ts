@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { TABLES, FK } from "../_shared/tables.ts";
 import { fetchActiveModels, getDefaultModelFromSettings } from "../_shared/models.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 async function validateUser(req: Request): Promise<{ valid: boolean; error?: string; user?: any }> {
   const authHeader = req.headers.get('Authorization');
@@ -79,14 +81,15 @@ serve(async (req) => {
 
     console.log('User validated:', validation.user?.email);
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const authHeader = req.headers.get('Authorization')!;
+    const OPENAI_API_KEY = await getOpenAIApiKey(authHeader);
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!OPENAI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)),
+        { status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED), headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

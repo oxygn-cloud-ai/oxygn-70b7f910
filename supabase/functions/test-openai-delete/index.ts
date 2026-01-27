@@ -1,5 +1,8 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
+import { ERROR_CODES, buildErrorResponse, getHttpStatus } from "../_shared/errorCodes.ts";
 
 /**
  * Phase 0: Test Edge Function to Verify OpenAI DELETE API Behavior
@@ -38,14 +41,27 @@ serve(async (req) => {
   let responseId: string | null = null;
 
   try {
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    // Get auth header to retrieve user's OpenAI API key
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Authorization header required',
+        verdict: 'CANNOT_TEST',
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const OPENAI_API_KEY = await getOpenAIApiKey(authHeader);
     if (!OPENAI_API_KEY) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'OPENAI_API_KEY not configured',
+        ...buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED),
         verdict: 'CANNOT_TEST',
       }), {
-        status: 500,
+        status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED),
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

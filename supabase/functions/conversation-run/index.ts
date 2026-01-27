@@ -8,6 +8,7 @@ import { ERROR_CODES } from "../_shared/errorCodes.ts";
 import { variablesModule } from "../_shared/tools/variables.ts";
 import type { ToolContext } from "../_shared/tools/types.ts";
 import { getCorsHeaders, handleCorsOptions } from "../_shared/cors.ts";
+import { getOpenAIApiKey } from "../_shared/credentials.ts";
 
 // Resolve model using DB
 async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {
@@ -1830,12 +1831,18 @@ serve(async (req) => {
 
       console.log('User validated:', validation.user?.email);
 
-      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      const authHeader = req.headers.get('Authorization')!;
+      const OPENAI_API_KEY = await getOpenAIApiKey(authHeader);
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
       const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
       if (!OPENAI_API_KEY) {
-        emitter.emit({ type: 'error', error: 'OpenAI API key not configured', error_code: 'CONFIG_ERROR' });
+        emitter.emit({ 
+          type: 'error', 
+          error: 'OpenAI API key not configured. Add your key in Settings → Integrations → OpenAI.', 
+          error_code: ERROR_CODES.OPENAI_NOT_CONFIGURED 
+        });
+        emitter.close();
         return;
       }
 

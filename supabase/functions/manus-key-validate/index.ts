@@ -64,9 +64,8 @@ serve(async (req) => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const fingerprint = hashArray.slice(0, 4).map(b => b.toString(16).padStart(2, '0')).join('');
     
-    // Determine key source
-    const envKey = Deno.env.get('MANUS_API_KEY');
-    const keySource = envKey ? 'env' : 'user';
+    // Key source is always 'user' - no global fallback
+    const keySource = 'user';
 
     // Get credential metadata from database
     const supabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
