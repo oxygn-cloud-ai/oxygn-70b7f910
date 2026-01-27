@@ -138,6 +138,10 @@ export const useUserCredentials = () => {
     return status.api_key === true;
   }
 
+  if (service === 'anthropic') {
+    return status.api_key === true;
+  }
+
   // For other services, check if any key is configured
   return Object.values(status).some(v => v === true);
   }, [credentialStatus]);

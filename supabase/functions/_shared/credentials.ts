@@ -100,6 +100,15 @@ export async function getManusApiKey(
 }
 
 /**
+ * Get Anthropic API key from user credentials (NO global fallback)
+ */
+export async function getAnthropicApiKey(
+  authHeader: string
+): Promise<string | null> {
+  return getDecryptedCredentialWithTimeout(authHeader, 'anthropic', 'api_key');
+}
+
+/**
  * Check if Manus is configured for a user
  */
 export async function isManusConfigured(authHeader: string): Promise<boolean> {

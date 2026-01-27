@@ -2213,6 +2213,14 @@ const OpenAIIntegrationWrapper = () => (
   </React.Suspense>
 );
 
+// Anthropic Integration Section - lazy loaded
+const AnthropicSection = React.lazy(() => import('@/components/settings/AnthropicIntegrationSettings'));
+const AnthropicIntegrationWrapper = () => (
+  <React.Suspense fallback={<div className="p-4 text-on-surface-variant">Loading...</div>}>
+    <AnthropicSection />
+  </React.Suspense>
+);
+
 // Gemini API Key Section
 const GeminiSection = () => {
   const { 
@@ -2389,6 +2397,7 @@ const SETTINGS_SECTIONS = {
   "openai": { component: OpenAIIntegrationWrapper, icon: Key, title: "OpenAI" },
   "gemini": { component: GeminiSection, icon: Sparkles, title: "Google Gemini" },
   "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
+  "anthropic": { component: AnthropicIntegrationWrapper, icon: Bot, title: "Anthropic" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },
@@ -2454,6 +2463,8 @@ const SettingsContent = ({
     case 'gemini':
       return {};
     case 'openai':
+      return {};
+    case 'anthropic':
       return {};
     case 'notifications':
       return commonSettingsProps;
