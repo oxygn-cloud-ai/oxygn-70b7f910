@@ -1540,40 +1540,68 @@ const PromptsContent = ({
             disabled={isUploading} 
           />
 
-          {/* Play button */}
+          {/* Play button - transforms to Stop when running */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={() => !isManusModel && onRunPrompt?.(selectedPromptId)}
-                disabled={isRunningPrompt || isManusModel}
+                onClick={() => {
+                  if (isRunningPrompt) {
+                    onCancelRun?.();
+                  } else if (!isManusModel) {
+                    onRunPrompt?.(selectedPromptId);
+                  }
+                }}
+                disabled={isManusModel && !isRunningPrompt}
                 className={`w-8 h-8 flex items-center justify-center rounded-m3-full ${
-                  isRunningPrompt ? 'text-primary hover:bg-surface-container' : 
+                  isRunningPrompt ? 'hover:bg-surface-container' : 
                   isManusModel ? 'text-on-surface-variant/40 cursor-not-allowed' : 
                   'text-on-surface-variant hover:bg-surface-container'
                 }`}
               >
-                {isRunningPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                {isRunningPrompt ? (
+                  <Square className="h-4 w-4 text-destructive" />
+                ) : (
+                  <Play className="h-4 w-4 text-on-surface-variant" />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent className="text-[10px]">
-              {isRunningPrompt ? 'Running...' : 
+              {isRunningPrompt ? 'Stop' : 
                isManusModel ? 'Manus models require cascade execution' : 
-               'Play'}
+               'Run'}
             </TooltipContent>
           </Tooltip>
 
-          {/* Cascade button */}
+          {/* Cascade button - transforms to Stop when running */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button 
-                onClick={() => onRunCascade?.(selectedPromptId)}
-                disabled={isRunningCascade || !selectedPromptHasChildren}
-                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-on-surface/[0.08] ${isRunningCascade ? 'text-primary' : !selectedPromptHasChildren ? 'text-on-surface-variant/40' : 'text-on-surface-variant'}`}
+                onClick={() => {
+                  if (isRunningCascade) {
+                    onCancelRun?.();
+                  } else {
+                    onRunCascade?.(selectedPromptId);
+                  }
+                }}
+                disabled={!isRunningCascade && !selectedPromptHasChildren}
+                className={`w-8 h-8 flex items-center justify-center rounded-m3-full hover:bg-surface-container ${
+                  isRunningCascade ? '' : 
+                  !selectedPromptHasChildren ? 'text-on-surface-variant/40 cursor-not-allowed' : 
+                  'text-on-surface-variant'
+                }`}
               >
-                {isRunningCascade ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
+                {isRunningCascade ? (
+                  <Square className="h-4 w-4 text-destructive" />
+                ) : (
+                  <Workflow className="h-4 w-4 text-on-surface-variant" />
+                )}
               </button>
             </TooltipTrigger>
-            <TooltipContent className="text-[10px]">{isRunningCascade ? 'Running Cascade...' : !selectedPromptHasChildren ? 'No children to cascade' : 'Run Cascade'}</TooltipContent>
+            <TooltipContent className="text-[10px]">
+              {isRunningCascade ? 'Stop Cascade' : 
+               !selectedPromptHasChildren ? 'No children to cascade' : 
+               'Run Cascade'}
+            </TooltipContent>
           </Tooltip>
 
           {/* Export button */}
