@@ -324,7 +324,7 @@ serve(async (req) => {
       
       if (activeThreadRowId) {
         const { data: threadMessages } = await supabase
-          .from('q_prompt_family_messages')
+          .from(TABLES.PROMPT_FAMILY_MESSAGES)
           .select('role, content')
           .eq('thread_row_id', activeThreadRowId)
           .order('created_at', { ascending: true })
@@ -380,7 +380,7 @@ serve(async (req) => {
 
       // Store messages in local table for history reconstruction
       if (activeThreadRowId) {
-        await supabase.from('q_prompt_family_messages').insert([
+        await supabase.from(TABLES.PROMPT_FAMILY_MESSAGES).insert([
           { thread_row_id: activeThreadRowId, role: 'user', content: user_message },
           { thread_row_id: activeThreadRowId, role: 'assistant', content: responseText },
         ]);
