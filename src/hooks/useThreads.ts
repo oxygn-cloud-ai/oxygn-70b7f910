@@ -31,8 +31,9 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         },
       });
 
+      // Check data.error first - it contains structured error_code even on 4xx responses
+      if (data?.error) throw data;
       if (error) throw error;
-      if (data?.error) throw data; // Throw full data object to preserve error_code
 
       if (isMountedRef.current) {
         setThreads(data.threads || []);
@@ -75,8 +76,9 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         },
       });
 
-      if (error) throw error;
+      // Check data.error first - it contains structured error_code even on 4xx responses
       if (data?.error) throw data;
+      if (error) throw error;
 
       setThreads(prev => [data.thread, ...prev]);
       setActiveThread(data.thread);
@@ -110,8 +112,9 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         },
       });
 
-      if (error) throw error;
+      // Check data.error first - it contains structured error_code even on 4xx responses
       if (data?.error) throw data;
+      if (error) throw error;
 
       setThreads(prev => prev.filter(t => t.row_id !== threadRowId));
       if (activeThread?.row_id === threadRowId) {
@@ -150,8 +153,9 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         },
       });
 
-      if (error) throw error;
+      // Check data.error first - it contains structured error_code even on 4xx responses
       if (data?.error) throw data;
+      if (error) throw error;
 
       setMessages(data.messages || []);
       return data.messages || [];
@@ -181,8 +185,9 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         },
       });
 
-      if (error) throw error;
+      // Check data.error first - it contains structured error_code even on 4xx responses
       if (data?.error) throw data;
+      if (error) throw error;
 
       setThreads(prev => prev.map(t =>
         t.row_id === threadRowId ? { ...t, name } : t
