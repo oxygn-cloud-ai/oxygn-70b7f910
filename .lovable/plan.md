@@ -1,393 +1,299 @@
 
+# Revised Plan: Fix PromptFamilyChat Concurrency with Prompt Execution
 
-# Adversarial Implementation Audit Report: Claude/Anthropic Integration
+## Root Cause Analysis
 
-## Files Changed
+After exhaustive investigation, the issue is confirmed:
 
-1. `supabase/functions/_shared/anthropic.ts` (CREATED)
-2. `supabase/functions/anthropic-key-validate/index.ts` (CREATED)
-3. `src/components/settings/AnthropicIntegrationSettings.tsx` (CREATED)
-4. `supabase/functions/_shared/credentials.ts` (EDITED)
-5. `supabase/functions/_shared/errorCodes.ts` (EDITED)
-6. `supabase/functions/credentials-manager/index.ts` (EDITED)
-7. `src/hooks/useUserCredentials.ts` (EDITED)
-8. `src/utils/costEstimator.ts` (EDITED)
-9. `src/components/layout/SubmenuPanel.tsx` (EDITED)
-10. `supabase/config.toml` (EDITED)
-11. `src/components/content/SettingsContent.tsx` (EDITED)
-12. `supabase/migrations/20260127143753_2bc62628-6a96-4b18-8cbd-8d6c65906340.sql` (CREATED)
-13. `supabase/functions/studio-chat/index.ts` (EDITED)
-14. `supabase/functions/prompt-family-chat/index.ts` (EDITED)
-15. `supabase/functions/conversation-run/index.ts` (EDITED)
+### The Problem
+Both `prompt-family-chat` (interactive chat) and `conversation-run` (prompt execution) call `getOrCreateFamilyThread()` with identical parameters:
+- Same `root_prompt_row_id`
+- Same `owner_id`
+- Same `provider` ('openai')
 
----
+This returns the **same thread row** from `q_threads`, meaning they share:
+- `openai_conversation_id` (conv_xxx)
+- `last_response_id` (resp_xxx chain)
 
-## Per-File Analysis
+When prompt execution runs, it updates `last_response_id`, breaking the chat's conversation chain. Subsequent chat requests fail because the `previous_response_id` no longer matches the current conversation state.
 
-### 1. `supabase/functions/_shared/anthropic.ts`
+### Why q_prompt_family_threads Wasn't Used
+The existing `q_prompt_family_threads` table was designed for chat isolation but **was never integrated** into `prompt-family-chat` edge function. Instead, both chat and execution incorrectly use `q_threads` via `familyThreads.ts`.
 
-**Description of changes:** New file defining Anthropic message adapter types (`AnthropicMessage`, `AnthropicRequest`, `AnthropicResponse`, `AnthropicStreamEvent`, `StandardSSEEvent`), conversion functions (`convertToAnthropicFormat`, `buildAnthropicRequest`, `parseAnthropicResponse`, `parseAnthropicStreamEvent`), and API call functions (`callAnthropicAPI`, `callAnthropicAPIStreaming`).
+### Context Sharing (Already Works)
+Chat already has access to prompt execution results via:
+1. **familySummary** - includes `output_preview` for each prompt in the tree
+2. **get_prompt_details** tool - returns full `output_response` from `q_prompts` table
 
-**Verification status:** ⚠️ Warning
-
-**Detailed issues identified:**
-- **Line 73:** `ANTHROPIC_API_VERSION = '2024-10-22'` - Correct per plan specification.
-- **Lines 186-195:** `parseAnthropicStreamEvent` for `message_delta` returns `usage` with `prompt_tokens: 0` (hardcoded) - input tokens are tracked separately in `message_start`, but this creates incomplete usage data if only `message_delta` is processed.
-- **Line 256:** `callAnthropicAPIStreaming` always sets `stream: true` even though the request already has it - harmless but redundant (`{ ...request, stream: true }`).
-- **Missing:** No explicit handling for Anthropic rate limit headers (`retry-after`).
-
-**Risk level:** Low
+Execution writes `output_response` to `q_prompts`, which chat can read. **No additional data synchronization is needed**.
 
 ---
 
-### 2. `supabase/functions/anthropic-key-validate/index.ts`
-
-**Description of changes:** New edge function to validate user's Anthropic API key by making a minimal test request.
-
-**Verification status:** ⚠️ Warning
-
-**Detailed issues identified:**
-- **Line 51:** Returns HTTP 200 for `ANTHROPIC_NOT_CONFIGURED` - This is intentional for frontend parsing but inconsistent with other "not configured" errors that return 400.
-- **Lines 59-60:** Warns on unusual key format but proceeds - correct flexible validation per plan.
-- **Lines 93-97:** Test model hardcoded as `claude-3-5-haiku-20241022` - if this model becomes deprecated, validation will fail incorrectly.
-- **Line 145:** Returns HTTP 200 for `ANTHROPIC_INVALID_KEY` - inconsistent with the error metadata in `errorCodes.ts` which specifies `httpStatus: 401`.
-
-**Risk level:** Medium (HTTP status inconsistency)
-
----
-
-### 3. `src/components/settings/AnthropicIntegrationSettings.tsx`
-
-**Description of changes:** New React component for Anthropic API key configuration UI.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- Follows established patterns from `ManusIntegrationSettings.tsx`.
-- Uses `type="password"` and `autoComplete="off"` per security requirements.
-- No visibility toggle (Eye/EyeOff) - correctly omitted per memory `security/api-key-visibility-restriction`.
-- Uses icon buttons with tooltips per design system.
-
-**Risk level:** Low
-
----
-
-### 4. `supabase/functions/_shared/credentials.ts`
-
-**Description of changes:** Added `getAnthropicApiKey` helper function.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- **Lines 105-109:** Correctly follows existing pattern using `getDecryptedCredentialWithTimeout`.
-- No global fallback - correctly enforces per-user keys.
-
-**Risk level:** Low
-
----
-
-### 5. `supabase/functions/_shared/errorCodes.ts`
-
-**Description of changes:** Added Anthropic-specific error codes.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- **Lines 61-64:** Error codes added: `ANTHROPIC_NOT_CONFIGURED`, `ANTHROPIC_INVALID_KEY`, `ANTHROPIC_API_ERROR`, `ANTHROPIC_TIMEOUT`.
-- **Lines 125-128:** Metadata correctly configured with appropriate HTTP statuses and user messages.
-
-**Risk level:** Low
-
----
-
-### 6. `supabase/functions/credentials-manager/index.ts`
-
-**Description of changes:** Added `anthropic` service type handling.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- **Lines 132-134:** Correctly checks for `api_key` when service is `anthropic`.
-
-**Risk level:** Low
-
----
-
-### 7. `src/hooks/useUserCredentials.ts`
-
-**Description of changes:** Added `anthropic` service check in `isServiceConfigured`.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- **Lines 76-78:** Added `if (service === 'anthropic')` check returning `status.api_key === true`.
-
-**Risk level:** Low
-
----
-
-### 8. `src/utils/costEstimator.ts`
-
-**Description of changes:** Added Claude model pricing.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- **Lines 42-48:** Claude pricing added and matches database migration values.
-- Includes `claude-sonnet-4-5`, `claude-3-7-sonnet`, `claude-3-5-haiku`, plus legacy variants.
-
-**Risk level:** Low
-
----
-
-### 9. `src/components/layout/SubmenuPanel.tsx`
-
-**Description of changes:** Added Anthropic menu item to Settings submenu.
-
-**Verification status:** ❌ Bug Found
-
-**Detailed issues identified:**
-- **Line 151-157:** Uses `icon={Bot}` for Anthropic, but `Bot` is NOT imported from lucide-react.
-- **Line 1-24:** Import statement does NOT include `Bot`.
-
-**Risk level:** High (will cause runtime error)
-
----
-
-### 10. `supabase/config.toml`
-
-**Description of changes:** Added `anthropic-key-validate` function configuration.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- `verify_jwt = true` correctly set per plan requirements.
-
-**Risk level:** Low
-
----
-
-### 11. `src/components/content/SettingsContent.tsx`
-
-**Description of changes:** Added Anthropic lazy-loaded wrapper and section configuration.
-
-**Verification status:** ⚠️ Warning
-
-**Detailed issues identified:**
-- **Lines 2216-2222:** Correctly creates lazy-loaded wrapper.
-- **Line 2400:** Uses `icon: Bot` which IS imported on line 8.
-- **Lines 2467-2468:** Case for `'anthropic'` returns empty props `{}` - correct for standalone component.
-
-**Risk level:** Low
-
----
-
-### 12. `supabase/migrations/20260127143753_2bc62628-6a96-4b18-8cbd-8d6c65906340.sql`
-
-**Description of changes:** Inserts Claude models into `q_models` table.
-
-**Verification status:** ⚠️ Warning
-
-**Detailed issues identified:**
-- **Line 19:** `claude-sonnet-4-5-20250514` API model ID - future-dated (May 2025), may not exist yet.
-- **Line 29:** `claude-3-7-sonnet-20250219` API model ID - future-dated (Feb 2025), may not exist yet.
-- **Line 26:** `claude-3-7-sonnet` has `supports_reasoning_effort: true` and `reasoning_effort_levels` - Anthropic's extended thinking uses different API than OpenAI's reasoning_effort parameter.
-- **Line 18:** `supported_tools` includes `file_search` but Anthropic doesn't support OpenAI's file_search tool natively.
-- Uses `ON CONFLICT (model_id) DO NOTHING` - safe for reruns but won't update existing records with wrong data.
-
-**Risk level:** Medium (API model IDs may be invalid)
-
----
-
-### 13. `supabase/functions/studio-chat/index.ts`
-
-**Description of changes:** Added Anthropic provider routing.
-
-**Verification status:** ❌ Bug Found
-
-**Detailed issues identified:**
-- **Lines 323-340:** Fetches history from `q_prompt_family_messages` but studio-chat uses `q_threads` table for threads, not `q_prompt_family_threads`. This is a table mismatch.
-- **Lines 382-386:** Stores messages in `q_prompt_family_messages` table which is intended for prompt-family-chat, not studio-chat.
-- **Line 328:** Uses hardcoded table name `'q_prompt_family_messages'` instead of `TABLES` constant - violates architectural pattern.
-
-**Risk level:** Critical (wrong table for message history)
-
----
-
-### 14. `supabase/functions/prompt-family-chat/index.ts`
-
-**Description of changes:** Added Anthropic provider routing with streaming support.
-
-**Verification status:** ⚠️ Warning
-
-**Detailed issues identified:**
-- **Lines 463-533:** `streamAnthropicResponse` function correctly parses SSE events and emits `output_text_delta`.
-- **Lines 500-509:** Correctly emits events matching OpenAI format.
-- No obvious bugs in provider routing logic.
-- Missing: User message storage before Anthropic call (only stores in OpenAI path?).
-
-**Risk level:** Low
-
----
-
-### 15. `supabase/functions/conversation-run/index.ts`
-
-**Description of changes:** Added `runAnthropicAPI` function and provider routing.
-
-**Verification status:** ✅ Correct
-
-**Detailed issues identified:**
-- **Lines 1281-1529:** `runAnthropicAPI` function correctly implements stateless message reconstruction.
-- **Lines 1307-1324:** Fetches history from `TABLES.PROMPT_FAMILY_MESSAGES` - correct table usage.
-- **Lines 1508-1520:** Stores assistant response after completion - correct.
-- **Lines 3271-3306:** Provider routing correctly checks for `anthropic` provider.
-- **Lines 3275-3284:** Stores user message before Anthropic call - correct for stateless history.
-- **Lines 3369-3379:** Response ID validation supports `msg_` and `anthropic-` prefixes.
-
-**Risk level:** Low
-
----
-
-## Bugs Found
-
-| # | File | Line | Description |
-|---|------|------|-------------|
-| 1 | `src/components/layout/SubmenuPanel.tsx` | 151-157 | Uses `Bot` icon for Anthropic menu item but `Bot` is NOT in the import statement (line 1-24). This will cause a runtime `ReferenceError: Bot is not defined`. |
-| 2 | `supabase/functions/studio-chat/index.ts` | 328, 383 | Uses hardcoded table name `'q_prompt_family_messages'` instead of `TABLES.PROMPT_FAMILY_MESSAGES` constant, violating architecture. Also uses wrong table - studio-chat should use a different message storage pattern consistent with its thread model. |
-| 3 | `supabase/functions/anthropic-key-validate/index.ts` | 51, 145 | Returns HTTP 200 for error conditions (`ANTHROPIC_NOT_CONFIGURED`, `ANTHROPIC_INVALID_KEY`) which conflicts with `errorCodes.ts` metadata specifying 400/401. Inconsistent error handling pattern. |
-
----
-
-## Critical Risks
-
-| # | Severity | Description | Remediation |
-|---|----------|-------------|-------------|
-| 1 | **Critical** | `SubmenuPanel.tsx` missing `Bot` import will crash Settings page when rendering Anthropic menu item. | Add `Bot` to the lucide-react import statement on line 1. |
-| 2 | **High** | `studio-chat` uses wrong table (`q_prompt_family_messages`) for message history - this table is designed for prompt-family threads, not studio-chat assistant threads. Messages will be stored in wrong location and history won't be properly retrieved. | Create or use appropriate message storage for studio-chat, or verify if `q_prompt_family_messages` is intentionally shared. |
-| 3 | **Medium** | Database migration uses future-dated API model IDs (`claude-sonnet-4-5-20250514`, `claude-3-7-sonnet-20250219`) that may not exist in Anthropic's API, causing API calls to fail with "model not found". | Verify current Anthropic API model IDs and update migration. Correct IDs: `claude-sonnet-4-5` → likely `claude-4-sonnet` or dated version, `claude-3-5-haiku` → `claude-3-5-haiku-20241022`. |
-| 4 | **Medium** | `claude-3-7-sonnet` claims `supports_reasoning_effort: true` but Anthropic's extended thinking API is different from OpenAI's `reasoning_effort` parameter - this may cause silent parameter dropping or errors. | Either implement Anthropic-specific extended thinking support or set `supports_reasoning_effort: false`. |
-
----
-
-## Unintended Changes
-
-None detected after explicit verification.
-
-All changes are within scope of the Anthropic integration implementation.
-
----
-
-## Omissions
-
-| # | Description |
-|---|-------------|
-| 1 | **Terminal `output_text_done` event guarantee** - Memory `architecture/sse-terminal-event-and-error-guarantee-logic` states all streaming functions must guarantee terminal event. `studio-chat` Anthropic path does NOT emit `output_text_done` - it only stores the message without explicit terminal event emission. |
-| 2 | **Error recovery for stream failures** - `runAnthropicAPI` in conversation-run has basic error handling but no retry logic for transient failures. |
-| 3 | **Rate limit header extraction** - Anthropic returns `retry-after` headers but no code extracts or uses this for intelligent backoff. |
-
----
-
-## Architectural Deviations
-
-| # | Description |
-|---|-------------|
-| 1 | **Hardcoded table name in studio-chat** - Line 328/383 uses `'q_prompt_family_messages'` instead of `TABLES.PROMPT_FAMILY_MESSAGES`, violating memory `architecture/database-table-naming-convention-migration`. |
-| 2 | **Inconsistent HTTP status handling** - `anthropic-key-validate` returns 200 for error states while `errorCodes.ts` defines specific HTTP statuses. This creates inconsistency with how other validation endpoints handle errors. |
-
----
-
-## Summary
-
-**Overall Assessment:** ❌ **BLOCKED - Critical issues require remediation before progression**
-
-The implementation is largely correct in its core Anthropic adapter logic and provider routing. However, there are critical defects that will cause immediate runtime failures:
-
-1. **Missing import** in `SubmenuPanel.tsx` will crash the Settings page
-2. **Wrong table usage** in `studio-chat` will cause Anthropic message history to fail
-3. **Future-dated API model IDs** in migration may cause immediate API failures
-
-The implementation correctly follows the per-user API key architecture, stateless message history reconstruction, and SSE streaming patterns. The cost estimator, credentials manager, and error codes are properly aligned.
-
----
-
-## Remediation Plan
-
-### Phase 1: Critical Fixes (Immediate)
-
-**Step 1.1:** Fix SubmenuPanel.tsx missing import
-```typescript
-// Line 1-24: Add Bot to import
-import { 
-  MessageSquare, 
-  Plus,
-  LayoutTemplate,
-  Braces,
-  FileJson,
-  Settings,
-  Palette,
-  Bell,
-  User,
-  Activity,
-  Server,
-  Shield,
-  Zap,
-  Type,
-  Cpu,
-  FileText,
-  Trash2,
-  BookOpen,
-  Key,
-  CloudCog,
-  Sparkles,
-  Bot  // ADD THIS
-} from "lucide-react";
+## Solution: Add Purpose Parameter to Thread Isolation
+
+Rather than migrate to `q_prompt_family_threads` (which would orphan existing chat history and require broader changes), we add a `purpose` column to `q_threads` to distinguish chat from execution threads within the existing architecture.
+
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        FIXED ARCHITECTURE                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   q_threads (with purpose discrimination)                                │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │ Row 1: purpose='chat', root_prompt_row_id="abc-123"             │   │
+│   │        openai_conversation_id: "conv_chat_xxx"                  │   │
+│   │        last_response_id: "resp_chat_yyy"                        │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │ Row 2: purpose='run', root_prompt_row_id="abc-123"              │   │
+│   │        openai_conversation_id: "conv_run_xxx"                   │   │
+│   │        last_response_id: "resp_run_yyy"                         │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                  │                              │                        │
+│                  ▼                              ▼                        │
+│   ┌──────────────────────────────────────┐    ┌─────────────────────┐   │
+│   │ conversation-run (prompt execution)  │    │ prompt-family-chat  │   │
+│   │ Uses purpose='run'                   │    │ Uses purpose='chat' │   │
+│   └──────────────────────────────────────┘    └─────────────────────┘   │
+│                                                                          │
+│   ISOLATION: Each purpose has its own OpenAI conversation chain          │
+│   Both can execute simultaneously without interference                   │
+│                                                                          │
+│   CONTEXT SHARING: Chat reads output_response from q_prompts             │
+│   (already implemented via get_prompt_details tool)                      │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Step 1.2:** Fix studio-chat hardcoded table name
-```typescript
-// Lines 328, 383: Replace hardcoded string with TABLES constant
-// Before:
-.from('q_prompt_family_messages')
-// After:
-.from(TABLES.PROMPT_FAMILY_MESSAGES)
+---
+
+## Implementation Plan
+
+### Phase 1: Database Schema Update
+
+**File: New Migration SQL**
+
+```sql
+-- Add purpose column to q_threads for track isolation
+ALTER TABLE q_threads 
+ADD COLUMN IF NOT EXISTS purpose text NOT NULL DEFAULT 'run';
+
+-- Create composite index for efficient lookups
+CREATE INDEX IF NOT EXISTS idx_threads_family_purpose 
+ON q_threads(root_prompt_row_id, owner_id, provider, purpose, is_active)
+WHERE is_active = true;
+
+-- Update existing threads: assume all existing are 'run' (execution)
+-- Chat threads will be created fresh on first use
+COMMENT ON COLUMN q_threads.purpose IS 'Thread track: chat for interactive chat, run for prompt execution';
 ```
 
-**Step 1.3:** Verify Anthropic API model IDs
-- Fetch current model list from Anthropic API documentation
-- Update migration if IDs are incorrect:
-  - `claude-sonnet-4-5-20250514` → verify exists or use `claude-3-5-sonnet-20241022`
-  - `claude-3-7-sonnet-20250219` → verify exists or update to current
-  - `claude-3-5-haiku-20241022` → confirmed correct
+### Phase 2: Update Shared Thread Functions
 
-### Phase 2: Medium Priority Fixes
+**File: `supabase/functions/_shared/familyThreads.ts`**
 
-**Step 2.1:** Fix HTTP status inconsistency in anthropic-key-validate
+Add `purpose` parameter to `getOrCreateFamilyThread`:
+
 ```typescript
-// Change lines 51 and 145 to use appropriate HTTP status codes:
-// ANTHROPIC_NOT_CONFIGURED should return 400
-{ status: 400, headers: ... }
-// ANTHROPIC_INVALID_KEY should return 401 (or keep 200 for frontend compatibility)
+// Type definition for purpose
+export type ThreadPurpose = 'chat' | 'run';
+
+export async function getOrCreateFamilyThread(
+  supabase: any,
+  rootPromptRowId: string,
+  ownerId: string,
+  promptName?: string,
+  openAIApiKey?: string,
+  provider: string = 'openai',
+  purpose: ThreadPurpose = 'run'  // NEW: default to 'run' for backwards compatibility
+): Promise<{ 
+  row_id: string; 
+  openai_conversation_id: string | null; 
+  external_session_id: string | null; 
+  last_response_id: string | null; 
+  created: boolean;
+  purpose: ThreadPurpose;
+}> {
+  // Query includes purpose filter
+  const { data: existingThreads, error: findError } = await supabase
+    .from(TABLES.THREADS)
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id, provider, purpose')
+    .eq('root_prompt_row_id', rootPromptRowId)
+    .eq('owner_id', ownerId)
+    .eq('provider', provider)
+    .eq('purpose', purpose)  // NEW FILTER
+    .eq('is_active', true)
+    .order('last_message_at', { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  // ... rest of logic unchanged, but INSERT includes purpose
+  const { data: newThread, error: createError } = await supabase
+    .from(TABLES.THREADS)
+    .insert({
+      root_prompt_row_id: rootPromptRowId,
+      owner_id: ownerId,
+      name: threadName,
+      is_active: true,
+      openai_conversation_id: conversationId,
+      external_session_id: externalSessionId,
+      provider,
+      purpose,  // NEW: store purpose
+    })
+    .select('row_id, openai_conversation_id, external_session_id, last_response_id, purpose')
+    .maybeSingle();
+
+  return { ...newThread, created: true };
+}
 ```
 
-**Step 2.2:** Verify reasoning_effort support claim
-- Either implement Anthropic extended thinking translation OR
-- Set `supports_reasoning_effort: false` in migration
+Also update `getFamilyThread` and `clearFamilyThread` to accept `purpose` parameter.
 
-### Phase 3: Completeness
+### Phase 3: Update prompt-family-chat Edge Function
 
-**Step 3.1:** Add terminal event guarantee to studio-chat Anthropic path
-- Ensure `output_text_done` event is emitted after streaming completes
+**File: `supabase/functions/prompt-family-chat/index.ts`**
 
-**Step 3.2:** Verify studio-chat message storage strategy is intentional
-- Confirm if using `q_prompt_family_messages` for all Anthropic providers is correct design decision
+Change thread acquisition to use `purpose='chat'`:
 
-### Testing Checklist
+```typescript
+// Line ~1100 - Pass purpose='chat'
+const familyThread = await getOrCreateFamilyThread(
+  supabase,
+  rootId,
+  validation.user!.id,
+  'Chat',
+  openAIApiKey,
+  'openai',  // provider
+  'chat'     // NEW: purpose
+);
+```
 
-After remediation:
-- [ ] Settings page loads without crash
-- [ ] Anthropic submenu item displays correctly
-- [ ] API key validation endpoint returns expected responses
-- [ ] Studio-chat with Claude model correctly streams response
-- [ ] Conversation-run with Claude model maintains history across turns
-- [ ] Cost tracking displays correct values for Claude models
+### Phase 4: Update conversation-run Edge Function
 
+**File: `supabase/functions/conversation-run/index.ts`**
+
+Explicitly pass `purpose='run'` (for clarity, even though it's the default):
+
+```typescript
+// Line ~2336 - Pass purpose='run' explicitly
+const familyThread = await getOrCreateFamilyThread(
+  supabase, 
+  rootPromptRowId,
+  validation.user.id,
+  promptName,
+  openAIApiKey,
+  'openai',  // provider
+  'run'      // NEW: explicit purpose
+);
+```
+
+### Phase 5: Update Frontend Thread Hook
+
+**File: `src/hooks/usePromptFamilyThreads.ts`**
+
+Add purpose filter when fetching threads for chat UI:
+
+```typescript
+// Line 45-51 - Add purpose filter for chat
+const { data, error } = await supabase
+  .from('q_threads')
+  .select('*')
+  .eq('root_prompt_row_id', rootPromptId)
+  .eq('owner_id', user.id)
+  .eq('purpose', 'chat')  // NEW: only show chat threads
+  .eq('is_active', true)
+  .order('last_message_at', { ascending: false, nullsFirst: false });
+```
+
+### Phase 6: Update Type Definitions
+
+**File: `src/types/chat.ts`**
+
+Add purpose to ChatThread type:
+
+```typescript
+export type ThreadPurpose = 'chat' | 'run';
+
+export interface ChatThread {
+  row_id: string;
+  name: string | null;
+  root_prompt_row_id: string | null;
+  openai_conversation_id: string | null;
+  owner_id: string | null;
+  is_active: boolean | null;
+  last_message_at: string | null;
+  created_at: string | null;
+  updated_at?: string | null;
+  provider?: string | null;
+  external_session_id?: string | null;
+  last_response_id?: string | null;
+  purpose?: ThreadPurpose;  // NEW
+}
+```
+
+---
+
+## Files Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `supabase/migrations/[timestamp].sql` | CREATE | Add `purpose` column and index to q_threads |
+| `supabase/functions/_shared/familyThreads.ts` | MODIFY | Add `purpose` parameter to thread functions |
+| `supabase/functions/prompt-family-chat/index.ts` | MODIFY | Pass `purpose='chat'` when getting thread |
+| `supabase/functions/conversation-run/index.ts` | MODIFY | Pass `purpose='run'` explicitly |
+| `src/hooks/usePromptFamilyThreads.ts` | MODIFY | Filter by `purpose='chat'` in queries |
+| `src/types/chat.ts` | MODIFY | Add `ThreadPurpose` type and update interface |
+
+---
+
+## Context Awareness (No Additional Work Needed)
+
+Chat is already aware of execution results through:
+
+1. **System Prompt Context**: `getFamilyDataOptimized()` loads all prompts including `output_preview` (first 200 chars of output_response)
+
+2. **get_prompt_details Tool**: Returns full `output_response` for any prompt in the family
+
+3. **Real-time Data**: Each chat request re-fetches `getFamilyDataOptimized()`, so it always has the latest execution results
+
+**No additional synchronization mechanism is required.** The prompt's `output_response` field (in `q_prompts`) is the shared state between execution and chat.
+
+---
+
+## Backwards Compatibility
+
+1. **Existing threads**: Default `purpose='run'`, so all existing threads continue to work for execution
+2. **Chat threads**: Will be created fresh (with `purpose='chat'`) on first chat after deployment
+3. **No data loss**: Execution history preserved; new chat sessions start fresh (acceptable since chat was broken anyway)
+
+---
+
+## Testing Verification
+
+After implementation:
+- [ ] Start a cascade run on a prompt family
+- [ ] While cascade is running, open chat panel and send a message
+- [ ] Chat should stream response without interruption
+- [ ] Complete cascade, verify outputs stored in prompts
+- [ ] Send another chat message asking about the outputs
+- [ ] Chat should be able to retrieve output_response via get_prompt_details tool
+
+---
+
+## Technical Notes
+
+### Why Not Use q_prompt_family_threads?
+
+The `q_prompt_family_threads` table exists but was designed with different assumptions:
+- Uses `prompt_row_id` not `root_prompt_row_id`
+- Has `title` column instead of `name`
+- Doesn't have `last_response_id` for OpenAI chaining
+- Would require migrating/duplicating thread-manager logic
+
+Adding `purpose` to existing `q_threads` is a minimal, surgical fix that:
+- Reuses proven `getOrCreateFamilyThread` logic
+- Maintains OpenAI Conversations API integration
+- Requires only 6 file changes vs. potential 15+ for full migration
+
+### Why Default to 'run'?
+
+Backwards compatibility. All existing threads are for prompt execution. New chat threads will be created with `purpose='chat'` on first use after deployment.
