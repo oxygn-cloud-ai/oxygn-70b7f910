@@ -48,6 +48,45 @@ const ERROR_PATTERNS = [
     recoverable: true,
   },
   
+  // === OPENAI-SPECIFIC ERRORS (must come BEFORE generic api key patterns) ===
+  {
+    pattern: /OPENAI_NOT_CONFIGURED|openai.*not configured|OpenAI API key not configured/i,
+    code: 'OPENAI_NOT_CONFIGURED',
+    title: 'OpenAI Not Configured',
+    message: 'Configure your OpenAI API key in Settings → Integrations → OpenAI.',
+    recoverable: false,
+  },
+  {
+    pattern: /OPENAI_INVALID_KEY|invalid openai.*key/i,
+    code: 'OPENAI_INVALID_KEY',
+    title: 'Invalid OpenAI API Key',
+    message: 'Your OpenAI API key is invalid or expired. Update it in Settings → Integrations → OpenAI.',
+    recoverable: false,
+  },
+  {
+    pattern: /OPENAI_API_ERROR|openai api error/i,
+    code: 'OPENAI_API_ERROR',
+    title: 'OpenAI API Error',
+    message: 'The OpenAI API returned an error. Please try again.',
+    recoverable: true,
+  },
+  
+  // === GEMINI-SPECIFIC ERRORS ===
+  {
+    pattern: /GEMINI_NOT_CONFIGURED|gemini.*not configured/i,
+    code: 'GEMINI_NOT_CONFIGURED',
+    title: 'Gemini Not Configured',
+    message: 'Configure your Gemini API key in Settings → Integrations.',
+    recoverable: false,
+  },
+  {
+    pattern: /GEMINI_INVALID_KEY|invalid gemini.*key/i,
+    code: 'GEMINI_INVALID_KEY',
+    title: 'Invalid Gemini API Key',
+    message: 'Your Gemini API key is invalid or expired. Update it in Settings → Integrations.',
+    recoverable: false,
+  },
+  
   // === MANUS-SPECIFIC ERRORS (must come BEFORE generic api key patterns) ===
   {
     pattern: /MANUS_NOT_CONFIGURED|manus.*not configured/i,
