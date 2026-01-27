@@ -2221,6 +2221,14 @@ const AnthropicIntegrationWrapper = () => (
   </React.Suspense>
 );
 
+// Figma Integration Section - lazy loaded
+const FigmaSection = React.lazy(() => import('@/components/settings/FigmaIntegrationSettings'));
+const FigmaIntegrationWrapper = () => (
+  <React.Suspense fallback={<div className="p-4 text-on-surface-variant">Loading...</div>}>
+    <FigmaSection />
+  </React.Suspense>
+);
+
 // Gemini API Key Section
 const GeminiSection = () => {
   const { 
@@ -2398,6 +2406,7 @@ const SETTINGS_SECTIONS = {
   "gemini": { component: GeminiSection, icon: Sparkles, title: "Google Gemini" },
   "manus": { component: ManusIntegrationWrapper, icon: Bot, title: "Manus AI" },
   "anthropic": { component: AnthropicIntegrationWrapper, icon: Bot, title: "Anthropic" },
+  "figma": { component: FigmaIntegrationWrapper, icon: Palette, title: "Figma" },
   "appearance": { component: ThemeSection, icon: Palette, title: "Appearance" },
   "notifications": { component: NotificationsSection, icon: Bell, title: "Notifications" },
   "profile": { component: ProfileSection, icon: User, title: "Profile" },

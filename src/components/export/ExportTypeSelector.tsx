@@ -23,8 +23,7 @@ const EXPORT_TYPE_CONFIG = {
     icon: CheckSquare,
     title: 'Jira Issue',
     description: 'Create Jira issues from prompt data automatically',
-    enabled: false,
-    comingSoon: true,
+    enabled: true,
     color: 'blue'
   }
 };
