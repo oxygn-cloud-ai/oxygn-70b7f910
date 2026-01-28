@@ -62,12 +62,18 @@ export const useThreads = (
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const isMountedRef = useRef(true);
+  const hasAutoSelectedRef = useRef(false);
 
   // Reset mounted ref on mount/unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
+
+  // Reset auto-selection ref when assistant changes
+  useEffect(() => {
+    hasAutoSelectedRef.current = false;
+  }, [assistantRowId, childPromptRowId]);
 
   const fetchThreads = useCallback(async (): Promise<void> => {
     if (!supabase) return;
@@ -88,8 +94,9 @@ export const useThreads = (
       if (isMountedRef.current) {
         setThreads(data?.threads || []);
 
-        // Set active thread if one exists
-        if (data?.threads?.length && !activeThread) {
+        // Only auto-select on first fetch, use ref to prevent re-triggering
+        if (data?.threads?.length && !hasAutoSelectedRef.current) {
+          hasAutoSelectedRef.current = true;
           const active = data.threads.find(t => t.is_active);
           setActiveThread(active || data.threads[0]);
         }
@@ -107,7 +114,7 @@ export const useThreads = (
     } finally {
       if (isMountedRef.current) setIsLoading(false);
     }
-  }, [supabase, assistantRowId, childPromptRowId, activeThread]);
+  }, [supabase, assistantRowId, childPromptRowId]);
 
   useEffect(() => {
     fetchThreads();
