@@ -144,8 +144,15 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       // Check again after async operation
       if (requestId !== switchRequestIdRef.current) return [];
       
+      // Handle invoke-level errors
       if (response.error) {
         console.error('Error fetching messages on thread switch:', response.error);
+        return [];
+      }
+      
+      // Handle graceful not_configured status - empty messages, no error
+      if (response.data?.status === 'openai_not_configured') {
+        console.log('[usePromptFamilyThreads] OpenAI not configured, returning empty messages');
         return [];
       }
       

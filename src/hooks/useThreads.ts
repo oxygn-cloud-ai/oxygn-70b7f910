@@ -4,11 +4,61 @@ import { toast } from '@/components/ui/sonner';
 import { trackEvent } from '@/lib/posthog';
 import { parseApiError } from '@/utils/apiErrorUtils';
 
-export const useThreads = (assistantRowId, childPromptRowId) => {
+interface Thread {
+  row_id: string;
+  name: string | null;
+  is_active: boolean;
+  openai_conversation_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at?: string;
+}
+
+interface ThreadResponse {
+  threads?: Thread[];
+  thread?: Thread;
+  success?: boolean;
+  error?: string;
+  error_code?: string;
+}
+
+interface MessagesResponse {
+  messages?: Message[];
+  source?: string;
+  status?: string;
+  message?: string;
+  error?: string;
+  error_code?: string;
+}
+
+interface UseThreadsReturn {
+  threads: Thread[];
+  activeThread: Thread | null;
+  setActiveThread: (thread: Thread | null) => void;
+  messages: Message[];
+  isLoading: boolean;
+  isLoadingMessages: boolean;
+  createThread: (name?: string) => Promise<Thread | null>;
+  deleteThread: (threadRowId: string) => Promise<boolean>;
+  fetchMessages: (threadRowId: string) => Promise<Message[]>;
+  renameThread: (threadRowId: string, name: string) => Promise<boolean>;
+  refetch: () => Promise<void>;
+}
+
+export const useThreads = (
+  assistantRowId: string | null,
+  childPromptRowId: string | null
+): UseThreadsReturn => {
   const supabase = useSupabase();
-  const [threads, setThreads] = useState([]);
-  const [activeThread, setActiveThread] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [activeThread, setActiveThread] = useState<Thread | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const isMountedRef = useRef(true);
@@ -19,11 +69,11 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  const fetchThreads = useCallback(async () => {
+  const fetchThreads = useCallback(async (): Promise<void> => {
     if (!supabase) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke('thread-manager', {
+      const { data, error } = await supabase.functions.invoke<ThreadResponse>('thread-manager', {
         body: {
           action: 'list',
           assistant_row_id: assistantRowId,
@@ -36,10 +86,10 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       if (error) throw error;
 
       if (isMountedRef.current) {
-        setThreads(data.threads || []);
+        setThreads(data?.threads || []);
 
         // Set active thread if one exists
-        if (data.threads?.length > 0 && !activeThread) {
+        if (data?.threads?.length && !activeThread) {
           const active = data.threads.find(t => t.is_active);
           setActiveThread(active || data.threads[0]);
         }
@@ -63,11 +113,11 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
     fetchThreads();
   }, [fetchThreads]);
 
-  const createThread = useCallback(async (name) => {
+  const createThread = useCallback(async (name?: string): Promise<Thread | null> => {
     if (!supabase || !assistantRowId) return null;
 
     try {
-      const { data, error } = await supabase.functions.invoke('thread-manager', {
+      const { data, error } = await supabase.functions.invoke<ThreadResponse>('thread-manager', {
         body: {
           action: 'create',
           assistant_row_id: assistantRowId,
@@ -80,14 +130,17 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       if (data?.error) throw data;
       if (error) throw error;
 
-      setThreads(prev => [data.thread, ...prev]);
-      setActiveThread(data.thread);
-      toast.success('New thread created', {
-        source: 'useThreads.createThread',
-        details: JSON.stringify({ threadRowId: data.thread?.row_id, assistantRowId, childPromptRowId, name }, null, 2),
-      });
-      trackEvent('thread_created', { assistant_row_id: assistantRowId, child_prompt_row_id: childPromptRowId });
-      return data.thread;
+      if (data?.thread) {
+        setThreads(prev => [data.thread!, ...prev]);
+        setActiveThread(data.thread);
+        toast.success('New thread created', {
+          source: 'useThreads.createThread',
+          details: JSON.stringify({ threadRowId: data.thread.row_id, assistantRowId, childPromptRowId, name }, null, 2),
+        });
+        trackEvent('thread_created', { assistant_row_id: assistantRowId, child_prompt_row_id: childPromptRowId });
+        return data.thread;
+      }
+      return null;
     } catch (error) {
       console.error('Error creating thread:', error);
       const parsed = parseApiError(error);
@@ -95,17 +148,17 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         description: parsed.message,
         source: 'useThreads.createThread',
         errorCode: parsed.code,
-        details: JSON.stringify({ assistantRowId, childPromptRowId, name, error: error?.message }, null, 2),
+        details: JSON.stringify({ assistantRowId, childPromptRowId, name, error: parsed.original }, null, 2),
       });
       return null;
     }
   }, [supabase, assistantRowId, childPromptRowId]);
 
-  const deleteThread = useCallback(async (threadRowId) => {
+  const deleteThread = useCallback(async (threadRowId: string): Promise<boolean> => {
     if (!supabase) return false;
 
     try {
-      const { data, error } = await supabase.functions.invoke('thread-manager', {
+      const { data, error } = await supabase.functions.invoke<ThreadResponse>('thread-manager', {
         body: {
           action: 'delete',
           thread_row_id: threadRowId,
@@ -134,18 +187,18 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
         description: parsed.message,
         source: 'useThreads.deleteThread',
         errorCode: parsed.code,
-        details: JSON.stringify({ threadRowId, error: error?.message }, null, 2),
+        details: JSON.stringify({ threadRowId, error: parsed.original }, null, 2),
       });
       return false;
     }
   }, [supabase, activeThread]);
 
-  const fetchMessages = useCallback(async (threadRowId) => {
+  const fetchMessages = useCallback(async (threadRowId: string): Promise<Message[]> => {
     if (!supabase || !threadRowId) return [];
 
     setIsLoadingMessages(true);
     try {
-      const { data, error } = await supabase.functions.invoke('thread-manager', {
+      const { data, error } = await supabase.functions.invoke<MessagesResponse>('thread-manager', {
         body: {
           action: 'get_messages',
           thread_row_id: threadRowId,
@@ -157,8 +210,16 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
       if (data?.error) throw data;
       if (error) throw error;
 
-      setMessages(data.messages || []);
-      return data.messages || [];
+      // Handle graceful not_configured status - return empty messages, no toast
+      if (data?.status === 'openai_not_configured') {
+        console.log('[useThreads] OpenAI not configured, returning empty messages');
+        setMessages([]);
+        return [];
+      }
+
+      const messageList = data?.messages || [];
+      setMessages(messageList);
+      return messageList;
     } catch (error) {
       console.error('Error fetching messages:', error);
       const parsed = parseApiError(error);
@@ -173,11 +234,11 @@ export const useThreads = (assistantRowId, childPromptRowId) => {
     }
   }, [supabase]);
 
-  const renameThread = useCallback(async (threadRowId, name) => {
+  const renameThread = useCallback(async (threadRowId: string, name: string): Promise<boolean> => {
     if (!supabase) return false;
 
     try {
-      const { data, error } = await supabase.functions.invoke('thread-manager', {
+      const { data, error } = await supabase.functions.invoke<ThreadResponse>('thread-manager', {
         body: {
           action: 'rename',
           thread_row_id: threadRowId,
