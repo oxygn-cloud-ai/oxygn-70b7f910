@@ -44,6 +44,17 @@ interface CacheEntry {
   timestamp: number;
 }
 
+/** Type guard to validate AssistantHealth response structure */
+function isAssistantHealth(data: unknown): data is AssistantHealth {
+  if (!data || typeof data !== 'object') return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.assistant_row_id === 'string' &&
+    typeof obj.status === 'string' &&
+    ['healthy', 'degraded', 'broken', 'not_configured'].includes(obj.status as string)
+  );
+}
+
 interface UseResourceHealthReturn {
   health: AssistantHealth | null;
   isChecking: boolean;
@@ -136,11 +147,15 @@ export const useResourceHealth = (assistantRowId: string | null): UseResourceHea
         return notConfiguredHealth;
       }
 
-      // Normal health response
-      const healthData = data as AssistantHealth;
-      setHealth(healthData);
-      setCachedHealth(assistantRowId, healthData);
-      return healthData;
+      // Normal health response - validate structure before assignment
+      if (isAssistantHealth(data)) {
+        setHealth(data);
+        setCachedHealth(assistantRowId, data);
+        return data;
+      } else {
+        console.error('[useResourceHealth] Invalid response structure:', data);
+        throw new Error('Invalid health check response');
+      }
     } catch (err) {
       console.error('[useResourceHealth] Check error:', err);
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -280,6 +295,11 @@ export const useAllResourceHealth = (): UseAllResourceHealthReturn => {
 
       if (invokeError) {
         throw new Error(invokeError.message);
+      }
+
+      // Check for error in response body
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       // Refresh the list after repair
