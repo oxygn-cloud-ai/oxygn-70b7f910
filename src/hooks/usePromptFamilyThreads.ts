@@ -55,13 +55,14 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       if (error) throw error;
       setThreads((data || []) as ChatThread[]);
       
-      // Diagnostic logging
-      console.log('[PromptFamilyThreads] fetchThreads result:', {
-        threadCount: data?.length || 0,
-        activeThreadIdRef: activeThreadIdRef.current,
-        willAutoSelect: data?.length && !activeThreadIdRef.current,
-        firstThreadId: data?.[0]?.row_id,
-      });
+      // Diagnostic logging (development only)
+      if (import.meta.env.DEV) {
+        console.log('[PromptFamilyThreads] fetchThreads result:', {
+          threadCount: data?.length || 0,
+          willAutoSelect: data?.length && !activeThreadIdRef.current,
+          firstThreadId: data?.[0]?.row_id,
+        });
+      }
       
       // Auto-select first thread if none selected
       if (data?.length && !activeThreadIdRef.current) {
@@ -73,7 +74,7 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
       console.error('Error fetching threads:', error);
       return null;
     }
-  }, [rootPromptId]);
+  }, [rootPromptId, setActiveThreadId]);
 
   // Create a new thread
   const createThread = useCallback(async (title = 'New Chat'): Promise<ChatThread | null> => {
@@ -138,7 +139,6 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
     
     // Update state immediately for responsive UI
     setActiveThreadId(threadId);
-    activeThreadIdRef.current = threadId;
     
     if (!threadId) return [];
     
@@ -187,7 +187,7 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [setActiveThreadId]);
 
   // Delete (soft delete) a thread
   const deleteThread = useCallback(async (threadId: string): Promise<boolean> => {
