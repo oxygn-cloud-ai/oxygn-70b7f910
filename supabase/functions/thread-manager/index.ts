@@ -333,9 +333,20 @@ serve(async (req) => {
         );
       }
 
-      // Require OpenAI key for get_messages
-      const messagesApiKey = await requireOpenAIKey();
-      if (messagesApiKey instanceof Response) return messagesApiKey;
+      // Gracefully handle missing API key for get_messages (background operation)
+      const messagesApiKey = await getOpenAIKey();
+      if (!messagesApiKey) {
+        console.log('[thread-manager] OpenAI API key not configured, returning empty message history');
+        return new Response(
+          JSON.stringify({ 
+            messages: [], 
+            source: 'none',
+            status: 'openai_not_configured',
+            message: 'Configure OpenAI API key to view message history'
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Fetch messages from OpenAI
       const messages = await fetchMessagesFromOpenAI(messagesApiKey, thread.openai_conversation_id, limit);

@@ -454,8 +454,14 @@ serve(async (req) => {
     // Get user's OpenAI API key from credentials
     const openaiKey = await getOpenAIApiKey(authHeader);
     if (!openaiKey) {
-      return new Response(JSON.stringify(buildErrorResponse(ERROR_CODES.OPENAI_NOT_CONFIGURED)), {
-        status: getHttpStatus(ERROR_CODES.OPENAI_NOT_CONFIGURED),
+      // Return graceful status instead of error for background health checks
+      console.log('[resource-health] OpenAI API key not configured, returning graceful status');
+      return new Response(JSON.stringify({
+        status: 'not_configured',
+        message: 'OpenAI API key not configured. Add your key in Settings → Integrations → OpenAI.',
+        assistants: [],
+      }), {
+        status: 200,  // 200 OK, not 400
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

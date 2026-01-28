@@ -3,19 +3,69 @@ import { supabase } from '@/integrations/supabase/client';
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+/** Health status for a single assistant */
+export interface AssistantHealth {
+  assistant_row_id: string;
+  assistant_name: string;
+  prompt_name: string;
+  status: 'healthy' | 'degraded' | 'broken' | 'not_configured';
+  vector_store: {
+    status: 'exists' | 'missing' | 'not_configured';
+    id?: string;
+    error?: string;
+  };
+  files: {
+    total_in_db: number;
+    healthy: number;
+    missing_openai: number;
+    missing_storage: number;
+    details: Array<{
+      row_id: string;
+      original_filename: string;
+      openai_file_id: string | null;
+      storage_path: string;
+      status: 'healthy' | 'missing_openai' | 'missing_storage' | 'orphaned';
+      error?: string;
+    }>;
+  };
+  errors: string[];
+}
+
+/** Response from resource-health edge function */
+interface HealthResponse {
+  status?: 'not_configured';
+  message?: string;
+  assistants?: AssistantHealth[];
+  error?: string;
+}
+
+interface CacheEntry {
+  data: AssistantHealth;
+  timestamp: number;
+}
+
+interface UseResourceHealthReturn {
+  health: AssistantHealth | null;
+  isChecking: boolean;
+  isRepairing: boolean;
+  error: string | null;
+  checkHealth: (forceRefresh?: boolean) => Promise<AssistantHealth | null>;
+  repair: () => Promise<unknown>;
+  invalidateCache: () => void;
+}
+
 /**
  * Hook for checking and repairing OpenAI resource health for an assistant
- * @param {string} assistantRowId - The assistant's row_id
  */
-export const useResourceHealth = (assistantRowId) => {
-  const [health, setHealth] = useState(null);
+export const useResourceHealth = (assistantRowId: string | null): UseResourceHealthReturn => {
+  const [health, setHealth] = useState<AssistantHealth | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
-  const [error, setError] = useState(null);
-  const cacheRef = useRef({});
+  const [error, setError] = useState<string | null>(null);
+  const cacheRef = useRef<Record<string, CacheEntry>>({});
 
   // Check if cached result is still valid
-  const getCachedHealth = useCallback((id) => {
+  const getCachedHealth = useCallback((id: string): AssistantHealth | null => {
     const cached = cacheRef.current[id];
     if (!cached) return null;
     if (Date.now() - cached.timestamp > CACHE_TTL_MS) {
@@ -26,7 +76,7 @@ export const useResourceHealth = (assistantRowId) => {
   }, []);
 
   // Store result in cache
-  const setCachedHealth = useCallback((id, data) => {
+  const setCachedHealth = useCallback((id: string, data: AssistantHealth): void => {
     cacheRef.current[id] = {
       data,
       timestamp: Date.now(),
@@ -34,12 +84,12 @@ export const useResourceHealth = (assistantRowId) => {
   }, []);
 
   // Invalidate cache for an assistant
-  const invalidateCache = useCallback((id) => {
+  const invalidateCache = useCallback((id: string): void => {
     delete cacheRef.current[id];
   }, []);
 
   // Check health of a single assistant
-  const checkHealth = useCallback(async (forceRefresh = false) => {
+  const checkHealth = useCallback(async (forceRefresh = false): Promise<AssistantHealth | null> => {
     if (!assistantRowId) return null;
 
     // Return cached result if available and not forcing refresh
@@ -55,7 +105,7 @@ export const useResourceHealth = (assistantRowId) => {
     setError(null);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('resource-health', {
+      const { data, error: invokeError } = await supabase.functions.invoke<HealthResponse>('resource-health', {
         body: {
           action: 'check_assistant',
           assistant_row_id: assistantRowId,
@@ -70,12 +120,31 @@ export const useResourceHealth = (assistantRowId) => {
         throw new Error(data.error);
       }
 
-      setHealth(data);
-      setCachedHealth(assistantRowId, data);
-      return data;
+      // Handle graceful "not_configured" status - not an error, just unavailable
+      if (data?.status === 'not_configured') {
+        const notConfiguredHealth: AssistantHealth = {
+          assistant_row_id: assistantRowId,
+          assistant_name: 'Unknown',
+          prompt_name: 'Unknown',
+          status: 'not_configured',
+          vector_store: { status: 'not_configured' },
+          files: { total_in_db: 0, healthy: 0, missing_openai: 0, missing_storage: 0, details: [] },
+          errors: [],
+        };
+        setHealth(notConfiguredHealth);
+        // Don't cache not_configured so it re-checks after key is added
+        return notConfiguredHealth;
+      }
+
+      // Normal health response
+      const healthData = data as AssistantHealth;
+      setHealth(healthData);
+      setCachedHealth(assistantRowId, healthData);
+      return healthData;
     } catch (err) {
       console.error('[useResourceHealth] Check error:', err);
-      setError(err.message);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
       return null;
     } finally {
       setIsChecking(false);
@@ -83,7 +152,7 @@ export const useResourceHealth = (assistantRowId) => {
   }, [assistantRowId, getCachedHealth, setCachedHealth]);
 
   // Repair an assistant's resources
-  const repair = useCallback(async () => {
+  const repair = useCallback(async (): Promise<unknown> => {
     if (!assistantRowId) return null;
 
     setIsRepairing(true);
@@ -112,7 +181,8 @@ export const useResourceHealth = (assistantRowId) => {
       return data;
     } catch (err) {
       console.error('[useResourceHealth] Repair error:', err);
-      setError(err.message);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
       return null;
     } finally {
       setIsRepairing(false);
@@ -133,24 +203,40 @@ export const useResourceHealth = (assistantRowId) => {
     error,
     checkHealth,
     repair,
-    invalidateCache: () => invalidateCache(assistantRowId),
+    invalidateCache: () => invalidateCache(assistantRowId || ''),
   };
 };
+
+/** Response type for check_all action */
+interface AllHealthResponse {
+  status?: 'not_configured';
+  message?: string;
+  assistants?: AssistantHealth[];
+  error?: string;
+}
+
+interface UseAllResourceHealthReturn {
+  assistants: AssistantHealth[];
+  isChecking: boolean;
+  error: string | null;
+  checkAll: () => Promise<AssistantHealth[]>;
+  repairAssistant: (assistantRowId: string) => Promise<unknown>;
+}
 
 /**
  * Hook for checking health of all assistants (bulk operation)
  */
-export const useAllResourceHealth = () => {
-  const [assistants, setAssistants] = useState([]);
+export const useAllResourceHealth = (): UseAllResourceHealthReturn => {
+  const [assistants, setAssistants] = useState<AssistantHealth[]>([]);
   const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const checkAll = useCallback(async () => {
+  const checkAll = useCallback(async (): Promise<AssistantHealth[]> => {
     setIsChecking(true);
     setError(null);
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('resource-health', {
+      const { data, error: invokeError } = await supabase.functions.invoke<AllHealthResponse>('resource-health', {
         body: { action: 'check_all' },
       });
 
@@ -162,11 +248,20 @@ export const useAllResourceHealth = () => {
         throw new Error(data.error);
       }
 
-      setAssistants(data?.assistants || []);
-      return data?.assistants || [];
+      // Handle graceful "not_configured" status - return empty array, no error
+      if (data?.status === 'not_configured') {
+        console.log('[useAllResourceHealth] OpenAI not configured, showing empty assistants list');
+        setAssistants([]);
+        return [];
+      }
+
+      const assistantsList = data?.assistants || [];
+      setAssistants(assistantsList);
+      return assistantsList;
     } catch (err) {
       console.error('[useAllResourceHealth] Check error:', err);
-      setError(err.message);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
       return [];
     } finally {
       setIsChecking(false);
@@ -174,7 +269,7 @@ export const useAllResourceHealth = () => {
   }, []);
 
   // Repair a specific assistant and refresh list
-  const repairAssistant = useCallback(async (assistantRowId) => {
+  const repairAssistant = useCallback(async (assistantRowId: string): Promise<unknown> => {
     try {
       const { data, error: invokeError } = await supabase.functions.invoke('resource-health', {
         body: {
