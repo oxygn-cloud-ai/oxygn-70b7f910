@@ -1403,15 +1403,35 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
         try { parsedError = JSON.parse(errorText); } catch {}
         
         const upstreamMessage = parsedError?.error?.message || '';
+        const errorCode = parsedError?.error?.code;
+        
+        // Diagnostic logging for error analysis
+        console.log('[DEBUG] Error analysis:', {
+          status: apiResponse.status,
+          errorCode,
+          errorMessage: upstreamMessage,
+          hasPreviousResponseId: !!requestBody.previous_response_id,
+          retryAttempted
+        });
+        
+        // Fix: Include correct OpenAI error codes for stale conversation detection
         const isStaleConversation = 
           upstreamMessage.includes('No tool output found') ||
           upstreamMessage.includes('Cannot continue from response') ||
-          parsedError?.error?.code === 'invalid_previous_response_id';
+          upstreamMessage.toLowerCase().includes('previous response') ||
+          errorCode === 'previous_response_not_found' ||  // Correct OpenAI error code
+          errorCode === 'invalid_previous_response_id';   // Legacy fallback
         
         // Retry without previous_response_id if stale conversation detected
         if (isStaleConversation && requestBody.previous_response_id && !retryAttempted) {
           console.warn('Detected stale conversation state - clearing and retrying');
           retryAttempted = true;
+          
+          // Emit progress so frontend knows a retry is happening
+          emitter.emit({ 
+            type: 'progress', 
+            message: 'Conversation context reset - retrying...',
+          });
           
           // Clear stale response_id from database
           await supabase

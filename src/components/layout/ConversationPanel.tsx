@@ -155,7 +155,32 @@ const ConversationPanel = ({
   }, [messages, isSending, streamingMessage]);
 
   const handleSend = async () => {
-    if (!inputValue.trim() || isSending) return;
+    // Comprehensive diagnostics for blocking detection
+    const debugState = {
+      hasInput: !!inputValue.trim(),
+      isSending,
+      isStreaming: promptFamilyChat?.isStreaming,
+      isExecutingTools: promptFamilyChat?.isExecutingTools,
+      activeThreadId: promptFamilyChat?.activeThreadId,
+      threadCount: promptFamilyChat?.threads.length,
+    };
+    
+    console.log('[ConversationPanel] handleSend:', debugState);
+    
+    if (!inputValue.trim()) {
+      console.warn('[ConversationPanel] BLOCKED: empty input');
+      return;
+    }
+    
+    if (isSending) {
+      console.warn('[ConversationPanel] BLOCKED: isSending=true', {
+        isStreaming: promptFamilyChat?.isStreaming,
+        isExecutingTools: promptFamilyChat?.isExecutingTools,
+      });
+      toast.warning('Please wait for the current message to complete');
+      return;
+    }
+    
     const message = inputValue.trim();
     setInputValue("");
     
@@ -179,11 +204,18 @@ const ConversationPanel = ({
         messages: promptFamilyChat.messages.length
       });
       console.log('[Chat] Sending message to thread:', threadId);
-      await promptFamilyChat.sendMessage(message, threadId, {
-        model: sessionModel,
-        reasoningEffort: sessionReasoningEffort
-      });
-      console.log('[Chat] sendMessage completed');
+      try {
+        await promptFamilyChat.sendMessage(message, threadId, {
+          model: sessionModel,
+          reasoningEffort: sessionReasoningEffort
+        });
+        console.log('[Chat] sendMessage completed');
+      } catch (error) {
+        console.error('[Chat] sendMessage failed:', error);
+        toast.error('Failed to send message', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     } else if (legacyOnSendMessage) {
       await legacyOnSendMessage(message);
     }

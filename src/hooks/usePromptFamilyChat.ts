@@ -94,11 +94,14 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   // Resolve root prompt when promptRowId changes
   useEffect(() => {
     const resolveRoot = async () => {
+      console.log('[PromptFamilyChat] Resolving root for:', promptRowId);
       if (!promptRowId) {
+        console.log('[PromptFamilyChat] No promptRowId, clearing rootPromptId');
         setRootPromptId(null);
         return;
       }
       const rootId = await computeRootPromptId(promptRowId);
+      console.log('[PromptFamilyChat] Root resolved:', rootId, 'from:', promptRowId);
       setRootPromptId(rootId);
     };
     resolveRoot();
@@ -157,8 +160,22 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     const { model, reasoningEffort } = options;
     const effectiveThreadId = threadId || threadManager.activeThreadId;
     
+    // Diagnostic: log entry state for concurrency debugging
+    console.log('[PromptFamilyChat] sendMessage:', {
+      hasMessage: !!userMessage.trim(),
+      effectiveThreadId,
+      activeThreadId: threadManager.activeThreadId,
+      promptRowId,
+      isStreaming: streamManager.isStreaming,
+      threadCount: threadManager.threads.length,
+    });
+    
     if (!effectiveThreadId || !userMessage.trim() || !promptRowId) {
-      console.log('[ChatDebug] sendMessage blocked - missing thread/message/prompt');
+      console.warn('[PromptFamilyChat] sendMessage BLOCKED:', {
+        noThread: !effectiveThreadId,
+        noMessage: !userMessage.trim(),
+        noPrompt: !promptRowId
+      });
       return null;
     }
 

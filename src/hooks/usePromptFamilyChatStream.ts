@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { notify } from '@/contexts/ToastHistoryContext';
 import { trackEvent, trackException } from '@/lib/posthog';
@@ -45,7 +45,18 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
   const dashboardCallIdRef = useRef<string | null>(null);
   const toolActivityCountRef = useRef(0);
 
+  // Debug: log streaming state changes for concurrency diagnostics
+  React.useEffect(() => {
+    console.log('[ChatStream] State changed:', { 
+      isStreaming, 
+      messageLength: streamingMessage.length, 
+      isExecutingTools,
+      hasAbortController: !!abortControllerRef.current 
+    });
+  }, [isStreaming, streamingMessage.length, isExecutingTools]);
+
   const resetStreamState = useCallback(() => {
+    console.log('[ChatStream] RESET called');
     setStreamingMessage('');
     setThinkingText('');
     setToolActivity([]);
@@ -74,6 +85,15 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
     callbacks: StreamCallbacks
   ): Promise<string | null> => {
     const effectiveModel = model || 'gpt-4o';
+    
+    // Diagnostic: log entry state for concurrency debugging
+    console.log('[ChatStream] sendMessage starting:', {
+      threadId,
+      promptRowId,
+      model: effectiveModel,
+      currentlyStreaming: isStreaming,
+      hasAbortController: !!abortControllerRef.current,
+    });
     
     // Notify message sent
     notify.info('Message sent', { 
@@ -252,6 +272,13 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
               },
               onProgress: (message) => {
                 console.log('[ChatStream] Progress:', message);
+                // Surface retry notifications to user
+                if (message.includes('reset') || message.includes('retry')) {
+                  notify.info('Reconnecting...', {
+                    source: 'ChatStream',
+                    description: message,
+                  });
+                }
               },
               onHeartbeat: (elapsedMs) => {
                 console.log('[ChatStream] Heartbeat:', elapsedMs, 'ms');
