@@ -17,7 +17,7 @@ export interface UsePromptFamilyThreadsReturn {
 
 export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFamilyThreadsReturn {
   const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [activeThreadId, setActiveThreadIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
   // Ref to track activeThreadId without causing callback re-creation
@@ -26,10 +26,11 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
   // Ref to track switchThread request ID for race condition prevention
   const switchRequestIdRef = useRef(0);
   
-  // Keep ref in sync with state
-  useEffect(() => {
-    activeThreadIdRef.current = activeThreadId;
-  }, [activeThreadId]);
+  // Synchronous setter that updates ref immediately (before async operations read it)
+  const setActiveThreadId = useCallback((id: string | null) => {
+    activeThreadIdRef.current = id;  // Sync update FIRST
+    setActiveThreadIdState(id);      // Then schedule React state update
+  }, []);
 
   // Fetch threads for the current prompt family - returns auto-selected thread ID
   const fetchThreads = useCallback(async (): Promise<string | null> => {
@@ -53,6 +54,14 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
 
       if (error) throw error;
       setThreads((data || []) as ChatThread[]);
+      
+      // Diagnostic logging
+      console.log('[PromptFamilyThreads] fetchThreads result:', {
+        threadCount: data?.length || 0,
+        activeThreadIdRef: activeThreadIdRef.current,
+        willAutoSelect: data?.length && !activeThreadIdRef.current,
+        firstThreadId: data?.[0]?.row_id,
+      });
       
       // Auto-select first thread if none selected
       if (data?.length && !activeThreadIdRef.current) {
