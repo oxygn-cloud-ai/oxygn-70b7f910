@@ -98,6 +98,14 @@ export function usePromptFamilyThreads(rootPromptId: string | null): UsePromptFa
         }
       });
 
+      // Diagnostic: log thread creation result for concurrency debugging
+      console.log('[PromptFamilyThreads] createThread result:', {
+        success: !response.error,
+        threadId: response.data?.thread?.row_id,
+        purpose: response.data?.thread?.purpose,
+        error: response.error,
+      });
+
       if (response.error) throw response.error;
       
       const newThread = response.data?.thread as ChatThread | undefined;
