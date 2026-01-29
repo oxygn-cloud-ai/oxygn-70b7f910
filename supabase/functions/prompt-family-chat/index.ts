@@ -36,6 +36,32 @@ import {
   type AnthropicStreamEvent 
 } from "../_shared/anthropic.ts";
 
+// ============================================================================
+// PHASE 7: LONG-RUNNING OPERATION DETECTION
+// Detects operations that will likely exceed edge function timeout
+// and proactively switches to webhook mode
+// ============================================================================
+// PHASE 7: LONG-RUNNING OPERATION DETECTION
+// Detects operations that will likely exceed edge function timeout
+// and proactively switches to webhook mode
+// ============================================================================
+
+function isLongRunningOperation(
+  model: string | undefined,
+  reasoningEffort: string | undefined,
+  toolCount: number
+): boolean {
+  // GPT-5 with high reasoning effort can take 5+ minutes
+  if (model?.includes('gpt-5') && reasoningEffort === 'high') {
+    return true;
+  }
+  // GPT-5 with extensive tool usage can also be slow
+  if (model?.includes('gpt-5') && toolCount > 5) {
+    return true;
+  }
+  return false;
+}
+
 // Feature flag for gradual rollout - set to 'true' to enable new registry
 const USE_TOOL_REGISTRY = Deno.env.get('USE_TOOL_REGISTRY') === 'true';
 
@@ -1497,6 +1523,54 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
 
       // Emit api_started for dashboard
       emitter.emit({ type: 'api_started', response_id: latestResponseId, status: initialResult.status });
+
+      // ========================================================================
+      // PHASE 7: Long-running operation detection - webhook mode trigger
+      // Check if this is a long-running operation and hand off to webhook
+      // ========================================================================
+      const toolCount = tools.length;
+      const activeReasoningEffort = requestBody.reasoning?.effort;
+      
+      if (isLongRunningOperation(selectedModel, activeReasoningEffort, toolCount) && 
+          (initialResult.status === 'queued' || initialResult.status === 'in_progress')) {
+        const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
+        
+        if (webhookSecret) {
+          console.log('[prompt-family-chat] Long-running operation detected, switching to webhook mode:', {
+            model: selectedModel,
+            reasoningEffort: activeReasoningEffort,
+            toolCount,
+            responseId: latestResponseId,
+          });
+          
+          // Create pending response record for webhook tracking
+          const { error: insertError } = await supabase
+            .from('q_pending_responses')
+            .insert({
+              response_id: latestResponseId,
+              owner_id: validation.user!.id,
+              prompt_row_id: prompt_row_id,
+              thread_row_id: threadRowId,
+              source_function: 'prompt-family-chat',
+              model: selectedModel,
+              reasoning_effort: activeReasoningEffort,
+              status: 'pending',
+            });
+          
+          if (!insertError) {
+            emitter.emit({
+              type: 'long_running_started',
+              response_id: latestResponseId,
+              message: 'Complex request submitted. Processing in background - you will be notified when complete.',
+            });
+            emitter.emit({ type: 'output_text_done', text: '', item_id: 'long_running_placeholder' });
+            emitter.close();
+            return; // Exit early - webhook will deliver result
+          } else {
+            console.warn('[prompt-family-chat] Failed to create pending response, continuing with streaming:', insertError);
+          }
+        }
+      }
 
       // Handle immediate completion
       let streamResult: { content: string | null; toolCalls: any[]; usage: any | null; status: string };
