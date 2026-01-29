@@ -610,6 +610,17 @@ async function streamOpenAIResponse(
             });
           }
           
+          // CRITICAL FIX: Emit output_text_done from polling fallback
+          // Streaming path emits via SSE events, polling must match
+          if (content && data.status === 'completed') {
+            console.log('Polling fallback emitting output_text_done, length:', content.length);
+            emitter.emit({
+              type: 'output_text_done',
+              text: content,
+              item_id: 'polling_fallback',
+            });
+          }
+          
           return { content, toolCalls, usage: data.usage, status: data.status };
         }
         

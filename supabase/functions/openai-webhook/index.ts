@@ -1,0 +1,260 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts";
+
+// TypeScript interfaces for type safety
+interface WebhookPayload {
+  type: string;
+  id: string;
+  created_at: number;
+  data: {
+    id: string;
+    status?: string;
+    error?: {
+      code?: string;
+      message?: string;
+    };
+    output?: Array<{
+      type: string;
+      content?: Array<{
+        type: string;
+        text?: string;
+      }>;
+    }>;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+    };
+  };
+}
+
+interface PendingResponse {
+  row_id: string;
+  response_id: string;
+  owner_id: string;
+  prompt_row_id: string | null;
+  thread_row_id: string | null;
+  trace_id: string | null;
+  source_function: string;
+  status: string;
+  webhook_event_id: string | null;
+  request_metadata: Record<string, unknown>;
+}
+
+// Standard Webhooks signature verification
+async function verifyWebhookSignature(
+  req: Request,
+  body: string,
+  secret: string
+): Promise<boolean> {
+  const webhookId = req.headers.get('webhook-id');
+  const webhookTimestamp = req.headers.get('webhook-timestamp');
+  const webhookSignature = req.headers.get('webhook-signature');
+  
+  if (!webhookId || !webhookTimestamp || !webhookSignature) {
+    console.error('[openai-webhook] Missing signature headers');
+    return false;
+  }
+  
+  // Check timestamp is within 5 minutes (300 seconds)
+  const timestamp = parseInt(webhookTimestamp, 10);
+  const now = Math.floor(Date.now() / 1000);
+  if (Math.abs(now - timestamp) > 300) {
+    console.error('[openai-webhook] Timestamp outside acceptable range:', { timestamp, now });
+    return false;
+  }
+  
+  try {
+    // Construct signature payload per Standard Webhooks spec
+    const signaturePayload = `${webhookId}.${webhookTimestamp}.${body}`;
+    
+    // Decode base64 secret (remove whsec_ prefix if present)
+    const secretBase64 = secret.replace('whsec_', '');
+    const secretBytes = Uint8Array.from(atob(secretBase64), c => c.charCodeAt(0));
+    
+    const key = await crypto.subtle.importKey(
+      'raw',
+      secretBytes,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    
+    const signatureBytes = await crypto.subtle.sign(
+      'HMAC',
+      key,
+      new TextEncoder().encode(signaturePayload)
+    );
+    
+    const computedSignature = 'v1,' + btoa(
+      String.fromCharCode(...new Uint8Array(signatureBytes))
+    );
+    
+    // Check if computed signature matches any provided signature
+    return webhookSignature.split(' ').some(sig => sig === computedSignature);
+  } catch (error) {
+    console.error('[openai-webhook] Signature verification error:', error);
+    return false;
+  }
+}
+
+// Extract output text from OpenAI response output array
+function extractOutputText(output: WebhookPayload['data']['output']): string {
+  let text = '';
+  for (const item of output || []) {
+    if (item.type === 'message' && item.content) {
+      for (const c of item.content) {
+        if (c.type === 'output_text' && c.text) {
+          text += c.text;
+        }
+      }
+    }
+  }
+  return text;
+}
+
+serve(async (req) => {
+  const body = await req.text();
+  
+  // Verify signature if secret is configured
+  const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
+  if (webhookSecret) {
+    const isValid = await verifyWebhookSignature(req, body, webhookSecret);
+    if (!isValid) {
+      console.error('[openai-webhook] Invalid webhook signature');
+      return new Response('Unauthorized', { status: 401 });
+    }
+  } else {
+    console.warn('[openai-webhook] No webhook secret configured, skipping verification');
+  }
+  
+  let payload: WebhookPayload;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    console.error('[openai-webhook] Invalid JSON payload');
+    return new Response('Bad Request', { status: 400 });
+  }
+  
+  const { type, id: eventId, data } = payload;
+  const responseId = data?.id;
+  
+  console.log('[openai-webhook] Event received:', { type, responseId, eventId });
+  
+  // Use service role for database operations
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+  
+  // Run cleanup on each webhook invocation (no pg_cron dependency)
+  try {
+    await supabase.rpc('cleanup_orphaned_pending_responses');
+  } catch (cleanupError) {
+    console.warn('[openai-webhook] Cleanup failed:', cleanupError);
+  }
+  
+  // Find pending response
+  const { data: pendingResponse } = await supabase
+    .from('q_pending_responses')
+    .select('*')
+    .eq('response_id', responseId)
+    .maybeSingle() as { data: PendingResponse | null };
+  
+  if (!pendingResponse) {
+    console.log('[openai-webhook] No pending response for:', responseId);
+    return new Response('OK', { status: 200 });
+  }
+  
+  // Idempotency check
+  if (pendingResponse.webhook_event_id === eventId) {
+    console.log('[openai-webhook] Event already processed:', eventId);
+    return new Response('OK', { status: 200 });
+  }
+  
+  const now = new Date().toISOString();
+  
+  switch (type) {
+    case 'response.completed': {
+      // Extract output directly from webhook payload (no API call needed)
+      const outputText = extractOutputText(data.output);
+      
+      // Update pending response
+      await supabase.from('q_pending_responses')
+        .update({
+          status: 'completed',
+          output_text: outputText,
+          completed_at: now,
+          webhook_event_id: eventId,
+        })
+        .eq('row_id', pendingResponse.row_id);
+      
+      // Update thread last_response_id if available
+      if (pendingResponse.thread_row_id) {
+        await supabase.from('q_threads')
+          .update({ last_response_id: responseId })
+          .eq('row_id', pendingResponse.thread_row_id);
+      }
+      
+      // Update prompt output_response if available
+      if (pendingResponse.prompt_row_id) {
+        await supabase.from('q_prompts')
+          .update({
+            output_response: outputText,
+            user_prompt_result: outputText,
+            updated_at: now,
+          })
+          .eq('row_id', pendingResponse.prompt_row_id);
+      }
+      
+      // Complete execution trace if exists
+      if (pendingResponse.trace_id) {
+        await supabase.from('q_execution_traces')
+          .update({
+            status: 'completed',
+            completed_at: now,
+          })
+          .eq('trace_id', pendingResponse.trace_id);
+      }
+      
+      console.log('[openai-webhook] Response completed:', responseId, 'output length:', outputText.length);
+      break;
+    }
+    
+    case 'response.failed':
+    case 'response.cancelled':
+    case 'response.incomplete': {
+      const status = type.split('.')[1];
+      const errorMessage = data.error?.message || `Response ${status}`;
+      
+      await supabase.from('q_pending_responses')
+        .update({
+          status,
+          error: errorMessage,
+          error_code: data.error?.code || null,
+          completed_at: now,
+          webhook_event_id: eventId,
+        })
+        .eq('row_id', pendingResponse.row_id);
+      
+      // Mark trace as failed
+      if (pendingResponse.trace_id) {
+        await supabase.from('q_execution_traces')
+          .update({
+            status: 'failed',
+            error_summary: errorMessage,
+            completed_at: now,
+          })
+          .eq('trace_id', pendingResponse.trace_id);
+      }
+      
+      console.log('[openai-webhook] Response', status, ':', responseId);
+      break;
+    }
+    
+    default:
+      console.warn('[openai-webhook] Unknown event type:', type);
+  }
+  
+  return new Response('OK', { status: 200, headers: { 'Content-Type': 'text/plain' } });
+});

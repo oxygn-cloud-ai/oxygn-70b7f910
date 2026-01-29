@@ -15,6 +15,7 @@ export interface SSEParseCallbacks {
   onProgress?: (message: string) => void;
   onHeartbeat?: (elapsedMs: number) => void;
   onError?: (error: string) => void;
+  onLongRunningStarted?: (responseId: string, message: string) => void;
 }
 
 export interface SSEParseResult {
@@ -111,6 +112,10 @@ export function parseSSELine(
 
       case 'error':
         callbacks.onError?.(parsed.error || 'Unknown error');
+        break;
+
+      case 'long_running_started':
+        callbacks.onLongRunningStarted?.(parsed.response_id, parsed.message);
         break;
     }
   } catch (e) {

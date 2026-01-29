@@ -1281,6 +1281,88 @@ export type Database = {
         }
         Relationships: []
       }
+      q_pending_responses: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error: string | null
+          error_code: string | null
+          model: string | null
+          output_text: string | null
+          owner_id: string
+          prompt_row_id: string | null
+          reasoning_effort: string | null
+          request_metadata: Json | null
+          response_id: string
+          row_id: string
+          source_function: string
+          status: string
+          thread_row_id: string | null
+          trace_id: string | null
+          webhook_event_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error?: string | null
+          error_code?: string | null
+          model?: string | null
+          output_text?: string | null
+          owner_id: string
+          prompt_row_id?: string | null
+          reasoning_effort?: string | null
+          request_metadata?: Json | null
+          response_id: string
+          row_id?: string
+          source_function?: string
+          status?: string
+          thread_row_id?: string | null
+          trace_id?: string | null
+          webhook_event_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error?: string | null
+          error_code?: string | null
+          model?: string | null
+          output_text?: string | null
+          owner_id?: string
+          prompt_row_id?: string | null
+          reasoning_effort?: string | null
+          request_metadata?: Json | null
+          response_id?: string
+          row_id?: string
+          source_function?: string
+          status?: string
+          thread_row_id?: string | null
+          trace_id?: string | null
+          webhook_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "q_pending_responses_prompt_row_id_fkey"
+            columns: ["prompt_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_prompts"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_pending_responses_thread_row_id_fkey"
+            columns: ["thread_row_id"]
+            isOneToOne: false
+            referencedRelation: "q_threads"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "q_pending_responses_trace_id_fkey"
+            columns: ["trace_id"]
+            isOneToOne: false
+            referencedRelation: "q_execution_traces"
+            referencedColumns: ["trace_id"]
+          },
+        ]
+      }
       q_prompt_family_messages: {
         Row: {
           content: string | null
@@ -2138,6 +2220,7 @@ export type Database = {
         Args: { p_prompt_row_id: string; p_user_id: string }
         Returns: boolean
       }
+      cleanup_old_pending_responses: { Args: never; Returns: undefined }
       cleanup_old_prompt_versions: {
         Args: { p_max_age_days?: number; p_min_versions_to_keep?: number }
         Returns: number
@@ -2145,6 +2228,7 @@ export type Database = {
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_traces: { Args: never; Returns: undefined }
       cleanup_orphaned_manus_tasks: { Args: never; Returns: undefined }
+      cleanup_orphaned_pending_responses: { Args: never; Returns: undefined }
       cleanup_orphaned_traces: { Args: never; Returns: undefined }
       create_prompt_version: {
         Args: {

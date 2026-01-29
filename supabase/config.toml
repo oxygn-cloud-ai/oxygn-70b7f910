@@ -71,3 +71,6 @@ verify_jwt = true
 
 [functions.figma-manager]
 verify_jwt = true
+
+[functions.openai-webhook]
+verify_jwt = false
