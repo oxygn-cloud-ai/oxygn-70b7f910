@@ -154,6 +154,8 @@ After implementation:
 - [x] Webhook handles missing responseId gracefully
 - [x] Long-running detection triggers for GPT-5 + high reasoning
 - [x] `long_running_started` event emitted correctly
+- [x] `q_pending_responses` insert in conversation-run (via ApiOptions context)
+- [x] `q_pending_responses` insert in prompt-family-chat (with trace_id: null)
 - [ ] Frontend receives and handles the interrupt signal (requires testing)
 - [ ] Realtime subscription picks up webhook completion (requires testing)
 
@@ -162,10 +164,7 @@ After implementation:
 ## Implementation Status: COMPLETE ✅
 
 All phases implemented and deployed on 2026-01-29.
-
----
-
-## Risk Assessment
+Remediation for audit findings completed on 2026-01-29.
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|

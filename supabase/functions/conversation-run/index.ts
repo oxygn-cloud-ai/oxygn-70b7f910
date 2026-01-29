@@ -223,6 +223,10 @@ interface ApiOptions {
   storeInHistory?: boolean;
   // Thread context for error recovery
   threadRowId?: string;
+  // Phase 7: Context for webhook mode (long-running operation tracking)
+  userId?: string;
+  promptRowId?: string;
+  traceId?: string;
 }
 
 // Call OpenAI Responses API - uses previous_response_id for multi-turn context
@@ -591,34 +595,52 @@ async function runResponsesAPI(
       (initialStatus === 'queued' || initialStatus === 'in_progress')) {
     const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
     
-    if (webhookSecret) {
+    if (webhookSecret && options.userId) {
       console.log('[conversation-run] Long-running operation detected, switching to webhook mode:', {
         model: modelId,
         reasoningEffort,
         toolCount,
         responseId,
+        userId: options.userId,
+        promptRowId: options.promptRowId,
       });
       
       // Create pending response record for webhook tracking
-      // Note: We don't have direct access to userId/promptRowId here, but the caller can set these
-      // via options in a future enhancement. For now, just signal webhook mode.
-      if (emitter) {
-        emitter.emit({
-          type: 'long_running_started',
+      const { error: insertError } = await supabase
+        .from('q_pending_responses')
+        .insert({
           response_id: responseId,
-          message: 'Complex request submitted. Processing in background - you will be notified when complete.',
+          owner_id: options.userId,
+          prompt_row_id: options.promptRowId || null,
+          thread_row_id: options.threadRowId || null,
+          trace_id: options.traceId || null,
+          source_function: 'conversation-run',
+          model: modelId,
+          reasoning_effort: reasoningEffort,
+          status: 'pending',
         });
-        emitter.emit({ type: 'output_text_done', text: '', item_id: 'long_running_placeholder' });
-        emitter.close();
-      }
       
-      return {
-        success: true,
-        response: '',
-        response_id: responseId,
-        requestParams,
-        incomplete_reason: 'long_running_webhook',
-      };
+      if (!insertError) {
+        if (emitter) {
+          emitter.emit({
+            type: 'long_running_started',
+            response_id: responseId,
+            message: 'Complex request submitted. Processing in background - you will be notified when complete.',
+          });
+          emitter.emit({ type: 'output_text_done', text: '', item_id: 'long_running_placeholder' });
+          emitter.close();
+        }
+        
+        return {
+          success: true,
+          response: '',
+          response_id: responseId,
+          requestParams,
+          incomplete_reason: 'long_running_webhook',
+        };
+      } else {
+        console.warn('[conversation-run] Failed to create pending response, continuing with streaming:', insertError);
+      }
     }
   }
 
@@ -2887,6 +2909,10 @@ serve(async (req) => {
         storeInHistory: store_in_history !== false, // Default true for backward compatibility
         // Thread context for error recovery (clear stale response IDs on retry)
         threadRowId: activeThreadRowId,
+        // Phase 7: Context for webhook mode (long-running operation tracking)
+        userId: validation.user!.id,
+        promptRowId: child_prompt_row_id,
+        // Note: traceId is not used in conversation-run (only in cascade execution)
       };
       
       console.log('Tool options:', {

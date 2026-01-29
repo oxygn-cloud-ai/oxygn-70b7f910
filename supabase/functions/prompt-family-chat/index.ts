@@ -41,10 +41,6 @@ import {
 // Detects operations that will likely exceed edge function timeout
 // and proactively switches to webhook mode
 // ============================================================================
-// PHASE 7: LONG-RUNNING OPERATION DETECTION
-// Detects operations that will likely exceed edge function timeout
-// and proactively switches to webhook mode
-// ============================================================================
 
 function isLongRunningOperation(
   model: string | undefined,
@@ -1551,6 +1547,7 @@ Be concise but thorough. When showing prompt content, format it nicely.`;
               owner_id: validation.user!.id,
               prompt_row_id: prompt_row_id,
               thread_row_id: threadRowId,
+              trace_id: null, // prompt-family-chat doesn't use execution traces
               source_function: 'prompt-family-chat',
               model: selectedModel,
               reasoning_effort: activeReasoningEffort,
