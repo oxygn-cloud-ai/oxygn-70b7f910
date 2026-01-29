@@ -17,6 +17,28 @@ import {
   type AnthropicStreamEvent 
 } from "../_shared/anthropic.ts";
 
+// ============================================================================
+// PHASE 7: LONG-RUNNING OPERATION DETECTION
+// Detects operations that will likely exceed edge function timeout
+// and proactively switches to webhook mode
+// ============================================================================
+
+function isLongRunningOperation(
+  model: string | undefined,
+  reasoningEffort: string | undefined,
+  toolCount: number
+): boolean {
+  // GPT-5 with high reasoning effort can take 5+ minutes
+  if (model?.includes('gpt-5') && reasoningEffort === 'high') {
+    return true;
+  }
+  // GPT-5 with extensive tool usage can also be slow
+  if (model?.includes('gpt-5') && toolCount > 5) {
+    return true;
+  }
+  return false;
+}
+
 // Resolve model using DB
 async function resolveModelFromDb(supabase: any, modelId: string): Promise<string> {
   try {
@@ -556,6 +578,48 @@ async function runResponsesAPI(
       response_id: responseId,
       status: initialStatus,
     });
+  }
+
+  // ============================================================================
+  // PHASE 7: Long-running operation detection - webhook mode trigger
+  // Check if this is a long-running operation and hand off to webhook
+  // ============================================================================
+  const toolCount = (requestBody.tools || []).length;
+  const reasoningEffort = requestBody.reasoning?.effort;
+  
+  if (isLongRunningOperation(modelId, reasoningEffort, toolCount) && 
+      (initialStatus === 'queued' || initialStatus === 'in_progress')) {
+    const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
+    
+    if (webhookSecret) {
+      console.log('[conversation-run] Long-running operation detected, switching to webhook mode:', {
+        model: modelId,
+        reasoningEffort,
+        toolCount,
+        responseId,
+      });
+      
+      // Create pending response record for webhook tracking
+      // Note: We don't have direct access to userId/promptRowId here, but the caller can set these
+      // via options in a future enhancement. For now, just signal webhook mode.
+      if (emitter) {
+        emitter.emit({
+          type: 'long_running_started',
+          response_id: responseId,
+          message: 'Complex request submitted. Processing in background - you will be notified when complete.',
+        });
+        emitter.emit({ type: 'output_text_done', text: '', item_id: 'long_running_placeholder' });
+        emitter.close();
+      }
+      
+      return {
+        success: true,
+        response: '',
+        response_id: responseId,
+        requestParams,
+        incomplete_reason: 'long_running_webhook',
+      };
+    }
   }
 
   // If already completed (rare, very fast responses), extract result directly

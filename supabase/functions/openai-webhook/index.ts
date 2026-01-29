@@ -139,6 +139,12 @@ serve(async (req) => {
   const { type, id: eventId, data } = payload;
   const responseId = data?.id;
   
+  // PHASE 1 FIX: Validate responseId before processing
+  if (!responseId) {
+    console.warn('[openai-webhook] No response_id in payload:', { type, eventId });
+    return new Response('OK', { status: 200 });
+  }
+  
   console.log('[openai-webhook] Event received:', { type, responseId, eventId });
   
   // Use service role for database operations
@@ -179,8 +185,8 @@ serve(async (req) => {
       // Extract output directly from webhook payload (no API call needed)
       const outputText = extractOutputText(data.output);
       
-      // Update pending response
-      await supabase.from('q_pending_responses')
+      // PHASE 1 FIX: Update pending response with error handling
+      const { error: pendingUpdateError } = await supabase.from('q_pending_responses')
         .update({
           status: 'completed',
           output_text: outputText,
@@ -189,32 +195,52 @@ serve(async (req) => {
         })
         .eq('row_id', pendingResponse.row_id);
       
+      if (pendingUpdateError) {
+        console.error('[openai-webhook] Failed to update pending response:', pendingUpdateError);
+        return new Response('Internal Server Error', { status: 500 });
+      }
+      
       // Update thread last_response_id if available
       if (pendingResponse.thread_row_id) {
-        await supabase.from('q_threads')
+        const { error: threadError } = await supabase.from('q_threads')
           .update({ last_response_id: responseId })
           .eq('row_id', pendingResponse.thread_row_id);
+        
+        if (threadError) {
+          console.warn('[openai-webhook] Failed to update thread:', threadError);
+          // Non-critical: continue processing
+        }
       }
       
       // Update prompt output_response if available
       if (pendingResponse.prompt_row_id) {
-        await supabase.from('q_prompts')
+        const { error: promptError } = await supabase.from('q_prompts')
           .update({
             output_response: outputText,
             user_prompt_result: outputText,
             updated_at: now,
           })
           .eq('row_id', pendingResponse.prompt_row_id);
+        
+        if (promptError) {
+          console.warn('[openai-webhook] Failed to update prompt:', promptError);
+          // Non-critical: continue processing
+        }
       }
       
       // Complete execution trace if exists
       if (pendingResponse.trace_id) {
-        await supabase.from('q_execution_traces')
+        const { error: traceError } = await supabase.from('q_execution_traces')
           .update({
             status: 'completed',
             completed_at: now,
           })
           .eq('trace_id', pendingResponse.trace_id);
+        
+        if (traceError) {
+          console.warn('[openai-webhook] Failed to update trace:', traceError);
+          // Non-critical: continue processing
+        }
       }
       
       console.log('[openai-webhook] Response completed:', responseId, 'output length:', outputText.length);
@@ -227,7 +253,8 @@ serve(async (req) => {
       const status = type.split('.')[1];
       const errorMessage = data.error?.message || `Response ${status}`;
       
-      await supabase.from('q_pending_responses')
+      // PHASE 1 FIX: Update pending response with error handling
+      const { error: pendingUpdateError } = await supabase.from('q_pending_responses')
         .update({
           status,
           error: errorMessage,
@@ -237,15 +264,25 @@ serve(async (req) => {
         })
         .eq('row_id', pendingResponse.row_id);
       
+      if (pendingUpdateError) {
+        console.error('[openai-webhook] Failed to update pending response on failure:', pendingUpdateError);
+        return new Response('Internal Server Error', { status: 500 });
+      }
+      
       // Mark trace as failed
       if (pendingResponse.trace_id) {
-        await supabase.from('q_execution_traces')
+        const { error: traceError } = await supabase.from('q_execution_traces')
           .update({
             status: 'failed',
             error_summary: errorMessage,
             completed_at: now,
           })
           .eq('trace_id', pendingResponse.trace_id);
+        
+        if (traceError) {
+          console.warn('[openai-webhook] Failed to update trace on failure:', traceError);
+          // Non-critical: continue processing
+        }
       }
       
       console.log('[openai-webhook] Response', status, ':', responseId);
