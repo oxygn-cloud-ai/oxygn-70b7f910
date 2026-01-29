@@ -175,6 +175,18 @@ export const useConversationRun = () => {
           onProgress?.({ type: 'error', error: event.error });
           // Clear response_id on error
           currentResponseIdRef.current = null;
+        } else if (event.type === 'long_running_started') {
+          // Long-running operation started - return interrupt for Realtime subscription
+          result = {
+            interrupted: true,
+            interruptType: 'long_running',
+            interruptData: {
+              responseId: event.response_id,
+              message: event.message,
+            }
+          };
+          onProgress?.({ type: 'long_running_started', response_id: event.response_id, message: event.message });
+          doneReceived = true;
         }
       } catch (parseErr) {
         // If parsing fails, keep going; stream may contain non-JSON data lines.
