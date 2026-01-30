@@ -1,139 +1,50 @@
 
-# Remediation Plan: Complete Phase 7 + Fix Webhook Error Handling
+# Remediation Plan: Address Audit Findings
 
-## Pre-Audit Verification Summary
+## Overview
 
-The previous implementation completed **6 of 7 phases**. This plan addresses:
-1. **Bug fixes** for missing error handling in `openai-webhook/index.ts`
-2. **Phase 7 completion** - Add detection logic to trigger webhook mode
+The audit found the code implementation is correct but identified documentation inaccuracy and missing end-to-end verification. This plan addresses these findings.
 
 ---
 
-## Phase 1: Fix Webhook Error Handling (Bug Remediation)
+## Step 1: Update Documentation Status
 
-### File: `supabase/functions/openai-webhook/index.ts`
+**File:** `.lovable/plan.md`
 
-**Issue 1: Missing responseId null check (Line 140)**
-- Current: `const responseId = data?.id;` followed by DB query
-- Risk: If `data.id` is undefined, query will fail or return unexpected results
-
-**Issue 2: Silent database update failures (Lines 183-218)**
-- Current: No error handling on database updates
-- Risk: If updates fail, webhook returns 200 OK but data is lost/inconsistent
-
-**Remediation:**
-```typescript
-// After line 140, add null check:
-if (!responseId) {
-  console.warn('[openai-webhook] No response_id in payload:', { type, eventId });
-  return new Response('OK', { status: 200 });
-}
-
-// For database updates, add error checking:
-const { error: updateError } = await supabase.from('q_pending_responses')
-  .update({...})
-  .eq('row_id', pendingResponse.row_id);
-
-if (updateError) {
-  console.error('[openai-webhook] Failed to update pending response:', updateError);
-  // Return 500 to trigger OpenAI retry
-  return new Response('Internal Server Error', { status: 500 });
-}
+**Change:** Update line 164 from:
+```
+## Implementation Status: COMPLETE ✅
+```
+To:
+```
+## Implementation Status: CODE COMPLETE ✅ (Pending E2E Verification)
 ```
 
----
-
-## Phase 2: Complete Phase 7 - Long-Running Detection
-
-### Overview
-Add detection logic to identify operations that will exceed edge function timeout and proactively switch to webhook mode.
-
-### File: `supabase/functions/conversation-run/index.ts`
-
-**Location:** After imports (around line 20)
-
-**Add Helper Function:**
-```typescript
-// Detect if operation will likely exceed edge function timeout
-function isLongRunningOperation(
-  model: string | undefined,
-  reasoningEffort: string | undefined,
-  toolCount: number
-): boolean {
-  // GPT-5 with high reasoning effort can take 5+ minutes
-  if (model?.includes('gpt-5') && reasoningEffort === 'high') {
-    return true;
-  }
-  // GPT-5 with extensive tool usage can also be slow
-  if (model?.includes('gpt-5') && toolCount > 5) {
-    return true;
-  }
-  return false;
-}
-```
-
-**Location:** After background request creation (find where `background: true` is used and response is obtained)
-
-**Add Webhook Mode Trigger:**
-```typescript
-// Check if this will be a long-running operation
-const toolCount = (tools || []).length;
-if (isLongRunningOperation(selectedModel, apiOptions?.reasoning_effort, toolCount)) {
-  const webhookSecret = Deno.env.get('OPENAI_WEBHOOK_SECRET');
-  
-  if (webhookSecret && responseId) {
-    // Create pending response record for webhook tracking
-    const { error: insertError } = await supabase
-      .from('q_pending_responses')
-      .insert({
-        response_id: responseId,
-        owner_id: userId,
-        prompt_row_id: promptRowId,
-        thread_row_id: activeThreadRowId,
-        trace_id: traceId,
-        source_function: 'conversation-run',
-        model: selectedModel,
-        reasoning_effort: apiOptions?.reasoning_effort,
-      });
-    
-    if (!insertError) {
-      emitter.emit({
-        type: 'long_running_started',
-        response_id: responseId,
-        message: 'Complex request submitted. Processing in background - you will be notified when complete.',
-      });
-      emitter.emit({ type: 'output_text_done', text: '', item_id: 'long_running_placeholder' });
-      emitter.close();
-      return; // Exit early - webhook will deliver result
-    } else {
-      console.warn('[conversation-run] Failed to create pending response, continuing with polling:', insertError);
-    }
-  }
-}
-```
-
-### File: `supabase/functions/prompt-family-chat/index.ts`
-
-Apply the same pattern at the equivalent location after the background request is created.
+**Rationale:** Accurately reflects that code is complete but testing remains unverified.
 
 ---
 
-## Phase 3: Redeploy Edge Functions
+## Step 2: End-to-End Testing Requirements
 
-After making changes:
-1. Deploy `openai-webhook` (already deployed, needs redeployment with fixes)
-2. Deploy `conversation-run` with Phase 7 changes
-3. Deploy `prompt-family-chat` with Phase 7 changes
+The following manual tests should be performed to verify the full flow:
 
----
+### Test Case 1: Long-Running Operation Detection
+1. Create a prompt using GPT-5 model with `reasoning_effort: high`
+2. Execute the prompt
+3. Verify `long_running_started` SSE event is received
+4. Verify `q_pending_responses` record is created in database
 
-## Pre-Existing Issue (NOT Fixed - Platform Constraint)
+### Test Case 2: Webhook Completion Flow
+1. After Test Case 1, wait for OpenAI to complete processing
+2. Verify `openai-webhook` receives the completion event
+3. Verify `q_pending_responses` record is updated to `status: completed`
+4. Verify frontend receives Realtime notification of completion
 
-**tsconfig.json Build Error (TS6310)**
-- This error (`Referenced project may not disable emit`) is a pre-existing platform constraint
-- Documented in project memory
-- NOT introduced by this implementation
-- Does NOT block functionality
+### Test Case 3: Error Handling
+1. Simulate a webhook delivery with invalid signature
+2. Verify 401 response is returned
+3. Simulate a database update failure scenario
+4. Verify 500 response is returned (triggering OpenAI retry)
 
 ---
 
@@ -141,41 +52,24 @@ After making changes:
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `supabase/functions/openai-webhook/index.ts` | Bug Fix | Add responseId check + error handling |
-| `supabase/functions/conversation-run/index.ts` | New Feature | Add Phase 7 detection + webhook trigger |
-| `supabase/functions/prompt-family-chat/index.ts` | New Feature | Add Phase 7 detection + webhook trigger |
-
----
-
-## Verification Checklist
-
-After implementation:
-- [x] Webhook returns 500 on DB update failure (enables OpenAI retry)
-- [x] Webhook handles missing responseId gracefully
-- [x] Long-running detection triggers for GPT-5 + high reasoning
-- [x] `long_running_started` event emitted correctly
-- [x] `q_pending_responses` insert in conversation-run (via ApiOptions context)
-- [x] `q_pending_responses` insert in prompt-family-chat (with trace_id: null)
-- [ ] Frontend receives and handles the interrupt signal (requires testing)
-- [ ] Realtime subscription picks up webhook completion (requires testing)
-
----
-
-## Implementation Status: COMPLETE ✅
-
-All phases implemented and deployed on 2026-01-29.
-Remediation for audit findings completed on 2026-01-29.
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| False positive long-running detection | Medium | Conservative criteria (GPT-5 + high only) |
-| Webhook failure with 500 causes infinite retry | Low | OpenAI has retry limits; can add idempotency |
-| Frontend not connected when webhook fires | Medium | Realtime subscription handles this |
+| `.lovable/plan.md` | Documentation Update | Accurate completion status |
 
 ---
 
 ## Technical Notes
 
-1. **No changes to frontend** - Already has `long_running_started` handler and `usePendingResponseSubscription`
-2. **No database changes** - `q_pending_responses` table already exists with correct schema
-3. **No config changes** - `config.toml` already has webhook function configured
+1. **No code changes required** - Implementation is functionally correct
+2. **Testing is manual** - Requires GPT-5 model access and live OpenAI API
+3. **Realtime verification** - Requires browser with Supabase Realtime client
+
+---
+
+## Risk Assessment
+
+| Risk | Severity | Status |
+|------|----------|--------|
+| Frontend doesn't handle `long_running_started` | Medium | Unverified |
+| Realtime subscription fails | Medium | Unverified |
+| Webhook signature verification fails | Low | Code reviewed, looks correct |
+
+All identified risks are non-blocking and relate to runtime behavior that requires end-to-end testing.
