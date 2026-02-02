@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+import { notify } from '@/contexts/ToastHistoryContext';
 import { useLiveApiDashboard } from '@/contexts/LiveApiDashboardContext';
 import { usePromptFamilyThreads } from './usePromptFamilyThreads';
 import { usePromptFamilyChatMessages } from './usePromptFamilyChatMessages';
 import { usePromptFamilyChatStream } from './usePromptFamilyChatStream';
+import { usePendingResponseSubscription } from './usePendingResponseSubscription';
 import type { ChatThread, ChatMessage } from '@/types/chat';
 
 export interface UsePromptFamilyChatReturn {
@@ -21,6 +23,9 @@ export interface UsePromptFamilyChatReturn {
   thinkingText: string;
   toolActivity: { name: string; args?: Record<string, unknown>; status: 'running' | 'complete' }[];
   isExecutingTools: boolean;
+  // Webhook state
+  pendingResponseId: string | null;
+  isWaitingForWebhook: boolean;
   // Session state
   sessionModel: string | null;
   setSessionModel: (model: string | null) => void;
@@ -50,6 +55,15 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   const threadManager = usePromptFamilyThreads(rootPromptId);
   const messageManager = usePromptFamilyChatMessages();
   const streamManager = usePromptFamilyChatStream();
+  
+  // Subscribe to pending response updates for webhook mode
+  const { 
+    isComplete: webhookComplete, 
+    isFailed: webhookFailed, 
+    outputText: webhookOutput, 
+    errorMessage: webhookError,
+    clearPendingResponse 
+  } = usePendingResponseSubscription(streamManager.pendingResponseId);
   
   // Stable refs for sub-hooks to avoid dependency issues in effects
   const threadManagerRef = useRef(threadManager);
@@ -107,20 +121,60 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     resolveRoot();
   }, [promptRowId, computeRootPromptId]);
 
+  // Handle webhook completion
+  useEffect(() => {
+    const pendingId = streamManager.pendingResponseId;
+    if (!pendingId) return;
+    
+    if (webhookComplete && webhookOutput) {
+      // Add the assistant message
+      const threadId = threadManager.activeThreadId;
+      if (threadId) {
+        messageManager.addMessage('assistant', webhookOutput, threadId);
+        
+        // Update thread timestamp
+        supabase
+          .from('q_threads')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('row_id', threadId);
+      }
+      
+      // Reset all states
+      streamManager.resetStreamState();
+      clearPendingResponse();
+      
+      notify.success('AI response received', {
+        source: 'WebhookCompletion',
+        description: webhookOutput.slice(0, 100) + (webhookOutput.length > 100 ? '...' : ''),
+      });
+    } else if (webhookFailed) {
+      // Reset states and show error
+      streamManager.resetStreamState();
+      clearPendingResponse();
+      
+      notify.error(webhookError || 'Background processing failed', {
+        source: 'WebhookCompletion',
+        errorCode: 'WEBHOOK_FAILED',
+      });
+    }
+  }, [webhookComplete, webhookFailed, webhookOutput, webhookError, clearPendingResponse, streamManager.pendingResponseId, threadManager.activeThreadId, messageManager, streamManager]);
+
   // Switch thread with message loading
   const switchThread = useCallback(async (threadId: string): Promise<void> => {
     messageManager.clearMessages();
     streamManager.resetStreamState();
+    clearPendingResponse();
     const messages = await threadManager.switchThread(threadId);
     messageManager.setMessages(messages);
-  }, [threadManager, messageManager, streamManager]);
+  }, [threadManager, messageManager, streamManager, clearPendingResponse]);
 
   // Create thread wrapper
   const createThread = useCallback(async (title = 'New Chat'): Promise<ChatThread | null> => {
     messageManager.clearMessages();
     streamManager.resetStreamState();
+    clearPendingResponse();
     return threadManager.createThread(title);
-  }, [threadManager, messageManager, streamManager]);
+  }, [threadManager, messageManager, streamManager, clearPendingResponse]);
 
   // Clear messages - creates new thread
   const clearMessages = useCallback(async (): Promise<boolean> => {
@@ -262,6 +316,9 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     thinkingText: streamManager.thinkingText,
     toolActivity: streamManager.toolActivity,
     isExecutingTools: streamManager.isExecutingTools,
+    // Webhook state
+    pendingResponseId: streamManager.pendingResponseId,
+    isWaitingForWebhook: streamManager.isWaitingForWebhook,
     // Session state
     sessionModel,
     setSessionModel,
