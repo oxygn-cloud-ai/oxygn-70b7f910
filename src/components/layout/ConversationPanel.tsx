@@ -77,8 +77,10 @@ const ConversationPanel = ({
     : legacyIsLoadingMessages;
     
   const isSending = usePromptFamilyMode 
-    ? (promptFamilyChat.isStreaming || promptFamilyChat.isExecutingTools)
+    ? (promptFamilyChat.isStreaming || promptFamilyChat.isExecutingTools || promptFamilyChat.isWaitingForWebhook)
     : legacyIsSending;
+  
+  const isWaitingForWebhook = usePromptFamilyMode ? promptFamilyChat.isWaitingForWebhook : false;
 
   const streamingMessage = usePromptFamilyMode ? promptFamilyChat.streamingMessage : '';
   const thinkingText = usePromptFamilyMode ? promptFamilyChat.thinkingText : '';
@@ -372,6 +374,21 @@ const ConversationPanel = ({
                       {thinkingText}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+            
+            {/* Webhook waiting indicator */}
+            {isWaitingForWebhook && usePromptFamilyMode && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] px-2.5 py-2 bg-surface-container rounded-m3-lg space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant">
+                    <Loader2 className="h-3 w-3 text-primary animate-spin" />
+                    <span className="font-medium">Processing in background...</span>
+                  </div>
+                  <div className="text-[10px] text-on-surface-variant/70">
+                    Complex request submitted. You'll be notified when complete.
+                  </div>
                 </div>
               </div>
             )}

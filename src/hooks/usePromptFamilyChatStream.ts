@@ -19,6 +19,8 @@ export interface UsePromptFamilyChatStreamReturn {
   thinkingText: string;
   toolActivity: ToolActivity[];
   isExecutingTools: boolean;
+  pendingResponseId: string | null;
+  isWaitingForWebhook: boolean;
   sendMessage: (
     userMessage: string,
     threadId: string,
@@ -29,6 +31,7 @@ export interface UsePromptFamilyChatStreamReturn {
   ) => Promise<string | null>;
   cancelStream: () => void;
   resetStreamState: () => void;
+  clearPendingState: () => void;
 }
 
 export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
@@ -40,6 +43,8 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
   const [thinkingText, setThinkingText] = useState('');
   const [toolActivity, setToolActivity] = useState<ToolActivity[]>([]);
   const [isExecutingTools, setIsExecutingTools] = useState(false);
+  const [pendingResponseId, setPendingResponseId] = useState<string | null>(null);
+  const [isWaitingForWebhook, setIsWaitingForWebhook] = useState(false);
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const dashboardCallIdRef = useRef<string | null>(null);
@@ -51,9 +56,11 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
       isStreaming, 
       messageLength: streamingMessage.length, 
       isExecutingTools,
+      isWaitingForWebhook,
+      pendingResponseId,
       hasAbortController: !!abortControllerRef.current 
     });
-  }, [isStreaming, streamingMessage.length, isExecutingTools]);
+  }, [isStreaming, streamingMessage.length, isExecutingTools, isWaitingForWebhook, pendingResponseId]);
 
   const resetStreamState = useCallback(() => {
     console.log('[ChatStream] RESET called');
@@ -62,7 +69,14 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
     setToolActivity([]);
     setIsStreaming(false);
     setIsExecutingTools(false);
+    setPendingResponseId(null);
+    setIsWaitingForWebhook(false);
     toolActivityCountRef.current = 0;
+  }, []);
+
+  const clearPendingState = useCallback(() => {
+    setPendingResponseId(null);
+    setIsWaitingForWebhook(false);
   }, []);
 
   const cancelStream = useCallback(() => {
@@ -112,6 +126,8 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
     setStreamingMessage('');
     setToolActivity([]);
     setIsExecutingTools(false);
+    setPendingResponseId(null);
+    setIsWaitingForWebhook(false);
     toolActivityCountRef.current = 0;
 
     const unregisterCall = registerCall();
@@ -159,6 +175,8 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
 
     // Declare timeout variable OUTSIDE try block to fix scoping bug
     let streamingFlushTimeout: ReturnType<typeof setTimeout> | null = null;
+    // Track if long-running mode was activated
+    let longRunningResponseId: string | null = null;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -304,12 +322,43 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
               onToolLoopComplete: () => {
                 setIsExecutingTools(false);
               },
+              onLongRunningStarted: (respId, message) => {
+                console.log('[ChatStream] Long-running operation started:', respId);
+                longRunningResponseId = respId;
+                setPendingResponseId(respId);
+                setIsWaitingForWebhook(true);
+                
+                // Notify user
+                notify.info('Processing in background', {
+                  source: 'ChatStream',
+                  description: message || 'You will be notified when complete.',
+                });
+              },
             }, parseState);
           }
         }
       }
 
       console.log('[ChatStream] Stream ended, fullContent length:', fullContent.length);
+
+      // Check if this was a webhook handoff (stream ended but we're waiting for webhook)
+      if (longRunningResponseId && !fullContent.trim()) {
+        console.log('[ChatStream] Webhook handoff complete, waiting for Realtime update');
+        // Cleanup stream resources but keep isStreaming and isWaitingForWebhook
+        if (streamingFlushTimeout) {
+          clearTimeout(streamingFlushTimeout);
+          streamingFlushTimeout = null;
+        }
+        clearTimeout(fetchTimeoutId);
+        abortControllerRef.current = null;
+        unregisterCall();
+        removeCall(dashboardId);
+        dashboardCallIdRef.current = null;
+        // Don't call resetStreamState - keep streaming indicators active
+        // Don't show success toast - that comes from webhook completion handler
+        // Return null to indicate async completion path
+        return null;
+      }
       
       // Add assistant message if we have content
       if (fullContent.trim().length > 0) {
@@ -395,7 +444,7 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
       
       return null;
     }
-  }, [registerCall, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall, resetStreamState]);
+  }, [registerCall, addCall, updateCall, appendThinking, appendOutputText, incrementOutputTokens, removeCall, resetStreamState, isStreaming, toolActivity]);
 
   return {
     isStreaming,
@@ -403,8 +452,11 @@ export function usePromptFamilyChatStream(): UsePromptFamilyChatStreamReturn {
     thinkingText,
     toolActivity,
     isExecutingTools,
+    pendingResponseId,
+    isWaitingForWebhook,
     sendMessage,
     cancelStream,
     resetStreamState,
+    clearPendingState,
   };
 }
