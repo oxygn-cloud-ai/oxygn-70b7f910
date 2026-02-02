@@ -348,8 +348,8 @@ const ConversationPanel = ({
               />
             ))}
             
-            {/* Reasoning/Thinking indicator */}
-            {isSending && usePromptFamilyMode && promptFamilyChat && (
+            {/* Reasoning/Thinking indicator - hide when waiting for webhook */}
+            {isSending && usePromptFamilyMode && promptFamilyChat && !isWaitingForWebhook && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] px-2.5 py-2 bg-surface-container rounded-m3-lg space-y-1.5">
                   <div className="flex items-center justify-between gap-2 text-[10px] text-on-surface-variant">
