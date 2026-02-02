@@ -121,26 +121,30 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     resolveRoot();
   }, [promptRowId, computeRootPromptId]);
 
-  // Handle webhook completion
+  // Handle webhook completion - use refs for stable access
   useEffect(() => {
-    const pendingId = streamManager.pendingResponseId;
+    // Access via refs for stability
+    const pendingId = streamManagerRef.current.pendingResponseId;
     if (!pendingId) return;
     
     if (webhookComplete && webhookOutput) {
-      // Add the assistant message
-      const threadId = threadManager.activeThreadId;
+      // Add the assistant message via ref
+      const threadId = threadManagerRef.current.activeThreadId;
       if (threadId) {
-        messageManager.addMessage('assistant', webhookOutput, threadId);
+        messageManagerRef.current.addMessage('assistant', webhookOutput, threadId);
         
-        // Update thread timestamp
+        // Update thread timestamp with error handling
         supabase
           .from('q_threads')
           .update({ last_message_at: new Date().toISOString() })
-          .eq('row_id', threadId);
+          .eq('row_id', threadId)
+          .then(({ error }) => {
+            if (error) console.error('[PromptFamilyChat] Failed to update thread timestamp:', error);
+          });
       }
       
-      // Reset all states
-      streamManager.resetStreamState();
+      // Reset all states via ref
+      streamManagerRef.current.resetStreamState();
       clearPendingResponse();
       
       notify.success('AI response received', {
@@ -148,8 +152,8 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
         description: webhookOutput.slice(0, 100) + (webhookOutput.length > 100 ? '...' : ''),
       });
     } else if (webhookFailed) {
-      // Reset states and show error
-      streamManager.resetStreamState();
+      // Reset states and show error via ref
+      streamManagerRef.current.resetStreamState();
       clearPendingResponse();
       
       notify.error(webhookError || 'Background processing failed', {
@@ -157,7 +161,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
         errorCode: 'WEBHOOK_FAILED',
       });
     }
-  }, [webhookComplete, webhookFailed, webhookOutput, webhookError, clearPendingResponse, streamManager.pendingResponseId, threadManager.activeThreadId, messageManager, streamManager]);
+  }, [webhookComplete, webhookFailed, webhookOutput, webhookError, clearPendingResponse]);
 
   // Switch thread with message loading
   const switchThread = useCallback(async (threadId: string): Promise<void> => {
