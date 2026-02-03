@@ -70,6 +70,9 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
   const messageManagerRef = useRef(messageManager);
   const streamManagerRef = useRef(streamManager);
   
+  // Guard against duplicate webhook processing
+  const processedWebhookRef = useRef<string | null>(null);
+  
   // Keep refs in sync
   useEffect(() => {
     threadManagerRef.current = threadManager;
@@ -127,7 +130,15 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
     const pendingId = streamManagerRef.current.pendingResponseId;
     if (!pendingId) return;
     
+    // Guard against duplicate processing
+    if (processedWebhookRef.current === pendingId) {
+      console.log('[PromptFamilyChat] Already processed webhook:', pendingId);
+      return;
+    }
+    
     if (webhookComplete && webhookOutput) {
+      // Mark as processed BEFORE doing work to prevent race
+      processedWebhookRef.current = pendingId;
       // Add the assistant message via ref
       const threadId = threadManagerRef.current.activeThreadId;
       if (threadId) {
@@ -165,6 +176,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
 
   // Switch thread with message loading
   const switchThread = useCallback(async (threadId: string): Promise<void> => {
+    processedWebhookRef.current = null;  // Reset on thread switch
     messageManager.clearMessages();
     streamManager.resetStreamState();
     clearPendingResponse();
@@ -174,6 +186,7 @@ export const usePromptFamilyChat = (promptRowId: string | null): UsePromptFamily
 
   // Create thread wrapper
   const createThread = useCallback(async (title = 'New Chat'): Promise<ChatThread | null> => {
+    processedWebhookRef.current = null;  // Reset on new thread
     messageManager.clearMessages();
     streamManager.resetStreamState();
     clearPendingResponse();
