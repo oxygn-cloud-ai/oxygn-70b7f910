@@ -47,15 +47,13 @@ function isLongRunningOperation(
   reasoningEffort: string | undefined,
   toolCount: number
 ): boolean {
-  // GPT-5 with high reasoning effort can take 5+ minutes
-  if (model?.includes('gpt-5') && reasoningEffort === 'high') {
-    return true;
-  }
-  // GPT-5 with extensive tool usage can also be slow
-  if (model?.includes('gpt-5') && toolCount > 5) {
-    return true;
-  }
-  return false;
+  // GPT-5 models use OpenAI's background mode which queues requests.
+  // Background mode can keep requests in 'queued' status for minutes,
+  // causing keepalive events to reset idle timeout without producing content.
+  // Route ALL gpt-5 requests to webhook delivery to avoid edge function timeouts.
+  void reasoningEffort; // Kept for API stability (may be re-enabled for fine-grained control)
+  void toolCount;       // Kept for API stability (may be re-enabled for fine-grained control)
+  return model?.includes('gpt-5') ?? false;
 }
 
 // Feature flag for gradual rollout - set to 'true' to enable new registry
