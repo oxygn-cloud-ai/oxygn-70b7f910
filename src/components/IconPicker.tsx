@@ -1,30 +1,37 @@
-import React, { useState, useMemo } from 'react';
-import { icons, Search, RotateCcw } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { icons, Search, RotateCcw, LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ICON_CATEGORIES, categorizeIcon, searchIcons } from '@/config/iconCategories';
+import { ICON_CATEGORIES, categorizeIcon } from '@/config/iconCategories';
 
 // Get all icon names from lucide-react icons object
 // Filter out non-icon exports (like createLucideIcon, etc.)
 const allIconNames = Object.keys(icons)
   .filter(name => {
-    const icon = icons[name];
-    return typeof icon === 'object' && icon.$$typeof;
+    const icon = (icons as Record<string, unknown>)[name];
+    return typeof icon === 'object' && icon !== null && (icon as { $$typeof?: symbol }).$$typeof;
   })
   .sort();
 
 const MAX_VISIBLE_ICONS = 150;
 
-export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) => {
+interface IconPickerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  currentIcon: string | null;
+  onIconSelect: (iconName: string | null) => void;
+}
+
+export const IconPicker: React.FC<IconPickerProps> = ({ open, onOpenChange, currentIcon, onIconSelect }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
 
   // Convert PascalCase to kebab-case for matching
-  const toKebabCase = (str) => {
+  const toKebabCase = (str: string): string => {
     return str
       .replace(/([a-z])([A-Z])/g, '$1-$2')
       .replace(/([A-Z])([A-Z][a-z])/g, '$1-$2')
@@ -74,7 +81,7 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
     return iconNames.length;
   }, [searchQuery, activeCategory]);
 
-  const handleIconClick = (iconName) => {
+  const handleIconClick = (iconName: string) => {
     // Store as PascalCase (the key in icons object)
     onIconSelect(iconName);
     onOpenChange(false);
@@ -89,7 +96,7 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
     setActiveCategory('all');
   };
 
-  const handleClose = (newOpen) => {
+  const handleClose = (newOpen: boolean) => {
     if (!newOpen) {
       setSearchQuery('');
       setActiveCategory('all');
@@ -98,7 +105,7 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
   };
 
   // Format icon name for display (PascalCase to Title Case with spaces)
-  const formatIconName = (name) => {
+  const formatIconName = (name: string): string => {
     return name
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
@@ -136,7 +143,7 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
 
         {/* Category Tabs */}
         <Tabs value={activeCategory} onValueChange={setActiveCategory} className="flex-1 flex flex-col min-h-0">
-          <ScrollArea className="w-full" orientation="horizontal">
+          <ScrollArea className="w-full">
             <TabsList className="inline-flex w-max gap-1 p-1">
               {Object.entries(ICON_CATEGORIES).map(([key, category]) => (
                 <TabsTrigger
@@ -162,7 +169,7 @@ export const IconPicker = ({ open, onOpenChange, currentIcon, onIconSelect }) =>
                   <div className="grid grid-cols-8 gap-1.5 p-1">
                     <TooltipProvider delayDuration={300}>
                       {filteredIcons.map((iconName) => {
-                        const IconComponent = icons[iconName];
+                        const IconComponent = (icons as Record<string, LucideIcon>)[iconName];
                         if (!IconComponent) return null;
                         
                         return (

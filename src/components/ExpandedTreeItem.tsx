@@ -1,7 +1,13 @@
-import React from 'react';
 import { FileIcon } from 'lucide-react';
 
-const ExpandedTreeItem = ({ item, level }) => {
+interface ExpandedTreeItemProps {
+  item: {
+    prompt_name?: string;
+  };
+  level: number;
+}
+
+const ExpandedTreeItem: React.FC<ExpandedTreeItemProps> = ({ item, level }) => {
   const displayName = item.prompt_name && item.prompt_name.trim() !== '' ? `${item.prompt_name} {${level}}` : `New Prompt {${level}}`;
 
   return (

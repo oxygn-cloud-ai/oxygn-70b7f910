@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { FileText, Upload, X, Loader2, RefreshCw, File, FileImage, FileArchive } from 'lucide-react';
+import { FileText, Upload, X, Loader2, RefreshCw, File, FileImage, FileArchive, LucideIcon } from 'lucide-react';
 import { useConversationFiles } from '@/hooks/useConversationFiles';
 import { cn } from '@/lib/utils';
 
 // Helper to get file icon based on mime type
-const getFileIcon = (mimeType) => {
+const getFileIcon = (mimeType: string | null): LucideIcon => {
   if (!mimeType) return File;
   if (mimeType.startsWith('image/')) return FileImage;
   if (mimeType.includes('zip') || mimeType.includes('archive')) return FileArchive;
@@ -16,14 +16,18 @@ const getFileIcon = (mimeType) => {
 };
 
 // Format file size
-const formatFileSize = (bytes) => {
+const formatFileSize = (bytes: number | null): string => {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const FilesPagesSection = ({ 
+interface FilesPagesectionProps {
+  conversationRowId?: string | null;
+}
+
+const FilesPagesSection: React.FC<FilesPagesectionProps> = ({ 
   conversationRowId = null,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -38,29 +42,29 @@ const FilesPagesSection = ({
     syncFiles,
   } = useConversationFiles(conversationRowId);
 
-  const handleFileUpload = async (e) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
-    if (selectedFiles?.length > 0) {
+    if (selectedFiles?.length && selectedFiles.length > 0) {
       await uploadFile(Array.from(selectedFiles));
     }
     e.target.value = '';
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
   };
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
   };
 
-  const handleDrop = async (e) => {
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
     const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles?.length > 0) {
+    if (droppedFiles?.length && droppedFiles.length > 0) {
       await uploadFile(Array.from(droppedFiles));
     }
   };

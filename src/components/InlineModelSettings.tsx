@@ -1,9 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Info, ExternalLink } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { ALL_SETTINGS } from '@/config/modelCapabilities';
 import { useModels } from '@/hooks/useModels';
@@ -13,7 +12,24 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const InlineModelSettings = ({ 
+interface ModelInfo {
+  model_id: string;
+  model_name?: string;
+}
+
+interface ModelDefaults {
+  [key: string]: string | boolean | undefined;
+}
+
+interface InlineModelSettingsProps {
+  model: ModelInfo;
+  defaults: ModelDefaults | null;
+  onUpdateDefault: (modelId: string, field: string, value: string | boolean) => Promise<void>;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}
+
+const InlineModelSettings: React.FC<InlineModelSettingsProps> = ({ 
   model, 
   defaults, 
   onUpdateDefault,
@@ -21,18 +37,6 @@ const InlineModelSettings = ({
   onToggleExpand
 }) => {
   const modelDefaults = defaults || {};
-
-  const handleCheckChange = useCallback(async (field, checked) => {
-    await onUpdateDefault(model.model_id, `${field}_on`, checked);
-    
-    if (checked && !modelDefaults[field]) {
-      // Use default value from ALL_SETTINGS config
-      const settingConfig = ALL_SETTINGS[field];
-      if (settingConfig?.defaultValue !== undefined) {
-        await onUpdateDefault(model.model_id, field, settingConfig.defaultValue);
-      }
-    }
-  }, [model.model_id, modelDefaults, onUpdateDefault]);
 
   const settingKeys = Object.keys(ALL_SETTINGS);
   const enabledCount = settingKeys.filter(key => modelDefaults[`${key}_on`]).length;
@@ -60,7 +64,13 @@ const InlineModelSettings = ({
   );
 };
 
-export const ModelSettingsPanel = ({ 
+interface ModelSettingsPanelProps {
+  model: ModelInfo;
+  defaults: ModelDefaults | null;
+  onUpdateDefault: (modelId: string, field: string, value: string | boolean) => Promise<void>;
+}
+
+export const ModelSettingsPanel: React.FC<ModelSettingsPanelProps> = ({ 
   model, 
   defaults, 
   onUpdateDefault 
@@ -69,35 +79,35 @@ export const ModelSettingsPanel = ({
   const { isSettingSupported } = useModels();
   
   // Local state for input values to enable blur-based saving
-  const [localValues, setLocalValues] = useState({});
+  const [localValues, setLocalValues] = useState<Record<string, string>>({});
 
-  const handleCheckChange = useCallback(async (field, checked) => {
+  const handleCheckChange = useCallback(async (field: string, checked: boolean) => {
     await onUpdateDefault(model.model_id, `${field}_on`, checked);
     
     if (checked && !modelDefaults[field]) {
       // Use default value from ALL_SETTINGS config
-      const settingConfig = ALL_SETTINGS[field];
+      const settingConfig = ALL_SETTINGS[field as keyof typeof ALL_SETTINGS];
       if (settingConfig?.defaultValue !== undefined) {
         await onUpdateDefault(model.model_id, field, settingConfig.defaultValue);
       }
     }
   }, [model.model_id, modelDefaults, onUpdateDefault]);
 
-  const handleValueChange = useCallback((field, value) => {
+  const handleValueChange = useCallback((field: string, value: string) => {
     setLocalValues(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleValueBlur = useCallback(async (field) => {
+  const handleValueBlur = useCallback(async (field: string) => {
     const value = localValues[field];
     if (value !== undefined && value !== modelDefaults[field]) {
       await onUpdateDefault(model.model_id, field, value);
     }
   }, [model.model_id, localValues, modelDefaults, onUpdateDefault]);
 
-  const settingKeys = Object.keys(ALL_SETTINGS);
+  const settingKeys = Object.keys(ALL_SETTINGS) as (keyof typeof ALL_SETTINGS)[];
 
   // Build default values from ALL_SETTINGS config
-  const getDefaultValue = (field) => {
+  const getDefaultValue = (field: keyof typeof ALL_SETTINGS): string => {
     const settingConfig = ALL_SETTINGS[field];
     return settingConfig?.defaultValue ?? '';
   };
@@ -113,7 +123,7 @@ export const ModelSettingsPanel = ({
           const supported = isSettingSupported(field, model.model_id);
           const isEnabled = modelDefaults[`${field}_on`] || false;
           const dbValue = modelDefaults[field] !== undefined && modelDefaults[field] !== null 
-            ? modelDefaults[field] 
+            ? String(modelDefaults[field])
             : (isEnabled ? getDefaultValue(field) : '');
           // Use local value if exists, otherwise use database value
           const value = localValues[field] !== undefined ? localValues[field] : dbValue;
@@ -131,8 +141,8 @@ export const ModelSettingsPanel = ({
               <div className="flex items-center space-x-2 mb-1">
                 <Checkbox
                   id={`${model.model_id}-${field}-checkbox`}
-                  checked={isEnabled}
-                  onCheckedChange={(checked) => handleCheckChange(field, checked)}
+                  checked={Boolean(isEnabled)}
+                  onCheckedChange={(checked) => handleCheckChange(field, Boolean(checked))}
                   disabled={!supported}
                   className="h-3.5 w-3.5"
                 />
