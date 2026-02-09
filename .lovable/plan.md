@@ -1,432 +1,354 @@
 
+# Adversarial Audit of Proposed OpenAI Streaming Timeout Fix
 
-# Adversarial Implementation Audit Report
+## Executive Summary
 
-## Files Changed (Previous Implementation)
-
-The following 15 files were modified:
-
-1. `src/components/ui/tooltip.tsx`
-2. `src/components/ui/dialog.tsx`
-3. `src/components/ui/alert-dialog.tsx`
-4. `src/components/ui/progress.tsx`
-5. `src/contexts/CascadeRunContext.tsx`
-6. `src/components/ActionPreviewDialog.tsx`
-7. `src/components/CascadeErrorDialog.tsx`
-8. `src/components/CascadePopup.tsx`
-9. `src/components/CascadeRunProgress.tsx`
-10. `src/components/BackgroundCallsIndicator.tsx`
-11. `src/components/ConfluencePagesSection.tsx`
-12. `src/components/ConfluenceSearchModal.tsx`
-13. `src/components/ContextHeader.tsx`
-14. `src/components/DebugInfoPopup.tsx`
-15. `src/hooks/useConfluencePages.ts`
+The proposed plan contains **critical omissions, scope gaps, and lacks TypeScript strict type safety**. The plan correctly identifies the root cause (keepalive events resetting idle timeout) but fails to address parallel code paths, lacks precise implementation details, and does not follow existing architectural patterns.
 
 ---
 
-## Per-File Analysis
+## 1. CRITICAL FINDINGS
 
-### 1. `src/components/ui/tooltip.tsx`
-**Description:** Added `TooltipProps` interface and typed `TooltipContent` with forwardRef generics
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
+### 1.1 OMISSION: `prompt-family-chat` Has IDENTICAL Vulnerability (NOT Addressed)
 
-### 2. `src/components/ui/dialog.tsx`
-**Description:** Added forwardRef type parameters to all components, added `DialogContentProps`, `DialogHeaderProps`, `DialogFooterProps` interfaces
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
+**Severity: CRITICAL**
 
-### 3. `src/components/ui/alert-dialog.tsx`
-**Description:** Added forwardRef type parameters to all components, added header/footer prop interfaces
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
+The plan only targets `conversation-run/index.ts`, but `prompt-family-chat/index.ts` has the **exact same streaming vulnerability**:
 
-### 4. `src/components/ui/progress.tsx`
-**Description:** Added `ProgressProps` interface and forwardRef type parameters
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
+| Aspect | `conversation-run` | `prompt-family-chat` |
+|--------|-------------------|---------------------|
+| Idle timeout | 90 seconds (line 705) | **5 minutes** (line 565) |
+| Execution time check | Only in `pollForCompletion()` | **NONE** |
+| Streaming loop protection | **NONE** | **NONE** |
 
-### 5. `src/contexts/CascadeRunContext.tsx`
-**Description:** Added comprehensive `CascadeRunContextValue` interface with all state and action types
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
+The user's error originated from `usePromptFamilyChatStream.ts` calling `prompt-family-chat`, NOT `conversation-run`. The plan fixes the wrong file.
 
-### 6. `src/components/ActionPreviewDialog.tsx`
-**Description:** Added `ActionPreviewDialogProps` and related interfaces, typed the component
-**Verification Status:** ✅ Correct (based on build errors not mentioning this file)
-**Issues:** None
-**Risk Level:** Low
-
-### 7. `src/components/CascadeErrorDialog.tsx`
-**Description:** Removed unused imports, added `ErrorDetails` interface
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
-
-### 8. `src/components/CascadePopup.tsx`
-**Description:** Added `CascadePopupProps` interface
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
-
-### 9. `src/components/CascadeRunProgress.tsx`
-**Description:** Removed unused imports and variables
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
-
-### 10. `src/components/BackgroundCallsIndicator.tsx`
-**Description:** Removed all unused imports, simplified to minimal component
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
-
-### 11. `src/components/ConfluencePagesSection.tsx`
-**Description:** Added `ConfluencePage`, `PageTreeNode`, `PageTreeNodeProps` interfaces
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
-
-### 12. `src/components/ConfluenceSearchModal.tsx`
-**Description:** Added type definitions
-**Verification Status:** ⚠️ Warning - Build error indicates unused `cn` import (line 18)
-**Issues:** Unused import not removed
-**Risk Level:** Low
-
-### 13. `src/components/ContextHeader.tsx`
-**Description:** Added type definitions
-**Verification Status:** ✅ Correct (not mentioned in build errors)
-**Issues:** None
-**Risk Level:** Low
-
-### 14. `src/components/DebugInfoPopup.tsx`
-**Description:** Added comprehensive type interfaces
-**Verification Status:** ❌ Bug Found - Uses untyped `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent` components
-**Issues:** 7 TypeScript errors on lines 131-273 because `tabs.tsx` was NOT typed in this implementation
-**Risk Level:** Critical - Build blocked
-
-### 15. `src/hooks/useConfluencePages.ts`
-**Description:** Added type definitions
-**Verification Status:** ✅ Correct
-**Issues:** None
-**Risk Level:** Low
+**Remediation**: Apply identical fixes to BOTH edge functions.
 
 ---
 
-## Bugs Found (Numbered List)
+### 1.2 OMISSION: `executionStartTime` Not Accessible in Streaming Loop
 
-### Critical Build-Blocking Bugs
+**Severity: HIGH**
 
-| # | File | Line(s) | Description |
-|---|------|---------|-------------|
-| 1 | `src/components/ui/tabs.tsx` | 8, 19, 30 | **NOT FIXED** - `TabsList`, `TabsTrigger`, `TabsContent` missing forwardRef type parameters |
-| 2 | `src/components/ui/popover.tsx` | 10 | **NOT FIXED** - `PopoverContent` missing forwardRef type parameters |
-| 3 | `src/components/ui/scroll-area.tsx` | (unknown) | **PARTIAL** - May have issues with `orientation` prop (line 139 in IconPicker.tsx) |
-| 4 | `src/components/DebugInfoPopup.tsx` | 131-273 | Uses untyped Tabs components causing 7 type errors |
-| 5 | `src/components/IconPicker.tsx` | 139-153 | Uses untyped Tabs and ScrollArea components causing 3 type errors |
-| 6 | `src/components/FilesPagesSection.tsx` | 1, 10, 19, 41-66 | **NOT FIXED** - Unused React import, 9 implicit `any` types on event handlers |
-| 7 | `src/hooks/useConversationFiles.ts` | 6-8 | **NOT FIXED** - `files` state returns `never[]` type due to no generic |
-| 8 | `src/components/GuardedLink.tsx` | 9, 13, 22, 26 | **NOT FIXED** - Entire component lacks TypeScript typing |
-| 9 | `src/components/DeleteConfirmationDialog.tsx` | 1, 13 | **NOT FIXED** - Unused React import, 4 implicit `any` binding elements |
-| 10 | `src/components/ExpandedTreeItem.tsx` | 1, 4 | **NOT FIXED** - Unused React import, 2 implicit `any` types |
-| 11 | `src/components/HalfWidthBox.tsx` | 1, 4 | **NOT FIXED** - Unused React import, 2 implicit `any` types |
-| 12 | `src/components/IconPicker.tsx` | 1, 9, 15, 22, 27, 77, 92, 101 | **NOT FIXED** - 8 implicit `any` types |
-| 13 | `src/components/ErrorBoundary.tsx` | 76, 105 | `import.meta.env` type error - Vite types not recognized |
-| 14 | `src/components/FigmaSearchModal.tsx` | 18 | Unused `cn` import |
+The plan proposes using `executionStartTime` inside the streaming loop (line ~1050), but this variable is defined inside `runResponsesAPI()` (line 711), NOT in the function scope where the streaming loop exists.
 
----
-
-## Critical Risks
-
-| # | Risk | Severity | Remediation |
-|---|------|----------|-------------|
-| 1 | **Build completely blocked** | CRITICAL | ~150 TypeScript errors remain due to incomplete scope |
-| 2 | **Tabs component untyped** | CRITICAL | Add forwardRef type parameters to `tabs.tsx` |
-| 3 | **Popover component untyped** | CRITICAL | Add forwardRef type parameters to `popover.tsx` |
-| 4 | **useConversationFiles returns `never[]`** | HIGH | Files typed as `never` causing all property accesses to fail in FilesPagesSection |
-| 5 | **GuardedLink completely untyped** | HIGH | Entire component has no TypeScript support |
-
----
-
-## Unintended Changes
-
-**None detected** - All changes were within approved scope. The issue is massive omission, not scope creep.
-
----
-
-## Omissions (Complete List)
-
-The implementation plan specified 11 files. The following critical files were **NOT addressed** despite being in the approved plan for Phase 3:
-
-### UI Primitives NOT Fixed (Build-Critical)
-
-| # | File | Status |
-|---|------|--------|
-| 1 | `src/components/ui/tabs.tsx` | ❌ NOT FIXED - Required by DebugInfoPopup, IconPicker |
-| 2 | `src/components/ui/popover.tsx` | ❌ NOT FIXED - Required by multiple components |
-| 3 | `src/components/ui/accordion.tsx` | ❌ NOT FIXED |
-| 4 | `src/components/ui/dropdown-menu.tsx` | ❌ NOT FIXED |
-| 5 | `src/components/ui/sheet.tsx` | ❌ NOT FIXED |
-| 6 | `src/components/ui/table.tsx` | ❌ NOT FIXED |
-| 7 | `src/components/ui/form.tsx` | ❌ NOT FIXED |
-| 8 | `src/components/ui/drawer.tsx` | ❌ NOT FIXED |
-| 9 | `src/components/ui/slider.tsx` | ❌ NOT FIXED |
-| 10 | `src/components/ui/radio-group.tsx` | ❌ NOT FIXED |
-| 11 | `src/components/ui/avatar.tsx` | ❌ NOT FIXED |
-| 12 | `src/components/ui/collapsible.tsx` | ❌ NOT FIXED |
-| 13 | `src/components/ui/navigation-menu.tsx` | ❌ NOT FIXED |
-| 14 | `src/components/ui/context-menu.tsx` | ❌ NOT FIXED |
-| 15 | `src/components/ui/menubar.tsx` | ❌ NOT FIXED |
-| 16 | `src/components/ui/hover-card.tsx` | ❌ NOT FIXED |
-| 17 | `src/components/ui/toggle.tsx` | ❌ NOT FIXED |
-| 18 | `src/components/ui/toggle-group.tsx` | ❌ NOT FIXED |
-| 19 | `src/components/ui/pagination.tsx` | ❌ NOT FIXED |
-| 20 | `src/components/ui/resizable.tsx` | ❌ NOT FIXED |
-| 21 | `src/components/ui/carousel.tsx` | ❌ NOT FIXED |
-| 22 | `src/components/ui/command.tsx` | ❌ NOT FIXED |
-| 23 | `src/components/ui/input-otp.tsx` | ❌ NOT FIXED |
-
-### Application Components NOT Fixed
-
-| # | File | Issues |
-|---|------|--------|
-| 1 | `src/components/FilesPagesSection.tsx` | 9 implicit `any` types, unused import |
-| 2 | `src/hooks/useConversationFiles.ts` | State typed as `never[]` |
-| 3 | `src/components/GuardedLink.tsx` | Completely untyped forwardRef |
-| 4 | `src/components/DeleteConfirmationDialog.tsx` | 4 implicit `any` props |
-| 5 | `src/components/ExpandedTreeItem.tsx` | 2 implicit `any` props |
-| 6 | `src/components/HalfWidthBox.tsx` | 2 implicit `any` props |
-| 7 | `src/components/IconPicker.tsx` | 8 implicit `any` types |
-| 8 | `src/components/ErrorBoundary.tsx` | Vite `import.meta.env` type issue |
-| 9 | `src/components/FigmaSearchModal.tsx` | Unused import |
-
----
-
-## Architectural Deviations
-
-**None detected** - The approach of adding forwardRef type parameters is architecturally sound and follows existing patterns.
-
----
-
-## Summary
-
-| Metric | Value |
-|--------|-------|
-| Files Modified | 15 |
-| Files Correctly Fixed | 12 |
-| Files with Remaining Issues | 3 |
-| UI Primitives Still Untyped | 23 |
-| Application Components Still Untyped | 9 |
-| Total Build Errors | ~150 |
-| **Status** | ❌ **BLOCKED** |
-
-**Assessment:** The implementation is **incomplete**. Phases 1 and 2 were partially executed (critical UI primitives fixed), but Phase 3 (23 remaining UI primitives) was **entirely skipped**. Additionally, several application components with TypeScript violations were not addressed.
-
-**Recommendation:** Progression is **BLOCKED** until the build compiles successfully.
-
----
-
-## Remediation Plan
-
-### Immediate Priority: Fix Build-Critical UI Primitives
-
-#### Step 1: Fix `src/components/ui/tabs.tsx`
-
-```typescript
-import * as React from "react"
-import * as TabsPrimitive from "@radix-ui/react-tabs"
-import { cn } from "@/lib/utils"
-
-const Tabs = TabsPrimitive.Root
-
-const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
-      className
-    )}
-    {...props} />
-))
-TabsList.displayName = TabsPrimitive.List.displayName
-
-const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm",
-      className
-    )}
-    {...props} />
-))
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
-
-const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-      className
-    )}
-    {...props} />
-))
-TabsContent.displayName = TabsPrimitive.Content.displayName
-
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+**Current structure:**
+```text
+runResponsesAPI():
+  Line 711: const executionStartTime = Date.now();
+  Line 714: const pollForCompletion = async () => { ... }
+  Line 961: const resetIdleTimeout = () => { ... }
+  Line 1040: while (true) { ... } // Streaming loop
 ```
 
-#### Step 2: Fix `src/components/ui/popover.tsx`
+The streaming loop is inside `runResponsesAPI`, so `executionStartTime` IS accessible. However, the plan's line references are INCORRECT - the streaming loop starts at line 1041, not 1050.
 
+**Remediation**: Correct line references in plan.
+
+---
+
+### 1.3 OMISSION: Missing Variable Declaration for `lastContentTime`
+
+**Severity: HIGH**
+
+The plan proposes:
 ```typescript
-import * as React from "react"
-import * as PopoverPrimitive from "@radix-ui/react-popover"
-import { cn } from "@/lib/utils"
-
-const Popover = PopoverPrimitive.Root
-const PopoverTrigger = PopoverPrimitive.Trigger
-
-const PopoverContent = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
-  <PopoverPrimitive.Portal>
-    <PopoverPrimitive.Content
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-        className
-      )}
-      {...props} />
-  </PopoverPrimitive.Portal>
-))
-PopoverContent.displayName = PopoverPrimitive.Content.displayName
-
-export { Popover, PopoverTrigger, PopoverContent }
+lastContentTime = Date.now(); // NEW: Track real content arrival
 ```
 
-#### Step 3: Fix `src/hooks/useConversationFiles.ts`
+But `lastContentTime` is never declared with `let` or `const`. This is a **syntax error**.
 
-Add interface and type the state:
-
+**Remediation**: Add declaration:
 ```typescript
-interface ConversationFile {
-  row_id: string;
-  assistant_row_id: string;
-  storage_path: string;
-  original_filename: string;
-  file_size: number;
-  mime_type: string;
-  upload_status: 'pending' | 'synced' | 'error';
-  openai_file_id: string | null;
-  created_at: string;
+let lastContentTime = Date.now(); // Add near line 1038
+```
+
+---
+
+### 1.4 BUG: Plan Uses Wrong Threshold Logic
+
+**Severity: MEDIUM**
+
+The plan proposes:
+```typescript
+if (accumulatedText.length === 0 && now - lastContentTime > NO_CONTENT_FALLBACK_MS)
+```
+
+**Problem**: If the stream receives one character of text at minute 0, then only keepalives for 3 minutes, this check will NEVER trigger because `accumulatedText.length > 0`.
+
+**Correct logic should be**:
+```typescript
+// Track when text length last CHANGED (not just when it was non-zero)
+const previousTextLength = accumulatedTextLengthRef;
+accumulatedTextLengthRef = accumulatedText.length;
+if (accumulatedText.length > previousTextLength) {
+  lastContentTime = now;
 }
 
-export const useConversationFiles = (assistantRowId: string | null) => {
-  const [files, setFiles] = useState<ConversationFile[]>([]);
-  // ... rest of implementation
-};
+// Then check for no-progress condition
+if (now - lastContentTime > NO_CONTENT_FALLBACK_MS) {
+  // Fall back to polling
+}
 ```
 
-#### Step 4: Fix `src/components/FilesPagesSection.tsx`
+**Remediation**: Use progress-based detection, not empty-content detection.
 
-Remove unused import and add event handler types:
+---
+
+### 1.5 MISSING: TypeScript Strict Type Annotations
+
+**Severity: MEDIUM**
+
+The plan provides no TypeScript type annotations. With strict mode now enforced, all new code MUST include explicit types:
 
 ```typescript
-import { useState } from 'react';
-// Remove: import React, { useState } from 'react';
+// BAD (implicit any)
+let lastContentTime = Date.now();
 
-// Add prop interface
-interface FilesPagesectionProps {
-  conversationRowId?: string | null;
-}
-
-// Type helper functions
-const getFileIcon = (mimeType: string | null): React.FC<{ className?: string }> => { ... };
-const formatFileSize = (bytes: number | null): string => { ... };
-
-// Type event handlers
-const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => { ... };
-const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { ... };
-const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => { ... };
-const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => { ... };
+// GOOD (explicit type)
+let lastContentTime: number = Date.now();
+let accumulatedTextLengthRef: number = 0;
 ```
 
-#### Step 5: Fix `src/components/GuardedLink.tsx`
+**Remediation**: Add explicit type annotations to all new variables.
 
+---
+
+### 1.6 DUPLICATION: Existing `pollForCompletion` Already Has Timeout Logic
+
+**Severity: LOW**
+
+The plan proposes adding `MAX_EXECUTION_MS` checks. This constant and logic already exist in `pollForCompletion()` (lines 725-741). The plan should REUSE this existing pattern, not duplicate it with potentially divergent values.
+
+**Existing code (line 712):**
 ```typescript
-import { forwardRef, MouseEvent } from 'react';
-import { Link, useNavigate, To } from 'react-router-dom';
-import { useApiCallContext } from '@/contexts/ApiCallContext';
+const MAX_EXECUTION_MS = 270000; // 4.5 minutes max
+```
 
-interface GuardedLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
-  to: To;
-  children: React.ReactNode;
+**Remediation**: Reference existing constant, do not redefine.
+
+---
+
+### 1.7 OMISSION: Frontend Handling Not Addressed
+
+**Severity: MEDIUM**
+
+When the stream falls back to polling due to timeout, `pollForCompletion()` emits `output_text_done` (line 835-841). The frontend `parseSSEStream` in `useConversationRun.ts` correctly handles this event type. However, the plan does not verify this path works end-to-end.
+
+The current error "No response received from edge function" occurs because:
+1. Stream hangs with only keepalives
+2. Edge function times out at 5 minutes (Supabase limit)
+3. Response body closes WITHOUT emitting `[DONE]` or `complete`
+4. `parseSSEStream` returns `result = null`
+5. Line 382-383 throws: `if (!data) throw new Error('No response received from edge function')`
+
+**The fix must ensure either:**
+- `output_text_done` is emitted before timeout, OR
+- `error` event with `EXECUTION_TIMEOUT` is emitted
+
+**Remediation**: Add explicit `emitter.emit({ type: 'error', error: 'Execution timeout', error_code: 'EXECUTION_TIMEOUT' })` before polling fallback returns timeout.
+
+---
+
+## 2. SCOPE VERIFICATION
+
+### 2.1 Files That MUST Be Modified
+
+| File | Reason |
+|------|--------|
+| `supabase/functions/conversation-run/index.ts` | Add streaming loop protection |
+| `supabase/functions/prompt-family-chat/index.ts` | **MISSING FROM PLAN** - Has identical vulnerability |
+
+### 2.2 Files That MUST NOT Be Modified
+
+| File | Reason |
+|------|--------|
+| `src/hooks/useConversationRun.ts` | Frontend handles events correctly; no change needed |
+| `src/hooks/usePromptFamilyChatStream.ts` | Frontend handles events correctly; no change needed |
+| TypeScript files with build errors | Explicitly excluded per user instruction |
+
+---
+
+## 3. ARCHITECTURAL COMPLIANCE
+
+### 3.1 Pattern: Existing Timeout Fallback Architecture
+
+The codebase already has a consistent pattern for timeout handling:
+
+1. **Streaming path**: `while(true)` loop reading SSE events
+2. **Idle timeout**: `resetIdleTimeout()` with AbortController
+3. **Fallback trigger**: `if (abortReason === 'idle')` → `pollForCompletion()`
+4. **Execution limit**: `MAX_EXECUTION_MS` checked in polling loop
+
+The plan correctly follows this pattern but must extend it to the streaming loop.
+
+### 3.2 Pattern: Error Event Emission
+
+All error paths emit structured events:
+```typescript
+emitter.emit({
+  type: 'error',
+  error: 'Human-readable message',
+  error_code: 'MACHINE_READABLE_CODE',
+});
+```
+
+The plan's fallback must follow this pattern.
+
+---
+
+## 4. REVISED COMPLETE IMPLEMENTATION PLAN
+
+### Phase 1: Fix `conversation-run/index.ts` (Streaming Loop Protection)
+
+**Location**: Inside `runResponsesAPI()` function, lines 1035-1060
+
+**Step 1.1**: Add progress tracking variables (after line 1038)
+```typescript
+// Progress tracking
+const streamStartTime: number = Date.now();
+let chunkCount: number = 0;
+let lastLogTime: number = Date.now();
+// NEW: Track last time actual content was received (for no-progress fallback)
+let lastContentTime: number = Date.now();
+let previousTextLength: number = 0;
+const NO_CONTENT_FALLBACK_MS: number = 120000; // 2 minutes with no content progress
+```
+
+**Step 1.2**: Add execution time check inside streaming loop (after line 1046, before line 1047)
+```typescript
+const now: number = Date.now();
+
+// Check edge function execution time limit during streaming
+if (now - executionStartTime > MAX_EXECUTION_MS) {
+  console.error('Edge function execution time limit approaching during stream - falling back to polling');
+  if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+  reader.cancel();
+  return await pollForCompletion();
 }
 
-const GuardedLink = forwardRef<HTMLAnchorElement, GuardedLinkProps>(
-  ({ to, children, onClick, ...props }, ref) => {
-    const navigate = useNavigate();
-    const { requestNavigation } = useApiCallContext();
+// Check for "no content progress" condition (receiving keepalives but no text)
+if (previousTextLength === accumulatedText.length && now - lastContentTime > NO_CONTENT_FALLBACK_MS) {
+  console.warn('No text content progress for 2 minutes - falling back to polling');
+  if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+  reader.cancel();
+  return await pollForCompletion();
+}
+```
 
-    const handleClick = (e: MouseEvent<HTMLAnchorElement>) => {
-      if (onClick) onClick(e);
-      if (e.defaultPrevented) return;
-      e.preventDefault();
-      requestNavigation(String(to), () => navigate(to));
-    };
-
-    return (
-      <Link ref={ref} to={to} onClick={handleClick} {...props}>
-        {children}
-      </Link>
-    );
+**Step 1.3**: Update progress tracking when content is received (after line 1153)
+```typescript
+if (contentItem.type === 'output_text' && contentItem.text) {
+  accumulatedText = contentItem.text;
+  // Track content progress for no-content fallback detection
+  if (accumulatedText.length > previousTextLength) {
+    lastContentTime = Date.now();
+    previousTextLength = accumulatedText.length;
   }
-);
-
-GuardedLink.displayName = 'GuardedLink';
-export default GuardedLink;
+}
 ```
 
-#### Step 6-23: Fix Remaining UI Primitives
+### Phase 2: Fix `prompt-family-chat/index.ts` (CRITICAL - Missing from Original Plan)
 
-Apply the same forwardRef type parameter pattern to:
-- `accordion.tsx`, `dropdown-menu.tsx`, `sheet.tsx`, `table.tsx`, `form.tsx`, `drawer.tsx`, `slider.tsx`, `radio-group.tsx`, `avatar.tsx`, `collapsible.tsx`, `navigation-menu.tsx`, `context-menu.tsx`, `menubar.tsx`, `hover-card.tsx`, `toggle.tsx`, `toggle-group.tsx`, `pagination.tsx`, `resizable.tsx`, `carousel.tsx`, `command.tsx`, `input-otp.tsx`
+**Location**: Inside `streamOpenAIResponse()` function, lines 560-850
 
-#### Step 24-32: Fix Remaining Application Components
+**Step 2.1**: Add execution time tracking (after line 568)
+```typescript
+// Track execution start for edge function time limits
+const executionStartTime: number = Date.now();
+const MAX_EXECUTION_MS: number = 270000; // 4.5 minutes max
+// Progress tracking for no-content fallback
+let lastContentTime: number = Date.now();
+let previousContentLength: number = 0;
+const NO_CONTENT_FALLBACK_MS: number = 120000; // 2 minutes
+```
 
-- `DeleteConfirmationDialog.tsx` - Add prop interface
-- `ExpandedTreeItem.tsx` - Add prop interface
-- `HalfWidthBox.tsx` - Add prop interface
-- `IconPicker.tsx` - Add prop interface and type all functions
-- `ErrorBoundary.tsx` - Add Vite client types reference
-- `FigmaSearchModal.tsx` - Remove unused `cn` import
-- `ConfluenceSearchModal.tsx` - Remove unused `cn` import
+**Step 2.2**: Add execution time check inside streaming loop (after line 727)
+```typescript
+const now: number = Date.now();
+
+// Check edge function execution time limit during streaming
+if (now - executionStartTime > MAX_EXECUTION_MS) {
+  console.error('Edge function execution time limit approaching during stream');
+  if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+  reader.cancel();
+  return await pollForCompletion();
+}
+
+// Check for no-content-progress condition
+if (accumulatedContent.length === previousContentLength && now - lastContentTime > NO_CONTENT_FALLBACK_MS) {
+  console.warn('No content progress for 2 minutes - falling back to polling');
+  if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+  reader.cancel();
+  return await pollForCompletion();
+}
+```
+
+**Step 2.3**: Update progress tracking when content is received (inside event parsing, around line 773)
+```typescript
+if (contentItem.type === 'output_text' && contentItem.text) {
+  accumulatedContent = contentItem.text;
+  // Track content progress
+  if (accumulatedContent.length > previousContentLength) {
+    lastContentTime = Date.now();
+    previousContentLength = accumulatedContent.length;
+  }
+}
+```
+
+### Phase 3: Enhance `pollForCompletion` Timeout Handling
+
+**Location**: Both edge functions
+
+The existing `pollForCompletion` functions already have `MAX_EXECUTION_MS` checks but should ensure the frontend receives an error event before timing out.
+
+**Step 3.1**: Verify timeout path emits error (already exists in `conversation-run` lines 727-733)
+
+**Step 3.2**: Add same pattern to `prompt-family-chat` `pollForCompletion` (around line 660):
+```typescript
+// Before returning null on timeout
+console.error('Polling timed out');
+emitter.emit({
+  type: 'error',
+  error: 'Request timed out waiting for AI response',
+  error_code: 'POLL_TIMEOUT',
+});
+return { content: null, toolCalls: [], usage: null, status: 'timeout' };
+```
 
 ---
 
-## Estimated Effort
+## 5. VERIFICATION CHECKLIST
 
-| Phase | Files | Lines of Type Definitions |
-|-------|-------|---------------------------|
-| Critical UI (tabs, popover) | 2 | ~80 |
-| Hook Fixes | 2 | ~40 |
-| Application Components | 9 | ~150 |
-| Remaining UI Primitives | 21 | ~800 |
-| **Total** | **34** | **~1070** |
+After implementation, verify:
+
+1. [ ] Both `conversation-run` and `prompt-family-chat` have execution time checks in streaming loops
+2. [ ] All new variables have explicit TypeScript type annotations
+3. [ ] `NO_CONTENT_FALLBACK_MS` constant is defined (not just referenced)
+4. [ ] Progress tracking uses content LENGTH comparison, not just empty check
+5. [ ] Frontend receives either `output_text_done` or `error` event before edge function terminates
+6. [ ] No changes to files outside the two edge functions
+7. [ ] Deploy both edge functions after changes
+
+---
+
+## 6. RISK ASSESSMENT
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| False positive fallback during genuine long thinking | LOW | 2-minute threshold is generous; genuine reasoning produces events |
+| Polling also times out | MEDIUM | Polling has 10-minute timeout with error events |
+| Inconsistent behavior between edge functions | HIGH | Apply identical fixes to both functions |
+| Missing TypeScript types causes build failure | MEDIUM | Add explicit type annotations to all new code |
+
+---
+
+## 7. ESTIMATED LINE CHANGES
+
+| File | Lines Added | Lines Modified |
+|------|-------------|----------------|
+| `supabase/functions/conversation-run/index.ts` | ~15 | ~5 |
+| `supabase/functions/prompt-family-chat/index.ts` | ~25 | ~10 |
+| **Total** | ~40 | ~15 |
 
