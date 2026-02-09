@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,14 +7,61 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DollarSign, Clock, Cpu, Hash, Calendar, TrendingUp, Info } from 'lucide-react';
+import { DollarSign, Cpu, Hash, Calendar, TrendingUp, Info } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { useCostTracking } from '@/hooks/useCostTracking';
 import { trackEvent } from '@/lib/posthog';
 
-const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
+// Type definitions
+interface PromptItem {
+  id: string;
+  prompt_name?: string;
+  position_lex?: string;
+  is_assistant?: boolean;
+  is_private?: boolean;
+  last_ai_call_metadata?: LastCallMetadata;
+}
+
+interface LastCallMetadata {
+  model?: string;
+  finish_reason?: string;
+  tokens_input?: number;
+  tokens_output?: number;
+  tokens_total?: number;
+  cost_input_usd?: number;
+  cost_output_usd?: number;
+  cost_total_usd?: number;
+  latency_ms?: number;
+  timestamp?: string;
+  response_id?: string;
+}
+
+interface ModelBreakdownEntry {
+  calls: number;
+  cost: number;
+}
+
+interface LifetimeCosts {
+  totalCalls: number;
+  totalTokensInput: number;
+  totalTokensOutput: number;
+  totalTokens: number;
+  totalCostUsd: number;
+  modelBreakdown: Record<string, ModelBreakdownEntry>;
+  firstCall: string | null;
+  lastCall: string | null;
+}
+
+interface DebugInfoPopupProps {
+  isOpen: boolean;
+  onClose: (open: boolean) => void;
+  item: PromptItem | null;
+  onSave: (value: string, field: string) => Promise<void>;
+}
+
+const DebugInfoPopup: React.FC<DebugInfoPopupProps> = ({ isOpen, onClose, item, onSave }) => {
   const [position, setPosition] = useState(item?.position_lex || '');
-  const [lifetimeCosts, setLifetimeCosts] = useState(null);
+  const [lifetimeCosts, setLifetimeCosts] = useState<LifetimeCosts | null>(null);
   const [isLoadingCosts, setIsLoadingCosts] = useState(false);
   const { getLifetimeCosts } = useCostTracking();
   const isMountedRef = useRef(true);
@@ -30,10 +77,10 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
       trackEvent('debug_info_viewed', { prompt_id: item.id, prompt_name: item.prompt_name });
       setIsLoadingCosts(true);
       getLifetimeCosts(item.id)
-        .then(costs => {
+        .then((costs: LifetimeCosts | null) => {
           if (isMountedRef.current) setLifetimeCosts(costs);
         })
-        .catch(err => {
+        .catch((err: Error) => {
           console.error('Error fetching costs:', err);
           if (isMountedRef.current) toast.error('Failed to load cost data');
         })
@@ -47,28 +94,28 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
     try {
       await onSave(position, 'position_lex');
       toast.success('Position updated successfully');
-      onClose();
+      onClose(false);
     } catch (error) {
       toast.error('Failed to update position');
     }
   };
 
-  const formatCurrency = (value) => {
+  const formatCurrency = (value: number | undefined | null): string => {
     if (value === undefined || value === null) return '$0.00';
-    return `$${parseFloat(value).toFixed(6)}`;
+    return `$${parseFloat(String(value)).toFixed(6)}`;
   };
 
-  const formatNumber = (value) => {
+  const formatNumber = (value: number | undefined | null): string => {
     if (value === undefined || value === null) return '0';
     return value.toLocaleString();
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string | undefined | null): string => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleString();
   };
 
-  const lastCall = item?.last_ai_call_metadata || {};
+  const lastCall: LastCallMetadata = item?.last_ai_call_metadata || {};
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -300,7 +347,7 @@ const DebugInfoPopup = ({ isOpen, onClose, item, onSave }) => {
         </Tabs>
 
         <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={() => onClose(false)}>Close</Button>
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>

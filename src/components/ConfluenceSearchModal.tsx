@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,59 @@ import { Search, Plus, Loader2, FileText, ExternalLink, ChevronRight, ChevronDow
 import { useConfluencePages } from '@/hooks/useConfluencePages';
 import { cn } from '@/lib/utils';
 
+// Type definitions
+interface TreeNodeData {
+  id: string;
+  title: string;
+  type?: string;
+  url?: string;
+  hasChildren?: boolean;
+  children?: TreeNodeData[];
+  loaded?: boolean;
+  isContainer?: boolean;
+  isFolder?: boolean;
+  isWhiteboard?: boolean;
+  isDatabase?: boolean;
+  isBlogpost?: boolean;
+  isBlogContainer?: boolean;
+}
+
+interface TreeNodeProps {
+  node: TreeNodeData;
+  level?: number;
+  onAttach: (pageId: string, contentType: string) => void;
+  attachingPageId: string | null;
+  expandedNodes: Set<string>;
+  toggleExpand: (nodeId: string, spaceKey: string) => void;
+  loadingNodes: Set<string>;
+  spaceKey: string;
+  isLast?: boolean;
+  parentLines?: boolean[];
+}
+
+interface SpaceData {
+  key: string;
+  name: string;
+}
+
+interface SearchResultData {
+  id: string;
+  title: string;
+  url?: string;
+  spaceName?: string;
+  spaceKey?: string;
+}
+
+interface ConfluenceSearchModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  conversationRowId?: string | null;
+  promptRowId?: string | null;
+  onPageAttached?: () => void;
+}
+
 // Confluence-style tree node
-const TreeNode = ({ 
+const TreeNode: React.FC<TreeNodeProps> = ({ 
   node, 
   level = 0, 
   onAttach, 
@@ -159,7 +210,7 @@ const TreeNode = ({
               toggleExpand={toggleExpand}
               loadingNodes={loadingNodes}
               spaceKey={spaceKey}
-              isLast={idx === node.children.length - 1}
+              isLast={idx === node.children!.length - 1}
               parentLines={[...parentLines, !isLast]}
             />
           ))}
@@ -169,7 +220,7 @@ const TreeNode = ({
   );
 };
 
-const ConfluenceSearchModal = ({ 
+const ConfluenceSearchModal: React.FC<ConfluenceSearchModalProps> = ({ 
   open, 
   onOpenChange, 
   conversationRowId = null,
@@ -178,10 +229,10 @@ const ConfluenceSearchModal = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpace, setSelectedSpace] = useState('');
-  const [attachingPageId, setAttachingPageId] = useState(null);
-  const [expandedNodes, setExpandedNodes] = useState(new Set());
-  const [loadingNodes, setLoadingNodes] = useState(new Set());
-  const abortControllerRef = useRef(null);
+  const [attachingPageId, setAttachingPageId] = useState<string | null>(null);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [loadingNodes, setLoadingNodes] = useState<Set<string>>(new Set());
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const { 
     spaces, 
@@ -235,7 +286,7 @@ const ConfluenceSearchModal = ({
             abortControllerRef.current.abort();
           }
         }
-        searchPages(searchQuery, selectedSpace === 'all' ? null : selectedSpace);
+        searchPages(searchQuery, selectedSpace === 'all' ? undefined : selectedSpace);
       } else {
         clearSearch();
       }
@@ -258,7 +309,7 @@ const ConfluenceSearchModal = ({
     }
   }, [open, clearSearch, clearSpaceTree]);
 
-  const handleAttach = async (pageId, contentType = 'page') => {
+  const handleAttach = async (pageId: string, contentType = 'page') => {
     setAttachingPageId(pageId);
     try {
       await attachPage(pageId, contentType);
@@ -275,7 +326,7 @@ const ConfluenceSearchModal = ({
     }
   };
 
-  const toggleExpand = async (nodeId, spaceKey) => {
+  const toggleExpand = async (nodeId: string, spaceKey: string) => {
     const isCurrentlyExpanded = expandedNodes.has(nodeId);
     
     if (isCurrentlyExpanded) {
@@ -285,7 +336,7 @@ const ConfluenceSearchModal = ({
         return next;
       });
     } else {
-      const findNode = (nodes) => {
+      const findNode = (nodes: TreeNodeData[]): TreeNodeData | null => {
         for (const node of nodes) {
           if (node.id === nodeId) return node;
           if (node.children) {
@@ -296,7 +347,7 @@ const ConfluenceSearchModal = ({
         return null;
       };
       
-      const node = findNode(spaceTree);
+      const node = findNode(spaceTree as TreeNodeData[]);
       
       // Load children if not loaded yet (for folders and pages that need lazy loading)
       if (node && !node.loaded && !node.isContainer && node.children?.length === 0) {
@@ -307,10 +358,10 @@ const ConfluenceSearchModal = ({
           const nodeType = node.type || (node.isFolder ? 'folder' : 'page');
           const children = await getPageChildren(nodeId, spaceKey, nodeType);
           
-          const updateNode = (nodes) => {
+          const updateNode = (nodes: TreeNodeData[]): TreeNodeData[] => {
             return nodes.map(n => {
               if (n.id === nodeId) {
-                return { ...n, children, loaded: true, hasChildren: children.length > 0 };
+                return { ...n, children: children as TreeNodeData[], loaded: true, hasChildren: children.length > 0 };
               }
               if (n.children) {
                 return { ...n, children: updateNode(n.children) };
@@ -319,7 +370,7 @@ const ConfluenceSearchModal = ({
             });
           };
           
-          setSpaceTree(prev => updateNode(prev));
+          setSpaceTree((prev: TreeNodeData[]) => updateNode(prev));
         } finally {
           setLoadingNodes(prev => {
             const next = new Set(prev);
@@ -352,7 +403,7 @@ const ConfluenceSearchModal = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Spaces (search only)</SelectItem>
-                {spaces.map((space) => (
+                {(spaces as SpaceData[]).map((space) => (
                   <SelectItem key={space.key} value={space.key}>
                     {space.name}
                   </SelectItem>
@@ -396,14 +447,14 @@ const ConfluenceSearchModal = ({
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : showSearchResults ? (
-              searchResults.length === 0 ? (
+              (searchResults as SearchResultData[]).length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <FileText className="h-10 w-10 mb-2 opacity-50" />
                   <p className="text-sm">No pages found</p>
                 </div>
               ) : (
                 <div className="p-2 space-y-0.5">
-                  {searchResults.map((page) => (
+                  {(searchResults as SearchResultData[]).map((page) => (
                     <div
                       key={page.id}
                       className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50 group"
@@ -446,14 +497,14 @@ const ConfluenceSearchModal = ({
                 </div>
               )
             ) : showTree && !isLoadingTree ? (
-              spaceTree.length === 0 ? (
+              (spaceTree as TreeNodeData[]).length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <FileText className="h-10 w-10 mb-2 opacity-50" />
                   <p className="text-sm">No pages in this space</p>
                 </div>
               ) : (
                 <div className="p-2">
-                  {spaceTree.map((node, idx) => (
+                  {(spaceTree as TreeNodeData[]).map((node, idx) => (
                     <TreeNode
                       key={node.id}
                       node={node}
@@ -463,7 +514,7 @@ const ConfluenceSearchModal = ({
                       toggleExpand={toggleExpand}
                       loadingNodes={loadingNodes}
                       spaceKey={selectedSpace}
-                      isLast={idx === spaceTree.length - 1}
+                      isLast={idx === (spaceTree as TreeNodeData[]).length - 1}
                       parentLines={[]}
                     />
                   ))}
