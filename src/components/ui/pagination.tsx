@@ -4,7 +4,9 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button";
 
-const Pagination = ({
+interface PaginationProps extends React.ComponentProps<"nav"> {}
+
+const Pagination: React.FC<PaginationProps> = ({
   className,
   ...props
 }) => (
@@ -16,7 +18,10 @@ const Pagination = ({
 )
 Pagination.displayName = "Pagination"
 
-const PaginationContent = React.forwardRef(({ className, ...props }, ref) => (
+const PaginationContent = React.forwardRef<
+  HTMLUListElement,
+  React.ComponentPropsWithoutRef<"ul">
+>(({ className, ...props }, ref) => (
   <ul
     ref={ref}
     className={cn("flex flex-row items-center gap-1", className)}
@@ -24,12 +29,20 @@ const PaginationContent = React.forwardRef(({ className, ...props }, ref) => (
 ))
 PaginationContent.displayName = "PaginationContent"
 
-const PaginationItem = React.forwardRef(({ className, ...props }, ref) => (
+const PaginationItem = React.forwardRef<
+  HTMLLIElement,
+  React.ComponentPropsWithoutRef<"li">
+>(({ className, ...props }, ref) => (
   <li ref={ref} className={cn("", className)} {...props} />
 ))
 PaginationItem.displayName = "PaginationItem"
 
-const PaginationLink = ({
+interface PaginationLinkProps extends React.ComponentPropsWithoutRef<"a"> {
+  isActive?: boolean;
+  size?: "default" | "sm" | "lg" | "icon";
+}
+
+const PaginationLink: React.FC<PaginationLinkProps> = ({
   className,
   isActive,
   size = "icon",
@@ -45,7 +58,9 @@ const PaginationLink = ({
 )
 PaginationLink.displayName = "PaginationLink"
 
-const PaginationPrevious = ({
+interface PaginationPreviousProps extends React.ComponentPropsWithoutRef<typeof PaginationLink> {}
+
+const PaginationPrevious: React.FC<PaginationPreviousProps> = ({
   className,
   ...props
 }) => (
@@ -60,7 +75,9 @@ const PaginationPrevious = ({
 )
 PaginationPrevious.displayName = "PaginationPrevious"
 
-const PaginationNext = ({
+interface PaginationNextProps extends React.ComponentPropsWithoutRef<typeof PaginationLink> {}
+
+const PaginationNext: React.FC<PaginationNextProps> = ({
   className,
   ...props
 }) => (
@@ -75,7 +92,9 @@ const PaginationNext = ({
 )
 PaginationNext.displayName = "PaginationNext"
 
-const PaginationEllipsis = ({
+interface PaginationEllipsisProps extends React.ComponentPropsWithoutRef<"span"> {}
+
+const PaginationEllipsis: React.FC<PaginationEllipsisProps> = ({
   className,
   ...props
 }) => (

@@ -4,7 +4,7 @@
  * Follows ConfluenceSearchModal pattern with simplified flat file list
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Plus, Loader2, ExternalLink, Image } from 'lucide-react';
 import { useFigmaFiles } from '@/hooks/useFigmaFiles';
-import { cn } from '@/lib/utils';
 
 interface FigmaSearchModalProps {
   open: boolean;

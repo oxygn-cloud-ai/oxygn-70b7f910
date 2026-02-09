@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Textarea } from "@/components/ui/textarea";
 
-const HalfWidthBox = ({ title, initialContent }) => {
+interface HalfWidthBoxProps {
+  title: string;
+  initialContent: string;
+}
+
+const HalfWidthBox: React.FC<HalfWidthBoxProps> = ({ title, initialContent }) => {
   const [content, setContent] = useState(initialContent);
 
   return (

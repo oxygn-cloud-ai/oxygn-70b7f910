@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { trackException } from '@/lib/posthog';
 

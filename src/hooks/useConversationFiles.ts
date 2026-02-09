@@ -3,9 +3,21 @@ import { useSupabase } from './useSupabase';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException } from '@/lib/posthog';
 
-export const useConversationFiles = (assistantRowId) => {
+export interface ConversationFile {
+  row_id: string;
+  assistant_row_id: string;
+  storage_path: string;
+  original_filename: string;
+  file_size: number | null;
+  mime_type: string | null;
+  upload_status: 'pending' | 'synced' | 'error';
+  openai_file_id: string | null;
+  created_at: string;
+}
+
+export const useConversationFiles = (assistantRowId: string | null) => {
   const supabase = useSupabase();
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState<ConversationFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -21,7 +33,7 @@ export const useConversationFiles = (assistantRowId) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setFiles(data || []);
+      setFiles((data as ConversationFile[]) || []);
     } catch (error) {
       console.error('Error fetching files:', error);
       toast.error('Failed to load files');
@@ -61,7 +73,7 @@ export const useConversationFiles = (assistantRowId) => {
     }
   }, [supabase, assistantRowId, fetchFiles]);
 
-  const uploadFile = useCallback(async (filesOrFile) => {
+  const uploadFile = useCallback(async (filesOrFile: File | File[]) => {
     if (!supabase || !assistantRowId) return null;
 
     // Support both single file and array of files
@@ -69,7 +81,7 @@ export const useConversationFiles = (assistantRowId) => {
     if (filesToUpload.length === 0) return null;
 
     setIsUploading(true);
-    const uploadedFiles = [];
+    const uploadedFiles: ConversationFile[] = [];
 
     try {
       for (const file of filesToUpload) {
@@ -109,8 +121,9 @@ export const useConversationFiles = (assistantRowId) => {
           continue;
         }
 
-        uploadedFiles.push(data);
-        setFiles(prev => [data, ...prev]);
+        const uploadedFile = data as ConversationFile;
+        uploadedFiles.push(uploadedFile);
+        setFiles(prev => [uploadedFile, ...prev]);
       }
 
       if (uploadedFiles.length > 0) {
@@ -136,10 +149,11 @@ export const useConversationFiles = (assistantRowId) => {
       return uploadedFiles;
     } catch (error) {
       console.error('Error in uploadFile:', error);
+      const err = error as Error & { code?: string };
       toast.error('Failed to upload files', {
         source: 'useConversationFiles.uploadFile',
-        errorCode: error?.code || 'UPLOAD_ERROR',
-        details: JSON.stringify({ assistantRowId, error: error?.message, stack: error?.stack }, null, 2),
+        errorCode: err?.code || 'UPLOAD_ERROR',
+        details: JSON.stringify({ assistantRowId, error: err?.message, stack: err?.stack }, null, 2),
       });
       trackException(error, { context: 'useConversationFiles.uploadFile' });
       return null;
@@ -148,7 +162,7 @@ export const useConversationFiles = (assistantRowId) => {
     }
   }, [supabase, assistantRowId, syncFiles]);
 
-  const deleteFile = useCallback(async (fileRowId) => {
+  const deleteFile = useCallback(async (fileRowId: string) => {
     if (!supabase) return false;
 
     try {

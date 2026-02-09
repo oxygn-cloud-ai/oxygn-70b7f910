@@ -6,12 +6,12 @@ import { useApiCallContext } from '@/contexts/ApiCallContext';
  * Prompt switching and in-app navigation now allow calls to continue in background.
  * The LiveApiDashboard in TopBar shows active call status.
  */
-const NavigationGuard = () => {
+const NavigationGuard: React.FC = () => {
   const { isApiCallInProgress } = useApiCallContext();
 
   // Warn user when closing tab/window during API calls
   useEffect(() => {
-    const handleBeforeUnload = (e) => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isApiCallInProgress) {
         e.preventDefault();
         e.returnValue = '';

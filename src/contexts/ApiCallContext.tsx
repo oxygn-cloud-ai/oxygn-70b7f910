@@ -1,8 +1,28 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 
-const ApiCallContext = createContext(null);
+interface BackgroundCall {
+  id: number;
+  [key: string]: unknown;
+}
 
-export const useApiCallContext = () => {
+interface ApiCallContextValue {
+  isApiCallInProgress: boolean;
+  pendingCallsCount: number;
+  registerCall: () => () => void;
+  cancelAllCalls: () => void;
+  backgroundCalls: BackgroundCall[];
+  addBackgroundCall: (callInfo: Omit<BackgroundCall, 'id'>) => number;
+  removeBackgroundCall: (id: number) => void;
+  showNavigationDialog: boolean;
+  pendingDestination: string | null;
+  requestNavigation: (destination: string, navigateFn: () => void) => boolean;
+  confirmNavigation: () => void;
+  cancelNavigation: () => void;
+}
+
+const ApiCallContext = createContext<ApiCallContextValue | null>(null);
+
+export const useApiCallContext = (): ApiCallContextValue => {
   const ctx = useContext(ApiCallContext);
   // Return safe defaults if used outside provider
   if (!ctx) {
@@ -24,17 +44,21 @@ export const useApiCallContext = () => {
   return ctx;
 };
 
-export const ApiCallProvider = ({ children }) => {
+interface ApiCallProviderProps {
+  children: ReactNode;
+}
+
+export const ApiCallProvider: React.FC<ApiCallProviderProps> = ({ children }) => {
   const [pendingCallsCount, setPendingCallsCount] = useState(0);
-  const [backgroundCalls, setBackgroundCalls] = useState([]);
+  const [backgroundCalls, setBackgroundCalls] = useState<BackgroundCall[]>([]);
   const [showNavigationDialog, setShowNavigationDialog] = useState(false);
-  const [pendingDestination, setPendingDestination] = useState(null);
-  const pendingNavigateRef = useRef(null);
+  const [pendingDestination, setPendingDestination] = useState<string | null>(null);
+  const pendingNavigateRef = useRef<(() => void) | null>(null);
   const callIdRef = useRef(0);
 
   // Register an active API call. Returns a cleanup function.
   const registerCall = useCallback(() => {
-    const callId = ++callIdRef.current;
+    callIdRef.current += 1;
     setPendingCallsCount((prev) => prev + 1);
 
     const cleanup = () => {
@@ -48,13 +72,13 @@ export const ApiCallProvider = ({ children }) => {
     setPendingCallsCount(0);
   }, []);
 
-  const addBackgroundCall = useCallback((callInfo) => {
+  const addBackgroundCall = useCallback((callInfo: Omit<BackgroundCall, 'id'>) => {
     const id = ++callIdRef.current;
     setBackgroundCalls((prev) => [...prev, { id, ...callInfo }]);
     return id;
   }, []);
 
-  const removeBackgroundCall = useCallback((id) => {
+  const removeBackgroundCall = useCallback((id: number) => {
     setBackgroundCalls((prev) => prev.filter((call) => call.id !== id));
   }, []);
 
@@ -64,7 +88,7 @@ export const ApiCallProvider = ({ children }) => {
    * If no calls, executes navigate immediately and returns true.
    */
   const requestNavigation = useCallback(
-    (destination, navigateFn) => {
+    (destination: string, navigateFn: () => void) => {
       if (pendingCallsCount > 0) {
         setPendingDestination(destination);
         pendingNavigateRef.current = navigateFn;
@@ -92,7 +116,7 @@ export const ApiCallProvider = ({ children }) => {
     pendingNavigateRef.current = null;
   }, []);
 
-  const value = {
+  const value: ApiCallContextValue = {
     isApiCallInProgress: pendingCallsCount > 0,
     pendingCallsCount,
     registerCall,
