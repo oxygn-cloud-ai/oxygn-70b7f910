@@ -14,25 +14,80 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, ChevronRight, Folder } from 'lucide-react';
 import { CONFIG_FIELD_TYPES } from '@/config/actionTypes';
 import { usePromptLibrary } from '@/hooks/usePromptLibrary';
 import { extractSchemaKeys } from '@/utils/schemaUtils';
 import useTreeData from '@/hooks/useTreeData';
 import { useSupabase } from '@/hooks/useSupabase';
+import { Database } from '@/integrations/supabase/types';
 
-const ActionConfigRenderer = ({ 
+// Type definitions using existing Database types
+type PromptLibraryRow = Database['public']['Tables']['q_prompt_library']['Row'];
+
+interface SchemaKey {
+  key: string;
+  type: string;
+  description: string;
+  isArray: boolean;
+  hasItems: boolean;
+}
+
+interface ConfigFieldOption {
+  value: string;
+  label: string;
+}
+
+interface ConfigFieldDependency {
+  key: string;
+  value: unknown;
+}
+
+interface ConfigField {
+  key: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  helpText?: string;
+  placeholder?: string;
+  defaultValue?: unknown;
+  options?: (string | ConfigFieldOption)[];
+  min?: number;
+  max?: number;
+  dependsOn?: ConfigFieldDependency;
+  fallbackType?: string;
+  fallbackPattern?: string;
+}
+
+interface TreeNode {
+  row_id: string;
+  prompt_name: string;
+  children?: TreeNode[];
+}
+
+interface FlattenedTreeNode extends TreeNode {
+  fullName: string;
+}
+
+interface ActionConfigRendererProps {
+  schema?: ConfigField[];
+  config?: Record<string, unknown>;
+  onChange?: (newConfig: Record<string, unknown>) => void;
+  disabled?: boolean;
+  currentSchema?: Record<string, unknown> | null;
+}
+
+const ActionConfigRenderer: React.FC<ActionConfigRendererProps> = ({ 
   schema = [], 
   config = {}, 
   onChange,
   disabled = false,
-  currentSchema = null, // The current JSON schema for SCHEMA_KEYS field type
+  currentSchema = null,
 }) => {
   const supabase = useSupabase();
   const { items: libraryItems, isLoading: libraryLoading } = usePromptLibrary();
   const { treeData, isLoading: treeLoading } = useTreeData(supabase);
 
-  const handleFieldChange = (key, value) => {
+  const handleFieldChange = (key: string, value: unknown): void => {
     onChange?.({
       ...config,
       [key]: value,
@@ -40,14 +95,14 @@ const ActionConfigRenderer = ({
   };
 
   // Extract keys from currentSchema for SCHEMA_KEYS field type
-  const schemaKeys = React.useMemo(() => {
+  const schemaKeys = React.useMemo((): SchemaKey[] => {
     if (!currentSchema) return [];
-    return extractSchemaKeys(currentSchema);
+    return extractSchemaKeys(currentSchema) as SchemaKey[];
   }, [currentSchema]);
 
   // Multi-select schema keys (for selecting multiple keys)
-  const renderSchemaKeysField = (field) => {
-    const selectedKeys = config[field.key] || [];
+  const renderSchemaKeysField = (field: ConfigField): React.ReactNode => {
+    const selectedKeys = (config[field.key] as string[]) || [];
     const fieldId = `action-config-${field.key}`;
 
     return (
@@ -73,10 +128,11 @@ const ActionConfigRenderer = ({
               >
                 <Checkbox
                   checked={selectedKeys.includes(schemaKey.key)}
-                  onCheckedChange={(checked) => {
-                    const newKeys = checked
+                  onCheckedChange={(checked: boolean | 'indeterminate') => {
+                    const isChecked = checked === true;
+                    const newKeys = isChecked
                       ? [...selectedKeys, schemaKey.key]
-                      : selectedKeys.filter(k => k !== schemaKey.key);
+                      : selectedKeys.filter((k: string) => k !== schemaKey.key);
                     handleFieldChange(field.key, newKeys);
                   }}
                   disabled={disabled}
@@ -95,17 +151,14 @@ const ActionConfigRenderer = ({
   };
 
   // Single-select schema key (for picking ONE key like json_path)
-  const renderSingleSchemaKeyField = (field) => {
-    // Handle value as string or first element of array
+  const renderSingleSchemaKeyField = (field: ConfigField): React.ReactNode => {
     const rawValue = config[field.key];
-    const selectedKey = Array.isArray(rawValue) ? rawValue[0] : (rawValue || '');
+    const selectedKey = Array.isArray(rawValue) ? rawValue[0] : ((rawValue as string) || '');
     const fieldId = `action-config-${field.key}`;
     
-    // Filter to only array types for json_path
-    const arrayKeys = schemaKeys.filter(k => k.isArray);
+    const arrayKeys = schemaKeys.filter((k) => k.isArray);
     const displayKeys = arrayKeys.length > 0 ? arrayKeys : schemaKeys;
 
-    // If no schema keys, show fallback text input
     if (schemaKeys.length === 0) {
       return (
         <div key={field.key} className="space-y-2">
@@ -119,7 +172,7 @@ const ActionConfigRenderer = ({
           <Input
             id={fieldId}
             value={selectedKey}
-            onChange={(e) => handleFieldChange(field.key, e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(field.key, e.target.value)}
             placeholder={field.placeholder || "e.g., sections or items"}
             disabled={disabled}
             className="h-8 text-body-sm font-mono"
@@ -143,7 +196,7 @@ const ActionConfigRenderer = ({
         
         <Select
           value={selectedKey}
-          onValueChange={(value) => handleFieldChange(field.key, value)}
+          onValueChange={(value: string) => handleFieldChange(field.key, value)}
           disabled={disabled}
         >
           <SelectTrigger className="h-8 text-body-sm">
@@ -161,23 +214,22 @@ const ActionConfigRenderer = ({
     );
   };
 
-  const renderPromptPickerField = (field) => {
-    const selectedValue = config[field.key] || '';
+  const renderPromptPickerField = (field: ConfigField): React.ReactNode => {
+    const selectedValue = (config[field.key] as string) || '';
     const fieldId = `action-config-${field.key}`;
 
-    // Flatten tree to get all prompts
-    const flattenTree = (nodes, parentName = '') => {
-      return nodes.reduce((acc, node) => {
+    const flattenTree = (nodes: TreeNode[], parentName = ''): FlattenedTreeNode[] => {
+      return nodes.reduce<FlattenedTreeNode[]>((acc, node) => {
         const fullName = parentName ? `${parentName} / ${node.prompt_name}` : node.prompt_name;
         acc.push({ ...node, fullName });
-        if (node.children?.length > 0) {
+        if (node.children && node.children.length > 0) {
           acc.push(...flattenTree(node.children, fullName));
         }
         return acc;
       }, []);
     };
 
-    const allPrompts = flattenTree(treeData);
+    const allPrompts = flattenTree(treeData as TreeNode[]);
 
     return (
       <div key={field.key} className="space-y-2">
@@ -191,7 +243,7 @@ const ActionConfigRenderer = ({
         
         <Select
           value={selectedValue}
-          onValueChange={(value) => handleFieldChange(field.key, value)}
+          onValueChange={(value: string) => handleFieldChange(field.key, value)}
           disabled={disabled || treeLoading}
         >
           <SelectTrigger className="h-8 text-body-sm">
@@ -211,8 +263,8 @@ const ActionConfigRenderer = ({
     );
   };
 
-  const renderLibraryPickerField = (field) => {
-    const selectedValue = config[field.key] || '';
+  const renderLibraryPickerField = (field: ConfigField): React.ReactNode => {
+    const selectedValue = (config[field.key] as string) || '';
     const fieldId = `action-config-${field.key}`;
 
     return (
@@ -227,7 +279,7 @@ const ActionConfigRenderer = ({
         
         <Select
           value={selectedValue}
-          onValueChange={(value) => handleFieldChange(field.key, value === '_none' ? null : value)}
+          onValueChange={(value: string) => handleFieldChange(field.key, value === '_none' ? null : value)}
           disabled={disabled || libraryLoading}
         >
           <SelectTrigger className="h-8 text-body-sm">
@@ -238,7 +290,7 @@ const ActionConfigRenderer = ({
               <SelectItem value="_none">
                 <span className="text-on-surface-variant">None</span>
               </SelectItem>
-              {libraryItems.map((item) => (
+              {(libraryItems as PromptLibraryRow[]).map((item) => (
                 <SelectItem key={item.row_id} value={item.row_id}>
                   {item.name}
                 </SelectItem>
@@ -250,15 +302,14 @@ const ActionConfigRenderer = ({
     );
   };
 
-  const renderField = (field) => {
+  const renderField = (field: ConfigField): React.ReactNode => {
     const fieldId = `action-config-${field.key}`;
     const value = config[field.key] ?? field.defaultValue ?? '';
     
-    // Handle dependsOn - only show field if dependency is met
     if (field.dependsOn) {
       const dependencyValue = config[field.dependsOn.key];
       if (dependencyValue !== field.dependsOn.value) {
-        return null; // Don't render this field
+        return null;
       }
     }
 
@@ -276,8 +327,7 @@ const ActionConfigRenderer = ({
         return renderLibraryPickerField(field);
 
       case CONFIG_FIELD_TYPES.SELECT: {
-        // Normalize options: support both string arrays AND {value, label} objects
-        const normalizedOptions = (field.options || []).map(opt => 
+        const normalizedOptions: ConfigFieldOption[] = (field.options || []).map((opt) => 
           typeof opt === 'string' ? { value: opt, label: opt } : opt
         );
 
@@ -291,8 +341,8 @@ const ActionConfigRenderer = ({
               <p className="text-[10px] text-on-surface-variant">{field.helpText}</p>
             )}
             <Select
-              value={value}
-              onValueChange={(v) => handleFieldChange(field.key, v)}
+              value={value as string}
+              onValueChange={(v: string) => handleFieldChange(field.key, v)}
               disabled={disabled}
             >
               <SelectTrigger className="h-8 text-body-sm">
@@ -324,7 +374,7 @@ const ActionConfigRenderer = ({
             <Switch
               id={fieldId}
               checked={!!value}
-              onCheckedChange={(checked) => handleFieldChange(field.key, checked)}
+              onCheckedChange={(checked: boolean) => handleFieldChange(field.key, checked)}
               disabled={disabled}
             />
           </div>
@@ -343,8 +393,8 @@ const ActionConfigRenderer = ({
             <Input
               id={fieldId}
               type="number"
-              value={value}
-              onChange={(e) => handleFieldChange(field.key, parseInt(e.target.value, 10) || 0)}
+              value={value as string | number}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(field.key, parseInt(e.target.value, 10) || 0)}
               min={field.min}
               max={field.max}
               disabled={disabled}
@@ -365,8 +415,8 @@ const ActionConfigRenderer = ({
             )}
             <Textarea
               id={fieldId}
-              value={value}
-              onChange={(e) => handleFieldChange(field.key, e.target.value)}
+              value={value as string}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleFieldChange(field.key, e.target.value)}
               placeholder={field.placeholder}
               disabled={disabled}
               className="text-body-sm min-h-[80px]"
@@ -386,8 +436,8 @@ const ActionConfigRenderer = ({
             )}
             <Input
               id={fieldId}
-              value={value}
-              onChange={(e) => handleFieldChange(field.key, e.target.value)}
+              value={value as string}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(field.key, e.target.value)}
               placeholder={field.placeholder || "e.g., sections or items"}
               disabled={disabled}
               className="h-8 text-body-sm font-mono"
@@ -411,8 +461,8 @@ const ActionConfigRenderer = ({
             )}
             <Input
               id={fieldId}
-              value={value}
-              onChange={(e) => handleFieldChange(field.key, e.target.value)}
+              value={value as string}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(field.key, e.target.value)}
               placeholder={field.placeholder}
               disabled={disabled}
               className="h-8 text-body-sm"

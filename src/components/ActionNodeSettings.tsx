@@ -18,16 +18,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ResizablePromptArea } from '@/components/shared';
 import { 
   Play, 
-  Braces, 
-  GitBranch, 
-  LayoutTemplate,
   Info,
   Zap,
   ChevronDown,
   FileJson,
   Sparkles,
   Settings2,
-  ListTree,
   AlertTriangle,
   Bug,
   CheckCircle2,
@@ -52,26 +48,85 @@ import { parseJson } from '@/utils/jsonSchemaValidator';
 import ActionConfigRenderer from './ActionConfigRenderer';
 import { useJsonSchemaTemplates } from '@/hooks/useJsonSchemaTemplates';
 import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-// Icon mapping for action types
-const iconMap = {
-  GitBranch: GitBranch,
-  Braces: Braces,
-  LayoutTemplate: LayoutTemplate,
-  Play: Play,
-  ListTree: ListTree,
-};
+// Database types
+type JsonSchemaTemplateRow = Database['public']['Tables']['q_json_schema_templates']['Row'];
 
-const ActionNodeSettings = ({ 
+// Type definitions
+
+// Type definitions
+interface VariableAssignmentsConfig {
+  enabled?: boolean;
+  json_path?: string;
+  auto_create_variables?: boolean;
+}
+
+interface LastActionResult {
+  status: 'success' | 'error';
+  executed_at: string;
+  created_count?: number;
+  message?: string;
+  error?: string;
+  available_arrays?: string[];
+}
+
+interface LocalData {
+  post_action?: string | null;
+  post_action_config?: Record<string, unknown> | null;
+  response_format?: string | Record<string, unknown> | null;
+  json_schema_template_id?: string | null;
+  auto_run_children?: boolean;
+  variable_assignments_config?: VariableAssignmentsConfig | null;
+  extracted_variables?: Record<string, unknown> | null;
+  last_action_result?: LastActionResult | null;
+  [key: string]: unknown;
+}
+
+interface ActionType {
+  id: string;
+  name: string;
+  description: string;
+  icon?: string;
+  category?: string;
+  configSchema?: Array<{
+    key: string;
+    label: string;
+    type: string;
+    required?: boolean;
+    helpText?: string;
+    placeholder?: string;
+    defaultValue?: unknown;
+    options?: (string | { value: string; label: string })[];
+    min?: number;
+    max?: number;
+  }>;
+}
+
+interface ActionCategory {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+}
+
+interface ActionNodeSettingsProps {
+  localData: LocalData;
+  handleChange: (key: string, value: unknown) => void;
+  handleSave: (key: string, value: unknown) => void;
+  supabase?: SupabaseClient;
+}
+
+const ActionNodeSettings: React.FC<ActionNodeSettingsProps> = ({ 
   localData, 
   handleChange, 
   handleSave,
-  supabase,
 }) => {
-  const enabledActions = getEnabledActionTypes();
-  const selectedAction = getActionType(localData.post_action);
-  const currentConfig = localData.post_action_config || {};
-  const [schemaSource, setSchemaSource] = useState('template'); // 'template' | 'custom'
+  const enabledActions = getEnabledActionTypes() as ActionType[];
+  const selectedAction = getActionType(localData.post_action) as ActionType | undefined;
+  const currentConfig = (localData.post_action_config || {}) as Record<string, unknown>;
+  const [schemaSource, setSchemaSource] = useState<'template' | 'custom'>('template');
   const [customSchema, setCustomSchema] = useState('');
   const [schemaError, setSchemaError] = useState('');
   const [isSchemaOpen, setIsSchemaOpen] = useState(true);
@@ -86,15 +141,17 @@ const ActionNodeSettings = ({
     if (typeof format === 'string') {
       const result = parseJson(format);
       if (!result.isValid) return null;
-      format = result.data;
+      format = result.data as Record<string, unknown>;
     }
-    return format?.json_schema?.schema || null;
+    const formatObj = format as Record<string, unknown>;
+    const jsonSchema = formatObj?.json_schema as Record<string, unknown> | undefined;
+    return (jsonSchema?.schema as Record<string, unknown>) || null;
   }, [localData.response_format]);
 
   // Validate schema against selected action type
   const schemaValidation = useMemo(() => {
     if (!currentSchemaObject || !localData.post_action) {
-      return { isValid: true, warnings: [], suggestions: [] };
+      return { isValid: true, warnings: [] as string[], suggestions: [] as string[], arrayPaths: [] as string[] };
     }
     return validateSchemaForAction(currentSchemaObject, localData.post_action, currentConfig);
   }, [currentSchemaObject, localData.post_action, currentConfig]);
@@ -102,8 +159,8 @@ const ActionNodeSettings = ({
   // Validate create_children_json has required config fields
   const configValidation = useMemo(() => {
     if (localData.post_action === 'create_children_json') {
-      const config = localData.post_action_config || {};
-      const issues = [];
+      const config = (localData.post_action_config || {}) as Record<string, unknown>;
+      const issues: string[] = [];
       
       if (!config.json_path) {
         issues.push('Missing json_path - specify which array contains children');
@@ -117,31 +174,26 @@ const ActionNodeSettings = ({
       
       return { hasIssues: issues.length > 0, issues };
     }
-    return { hasIssues: false, issues: [] };
+    return { hasIssues: false, issues: [] as string[] };
   }, [localData.post_action, localData.post_action_config]);
 
   // Find array paths in current schema for suggestions (as strings)
   const availableArrayPaths = useMemo(() => {
-    if (!currentSchemaObject) return [];
+    if (!currentSchemaObject) return [] as string[];
     return getArrayPathStrings(currentSchemaObject);
   }, [currentSchemaObject]);
 
   // Auto-populate json_path when there's exactly one array in the schema
-  // ONLY if config is not already "template-complete" (has name_field or content_field)
   useEffect(() => {
-    // Only auto-populate for actions that use json_path (like create_children_json)
     const needsJsonPath = localData.post_action === 'create_children_json';
     if (!needsJsonPath) return;
 
-    // Don't auto-populate if config looks template-complete (already configured by a full template)
     const isTemplateComplete = currentConfig?.name_field || currentConfig?.content_field;
     if (isTemplateComplete) return;
 
-    // Check if json_path is empty or uses a default that doesn't exist
-    const currentJsonPath = currentConfig?.json_path;
+    const currentJsonPath = currentConfig?.json_path as string | undefined;
     const hasValidPath = currentJsonPath && typeof currentJsonPath === 'string' && availableArrayPaths.includes(currentJsonPath);
 
-    // If there's exactly one array and no valid path set, auto-populate
     if (availableArrayPaths.length === 1 && !hasValidPath) {
       const autoPath = availableArrayPaths[0];
       if (typeof autoPath === 'string') {
@@ -150,15 +202,15 @@ const ActionNodeSettings = ({
         handleSave('post_action_config', newConfig);
       }
     }
-  }, [availableArrayPaths, localData.post_action, currentConfig?.json_path, currentConfig?.name_field, currentConfig?.content_field]);
+  }, [availableArrayPaths, localData.post_action, currentConfig, handleChange, handleSave]);
 
-  // Separate full templates from schema-only templates (from DB)
+  // Separate full templates from schema-only templates
   const fullTemplates = useMemo(() => 
-    templates.filter(t => t.node_config && t.action_config), 
+    (templates as JsonSchemaTemplateRow[]).filter(t => t.node_config && t.action_config), 
     [templates]
   );
   const schemaOnlyTemplates = useMemo(() => 
-    templates.filter(t => !t.node_config || !t.action_config), 
+    (templates as JsonSchemaTemplateRow[]).filter(t => !t.node_config || !t.action_config), 
     [templates]
   );
 
@@ -172,17 +224,18 @@ const ActionNodeSettings = ({
           setCustomSchema('');
           return;
         }
-        format = result.data;
+        format = result.data as Record<string, unknown>;
       }
       
-      // Check if it matches a template
-      if (format.json_schema?.schema) {
-        const schemaStr = JSON.stringify(format.json_schema.schema, null, 2);
+      const formatObj = format as Record<string, unknown>;
+      const jsonSchema = formatObj?.json_schema as Record<string, unknown> | undefined;
+      
+      if (jsonSchema?.schema) {
+        const schemaStr = JSON.stringify(jsonSchema.schema, null, 2);
         setCustomSchema(schemaStr);
         
-        // Check if matches a saved template
-        const matchingTemplate = templates.find(t => 
-          JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
+        const matchingTemplate = (templates as JsonSchemaTemplateRow[]).find(t => 
+          JSON.stringify(t.json_schema) === JSON.stringify(jsonSchema.schema)
         );
         
         if (matchingTemplate) {
@@ -195,23 +248,24 @@ const ActionNodeSettings = ({
   }, [localData.response_format, templates]);
 
   // Group actions by category
-  const groupedActions = enabledActions.reduce((acc, action) => {
-    const categoryId = action.category || 'other';
-    if (!acc[categoryId]) {
-      acc[categoryId] = [];
-    }
-    acc[categoryId].push(action);
-    return acc;
-  }, {});
+  const groupedActions = useMemo(() => {
+    return enabledActions.reduce<Record<string, ActionType[]>>((acc, action) => {
+      const categoryId = action.category || 'other';
+      if (!acc[categoryId]) {
+        acc[categoryId] = [];
+      }
+      acc[categoryId].push(action);
+      return acc;
+    }, {});
+  }, [enabledActions]);
 
-  const handleActionChange = (actionId) => {
+  const handleActionChange = (actionId: string): void => {
     const newActionId = actionId === '_none' ? null : actionId;
     const actionChanged = newActionId !== localData.post_action;
     
     handleChange('post_action', newActionId);
     
     if (newActionId && actionChanged) {
-      // Only reset to defaults when switching to a DIFFERENT action
       const defaultConfig = getDefaultActionConfig(newActionId);
       console.log('ActionNodeSettings: Switching to action', newActionId, 'with fresh config:', defaultConfig);
       handleChange('post_action_config', defaultConfig);
@@ -223,21 +277,19 @@ const ActionNodeSettings = ({
       handleSave('post_action', null);
       handleSave('post_action_config', null);
     } else {
-      // Same action selected - preserve existing config, just save action
       console.log('ActionNodeSettings: Same action selected, preserving config');
       handleSave('post_action', newActionId);
     }
   };
 
-  const handleConfigChange = (newConfig) => {
+  const handleConfigChange = (newConfig: Record<string, unknown>): void => {
     handleChange('post_action_config', newConfig);
     handleSave('post_action_config', newConfig);
   };
 
-  const handleSchemaTemplateChange = (templateId) => {
+  const handleSchemaTemplateChange = (templateId: string): void => {
     if (templateId === '_custom') {
       setSchemaSource('custom');
-      // Clear template ID when switching to custom
       handleChange('json_schema_template_id', null);
       handleSave('json_schema_template_id', null);
       return;
@@ -246,12 +298,9 @@ const ActionNodeSettings = ({
     setSchemaSource('template');
     setSchemaError('');
 
-    // Find template from database
-    const template = templates.find(t => t.row_id === templateId);
+    const template = (templates as JsonSchemaTemplateRow[]).find(t => t.row_id === templateId);
     if (template) {
-      // Check if this is a full template with auto-configuration
       if (isFullTemplate(template)) {
-        // Convert DB template format to applyTemplateToPrompt format
         const fullTemplate = {
           id: template.row_id,
           schema: template.json_schema,
@@ -262,17 +311,14 @@ const ActionNodeSettings = ({
           systemPromptTemplate: template.system_prompt_template,
         };
         
-        // Apply full template configuration
         const updates = applyTemplateToPrompt(fullTemplate, localData);
         console.log('ActionNodeSettings: Template applied, updates:', updates);
         
-        // Apply all updates
         Object.entries(updates).forEach(([key, value]) => {
           handleChange(key, value);
           handleSave(key, value);
         });
         
-        // Save the template ID for edge function Priority 1 lookup
         handleChange('json_schema_template_id', templateId);
         handleSave('json_schema_template_id', templateId);
         
@@ -280,7 +326,6 @@ const ActionNodeSettings = ({
         return;
       }
       
-      // Regular schema-only template
       const schemaName = template.schema_name.toLowerCase().replace(/\s+/g, '_');
       const responseFormat = {
         type: 'json_schema',
@@ -294,7 +339,6 @@ const ActionNodeSettings = ({
       handleChange('response_format', JSON.stringify(responseFormat));
       handleSave('response_format', JSON.stringify(responseFormat));
       
-      // Save the template ID for edge function Priority 1 lookup
       handleChange('json_schema_template_id', templateId);
       handleSave('json_schema_template_id', templateId);
       
@@ -302,14 +346,13 @@ const ActionNodeSettings = ({
     }
   };
 
-  const handleCustomSchemaChange = (value) => {
+  const handleCustomSchemaChange = (value: string): void => {
     setCustomSchema(value);
     setSchemaError('');
 
     try {
       let schema = JSON.parse(value);
       
-      // Apply strict mode compliance
       const fixedSchema = ensureStrictCompliance(schema);
       const wasModified = schemaWasModified(schema, fixedSchema);
       
@@ -318,7 +361,6 @@ const ActionNodeSettings = ({
           description: 'Added required fields and additionalProperties: false'
         });
         schema = fixedSchema;
-        // Update the textarea with fixed schema
         setCustomSchema(JSON.stringify(fixedSchema, null, 2));
       }
       
@@ -333,31 +375,27 @@ const ActionNodeSettings = ({
 
       handleChange('response_format', JSON.stringify(responseFormat));
       handleSave('response_format', JSON.stringify(responseFormat));
-    } catch (err) {
+    } catch {
       setSchemaError('Invalid JSON');
     }
   };
 
-  const renderActionIcon = (iconName) => {
-    const IconComponent = iconMap[iconName] || Zap;
-    return <IconComponent className="h-4 w-4" />;
-  };
-
-  // Get current template ID from response_format
-  const getCurrentTemplateId = () => {
+  const getCurrentTemplateId = (): string => {
     if (schemaSource === 'custom') return '_custom';
     
     let format = localData.response_format;
     if (typeof format === 'string') {
       const result = parseJson(format);
       if (!result.isValid) return '_custom';
-      format = result.data;
+      format = result.data as Record<string, unknown>;
     }
     
-    if (format?.json_schema?.schema) {
-      // Check saved templates
-      const matchingTemplate = templates.find(t =>
-        JSON.stringify(t.json_schema) === JSON.stringify(format.json_schema.schema)
+    const formatObj = format as Record<string, unknown>;
+    const jsonSchema = formatObj?.json_schema as Record<string, unknown> | undefined;
+    
+    if (jsonSchema?.schema) {
+      const matchingTemplate = (templates as JsonSchemaTemplateRow[]).find(t =>
+        JSON.stringify(t.json_schema) === JSON.stringify(jsonSchema.schema)
       );
       if (matchingTemplate) return matchingTemplate.row_id;
     }
@@ -456,7 +494,7 @@ const ActionNodeSettings = ({
                     storageKey={`action-node-${localData.post_action || 'default'}-custom-schema`}
                   />
                   {schemaError && (
-                    <p className="text-[10px] text-red-500">{schemaError}</p>
+                    <p className="text-[10px] text-destructive">{schemaError}</p>
                   )}
                 </div>
               )}
@@ -500,7 +538,7 @@ const ActionNodeSettings = ({
               </SelectItem>
               
               {Object.entries(groupedActions).map(([categoryId, actions]) => {
-                const category = ACTION_CATEGORIES[categoryId];
+                const category = (ACTION_CATEGORIES as Record<string, ActionCategory>)[categoryId];
                 return (
                   <React.Fragment key={categoryId}>
                     <div className="px-2 py-1.5 text-label-sm font-semibold text-on-surface-variant">
@@ -546,8 +584,8 @@ const ActionNodeSettings = ({
         </CardContent>
       </Card>
 
-      {/* Auto-Run Created Children - Prominent Position */}
-      {['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action) && (
+      {/* Auto-Run Created Children */}
+      {['create_children_text', 'create_children_json', 'create_children_sections'].includes(localData.post_action || '') && (
         <Card className="bg-surface-container-low border-outline-variant">
           <CardContent className="py-3 space-y-3">
             <div className="flex items-center justify-between gap-4">
@@ -624,7 +662,7 @@ const ActionNodeSettings = ({
                 </div>
               </div>
               <Switch
-                checked={currentConfig?.skip_preview ?? false}
+                checked={(currentConfig?.skip_preview as boolean) ?? false}
                 onCheckedChange={(v) => handleConfigChange({ ...currentConfig, skip_preview: v })}
               />
             </div>
@@ -632,7 +670,7 @@ const ActionNodeSettings = ({
         </Card>
       )}
 
-      {/* Variable Assignments Configuration - available independent of post-action selection */}
+      {/* Variable Assignments Configuration */}
       <Card className="bg-surface-container-low border-outline-variant">
           <Collapsible defaultOpen={localData.variable_assignments_config?.enabled || false}>
             <CollapsibleTrigger asChild>
@@ -656,7 +694,7 @@ const ActionNodeSettings = ({
                   <Switch
                     checked={localData.variable_assignments_config?.enabled || false}
                     onCheckedChange={(checked) => {
-                      const newConfig = {
+                      const newConfig: VariableAssignmentsConfig = {
                         ...localData.variable_assignments_config,
                         enabled: checked,
                         json_path: localData.variable_assignments_config?.json_path || 'variable_assignments',
@@ -680,8 +718,8 @@ const ActionNodeSettings = ({
                         type="text"
                         className="w-40 bg-surface-container rounded-m3-sm px-2 py-1 text-body-sm border border-outline-variant text-on-surface"
                         value={localData.variable_assignments_config?.json_path || 'variable_assignments'}
-                        onChange={(e) => {
-                          const newConfig = {
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          const newConfig: VariableAssignmentsConfig = {
                             ...localData.variable_assignments_config,
                             json_path: e.target.value,
                           };
@@ -702,7 +740,7 @@ const ActionNodeSettings = ({
                       <Switch
                         checked={localData.variable_assignments_config?.auto_create_variables || false}
                         onCheckedChange={(checked) => {
-                          const newConfig = {
+                          const newConfig: VariableAssignmentsConfig = {
                             ...localData.variable_assignments_config,
                             auto_create_variables: checked,
                           };
@@ -760,14 +798,14 @@ const ActionNodeSettings = ({
         <Card className={`border ${
           localData.last_action_result.status === 'success' 
             ? 'bg-green-500/5 border-green-500/30' 
-            : 'bg-red-500/5 border-red-500/30'
+            : 'bg-destructive/5 border-destructive/30'
         }`}>
           <CardHeader className="pb-2">
             <CardTitle className="text-title-sm flex items-center gap-2 text-on-surface">
               {localData.last_action_result.status === 'success' ? (
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
               ) : (
-                <XCircle className="h-4 w-4 text-red-500" />
+                <XCircle className="h-4 w-4 text-destructive" />
               )}
               Last Execution
               <span className="text-[10px] text-on-surface-variant font-normal ml-auto flex items-center gap-1">
@@ -783,7 +821,7 @@ const ActionNodeSettings = ({
                 {localData.last_action_result.message && `: ${localData.last_action_result.message}`}
               </p>
             ) : (
-              <p className="text-body-sm text-red-500">
+              <p className="text-body-sm text-destructive">
                 {localData.last_action_result.error}
               </p>
             )}
@@ -822,7 +860,7 @@ const ActionNodeSettings = ({
                       Valid
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/30">
+                    <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30">
                       <XCircle className="h-3 w-3 mr-1" />
                       Issues Found
                     </Badge>
@@ -836,13 +874,13 @@ const ActionNodeSettings = ({
                   Array Paths in Schema ({schemaValidation.arrayPaths?.length || availableArrayPaths.length})
                 </Label>
                 <div className="flex flex-wrap gap-1">
-                  {(schemaValidation.arrayPaths || availableArrayPaths.map(p => p.path)).map((path, i) => (
+                  {(schemaValidation.arrayPaths || availableArrayPaths).map((path, i) => (
                     <Badge key={i} variant="secondary" className="text-[10px] font-mono">
-                      {path || 'root'}
+                      {path}
                     </Badge>
                   ))}
-                  {(schemaValidation.arrayPaths?.length || availableArrayPaths.length) === 0 && (
-                    <span className="text-[10px] text-on-surface-variant">No arrays found</span>
+                  {(schemaValidation.arrayPaths || availableArrayPaths).length === 0 && (
+                    <span className="text-[10px] text-on-surface-variant italic">No arrays found</span>
                   )}
                 </div>
               </div>
@@ -855,47 +893,17 @@ const ActionNodeSettings = ({
                 </pre>
               </div>
 
-              {/* Stored Response Format */}
+              {/* Schema Object */}
               <div className="space-y-1">
-                <Label className="text-label-sm text-on-surface-variant">Stored response_format</Label>
-                <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-32 font-mono text-on-surface-variant">
-                  {(() => {
-                    if (!localData.response_format) return 'null';
-                    if (typeof localData.response_format !== 'string') {
-                      return JSON.stringify(localData.response_format, null, 2);
-                    }
-                    const result = parseJson(localData.response_format);
-                    if (result.isValid) {
-                      return JSON.stringify(result.data, null, 2);
-                    }
-                    // Legacy format - display with annotation
-                    return `"${localData.response_format}" (legacy format)`;
-                  })()}
+                <Label className="text-label-sm text-on-surface-variant">Parsed Schema Object</Label>
+                <pre className="text-[10px] bg-surface-container p-2 rounded-m3-sm overflow-auto max-h-24 font-mono text-on-surface-variant">
+                  {currentSchemaObject ? JSON.stringify(currentSchemaObject, null, 2).slice(0, 500) + '...' : 'null'}
                 </pre>
               </div>
-
-              {/* Template ID */}
-              {localData.json_schema_template_id && (
-                <div className="space-y-1">
-                  <Label className="text-label-sm text-on-surface-variant">Template ID</Label>
-                  <code className="text-[10px] bg-surface-container p-1 rounded font-mono text-on-surface-variant">
-                    {localData.json_schema_template_id}
-                  </code>
-                </div>
-              )}
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
-
-      {/* Info about Action Nodes */}
-      <div className="p-3 bg-surface-container-low rounded-m3-md border border-outline-variant">
-        <p className="text-[10px] text-on-surface-variant leading-relaxed">
-          <strong>Action nodes</strong> expect JSON responses from the AI. When a JSON schema is defined, 
-          the AI is constrained to output valid JSON matching that structure. The post-action then 
-          processes this JSON to perform operations like creating child prompts.
-        </p>
-      </div>
     </div>
   );
 };
