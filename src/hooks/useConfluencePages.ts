@@ -3,8 +3,67 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { trackEvent, trackException, trackApiError } from '@/lib/posthog';
 
+// Type definitions
+interface ConfluencePage {
+  row_id: string;
+  page_id: string;
+  page_title: string;
+  parent_page_id: string | null;
+  page_url: string | null;
+  sync_status: string;
+  openai_file_id: string | null;
+  content_type: string;
+  position: number | null;
+}
+
+interface ConfluenceSpace {
+  key: string;
+  name: string;
+}
+
+interface ConfluenceTemplate {
+  id: string;
+  name: string;
+}
+
+interface SearchResult {
+  id: string;
+  title: string;
+  url?: string;
+  spaceName?: string;
+  spaceKey?: string;
+}
+
+interface TreeNode {
+  id: string;
+  title: string;
+  type?: string;
+  url?: string;
+  hasChildren?: boolean;
+  children?: TreeNode[];
+  loaded?: boolean;
+  isContainer?: boolean;
+  isFolder?: boolean;
+}
+
+interface ConnectionStatus {
+  success: boolean;
+  message?: string;
+}
+
+interface CreatePageParams {
+  spaceKey: string;
+  parentId?: string;
+  title: string;
+  body?: string;
+}
+
+interface InvokeFunctionParams {
+  [key: string]: unknown;
+}
+
 // Move invokeFunction outside component to ensure stable reference
-const invokeFunction = async (action, params = {}) => {
+const invokeFunction = async <T = unknown>(action: string, params: InvokeFunctionParams = {}): Promise<T> => {
   console.log(`[invokeFunction] Calling confluence-manager with action: ${action}`, params);
   
   try {
@@ -16,7 +75,7 @@ const invokeFunction = async (action, params = {}) => {
     if (error) {
       console.error(`[invokeFunction] Supabase function invoke error:`, error);
       // Try to extract meaningful error message
-      const errorMessage = error.message || error.context?.message || 'Edge function error';
+      const errorMessage = error.message || 'Edge function error';
       throw new Error(errorMessage);
     }
     
@@ -27,10 +86,10 @@ const invokeFunction = async (action, params = {}) => {
     }
     
     console.log(`[invokeFunction] Success for action: ${action}`);
-    return data;
+    return data as T;
   } catch (err) {
     console.error(`[invokeFunction] Caught error for action ${action}:`, err);
-    trackApiError('confluence-manager', err, { action });
+    trackApiError('confluence-manager', err as Error, { action });
     // Re-throw with clear message
     if (err instanceof Error) {
       throw err;
@@ -39,19 +98,19 @@ const invokeFunction = async (action, params = {}) => {
   }
 };
 
-export const useConfluencePages = (conversationRowId = null, promptRowId = null) => {
-  const [pages, setPages] = useState([]);
-  const [spaces, setSpaces] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
-  const [spaceTree, setSpaceTree] = useState([]);
+export const useConfluencePages = (conversationRowId?: string | null, promptRowId?: string | null) => {
+  const [pages, setPages] = useState<ConfluencePage[]>([]);
+  const [spaces, setSpaces] = useState<ConfluenceSpace[]>([]);
+  const [templates, setTemplates] = useState<ConfluenceTemplate[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [spaceTree, setSpaceTree] = useState<TreeNode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingTree, setIsLoadingTree] = useState(false);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isCreatingPage, setIsCreatingPage] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
   
   // Track if component is mounted to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -66,7 +125,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     
     if (isMountedRef.current) setIsLoading(true);
     try {
-      const data = await invokeFunction('list-attached', { assistantRowId: conversationRowId, promptRowId });
+      const data = await invokeFunction<{ pages: ConfluencePage[] }>('list-attached', { assistantRowId: conversationRowId, promptRowId });
       if (isMountedRef.current) setPages(data.pages || []);
     } catch (error) {
       console.error('Error fetching attached pages:', error);
@@ -82,11 +141,11 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
 
   const testConnection = useCallback(async () => {
     try {
-      const data = await invokeFunction('test-connection');
+      const data = await invokeFunction<ConnectionStatus>('test-connection');
       if (isMountedRef.current) setConnectionStatus(data);
       return data;
     } catch (error) {
-      const status = { success: false, message: error.message };
+      const status: ConnectionStatus = { success: false, message: (error as Error).message };
       if (isMountedRef.current) setConnectionStatus(status);
       return status;
     }
@@ -94,7 +153,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
 
   const listSpaces = useCallback(async () => {
     try {
-      const data = await invokeFunction('list-spaces');
+      const data = await invokeFunction<{ spaces: ConfluenceSpace[] }>('list-spaces');
       if (isMountedRef.current) setSpaces(data.spaces || []);
       return data.spaces;
     } catch (error) {
@@ -104,7 +163,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
-  const listTemplates = useCallback(async (spaceKey) => {
+  const listTemplates = useCallback(async (spaceKey: string) => {
     if (!spaceKey) {
       if (isMountedRef.current) setTemplates([]);
       return [];
@@ -112,7 +171,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     
     if (isMountedRef.current) setIsLoadingTemplates(true);
     try {
-      const data = await invokeFunction('list-templates', { spaceKey });
+      const data = await invokeFunction<{ templates: ConfluenceTemplate[] }>('list-templates', { spaceKey });
       if (isMountedRef.current) setTemplates(data.templates || []);
       return data.templates || [];
     } catch (error) {
@@ -124,7 +183,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
-  const getSpaceTree = useCallback(async (spaceKey, abortSignal) => {
+  const getSpaceTree = useCallback(async (spaceKey: string, abortSignal?: AbortSignal) => {
     if (!spaceKey) {
       if (isMountedRef.current) setSpaceTree([]);
       return [];
@@ -132,7 +191,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     
     if (isMountedRef.current) setIsLoadingTree(true);
     try {
-      const data = await invokeFunction('get-space-tree', { spaceKey });
+      const data = await invokeFunction<{ tree: TreeNode[] }>('get-space-tree', { spaceKey });
       if (abortSignal?.aborted || !isMountedRef.current) return [];
       setSpaceTree(data.tree || []);
       return data.tree;
@@ -148,10 +207,10 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
-  const getPageChildren = useCallback(async (nodeId, spaceKey, nodeType = 'page') => {
+  const getPageChildren = useCallback(async (nodeId: string, spaceKey: string, nodeType = 'page'): Promise<TreeNode[]> => {
     try {
       // Always use get-page-children with nodeType - backend handles routing
-      const data = await invokeFunction('get-page-children', { 
+      const data = await invokeFunction<{ children: TreeNode[] }>('get-page-children', { 
         pageId: nodeId, 
         spaceKey,
         nodeType 
@@ -170,7 +229,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
-  const searchPages = useCallback(async (query, spaceKey = null) => {
+  const searchPages = useCallback(async (query: string, spaceKey?: string) => {
     if (!query || query.length < 2) {
       if (isMountedRef.current) setSearchResults([]);
       return [];
@@ -178,7 +237,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     
     if (isMountedRef.current) setIsSearching(true);
     try {
-      const data = await invokeFunction('search-pages', { query, spaceKey });
+      const data = await invokeFunction<{ pages: SearchResult[] }>('search-pages', { query, spaceKey });
       if (isMountedRef.current) setSearchResults(data.pages || []);
       return data.pages;
     } catch (error) {
@@ -190,11 +249,11 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
-  const createPage = useCallback(async ({ spaceKey, parentId, title, body }) => {
+  const createPage = useCallback(async ({ spaceKey, parentId, title, body }: CreatePageParams) => {
     console.log('[useConfluencePages] Creating page:', { spaceKey, parentId, title, bodyLength: body?.length });
     if (isMountedRef.current) setIsCreatingPage(true);
     try {
-      const data = await invokeFunction('create-page', { spaceKey, parentId, title, body });
+      const data = await invokeFunction<{ success: boolean }>('create-page', { spaceKey, parentId, title, body });
       if (data.success && isMountedRef.current) {
         toast.success('Page created successfully');
         trackEvent('confluence_page_created', { space_key: spaceKey, has_parent: !!parentId });
@@ -202,8 +261,8 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
       return data;
     } catch (error) {
       console.error('[useConfluencePages] Error creating page:', error);
-      trackException(error, { action: 'confluence_create_page', space_key: spaceKey });
-      const errorMessage = error?.message || error?.error || 'Failed to create page';
+      trackException(error as Error, { action: 'confluence_create_page', space_key: spaceKey });
+      const errorMessage = (error as Error)?.message || 'Failed to create page';
       if (isMountedRef.current) toast.error(errorMessage);
       throw error;
     } finally {
@@ -211,10 +270,10 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   }, []);
 
-  const findUniqueTitle = useCallback(async (spaceKey, baseTitle, parentId = null) => {
+  const findUniqueTitle = useCallback(async (spaceKey: string, baseTitle: string, parentId?: string) => {
     try {
       console.log('[useConfluencePages] Finding unique title:', { spaceKey, baseTitle, parentId });
-      const data = await invokeFunction('find-unique-title', { 
+      const data = await invokeFunction<{ uniqueTitle: string; wasModified: boolean; error?: string }>('find-unique-title', { 
         spaceKey, 
         baseTitle, 
         parentId 
@@ -224,13 +283,13 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     } catch (error) {
       console.error('[useConfluencePages] Error finding unique title:', error);
       // Return original title on error
-      return { uniqueTitle: baseTitle, wasModified: false, error: error.message };
+      return { uniqueTitle: baseTitle, wasModified: false, error: (error as Error).message };
     }
   }, []);
 
-  const attachPage = async (pageId, contentType = 'page') => {
+  const attachPage = async (pageId: string, contentType = 'page') => {
     try {
-      const data = await invokeFunction('attach-page', { 
+      const data = await invokeFunction<{ success: boolean; page: ConfluencePage }>('attach-page', { 
         pageId, 
         assistantRowId: conversationRowId, 
         promptRowId,
@@ -250,7 +309,7 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   };
 
-  const detachPage = async (rowId) => {
+  const detachPage = async (rowId: string) => {
     try {
       await invokeFunction('detach-page', { rowId });
       if (isMountedRef.current) {
@@ -265,10 +324,10 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   };
 
-  const syncPage = async (rowId) => {
+  const syncPage = async (rowId: string) => {
     if (isMountedRef.current) setIsSyncing(true);
     try {
-      const data = await invokeFunction('sync-page', { rowId });
+      const data = await invokeFunction<{ success: boolean; page: ConfluencePage }>('sync-page', { rowId });
       if (data.success && isMountedRef.current) {
         setPages(prev => prev.map(p => 
           p.row_id === rowId ? data.page : p
@@ -285,10 +344,10 @@ export const useConfluencePages = (conversationRowId = null, promptRowId = null)
     }
   };
 
-  const syncToVectorStore = async (rowId, assistantId) => {
+  const syncToVectorStore = async (rowId: string, assistantId: string) => {
     if (isMountedRef.current) setIsSyncing(true);
     try {
-      const data = await invokeFunction('sync-to-vector-store', { rowId, assistantId });
+      const data = await invokeFunction<{ success: boolean; openaiFileId: string }>('sync-to-vector-store', { rowId, assistantId });
       if (data.success && isMountedRef.current) {
         setPages(prev => prev.map(p => 
           p.row_id === rowId ? { ...p, openai_file_id: data.openaiFileId } : p

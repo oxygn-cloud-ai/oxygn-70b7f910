@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
@@ -9,12 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface SkippedPrompt {
-  promptRowId?: string;
-  promptName: string;
-}
-
-const CascadeRunProgress = () => {
+const CascadeRunProgress: React.FC = () => {
   const {
     isRunning,
     isPaused,
@@ -22,7 +17,6 @@ const CascadeRunProgress = () => {
     currentLevel,
     totalLevels,
     currentPromptName,
-    currentPromptIndex,
     totalPrompts,
     completedPrompts,
     skippedPrompts,
@@ -104,7 +98,7 @@ const CascadeRunProgress = () => {
               <TooltipContent side="bottom" className="max-w-xs text-[10px]">
                 <p className="font-medium mb-1">Excluded from cascade:</p>
                 <ul className="space-y-0.5">
-                  {(skippedPrompts as SkippedPrompt[]).map((p, i) => (
+                  {skippedPrompts.map((p, i) => (
                     <li key={p.promptRowId || i} className="truncate">
                       • {p.promptName}
                     </li>

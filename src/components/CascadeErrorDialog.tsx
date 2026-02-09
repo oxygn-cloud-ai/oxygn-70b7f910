@@ -1,4 +1,3 @@
-import React from 'react';
 import { useCascadeRun } from '@/contexts/CascadeRunContext';
 import {
   AlertDialog,
@@ -9,11 +8,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, SkipForward, RefreshCw, StopCircle, FileQuestion, AlertCircle } from 'lucide-react';
+import { AlertTriangle, SkipForward, RefreshCw, StopCircle, FileQuestion, AlertCircle, LucideIcon } from 'lucide-react';
+
+// Type definitions
+interface ErrorDetails {
+  type: string;
+  icon: LucideIcon;
+  suggestion: string | null;
+}
 
 // Helper to parse error and provide actionable suggestions
-const getErrorDetails = (error) => {
-  if (!error) return { type: 'unknown', suggestion: null };
+const getErrorDetails = (error: string | null): ErrorDetails => {
+  if (!error) return { type: 'unknown', icon: AlertTriangle, suggestion: null };
   
   const errorLower = error.toLowerCase();
   
@@ -44,12 +50,12 @@ const getErrorDetails = (error) => {
   return { type: 'unknown', icon: AlertTriangle, suggestion: null };
 };
 
-const CascadeErrorDialog = () => {
+const CascadeErrorDialog: React.FC = () => {
   const { error, errorPrompt, resolveError, isRunning } = useCascadeRun();
 
   const isOpen = isRunning && !!error && !!errorPrompt;
   const errorDetails = getErrorDetails(error);
-  const ErrorIcon = errorDetails.icon || AlertTriangle;
+  const ErrorIcon = errorDetails.icon;
 
   if (!isOpen) return null;
 

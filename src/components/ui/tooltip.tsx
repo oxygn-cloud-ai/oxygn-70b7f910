@@ -6,20 +6,20 @@ import { useTooltipSettings } from "@/contexts/TooltipContext"
 
 const TooltipProvider = TooltipPrimitive.Provider
 
-const Tooltip = ({ children, ...props }) => {
-  const { tooltipsEnabled } = useTooltipSettings();
-  
-  if (!tooltipsEnabled) {
-    // When tooltips are disabled, just render children without tooltip functionality
-    return <TooltipPrimitive.Root {...props}>{children}</TooltipPrimitive.Root>;
-  }
-  
+interface TooltipProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Root> {
+  children: React.ReactNode;
+}
+
+const Tooltip: React.FC<TooltipProps> = ({ children, ...props }) => {
   return <TooltipPrimitive.Root {...props}>{children}</TooltipPrimitive.Root>;
 }
 
 const TooltipTrigger = TooltipPrimitive.Trigger
 
-const TooltipContent = React.forwardRef(({ className, sideOffset = 4, ...props }, ref) => {
+const TooltipContent = React.forwardRef<
+  React.ElementRef<typeof TooltipPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
+>(({ className, sideOffset = 4, ...props }, ref) => {
   const { tooltipsEnabled } = useTooltipSettings();
   
   if (!tooltipsEnabled) {

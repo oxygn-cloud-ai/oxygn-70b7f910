@@ -1,8 +1,24 @@
-import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChevronRight, Home, Folder, Settings, HeartPulse, Link } from 'lucide-react';
+import { ChevronRight, Home, Folder, Settings, HeartPulse, Link, LucideIcon } from 'lucide-react';
+import React from 'react';
 
-const routeConfig = {
+interface RouteConfigItem {
+  title: string;
+  icon: LucideIcon;
+  description: string;
+}
+
+interface Breadcrumb {
+  label: string;
+  icon?: LucideIcon;
+}
+
+interface ContextHeaderProps {
+  breadcrumbs?: Breadcrumb[];
+  actions?: React.ReactNode;
+}
+
+const routeConfig: Record<string, RouteConfigItem> = {
   '/': { title: 'Home', icon: Home, description: 'Welcome to Qonsol Policy Builder' },
   '/projects': { title: 'Prompts', icon: Folder, description: 'Manage your prompts and conversations' },
   '/settings': { title: 'Settings', icon: Settings, description: 'Configure application settings' },
@@ -10,12 +26,12 @@ const routeConfig = {
   '/links': { title: 'Links', icon: Link, description: 'Manage links' },
 };
 
-export function ContextHeader({ breadcrumbs = [], actions }) {
+export const ContextHeader: React.FC<ContextHeaderProps> = ({ breadcrumbs = [], actions }) => {
   const location = useLocation();
-  const currentRoute = routeConfig[location.pathname] || { title: 'Page', icon: Home };
+  const currentRoute = routeConfig[location.pathname] || { title: 'Page', icon: Home, description: '' };
   const Icon = currentRoute.icon;
 
-  const allBreadcrumbs = [
+  const allBreadcrumbs: Breadcrumb[] = [
     { label: currentRoute.title, icon: Icon },
     ...breadcrumbs
   ];

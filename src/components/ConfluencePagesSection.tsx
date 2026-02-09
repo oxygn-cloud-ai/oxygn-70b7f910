@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,10 +8,27 @@ import { useConfluencePages } from '@/hooks/useConfluencePages';
 import ConfluenceSearchModal from './ConfluenceSearchModal';
 import { cn } from '@/lib/utils';
 
+// Type definitions
+interface ConfluencePage {
+  row_id: string;
+  page_id: string;
+  page_title: string;
+  parent_page_id: string | null;
+  page_url: string | null;
+  sync_status: 'synced' | 'pending' | 'error';
+  openai_file_id: string | null;
+  content_type: string;
+  position: number | null;
+}
+
+interface PageTreeNode extends ConfluencePage {
+  children: PageTreeNode[];
+}
+
 // Helper to build tree from flat pages list
-const buildPageTree = (pages) => {
-  const pageMap = new Map();
-  const rootPages = [];
+const buildPageTree = (pages: ConfluencePage[]): PageTreeNode[] => {
+  const pageMap = new Map<string, PageTreeNode>();
+  const rootPages: PageTreeNode[] = [];
   
   pages.forEach(page => {
     pageMap.set(page.page_id, { ...page, children: [] });
@@ -19,14 +36,15 @@ const buildPageTree = (pages) => {
   
   pages.forEach(page => {
     const node = pageMap.get(page.page_id);
+    if (!node) return;
     if (page.parent_page_id && pageMap.has(page.parent_page_id)) {
-      pageMap.get(page.parent_page_id).children.push(node);
+      pageMap.get(page.parent_page_id)!.children.push(node);
     } else {
       rootPages.push(node);
     }
   });
   
-  const sortNodes = (nodes) => {
+  const sortNodes = (nodes: PageTreeNode[]) => {
     nodes.sort((a, b) => {
       // Sort by position first (null positions go last)
       const ap = a.position ?? Number.MAX_SAFE_INTEGER;
@@ -42,8 +60,19 @@ const buildPageTree = (pages) => {
   return rootPages;
 };
 
+// Props for PageTreeNode component
+interface PageTreeNodeProps {
+  page: PageTreeNode;
+  level?: number;
+  syncingPageId: string | null;
+  onSync: (rowId: string) => Promise<void>;
+  onDetach: (rowId: string) => void;
+  isLast?: boolean;
+  parentLines?: boolean[];
+}
+
 // Confluence-style tree node for attached pages
-const PageTreeNode = ({ 
+const PageTreeNode: React.FC<PageTreeNodeProps> = ({ 
   page, 
   level = 0, 
   syncingPageId, 
@@ -197,12 +226,18 @@ const PageTreeNode = ({
   );
 };
 
-const ConfluencePagesSection = ({ 
+// Props for main component
+interface ConfluencePagesSectionProps {
+  conversationRowId?: string | null;
+  promptRowId?: string | null;
+}
+
+const ConfluencePagesSection: React.FC<ConfluencePagesSectionProps> = ({ 
   conversationRowId = null, 
   promptRowId = null
 }) => {
   const [searchModalOpen, setSearchModalOpen] = useState(false);
-  const [syncingPageId, setSyncingPageId] = useState(null);
+  const [syncingPageId, setSyncingPageId] = useState<string | null>(null);
   
   const {
     pages,
@@ -210,11 +245,11 @@ const ConfluencePagesSection = ({
     fetchAttachedPages,
     detachPage,
     syncPage,
-  } = useConfluencePages(conversationRowId, promptRowId);
+  } = useConfluencePages(conversationRowId ?? undefined, promptRowId ?? undefined);
 
-  const pageTree = useMemo(() => buildPageTree(pages), [pages]);
+  const pageTree = useMemo(() => buildPageTree(pages as ConfluencePage[]), [pages]);
 
-  const handleSync = async (rowId) => {
+  const handleSync = async (rowId: string) => {
     setSyncingPageId(rowId);
     try {
       await syncPage(rowId);
