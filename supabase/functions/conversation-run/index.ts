@@ -1033,9 +1033,13 @@ async function runResponsesAPI(
   let finalUsage: any = null;
   
   // Progress tracking
-  const streamStartTime = Date.now();
-  let chunkCount = 0;
-  let lastLogTime = Date.now();
+  const streamStartTime: number = Date.now();
+  let chunkCount: number = 0;
+  let lastLogTime: number = Date.now();
+  // Track last time actual content was received (for no-progress fallback)
+  let lastContentTime: number = Date.now();
+  let previousTextLength: number = 0;
+  const NO_CONTENT_FALLBACK_MS: number = 120000; // 2 minutes with no content progress
 
   try {
     while (true) {
@@ -1046,7 +1050,24 @@ async function runResponsesAPI(
       resetIdleTimeout();
       chunkCount++;
       
-      const now = Date.now();
+      const now: number = Date.now();
+      
+      // Check edge function execution time limit during streaming
+      if (now - executionStartTime > MAX_EXECUTION_MS) {
+        console.error('Edge function execution time limit approaching during stream - falling back to polling');
+        if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+        reader.cancel();
+        return await pollForCompletion();
+      }
+      
+      // Check for "no content progress" condition (receiving keepalives but no text)
+      if (previousTextLength === accumulatedText.length && now - lastContentTime > NO_CONTENT_FALLBACK_MS) {
+        console.warn('No text content progress for 2 minutes - falling back to polling');
+        if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+        reader.cancel();
+        return await pollForCompletion();
+      }
+      
       // Log progress every 30 seconds
       if (now - lastLogTime > 30000) {
         console.log('Stream progress:', {
@@ -1151,6 +1172,11 @@ async function runResponsesAPI(
                 for (const contentItem of item.content) {
                   if (contentItem.type === 'output_text' && contentItem.text) {
                     accumulatedText = contentItem.text; // Full text in each event
+                    // Track content progress for no-content fallback detection
+                    if (accumulatedText.length > previousTextLength) {
+                      lastContentTime = Date.now();
+                      previousTextLength = accumulatedText.length;
+                    }
                   }
                 }
               }

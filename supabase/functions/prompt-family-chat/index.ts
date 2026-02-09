@@ -562,10 +562,18 @@ async function streamOpenAIResponse(
   openAIApiKey: string,
   emitter: SSEEmitter,
 ): Promise<{ content: string | null; toolCalls: any[]; usage: any | null; status: string }> {
-  const IDLE_TIMEOUT_MS = 300000; // 5 minutes
+  const IDLE_TIMEOUT_MS: number = 300000; // 5 minutes
   const streamController = new AbortController();
   let idleTimeoutId: number | null = null;
   let abortReason: 'idle' | null = null;
+  
+  // Track execution start for edge function time limits
+  const executionStartTime: number = Date.now();
+  const MAX_EXECUTION_MS: number = 270000; // 4.5 minutes max
+  // Progress tracking for no-content fallback
+  let lastContentTime: number = Date.now();
+  let previousContentLength: number = 0;
+  const NO_CONTENT_FALLBACK_MS: number = 120000; // 2 minutes
   
   const resetIdleTimeout = () => {
     if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
@@ -661,6 +669,13 @@ async function streamOpenAIResponse(
       }
     }
     
+    // Emit error event so frontend doesn't throw "No response received"
+    console.error('Polling timed out after 10 minutes');
+    emitter.emit({
+      type: 'error',
+      error: 'Request timed out waiting for AI response',
+      error_code: 'POLL_TIMEOUT',
+    });
     return { content: null, toolCalls: [], usage: null, status: 'timeout' };
   };
 
@@ -725,6 +740,25 @@ async function streamOpenAIResponse(
       if (done) break;
 
       resetIdleTimeout();
+      
+      const now: number = Date.now();
+      
+      // Check edge function execution time limit during streaming
+      if (now - executionStartTime > MAX_EXECUTION_MS) {
+        console.error('Edge function execution time limit approaching during stream - falling back to polling');
+        if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+        reader.cancel();
+        return await pollForCompletion();
+      }
+      
+      // Check for no-content-progress condition (receiving keepalives but no text)
+      if (accumulatedContent.length === previousContentLength && now - lastContentTime > NO_CONTENT_FALLBACK_MS) {
+        console.warn('No content progress for 2 minutes - falling back to polling');
+        if (idleTimeoutId !== null) clearTimeout(idleTimeoutId);
+        reader.cancel();
+        return await pollForCompletion();
+      }
+      
       buffer += decoder.decode(value, { stream: true });
 
       let newlineIndex;
@@ -771,6 +805,11 @@ async function streamOpenAIResponse(
                 for (const contentItem of item.content) {
                   if (contentItem.type === 'output_text' && contentItem.text) {
                     accumulatedContent = contentItem.text;
+                    // Track content progress for no-content fallback detection
+                    if (accumulatedContent.length > previousContentLength) {
+                      lastContentTime = Date.now();
+                      previousContentLength = accumulatedContent.length;
+                    }
                   }
                 }
               }
